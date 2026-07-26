@@ -1,0 +1,60 @@
+import React from 'react';
+import { View, Text, FlatList } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Card } from '../../components/ui/Card';
+import { Ionicons } from '@expo/vector-icons';
+
+const ACTIVITIES = [
+  { id: '1', title: 'Morning Run in San Francisco', type: 'Run', distance: '10.2 km', duration: '52:14', date: 'Today, 7:00 AM' },
+  { id: '2', title: 'Recovery Ride', type: 'Ride', distance: '25.0 km', duration: '1:15:00', date: 'Yesterday, 5:30 PM' },
+  { id: '3', title: 'Track Session', type: 'Run', distance: '8.5 km', duration: '45:20', date: 'Wed, 6:00 PM' },
+];
+
+export default function ActivitiesScreen() {
+  return (
+    <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
+      <View className="px-4 my-6">
+        <Text className="text-theme-text text-3xl font-bold">Activities</Text>
+        <Text className="text-theme-muted text-sm mt-1">Your recent workouts and community feed.</Text>
+      </View>
+
+      <FlatList
+        data={ACTIVITIES}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        renderItem={({ item }) => (
+          <Card className="mb-4">
+            <View className="flex-row items-center mb-4">
+              <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center mr-3">
+                <Ionicons 
+                  name={item.type === 'Run' ? 'walk' : 'bicycle'} 
+                  size={20} 
+                  color="#208AEF" 
+                />
+              </View>
+              <View>
+                <Text className="text-theme-text font-bold text-lg">{item.title}</Text>
+                <Text className="text-theme-muted text-xs">{item.date}</Text>
+              </View>
+            </View>
+            
+            <View className="flex-row justify-between bg-theme-bg p-3 rounded-xl border border-theme-border">
+              <View>
+                <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Distance</Text>
+                <Text className="text-theme-text font-bold">{item.distance}</Text>
+              </View>
+              <View>
+                <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Time</Text>
+                <Text className="text-theme-text font-bold">{item.duration}</Text>
+              </View>
+              <View>
+                <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Pace</Text>
+                <Text className="text-theme-text font-bold">{item.type === 'Run' ? '5:07/km' : '20 km/h'}</Text>
+              </View>
+            </View>
+          </Card>
+        )}
+      />
+    </SafeAreaView>
+  );
+}

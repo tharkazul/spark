@@ -1,9 +1,37 @@
-:root {
-  --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-main: #F4F7F9;
+    --bg-card: #FFFFFF;
+    --border-color: #DDE3E9;
+    --text-main: #191C1E;
+    --text-muted: #5A6973;
+    --accent: #16ACBD;
+    --accent-hover: #1397A6;
+    --accent-soft: #E0F5F7;
+    --accent-border: #BAE8ED;
+    --color-focus: #F9CF45;
+    --color-metric: #E3494F;
+  }
+
+  /* Note: React Native / NativeWind handles dark mode via the appearance hook, 
+     but we can also use media queries if we prefer web-standard */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-main: #0F1315;
+      --bg-card: #1C2124;
+      --border-color: #2D343A;
+      --text-main: #FFFFFF;
+      --text-muted: #8E9BA4;
+      --accent: #108595;
+      --accent-hover: #16A8BC;
+      --accent-soft: #08343A;
+      --accent-border: #0D5761;
+      --color-focus: #C99C0C;
+      --color-metric: #B22227;
+    }
+  }
 }
