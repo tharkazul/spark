@@ -6,6 +6,8 @@ import { TextInput } from '../ui/TextInput';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
+import { usePhysique } from '../../context/PhysiqueStore';
+
 export interface DailyLogEntry {
   id?: number | string;
   date: string;
@@ -23,27 +25,10 @@ interface DailyLogTabProps {
 }
 
 export const DailyLogTab: React.FC<DailyLogTabProps> = ({
-  initialHistory = [
-    {
-      id: 1,
-      date: '2026-07-23',
-      weight_kg: '106.4',
-      sleep_quality: 2,
-      fatigue_level: 2,
-      notes: 'Tough sleep, legs heavy after intervals.',
-    },
-    {
-      id: 2,
-      date: '2026-07-09',
-      weight_kg: '104.5',
-      sleep_quality: 3,
-      fatigue_level: 3,
-      notes: 'Felt fresh on morning ride.',
-    },
-  ],
   onSaveLog,
   onDeleteLog,
 }) => {
+  const { physiqueLogs, logPhysique } = usePhysique();
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [date, setDate] = useState<string>(todayStr);
@@ -53,7 +38,14 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
 
-  const [history, setHistory] = useState<DailyLogEntry[]>(initialHistory);
+  const history: DailyLogEntry[] = physiqueLogs.map((log) => ({
+    id: log.id,
+    date: log.date,
+    weight_kg: log.weight_kg,
+    sleep_quality: log.sleep_quality || 3,
+    fatigue_level: log.fatigue_level || 2,
+    notes: log.notes,
+  }));
 
   const handleAdjustWeight = (delta: number) => {
     Haptics.selectionAsync();
@@ -75,7 +67,12 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
       photo_uri: photoUri || undefined,
     };
 
-    setHistory((prev) => [newEntry, ...prev]);
+    logPhysique({
+      weight_kg: parseFloat(weightKg) || 75.0,
+      sleep_quality: sleepQuality,
+      fatigue_level: fatigueLevel,
+      notes,
+    });
     if (onSaveLog) onSaveLog(newEntry);
 
     // Reset form notes
@@ -84,7 +81,6 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
 
   const handleDelete = (id: number | string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setHistory((prev) => prev.filter((item) => item.id !== id));
     if (onDeleteLog) onDeleteLog(id);
   };
 

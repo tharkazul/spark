@@ -38,5 +38,8 @@ export interface MacroPeriodInfo {
     weeks: string;
     focus: string;
     progressPercent: number; // 0-100 for current phase
+    targetVolume?: string; // e.g. "8-10 hrs/wk"
+    targetSpark?: string; // e.g. "420-480 Spark/wk"
+    keySessions?: string[]; // e.g. ["2x20m Threshold Ride", "Long Endurance Run"]
   }[];
 }

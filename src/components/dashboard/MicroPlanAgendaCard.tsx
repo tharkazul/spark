@@ -109,9 +109,17 @@ export function MicroPlanAgendaCard({
   return (
     <Card className="p-0 overflow-hidden mb-8 border-theme-border shadow-sm">
       {/* Top Header & Actions Bar */}
-      <View className="p-4 md:p-5 border-b border-theme-border bg-theme-bg/50">
+      <View className="px-5 py-4 border-b border-theme-border/70 bg-theme-bg/60">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-sm font-bold text-theme-text">Micro Plan Agenda</Text>
+          <View className="flex-row items-center gap-2.5">
+            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
+              <Ionicons name="list-outline" size={16} color="#16ACBD" />
+            </View>
+            <View>
+              <Text className="text-base font-extrabold text-theme-text">Micro Plan Agenda</Text>
+              <Text className="text-[10px] text-theme-muted">Weekly Workouts Overview</Text>
+            </View>
+          </View>
 
           {/* Week Selector */}
           <View className="flex-row items-center bg-theme-card border border-theme-border rounded-xl px-1 py-0.5 shadow-sm">

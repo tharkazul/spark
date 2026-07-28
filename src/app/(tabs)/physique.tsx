@@ -16,11 +16,14 @@ import { NutritionTab } from '../../components/progress/NutritionTab';
 import { HealthTab } from '../../components/progress/HealthTab';
 import { DailyLogTab } from '../../components/progress/DailyLogTab';
 
+import { useTabBar } from '../../context/TabBarContext';
+
 const TABS = ['spark', 'nutrition', 'health', 'dailylog'] as const;
 type TabType = typeof TABS[number];
 
 export default function ProgressScreen() {
   const { width: screenWidth } = useWindowDimensions();
+  const { notifyScroll } = useTabBar();
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const tabButtonsScrollViewRef = useRef<ScrollView>(null);
 
@@ -127,6 +130,7 @@ export default function ProgressScreen() {
             className="flex-1 px-4"
             contentContainerStyle={{ paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
           >
             <SparkTab />
           </ScrollView>
@@ -138,6 +142,7 @@ export default function ProgressScreen() {
             className="flex-1 px-4"
             contentContainerStyle={{ paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
           >
             <NutritionTab />
           </ScrollView>
@@ -149,6 +154,7 @@ export default function ProgressScreen() {
             className="flex-1 px-4"
             contentContainerStyle={{ paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
           >
             <HealthTab />
           </ScrollView>
@@ -160,6 +166,7 @@ export default function ProgressScreen() {
             className="flex-1 px-4"
             contentContainerStyle={{ paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
           >
             <DailyLogTab />
           </ScrollView>

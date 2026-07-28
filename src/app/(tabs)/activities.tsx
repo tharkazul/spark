@@ -4,13 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../../components/ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 
-const ACTIVITIES = [
-  { id: '1', title: 'Morning Run in San Francisco', type: 'Run', distance: '10.2 km', duration: '52:14', date: 'Today, 7:00 AM' },
-  { id: '2', title: 'Recovery Ride', type: 'Ride', distance: '25.0 km', duration: '1:15:00', date: 'Yesterday, 5:30 PM' },
-  { id: '3', title: 'Track Session', type: 'Run', distance: '8.5 km', duration: '45:20', date: 'Wed, 6:00 PM' },
-];
+import { useActivities } from '../../context/ActivityStore';
 
 export default function ActivitiesScreen() {
+  const { activities, loading, refreshActivities } = useActivities();
+
+  const formattedActivities = activities.map((act) => ({
+    id: String(act.id),
+    title: act.name,
+    type: act.sport_type,
+    distance: `${act.distance_km} km`,
+    duration: `${act.moving_time_min} mins`,
+    date: act.start_date,
+  }));
+
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       <View className="px-4 my-6">
@@ -19,8 +26,10 @@ export default function ActivitiesScreen() {
       </View>
 
       <FlatList
-        data={ACTIVITIES}
+        data={formattedActivities}
         keyExtractor={item => item.id}
+        refreshing={loading}
+        onRefresh={refreshActivities}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
         renderItem={({ item }) => (
           <Card className="mb-4">

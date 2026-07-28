@@ -1,0 +1,103 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Activity } from '../types/activity';
+import { activitiesApi } from '../services/apiServices';
+import { wsService } from '../services/websocket';
+
+interface ActivityContextType {
+  activities: Activity[];
+  loading: boolean;
+  error: string | null;
+  refreshActivities: () => Promise<void>;
+  syncGarmin: () => Promise<void>;
+  syncStrava: () => Promise<void>;
+}
+
+const defaultActivities: Activity[] = [
+  { id: '1', name: 'Morning Run in San Francisco', sport_type: 'Run', distance_km: 10.2, moving_time_min: 52.2, start_date: 'Today, 7:00 AM', spark_score: 24.5 },
+  { id: '2', name: 'Recovery Ride', sport_type: 'Ride', distance_km: 25.0, moving_time_min: 75.0, start_date: 'Yesterday, 5:30 PM', spark_score: 18.0 },
+  { id: '3', name: 'Track Session', sport_type: 'Run', distance_km: 8.5, moving_time_min: 45.3, start_date: 'Wed, 6:00 PM', spark_score: 31.2 },
+];
+
+const ActivityContext = createContext<ActivityContextType | undefined>(undefined);
+
+export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [activities, setActivities] = useState<Activity[]>(defaultActivities);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshActivities = async () => {
+    setLoading(true);
+    try {
+      const data = await activitiesApi.getActivities();
+      if (data && Array.isArray(data) && data.length > 0) {
+        setActivities(data);
+      }
+      setError(null);
+    } catch (err: any) {
+      console.log('ActivityStore fetch info:', err.message || err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncGarmin = async () => {
+    setLoading(true);
+    try {
+      await activitiesApi.syncGarmin();
+      await refreshActivities();
+    } catch (err: any) {
+      console.error('Garmin sync error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncStrava = async () => {
+    setLoading(true);
+    try {
+      await activitiesApi.syncStrava();
+      await refreshActivities();
+    } catch (err: any) {
+      console.error('Strava sync error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshActivities();
+
+    const unsubActivity = wsService.subscribeToEvent('activity_synced', () => refreshActivities());
+    const unsubStrava = wsService.subscribeToEvent('strava_sync_complete', () => refreshActivities());
+    const unsubGarmin = wsService.subscribeToEvent('garmin_sync_complete', () => refreshActivities());
+
+    return () => {
+      unsubActivity();
+      unsubStrava();
+      unsubGarmin();
+    };
+  }, []);
+
+  return (
+    <ActivityContext.Provider
+      value={{
+        activities,
+        loading,
+        error,
+        refreshActivities,
+        syncGarmin,
+        syncStrava,
+      }}
+    >
+      {children}
+    </ActivityContext.Provider>
+  );
+};
+
+export const useActivities = (): ActivityContextType => {
+  const context = useContext(ActivityContext);
+  if (!context) {
+    throw new Error('useActivities must be used within an ActivityStore');
+  }
+  return context;
+};

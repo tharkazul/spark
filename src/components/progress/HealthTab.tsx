@@ -7,6 +7,8 @@ import { AnatomicalBodyMap, ActiveNiggle, BODY_PARTS_LOOKUP } from './Anatomical
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
+import { useHealth } from '../../context/HealthStore';
+
 interface HealthTabProps {
   initialNiggles?: ActiveNiggle[];
   onSaveNiggle?: (niggle: ActiveNiggle) => void;
@@ -14,18 +16,11 @@ interface HealthTabProps {
 }
 
 export const HealthTab: React.FC<HealthTabProps> = ({
-  initialNiggles = [
-    {
-      id: 1,
-      body_part: 'left_ankle_foot',
-      severity: 1,
-      notes: 'Mild tightness in left plantar arch after long Sunday run.',
-    },
-  ],
   onSaveNiggle,
   onResolveNiggle,
 }) => {
-  const [niggles, setNiggles] = useState<ActiveNiggle[]>(initialNiggles);
+  const { niggles: storeNiggles, saveNiggle: storeSaveNiggle, resolveNiggle: storeResolveNiggle } = useHealth();
+  const niggles = storeNiggles as ActiveNiggle[];
   const [modalVisible, setModalVisible] = useState(false);
 
   // Form state
@@ -64,19 +59,14 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       notes,
     };
 
-    if (editingNiggleId) {
-      setNiggles((prev) => prev.map((n) => (n.id === editingNiggleId ? newNiggle : n)));
-    } else {
-      setNiggles((prev) => [...prev, newNiggle]);
-    }
-
+    storeSaveNiggle(newNiggle);
     if (onSaveNiggle) onSaveNiggle(newNiggle);
     setModalVisible(false);
   };
 
   const handleResolve = (id: number | string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setNiggles((prev) => prev.filter((n) => n.id !== id));
+    storeResolveNiggle(id);
     if (onResolveNiggle) onResolveNiggle(id);
     if (modalVisible) setModalVisible(false);
   };

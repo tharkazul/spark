@@ -1,0 +1,280 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../services/db');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
+const { authenticateToken } = require('../services/auth');
+const { sseClients, sendSSEEvent } = require('../services/sse');
+const { generateWithFallback } = require('../services/ai');
+const { encrypt, decrypt } = require('../services/crypto');
+const {
+  matchGarminExercise,
+  getAMSDateString,
+  getAMSWeekday,
+  getUserGamificationContext,
+  getUserLeaderboardString,
+  getWeatherContext,
+  getUserMacroPhase,
+  generatePublicProfile,
+  calculateGlobalMaxStats,
+  generateAllPublicProfiles,
+  processTokenRefresh,
+  getStravaTokenForUser,
+  getSparkLevelInfo,
+  calculateSparkScore,
+  mapStravaSportToSpark,
+  formatStepsForStrava,
+  tagStravaActivity,
+  getStravaActivity,
+  syncAllStravaUsersOnStartup,
+  triggerBackgroundSummary,
+  updateUserSparkAndCheckLevel,
+  triggerLevelUpCoachPrompt,
+  generateQuestForUser,
+  evaluateQuestsAgainstActivity,
+  calculateQuestProgress
+} = require('../services/utils');
+
+function getTimeRemainingStr(expiresAt) {
+  if (!expiresAt) return null;
+  const diffMs = new Date(expiresAt).getTime() - Date.now();
+  if (diffMs <= 0) return "Expired";
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return `${days}d ${remainingHours}h left`;
+  if (hours > 0) return `${hours}h ${minutes}m left`;
+  return `${minutes}m left`;
+}
+
+router.get("/api/milestones", authenticateToken, (req, res) => {
+  db.all(
+    `SELECT * FROM milestones WHERE user_id = ? ORDER BY date ASC`,
+    [req.user.id],
+    (err, rows) => {
+      res.json(rows || []);
+    },
+  );
+});
+
+router.post("/api/milestones", authenticateToken, (req, res) => {
+  const { milestones } = req.body;
+
+  db.serialize(() => {
+    db.run(`DELETE FROM milestones WHERE user_id = ?`, [req.user.id]);
+
+    const stmt = db.prepare(
+      `INSERT INTO milestones (user_id, name, date, target_ctl, is_main) VALUES (?, ?, ?, ?, ?)`,
+    );
+    milestones.forEach((m) => {
+      stmt.run(req.user.id, m.name, m.date, m.target_ctl, m.is_main ? 1 : 0);
+    });
+    stmt.finalize();
+
+    res.json({ success: true, message: "Calendar updated!" });
+  });
+});
+
+router.get("/api/gamification", authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const responseData = { quests: [], titles: [], bonus_points: [] };
+
+  db.all(
+    `SELECT * FROM user_quests WHERE user_id = ? ORDER BY created_at DESC`,
+    [userId],
+    async (err, quests) => {
+      if (!err && quests) {
+        const processedQuests = await Promise.all(
+          quests.map(async (q) => {
+            const qObj = { ...q };
+
+            // Expiry check
+            if (qObj.status === "active" && qObj.expires_at) {
+              const expiresMs = new Date(qObj.expires_at).getTime();
+              if (expiresMs <= Date.now()) {
+                qObj.status = "expired";
+                db.run(`UPDATE user_quests SET status = 'expired' WHERE id = ?`, [qObj.id]);
+              }
+            }
+
+            // Calculate progress for active or completed quests
+            const currentVal = await calculateQuestProgress(userId, qObj);
+            qObj.current_value = currentVal;
+            qObj.progress_percent = Math.min(100, Math.round((currentVal / (qObj.target_value || 1)) * 100));
+            qObj.time_remaining_str = qObj.status === "active" ? getTimeRemainingStr(qObj.expires_at) : null;
+
+            // Unit string
+            if (qObj.target_metric === "distance_km") qObj.unit = "km";
+            else if (qObj.target_metric === "moving_time_min") qObj.unit = "min";
+            else if (qObj.target_metric === "spark_score") qObj.unit = "pts";
+            else qObj.unit = "";
+
+            return qObj;
+          })
+        );
+        responseData.quests = processedQuests;
+      }
+
+      db.all(
+        `SELECT * FROM user_titles WHERE user_id = ? ORDER BY created_at DESC`,
+        [userId],
+        (err, titles) => {
+          if (!err && titles) responseData.titles = titles;
+          db.all(
+            `SELECT * FROM bonus_points WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
+            [userId],
+            (err, points) => {
+              if (!err && points) responseData.bonus_points = points;
+              res.json(responseData);
+            },
+          );
+        },
+      );
+    },
+  );
+});
+
+router.post(
+  "/api/gamification/generate_quest",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.id;
+
+    // Check if user already has an active quest to avoid spamming
+    db.get(
+      `SELECT count(*) as count FROM user_quests WHERE user_id = ? AND status = 'active'`,
+      [userId],
+      async (err, row) => {
+        if (row && row.count >= 3) {
+          return res
+            .status(400)
+            .json({
+              error: "You already have 3 active quests. Complete them first!",
+            });
+        }
+
+        try {
+          const questData = await generateQuestForUser(userId, "common");
+          res.json({ success: true, quest: questData });
+        } catch (e) {
+          console.error("Failed to generate quest:", e);
+          res.status(500).json({ error: "Failed to generate quest" });
+        }
+      },
+    );
+  },
+);
+
+router.post("/api/gamification/evaluate_quests", authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  // Evaluate the latest activity against active quests
+  db.get(
+    `SELECT * FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 1`,
+    [userId],
+    async (err, latestActivity) => {
+      if (err || !latestActivity) {
+        return res.json({
+          success: true,
+          message: "No activities found to evaluate against.",
+        });
+      }
+
+      try {
+        const completed = await evaluateQuestsAgainstActivity(
+          userId,
+          latestActivity,
+        );
+        if (completed.length > 0) {
+          res.json({
+            success: true,
+            message: `Evaluated and completed ${completed.length} quests based on your latest activity!`,
+          });
+        } else {
+          res.json({
+            success: true,
+            message:
+              "Evaluated your latest activity, but no quests were completed.",
+          });
+        }
+      } catch (e) {
+        res.status(500).json({ error: "Failed to evaluate quests." });
+      }
+    },
+  );
+});
+
+
+
+router.post(
+  "/api/gamification/generate_title",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.id;
+
+    db.all(
+      `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 10`,
+      [userId],
+      async (err, recentActivities) => {
+        const activitiesStr =
+          recentActivities && recentActivities.length > 0
+            ? recentActivities
+                .map(
+                  (a) =>
+                    `- ${a.start_date}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min`,
+                )
+                .join("\n")
+            : "No recent activities logged.";
+
+        const prompt = `Based on the following recent activities, invent a cool, heroic, or funny custom 'Title' or 'Badge' to award the user. 
+        For example: "Titan of the Tarmac", "The Weekend Warrior", "Aquaman Protocol".
+        Recent activities:
+        ${activitiesStr}
+        
+        Return ONLY a JSON object with this exact structure:
+        {
+          "title": "The Title Name",
+          "description": "A short, funny, or epic description of why they earned it."
+        }`;
+
+        try {
+          const aiReply = await generateWithFallback(
+            prompt,
+            "You are a JSON-only API that outputs valid JSON.",
+            null,
+            null,
+            userId,
+            "common"
+          );
+          const jsonStr = aiReply
+            .replace(/\`\`\`json/g, "")
+            .replace(/\`\`\`/g, "")
+            .trim();
+          const titleData = JSON.parse(jsonStr);
+
+          db.run(
+            `INSERT INTO user_titles (user_id, title, description) VALUES (?, ?, ?)`,
+            [userId, titleData.title, titleData.description],
+          );
+
+          // Also award 50 bonus points for a new title
+          db.run(
+            `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
+            [userId, 50, `Earned Title: ${titleData.title}`],
+          );
+
+          res.json({ success: true, title: titleData });
+        } catch (e) {
+          console.error("Failed to generate title:", e);
+          res.status(500).json({ error: "Failed to generate title" });
+        }
+      },
+    );
+  },
+);
+
+
+module.exports = router;

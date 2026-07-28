@@ -8,6 +8,7 @@ import { WorkoutItem, SportType } from '../../types/dashboard';
 interface TodaysPlanCardProps {
   dateLabel: string; // e.g. 'FRI Jul 24'
   tempLabel: string; // e.g. '24°C'
+  weatherIcon?: string;
   workouts: WorkoutItem[];
   onAdaptPress: () => void;
   onAddWorkout: () => void;
@@ -17,12 +18,12 @@ interface TodaysPlanCardProps {
 export function TodaysPlanCard({
   dateLabel,
   tempLabel,
+  weatherIcon = 'partly-sunny-outline',
   workouts,
   onAdaptPress,
   onAddWorkout,
   onSelectWorkout,
 }: TodaysPlanCardProps) {
-
   const getDisciplineConfig = (type: SportType) => {
     switch (type) {
       case 'SWIM':
@@ -93,41 +94,39 @@ export function TodaysPlanCard({
   };
 
   return (
-    <View className="mb-5">
-      {/* Header Title */}
-      <View className="flex-row items-center gap-2 mb-3">
-        <Ionicons name="calendar-outline" size={20} color="#16ACBD" />
-        <Text className="text-sm uppercase tracking-widest font-bold text-theme-text">
-          Today's Plan
-        </Text>
-      </View>
+    <Card className="p-0 overflow-hidden mb-3.5 border-theme-border shadow-sm">
+      {/* Header Bar */}
+      <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
+        <View className="flex-row items-center gap-2">
+          <View className="w-7 h-7 rounded-lg bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
+            <Ionicons name="calendar-outline" size={14} color="#16ACBD" />
+          </View>
+          <View>
+            <Text className="text-sm font-extrabold text-theme-text">Today's Plan</Text>
+            <Text className="text-[9px] text-theme-muted">Daily Training Schedule</Text>
+          </View>
+        </View>
 
-      {/* Main Outer Card */}
-      <Card className="p-4 md:p-5 border-theme-border shadow-sm">
-        {/* Info Row: Date + Temp + Adapt Button */}
-        <View className="flex-row justify-between items-center pb-3.5 mb-3.5 border-b border-theme-border/60">
-          <View className="flex-row items-center gap-2">
-            <View className="bg-theme-bg px-3 py-1.5 rounded-lg border border-theme-border flex-row items-center gap-1.5">
-              <Text className="text-xs font-bold text-theme-text">{dateLabel}</Text>
-            </View>
-
-            <View className="bg-theme-bg px-2.5 py-1.5 rounded-lg border border-theme-border flex-row items-center gap-1">
-              <Ionicons name="cloudy-outline" size={14} color="#8E9BA4" />
-              <Text className="text-xs font-medium text-theme-muted">{tempLabel}</Text>
-            </View>
+        {/* Right Info Row: Date + Temp + Adapt Button */}
+        <View className="flex-row items-center gap-1.5">
+          <View className="bg-theme-card px-2 py-0.5 rounded-lg border border-theme-border flex-row items-center gap-1">
+            <Ionicons name={(weatherIcon as any) || 'partly-sunny-outline'} size={12} color="#16ACBD" />
+            <Text className="text-[10px] font-bold text-theme-text">{tempLabel}</Text>
           </View>
 
-          {/* Adapt Button */}
           <TouchableOpacity
             onPress={handleAdapt}
             activeOpacity={0.7}
-            className="flex-row items-center gap-1 bg-theme-accent-soft px-3 py-1.5 rounded-lg border border-theme-accent/30"
+            className="flex-row items-center gap-1 bg-theme-accent-soft px-2 py-0.5 rounded-lg border border-theme-accent/30"
           >
-            <Ionicons name="flash" size={13} color="#16ACBD" />
-            <Text className="text-xs font-bold text-theme-accent">ADAPT</Text>
+            <Ionicons name="flash" size={11} color="#16ACBD" />
+            <Text className="text-[10px] font-extrabold text-theme-accent">ADAPT</Text>
           </TouchableOpacity>
         </View>
+      </View>
 
+      {/* Main Content Area */}
+      <View className="p-3.5">
         {/* Workouts List */}
         <View className="space-y-3">
           {workouts.length === 0 ? (
@@ -221,7 +220,7 @@ export function TodaysPlanCard({
             <Text className="text-xs font-bold text-theme-accent">Add Exercise</Text>
           </TouchableOpacity>
         </View>
-      </Card>
-    </View>
+      </View>
+    </Card>
   );
 }

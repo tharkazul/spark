@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { TextInput } from '../../components/ui/TextInput';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useCoachChat } from '../../context/CoachChatStore';
+
 interface Message {
   id: string;
   text: string;
@@ -11,23 +13,20 @@ interface Message {
 }
 
 export default function CoachScreen() {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', text: "Hey Rutger! Ready to smash this week's training?", sender: 'coach' },
-    { id: '2', text: "Yes, I'm feeling great after yesterday's run.", sender: 'user' },
-    { id: '3', text: "Awesome. Your readiness is high today. I recommend a 45min threshold session.", sender: 'coach' },
-  ]);
+  const { messages: storeMessages, sendMessage: storeSendMessage, sending } = useCoachChat();
   const [inputText, setInputText] = useState('');
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
-    
-    setMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      sender: 'user'
-    }]);
-    
+  const messages: Message[] = storeMessages.map((msg, index) => ({
+    id: msg.id ? String(msg.id) : `msg-${index}-${msg.timestamp || index}`,
+    text: msg.content,
+    sender: msg.role === 'user' ? 'user' : 'coach',
+  }));
+
+  const handleSendMessage = () => {
+    if (!inputText.trim() || sending) return;
+    const text = inputText.trim();
     setInputText('');
+    storeSendMessage(text);
   };
 
   const renderMessage = ({ item }: { item: Message }) => {
@@ -61,7 +60,7 @@ export default function CoachScreen() {
         <FlatList
           data={messages}
           renderItem={renderMessage}
-          keyExtractor={item => item.id}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
           contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
           className="flex-1"
         />
@@ -76,8 +75,9 @@ export default function CoachScreen() {
             />
           </View>
           <TouchableOpacity 
-            onPress={sendMessage}
-            className="w-12 h-12 rounded-full bg-theme-accent items-center justify-center"
+            onPress={handleSendMessage}
+            disabled={sending}
+            className={`w-12 h-12 rounded-full items-center justify-center ${sending ? 'bg-theme-accent/50' : 'bg-theme-accent'}`}
           >
             <Ionicons name="arrow-up" size={24} color="white" />
           </TouchableOpacity>

@@ -5,6 +5,8 @@ import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { SportType, WorkoutItem } from '../../types/dashboard';
+import { WorkoutStep } from '../../types/plan';
+import { WorkoutStepBuilder } from './WorkoutStepBuilder';
 
 interface AddWorkoutModalProps {
   visible: boolean;
@@ -12,7 +14,7 @@ interface AddWorkoutModalProps {
   targetDateStr?: string;
   initialWorkout?: WorkoutItem | null;
   onClose: () => void;
-  onSave: (workout: Omit<WorkoutItem, 'id'>, existingId?: string) => void;
+  onSave: (workout: Omit<WorkoutItem, 'id'> & { steps_json?: string }, existingId?: string) => void;
   onDelete?: (workoutId: string) => void;
 }
 
@@ -29,7 +31,7 @@ export function AddWorkoutModal({
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('45 mins');
   const [sparkPoints, setSparkPoints] = useState('30');
-  const [isStructured, setIsStructured] = useState(true);
+  const [steps, setSteps] = useState<WorkoutStep[]>([]);
 
   useEffect(() => {
     if (initialWorkout) {
@@ -37,13 +39,13 @@ export function AddWorkoutModal({
       setTitle(initialWorkout.title);
       setDuration(initialWorkout.duration || '45 mins');
       setSparkPoints(initialWorkout.sparkPoints.toString());
-      setIsStructured(initialWorkout.isStructured ?? true);
+      setSteps([]);
     } else {
       setSelectedSport('RUN');
       setTitle('');
       setDuration('45 mins');
       setSparkPoints('30');
-      setIsStructured(true);
+      setSteps([]);
     }
   }, [initialWorkout, visible]);
 
@@ -54,6 +56,13 @@ export function AddWorkoutModal({
     { type: 'STRENGTH', label: 'Strength', icon: 'barbell-outline' },
     { type: 'MOBILITY', label: 'Mobility', icon: 'body-outline' },
   ];
+
+  const handleStepChange = (newSteps: WorkoutStep[], computedSpark: number) => {
+    setSteps(newSteps);
+    if (computedSpark > 0) {
+      setSparkPoints(computedSpark.toString());
+    }
+  };
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -66,10 +75,11 @@ export function AddWorkoutModal({
         title: title.trim(),
         duration: duration || '30 mins',
         sparkPoints: parseInt(sparkPoints, 10) || 25,
-        isStructured,
+        isStructured: true,
         isCompleted: initialWorkout ? initialWorkout.isCompleted : false,
         actualMetrics: initialWorkout?.actualMetrics,
         executionScore: initialWorkout?.executionScore,
+        steps_json: JSON.stringify(steps),
       },
       initialWorkout?.id
     );
@@ -92,9 +102,9 @@ export function AddWorkoutModal({
       onRequestClose={onClose}
     >
       <View className="flex-1 justify-end bg-black/60">
-        <View className="bg-theme-card border-t border-theme-border rounded-t-[32px] p-6 max-h-[85%] shadow-2xl">
+        <View className="bg-theme-card border-t border-theme-border rounded-t-[32px] p-6 max-h-[88%] shadow-2xl">
           {/* Header */}
-          <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/60 mb-5">
+          <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/60 mb-4">
             <View>
               <Text className="text-lg font-bold text-theme-text">
                 {initialWorkout ? 'Edit Exercise' : 'Add Exercise'}
@@ -114,10 +124,10 @@ export function AddWorkoutModal({
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Sport Selector */}
-            <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2.5">
+            <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
               Select Discipline
             </Text>
-            <View className="flex-row flex-wrap gap-2 mb-5">
+            <View className="flex-row flex-wrap gap-2 mb-4">
               {sports.map((sport) => {
                 const isSelected = selectedSport === sport.type;
                 return (
@@ -145,7 +155,7 @@ export function AddWorkoutModal({
 
             {/* Exercise Title Input */}
             <View className="mb-4">
-              <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
+              <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
                 Workout Title
               </Text>
               <TextInput
@@ -158,7 +168,7 @@ export function AddWorkoutModal({
             {/* Duration & Points */}
             <View className="flex-row gap-3 mb-5">
               <View className="flex-1">
-                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
+                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
                   Duration
                 </Text>
                 <TextInput
@@ -169,8 +179,8 @@ export function AddWorkoutModal({
               </View>
 
               <View className="flex-1">
-                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
-                  Spark Points
+                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
+                  Spark Points Target
                 </Text>
                 <TextInput
                   value={sparkPoints}
@@ -181,28 +191,15 @@ export function AddWorkoutModal({
               </View>
             </View>
 
-            {/* Structured Workout Toggle */}
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.selectionAsync();
-                setIsStructured(!isStructured);
-              }}
-              className="flex-row items-center justify-between bg-theme-bg p-3.5 rounded-xl border border-theme-border mb-6"
-            >
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="hardware-chip-outline" size={18} color="#16ACBD" />
-                <Text className="text-sm font-bold text-theme-text">Structured Garmin Workout</Text>
-              </View>
+            {/* Interactive Structured Step Builder */}
+            <WorkoutStepBuilder
+              steps={steps}
+              sport={selectedSport}
+              onChangeSteps={handleStepChange}
+            />
 
-              <Ionicons
-                name={isStructured ? 'toggle' : 'toggle-outline'}
-                size={28}
-                color={isStructured ? '#16ACBD' : '#8E9BA4'}
-              />
-            </TouchableOpacity>
-
-            {/* Actions */}
-            <View className="flex-row gap-3 mb-3">
+            {/* Save / Cancel Buttons */}
+            <View className="flex-row gap-3 mb-3 mt-2">
               <View className="flex-1">
                 <Button label="Cancel" variant="outline" onPress={onClose} />
               </View>
