@@ -257,6 +257,47 @@ router.post("/api/micro-plan", authenticateToken, (req, res) => {
   );
 });
 
+router.post("/api/micro-plan/accept-suggestion", authenticateToken, (req, res) => {
+  const { plan } = req.body;
+  if (!plan || !Array.isArray(plan)) {
+    return res.status(400).json({ error: "Invalid plan proposal data format" });
+  }
+
+  const affectedDates = [...new Set(plan.map((day) => day.date))].filter(Boolean);
+  if (affectedDates.length === 0) {
+    return res.json({ success: true, message: "No dates affected." });
+  }
+
+  const placeholders = affectedDates.map(() => "?").join(",");
+  db.run(
+    `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
+    [req.user.id, ...affectedDates],
+    (err) => {
+      if (err) console.error("Failed to clear old plan data for proposal:", err);
+
+      const stmt = db.prepare(`
+        INSERT INTO micro_plan (user_id, date, sport, description, target_spark, details, steps_json) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      plan.forEach((day) => {
+        stmt.run(
+          req.user.id,
+          day.date,
+          day.sport || 'Workout',
+          day.description || '',
+          day.target_spark || 0,
+          day.details || '',
+          typeof day.steps_json === 'string' ? day.steps_json : JSON.stringify(day.steps_json || [])
+        );
+      });
+      stmt.finalize();
+
+      res.json({ success: true, message: "Proposal accepted and plan updated successfully." });
+    }
+  );
+});
+
 router.post("/api/micro-plan/push-forward", authenticateToken, (req, res) => {
   const { date } = req.body;
   if (!date) return res.status(400).json({ error: "date is required" });

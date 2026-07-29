@@ -47,3 +47,48 @@ export const tokenStorage = {
     }
   },
 };
+
+const CHAT_KEY = 'spark_chat_history';
+
+export const chatStorage = {
+  async getChatHistory(): Promise<any[] | null> {
+    try {
+      let raw: string | null = null;
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          raw = window.localStorage.getItem(CHAT_KEY);
+        }
+      } else {
+        raw = await SecureStore.getItemAsync(CHAT_KEY);
+      }
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async setChatHistory(messages: any[]): Promise<void> {
+    try {
+      const data = JSON.stringify(messages);
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(CHAT_KEY, data);
+        }
+      } else {
+        await SecureStore.setItemAsync(CHAT_KEY, data);
+      }
+    } catch (e) {}
+  },
+
+  async clearChatHistory(): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(CHAT_KEY);
+        }
+      } else {
+        await SecureStore.deleteItemAsync(CHAT_KEY);
+      }
+    } catch (e) {}
+  },
+};

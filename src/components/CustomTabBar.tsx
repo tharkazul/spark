@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { View, TouchableOpacity, useColorScheme, Animated, TouchableWithoutFeedback } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, TouchableOpacity, useColorScheme, Animated, TouchableWithoutFeedback, Keyboard, Platform } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBar } from '../context/TabBarContext';
@@ -11,6 +11,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { registerScrollListener } = useTabBar();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
@@ -53,6 +54,21 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
     });
     return unsubscribe;
   }, [registerScrollListener]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  if (isKeyboardVisible) return null;
 
   const bgColor = isDark ? 'rgba(28, 33, 36, 0.90)' : 'rgba(255, 255, 255, 0.90)';
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.08)';

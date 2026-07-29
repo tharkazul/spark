@@ -102,15 +102,49 @@ router.get("/api/events", authenticateToken, (req, res) => {
 });
 
 router.get("/api/chat/history", authenticateToken, (req, res) => {
-  db.all(
-    `SELECT role, content, mood, timestamp, image_path FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
+  db.get(
+    `SELECT daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
     [req.user.id],
-    (err, rows) => {
-      if (err)
-        return res.status(500).json({ error: "Failed to load chat history." });
-      res.json(rows || []);
-    },
+    (err, user) => {
+      const todayStr = new Date().toISOString().split("T")[0];
+      let usage = user ? (user.daily_token_usage || 0) : 0;
+      if (user && user.last_token_reset_date !== todayStr) {
+        usage = 0;
+      }
+      const limit = user ? getEffectiveTokenLimit(user) : 10000;
+
+      db.all(
+        `SELECT id, role, content, mood, timestamp, image_path FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
+        [req.user.id],
+        (err2, rows) => {
+          if (err2)
+            return res.status(500).json({ error: "Failed to load chat history." });
+          res.json({
+            history: rows || [],
+            tokenUsage: {
+              daily_token_usage: usage,
+              daily_token_limit: limit,
+              subscription_tier: user ? (user.subscription_tier || 'free') : 'free',
+            },
+          });
+        },
+      );
+    }
   );
+});
+
+router.delete("/api/chat/history", authenticateToken, (req, res) => {
+  db.run(`DELETE FROM chat_history WHERE user_id = ?`, [req.user.id], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to clear chat history." });
+    res.json({ success: true, message: "Chat history cleared." });
+  });
+});
+
+router.post("/api/chat/clear", authenticateToken, (req, res) => {
+  db.run(`DELETE FROM chat_history WHERE user_id = ?`, [req.user.id], (err) => {
+    if (err) return res.status(500).json({ error: "Failed to clear chat history." });
+    res.json({ success: true, message: "Chat history cleared." });
+  });
 });
 
 router.post("/api/chat", authenticateToken, async (req, res) => {
@@ -770,10 +804,21 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         },
                                       );
 
+                                      const updatedUsage = (user.daily_token_usage || 0) + 150;
+                                      db.run(
+                                        `UPDATE users SET daily_token_usage = ? WHERE id = ?`,
+                                        [updatedUsage, req.user.id]
+                                      );
+
                                       res.json({
                                         reply: aiReply,
                                         mood: mood,
                                         planUpdated: planUpdated,
+                                        tokenUsage: {
+                                          daily_token_usage: updatedUsage,
+                                          daily_token_limit: currentDailyLimit,
+                                          subscription_tier: user.subscription_tier || 'free',
+                                        },
                                       });
                                     } catch (err) {
                                       console.error("Chat parsing error:", err);

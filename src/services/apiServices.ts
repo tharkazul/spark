@@ -5,7 +5,7 @@ import { PlannedWorkout } from '../types/plan';
 import { PhysiqueEntry, NutritionProtocol } from '../types/physique';
 import { Quest, UserTitle } from '../types/gamification';
 import { Niggle } from '../types/health';
-import { ChatMessage } from '../types/chat';
+import { ChatMessage, TokenUsage } from '../types/chat';
 
 export const authApi = {
   login: (credentials: { email?: string; username?: string; password: string }) =>
@@ -104,6 +104,11 @@ export const planApi = {
       method: 'POST',
       body: JSON.stringify({ date, workouts }),
     }),
+  acceptSuggestion: (plan: any[]) =>
+    apiClient<{ success: boolean; message?: string }>('/api/micro-plan/accept-suggestion', {
+      method: 'POST',
+      body: JSON.stringify({ plan }),
+    }),
 };
 
 export const physiqueApi = {
@@ -140,11 +145,15 @@ export const healthApi = {
 };
 
 export const chatApi = {
-  getHistory: () => apiClient<ChatMessage[]>('/api/chat/history'),
-  sendMessage: (message: string) =>
-    apiClient<{ reply: string }>('/api/chat', {
+  getHistory: () => apiClient<ChatMessage[] | { history: ChatMessage[]; tokenUsage?: TokenUsage }>('/api/chat/history'),
+  sendMessage: (message: string, imagesBase64?: string[]) =>
+    apiClient<{ reply: string; mood?: string; planUpdated?: boolean; tokenUsage?: TokenUsage }>('/api/chat', {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, imagesBase64 }),
+    }),
+  clearHistory: () =>
+    apiClient<{ success: boolean; message?: string }>('/api/chat/clear', {
+      method: 'POST',
     }),
   checkin: () => apiClient<{ message: string }>('/api/chat/checkin', { method: 'POST' }),
 };
