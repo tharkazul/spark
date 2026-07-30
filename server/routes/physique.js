@@ -527,6 +527,8 @@ You MUST respond with ONLY a raw JSON object with NO markdown formatting:
   );
     },
   );
+    },
+  );
 });
 
 router.get("/api/weight", authenticateToken, (req, res) => {
