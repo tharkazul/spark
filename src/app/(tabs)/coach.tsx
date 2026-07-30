@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,17 @@ import {
   ActivityIndicator,
   Keyboard,
   TextInput as RNTextInput,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useCoachChat } from '../../context/CoachChatStore';
 import { useUser } from '../../context/UserStore';
-import { TextInput } from '../../components/ui/TextInput';
 import { MarkdownText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
@@ -95,6 +97,7 @@ export default function CoachScreen() {
 
   const sectionListRef = useRef<SectionList>(null);
   const inputRef = useRef<RNTextInput>(null);
+  const isUserScrollingUpRef = useRef<boolean>(false);
 
   // Group messages into sections by calendar date
   const sections = groupMessagesByDate(messages);
@@ -107,43 +110,67 @@ export default function CoachScreen() {
   const showTokenWarning = remainingPercent <= 10;
   const isOutOfTokens = remainingTokens <= 0;
 
-  // State 0: Auto focus input on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+  const scrollToBottom = (animated = true) => {
+    if (isUserScrollingUpRef.current) return;
+    if (sections.length > 0) {
+      try {
+        const lastSectionIdx = sections.length - 1;
+        const lastItemIdx = sections[lastSectionIdx].data.length - 1;
+        if (lastItemIdx >= 0) {
+          sectionListRef.current?.scrollToLocation({
+            sectionIndex: lastSectionIdx,
+            itemIndex: lastItemIdx,
+            animated,
+          });
+        }
+      } catch (_) {
+        // fallback if layout not complete
+      }
+    }
+  };
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    // User is considered scrolling up if more than 60px away from bottom
+    isUserScrollingUpRef.current = distanceFromBottom > 60;
+  };
+
+  // State 0: Auto focus input on screen load / tab focus
+  useFocusEffect(
+    useCallback(() => {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 350);
+      return () => clearTimeout(timer);
+    }, [])
+  );
+
+  // Keyboard show/hide listeners with automatic message bottom alignment
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSub = Keyboard.addListener(showEvent, () => setIsKeyboardOpen(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setIsKeyboardOpen(false));
+    const showSub = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardOpen(true);
+      setTimeout(() => scrollToBottom(true), 50);
+      setTimeout(() => scrollToBottom(true), 200);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardOpen(false);
+      setTimeout(() => scrollToBottom(true), 50);
+      setTimeout(() => scrollToBottom(true), 200);
+    });
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [sections]);
 
   useEffect(() => {
-    if (sections.length > 0) {
-      setTimeout(() => {
-        try {
-          const lastSectionIndex = sections.length - 1;
-          const lastItemIndex = sections[lastSectionIndex].data.length - 1;
-          sectionListRef.current?.scrollToLocation({
-            sectionIndex: lastSectionIndex,
-            itemIndex: lastItemIndex,
-            animated: true,
-          });
-        } catch (_) {
-          // fallback if scroll target is not layout complete yet
-        }
-      }, 150);
-    }
+    scrollToBottom(true);
   }, [messages.length, sending]);
 
   const handlePickImage = async () => {
@@ -196,6 +223,7 @@ export default function CoachScreen() {
     setSelectedImages([]);
     setIsRecording(false);
     setShowSuggestions(false);
+    isUserScrollingUpRef.current = false;
 
     sendMessage(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined);
   };
@@ -319,6 +347,14 @@ export default function CoachScreen() {
               sections={sections}
               keyExtractor={(item, index) => `${item.id}-${index}`}
               stickySectionHeadersEnabled={true}
+              onScroll={handleScroll}
+              onScrollBeginDrag={() => Keyboard.dismiss()}
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={() => {
+                if (!isUserScrollingUpRef.current) {
+                  scrollToBottom(false);
+                }
+              }}
               renderSectionHeader={({ section: { title } }) => (
                 <View className="py-2 items-center justify-center pointer-events-none z-10">
                   <View className="bg-theme-card/95 border border-theme-border px-3.5 py-1 rounded-full shadow-xs">
@@ -327,7 +363,7 @@ export default function CoachScreen() {
                 </View>
               )}
               renderItem={renderMessage}
-              contentContainerStyle={{ padding: 16, paddingBottom: 16 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: !isKeyboardOpen ? 140 : 16 }}
               className="flex-1"
             />
           )}
@@ -346,20 +382,34 @@ export default function CoachScreen() {
               onSelectSuggestion={(promptText) => {
                 setInputText(promptText);
                 setShowSuggestions(false);
+                inputRef.current?.focus();
               }}
             />
           ) : null}
 
-          {/* Rounded Container Box (State 1 & State 2) - Styled like Antigravity Chat UI */}
+          {/* UNIFIED INPUT MODULE CONTAINER (Single Persistent Node to Prevent Glitching) */}
           <View
             style={{
-              marginBottom: !isKeyboardOpen ? (Platform.OS === 'ios' ? 76 : 68) : 4,
+              marginBottom: !isKeyboardOpen ? (Platform.OS === 'ios' ? 116 : 98) : 4,
+              alignSelf: !isKeyboardOpen ? 'flex-end' : 'stretch',
+              marginRight: !isKeyboardOpen ? 16 : 12,
+              marginLeft: !isKeyboardOpen ? 0 : 12,
+              maxWidth: !isKeyboardOpen ? '80%' : '100%',
+              zIndex: 50,
             }}
-            className="px-3 py-1"
+            className="py-1"
           >
-            <View className="bg-theme-card rounded-3xl border border-theme-border p-2.5 shadow-lg">
-              {/* Image Preview Thumbnails if attached */}
-              {selectedImages.length > 0 ? (
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => inputRef.current?.focus()}
+              className={`${
+                !isKeyboardOpen
+                  ? 'bg-theme-accent rounded-2xl rounded-br-sm shadow-lg px-4 py-3 flex-row items-center space-x-2'
+                  : 'bg-theme-card rounded-3xl border border-theme-border p-2.5 shadow-lg'
+              }`}
+            >
+              {/* Image Preview Thumbnails if attached (State 2) */}
+              {isKeyboardOpen && selectedImages.length > 0 ? (
                 <View className="mb-2 flex-row gap-2 px-1">
                   {selectedImages.map((imgUri, idx) => (
                     <View key={`thumb-${idx}`} className="relative">
@@ -379,78 +429,95 @@ export default function CoachScreen() {
                 </View>
               ) : null}
 
-              {/* Text Input Row */}
-              <View className="px-2 py-1 min-h-[38px] max-h-[100px] justify-center">
+              {/* The Single Persistent Text Input Node */}
+              <View
+                className={
+                  !isKeyboardOpen
+                    ? 'flex-1 justify-center'
+                    : 'px-2 py-1 min-h-[38px] max-h-[100px] justify-center'
+                }
+              >
                 <RNTextInput
                   ref={inputRef}
                   placeholder="Talk to Spark..."
-                  placeholderTextColor="#8E8E93"
+                  placeholderTextColor={!isKeyboardOpen ? 'rgba(255, 255, 255, 0.85)' : '#8E8E93'}
                   value={inputText}
                   onChangeText={setInputText}
-                  multiline
-                  className="text-theme-text text-sm p-0 m-0"
-                  style={{ maxHeight: 84 }}
+                  onFocus={() => setIsKeyboardOpen(true)}
+                  multiline={isKeyboardOpen}
+                  className={
+                    !isKeyboardOpen
+                      ? 'text-white font-medium text-sm p-0 m-0'
+                      : 'text-theme-text text-sm p-0 m-0'
+                  }
+                  style={isKeyboardOpen ? { maxHeight: 84 } : undefined}
                 />
               </View>
 
-              {/* Bottom Actions Row nested INSIDE the rounded container */}
-              <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/30 mt-1">
-                {/* Left Action Buttons */}
-                <View className="flex-row items-center space-x-2">
-                  <TouchableOpacity
-                    onPress={handlePickImage}
-                    className="w-8 h-8 rounded-full bg-theme-bg/60 border border-theme-border items-center justify-center active:opacity-70"
-                  >
-                    <Ionicons name="attach-outline" size={18} color="#16ACBD" />
-                  </TouchableOpacity>
+              {!isKeyboardOpen ? (
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color="white" />
+              ) : null}
 
-                  <TouchableOpacity
-                    onPress={() => setShowSuggestions(!showSuggestions)}
-                    className={`w-8 h-8 rounded-full border items-center justify-center ${
-                      showSuggestions
-                        ? 'bg-amber-500/20 border-amber-500'
-                        : 'bg-theme-bg/60 border-theme-border active:opacity-70'
-                    }`}
-                  >
-                    <Ionicons
-                      name={showSuggestions ? 'bulb' : 'bulb-outline'}
-                      size={16}
-                      color={showSuggestions ? '#F59E0B' : '#16ACBD'}
-                    />
-                  </TouchableOpacity>
+              {/* Bottom Actions Row (State 2 only) */}
+              {isKeyboardOpen ? (
+                <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/30 mt-1">
+                  {/* Left Action Buttons */}
+                  <View className="flex-row items-center space-x-2">
+                    <TouchableOpacity
+                      onPress={handlePickImage}
+                      className="w-8 h-8 rounded-full bg-theme-bg/60 border border-theme-border items-center justify-center active:opacity-70"
+                    >
+                      <Ionicons name="attach-outline" size={18} color="#16ACBD" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => setShowSuggestions(!showSuggestions)}
+                      className={`w-8 h-8 rounded-full border items-center justify-center ${
+                        showSuggestions
+                          ? 'bg-amber-500/20 border-amber-500'
+                          : 'bg-theme-bg/60 border-theme-border active:opacity-70'
+                      }`}
+                    >
+                      <Ionicons
+                        name={showSuggestions ? 'bulb' : 'bulb-outline'}
+                        size={16}
+                        color={showSuggestions ? '#F59E0B' : '#16ACBD'}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Right Action Buttons */}
+                  <View className="flex-row items-center space-x-2">
+                    <TouchableOpacity
+                      onPress={handleToggleVoiceInput}
+                      className={`w-8 h-8 rounded-full items-center justify-center border ${
+                        isRecording
+                          ? 'bg-red-500/20 border-red-500'
+                          : 'bg-theme-bg/60 border-theme-border active:opacity-70'
+                      }`}
+                    >
+                      <Ionicons
+                        name={isRecording ? 'mic' : 'mic-outline'}
+                        size={16}
+                        color={isRecording ? '#EF4444' : '#94A3B8'}
+                      />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleSend}
+                      disabled={sending || (!inputText.trim() && selectedImages.length === 0)}
+                      className={`w-9 h-9 rounded-full items-center justify-center shadow-sm ${
+                        sending || (!inputText.trim() && selectedImages.length === 0)
+                          ? 'bg-theme-accent/40'
+                          : 'bg-theme-accent'
+                      }`}
+                    >
+                      <Ionicons name="send" size={15} color="white" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-
-                {/* Right Action Buttons */}
-                <View className="flex-row items-center space-x-2">
-                  <TouchableOpacity
-                    onPress={handleToggleVoiceInput}
-                    className={`w-8 h-8 rounded-full items-center justify-center border ${
-                      isRecording
-                        ? 'bg-red-500/20 border-red-500'
-                        : 'bg-theme-bg/60 border-theme-border active:opacity-70'
-                    }`}
-                  >
-                    <Ionicons
-                      name={isRecording ? 'mic' : 'mic-outline'}
-                      size={16}
-                      color={isRecording ? '#EF4444' : '#94A3B8'}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleSend}
-                    disabled={sending || (!inputText.trim() && selectedImages.length === 0)}
-                    className={`w-9 h-9 rounded-full items-center justify-center shadow-sm ${
-                      sending || (!inputText.trim() && selectedImages.length === 0)
-                        ? 'bg-theme-accent/40'
-                        : 'bg-theme-accent'
-                    }`}
-                  >
-                    <Ionicons name="send" size={15} color="white" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
+              ) : null}
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
