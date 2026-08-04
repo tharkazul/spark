@@ -69,7 +69,11 @@ export const chatStorage = {
 
   async setChatHistory(messages: any[]): Promise<void> {
     try {
-      const data = JSON.stringify(messages);
+      const recentMessages = Array.isArray(messages) ? messages.slice(-20) : [];
+      let data = JSON.stringify(recentMessages);
+      if (data.length > 2000) {
+        data = JSON.stringify(recentMessages.slice(-10));
+      }
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem(CHAT_KEY, data);

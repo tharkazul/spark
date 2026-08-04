@@ -23,9 +23,15 @@ export const authApi = {
 export const userApi = {
   getProfile: () => apiClient<UserProfile>('/api/user/settings'),
   updateSettings: (data: Partial<UserProfile>) =>
-    apiClient<{ success: boolean }>('/api/user/settings', {
+    apiClient<{ success: boolean }>('/api/user/settings/coach', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        coachTone: data.coach_tone,
+        athleteContext: data.athlete_context,
+        targetEvent: data.target_event,
+        eventDate: data.event_date,
+        targetCtl: data.target_ctl,
+      }),
     }),
   trackSparkPlusClick: () =>
     apiClient<{ success: boolean }>('/api/track-spark-plus-click', { method: 'POST' }),

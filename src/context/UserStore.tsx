@@ -85,6 +85,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
 
         const finalUser: UserProfile = profileData ? {
           ...profileData,
+          athlete_context: (profileData as any).athleteContext ?? (profileData as any).athlete_context ?? profileData.athlete_context,
+          coach_tone: (profileData as any).coachTone ?? profileData.coach_tone,
           garmin_connected: (profileData as any).hasGarmin ?? profileData.garmin_connected,
           strava_connected: (profileData as any).hasStrava ?? profileData.strava_connected,
         } : defaultFallbackUser(identifier.split('@')[0]);
@@ -137,6 +139,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         setUser((prev) => ({
           ...prev,
           ...data,
+          athlete_context: (data as any).athleteContext ?? (data as any).athlete_context ?? data.athlete_context,
+          coach_tone: (data as any).coachTone ?? data.coach_tone,
           garmin_connected: (data as any).hasGarmin ?? data.garmin_connected,
           strava_connected: (data as any).hasStrava ?? data.strava_connected,
         }));
@@ -148,7 +152,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   };
 
   const updateUser = async (data: Partial<UserProfile>) => {
-    setUser((prev) => (prev ? { ...prev, ...data } : null));
+    setUser((prev) => ({ ...(prev || defaultFallbackUser('Athlete')), ...data }));
     try {
       await userApi.updateSettings(data);
     } catch (err: any) {
@@ -182,6 +186,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
 
           const finalUser: UserProfile = profile ? {
             ...profile,
+            athlete_context: (profile as any).athleteContext ?? (profile as any).athlete_context ?? profile.athlete_context,
+            coach_tone: (profile as any).coachTone ?? profile.coach_tone,
             garmin_connected: (profile as any).hasGarmin ?? profile.garmin_connected,
             strava_connected: (profile as any).hasStrava ?? profile.strava_connected,
           } : defaultFallbackUser('Athlete');

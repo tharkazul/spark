@@ -10,7 +10,7 @@ import { useUser } from '../context/UserStore';
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigation() {
-  const { isAuthenticated, loading } = useUser();
+  const { user, isAuthenticated, loading } = useUser();
   const segments = useSegments();
   const router = useRouter();
 
@@ -18,13 +18,23 @@ function RootNavigation() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === 'login';
+    const inOnboarding = segments[0] === 'onboarding';
+
+    const isNewAthlete = !user?.athlete_context ||
+                         user?.athlete_context === 'New athlete.' ||
+                         user?.athlete_context === 'No context provided yet.' ||
+                         user?.athlete_context.trim() === '';
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace('/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace('/(tabs)');
+    } else if (isAuthenticated) {
+      if (isNewAthlete && !inOnboarding) {
+        router.replace('/onboarding');
+      } else if (!isNewAthlete && (inAuthGroup || inOnboarding)) {
+        router.replace('/(tabs)');
+      }
     }
-  }, [isAuthenticated, loading, segments]);
+  }, [isAuthenticated, loading, segments, user]);
 
   if (loading) {
     return (
@@ -38,6 +48,7 @@ function RootNavigation() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
     </Stack>
   );
 }
