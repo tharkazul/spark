@@ -1,20 +1,21 @@
 import React from 'react';
 import { ScrollView, TouchableOpacity, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface QuickSuggestionsProps {
   onSelectSuggestion: (text: string) => void;
 }
 
-const DEFAULT_SUGGESTIONS = [
-  { label: "Adjust tomorrow's run", prompt: "Can we adjust tomorrow's run to be a bit lighter?" },
-  { label: "Log Niggle", prompt: "I want to log a niggle in my right calf." },
-  { label: "Plan next week", prompt: "Can you help plan my workouts for next week?" },
-  { label: "Check readiness", prompt: "How is my recovery and readiness looking today?" },
-  { label: "Strength session", prompt: "Suggest a 30-min core & stability strength session." },
-];
-
 export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({ onSelectSuggestion }) => {
+  const { t } = useLanguage();
+
+  const DEFAULT_SUGGESTIONS = [
+    { label: t('chat.suggested1'), prompt: t('chat.suggested1') },
+    { label: t('chat.suggested2'), prompt: t('chat.suggested2') },
+    { label: t('chat.suggested3'), prompt: t('chat.suggested3') },
+  ];
+
   return (
     <View className="py-2 px-1">
       <ScrollView
@@ -23,8 +24,8 @@ export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({ onSelectSugg
         contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}
       >
         <View className="flex-row items-center mr-1">
-          <Ionicons name="bulb-outline" size={16} color="#00E5FF" />
-          <Text className="text-theme-accent text-xs font-bold ml-1 uppercase tracking-wider">SUGGESTIONS:</Text>
+          <Ionicons name="bulb-outline" size={16} color="#FF5A1F" />
+          <Text className="text-theme-accent text-xs font-bold ml-1 uppercase tracking-wider">{t('chat.suggestedQuestions')}</Text>
         </View>
         {DEFAULT_SUGGESTIONS.map((item, idx) => (
           <TouchableOpacity
@@ -39,3 +40,4 @@ export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({ onSelectSugg
     </View>
   );
 };
+

@@ -21,6 +21,8 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { userApi, integrationsApi } from '../../services/apiServices';
 import { useUser } from '../../context/UserStore';
+import { useLanguage } from '../../context/LanguageContext';
+import { LanguageSelector } from '../LanguageSelector';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,6 +39,7 @@ const DURATION_OPTIONS = [
 export default function OnboardingWizard() {
   const router = useRouter();
   const { user, refreshUser, updateUser } = useUser();
+  const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -438,10 +441,11 @@ export default function OnboardingWizard() {
             </TouchableOpacity>
           )}
           <View>
-            <Text className="text-theme-text text-xl font-bold font-barlow">Setup Wizard</Text>
-            <Text className="text-theme-muted text-xs">Step {currentStep} of {totalSteps}</Text>
+            <Text className="text-theme-text text-xl font-bold font-barlow">{t('onboarding.title')}</Text>
+            <Text className="text-theme-muted text-xs">{t('onboarding.stepOf', { current: currentStep, total: totalSteps })}</Text>
           </View>
         </View>
+
         <View className="flex-row space-x-1">
           {Array.from({ length: totalSteps }).map((_, idx) => (
             <View
@@ -468,7 +472,7 @@ export default function OnboardingWizard() {
         keyboardShouldPersistTaps="handled"
         className="flex-1"
       >
-        {/* STEP 1: COACH PERSONA */}
+        {/* STEP 1: COACH PERSONA & LANGUAGE */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-6 pt-6"
@@ -478,11 +482,25 @@ export default function OnboardingWizard() {
             automaticallyAdjustKeyboardInsets={true}
           >
             <View className="space-y-4">
+              {/* Language Selection Card at Start of Onboarding */}
+              <View className="p-4 rounded-xl border border-theme-border bg-theme-card shadow-sm mb-4">
+                <View className="flex-row items-center space-x-2 mb-1">
+                  <Ionicons name="language" size={20} color="#FF5A1F" />
+                  <Text className="text-theme-text font-bold text-base">
+                    {t('onboarding.selectLanguageTitle')}
+                  </Text>
+                </View>
+                <Text className="text-theme-muted text-xs mb-3">
+                  {t('onboarding.selectLanguageSubtitle')}
+                </Text>
+                <LanguageSelector />
+              </View>
+
               <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                1. Choose Coach Persona Tone
+                1. {t('onboarding.personaTitle')}
               </Text>
               <Text className="text-theme-text text-sm">
-                Select how Spark communicates with you during post-workout feedback and chat.
+                {t('onboarding.personaSubtitle')}
               </Text>
 
               <TouchableOpacity
@@ -498,9 +516,9 @@ export default function OnboardingWizard() {
                     <Ionicons name="sparkles" size={24} color="#FF5A1F" />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-theme-text font-bold text-base">Empathetic & Demanding (Default)</Text>
+                    <Text className="text-theme-text font-bold text-base">{t('onboarding.toneEmpatheticTitle')}</Text>
                     <Text className="text-theme-muted text-xs mt-1">
-                      Balanced, supportive, but holds you accountable to your target goals.
+                      {t('onboarding.toneEmpatheticDesc')}
                     </Text>
                   </View>
                 </View>
@@ -519,9 +537,9 @@ export default function OnboardingWizard() {
                     <Ionicons name="analytics" size={24} color="#a855f7" />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-theme-text font-bold text-base">Data Nerd & Snarky</Text>
+                    <Text className="text-theme-text font-bold text-base">{t('onboarding.toneStrictTitle')}</Text>
                     <Text className="text-theme-muted text-xs mt-1">
-                      Analytical, strictly focuses on PMC numbers, dry British humor.
+                      {t('onboarding.toneStrictDesc')}
                     </Text>
                   </View>
                 </View>
@@ -540,12 +558,13 @@ export default function OnboardingWizard() {
                     <Ionicons name="heart" size={24} color="#10b981" />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-theme-text font-bold text-base">Positive Cheerleader</Text>
+                    <Text className="text-theme-text font-bold text-base">{t('onboarding.toneCheerleaderTitle')}</Text>
                     <Text className="text-theme-muted text-xs mt-1">
-                      Always encouraging, highly empathetic, focuses on consistency over perfection.
+                      {t('onboarding.toneCheerleaderDesc')}
                     </Text>
                   </View>
                 </View>
+
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -562,10 +581,10 @@ export default function OnboardingWizard() {
           >
             <View className="space-y-4">
               <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                2. Tell Us About Yourself
+                2. {t('onboarding.athleteContextTitle')}
               </Text>
               <Text className="text-theme-text text-sm">
-                Provide context to help Spark tailor your workouts around work, family, and preferences.
+                {t('onboarding.athleteContextSubtitle')}
               </Text>
 
               <TextInput
@@ -573,7 +592,7 @@ export default function OnboardingWizard() {
                 numberOfLines={4}
                 value={athleteContext}
                 onChangeText={setAthleteContext}
-                placeholder="e.g. Amateur triathlete, parent of 2 kids, prefers lunch workout runs..."
+                placeholder={t('onboarding.athleteContextPlaceholder')}
                 placeholderTextColor="#8E8E93"
                 className="p-4 bg-theme-card border border-theme-border rounded-xl text-theme-text text-sm min-h-[100px]"
                 style={{ textAlignVertical: 'top' }}
@@ -581,7 +600,7 @@ export default function OnboardingWizard() {
 
               <View className="bg-theme-card border border-theme-border rounded-xl p-4 mt-2">
                 <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider mb-2">
-                  Physiological Baselines (Optional)
+                  {t('onboarding.baselinesTitle')}
                 </Text>
                 {metrics.map((item, idx) => (
                   <View key={idx} className="flex-row space-x-2 mb-2">
@@ -613,17 +632,17 @@ export default function OnboardingWizard() {
                   onPress={addMetricRow}
                   className="mt-2 py-2 items-center bg-theme-accent/10 border border-theme-accent/30 rounded-lg"
                 >
-                  <Text className="text-theme-accent text-xs font-bold">+ Add Metric</Text>
+                  <Text className="text-theme-accent text-xs font-bold">{t('onboarding.addMetric')}</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Goal Race Setup */}
               <View className="bg-theme-card border border-theme-border rounded-xl p-4 space-y-3 mt-2">
                 <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                  Main Target Event
+                  {t('onboarding.targetEventTitle')}
                 </Text>
                 <TextInput
-                  placeholder="Race Name (e.g. Amsterdam Marathon)"
+                  placeholder={t('onboarding.raceNamePlaceholder')}
                   placeholderTextColor="#8E8E93"
                   value={raceName}
                   onChangeText={handleRaceNameChange}
@@ -684,16 +703,16 @@ export default function OnboardingWizard() {
           >
             <View className="space-y-4">
               <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                3. Spark Points & Progression
+                3. {t('onboarding.sparkTitle')}
               </Text>
 
               <View className="bg-theme-card border border-theme-border rounded-2xl p-5">
                 <View className="w-12 h-12 rounded-full bg-amber-500/20 items-center justify-center mb-3">
                   <Ionicons name="flash" size={26} color="#f59e0b" />
                 </View>
-                <Text className="text-theme-text font-bold text-lg mb-1">What is Spark?</Text>
+                <Text className="text-theme-text font-bold text-lg mb-1">{t('onboarding.whatIsSparkTitle')}</Text>
                 <Text className="text-theme-muted text-xs leading-relaxed">
-                  Spark is your core XP currency. Every run, cycle, swim, or strength session logged earns Spark points based on intensity and duration.
+                  {t('onboarding.whatIsSparkDesc')}
                 </Text>
               </View>
 
@@ -701,14 +720,15 @@ export default function OnboardingWizard() {
                 <View className="w-12 h-12 rounded-full bg-theme-accent/20 items-center justify-center mb-3">
                   <Ionicons name="trending-up" size={26} color="#FF5A1F" />
                 </View>
-                <Text className="text-theme-text font-bold text-lg mb-1">Leveling Up</Text>
+                <Text className="text-theme-text font-bold text-lg mb-1">{t('onboarding.levelingUpTitle')}</Text>
                 <Text className="text-theme-muted text-xs leading-relaxed">
-                  As your cumulative Spark grows, you unlock higher Spark Levels. Your rank is showcased on community leaderboards, and Spark celebrates your level milestones!
+                  {t('onboarding.levelingUpDesc')}
                 </Text>
               </View>
             </View>
           </ScrollView>
         </View>
+
 
         {/* STEP 4: WEEKLY SCHEDULE AVAILABILITY */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
@@ -721,10 +741,10 @@ export default function OnboardingWizard() {
           >
             <View className="space-y-4">
               <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                4. Weekly Schedule Availability
+                4. {t('onboarding.scheduleTitle')}
               </Text>
               <Text className="text-theme-text text-sm">
-                Configure available days and maximum training minutes. Spark will distribute weekly volume within these bounds.
+                {t('onboarding.scheduleSubtitle')}
               </Text>
 
               {DAYS.map((day) => {
@@ -740,7 +760,7 @@ export default function OnboardingWizard() {
                     <View className="flex-row items-center justify-between">
                       <Text className="text-theme-text font-bold text-base">{day}</Text>
                       <Text className={`text-xs font-semibold ${isRestDay ? 'text-theme-muted italic' : 'text-theme-accent'}`}>
-                        {isRestDay ? 'Rest Day' : `${currentMins} mins max`}
+                        {isRestDay ? t('common.restDay') : t('common.minsMax', { mins: currentMins })}
                       </Text>
                     </View>
 
@@ -791,7 +811,7 @@ export default function OnboardingWizard() {
           >
             <View className="space-y-4">
               <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                5. Integrations & Sync
+                5. {t('onboarding.integrationsTitle')}
               </Text>
 
               {/* Garmin Connect Toggle & Credentials */}
@@ -801,7 +821,7 @@ export default function OnboardingWizard() {
                     <Ionicons name="watch-outline" size={22} color="#007ACC" />
                     <View>
                       <Text className="text-theme-text font-bold text-sm">Garmin Connect</Text>
-                      <Text className="text-theme-muted text-xs">Sync daily workouts & HRV</Text>
+                      <Text className="text-theme-muted text-xs">{t('onboarding.garminSyncSubtitle')}</Text>
                     </View>
                   </View>
                   <Switch
@@ -838,13 +858,13 @@ export default function OnboardingWizard() {
               <View className="bg-theme-card border border-theme-border rounded-xl p-4 flex-row items-center justify-between">
                 <View className="flex-row items-center">
                   <Ionicons name="bicycle" size={20} color="#FC4C02" className="mr-3" />
-                  <Text className="text-theme-text font-bold text-sm">Strava Sync</Text>
+                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.stravaSyncTitle')}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => Alert.alert('Strava OAuth', 'Strava connection will open in web browser.')}
                   className="bg-[#FC4C02] px-4 py-2 rounded-lg"
                 >
-                  <Text className="text-white font-bold text-xs">Connect Strava</Text>
+                  <Text className="text-white font-bold text-xs">{t('onboarding.connectStrava')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -865,14 +885,14 @@ export default function OnboardingWizard() {
                 <View className="px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full flex-row items-center mb-2">
                   <Ionicons name="flash" size={14} color="#f59e0b" className="mr-1" />
                   <Text className="text-amber-500 font-bold text-xs uppercase tracking-wider">
-                    Spark Plus Subscription
+                    {t('onboarding.subscriptionBadge')}
                   </Text>
                 </View>
                 <Text className="text-theme-text text-2xl font-bold font-barlow text-center">
-                  Unlock Your Full Potential
+                  {t('onboarding.unlockPotentialTitle')}
                 </Text>
                 <Text className="text-theme-muted text-xs text-center mt-1 px-4">
-                  Upgrade to unlock unlimited Spark chat tokens, custom macro periodization, automated Garmin sync, and injury diagnostics.
+                  {t('onboarding.unlockPotentialSubtitle')}
                 </Text>
               </View>
 
@@ -887,9 +907,9 @@ export default function OnboardingWizard() {
                   }`}
                 >
                   <View className="self-start px-2 py-0.5 bg-theme-accent rounded-full mb-2">
-                    <Text className="text-white font-bold text-[9px]">SAVE 17%</Text>
+                    <Text className="text-white font-bold text-[9px]">{t('onboarding.savePercent')}</Text>
                   </View>
-                  <Text className="text-theme-text font-bold text-base">Annual</Text>
+                  <Text className="text-theme-text font-bold text-base">{t('onboarding.annual')}</Text>
                   <Text className="text-theme-accent font-bold text-xl mt-1">€5.83<Text className="text-xs text-theme-muted">/mo</Text></Text>
                   <Text className="text-theme-muted text-[10px] mt-1">€69.99 billed yearly</Text>
                 </TouchableOpacity>
@@ -902,7 +922,7 @@ export default function OnboardingWizard() {
                       : 'border-theme-border bg-theme-bg'
                   }`}
                 >
-                  <Text className="text-theme-text font-bold text-base mt-4">Monthly</Text>
+                  <Text className="text-theme-text font-bold text-base mt-4">{t('onboarding.monthly')}</Text>
                   <Text className="text-theme-text font-bold text-xl mt-1">€6.99<Text className="text-xs text-theme-muted">/mo</Text></Text>
                   <Text className="text-theme-muted text-[10px] mt-1">Billed monthly</Text>
                 </TouchableOpacity>
@@ -925,6 +945,7 @@ export default function OnboardingWizard() {
             </View>
           </ScrollView>
         </View>
+
       </ScrollView>
 
       {/* Fixed Bottom Navigation Buttons */}

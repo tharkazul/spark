@@ -25,25 +25,25 @@ export interface NutritionMacro {
   fatTarget: number;
   focusTitle: string;
   rationale: string;
-  loggedCarbs?: number;
-  loggedProtein?: number;
-  loggedFat?: number;
-  loggedItems?: string[];
+}
+
+export interface TrainingPhaseDetail {
+  name: string;
+  weeks: string;
+  focus: string;
+  description: string;
+  status: 'completed' | 'active' | 'upcoming';
+  progressPercent?: number; // for active phase (0-100)
+  achievementLabel?: string; // e.g. 'Done at 92% Target CTL'
+  targetCTL?: number;
+  achievedCTL?: number;
 }
 
 export interface MacroPeriodInfo {
   raceTargetName: string;
   daysRemaining: number;
-  currentPhaseIndex: number; // 0: Base, 1: Build, 2: Peak, 3: Taper
+  currentPhaseIndex: number;
   targetCTL: number;
   currentCTL: number;
-  phases: {
-    name: string;
-    weeks: string;
-    focus: string;
-    progressPercent: number; // 0-100 for current phase
-    targetVolume?: string; // e.g. "8-10 hrs/wk"
-    targetSpark?: string; // e.g. "420-480 Spark/wk"
-    keySessions?: string[]; // e.g. ["2x20m Threshold Ride", "Long Endurance Run"]
-  }[];
+  phases: TrainingPhaseDetail[];
 }

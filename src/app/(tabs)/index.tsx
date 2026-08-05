@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,137 +7,39 @@ import {
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  ActivityIndicator,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
-// Custom Components
-import { CoachHighlightCard } from '../../components/dashboard/CoachHighlightCard';
-import { PMCMetricsCard } from '../../components/dashboard/PMCMetricsCard';
-import { QuickActionsBar } from '../../components/dashboard/QuickActionsBar';
+// Custom Dashboard Components
 import { TodaysPlanCard } from '../../components/dashboard/TodaysPlanCard';
+import { ActiveQuestCard } from '../../components/dashboard/ActiveQuestCard';
+import { QuickActionsRow } from '../../components/dashboard/QuickActionsRow';
 import { NutritionProtocolCard } from '../../components/dashboard/NutritionProtocolCard';
-import { ActiveQuestsCard } from '../../components/dashboard/ActiveQuestsCard';
 import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
 import { MicroPlanAgendaCard, DayAgenda } from '../../components/dashboard/MicroPlanAgendaCard';
+
+// Modals
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
+import { LogWeightModal } from '../../components/dashboard/LogWeightModal';
+import { LogNiggleModal } from '../../components/dashboard/LogNiggleModal';
 
 import {
   WorkoutItem,
   NutritionMacro,
   MacroPeriodInfo,
-  SportType,
 } from '../../types/dashboard';
-
-import { usePlan } from '../../context/PlanStore';
-import { usePhysique } from '../../context/PhysiqueStore';
-import { useTabBar } from '../../context/TabBarContext';
-import { chatApi, userApi, activitiesApi } from '../../services/apiServices';
-import { briefingStorage } from '../../services/storage';
-import { PlannedWorkout } from '../../types/plan';
-import { UserProfile } from '../../types/user';
-import { Activity } from '../../types/activity';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Date Utility Helpers
-function getMonday(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
-}
-
-function formatDateToYYYYMMDD(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
-
-function formatShortDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function formatDayName(d: Date): string {
-  const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-  return days[d.getDay()];
-}
-
-function mapSportType(sportStr?: string): SportType {
-  if (!sportStr) return 'RUN';
-  const s = sportStr.toUpperCase();
-  if (s.includes('SWIM')) return 'SWIM';
-  if (s.includes('BIKE') || s.includes('CYCLE') || s.includes('RIDE')) return 'BIKE';
-  if (s.includes('STRENGTH') || s.includes('WEIGHT')) return 'STRENGTH';
-  if (s.includes('MOBILITY') || s.includes('STRETCH') || s.includes('YOGA')) return 'MOBILITY';
-  if (s.includes('REST')) return 'REST';
-  return 'RUN';
-}
-
-function getSnappyCoachSummary(msgs: ChatMessage[], tsb: number = -7.9): string {
-  if (!msgs || msgs.length === 0) {
-    return 'Readiness is solid today. Focus on consistency for your scheduled training volume.';
-  }
-
-  // 1. Check for dedicated morning briefing / hype message
-  const morningMsg = msgs.slice().reverse().find(
-    (m) => (m.mood === 'hype' || m.mood === 'morning' || m.mood === 'reflection') && m.content
-  );
-  if (morningMsg && morningMsg.content) {
-    const text = morningMsg.content.trim();
-    if (text.length <= 160) return text;
-    const sentences = text.split(/(?<=[.!?])\s+/);
-    return sentences.slice(0, 2).join(' ');
-  }
-
-  // 2. Extract action sentence from recent chat response
-  const lastCoachMsg = msgs.slice().reverse().find(
-    (m) => (m.role === 'coach' || m.role === 'assistant') && m.content
-  );
-
-  if (lastCoachMsg && lastCoachMsg.content) {
-    const text = lastCoachMsg.content.trim();
-    const sentences = text.split(/(?<=[.!?])\s+/);
-    // Find an action sentence
-    const actionSentence = sentences.find((s) =>
-      /run|workout|session|focus|plan|rest|build|keep|let's|tempo|brick|interval|streak/i.test(s)
-    );
-    if (actionSentence && actionSentence.length >= 15 && actionSentence.length <= 160) {
-      return actionSentence.trim();
-    }
-    if (sentences.length > 0 && sentences[0].length <= 160) {
-      return sentences[0].trim();
-    }
-  }
-
-  // 3. Fallback guidance
-  if (tsb < -30) {
-    return 'High fatigue detected. Focus on active recovery and fueling today to avoid overtraining.';
-  } else if (tsb < -10) {
-    return 'Optimal training zone! You are building fitness according to plan. Stay consistent today.';
-  } else {
-    return 'Readiness is solid today. Stick to your scheduled volume to trigger new fitness adaptations.';
-  }
-}
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { notifyScroll } = useTabBar();
-  const { plan, loading: planLoading, addWorkout, updateWorkout, deleteWorkout, adaptPlan, pushForward, refreshPlan } = usePlan();
-  const { physiqueLogs, nutrition: storeNutrition } = usePhysique();
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const [segmentedWidth, setSegmentedWidth] = useState(SCREEN_WIDTH - 40);
-
-  const tabWidth = Math.max(0, (segmentedWidth - 8) / 2);
-  const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [0, tabWidth],
-    extrapolate: 'clamp',
-  });
 
   // Sub-tab state ('dash' vs 'planning')
   const [activeTab, setActiveTab] = useState<'dash' | 'planning'>('dash');
@@ -145,203 +47,243 @@ export default function DashboardScreen() {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
+  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
+  const [isNiggleModalOpen, setIsNiggleModalOpen] = useState(false);
+
+  const [recordedWeight, setRecordedWeight] = useState<number>(74.5);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
-  const [targetAddDay, setTargetAddDay] = useState<{ dayName: string; dateStr: string; fullDate: string }>({
-    dayName: 'TODAY',
-    dateStr: formatShortDate(new Date()),
-    fullDate: formatDateToYYYYMMDD(new Date()),
+  const [targetAddDay, setTargetAddDay] = useState<{ dayName: string; dateStr: string }>({
+    dayName: 'FRI',
+    dateStr: 'Jul 24',
   });
 
-  // Dynamic state from backend APIs
-  const [coachMessage, setCoachMessage] = useState<string>(
-    'You are in a transitional phase. You are shedding fatigue, but you need to push a bit harder to trigger new fitness adaptations.'
-  );
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [completedActivities, setCompletedActivities] = useState<Activity[]>([]);
-  const [weatherInfo, setWeatherInfo] = useState<{ temp: string; icon: string }>({
-    temp: '22°C',
-    icon: 'partly-sunny-outline',
+  // Calculate dynamic dimensions for tab indicator bubble
+  const containerWidth = SCREEN_WIDTH - 40; // px-5 = 20px margin left/right
+  const tabWidth = (containerWidth - 8) / 2; // p-1 = 4px padding left/right inside container
+
+  const indicatorLeft = scrollX.interpolate({
+    inputRange: [0, Math.max(1, SCREEN_WIDTH)],
+    outputRange: [4, 4 + tabWidth],
+    extrapolate: 'clamp',
   });
 
-  // Selected week start date (defaults to Monday of current week)
-  const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+  // Nutrition Protocol (Bottom of Dashboard)
+  const nutrition: NutritionMacro = {
+    focusTitle: 'Threshold Run Fuel & Muscle Recovery',
+    rationale:
+      'Based on your high 23.94 Spark Points load yesterday, prioritize complex carbs and quick protein synthesis to restore glycogen stores.',
+    carbs: 320,
+    carbsTarget: 350,
+    protein: 160,
+    proteinTarget: 170,
+    fat: 65,
+    fatTarget: 70,
+  };
 
-  // Fetch coach briefing message, user settings, activity history, and live weather forecast
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadBackendData() {
-      try {
-        // Check local device cache for today's briefing
-        const cachedBriefing = await briefingStorage.getDailyBriefing(todayYYYYMMDD);
-        if (cachedBriefing && isMounted) {
-          setCoachMessage(cachedBriefing);
-        }
-
-        const [chatHistory, profileData, historyData] = await Promise.allSettled([
-          chatApi.getHistory(),
-          userApi.getProfile(),
-          activitiesApi.getActivities(),
-        ]);
-
-        if (isMounted && chatHistory.status === 'fulfilled' && Array.isArray(chatHistory.value)) {
-          const summary = getSnappyCoachSummary(chatHistory.value);
-          setCoachMessage(summary);
-          await briefingStorage.setDailyBriefing(todayYYYYMMDD, summary);
-        }
-
-        if (isMounted && profileData.status === 'fulfilled' && profileData.value) {
-          setUserProfile(profileData.value);
-        }
-
-        if (isMounted && historyData.status === 'fulfilled' && Array.isArray(historyData.value)) {
-          setCompletedActivities(historyData.value);
-        }
-
-        // Fetch Live Weather Forecast from Open-Meteo
-        try {
-          const weatherRes = await fetch(
-            'https://api.open-meteo.com/v1/forecast?latitude=52.3676&longitude=4.9041&current=temperature_2m,weather_code&timezone=Europe%2FAmsterdam'
-          );
-          const weatherData = await weatherRes.json();
-          if (isMounted && weatherData && weatherData.current) {
-            const tempVal = Math.round(weatherData.current.temperature_2m);
-            const code = weatherData.current.weather_code;
-
-            let icon = 'partly-sunny-outline';
-            if (code === 0) icon = 'sunny-outline';
-            else if (code >= 1 && code <= 3) icon = 'cloudy-outline';
-            else if (code >= 45 && code <= 48) icon = 'cloud-outline';
-            else if (code >= 51 && code <= 82) icon = 'rainy-outline';
-            else if (code >= 95) icon = 'thunderstorm-outline';
-
-            setWeatherInfo({ temp: `${tempVal}°C`, icon });
-          }
-        } catch (wErr) {
-          console.log('Weather fetch info:', wErr);
-        }
-      } catch (err) {
-        console.log('Error loading dashboard backend data:', err);
-      }
-    }
-
-    loadBackendData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Today's Date Info
-  const today = new Date();
-  const todayYYYYMMDD = formatDateToYYYYMMDD(today);
-  const todayHeaderLabel = `${formatDayName(today).slice(0, 3)}, ${formatShortDate(today)}`;
-
-  // Season Roadmap derived info with expandable details
-  const daysUntilRace = userProfile?.event_date
-    ? Math.max(0, Math.ceil((new Date(userProfile.event_date).getTime() - today.getTime()) / (1000 * 3600 * 24)))
-    : 36;
-
+  // Training Phase (Renamed & Enhanced with Detailed Info + Completion Stats)
   const seasonInfo: MacroPeriodInfo = {
-    raceTargetName: userProfile?.target_event || 'Ironman 70.3',
-    daysRemaining: daysUntilRace,
+    raceTargetName: 'Ironman 70.3',
+    daysRemaining: 36,
     currentPhaseIndex: 1, // BUILD phase
-    targetCTL: userProfile?.target_ctl || 95,
-    currentCTL: userProfile?.current_ctl || 68,
+    targetCTL: 95,
+    currentCTL: 68,
     phases: [
       {
         name: 'BASE PHASE',
         weeks: 'Weeks 1-6',
-        focus: 'Aerobic Volume & Technique',
-        progressPercent: 100,
-        targetVolume: '8-10 hrs/wk',
-        targetSpark: '400-450 Spark/wk',
-        keySessions: ['Long Aerobic Ride (3h)', 'Base Progression Run', 'CSS Swim Drills'],
+        focus: 'Aerobic Volume & Technic',
+        description: 'Building mitochondrial density & base aerobic capacity with low HR long rides and CSS swim threshold sets.',
+        status: 'completed',
+        achievementLabel: 'Done at 94% Target CTL',
+        targetCTL: 52,
+        achievedCTL: 49,
       },
       {
         name: 'BUILD PHASE',
         weeks: 'Weeks 7-12',
         focus: 'Threshold Velocity & Power',
+        description: 'High aerobic intervals, threshold swim pace, VO2 max bike intervals, and Saturday brick runs.',
+        status: 'active',
         progressPercent: 55,
-        targetVolume: '10-12 hrs/wk',
-        targetSpark: '480-550 Spark/wk',
-        keySessions: ['2x20m Threshold Bike Intervals', 'Tempo Brick Run', 'CSS Swim Pace Sets'],
       },
       {
         name: 'PEAK PHASE',
         weeks: 'Weeks 13-14',
         focus: 'Race Pace Intervals',
-        progressPercent: 0,
-        targetVolume: '11-13 hrs/wk',
-        targetSpark: '520-580 Spark/wk',
-        keySessions: ['Race Pace Brick Session', 'Over-Under Bike Intervals', 'Sharpening Swim'],
+        description: 'Race-specific pacing simulation, sharp interval efforts, and high-intensity micro efforts.',
+        status: 'upcoming',
       },
       {
         name: 'TAPER PHASE',
         weeks: 'Weeks 15-16',
         focus: 'Glycogen Supercompensation',
-        progressPercent: 0,
-        targetVolume: '5-7 hrs/wk',
-        targetSpark: '250-300 Spark/wk',
-        keySessions: ['Short Sharpening Open Water Swim', 'Pace Opener Ride & Run'],
+        description: 'Volume reduction by 50% while maintaining sharp stride frequency to arrive fresh on race day.',
+        status: 'upcoming',
       },
     ],
   };
 
-  // Convert PlannedWorkout from PlanStore/Backend into WorkoutItem
-  const convertPlannedWorkoutToItem = (p: PlannedWorkout, dayName: string, dateStr: string): WorkoutItem => {
-    const matchedActivity = completedActivities.find(
-      (a) => a.start_date && a.start_date.startsWith(p.date) && mapSportType(a.sport_type) === mapSportType(p.sport)
-    );
+  // Today's Workouts (Top of Dashboard)
+  const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutItem[]>([
+    {
+      id: 'w-today-1',
+      day: 'FRI',
+      dateStr: 'Jul 24',
+      type: 'SWIM',
+      title: 'Sharpening CSS Swim Session',
+      duration: '45 mins',
+      sparkPoints: 24,
+      isStructured: true,
+      isCompleted: false,
+    },
+    {
+      id: 'w-today-2',
+      day: 'FRI',
+      dateStr: 'Jul 24',
+      type: 'RUN',
+      title: 'Morning Aerobic Maintenance Run',
+      duration: '35 mins',
+      sparkPoints: 32,
+      isStructured: true,
+      isCompleted: true,
+      actualDuration: '34:12',
+      actualMetrics: '154 avg bpm · 4:48/km pace',
+      executionScore: 98,
+    },
+  ]);
 
-    return {
-      id: String(p.id),
-      day: dayName,
-      dateStr: dateStr,
-      type: mapSportType(p.sport),
-      title: p.description || `${p.sport} Session`,
-      duration: p.details?.match(/(\d+\s*mins?)/i)?.[1] || '45 mins',
-      sparkPoints: p.target_spark || 30,
-      isStructured: !!p.steps_json,
-      isCompleted: p.isCompleted || !!matchedActivity,
-      actualMetrics: matchedActivity
-        ? `${matchedActivity.average_heartrate ? `${matchedActivity.average_heartrate} avg bpm · ` : ''}${matchedActivity.distance_km ? `${matchedActivity.distance_km.toFixed(1)}km` : ''}`
-        : p.actualMetrics,
-      executionScore: p.executionScore || (matchedActivity ? 98 : undefined),
-    };
-  };
+  // Micro Agenda (Full Week)
+  const [weeklyAgenda, setWeeklyAgenda] = useState<DayAgenda[]>([
+    {
+      dayName: 'MON',
+      dateStr: 'Jul 20',
+      workouts: [
+        {
+          id: 'w-mon-1',
+          day: 'MON',
+          dateStr: 'Jul 20',
+          type: 'RUN',
+          title: 'Controlled Aerobic Run - Injury Guardrail',
+          duration: '50 mins',
+          sparkPoints: 44,
+          isStructured: true,
+          isCompleted: true,
+          actualMetrics: '152 avg bpm · 4:52/km',
+          executionScore: 100,
+        },
+      ],
+    },
+    {
+      dayName: 'TUE',
+      dateStr: 'Jul 21',
+      workouts: [
+        {
+          id: 'w-tue-1',
+          day: 'TUE',
+          dateStr: 'Jul 21',
+          type: 'STRENGTH',
+          title: 'Secret At-Home Core & Mobility with Spark',
+          duration: '35 mins',
+          sparkPoints: 26,
+          isStructured: true,
+          isCompleted: true,
+          actualMetrics: '35 mins · 118 avg bpm',
+          executionScore: 96,
+        },
+      ],
+    },
+    {
+      dayName: 'WED',
+      dateStr: 'Jul 22',
+      workouts: [
+        {
+          id: 'w-wed-1',
+          day: 'WED',
+          dateStr: 'Jul 22',
+          type: 'BIKE',
+          title: 'Threshold Interval Trainer Session',
+          duration: '60 mins',
+          sparkPoints: 52,
+          isStructured: true,
+          isCompleted: true,
+          actualMetrics: '248W avg · 164 bpm',
+          executionScore: 102,
+        },
+      ],
+    },
+    {
+      dayName: 'THU',
+      dateStr: 'Jul 23',
+      workouts: [],
+    },
+    {
+      dayName: 'FRI',
+      dateStr: 'Jul 24',
+      isToday: true,
+      workouts: [
+        {
+          id: 'w-today-1',
+          day: 'FRI',
+          dateStr: 'Jul 24',
+          type: 'SWIM',
+          title: 'Sharpening CSS Swim Session',
+          duration: '45 mins',
+          sparkPoints: 24,
+          isStructured: true,
+          isCompleted: false,
+        },
+        {
+          id: 'w-today-2',
+          day: 'FRI',
+          dateStr: 'Jul 24',
+          type: 'RUN',
+          title: 'Morning Aerobic Maintenance Run',
+          duration: '35 mins',
+          sparkPoints: 32,
+          isStructured: true,
+          isCompleted: true,
+          actualMetrics: '154 avg bpm · 4:48/km pace',
+          executionScore: 98,
+        },
+      ],
+    },
+    {
+      dayName: 'SAT',
+      dateStr: 'Jul 25',
+      workouts: [
+        {
+          id: 'w-sat-1',
+          day: 'SAT',
+          dateStr: 'Jul 25',
+          type: 'BIKE',
+          title: 'Long Endurance Ride & Brick Run',
+          duration: '120 mins',
+          sparkPoints: 95,
+          isStructured: true,
+          isCompleted: false,
+        },
+      ],
+    },
+    {
+      dayName: 'SUN',
+      dateStr: 'Jul 26',
+      workouts: [
+        {
+          id: 'w-sun-1',
+          day: 'SUN',
+          dateStr: 'Jul 26',
+          type: 'MOBILITY',
+          title: 'Active Recovery Walk & Stretch',
+          duration: '30 mins',
+          sparkPoints: 15,
+          isStructured: false,
+          isCompleted: false,
+        },
+      ],
+    },
+  ]);
 
-  // Compute Today's Workouts
-  const todaysWorkouts: WorkoutItem[] = plan
-    .filter((p) => p.date === todayYYYYMMDD)
-    .map((p) => convertPlannedWorkoutToItem(p, formatDayName(today), formatShortDate(today)));
-
-  // Compute Weekly Agenda for the selected week
-  const agendaDays: DayAgenda[] = Array.from({ length: 7 }, (_, i) => {
-    const dayDate = new Date(weekStart);
-    dayDate.setDate(dayDate.getDate() + i);
-
-    const dateYYYYMMDD = formatDateToYYYYMMDD(dayDate);
-    const dayName = formatDayName(dayDate);
-    const dateStr = formatShortDate(dayDate);
-    const isToday = dateYYYYMMDD === todayYYYYMMDD;
-
-    const dayPlanned = plan.filter((p) => p.date === dateYYYYMMDD);
-    const workouts = dayPlanned.map((p) => convertPlannedWorkoutToItem(p, dayName, dateStr));
-
-    return {
-      dayName,
-      dateStr,
-      isToday,
-      workouts,
-    };
-  });
-
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekRangeLabel = `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
-
-  // Tab Switcher
+  // Tab Switching
   const handleTabSwitch = (tab: 'dash' | 'planning') => {
     Haptics.selectionAsync();
     setActiveTab(tab);
@@ -360,87 +302,85 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleDiscussPlan = () => {
-    router.push('/coach');
-  };
-
-  // Week Selector Navigation
-  const handlePrevWeek = () => {
-    setWeekStart((prev) => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() - 7);
-      return d;
-    });
-  };
-
-  const handleNextWeek = () => {
-    setWeekStart((prev) => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() + 7);
-      return d;
-    });
-  };
-
-  // Open Add Modal for creating new exercise
-  const handleOpenAddModal = (dayName = formatDayName(today), dateStr = formatShortDate(today), fullDate = todayYYYYMMDD) => {
+  // Add / Edit Workout logic
+  const handleOpenAddModal = (dayName = 'FRI', dateStr = 'Jul 24') => {
     setSelectedWorkoutForEdit(null);
-    setTargetAddDay({ dayName, dateStr, fullDate });
+    setTargetAddDay({ dayName, dateStr });
     setIsAddModalOpen(true);
   };
 
-  // Open Edit Modal for editing existing exercise
   const handleSelectWorkoutForEdit = (workout: WorkoutItem) => {
     setSelectedWorkoutForEdit(workout);
-    const planned = plan.find((p) => String(p.id) === workout.id);
-    const fullDate = planned?.date || todayYYYYMMDD;
-    setTargetAddDay({ dayName: workout.day, dateStr: workout.dateStr, fullDate });
     setIsAddModalOpen(true);
   };
 
-  // Save/Update Workout logic (connected to backend)
-  const handleSaveWorkout = async (
+  const handleSaveWorkout = (
     workoutData: Omit<WorkoutItem, 'id'>,
     existingId?: string
   ) => {
-    const payload: Partial<PlannedWorkout> = {
-      sport: workoutData.type,
-      description: workoutData.title,
-      target_spark: workoutData.sparkPoints,
-      details: workoutData.duration || '45 mins',
-      date: targetAddDay.fullDate || todayYYYYMMDD,
-    };
-
     if (existingId) {
-      await updateWorkout(existingId, payload);
+      setTodaysWorkouts((prev) =>
+        prev.map((w) => (w.id === existingId ? { ...w, ...workoutData } : w))
+      );
+      setWeeklyAgenda((prev) =>
+        prev.map((day) => ({
+          ...day,
+          workouts: day.workouts.map((w) =>
+            w.id === existingId ? { ...w, ...workoutData } : w
+          ),
+        }))
+      );
     } else {
-      await addWorkout(payload);
-    }
-    setIsAddModalOpen(false);
-    setSelectedWorkoutForEdit(null);
-  };
+      const newWorkout: WorkoutItem = {
+        ...workoutData,
+        id: `w-${Date.now()}`,
+      };
 
-  // Delete workout (connected to backend)
-  const handleDeleteWorkout = async (workoutId: string) => {
-    await deleteWorkout(workoutId);
-    setIsAddModalOpen(false);
-    setSelectedWorkoutForEdit(null);
-  };
+      if (newWorkout.day === 'FRI' || newWorkout.dateStr === 'Jul 24') {
+        setTodaysWorkouts((prev) => [...prev, newWorkout]);
+      }
 
-  // Confirm Adapt Plan
-  const handleConfirmAdaptation = async (type: string) => {
-    setIsAdaptModalOpen(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (type === 'PUSH_FORWARD') {
-      await pushForward(todayYYYYMMDD);
-    } else {
-      await adaptPlan({ targetDate: todayYYYYMMDD, adaptationType: type });
+      setWeeklyAgenda((prev) =>
+        prev.map((day) => {
+          if (day.dayName === newWorkout.day || day.dateStr === newWorkout.dateStr) {
+            return { ...day, workouts: [...day.workouts, newWorkout] };
+          }
+          return day;
+        })
+      );
     }
   };
 
-  // Auto Generate Week
-  const handleAutoGenerateWeek = async () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await adaptPlan({ targetDate: formatDateToYYYYMMDD(weekStart) });
+  const handleDeleteWorkout = (workoutId: string) => {
+    setTodaysWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
+    setWeeklyAgenda((prev) =>
+      prev.map((day) => ({
+        ...day,
+        workouts: day.workouts.filter((w) => w.id !== workoutId),
+      }))
+    );
+  };
+
+  const handleConfirmAdaptation = (type: string) => {
+    setTodaysWorkouts((prev) =>
+      prev.map((w) =>
+        w.isCompleted
+          ? w
+          : {
+              ...w,
+              title: `${w.title} (Adapted - ${type})`,
+              duration: '30 mins',
+            }
+      )
+    );
+  };
+
+  const handleSaveWeight = (newWeight: number) => {
+    setRecordedWeight(newWeight);
+  };
+
+  const handleSendInjuryToCoach = (description: string, severity: number) => {
+    router.push('/coach');
   };
 
   return (
@@ -452,26 +392,19 @@ export default function DashboardScreen() {
             <Text className="text-2xl font-extrabold text-theme-text tracking-tight">Dashboard</Text>
           </View>
           <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border px-3 py-1.5 rounded-full shadow-sm">
-            <Ionicons name="calendar-outline" size={13} color="#FF5A1F" />
-            <Text className="text-xs font-bold font-mono text-theme-muted">{todayHeaderLabel}</Text>
+            <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
+            <Text className="text-xs font-bold font-mono text-theme-muted">Fri, Jul 24</Text>
           </View>
         </View>
 
         {/* Sub-tab Navigation Segmented Control */}
-        <View
-          onLayout={(e) => setSegmentedWidth(e.nativeEvent.layout.width)}
-          className="relative flex-row bg-theme-card border border-theme-border rounded-2xl p-1 shadow-sm overflow-hidden"
-        >
-          {/* Animated Indicator Bar */}
+        <View className="relative flex-row bg-theme-card border border-theme-border rounded-2xl p-1 shadow-sm overflow-hidden">
+          {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
-            className="absolute top-1 bottom-1 rounded-xl shadow-sm"
+            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl border border-theme-accent/30 shadow-sm"
             style={{
+              left: indicatorLeft,
               width: tabWidth,
-              transform: [{ translateX: indicatorTranslateX }],
-              left: 4,
-              backgroundColor: '#FF5A1F1E',
-              borderColor: '#FF5A1F',
-              borderWidth: 1.5,
             }}
           />
 
@@ -513,79 +446,62 @@ export default function DashboardScreen() {
         showsHorizontalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
+          { useNativeDriver: false, listener: handleScroll }
         )}
         scrollEventThrottle={16}
-        onMomentumScrollEnd={handleScroll}
         className="flex-1"
       >
         {/* TAB 1: DASHBOARD SUBTAB */}
         <ScrollView
           style={{ width: SCREEN_WIDTH }}
-          className="flex-1 px-4 pt-2.5"
+          className="flex-1 px-5 pt-4"
           contentContainerStyle={{ paddingBottom: 110 }}
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={notifyScroll}
         >
-          {/* Coach Highlights Hero Card */}
-          <CoachHighlightCard
-            message={coachMessage}
-            onDiscussPlan={handleDiscussPlan}
-          />
-
-          {/* Quick Actions Row */}
-          <QuickActionsBar
-            onLogActivity={() => handleOpenAddModal(formatDayName(today), formatShortDate(today), todayYYYYMMDD)}
-            onLifeHappens={() => setIsAdaptModalOpen(true)}
-            onLogWeight={() => router.push('/physique')}
-            onNiggleCheck={() => router.push('/coach')}
-          />
-
-          {/* Today's Plan Highlight Card (Editable & Telemetry Visualized) */}
+          {/* 1. TODAY'S PLAN CARD */}
           <TodaysPlanCard
-            dateLabel={todayHeaderLabel}
-            tempLabel={weatherInfo.temp}
-            weatherIcon={weatherInfo.icon}
+            dateLabel="FRI Jul 24"
+            tempLabel="24°C"
             workouts={todaysWorkouts}
             onAdaptPress={() => setIsAdaptModalOpen(true)}
-            onAddWorkout={() => handleOpenAddModal(formatDayName(today), formatShortDate(today), todayYYYYMMDD)}
+            onAddWorkout={() => handleOpenAddModal('FRI', 'Jul 24')}
             onSelectWorkout={handleSelectWorkoutForEdit}
           />
 
-          {/* Daily AI Nutrition Protocol Card */}
-          <NutritionProtocolCard nutrition={storeNutrition} />
+          {/* 2. ACTIVE QUEST CARD */}
+          <ActiveQuestCard onRerollQuest={() => {}} />
 
-          {/* Active Quests Widget */}
-          <ActiveQuestsCard />
+          {/* 3. QUICK ACTIONS ROW */}
+          <QuickActionsRow
+            onAddActivity={() => handleOpenAddModal('FRI', 'Jul 24')}
+            onLogWeight={() => setIsWeightModalOpen(true)}
+            onReportInjury={() => setIsNiggleModalOpen(true)}
+          />
+
+          {/* 4. DAILY AI NUTRITION PROTOCOL CARD */}
+          <NutritionProtocolCard nutrition={nutrition} />
         </ScrollView>
 
         {/* TAB 2: PLANNING SUBTAB */}
         <ScrollView
           style={{ width: SCREEN_WIDTH }}
-          className="flex-1 px-4 pt-2.5"
+          className="flex-1 px-5 pt-4"
           contentContainerStyle={{ paddingBottom: 110 }}
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={notifyScroll}
         >
-          {/* Season Roadmap (Redesigned 3-Stage Macro Periodization) */}
-          <SeasonRoadmapCard info={seasonInfo} resetStageKey={activeTab} />
+          {/* Training Phase Component */}
+          <SeasonRoadmapCard info={seasonInfo} />
 
-          {/* Micro Plan Full Agenda Card */}
+          {/* Micro Plan Agenda Card */}
           <MicroPlanAgendaCard
-            weekRangeLabel={weekRangeLabel}
-            agenda={agendaDays}
-            onPrevWeek={handlePrevWeek}
-            onNextWeek={handleNextWeek}
-            onAutoGenerate={handleAutoGenerateWeek}
-            onAddWorkoutToDay={(dayName, dateStr) => {
-              const dayIndex = agendaDays.findIndex((d) => d.dayName === dayName && d.dateStr === dateStr);
-              const targetDate = new Date(weekStart);
-              if (dayIndex !== -1) {
-                targetDate.setDate(targetDate.getDate() + dayIndex);
-              }
-              const fullDate = formatDateToYYYYMMDD(targetDate);
-              handleOpenAddModal(dayName, dateStr, fullDate);
+            weekRangeLabel="Jul 20 - Jul 26"
+            agenda={weeklyAgenda}
+            onPrevWeek={() => {}}
+            onNextWeek={() => {}}
+            onAutoGenerate={() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }}
+            onAddWorkoutToDay={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
             onSelectWorkout={handleSelectWorkoutForEdit}
           />
         </ScrollView>
@@ -610,6 +526,21 @@ export default function DashboardScreen() {
         visible={isAdaptModalOpen}
         onClose={() => setIsAdaptModalOpen(false)}
         onConfirmAdapt={handleConfirmAdaptation}
+      />
+
+      {/* Log Weight Modal */}
+      <LogWeightModal
+        visible={isWeightModalOpen}
+        previousWeight={recordedWeight}
+        onClose={() => setIsWeightModalOpen(false)}
+        onSaveWeight={handleSaveWeight}
+      />
+
+      {/* Log Injury Modal */}
+      <LogNiggleModal
+        visible={isNiggleModalOpen}
+        onClose={() => setIsNiggleModalOpen(false)}
+        onSendToCoach={handleSendInjuryToCoach}
       />
     </SafeAreaView>
   );

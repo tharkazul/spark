@@ -48,6 +48,36 @@ export const tokenStorage = {
   },
 };
 
+const LANG_KEY = 'spark_app_language';
+
+export const languageStorage = {
+  async getLanguage(): Promise<string | null> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return window.localStorage.getItem(LANG_KEY);
+        }
+        return null;
+      }
+      return await SecureStore.getItemAsync(LANG_KEY);
+    } catch (error) {
+      return null;
+    }
+  },
+
+  async setLanguage(lang: string): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(LANG_KEY, lang);
+        }
+        return;
+      }
+      await SecureStore.setItemAsync(LANG_KEY, lang);
+    } catch (error) {}
+  },
+};
+
 const CHAT_KEY = 'spark_chat_history';
 
 export const chatStorage = {

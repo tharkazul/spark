@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Modal, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { TextInput } from '../ui/TextInput';
 import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { SportType, WorkoutItem } from '../../types/dashboard';
-import { WorkoutStep } from '../../types/plan';
-import { WorkoutStepBuilder } from './WorkoutStepBuilder';
 
 interface AddWorkoutModalProps {
   visible: boolean;
@@ -14,7 +12,7 @@ interface AddWorkoutModalProps {
   targetDateStr?: string;
   initialWorkout?: WorkoutItem | null;
   onClose: () => void;
-  onSave: (workout: Omit<WorkoutItem, 'id'> & { steps_json?: string }, existingId?: string) => void;
+  onSave: (workout: Omit<WorkoutItem, 'id'>, existingId?: string) => void;
   onDelete?: (workoutId: string) => void;
 }
 
@@ -31,7 +29,21 @@ export function AddWorkoutModal({
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState('45 mins');
   const [sparkPoints, setSparkPoints] = useState('30');
-  const [steps, setSteps] = useState<WorkoutStep[]>([]);
+  const [isStructured, setIsStructured] = useState(true);
+
+  const slideAnim = useRef(new Animated.Value(400)).current;
+
+  useEffect(() => {
+    if (visible) {
+      slideAnim.setValue(400);
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 70,
+      }).start();
+    }
+  }, [visible, slideAnim]);
 
   useEffect(() => {
     if (initialWorkout) {
@@ -39,13 +51,13 @@ export function AddWorkoutModal({
       setTitle(initialWorkout.title);
       setDuration(initialWorkout.duration || '45 mins');
       setSparkPoints(initialWorkout.sparkPoints.toString());
-      setSteps([]);
+      setIsStructured(initialWorkout.isStructured ?? true);
     } else {
       setSelectedSport('RUN');
       setTitle('');
       setDuration('45 mins');
       setSparkPoints('30');
-      setSteps([]);
+      setIsStructured(true);
     }
   }, [initialWorkout, visible]);
 
@@ -56,13 +68,6 @@ export function AddWorkoutModal({
     { type: 'STRENGTH', label: 'Strength', icon: 'barbell-outline' },
     { type: 'MOBILITY', label: 'Mobility', icon: 'body-outline' },
   ];
-
-  const handleStepChange = (newSteps: WorkoutStep[], computedSpark: number) => {
-    setSteps(newSteps);
-    if (computedSpark > 0) {
-      setSparkPoints(computedSpark.toString());
-    }
-  };
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -75,11 +80,10 @@ export function AddWorkoutModal({
         title: title.trim(),
         duration: duration || '30 mins',
         sparkPoints: parseInt(sparkPoints, 10) || 25,
-        isStructured: true,
+        isStructured,
         isCompleted: initialWorkout ? initialWorkout.isCompleted : false,
         actualMetrics: initialWorkout?.actualMetrics,
         executionScore: initialWorkout?.executionScore,
-        steps_json: JSON.stringify(steps),
       },
       initialWorkout?.id
     );
@@ -98,132 +102,158 @@ export function AddWorkoutModal({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-end bg-black/60">
-        <View className="bg-theme-card border-t border-theme-border rounded-t-[32px] p-6 max-h-[88%] shadow-2xl">
-          {/* Header */}
-          <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/60 mb-4">
-            <View>
-              <Text className="text-lg font-bold text-theme-text">
-                {initialWorkout ? 'Edit Exercise' : 'Add Exercise'}
-              </Text>
-              <Text className="text-xs text-theme-muted">
-                {initialWorkout ? initialWorkout.title : `Scheduling for ${targetDayName} ${targetDateStr}`}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border"
-            >
-              <Ionicons name="close" size={18} color="#8E9BA4" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Sport Selector */}
-            <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
-              Select Discipline
-            </Text>
-            <View className="flex-row flex-wrap gap-2 mb-4">
-              {sports.map((sport) => {
-                const isSelected = selectedSport === sport.type;
-                return (
-                  <TouchableOpacity
-                    key={sport.type}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setSelectedSport(sport.type);
-                    }}
-                    activeOpacity={0.7}
-                    className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl border ${
-                      isSelected
-                        ? 'bg-theme-accent/15 border-theme-accent'
-                        : 'bg-theme-bg border-theme-border'
-                    }`}
-                  >
-                    <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#FF5A1F' : '#8E9BA4'} />
-                    <Text className={`text-xs font-bold ${isSelected ? 'text-theme-accent' : 'text-theme-muted'}`}>
-                      {sport.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Exercise Title Input */}
-            <View className="mb-4">
-              <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
-                Workout Title
-              </Text>
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="e.g. Interval Threshold Run"
-              />
-            </View>
-
-            {/* Duration & Points */}
-            <View className="flex-row gap-3 mb-5">
-              <View className="flex-1">
-                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
-                  Duration
+      {/* Full-screen Dark Backdrop */}
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onClose}
+        className="flex-1 justify-end bg-black/60"
+      >
+        <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
+          <Animated.View
+            style={{ transform: [{ translateY: slideAnim }] }}
+            className="bg-theme-card border-t border-theme-border rounded-t-[32px] p-6 max-h-[85%] shadow-2xl flex-col"
+          >
+            {/* Header */}
+            <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/60 mb-4">
+              <View>
+                <Text className="text-lg font-bold text-theme-text">
+                  {initialWorkout ? 'Edit Exercise' : 'Add Exercise'}
                 </Text>
-                <TextInput
-                  value={duration}
-                  onChangeText={setDuration}
-                  placeholder="45 mins"
-                />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
-                  Spark Points Target
+                <Text className="text-xs text-theme-muted">
+                  {initialWorkout ? initialWorkout.title : `Scheduling for ${targetDayName} ${targetDateStr}`}
                 </Text>
-                <TextInput
-                  value={sparkPoints}
-                  onChangeText={setSparkPoints}
-                  keyboardType="numeric"
-                  placeholder="30"
-                />
               </View>
-            </View>
 
-            {/* Interactive Structured Step Builder */}
-            <WorkoutStepBuilder
-              steps={steps}
-              sport={selectedSport}
-              onChangeSteps={handleStepChange}
-            />
-
-            {/* Save / Cancel Buttons */}
-            <View className="flex-row gap-3 mb-3 mt-2">
-              <View className="flex-1">
-                <Button label="Cancel" variant="outline" onPress={onClose} />
-              </View>
-              <View className="flex-1">
-                <Button
-                  label={initialWorkout ? 'Update Exercise' : 'Save Exercise'}
-                  variant="primary"
-                  onPress={handleSave}
-                />
-              </View>
-            </View>
-
-            {/* Delete button if editing */}
-            {initialWorkout && (
               <TouchableOpacity
-                onPress={handleDelete}
-                className="py-3 items-center justify-center border border-rose-500/30 bg-rose-500/10 rounded-xl mt-1 mb-4"
+                onPress={onClose}
+                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border"
               >
-                <Text className="text-xs font-bold text-rose-500">Delete Exercise</Text>
+                <Ionicons name="close" size={18} color="#8E9BA4" />
               </TouchableOpacity>
-            )}
-          </ScrollView>
-        </View>
-      </View>
+            </View>
+
+            {/* Scrollable Form Content */}
+            <ScrollView showsVerticalScrollIndicator={false} className="flex-shrink">
+              {/* Sport Selector */}
+              <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2.5">
+                Select Discipline
+              </Text>
+              <View className="flex-row flex-wrap gap-2 mb-4">
+                {sports.map((sport) => {
+                  const isSelected = selectedSport === sport.type;
+                  return (
+                    <TouchableOpacity
+                      key={sport.type}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setSelectedSport(sport.type);
+                      }}
+                      activeOpacity={0.7}
+                      className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl border ${
+                        isSelected
+                          ? 'bg-theme-accent/15 border-theme-accent'
+                          : 'bg-theme-bg border-theme-border'
+                      }`}
+                    >
+                      <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#16ACBD' : '#8E9BA4'} />
+                      <Text className={`text-xs font-bold ${isSelected ? 'text-theme-accent' : 'text-theme-muted'}`}>
+                        {sport.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Exercise Title Input */}
+              <View className="mb-4">
+                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
+                  Workout Title
+                </Text>
+                <TextInput
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="e.g. Interval Threshold Run"
+                />
+              </View>
+
+              {/* Duration & Points */}
+              <View className="flex-row gap-3 mb-4">
+                <View className="flex-1">
+                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
+                    Duration
+                  </Text>
+                  <TextInput
+                    value={duration}
+                    onChangeText={setDuration}
+                    placeholder="45 mins"
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
+                    Spark Points
+                  </Text>
+                  <TextInput
+                    value={sparkPoints}
+                    onChangeText={setSparkPoints}
+                    keyboardType="numeric"
+                    placeholder="30"
+                  />
+                </View>
+              </View>
+
+              {/* Structured Workout Toggle */}
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIsStructured(!isStructured);
+                }}
+                className="flex-row items-center justify-between bg-theme-bg p-3.5 rounded-xl border border-theme-border mb-4"
+              >
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name="hardware-chip-outline" size={18} color="#16ACBD" />
+                  <Text className="text-sm font-bold text-theme-text">Structured Garmin Workout</Text>
+                </View>
+
+                <Ionicons
+                  name={isStructured ? 'toggle' : 'toggle-outline'}
+                  size={28}
+                  color={isStructured ? '#16ACBD' : '#8E9BA4'}
+                />
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Pinned Action Buttons */}
+            <View className="pt-4 border-t border-theme-border/40 mt-2">
+              <View className="flex-row gap-3 mb-2">
+                <View className="flex-1">
+                  <Button label="Cancel" variant="outline" onPress={onClose} />
+                </View>
+                <View className="flex-1">
+                  <Button
+                    label={initialWorkout ? 'Update Exercise' : 'Save Exercise'}
+                    variant="primary"
+                    onPress={handleSave}
+                  />
+                </View>
+              </View>
+
+              {/* Delete button if editing */}
+              {initialWorkout && (
+                <TouchableOpacity
+                  onPress={handleDelete}
+                  className="py-2.5 items-center justify-center border border-rose-500/30 bg-rose-500/10 rounded-xl"
+                >
+                  <Text className="text-xs font-bold text-rose-500">Delete Exercise</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 }

@@ -17,6 +17,7 @@ import { HealthTab } from '../../components/progress/HealthTab';
 import { DailyLogTab } from '../../components/progress/DailyLogTab';
 
 import { useTabBar } from '../../context/TabBarContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const TABS = ['spark', 'nutrition', 'health', 'dailylog'] as const;
 type TabType = typeof TABS[number];
@@ -24,6 +25,7 @@ type TabType = typeof TABS[number];
 export default function ProgressScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const { notifyScroll } = useTabBar();
+  const { t } = useLanguage();
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const tabButtonsScrollViewRef = useRef<ScrollView>(null);
 
@@ -52,21 +54,21 @@ export default function ProgressScreen() {
   const handleHorizontalScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const pageIndex = Math.round(offsetX / screenWidth);
-    const targetTab = TABS[pageIndex];
+    const newTab = TABS[pageIndex];
 
-    if (targetTab && targetTab !== activeTab) {
-      Haptics.selectionAsync();
-      setActiveTab(targetTab);
+    if (newTab && newTab !== activeTab) {
+      setActiveTab(newTab);
     }
   };
 
-  const renderTabButton = (id: TabType, label: string) => {
-    const isActive = activeTab === id;
+  const renderTabButton = (tabId: TabType, label: string) => {
+    const isActive = activeTab === tabId;
     return (
       <TouchableOpacity
-        key={id}
-        onPress={() => handleTabPress(id)}
-        className={`px-4 py-2.5 mr-2 rounded-full border shadow-sm ${
+        key={tabId}
+        onPress={() => handleTabPress(tabId)}
+        activeOpacity={0.8}
+        className={`px-4 py-2 rounded-xl border mr-2 ${
           isActive
             ? 'bg-theme-accent border-theme-accent'
             : 'border-theme-border bg-theme-bg'
@@ -89,10 +91,10 @@ export default function ProgressScreen() {
       <View className="px-4 mt-4 mb-3 flex-row items-center justify-between">
         <View>
           <Text className="text-theme-text text-3xl font-extrabold tracking-tight">
-            Progress
+            {t('physique.title')}
           </Text>
           <Text className="text-theme-muted text-xs mt-0.5">
-            Track your overall progress, readiness & health.
+            {t('physique.subtitle')}
           </Text>
         </View>
         <View className="px-3 py-1.5 bg-theme-bg border border-theme-border rounded-xl">

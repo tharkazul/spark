@@ -13,10 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserStore';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login, register, loading: storeLoading } = useUser();
+  const { t } = useLanguage();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -76,7 +78,7 @@ export default function LoginScreen() {
             </View>
             <Text className="text-3xl font-extrabold text-theme-text tracking-tight">SPARK</Text>
             <Text className="text-sm font-medium text-theme-muted mt-1">
-              Your AI-Powered Endurance Coach
+              {t('auth.subtitle')}
             </Text>
           </View>
 
@@ -96,7 +98,7 @@ export default function LoginScreen() {
                   mode === 'login' ? 'text-white' : 'text-theme-muted'
                 }`}
               >
-                Sign In
+                {t('auth.signIn')}
               </Text>
             </TouchableOpacity>
 
@@ -114,7 +116,7 @@ export default function LoginScreen() {
                   mode === 'register' ? 'text-white' : 'text-theme-muted'
                 }`}
               >
-                Create Account
+                {t('auth.register')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -132,7 +134,7 @@ export default function LoginScreen() {
             {mode === 'register' && (
               <View className="mb-4">
                 <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
-                  Username
+                  {t('auth.chooseUsername')}
                 </Text>
                 <View className="flex-row items-center bg-theme-card border border-theme-border rounded-xl px-4 min-h-[56px]">
                   <Ionicons name="person-outline" size={20} color="#8E8E93" />
@@ -151,7 +153,7 @@ export default function LoginScreen() {
 
             <View className="mb-4">
               <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
-                Email Address
+                {t('auth.enterEmail')}
               </Text>
               <View className="flex-row items-center bg-theme-card border border-theme-border rounded-xl px-4 min-h-[56px]">
                 <Ionicons name="mail-outline" size={20} color="#8E8E93" />
@@ -171,7 +173,7 @@ export default function LoginScreen() {
 
             <View className="mb-6">
               <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
-                Password
+                {t('auth.enterPassword')}
               </Text>
               <View className="flex-row items-center bg-theme-card border border-theme-border rounded-xl px-4 min-h-[56px]">
                 <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" />
@@ -205,7 +207,7 @@ export default function LoginScreen() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text className="text-white text-base font-bold">
-                  {mode === 'login' ? 'Sign In to Spark' : 'Join Spark HQ'}
+                  {mode === 'login' ? t('auth.signIn') : t('auth.register')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -215,3 +217,4 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
+

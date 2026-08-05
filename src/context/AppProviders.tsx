@@ -1,4 +1,5 @@
 import React, { ReactNode } from 'react';
+import { LanguageProvider } from './LanguageContext';
 import { TabBarProvider } from './TabBarContext';
 import { UserStore } from './UserStore';
 import { ActivityStore } from './ActivityStore';
@@ -10,20 +11,22 @@ import { CoachChatStore } from './CoachChatStore';
 
 export const AppProviders: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
-    <UserStore>
-      <ActivityStore>
-        <PlanStore>
-          <PhysiqueStore>
-            <GamificationStore>
-              <HealthStore>
-                <CoachChatStore>
-                  <TabBarProvider>{children}</TabBarProvider>
-                </CoachChatStore>
-              </HealthStore>
-            </GamificationStore>
-          </PhysiqueStore>
-        </PlanStore>
-      </ActivityStore>
-    </UserStore>
+    <LanguageProvider>
+      <UserStore>
+        <ActivityStore>
+          <PlanStore>
+            <PhysiqueStore>
+              <GamificationStore>
+                <HealthStore>
+                  <CoachChatStore>
+                    <TabBarProvider>{children}</TabBarProvider>
+                  </CoachChatStore>
+                </HealthStore>
+              </GamificationStore>
+            </PhysiqueStore>
+          </PlanStore>
+        </ActivityStore>
+      </UserStore>
+    </LanguageProvider>
   );
 };

@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { useCoachChat } from '../../context/CoachChatStore';
 import { useUser } from '../../context/UserStore';
+import { useLanguage } from '../../context/LanguageContext';
 import { MarkdownText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
@@ -76,6 +77,7 @@ function groupMessagesByDate(messagesList: ChatMessage[]): ChatSection[] {
 }
 
 export default function CoachScreen() {
+  const { t } = useLanguage();
   const {
     messages,
     sendMessage,
@@ -389,7 +391,7 @@ export default function CoachScreen() {
           {sending ? (
             <View className="px-4 py-2 flex-row items-center self-start mb-2 ml-4 bg-theme-card/80 rounded-full border border-theme-border">
               <ActivityIndicator size="small" color="#FF5A1F" />
-              <Text className="text-theme-accent text-xs font-semibold ml-2">Spark is typing...</Text>
+              <Text className="text-theme-accent text-xs font-semibold ml-2">{t('chat.thinking')}</Text>
             </View>
           ) : null}
 
@@ -460,13 +462,14 @@ export default function CoachScreen() {
               >
                 <RNTextInput
                   ref={inputRef}
-                  placeholder="Talk to Spark..."
+                  placeholder={t('chat.inputPlaceholder')}
                   placeholderTextColor={!isKeyboardOpen ? 'rgba(255, 255, 255, 0.9)' : '#8E8E93'}
                   value={inputText}
                   onChangeText={setInputText}
                   onFocus={() => setIsKeyboardOpen(true)}
                   multiline={true}
                   numberOfLines={!isKeyboardOpen ? 1 : undefined}
+
                   className={
                     !isKeyboardOpen
                       ? 'text-white font-semibold text-sm p-0 m-0'

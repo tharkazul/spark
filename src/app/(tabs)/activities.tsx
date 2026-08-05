@@ -5,9 +5,11 @@ import { Card } from '../../components/ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useActivities } from '../../context/ActivityStore';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function ActivitiesScreen() {
   const { activities, loading, refreshActivities } = useActivities();
+  const { t } = useLanguage();
 
   const formattedActivities = activities.map((act) => ({
     id: String(act.id),
@@ -21,9 +23,10 @@ export default function ActivitiesScreen() {
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       <View className="px-4 my-6">
-        <Text className="text-theme-text text-3xl font-bold">Activities</Text>
-        <Text className="text-theme-muted text-sm mt-1">Your recent workouts and community feed.</Text>
+        <Text className="text-theme-text text-3xl font-bold">{t('activities.title')}</Text>
+        <Text className="text-theme-muted text-sm mt-1">{t('activities.subtitle')}</Text>
       </View>
+
 
       <FlatList
         data={formattedActivities}

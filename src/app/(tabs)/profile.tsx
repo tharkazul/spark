@@ -11,11 +11,14 @@ import * as Linking from 'expo-linking';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { integrationsApi } from '../../services/apiServices';
+import { useLanguage } from '../../context/LanguageContext';
+import { LanguageSelector } from '../../components/LanguageSelector';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
+  const { t } = useLanguage();
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
   const { colorScheme, toggleColorScheme } = useColorScheme();
   const { notifyScroll } = useTabBar();
@@ -242,11 +245,11 @@ export default function ProfileScreen() {
           <Text className="text-theme-accent mt-1">{isSparkPlus ? 'Spark+ Member' : 'Free Member'}</Text>
         </View>
 
-        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">Settings</Text>
+        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">{t('nav.profile')}</Text>
         <Card className="p-2 mb-6">
           {renderSettingRow(
             'moon',
-            'Dark Mode',
+            t('profile.darkMode'),
             <Switch
               value={colorScheme === 'dark'}
               onValueChange={toggleColorScheme}
@@ -255,19 +258,29 @@ export default function ProfileScreen() {
           )}
           {renderSettingRow(
             'notifications',
-            'Push Notifications',
+            t('profile.pushNotifications'),
             <Switch value={true} trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }} />
           )}
         </Card>
 
-        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">Connections</Text>
+        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">
+          {t('profile.languageSettingTitle')}
+        </Text>
+        <Card className="p-4 mb-6">
+          <Text className="text-theme-muted text-xs mb-3">
+            {t('profile.languageSettingDesc')}
+          </Text>
+          <LanguageSelector />
+        </Card>
+
+        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">{t('onboarding.integrationsTitle')}</Text>
         <Card className="p-2 mb-6">
           {renderSettingRow(
             'fitness',
             'Strava',
             <View className="flex-row items-center">
               <Text className={isStravaConnected ? 'text-theme-accent font-bold' : 'text-theme-muted font-bold'}>
-                {isStravaConnected ? 'Connected' : 'Connect'}
+                {isStravaConnected ? t('common.success') : t('onboarding.connectStrava')}
               </Text>
               <Ionicons name="chevron-forward" size={18} color="#8E8E93" style={{ marginLeft: 6 }} />
             </View>,
@@ -278,7 +291,7 @@ export default function ProfileScreen() {
             'Garmin',
             <View className="flex-row items-center">
               <Text className={isGarminConnected ? 'text-theme-accent font-bold' : 'text-theme-muted font-bold'}>
-                {isGarminConnected ? 'Connected' : 'Connect'}
+                {isGarminConnected ? t('common.success') : t('onboarding.connectStrava')}
               </Text>
               <Ionicons name="chevron-forward" size={18} color="#8E8E93" style={{ marginLeft: 6 }} />
             </View>,
@@ -287,8 +300,9 @@ export default function ProfileScreen() {
         </Card>
 
         <TouchableOpacity onPress={logout} className="mt-4 items-center">
-          <Text className="text-red-500 font-bold text-base">Sign Out</Text>
+          <Text className="text-red-500 font-bold text-base">{t('profile.logout')}</Text>
         </TouchableOpacity>
+
       </ScrollView>
 
       {/* GARMIN CONNECTION MODAL */}
