@@ -144,7 +144,7 @@ export function AddWorkoutModal({
                         : 'bg-theme-bg border-theme-border'
                     }`}
                   >
-                    <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#16ACBD' : '#8E9BA4'} />
+                    <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#FF5A1F' : '#8E9BA4'} />
                     <Text className={`text-xs font-bold ${isSelected ? 'text-theme-accent' : 'text-theme-muted'}`}>
                       {sport.label}
                     </Text>

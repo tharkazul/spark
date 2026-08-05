@@ -40,10 +40,23 @@ router.get("/api/my-profile", authenticateToken, (req, res) => {
   db.get(
     "SELECT data FROM public_profile_cache WHERE user_id = ?",
     [req.user.id],
-    (err, row) => {
-      if (err || !row)
-        return res.status(404).json({ error: "Profile not generated yet" });
-      res.json(JSON.parse(row.data));
+    async (err, row) => {
+      if (row && row.data) {
+        return res.json(JSON.parse(row.data));
+      } else {
+        try {
+          const globalMaxStats = await calculateGlobalMaxStats();
+          const profileData = await generatePublicProfile(
+            req.user.id,
+            globalMaxStats,
+          );
+          if (profileData) res.json(profileData);
+          else res.status(404).json({ error: "Profile not generated yet" });
+        } catch (e) {
+          console.error("Failed to generate profile for user", req.user.id, e);
+          res.status(500).json({ error: "Failed to generate profile" });
+        }
+      }
     },
   );
 });
@@ -183,7 +196,8 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
     `
         SELECT a.*, u.username, u.profile_picture_url, u.total_spark,
                (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id) as kudos_count,
-               (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id AND k.user_id = ?) as has_kudosed
+               (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id AND k.user_id = ?) as has_kudosed,
+               (SELECT COUNT(*) FROM activity_comments c WHERE c.activity_id = a.id) as comment_count
         FROM activities a
         JOIN users u ON a.user_id = u.id
         WHERE a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted')
@@ -202,30 +216,127 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
   );
 });
 
-router.get("/api/social/leaderboard", authenticateToken, (req, res) => {
-  db.all(
-    `
+router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Evaluate active quests for the current user and their friends before generating leaderboard
+    try {
+      const friends = await new Promise((resolve) => {
+        db.all(
+          `SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'`,
+          [userId],
+          (err, rows) => resolve(rows || []),
+        );
+      });
+      const userIdsToEvaluate = [userId, ...friends.map((f) => f.friend_id)];
+      await Promise.all(userIdsToEvaluate.map((id) => evaluateAndProgressQuests(id)));
+    } catch (e) {
+      console.error("Error evaluating leaderboard user quests:", e);
+    }
+
+    const mainLeaderboard = await new Promise((resolve, reject) => {
+      db.all(
+        `
         SELECT u.id, u.username, u.profile_picture_url, u.total_spark, 
                (COALESCE(SUM(a.spark_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND created_at >= datetime('now', '-7 days')), 0)) as total_spark_score, 
                SUM(a.moving_time_min) as total_minutes, COUNT(a.id) as total_activities,
-               COALESCE((SELECT COUNT(*) FROM user_quests WHERE user_id = u.id AND status = 'completed' AND completed_at >= datetime('now', '-7 days')), 0) as quests_completed_7d,
-               COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND reason LIKE 'Quest Completed%' AND created_at >= datetime('now', '-7 days')), 0) as quest_spark_7d
+               COALESCE((SELECT COUNT(*) FROM user_quests WHERE user_id = u.id AND status = 'completed' AND (completed_at >= datetime('now', '-7 days') OR (completed_at IS NULL AND created_at >= datetime('now', '-7 days')))), 0) as quests_completed_7d,
+               COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND reason LIKE 'Quest Completed%' AND created_at >= datetime('now', '-7 days')), (SELECT SUM(reward_points) FROM user_quests WHERE user_id = u.id AND status = 'completed' AND (completed_at >= datetime('now', '-7 days') OR (completed_at IS NULL AND created_at >= datetime('now', '-7 days')))), 0) as quest_spark_7d
         FROM users u
-        LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days')
+        LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days') AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10))
         WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
         GROUP BY u.id
         ORDER BY total_spark_score DESC
     `,
-    [req.user.id, req.user.id],
-    (err, rows) => {
-      if (rows) {
-        rows.forEach(
-          (r) => (r.spark_level = getSparkLevelInfo(r.total_spark).level),
-        );
+        [userId, userId],
+        (err, rows) => {
+          if (err) return reject(err);
+          if (rows) {
+            rows.forEach(
+              (r) => (r.spark_level = getSparkLevelInfo(r.total_spark).level),
+            );
+          }
+          resolve(rows || []);
+        },
+      );
+    });
+
+    const completedQuests = await new Promise((resolve) => {
+      db.all(
+        `
+            SELECT id, user_id, description, reward_points, completed_at, created_at
+            FROM user_quests
+            WHERE status = 'completed'
+              AND (completed_at >= datetime('now', '-7 days') OR (completed_at IS NULL AND created_at >= datetime('now', '-7 days')))
+              AND (user_id = ? OR user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
+        `,
+        [userId, userId],
+        (err, rows) => {
+          if (err) return resolve([]);
+          resolve(rows || []);
+        },
+      );
+    });
+
+    const questLeaderboard = mainLeaderboard.map((user) => {
+      const userQuests = completedQuests.filter((q) => q.user_id === user.id);
+      const total_quest_spark = userQuests.reduce((sum, q) => sum + (q.reward_points || 0), 0);
+      return {
+        id: user.id,
+        username: user.username,
+        profile_picture_url: user.profile_picture_url,
+        spark_level: user.spark_level,
+        completed_quests_count: userQuests.length,
+        total_quest_spark: Math.round(total_quest_spark),
+        quests: userQuests.map((q) => ({ description: q.description, points: q.reward_points })),
+      };
+    });
+
+    questLeaderboard.sort((a, b) => {
+      if (b.completed_quests_count !== a.completed_quests_count) {
+        return b.completed_quests_count - a.completed_quests_count;
       }
-      res.json({ leaderboard: rows || [] });
-    },
-  );
+      if (b.total_quest_spark !== a.total_quest_spark) {
+        return b.total_quest_spark - a.total_quest_spark;
+      }
+      return a.username.localeCompare(b.username);
+    });
+
+    const topActivities = await new Promise((resolve) => {
+      db.all(
+        `
+            SELECT a.id, a.user_id, a.name, a.sport_type, a.distance_km, a.moving_time_min, a.spark_score, a.start_date,
+                   u.username, u.profile_picture_url, u.total_spark
+            FROM activities a
+            JOIN users u ON a.user_id = u.id
+            WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
+              AND a.start_date >= datetime('now', '-7 days') AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10))
+            ORDER BY a.spark_score DESC, a.start_date DESC
+            LIMIT 3
+        `,
+        [userId, userId],
+        (err, rows) => {
+          if (err) return resolve([]);
+          if (rows) {
+            rows.forEach(
+              (r) => (r.spark_level = getSparkLevelInfo(r.total_spark).level),
+            );
+          }
+          resolve(rows || []);
+        },
+      );
+    });
+
+    res.json({
+      leaderboard: mainLeaderboard,
+      questLeaderboard,
+      topActivities,
+    });
+  } catch (e) {
+    console.error("Error loading full leaderboard data:", e);
+    res.status(500).json({ error: "Failed to load leaderboard data." });
+  }
 });
 
 router.post("/api/social/kudos", authenticateToken, (req, res) => {
@@ -270,11 +381,15 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
                           db.run(
                             `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
                             [act.user_id, msg],
+                            (err) => {
+                              if (!err) {
+                                sendSSEEvent(act.user_id, "unread_message", {
+                                  message: msg,
+                                  mood: "hype",
+                                });
+                              }
+                            }
                           );
-                          sendSSEEvent(act.user_id, "unread_message", {
-                            message: msg,
-                            mood: "hype",
-                          });
                         } catch (e) {
                           console.error(e);
                         }

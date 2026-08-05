@@ -250,13 +250,13 @@ export default function ProfileScreen() {
             <Switch
               value={colorScheme === 'dark'}
               onValueChange={toggleColorScheme}
-              trackColor={{ false: '#DDE3E9', true: '#208AEF' }}
+              trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
             />
           )}
           {renderSettingRow(
             'notifications',
             'Push Notifications',
-            <Switch value={true} trackColor={{ false: '#DDE3E9', true: '#208AEF' }} />
+            <Switch value={true} trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }} />
           )}
         </Card>
 
@@ -302,7 +302,7 @@ export default function ProfileScreen() {
           <View className="bg-theme-bg p-6 rounded-t-3xl border-t border-theme-border">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
-                <Ionicons name="watch-outline" size={24} color="#208AEF" />
+                <Ionicons name="watch-outline" size={24} color="#FF5A1F" />
                 <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
               </View>
               <TouchableOpacity onPress={() => setGarminModalVisible(false)} className="p-1">
@@ -463,7 +463,7 @@ export default function ProfileScreen() {
                   disabled={stravaLoading}
                   className="bg-theme-card border border-theme-accent/40 py-3 rounded-xl items-center flex-row justify-center mb-3"
                 >
-                  <Ionicons name="key-outline" size={18} color="#208AEF" style={{ marginRight: 6 }} />
+                  <Ionicons name="key-outline" size={18} color="#FF5A1F" style={{ marginRight: 6 }} />
                   <Text className="text-theme-accent font-bold text-sm">Quick Connect (Saved Token)</Text>
                 </TouchableOpacity>
 

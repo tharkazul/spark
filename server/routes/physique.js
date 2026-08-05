@@ -70,7 +70,8 @@ router.post("/api/user/cycle/log", authenticateToken, (req, res) => {
     function (err) {
       if (err)
         return res.status(500).json({ error: "Failed to log cycle start." });
-      res.json({ message: "Cycle logged successfully!" });
+      console.log('NUTRITION API for user', req.user.id, 'date', todayStr, 'intakeRow:', intakeRow);
+        res.json({ message: "Cycle logged successfully!" });
     },
   );
 });
@@ -137,6 +138,7 @@ router.post("/api/niggles", authenticateToken, (req, res) => {
               return res
                 .status(500)
                 .json({ error: "Failed to update niggle." });
+            triggerBackgroundSummary(req.user.id);
             res.json({ success: true });
           },
         );
@@ -148,6 +150,7 @@ router.post("/api/niggles", authenticateToken, (req, res) => {
           (insertErr) => {
             if (insertErr)
               return res.status(500).json({ error: "Failed to log niggle." });
+            triggerBackgroundSummary(req.user.id);
             res.json({ success: true });
           },
         );
@@ -164,6 +167,7 @@ router.put("/api/niggles/:id/resolve", authenticateToken, (req, res) => {
     (err) => {
       if (err)
         return res.status(500).json({ error: "Failed to resolve niggle." });
+      triggerBackgroundSummary(req.user.id);
       res.json({ success: true });
     },
   );
@@ -171,11 +175,60 @@ router.put("/api/niggles/:id/resolve", authenticateToken, (req, res) => {
 
 router.get("/api/fatigue", authenticateToken, (req, res) => {
   db.all(
-    `SELECT date, body_part, fatigue_score FROM athlete_fatigue_log WHERE user_id = ? ORDER BY date DESC LIMIT 100`,
+    `SELECT body_part, fatigue_score, development_score, last_updated FROM athlete_muscle_status WHERE user_id = ?`,
     [req.user.id],
     (err, rows) => {
-      if (err) return res.status(500).json({ error: "Failed to fetch fatigue log." });
-      res.json(rows || []);
+      if (err) {
+        console.error("DB Error in /api/fatigue:", err);
+        return res.status(500).json({ error: "Failed to fetch muscle status.", details: err.message });
+      }
+      
+      const enhancedRows = (rows || []).map(row => {
+          let status = 'fresh';
+          if (row.fatigue_score > 30) {
+              status = 'fatigued';
+          } else if (row.development_score > 20) {
+              status = 'prime_development';
+          }
+          return { ...row, status };
+      });
+      
+      res.json(enhancedRows);
+    }
+  );
+});
+
+router.get("/api/fatigue/insight", authenticateToken, (req, res) => {
+  db.all(
+    `SELECT body_part, fatigue_score, development_score FROM athlete_muscle_status WHERE user_id = ?`,
+    [req.user.id],
+    async (err, rows) => {
+      if (err) return res.status(500).json({ error: "Failed to fetch muscle status." });
+      
+      db.all(
+        `SELECT body_part, severity, notes FROM athlete_niggles WHERE user_id = ? AND status = 'active'`,
+        [req.user.id],
+        async (niggleErr, niggles) => {
+          if (niggleErr) return res.status(500).json({ error: "Failed to fetch niggles." });
+
+          const prompt = `
+          You are Spark Coach, an AI athletic coach. Analyze the user's current muscle fatigue, development scores, and active injuries.
+          Write exactly 1-2 short, encouraging sentences summarizing their current physical state and giving a brief recommendation for today's training focus.
+          Keep it very concise, empathetic, and conversational.
+          
+          Muscle Data: ${JSON.stringify(rows || [])}
+          Active Injuries: ${JSON.stringify(niggles || [])}
+          `;
+
+          try {
+            const aiResponse = await generateWithFallback(prompt);
+            res.json({ insight: aiResponse || "Looking closely at your muscle data... taking it easy today might be a good idea!" });
+          } catch (e) {
+            console.error("AI Insight Error:", e);
+            res.json({ insight: "Based on your data, pay attention to any soreness today and prioritize recovery where needed." });
+          }
+        }
+      );
     }
   );
 });
@@ -371,7 +424,25 @@ router.delete("/api/physique/:id", authenticateToken, (req, res) => {
 
 
 router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = require('../services/utils').getAMSDateString();
+
+  const sendNutritionResponse = (protocol) => {
+    console.log("TRACE: sendNutritionResponse called with protocol:", JSON.stringify(protocol));
+    db.get(
+      `SELECT carbs, protein, fat FROM nutrition_intake WHERE user_id = ? AND date = ?`,
+      [req.user.id, todayStr],
+      (err, intakeRow) => {
+        if (err) console.error("TRACE: db.get error:", err);
+        console.log("TRACE: intakeRow is:", intakeRow);
+        const payloadToSend = {
+          suggested: protocol,
+          intake: intakeRow || null,
+        };
+        console.log("TRACE: Sending payload:", JSON.stringify(payloadToSend));
+        res.json(payloadToSend);
+      },
+    );
+  };
 
   db.get(
     `SELECT protocol_json FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
@@ -379,7 +450,7 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
     async (err, cachedRow) => {
       if (cachedRow && cachedRow.protocol_json) {
         try {
-          return res.json(JSON.parse(cachedRow.protocol_json));
+          return sendNutritionResponse(JSON.parse(cachedRow.protocol_json));
         } catch (e) {
           // Parse error, ignore and regenerate
           console.error("Cache parse error", e);
@@ -392,7 +463,7 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
         async (err, weightRow) => {
           const weight = weightRow ? weightRow.weight_kg : 75; // Default to 75kg if unknown
           const phase = await getUserMacroPhase(req.user.id);
-          // Fetch user profile context & long term memory
+
           db.get(
             `SELECT athlete_context, long_term_memory FROM users WHERE id = ?`,
             [req.user.id],
@@ -400,84 +471,80 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
               const athleteContext = userRow ? userRow.athlete_context : "";
               const longTermMemory = userRow ? userRow.long_term_memory : "";
 
-              // Fetch recent coach/athlete chat history to detect discussions on weight loss/gain/goals
+              // Fetch today's completed activities with details (if any)
               db.all(
-                `SELECT role, content FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 10`,
-                [req.user.id],
-                (err, chatRows) => {
-                  const recentChat = (chatRows || [])
-                    .reverse()
-                    .map((c) => `${c.role.toUpperCase()}: ${c.content}`)
-                    .join("\n");
+                `SELECT name, sport_type, spark_score, distance_km, moving_time_min FROM activities WHERE user_id = ? AND date(start_date) = ?`,
+                [req.user.id, todayStr],
+                (err, actualActs) => {
+                  let actualSpark = 0;
+                  let completedSummary = "";
 
-                  // Fetch today's completed activities (if any)
+                  if (actualActs && actualActs.length > 0) {
+                    const actSummaries = actualActs.map((act) => {
+                      actualSpark += act.spark_score || 0;
+                      const nameStr = act.name || "Workout";
+                      const sportStr = act.sport_type || "Exercise";
+                      const distStr = act.distance_km ? `${act.distance_km.toFixed(1)}km` : "";
+                      const timeStr = act.moving_time_min ? `${Math.round(act.moving_time_min)}m` : "";
+                      const detailsStr = [sportStr, distStr, timeStr, `${Math.round(act.spark_score || 0)} Spark Points`]
+                        .filter(Boolean)
+                        .join(", ");
+                      return `${nameStr} (${detailsStr})`;
+                    });
+                    completedSummary = actSummaries.join("; ");
+                  }
+
                   db.all(
-                    `SELECT SUM(spark_score) as total_score FROM activities WHERE user_id = ? AND date(start_date) = ?`,
+                    `SELECT sport, description, target_spark FROM micro_plan WHERE user_id = ? AND date = ?`,
                     [req.user.id, todayStr],
-                    (err, actualAct) => {
-                      const actualSpark = Math.ceil(
-                        actualAct && actualAct.length > 0 && actualAct[0].total_score
-                          ? actualAct[0].total_score
-                          : 0
-                      );
+                    async (err, plannedRows) => {
+                      let plannedSummary = "";
+                      if (plannedRows && plannedRows.length > 0) {
+                        plannedSummary = plannedRows
+                          .map((p) => {
+                            const sportStr = p.sport ? `[${p.sport}] ` : "";
+                            return `${sportStr}${p.description} (${Math.round(p.target_spark || 0)} Spark Points)`;
+                          })
+                          .join("; ");
+                      } else {
+                        plannedSummary = "Rest day (0 Spark Points)";
+                      }
 
-                      db.all(
-                        `SELECT date, target_spark, description FROM micro_plan WHERE user_id = ? AND date = ? LIMIT 1`,
-                        [req.user.id, todayStr],
-                        async (err, todayPlan) => {
-                          let todaySpark = Math.ceil(
-                            todayPlan && todayPlan.length > 0
-                              ? todayPlan[0].target_spark
-                              : 0
-                          );
-                          let todayDesc =
-                            todayPlan && todayPlan.length > 0
-                              ? todayPlan[0].description
-                              : "Rest day";
+                      let trainingContextPrompt = "";
+                      if (completedSummary) {
+                        trainingContextPrompt = `Completed Activities Today: ${completedSummary} (Total Spark Points: ${actualSpark.toFixed(1)})`;
+                        if (plannedSummary && plannedSummary !== "Rest day (0 Spark Points)") {
+                          trainingContextPrompt += `\nPlanned Training for Today: ${plannedSummary}`;
+                        }
+                      } else {
+                        trainingContextPrompt = `Today's Planned Training: ${plannedSummary}`;
+                      }
 
-                          // If they already trained harder than planned (or trained on a rest day), update the prompt
-                          if (
-                            actualSpark > todaySpark ||
-                            (actualSpark > 0 && todayDesc === "Rest day")
-                          ) {
-                            todaySpark = actualSpark;
-                            todayDesc = "Completed Workout / Training Day";
-                          }
+                      const systemPrompt = `You are an elite sports nutritionist. The user is an endurance athlete currently in their ${phase} phase.
+Their latest weight is ${weight}kg.
 
-                          const systemPrompt = `You are an elite sports nutritionist. Calculate an exact, highly intelligent macro protocol tailored specifically to this endurance athlete:
+${trainingContextPrompt}
 
-Athlete Profile & Context:
-- Current Body Weight: ${weight}kg
-- Macro Training Phase: ${phase}
-- Today's Training: ${todayDesc} (Spark Load: ${todaySpark} Spark Points)
-- Athlete Profile Context: ${athleteContext || 'Endurance athlete'}
-- Long-Term Memory / Goals: ${longTermMemory || 'Optimal performance and body composition'}
+Athlete Context:
+${athleteContext}
 
-Recent Conversations between Coach & Athlete (Check for weight loss/gain/deficit/surplus goals):
-${recentChat || 'No recent chats'}
+Coach/Long Term Memory Notes (IMPORTANT for goals/injuries/deficits):
+${longTermMemory}
 
-CRITICAL INSTRUCTIONS FOR WEIGHT GAIN / LOSS ADJUSTMENTS:
-1. Check athlete context, long term memory, and recent chat history to see if the athlete and coach discussed WEIGHT LOSS (caloric deficit/cutting) or WEIGHT GAIN (surplus/hypertrophy/gaining):
-   - If WEIGHT LOSS / CUTTING is mentioned:
-     * Keep protein high (1.8 - 2.2g per kg mass) to preserve lean muscle mass.
-     * Reduce fat to 0.8 - 1.0g per kg mass.
-     * Scale carbs down by 15-20% to create a safe, sustainable caloric deficit while maintaining training energy.
-     * Mention the weight loss / caloric management strategy explicitly in the rationale.
-   - If WEIGHT GAIN / SURPLUS is mentioned:
-     * Increase carbs and fats slightly to create a caloric surplus for muscle synthesis and weight gain.
-     * Mention the weight gain / surplus strategy in the rationale.
-   - If MAINTENANCE / RECOVERY:
-     * Standard baseline: Carbs (3.5-8.0g/kg based on Spark load), Protein (1.6-1.8g/kg), Fat (1.0-1.2g/kg).
+Based on today's completed activities (if any), planned training load, macro phase, and athlete context/goals, recommend a daily macro nutrition target.
+- Explicitly reference the actual completed exercise names and sport types (e.g. Run, Swim, Bike, Strength) in your rationale if a workout was completed.
+- For high Spark Points / intense days, prescribe higher carbohydrates.
+- For rest / low Spark Points days, prescribe lower carbohydrates and higher protein/fat.
+- Protein should always be kept very high (1.8g - 2.2g per kg of bodyweight, which is roughly ${Math.round(weight * 1.8)}g - ${Math.round(weight * 2.2)}g for this athlete) to preserve and build muscle mass.
+- Ensure total calories make sense for an endurance athlete of their weight and align with any weight loss/gain goals mentioned in their notes.
 
-Provide a specific title (e.g., 'Caloric Deficit - High Protein Fueling' or 'High Carb Fueling - Build Session') and a 1-2 sentence rationale referencing today's session (${todayDesc}), their ${weight}kg mass, and their specific body composition/weight goal.
-
-You MUST respond with ONLY a raw JSON object with NO markdown formatting:
+You MUST respond with ONLY a raw JSON object containing exactly these keys:
 {
-  "title": "String",
-  "rationale": "String (1-2 sentences referencing training, weight, and weight loss/gain goals)",
-  "carbs": Number (exact integer grams),
-  "protein": Number (exact integer grams),
-  "fat": Number (exact integer grams)
+  "title": "String (e.g. 'High Carb / Big Session')",
+  "rationale": "String (1-2 sentences explaining why, referencing the specific exercise name and type if completed)",
+  "carbs": Number (grams),
+  "protein": Number (grams),
+  "fat": Number (grams)
 }`;
 
                   try {
@@ -504,11 +571,11 @@ You MUST respond with ONLY a raw JSON object with NO markdown formatting:
                       [req.user.id, todayStr, JSON.stringify(protocol)],
                     );
 
-                    res.json(protocol);
+                    sendNutritionResponse(protocol);
                   } catch (e) {
                     console.error("Nutrition AI failed:", e);
                     // Fallback to a safe baseline if AI fails to parse
-                    res.json({
+                    sendNutritionResponse({
                       title: "Balanced Maintenance",
                       rationale:
                         "AI is currently resting. Here is a balanced baseline protocol for your weight.",
@@ -523,8 +590,6 @@ You MUST respond with ONLY a raw JSON object with NO markdown formatting:
           );
         },
       );
-    },
-  );
     },
   );
     },
@@ -545,6 +610,97 @@ router.get("/api/weight", authenticateToken, (req, res) => {
       }
       res.json(rows || []);
     },
+  );
+});
+
+router.get("/api/physique/nutrition/summary", authenticateToken, async (req, res) => {
+  const { getAMSDateString } = require("../services/utils");
+  const todayStr = getAMSDateString();
+  const userId = req.user.id;
+
+  db.get(
+    `SELECT weight_kg FROM biometrics WHERE user_id = ? ORDER BY date DESC LIMIT 1`,
+    [userId],
+    (err, weightRow) => {
+      const weight = weightRow ? weightRow.weight_kg : 75;
+      const defaultTarget = {
+        carbs: Math.round(weight * 3.5),
+        protein: Math.round(weight * 1.8),
+        fat: Math.round(weight * 0.9)
+      };
+
+      db.get(
+        `SELECT protocol_json FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
+        [userId, todayStr],
+        (err, cachedProtocol) => {
+          let target = defaultTarget;
+          if (cachedProtocol && cachedProtocol.protocol_json) {
+            try {
+              const parsed = JSON.parse(cachedProtocol.protocol_json);
+              target = {
+                carbs: parsed.carbs || defaultTarget.carbs,
+                protein: parsed.protein || defaultTarget.protein,
+                fat: parsed.fat || defaultTarget.fat
+              };
+            } catch (e) {
+              console.error("Error parsing cached nutrition protocol:", e);
+            }
+          }
+
+          db.get(
+            `SELECT logged_carbs, logged_protein, logged_fat, items_summary FROM daily_diet_logs WHERE user_id = ? AND date = ?`,
+            [userId, todayStr],
+            (err, dietRow) => {
+              db.get(
+                `SELECT carbs, protein, fat FROM nutrition_intake WHERE user_id = ? AND date = ?`,
+                [userId, todayStr],
+                (err, intakeRow) => {
+                  const logged = {
+                    carbs: Math.round((dietRow ? dietRow.logged_carbs : 0) || (intakeRow ? intakeRow.carbs : 0) || 0),
+                    protein: Math.round((dietRow ? dietRow.logged_protein : 0) || (intakeRow ? intakeRow.protein : 0) || 0),
+                    fat: Math.round((dietRow ? dietRow.logged_fat : 0) || (intakeRow ? intakeRow.fat : 0) || 0)
+                  };
+                  const itemsSummary = dietRow ? (dietRow.items_summary || "") : "";
+
+                  const hasData = logged.carbs > 0 || logged.protein > 0 || logged.fat > 0;
+                  const percentages = {
+                    carbs: target.carbs > 0 ? Math.round((logged.carbs / target.carbs) * 100) : 0,
+                    protein: target.protein > 0 ? Math.round((logged.protein / target.protein) * 100) : 0,
+                    fat: target.fat > 0 ? Math.round((logged.fat / target.fat) * 100) : 0
+                  };
+
+                  res.json({
+                    has_data: hasData,
+                    target,
+                    logged,
+                    percentages,
+                    items_summary: itemsSummary
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+router.post("/api/physique/nutrition/reset", authenticateToken, (req, res) => {
+  const { getAMSDateString } = require("../services/utils");
+  const todayStr = getAMSDateString();
+  db.run(
+    `DELETE FROM daily_diet_logs WHERE user_id = ? AND date = ?`,
+    [req.user.id, todayStr],
+    (err) => {
+      db.run(
+        `DELETE FROM nutrition_intake WHERE user_id = ? AND date = ?`,
+        [req.user.id, todayStr],
+        () => {
+          res.json({ success: true, message: "Diet log reset for today" });
+        }
+      );
+    }
   );
 });
 

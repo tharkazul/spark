@@ -322,7 +322,7 @@ export function WorkoutStepBuilder({ steps, sport, onChangeSteps }: WorkoutStepB
           onPress={() => handleAddStep('interval')}
           className="px-2.5 py-1 bg-blue-500/10 border border-blue-500/30 rounded-lg flex-row items-center gap-1"
         >
-          <Ionicons name="add" size={12} color="#208AEF" />
+          <Ionicons name="add" size={12} color="#38BDF8" />
           <Text className="text-[11px] font-bold text-blue-500">+ Interval</Text>
         </TouchableOpacity>
 
@@ -346,7 +346,7 @@ export function WorkoutStepBuilder({ steps, sport, onChangeSteps }: WorkoutStepB
           onPress={handleAddRepeat}
           className="px-2.5 py-1 bg-theme-accent/15 border border-theme-accent/40 rounded-lg flex-row items-center gap-1"
         >
-          <Ionicons name="repeat" size={12} color="#16ACBD" />
+          <Ionicons name="repeat" size={12} color="#FF5A1F" />
           <Text className="text-[11px] font-bold text-theme-accent">+ Repeat Block</Text>
         </TouchableOpacity>
       </View>

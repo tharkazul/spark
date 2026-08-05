@@ -38,7 +38,7 @@ export default function ActivitiesScreen() {
                 <Ionicons 
                   name={item.type === 'Run' ? 'walk' : 'bicycle'} 
                   size={20} 
-                  color="#208AEF" 
+                  color="#FF5A1F" 
                 />
               </View>
               <View>

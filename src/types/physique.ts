@@ -22,4 +22,8 @@ export interface NutritionProtocol {
   proteinTarget: number;
   fat: number;
   fatTarget: number;
+  loggedCarbs?: number;
+  loggedProtein?: number;
+  loggedFat?: number;
+  loggedItems?: string[];
 }

@@ -96,3 +96,42 @@ export const chatStorage = {
     } catch (e) {}
   },
 };
+
+const BRIEFING_KEY = 'spark_daily_briefing';
+
+export const briefingStorage = {
+  async getDailyBriefing(dateStr: string): Promise<string | null> {
+    try {
+      let raw: string | null = null;
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          raw = window.localStorage.getItem(BRIEFING_KEY);
+        }
+      } else {
+        raw = await SecureStore.getItemAsync(BRIEFING_KEY);
+      }
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.date === dateStr && parsed.text) {
+          return parsed.text;
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async setDailyBriefing(dateStr: string, text: string): Promise<void> {
+    try {
+      const data = JSON.stringify({ date: dateStr, text });
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(BRIEFING_KEY, data);
+        }
+      } else {
+        await SecureStore.setItemAsync(BRIEFING_KEY, data);
+      }
+    } catch (e) {}
+  },
+};

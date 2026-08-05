@@ -94,8 +94,8 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
         <Svg width={size} height={size}>
           <Defs>
             <LinearGradient id="radarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#16ACBD" stopOpacity="0.45" />
-              <Stop offset="100%" stopColor="#208AEF" stopOpacity="0.15" />
+              <Stop offset="0%" stopColor="#FF5A1F" stopOpacity="0.45" />
+              <Stop offset="100%" stopColor="#FF8554" stopOpacity="0.15" />
             </LinearGradient>
           </Defs>
 
@@ -157,23 +157,23 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
           <Polygon
             points={dataPoints}
             fill="url(#radarGrad)"
-            stroke="#16ACBD"
+            stroke="#FF5A1F"
             strokeWidth="2.5"
           />
 
           {/* Data Points Glowing Dots */}
           <G>
-            <Circle cx={pTop.x} cy={pTop.y} r="5" fill="#16ACBD" />
-            <Circle cx={pTop.x} cy={pTop.y} r="8" fill="#16ACBD" opacity="0.3" />
+            <Circle cx={pTop.x} cy={pTop.y} r="5" fill="#FF5A1F" />
+            <Circle cx={pTop.x} cy={pTop.y} r="8" fill="#FF5A1F" opacity="0.3" />
 
-            <Circle cx={pRight.x} cy={pRight.y} r="5" fill="#16ACBD" />
-            <Circle cx={pRight.x} cy={pRight.y} r="8" fill="#16ACBD" opacity="0.3" />
+            <Circle cx={pRight.x} cy={pRight.y} r="5" fill="#FF5A1F" />
+            <Circle cx={pRight.x} cy={pRight.y} r="8" fill="#FF5A1F" opacity="0.3" />
 
-            <Circle cx={pBottom.x} cy={pBottom.y} r="5" fill="#16ACBD" />
-            <Circle cx={pBottom.x} cy={pBottom.y} r="8" fill="#16ACBD" opacity="0.3" />
+            <Circle cx={pBottom.x} cy={pBottom.y} r="5" fill="#FF5A1F" />
+            <Circle cx={pBottom.x} cy={pBottom.y} r="8" fill="#FF5A1F" opacity="0.3" />
 
-            <Circle cx={pLeft.x} cy={pLeft.y} r="5" fill="#16ACBD" />
-            <Circle cx={pLeft.x} cy={pLeft.y} r="8" fill="#16ACBD" opacity="0.3" />
+            <Circle cx={pLeft.x} cy={pLeft.y} r="5" fill="#FF5A1F" />
+            <Circle cx={pLeft.x} cy={pLeft.y} r="8" fill="#FF5A1F" opacity="0.3" />
           </G>
         </Svg>
       </View>

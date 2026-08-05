@@ -32,8 +32,7 @@ const {
   triggerBackgroundSummary,
   updateUserSparkAndCheckLevel,
   triggerLevelUpCoachPrompt,
-  generateQuestForUser,
-  evaluateQuestsAgainstActivity,
+  evaluateAndProgressQuests,
   calculateQuestProgress
 } = require('../services/utils');
 
@@ -78,62 +77,81 @@ router.post("/api/milestones", authenticateToken, (req, res) => {
   });
 });
 
-router.get("/api/gamification", authenticateToken, (req, res) => {
+router.get("/api/gamification", authenticateToken, async (req, res) => {
   const userId = req.user.id;
   const responseData = { quests: [], titles: [], bonus_points: [] };
 
-  db.all(
-    `SELECT * FROM user_quests WHERE user_id = ? ORDER BY created_at DESC`,
-    [userId],
-    async (err, quests) => {
-      if (!err && quests) {
-        const processedQuests = await Promise.all(
-          quests.map(async (q) => {
-            const qObj = { ...q };
+  try {
+    await evaluateAndProgressQuests(userId);
+  } catch (e) {
+    console.error("Error evaluating quests in /api/gamification:", e);
+  }
 
-            // Expiry check
-            if (qObj.status === "active" && qObj.expires_at) {
-              const expiresMs = new Date(qObj.expires_at).getTime();
-              if (expiresMs <= Date.now()) {
-                qObj.status = "expired";
-                db.run(`UPDATE user_quests SET status = 'expired' WHERE id = ?`, [qObj.id]);
-              }
-            }
+  // Fix any quest erroneously marked completed after its expiration date
+  db.run(
+    `UPDATE user_quests SET status = 'expired' WHERE user_id = ? AND expires_at IS NOT NULL AND completed_at > expires_at AND status = 'completed'`,
+    [userId]
+  );
 
-            // Calculate progress for active or completed quests
-            const currentVal = await calculateQuestProgress(userId, qObj);
-            qObj.current_value = currentVal;
-            qObj.progress_percent = Math.min(100, Math.round((currentVal / (qObj.target_value || 1)) * 100));
-            qObj.time_remaining_str = qObj.status === "active" ? getTimeRemainingStr(qObj.expires_at) : null;
-
-            // Unit string
-            if (qObj.target_metric === "distance_km") qObj.unit = "km";
-            else if (qObj.target_metric === "moving_time_min") qObj.unit = "min";
-            else if (qObj.target_metric === "spark_score") qObj.unit = "pts";
-            else qObj.unit = "";
-
-            return qObj;
-          })
-        );
-        responseData.quests = processedQuests;
-      }
-
+  // Ensure only 1 active quest per user by closing any older active quests
+  db.run(
+    `UPDATE user_quests SET status = 'closed' WHERE user_id = ? AND status = 'active' AND id NOT IN (SELECT id FROM (SELECT id FROM user_quests WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC, id DESC LIMIT 1))`,
+    [userId, userId],
+    () => {
       db.all(
-        `SELECT * FROM user_titles WHERE user_id = ? ORDER BY created_at DESC`,
+        `SELECT * FROM user_quests WHERE user_id = ? ORDER BY created_at DESC`,
         [userId],
-        (err, titles) => {
-          if (!err && titles) responseData.titles = titles;
+        async (err, quests) => {
+          if (!err && quests) {
+            const processedQuests = await Promise.all(
+              quests.map(async (q) => {
+                const qObj = { ...q };
+
+                // Expiry check
+                if (qObj.status === "active" && qObj.expires_at) {
+                  const expiresMs = new Date(qObj.expires_at).getTime();
+                  if (expiresMs <= Date.now()) {
+                    qObj.status = "expired";
+                    db.run(`UPDATE user_quests SET status = 'expired' WHERE id = ?`, [qObj.id]);
+                  }
+                }
+
+                // Calculate progress for active or completed quests
+                const currentVal = await calculateQuestProgress(userId, qObj);
+                qObj.current_value = currentVal;
+                qObj.progress_percent = Math.min(100, Math.round((currentVal / (qObj.target_value || 1)) * 100));
+                qObj.time_remaining_str = qObj.status === "active" ? getTimeRemainingStr(qObj.expires_at) : null;
+
+                // Unit string
+                if (qObj.target_metric === "distance_km") qObj.unit = "km";
+                else if (qObj.target_metric === "moving_time_min") qObj.unit = "min";
+                else if (qObj.target_metric === "spark_score") qObj.unit = "pts";
+                else qObj.unit = "";
+
+                return qObj;
+              })
+            );
+            responseData.quests = processedQuests;
+          }
+
           db.all(
-            `SELECT * FROM bonus_points WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
+            `SELECT * FROM user_titles WHERE user_id = ? ORDER BY created_at DESC`,
             [userId],
-            (err, points) => {
-              if (!err && points) responseData.bonus_points = points;
-              res.json(responseData);
+            (err, titles) => {
+              if (!err && titles) responseData.titles = titles;
+              db.all(
+                `SELECT * FROM bonus_points WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
+                [userId],
+                (err, points) => {
+                  if (!err && points) responseData.bonus_points = points;
+                  res.json(responseData);
+                },
+              );
             },
           );
         },
       );
-    },
+    }
   );
 });
 
@@ -143,19 +161,15 @@ router.post(
   async (req, res) => {
     const userId = req.user.id;
 
-    // Check if user already has an active quest to avoid spamming
     db.get(
       `SELECT count(*) as count FROM user_quests WHERE user_id = ? AND status = 'active'`,
       [userId],
       async (err, row) => {
-        if (row && row.count >= 3) {
-          return res
-            .status(400)
-            .json({
-              error: "You already have 3 active quests. Complete them first!",
-            });
+        if (err) return res.status(500).json({ error: "Database error" });
+        if (row && row.count > 0) {
+          return res.status(400).json({ error: "You already have an active quest." });
         }
-
+        
         try {
           const questData = await generateQuestForUser(userId, "common");
           res.json({ success: true, quest: questData });
@@ -163,48 +177,65 @@ router.post(
           console.error("Failed to generate quest:", e);
           res.status(500).json({ error: "Failed to generate quest" });
         }
-      },
+      }
     );
   },
 );
 
-router.post("/api/gamification/evaluate_quests", authenticateToken, (req, res) => {
+router.post(
+  "/api/gamification/refresh_quest",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.user.id;
+    const { quest_id } = req.body;
+
+    db.get(
+      `SELECT * FROM user_quests WHERE id = ? AND user_id = ? AND status = 'active'`,
+      [quest_id, userId],
+      async (err, quest) => {
+        if (err || !quest) {
+          return res.status(404).json({ error: "Active quest not found or already completed." });
+        }
+
+        try {
+          // Mark old quest as replaced/void
+          db.run(`UPDATE user_quests SET status = 'void' WHERE id = ?`, [quest.id]);
+          // Generate easier quest using the common token pool
+          const newQuest = await generateQuestForUser(userId, "common", quest);
+          if (!newQuest) {
+            return res.status(500).json({ error: "Failed to generate easier replacement quest" });
+          }
+          newQuest.current_value = 0;
+          res.json({ success: true, quest: newQuest });
+        } catch (e) {
+          console.error("Failed to refresh quest:", e);
+          res.status(500).json({ error: "Failed to generate easier replacement quest" });
+        }
+      }
+    );
+  },
+);
+
+router.post("/api/gamification/evaluate_quests", authenticateToken, async (req, res) => {
   const userId = req.user.id;
 
-  // Evaluate the latest activity against active quests
-  db.get(
-    `SELECT * FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 1`,
-    [userId],
-    async (err, latestActivity) => {
-      if (err || !latestActivity) {
-        return res.json({
-          success: true,
-          message: "No activities found to evaluate against.",
-        });
-      }
-
-      try {
-        const completed = await evaluateQuestsAgainstActivity(
-          userId,
-          latestActivity,
-        );
-        if (completed.length > 0) {
-          res.json({
-            success: true,
-            message: `Evaluated and completed ${completed.length} quests based on your latest activity!`,
-          });
-        } else {
-          res.json({
-            success: true,
-            message:
-              "Evaluated your latest activity, but no quests were completed.",
-          });
-        }
-      } catch (e) {
-        res.status(500).json({ error: "Failed to evaluate quests." });
-      }
-    },
-  );
+  try {
+    const allQuests = await evaluateAndProgressQuests(userId);
+    const completed = allQuests.filter((q) => q.status === "completed");
+    if (completed.length > 0) {
+      res.json({
+        success: true,
+        message: `Evaluated and completed ${completed.length} quests!`,
+      });
+    } else {
+      res.json({
+        success: true,
+        message: "Evaluated your active quests, but no new targets were reached yet.",
+      });
+    }
+  } catch (e) {
+    res.status(500).json({ error: "Failed to evaluate quests." });
+  }
 });
 
 
@@ -255,18 +286,31 @@ router.post(
             .trim();
           const titleData = JSON.parse(jsonStr);
 
-          db.run(
-            `INSERT INTO user_titles (user_id, title, description) VALUES (?, ?, ?)`,
-            [userId, titleData.title, titleData.description],
-          );
+          // Check if user currently has an active title
+          db.get(
+            `SELECT COUNT(*) as active_count FROM user_titles WHERE user_id = ? AND is_active = 1`,
+            [userId],
+            (errCount, countRow) => {
+              const shouldBeActive = !errCount && countRow && countRow.active_count === 0 ? 1 : 0;
 
-          // Also award 50 bonus points for a new title
-          db.run(
-            `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
-            [userId, 50, `Earned Title: ${titleData.title}`],
-          );
+              db.run(
+                `INSERT INTO user_titles (user_id, title, description, is_active) VALUES (?, ?, ?, ?)`,
+                [userId, titleData.title, titleData.description, shouldBeActive],
+                function (errInsert) {
+                  // Also award 50 bonus points for a new title
+                  db.run(
+                    `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
+                    [userId, 50, `Earned Title: ${titleData.title}`],
+                  );
 
-          res.json({ success: true, title: titleData });
+                  // Clear public profile cache so changes reflect on social profile
+                  db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
+
+                  res.json({ success: true, title: { id: this.lastID, ...titleData, is_active: shouldBeActive } });
+                }
+              );
+            }
+          );
         } catch (e) {
           console.error("Failed to generate title:", e);
           res.status(500).json({ error: "Failed to generate title" });
@@ -274,6 +318,76 @@ router.post(
       },
     );
   },
+);
+
+// Equip / Unequip a title
+router.post(
+  "/api/titles/:id/equip",
+  authenticateToken,
+  (req, res) => {
+    const userId = req.user.id;
+    const titleId = req.params.id;
+
+    db.get(
+      `SELECT is_active FROM user_titles WHERE id = ? AND user_id = ?`,
+      [titleId, userId],
+      (err, titleRow) => {
+        if (err || !titleRow) {
+          return res.status(44).json({ error: "Title not found" });
+        }
+
+        const currentlyActive = titleRow.is_active === 1;
+
+        // Reset all titles for this user to inactive first
+        db.run(
+          `UPDATE user_titles SET is_active = 0 WHERE user_id = ?`,
+          [userId],
+          (errReset) => {
+            if (errReset) {
+              return res.status(500).json({ error: "Failed to update title status" });
+            }
+
+            // If it wasn't active before, set it to active now (toggle behavior)
+            if (!currentlyActive) {
+              db.run(
+                `UPDATE user_titles SET is_active = 1 WHERE id = ? AND user_id = ?`,
+                [titleId, userId],
+                (errEquip) => {
+                  db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
+                  res.json({ success: true, equipped: true, activeTitleId: titleId });
+                }
+              );
+            } else {
+              db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
+              res.json({ success: true, equipped: false, activeTitleId: null });
+            }
+          }
+        );
+      }
+    );
+  }
+);
+
+// Delete a title
+router.delete(
+  "/api/titles/:id",
+  authenticateToken,
+  (req, res) => {
+    const userId = req.user.id;
+    const titleId = req.params.id;
+
+    db.run(
+      `DELETE FROM user_titles WHERE id = ? AND user_id = ?`,
+      [titleId, userId],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ error: "Failed to delete title" });
+        }
+        db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
+        res.json({ success: true, deletedId: titleId });
+      }
+    );
+  }
 );
 
 

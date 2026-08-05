@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '../ui/Card';
 import { LineChart } from 'react-native-gifted-charts';
 import { AthleteRadarChart } from './AthleteRadarChart';
+import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -60,7 +61,7 @@ export const SparkTab: React.FC<SparkTabProps> = ({
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
             <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
-              <Ionicons name="flash" size={18} color="#16ACBD" />
+              <Ionicons name="flash" size={18} color="#FF5A1F" />
             </View>
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
               SPARK LEVEL <Text className="text-theme-accent text-lg font-black">{levelInfo.level}</Text>
@@ -99,102 +100,17 @@ export const SparkTab: React.FC<SparkTabProps> = ({
         <AthleteRadarChart data={archetypeData} size={230} />
       </Card>
 
-      {/* 30-DAY TRENDS GRID */}
-      <Card className="mb-4 bg-theme-card border-theme-border">
-        <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-4">
-          30-Day Trends
-        </Text>
-
-        <View className="flex-row flex-wrap justify-between">
-          {/* Fitness (CTL) */}
-          <View className="w-[48%] bg-theme-bg/60 border border-theme-border rounded-xl p-3 mb-3">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[10px] font-bold text-theme-muted uppercase">Fitness (CTL)</Text>
-              <Text className="text-xs font-extrabold text-[#208AEF]">72</Text>
-            </View>
-            <View className="-ml-4 -mb-2">
-              <LineChart
-                data={fitnessData}
-                height={55}
-                width={120}
-                color="#208AEF"
-                thickness={2.5}
-                hideDataPoints
-                xAxisColor="transparent"
-                yAxisColor="transparent"
-                hideRules
-                curved
-              />
-            </View>
-          </View>
-
-          {/* Fatigue (ATL) */}
-          <View className="w-[48%] bg-theme-bg/60 border border-theme-border rounded-xl p-3 mb-3">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[10px] font-bold text-theme-muted uppercase">Fatigue (ATL)</Text>
-              <Text className="text-xs font-extrabold text-[#E3494F]">32</Text>
-            </View>
-            <View className="-ml-4 -mb-2">
-              <LineChart
-                data={fatigueData}
-                height={55}
-                width={120}
-                color="#E3494F"
-                thickness={2.5}
-                hideDataPoints
-                xAxisColor="transparent"
-                yAxisColor="transparent"
-                hideRules
-                curved
-              />
-            </View>
-          </View>
-
-          {/* Readiness (TSB) */}
-          <View className="w-[48%] bg-theme-bg/60 border border-theme-border rounded-xl p-3">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[10px] font-bold text-theme-muted uppercase">Readiness (TSB)</Text>
-              <Text className="text-xs font-extrabold text-[#34C759]">+40</Text>
-            </View>
-            <View className="-ml-4 -mb-2">
-              <LineChart
-                data={readinessData}
-                height={55}
-                width={120}
-                color="#34C759"
-                thickness={2.5}
-                hideDataPoints
-                xAxisColor="transparent"
-                yAxisColor="transparent"
-                hideRules
-                curved
-              />
-            </View>
-          </View>
-
-          {/* Weight */}
-          <View className="w-[48%] bg-theme-bg/60 border border-theme-border rounded-xl p-3">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[10px] font-bold text-theme-muted uppercase">Weight</Text>
-              <Text className="text-xs font-extrabold text-[#F9CF45]">74.5kg</Text>
-            </View>
-            <View className="-ml-4 -mb-2">
-              <LineChart
-                data={weightData}
-                height={55}
-                width={120}
-                color="#F9CF45"
-                thickness={2.5}
-                hideDataPoints
-                xAxisColor="transparent"
-                yAxisColor="transparent"
-                hideRules
-                curved
-              />
-            </View>
-          </View>
-        </View>
-      </Card>
+      {/* PMC TELEMETRY METRICS CARDS WITH SPARKLINES */}
+      <PMCMetricsCard
+        ctl={64.2}
+        atl={72.1}
+        tsb={-7.9}
+        weightKg={74.5}
+        ctlHistory={[58, 59, 60, 61.5, 62.8, 63.5, 64.2]}
+        atlHistory={[65, 68, 67, 70, 71.5, 70.8, 72.1]}
+        tsbHistory={[-7, -9, -7, -8.5, -8.7, -7.3, -7.9]}
+        weightHistory={[75.2, 75.0, 74.8, 74.7, 74.6, 74.5, 74.5]}
+      />
 
       {/* QUESTS LOG */}
       <Card className="mb-6 bg-theme-card border-theme-border">
@@ -218,7 +134,7 @@ export const SparkTab: React.FC<SparkTabProps> = ({
 
           <View className="flex-row justify-between items-center pt-2 border-t border-theme-border/50">
             <View className="flex-row items-center space-x-1">
-              <Ionicons name="trophy-outline" size={14} color="#16ACBD" />
+              <Ionicons name="trophy-outline" size={14} color="#FF5A1F" />
               <Text className="text-xs font-bold text-theme-accent">Reward: 75 Spark</Text>
             </View>
 

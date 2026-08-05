@@ -64,7 +64,7 @@ export function SeasonRoadmapCard({ info, resetStageKey }: SeasonRoadmapCardProp
       <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
         <View className="flex-row items-center gap-2">
           <View className="w-7 h-7 rounded-lg bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
-            <Ionicons name="map-outline" size={14} color="#16ACBD" />
+            <Ionicons name="map-outline" size={14} color="#FF5A1F" />
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Season Roadmap</Text>
@@ -74,7 +74,7 @@ export function SeasonRoadmapCard({ info, resetStageKey }: SeasonRoadmapCardProp
 
         {/* Countdown Badge */}
         <View className="bg-theme-card border border-theme-accent/40 px-2.5 py-1 rounded-lg shadow-sm flex-row items-center gap-1">
-          <Ionicons name="flag-outline" size={12} color="#16ACBD" />
+          <Ionicons name="flag-outline" size={12} color="#FF5A1F" />
           <Text className="text-[10px] font-mono font-extrabold text-theme-accent">
             {info.daysRemaining} Days · {info.raceTargetName}
           </Text>
@@ -157,7 +157,7 @@ export function SeasonRoadmapCard({ info, resetStageKey }: SeasonRoadmapCardProp
               className="mt-2.5 py-2 items-center justify-center border border-dashed border-theme-border rounded-xl bg-theme-bg/30 flex-row gap-1"
             >
               <Text className="text-xs font-bold text-theme-accent">Click to see more</Text>
-              <Ionicons name="chevron-down" size={14} color="#16ACBD" />
+              <Ionicons name="chevron-down" size={14} color="#FF5A1F" />
             </TouchableOpacity>
           </View>
         )}
@@ -175,7 +175,7 @@ export function SeasonRoadmapCard({ info, resetStageKey }: SeasonRoadmapCardProp
                 className="flex-row items-center gap-1 px-2 py-1 rounded-lg bg-theme-bg border border-theme-border"
               >
                 <Text className="text-[10px] font-bold text-theme-accent">Show minimal view</Text>
-                <Ionicons name="chevron-up" size={12} color="#16ACBD" />
+                <Ionicons name="chevron-up" size={12} color="#FF5A1F" />
               </TouchableOpacity>
             </View>
 
@@ -253,7 +253,7 @@ export function SeasonRoadmapCard({ info, resetStageKey }: SeasonRoadmapCardProp
                       <View className="mt-3 pt-3 border-t border-theme-border/60 space-y-2">
                         <View className="flex-row items-center justify-between bg-theme-bg/80 p-2.5 rounded-xl border border-theme-border/50">
                           <View className="flex-row items-center gap-1.5">
-                            <Ionicons name="time-outline" size={14} color="#16ACBD" />
+                            <Ionicons name="time-outline" size={14} color="#FF5A1F" />
                             <Text className="text-xs text-theme-muted font-medium">Target Volume</Text>
                           </View>
                           <Text className="text-xs font-mono font-bold text-theme-text">

@@ -107,7 +107,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
               onPress={() => handleAdjustWeight(-0.5)}
               className="w-12 h-12 bg-theme-bg border border-theme-border rounded-xl items-center justify-center"
             >
-              <Ionicons name="remove" size={20} color="#16ACBD" />
+              <Ionicons name="remove" size={20} color="#FF5A1F" />
             </TouchableOpacity>
 
             <View className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-2.5 items-center justify-center">
@@ -124,7 +124,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
               onPress={() => handleAdjustWeight(0.5)}
               className="w-12 h-12 bg-theme-bg border border-theme-border rounded-xl items-center justify-center"
             >
-              <Ionicons name="add" size={20} color="#16ACBD" />
+              <Ionicons name="add" size={20} color="#FF5A1F" />
             </TouchableOpacity>
           </View>
         </View>
@@ -226,7 +226,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
             }}
             className="bg-theme-bg border border-dashed border-theme-border rounded-xl p-3 flex-row items-center justify-center space-x-2"
           >
-            <Ionicons name="camera-outline" size={18} color="#16ACBD" />
+            <Ionicons name="camera-outline" size={18} color="#FF5A1F" />
             <Text className="text-xs font-bold text-theme-accent">
               {photoUri ? 'Photo Selected ✓' : 'Choose / Take Progress Photo'}
             </Text>

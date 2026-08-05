@@ -25,6 +25,10 @@ export interface NutritionMacro {
   fatTarget: number;
   focusTitle: string;
   rationale: string;
+  loggedCarbs?: number;
+  loggedProtein?: number;
+  loggedFat?: number;
+  loggedItems?: string[];
 }
 
 export interface MacroPeriodInfo {

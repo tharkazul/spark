@@ -113,7 +113,7 @@ export function MicroPlanAgendaCard({
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2.5">
             <View className="w-8 h-8 rounded-xl bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
-              <Ionicons name="list-outline" size={16} color="#16ACBD" />
+              <Ionicons name="list-outline" size={16} color="#FF5A1F" />
             </View>
             <View>
               <Text className="text-base font-extrabold text-theme-text">Micro Plan Agenda</Text>
@@ -143,7 +143,7 @@ export function MicroPlanAgendaCard({
           activeOpacity={0.8}
           className="w-full bg-theme-card border border-theme-accent/40 py-2.5 px-4 rounded-xl flex-row items-center justify-center gap-1.5 shadow-sm"
         >
-          <Ionicons name="sparkles" size={14} color="#16ACBD" />
+          <Ionicons name="sparkles" size={14} color="#FF5A1F" />
           <Text className="text-xs font-bold text-theme-accent">Auto-Generate Week</Text>
         </TouchableOpacity>
       </View>
@@ -178,7 +178,7 @@ export function MicroPlanAgendaCard({
                 }}
                 className="flex-row items-center gap-0.5 px-2.5 py-1 bg-theme-bg rounded-lg border border-theme-border"
               >
-                <Ionicons name="add" size={12} color="#16ACBD" />
+                <Ionicons name="add" size={12} color="#FF5A1F" />
                 <Text className="text-[10px] font-bold text-theme-accent">Add</Text>
               </TouchableOpacity>
             </View>

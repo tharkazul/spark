@@ -21,9 +21,10 @@ db.serialize(() => {
         search_privacy INTEGER DEFAULT 0,
         profile_picture_url TEXT,
         common_token_usage INTEGER DEFAULT 0,
-        daily_token_limit INTEGER DEFAULT 10000,
+        daily_token_limit INTEGER DEFAULT 5000,
         subscription_tier TEXT DEFAULT 'free',
-        spark_plus_clicks INTEGER DEFAULT 0
+        spark_plus_clicks INTEGER DEFAULT 0,
+        data_request_clicks INTEGER DEFAULT 0
     )`);
   // Add columns if they don't exist (fails silently if they do)
   db.run(
@@ -51,6 +52,10 @@ db.serialize(() => {
     (err) => {},
   );
   db.run(
+    `ALTER TABLE users ADD COLUMN data_request_clicks INTEGER DEFAULT 0`,
+    (err) => {},
+  );
+  db.run(
     `ALTER TABLE users ADD COLUMN last_token_reset_date TEXT`,
     (err) => {},
   );
@@ -72,23 +77,8 @@ db.serialize(() => {
     `ALTER TABLE users ADD COLUMN average_cycle_length INTEGER DEFAULT 28`,
     (err) => {},
   );
-  db.run(`ALTER TABLE users ADD COLUMN total_spark REAL DEFAULT 0`, (err) => {
-    if (!err) {
-      console.log("Backfilling total_spark for all users...");
-      db.all(
-        `SELECT user_id, SUM(spark_score) as total FROM activities GROUP BY user_id`,
-        (err, rows) => {
-          if (!err && rows) {
-            const stmt = db.prepare(
-              `UPDATE users SET total_spark = ? WHERE id = ?`,
-            );
-            rows.forEach((r) => stmt.run(r.total || 0, r.user_id));
-            stmt.finalize(() => console.log("total_spark backfill complete."));
-          }
-        },
-      );
-    }
-  });
+  db.run(`ALTER TABLE users ADD COLUMN total_spark REAL DEFAULT 0`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN spark_start_date TEXT`, (err) => {});
   db.run(`CREATE TABLE IF NOT EXISTS strava_tokens (
         user_id INTEGER PRIMARY KEY,
         access_token TEXT NOT NULL,
@@ -101,10 +91,30 @@ db.serialize(() => {
     `CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, sport_type TEXT, distance_km REAL, elevation_m INTEGER, moving_time_min REAL, average_heartrate REAL, start_date TEXT, tss REAL)`,
   );
   db.run(`ALTER TABLE activities ADD COLUMN spark_score REAL`, (err) => {
-    // Automatically backfill any activities that have a NULL spark_score
+    // Automatically backfill any activities that have a NULL spark_score, then sync total_spark
     db.all(
-      `SELECT id, moving_time_min, average_heartrate FROM activities WHERE spark_score IS NULL`,
+      `SELECT a.id, a.user_id, a.start_date, a.moving_time_min, a.average_heartrate, a.tss, u.spark_start_date FROM activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.spark_score IS NULL`,
       (err, rows) => {
+        const syncUserSpark = () => {
+          db.all(
+            `SELECT u.id as user_id, COALESCE(SUM(a.spark_score), 0) as total 
+             FROM users u 
+             LEFT JOIN activities a ON a.user_id = u.id AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10)) 
+             GROUP BY u.id`,
+            (err, userRows) => {
+              if (!err && userRows) {
+                const uStmt = db.prepare(
+                  `UPDATE users SET total_spark = ? WHERE id = ?`,
+                );
+                userRows.forEach((r) => uStmt.run(r.total || 0, r.user_id));
+                uStmt.finalize(() =>
+                  console.log("total_spark synchronization complete."),
+                );
+              }
+            },
+          );
+        };
+
         if (!err && rows && rows.length > 0) {
           console.log(
             `Backfilling spark_score for ${rows.length} activities...`,
@@ -113,24 +123,40 @@ db.serialize(() => {
             `UPDATE activities SET spark_score = ? WHERE id = ?`,
           );
           rows.forEach((row) => {
-            let bonus = 0;
-            if (row.average_heartrate) {
-              if (row.average_heartrate >= 180) bonus = 0.4;
-              else if (row.average_heartrate >= 160) bonus = 0.3;
-              else if (row.average_heartrate >= 140) bonus = 0.2;
-              else if (row.average_heartrate >= 120) bonus = 0.1;
+            const userStartDateDay = row.spark_start_date ? row.spark_start_date.substring(0, 10) : null;
+            const actStartDateDay = row.start_date ? row.start_date.substring(0, 10) : null;
+            let score = 0;
+            if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
+              let bonus = 0;
+              if (row.average_heartrate) {
+                if (row.average_heartrate >= 180) bonus = 1.0;
+                else if (row.average_heartrate >= 160) bonus = 0.4;
+                else if (row.average_heartrate >= 140) bonus = 0.3;
+                else if (row.average_heartrate >= 120) bonus = 0.2;
+                else if (row.average_heartrate >= 100) bonus = 0.0;
+                else if (row.average_heartrate >= 80) bonus = -0.2;
+                else bonus = -0.5;
+              }
+              const baseScore = row.moving_time_min || row.tss || 0;
+              score = baseScore > 0 ? baseScore + baseScore * bonus : (row.tss || 0);
             }
-            const score =
-              (row.moving_time_min || 0) + (row.moving_time_min || 0) * bonus;
             stmt.run(score, row.id);
           });
-          stmt.finalize(() => console.log("Spark Score backfill complete."));
+          stmt.finalize(() => {
+            console.log("Spark Score backfill complete.");
+            syncUserSpark();
+          });
+        } else {
+          syncUserSpark();
         }
       },
     );
   });
   db.run(`ALTER TABLE activities ADD COLUMN sets_json TEXT`, (err) => {
     if (!err) console.log("Added sets_json column to activities table.");
+  });
+  db.run(`ALTER TABLE activities ADD COLUMN laps_json TEXT`, (err) => {
+    if (!err) console.log("Added laps_json column to activities table.");
   });
   db.run(
     `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_spark REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
@@ -205,6 +231,17 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+  db.run(`CREATE TABLE IF NOT EXISTS nutrition_intake (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    date TEXT,
+    carbs REAL DEFAULT 0,
+    protein REAL DEFAULT 0,
+    fat REAL DEFAULT 0,
+    UNIQUE(user_id, date),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS milestones (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -220,6 +257,28 @@ db.serialize(() => {
         date TEXT,
         protocol_json TEXT,
         UNIQUE(user_id, date)
+    )`);
+  db.run(`CREATE TABLE IF NOT EXISTS nutrition_intake (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        date TEXT,
+        carbs REAL DEFAULT 0,
+        protein REAL DEFAULT 0,
+        fat REAL DEFAULT 0,
+        UNIQUE(user_id, date),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+  db.run(`CREATE TABLE IF NOT EXISTS daily_diet_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        date TEXT,
+        logged_carbs REAL DEFAULT 0,
+        logged_protein REAL DEFAULT 0,
+        logged_fat REAL DEFAULT 0,
+        items_summary TEXT DEFAULT '',
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, date),
+        FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
   db.run(`CREATE TABLE IF NOT EXISTS connections (
         user_id INTEGER,
@@ -265,6 +324,8 @@ db.serialize(() => {
         status TEXT DEFAULT 'active',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         completed_at DATETIME,
+        expires_at DATETIME,
+        refresh_count INTEGER DEFAULT 0,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
@@ -280,20 +341,42 @@ db.serialize(() => {
     `ALTER TABLE user_quests ADD COLUMN expires_at DATETIME`,
     (err) => {},
   );
+  db.run(
+    `ALTER TABLE user_quests ADD COLUMN refresh_count INTEGER DEFAULT 0`,
+    (err) => {},
+  );
+  db.run(
+    `UPDATE user_quests SET expires_at = datetime(created_at, '+3 days') WHERE expires_at IS NULL AND status = 'active'`,
+    (err) => {},
+  );
 
   db.run(`CREATE TABLE IF NOT EXISTS user_titles (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         title TEXT,
         description TEXT,
+        is_active INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+  db.run(
+    `ALTER TABLE user_titles ADD COLUMN is_active INTEGER DEFAULT 0`,
+    (err) => {},
+  );
 
   db.run(`CREATE TABLE IF NOT EXISTS system_state (
         key TEXT PRIMARY KEY,
         value TEXT,
         last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS activity_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        activity_id TEXT NOT NULL,
+        user_id INTEGER NOT NULL,
+        comment TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
   db.run(`CREATE TABLE IF NOT EXISTS athlete_niggles (
@@ -309,12 +392,42 @@ db.serialize(() => {
 
   db.run(`ALTER TABLE athlete_niggles ADD COLUMN resolved_date DATETIME`, (err) => {});
 
-  db.run(`CREATE TABLE IF NOT EXISTS athlete_fatigue_log (
+  db.run(`CREATE TABLE IF NOT EXISTS athlete_muscle_status (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-        date TEXT,
         body_part TEXT,
         fatigue_score REAL DEFAULT 0,
+        development_score REAL DEFAULT 0,
+        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, body_part),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+
+  // Migration from old athlete_fatigue_log if it exists
+  db.all(`PRAGMA table_info(athlete_fatigue_log);`, (err, rows) => {
+    if (!err && rows && rows.length > 0) {
+      console.log("Migrating athlete_fatigue_log to athlete_muscle_status...");
+      db.serialize(() => {
+        // We sum existing fatigue to populate both fatigue and development initially
+        db.run(`INSERT INTO athlete_muscle_status (user_id, body_part, fatigue_score, development_score)
+                SELECT user_id, body_part, SUM(fatigue_score), SUM(fatigue_score)
+                FROM athlete_fatigue_log
+                GROUP BY user_id, body_part
+                ON CONFLICT(user_id, body_part) DO UPDATE SET 
+                  fatigue_score = fatigue_score + excluded.fatigue_score,
+                  development_score = development_score + excluded.development_score`);
+        db.run(`DROP TABLE athlete_fatigue_log`);
+      });
+    }
+  });
+  db.run(`CREATE TABLE IF NOT EXISTS user_feature_onboarding (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        feature_key TEXT NOT NULL,
+        introduced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        first_used_at DATETIME,
+        status TEXT DEFAULT 'introduced',
+        UNIQUE(user_id, feature_key),
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 });

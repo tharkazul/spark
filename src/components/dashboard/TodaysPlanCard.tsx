@@ -99,7 +99,7 @@ export function TodaysPlanCard({
       <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
         <View className="flex-row items-center gap-2">
           <View className="w-7 h-7 rounded-lg bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
-            <Ionicons name="calendar-outline" size={14} color="#16ACBD" />
+            <Ionicons name="calendar-outline" size={14} color="#FF5A1F" />
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Today's Plan</Text>
@@ -110,7 +110,7 @@ export function TodaysPlanCard({
         {/* Right Info Row: Date + Temp + Adapt Button */}
         <View className="flex-row items-center gap-1.5">
           <View className="bg-theme-card px-2 py-0.5 rounded-lg border border-theme-border flex-row items-center gap-1">
-            <Ionicons name={(weatherIcon as any) || 'partly-sunny-outline'} size={12} color="#16ACBD" />
+            <Ionicons name={(weatherIcon as any) || 'partly-sunny-outline'} size={12} color="#FF5A1F" />
             <Text className="text-[10px] font-bold text-theme-text">{tempLabel}</Text>
           </View>
 
@@ -119,7 +119,7 @@ export function TodaysPlanCard({
             activeOpacity={0.7}
             className="flex-row items-center gap-1 bg-theme-accent-soft px-2 py-0.5 rounded-lg border border-theme-accent/30"
           >
-            <Ionicons name="flash" size={11} color="#16ACBD" />
+            <Ionicons name="flash" size={11} color="#FF5A1F" />
             <Text className="text-[10px] font-extrabold text-theme-accent">ADAPT</Text>
           </TouchableOpacity>
         </View>
@@ -216,7 +216,7 @@ export function TodaysPlanCard({
             activeOpacity={0.7}
             className="w-full py-3.5 border border-dashed border-theme-border rounded-xl items-center justify-center flex-row gap-1 bg-theme-bg/30 mt-2"
           >
-            <Ionicons name="add-circle-outline" size={18} color="#16ACBD" />
+            <Ionicons name="add-circle-outline" size={18} color="#FF5A1F" />
             <Text className="text-xs font-bold text-theme-accent">Add Exercise</Text>
           </TouchableOpacity>
         </View>

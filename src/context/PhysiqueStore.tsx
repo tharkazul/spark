@@ -9,6 +9,7 @@ interface PhysiqueContextType {
   error: string | null;
   refreshPhysique: () => Promise<void>;
   logPhysique: (entry: Partial<PhysiqueEntry>) => Promise<void>;
+  clearLoggedNutrition: () => Promise<void>;
 }
 
 const defaultNutrition: NutritionProtocol = {
@@ -67,6 +68,10 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
           proteinTarget: p.protein || 140,
           fat: p.fat || 65,
           fatTarget: p.fat || 65,
+          loggedCarbs: p.loggedCarbs || 0,
+          loggedProtein: p.loggedProtein || 0,
+          loggedFat: p.loggedFat || 0,
+          loggedItems: p.loggedItems || [],
         });
       }
       setError(null);
@@ -92,6 +97,15 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const clearLoggedNutrition = async () => {
+    try {
+      await physiqueApi.clearLoggedNutrition();
+      await refreshPhysique();
+    } catch (err) {
+      console.error('Failed to clear logged nutrition:', err);
+    }
+  };
+
   useEffect(() => {
     refreshPhysique();
   }, []);
@@ -105,6 +119,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
         error,
         refreshPhysique,
         logPhysique,
+        clearLoggedNutrition,
       }}
     >
       {children}

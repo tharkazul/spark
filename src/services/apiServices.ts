@@ -120,7 +120,21 @@ export const planApi = {
 export const physiqueApi = {
   getPhysiqueLogs: () => apiClient<PhysiqueEntry[]>('/api/physique'),
   getNutritionProtocol: () =>
-    apiClient<{ title?: string; rationale?: string; carbs?: number; protein?: number; fat?: number }>('/api/physique/nutrition'),
+    apiClient<{
+      title?: string;
+      rationale?: string;
+      carbs?: number;
+      protein?: number;
+      fat?: number;
+      loggedCarbs?: number;
+      loggedProtein?: number;
+      loggedFat?: number;
+      loggedItems?: string[];
+    }>('/api/physique/nutrition'),
+  clearLoggedNutrition: () =>
+    apiClient<{ success: boolean }>('/api/physique/nutrition/clear', {
+      method: 'POST',
+    }),
   logWeight: (data: Partial<PhysiqueEntry>) =>
     apiClient<{ success: boolean }>('/api/weight', {
       method: 'POST',

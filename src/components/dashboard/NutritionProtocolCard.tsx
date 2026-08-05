@@ -1,14 +1,30 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import { NutritionMacro } from '../../types/dashboard';
+import { MacroRingGauge } from './MacroRingGauge';
+import { physiqueApi } from '../../services/apiServices';
+import { usePhysique } from '../../context/PhysiqueStore';
 
 interface NutritionProtocolCardProps {
   nutrition: NutritionMacro;
 }
 
 export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps) {
+  const { clearLoggedNutrition } = usePhysique();
+
+  const handleClearLoggedFood = async () => {
+    try {
+      await clearLoggedNutrition();
+    } catch (err) {
+      console.error('Failed to clear logged nutrition:', err);
+    }
+  };
+
+  const loggedItems = nutrition.loggedItems || [];
+  const hasLoggedFood = (nutrition.loggedCarbs || 0) > 0 || (nutrition.loggedProtein || 0) > 0 || (nutrition.loggedFat || 0) > 0;
+
   return (
     <Card className="p-0 overflow-hidden mb-3.5 border-theme-border shadow-sm">
       {/* Header Bar */}
@@ -19,9 +35,19 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Daily AI Nutrition Protocol</Text>
-            <Text className="text-[9px] text-theme-muted">Fueling & Recovery Targets</Text>
+            <Text className="text-[9px] text-theme-muted">Fueling & Conversational Meal Targets</Text>
           </View>
         </View>
+
+        {hasLoggedFood && (
+          <TouchableOpacity
+            onPress={handleClearLoggedFood}
+            className="flex-row items-center gap-1 bg-theme-card border border-theme-border px-2 py-1 rounded-lg"
+          >
+            <Ionicons name="refresh-outline" size={11} color="#94A3B8" />
+            <Text className="text-[9px] font-bold text-theme-muted">Reset Today</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Main Content Area */}
@@ -34,32 +60,49 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
           {nutrition.rationale}
         </Text>
 
-        {/* Macro Gauges Grid */}
-        <View className="flex-row justify-around items-center pt-2 pb-1">
-          {/* Carbs Gauge (Spark Teal / Cyan) */}
-          <View className="items-center">
-            <View className="w-16 h-16 rounded-full border-[3.5px] border-theme-accent bg-theme-accent/15 items-center justify-center mb-1.5 shadow-sm">
-              <Text className="font-extrabold text-theme-text text-sm">{nutrition.carbs}g</Text>
-            </View>
-            <Text className="text-[10px] text-theme-accent uppercase font-extrabold tracking-wider">Carbs</Text>
-          </View>
+        {/* Macro Ring Gauges Grid (Protein, Carbs, Fat) */}
+        <View className="flex-row justify-around items-center pt-1 pb-3">
+          {/* Protein Ring */}
+          <MacroRingGauge
+            label="Protein"
+            target={nutrition.protein}
+            logged={nutrition.loggedProtein || 0}
+          />
 
-          {/* Protein Gauge (Recovery Emerald) */}
-          <View className="items-center">
-            <View className="w-16 h-16 rounded-full border-[3.5px] border-emerald-500 bg-emerald-500/15 items-center justify-center mb-1.5 shadow-sm">
-              <Text className="font-extrabold text-theme-text text-sm">{nutrition.protein}g</Text>
-            </View>
-            <Text className="text-[10px] text-emerald-500 uppercase font-extrabold tracking-wider">Protein</Text>
-          </View>
+          {/* Carbs Ring */}
+          <MacroRingGauge
+            label="Carbs"
+            target={nutrition.carbs}
+            logged={nutrition.loggedCarbs || 0}
+          />
 
-          {/* Fat Gauge (Warm Gold / Amber) */}
-          <View className="items-center">
-            <View className="w-16 h-16 rounded-full border-[3.5px] border-amber-500 bg-amber-500/15 items-center justify-center mb-1.5 shadow-sm">
-              <Text className="font-extrabold text-theme-text text-sm">{nutrition.fat}g</Text>
-            </View>
-            <Text className="text-[10px] text-amber-500 uppercase font-extrabold tracking-wider">Fat</Text>
-          </View>
+          {/* Fat Ring */}
+          <MacroRingGauge
+            label="Fat"
+            target={nutrition.fat}
+            logged={nutrition.loggedFat || 0}
+          />
         </View>
+
+        {/* Logged Meal Chips (when shared in chat) */}
+        {loggedItems.length > 0 && (
+          <View className="mt-2 pt-2.5 border-t border-theme-border/50">
+            <Text className="text-[10px] font-extrabold text-theme-muted uppercase tracking-wider mb-1.5">
+              Meals Logged via Coach Chat
+            </Text>
+            <View className="flex-row flex-wrap gap-1.5">
+              {loggedItems.map((item, idx) => (
+                <View
+                  key={idx}
+                  className="bg-theme-accent-soft/20 border border-theme-accent/30 px-2.5 py-1 rounded-lg flex-row items-center gap-1"
+                >
+                  <Ionicons name="checkmark-circle" size={10} color="#FF5A1F" />
+                  <Text className="text-[10px] font-bold text-theme-text">{item}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
       </View>
     </Card>
   );

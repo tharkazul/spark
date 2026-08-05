@@ -173,20 +173,23 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
             "Strava rejected the token. Please check your credentials.",
           );
 
-        // Fetch athlete profile details from Strava
-        try {
-          const athleteRes = await fetch("https://www.strava.com/api/v3/athlete", {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` },
-          });
-          const athleteData = await athleteRes.json();
-          if (athleteData && athleteData.id) {
-            const profilePic = athleteData.profile || athleteData.profile_medium;
-            if (profilePic && !profilePic.includes("avatar/athlete/large.png")) {
-              db.run(`UPDATE users SET profile_picture_url = ? WHERE id = ?`, [profilePic, req.user.id]);
-            }
-          }
-        } catch (athErr) {
-          console.warn("Strava Athlete Profile Fetch Warning:", athErr.message);
+        if (
+          tokenData.refresh_token &&
+          tokenData.refresh_token !== user.strava_refresh_token
+        ) {
+          db.run(`UPDATE users SET strava_refresh_token = ? WHERE id = ?`, [
+            tokenData.refresh_token,
+            req.user.id,
+          ]);
+          db.run(
+            `UPDATE strava_tokens SET refresh_token = ?, access_token = ?, expires_at = ? WHERE user_id = ?`,
+            [
+              tokenData.refresh_token,
+              tokenData.access_token,
+              tokenData.expires_at || 0,
+              req.user.id,
+            ],
+          );
         }
 
         const actRes = await fetch(
@@ -198,43 +201,48 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
 
         const activities = await actRes.json();
 
-        if (Array.isArray(activities)) {
-          activities.forEach((act) => {
-            const tss =
-              act.suffer_score || Math.round((act.moving_time / 3600) * 50);
-            const sparkScore = calculateSparkScore(
+        const userRow = await new Promise((resolve) =>
+          db.get(`SELECT spark_start_date FROM users WHERE id = ?`, [req.user.id], (err, row) => resolve(row))
+        );
+        const userStartDateDay = userRow && userRow.spark_start_date ? userRow.spark_start_date.substring(0, 10) : null;
+
+        activities.forEach((act) => {
+          const tss =
+            act.suffer_score || Math.round((act.moving_time / 3600) * 50);
+          const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
+          let sparkScore = 0;
+          if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
+            sparkScore = calculateSparkScore(
               act.moving_time / 60,
               act.average_heartrate,
+              tss,
             );
-            db.run(
-              `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score) 
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                       ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
-              [
-                act.id,
-                req.user.id,
-                act.name,
-                act.sport_type,
-                act.distance / 1000,
-                act.total_elevation_gain,
-                act.moving_time / 60,
-                act.average_heartrate || 0,
-                act.start_date,
-                tss,
-                sparkScore,
-              ],
-            );
-            tagStravaActivity(req.user.id, act, tokenData.access_token);
-          });
-        }
+          }
+          db.run(
+            `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
+            [
+              act.id,
+              req.user.id,
+              act.name,
+              act.sport_type,
+              act.distance / 1000,
+              act.total_elevation_gain,
+              act.moving_time / 60,
+              act.average_heartrate || 0,
+              act.start_date,
+              tss,
+              sparkScore,
+            ],
+          );
+          tagStravaActivity(req.user.id, act, tokenData.access_token);
+        });
 
         updateUserSparkAndCheckLevel(req.user.id);
-        sendSSEEvent(req.user.id, "strava_sync_complete", { count: Array.isArray(activities) ? activities.length : 0 });
 
         res.json({
-          success: true,
-          count: Array.isArray(activities) ? activities.length : 0,
-          message: `Successfully synced ${Array.isArray(activities) ? activities.length : 0} activities!`,
+          message: `Successfully synced ${activities.length} activities!`,
         });
       } catch (err) {
         console.error("Strava Sync Error:", err);
@@ -291,7 +299,7 @@ router.post(
         (err) => {
           if (err)
             return res.status(500).json({ error: "Failed to map Strava ID." });
-          res.json({ success: true, message: "Strava connected successfully!" });
+          res.json({ message: "Strava connected successfully!" });
         },
       );
     } catch (error) {
@@ -328,7 +336,7 @@ router.post("/api/user/disconnect/strava", authenticateToken, (req, res) => {
             return res
               .status(500)
               .json({ error: "Failed to disconnect Strava from database." });
-          res.json({ success: true, message: "Strava disconnected successfully!" });
+          res.json({ message: "Strava disconnected successfully!" });
         },
       );
     },
@@ -343,7 +351,7 @@ router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
     (err) => {
       if (err)
         return res.status(500).json({ error: "Failed to disconnect Garmin." });
-      res.json({ success: true, message: "Garmin disconnected successfully!" });
+      res.json({ message: "Garmin disconnected successfully!" });
     },
   );
 });
@@ -352,15 +360,18 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
   console.log("DEBUG: Sync route triggered for user:", req.user.id);
   const selectedWorkouts = req.body.workouts;
 
+  if (!selectedWorkouts || selectedWorkouts.length === 0) {
+    return res.status(400).json({ error: "No workouts selected for sync." });
+  }
+
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
         `SELECT garmin_username, garmin_password FROM users WHERE id = ?`,
         [req.user.id],
         (err, row) => {
-          if (err || !row || !row.garmin_username || !row.garmin_password) {
-            reject(new Error("Garmin credentials not found or incomplete"));
-          } else resolve(row);
+          if (err || !row) reject(new Error("User credentials not found"));
+          else resolve(row);
         },
       );
     });
@@ -388,9 +399,9 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       );
     });
 
-    const workoutsToSync = Array.isArray(selectedWorkouts) && selectedWorkouts.length > 0
-      ? workouts.filter((w) => selectedWorkouts.some((sw) => sw.date === w.date && sw.sport === w.sport))
-      : workouts.filter((w) => w.sport !== "Rest");
+    const workoutsToSync = workouts.filter((w) =>
+      selectedWorkouts.some((sw) => sw.date === w.date && sw.sport === w.sport),
+    );
 
     if (workoutsToSync.length === 0)
       return res

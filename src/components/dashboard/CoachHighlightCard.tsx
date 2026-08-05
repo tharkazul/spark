@@ -24,7 +24,7 @@ export function CoachHighlightCard({
       <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
         <View className="flex-row items-center gap-2">
           <View className="w-7 h-7 rounded-lg bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
-            <Ionicons name="sparkles-outline" size={14} color="#16ACBD" />
+            <Ionicons name="sparkles-outline" size={14} color="#FF5A1F" />
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Coach Highlights</Text>
@@ -47,7 +47,11 @@ export function CoachHighlightCard({
 
           {/* Briefing Content */}
           <View className="flex-1">
-            <Text className="text-theme-text text-xs md:text-sm font-medium leading-snug">
+            <Text
+              numberOfLines={3}
+              ellipsizeMode="tail"
+              className="text-theme-text text-xs md:text-sm font-semibold leading-snug"
+            >
               {message}
             </Text>
           </View>

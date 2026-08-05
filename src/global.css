@@ -4,34 +4,34 @@
 
 @layer base {
   :root {
-    --bg-main: #F4F7F9;
+    --bg-main: #F4F6F9;
     --bg-card: #FFFFFF;
-    --border-color: #DDE3E9;
-    --text-main: #191C1E;
-    --text-muted: #5A6973;
-    --accent: #16ACBD;
-    --accent-hover: #1397A6;
-    --accent-soft: #E0F5F7;
-    --accent-border: #BAE8ED;
-    --color-focus: #F9CF45;
-    --color-metric: #E3494F;
+    --border-color: #E2E8F0;
+    --text-main: #0F172A;
+    --text-muted: #64748B;
+    --accent: #FF5A1F;
+    --accent-hover: #E04810;
+    --accent-soft: #FFF0EB;
+    --accent-border: #FFD4C2;
+    --color-focus: #38BDF8;
+    --color-metric: #FF5A1F;
   }
 
   /* Note: React Native / NativeWind handles dark mode via the appearance hook, 
      but we can also use media queries if we prefer web-standard */
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg-main: #0F1315;
-      --bg-card: #1C2124;
-      --border-color: #2D343A;
-      --text-main: #FFFFFF;
-      --text-muted: #8E9BA4;
-      --accent: #108595;
-      --accent-hover: #16A8BC;
-      --accent-soft: #08343A;
-      --accent-border: #0D5761;
-      --color-focus: #C99C0C;
-      --color-metric: #B22227;
+      --bg-main: #0F172A;
+      --bg-card: #1E293B;
+      --border-color: #334155;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --accent: #FF6B35;
+      --accent-hover: #FF8554;
+      --accent-soft: rgba(255, 90, 31, 0.15);
+      --accent-border: rgba(255, 90, 31, 0.35);
+      --color-focus: #38BDF8;
+      --color-metric: #FF6B35;
     }
   }
 }

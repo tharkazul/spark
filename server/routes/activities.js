@@ -66,16 +66,19 @@ router.post("/api/user/metrics", authenticateToken, (req, res) => {
 
   db.serialize(() => {
     // We will just clear all custom metrics and re-insert what the user passed, or update them.
-    // But some might have been auto-added by the AI, and we MUST preserve system metrics like strava_opt_out_activities.
+    // But some might have been auto-added by the AI, and we MUST preserve system metrics like strava_opt_out_activities and strava_share_settings.
     db.run(
-      `DELETE FROM athlete_metrics WHERE user_id = ? AND metric != 'strava_opt_out_activities'`,
+      `DELETE FROM athlete_metrics WHERE user_id = ? AND metric NOT IN ('strava_opt_out_activities', 'strava_share_settings')`,
       [req.user.id],
     );
     const stmt = db.prepare(
       `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, ?, ?)`,
     );
     metrics.forEach((m) => {
-      if (m.metric !== "strava_opt_out_activities") {
+      if (
+        m.metric !== "strava_opt_out_activities" &&
+        m.metric !== "strava_share_settings"
+      ) {
         stmt.run(req.user.id, m.metric, m.value);
       }
     });
@@ -117,17 +120,77 @@ router.post("/api/user/strava-opt-out", authenticateToken, (req, res) => {
   );
 });
 
+router.post("/api/user/strava-share-settings", authenticateToken, (req, res) => {
+  const { shareSettings } = req.body;
+  if (!shareSettings || typeof shareSettings !== "object") {
+    return res.status(400).json({ error: "shareSettings must be an object" });
+  }
+  const val = JSON.stringify(shareSettings);
+
+  db.run(
+    `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'strava_share_settings', ?) 
+            ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
+    [req.user.id, val],
+    (err) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ error: "Failed to update Strava share settings." });
+      res.json({ success: true });
+    },
+  );
+});
+
 router.get("/api/activity/:id", authenticateToken, (req, res) => {
   const activityId = req.params.id;
+
+  const fallbackToLocalDB = (defaultStatus = 404, defaultError = "Activity not found on Strava or local database.") => {
+    db.get(
+      `SELECT a.*, (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id) as kudos_count 
+       FROM activities a 
+       WHERE a.id = ? AND (a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))`,
+      [activityId, req.user.id, req.user.id],
+      (dbErr, row) => {
+        if (dbErr || !row) {
+          return res.status(defaultStatus).json({ error: defaultError });
+        }
+        let sets = [];
+        if (row.sets_json) {
+          try {
+            sets = typeof row.sets_json === "string" ? JSON.parse(row.sets_json) : row.sets_json;
+          } catch (e) {
+            sets = [];
+          }
+        }
+        const fallbackData = {
+          id: row.id,
+          name: row.name || "Activity Details",
+          type: row.sport_type || "Workout",
+          sport_type: row.sport_type || "Workout",
+          distance: (row.distance_km || 0) * 1000,
+          moving_time: (row.moving_time_min || 0) * 60,
+          elapsed_time: (row.moving_time_min || 0) * 60,
+          total_elevation_gain: row.elevation_m || 0,
+          average_heartrate: row.average_heartrate || 0,
+          has_heartrate: row.average_heartrate > 0,
+          suffer_score: Math.round(row.spark_score || row.tss || 0),
+          spark_score: Math.round(row.spark_score || row.tss || 0),
+          start_date: row.start_date,
+          start_date_local: row.start_date,
+          sets_json: sets,
+          kudos_count: row.kudos_count || 0
+        };
+        return res.json(fallbackData);
+      }
+    );
+  };
 
   db.get(
     "SELECT strava_refresh_token FROM users WHERE id = ?",
     [req.user.id],
     async (err, user) => {
       if (err || !user || !user.strava_refresh_token) {
-        return res
-          .status(400)
-          .json({ error: "Strava token missing from settings." });
+        return fallbackToLocalDB(400, "Strava token missing from settings.");
       }
 
       try {
@@ -144,7 +207,7 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
 
         const tokenData = await tokenRes.json();
         if (!tokenData.access_token) {
-          return res.status(401).json({ error: "Strava rejected the token." });
+          return fallbackToLocalDB(401, "Strava rejected the token.");
         }
 
         const actRes = await fetch(
@@ -155,9 +218,7 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
         );
 
         if (!actRes.ok) {
-          return res
-            .status(actRes.status)
-            .json({ error: "Activity not found on Strava." });
+          return fallbackToLocalDB(actRes.status, "Activity not found on Strava.");
         }
 
         const activityData = await actRes.json();
@@ -192,7 +253,7 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
         res.json(activityData);
       } catch (err) {
         console.error("Single Activity Fetch Error:", err);
-        res.status(500).json({ error: "Failed to fetch activity details." });
+        fallbackToLocalDB(500, "Failed to fetch activity details.");
       }
     },
   );
@@ -254,47 +315,6 @@ router.post("/api/micro-plan", authenticateToken, (req, res) => {
       }
       res.json({ success: true });
     },
-  );
-});
-
-router.post("/api/micro-plan/accept-suggestion", authenticateToken, (req, res) => {
-  const { plan } = req.body;
-  if (!plan || !Array.isArray(plan)) {
-    return res.status(400).json({ error: "Invalid plan proposal data format" });
-  }
-
-  const affectedDates = [...new Set(plan.map((day) => day.date))].filter(Boolean);
-  if (affectedDates.length === 0) {
-    return res.json({ success: true, message: "No dates affected." });
-  }
-
-  const placeholders = affectedDates.map(() => "?").join(",");
-  db.run(
-    `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
-    [req.user.id, ...affectedDates],
-    (err) => {
-      if (err) console.error("Failed to clear old plan data for proposal:", err);
-
-      const stmt = db.prepare(`
-        INSERT INTO micro_plan (user_id, date, sport, description, target_spark, details, steps_json) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      plan.forEach((day) => {
-        stmt.run(
-          req.user.id,
-          day.date,
-          day.sport || 'Workout',
-          day.description || '',
-          day.target_spark || 0,
-          day.details || '',
-          typeof day.steps_json === 'string' ? day.steps_json : JSON.stringify(day.steps_json || [])
-        );
-      });
-      stmt.finalize();
-
-      res.json({ success: true, message: "Proposal accepted and plan updated successfully." });
-    }
   );
 });
 
@@ -628,7 +648,96 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
         },
       ); // End metrics fetch
     },
+  ); // End users fetch
+});
+// --- ACTIVITY COMMENTS API ---
+router.get("/api/activities/:id/comments", authenticateToken, (req, res) => {
+  const activityId = req.params.id;
+  db.all(
+    `
+    SELECT c.*, u.username, u.profile_picture_url
+    FROM activity_comments c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.activity_id = ?
+    ORDER BY c.created_at ASC
+    `,
+    [activityId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: "Failed to fetch comments" });
+      res.json({ comments: rows || [] });
+    }
   );
 });
+
+router.post("/api/activities/:id/comments", authenticateToken, (req, res) => {
+  const activityId = req.params.id;
+  const { comment } = req.body;
+  if (!comment || !comment.trim()) {
+    return res.status(400).json({ error: "Comment text cannot be empty" });
+  }
+
+  db.run(
+    `INSERT INTO activity_comments (activity_id, user_id, comment) VALUES (?, ?, ?)`,
+    [activityId, req.user.id, comment.trim()],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Failed to add comment" });
+      const commentId = this.lastID;
+
+      db.get(
+        `SELECT c.*, u.username, u.profile_picture_url FROM activity_comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
+        [commentId],
+        (errGet, newComment) => {
+          // Notify activity owner if different from commenter
+          db.get(
+            `SELECT user_id, name FROM activities WHERE id = ?`,
+            [activityId],
+            (errAct, act) => {
+              if (act && act.user_id !== req.user.id) {
+                const commenterName = req.user.username || "Someone";
+                const activityName = act.name || "activity";
+                const coachMsg = `${commenterName} left a comment on your "${activityName}": "${comment.trim()}"`;
+
+                db.run(
+                  `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'support')`,
+                  [act.user_id, coachMsg],
+                  (errChat) => {
+                    if (!errChat) {
+                      sendSSEEvent(act.user_id, "unread_message", {
+                        message: coachMsg,
+                        mood: "support",
+                      });
+                    }
+                  }
+                );
+
+                sendSSEEvent(act.user_id, "comment_received", {
+                  activityName: activityName,
+                  fromUsername: commenterName,
+                  comment: comment.trim(),
+                });
+              }
+            }
+          );
+
+          res.json({ success: true, comment: newComment });
+        }
+      );
+    }
+  );
+});
+
+router.delete("/api/activities/:id/comments/:commentId", authenticateToken, (req, res) => {
+  const commentId = req.params.commentId;
+  db.run(
+    `DELETE FROM activity_comments WHERE id = ? AND user_id = ?`,
+    [commentId, req.user.id],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Failed to delete comment" });
+      res.json({ success: true, deletedId: commentId });
+    }
+  );
+});
+
+module.exports = router;
 
 module.exports = router;

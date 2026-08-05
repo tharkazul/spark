@@ -32,7 +32,7 @@ export function AdaptPlanModal({
         <View className="bg-theme-card border border-theme-accent/40 rounded-[28px] p-5 w-full max-w-sm shadow-2xl max-h-[85%]">
           {/* Top Icon */}
           <View className="w-12 h-12 rounded-full bg-theme-accent/15 border border-theme-accent items-center justify-center self-center mb-3 shadow-md">
-            <Ionicons name="flash" size={24} color="#16ACBD" />
+            <Ionicons name="flash" size={24} color="#FF5A1F" />
           </View>
 
           <Text className="text-xl font-extrabold text-theme-text text-center mb-1">
@@ -51,8 +51,8 @@ export function AdaptPlanModal({
               activeOpacity={0.8}
               className="p-3.5 bg-theme-bg rounded-xl border border-theme-border flex-row items-center gap-3 my-1"
             >
-              <View className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/30 items-center justify-center">
-                <Ionicons name="time-outline" size={18} color="#208AEF" />
+              <View className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/30 items-center justify-center">
+                <Ionicons name="time-outline" size={18} color="#FF5A1F" />
               </View>
               <View className="flex-1">
                 <Text className="text-xs font-bold text-theme-text">30-Min Time Crunch</Text>

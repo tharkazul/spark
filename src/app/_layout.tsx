@@ -39,7 +39,7 @@ function RootNavigation() {
   if (loading) {
     return (
       <View className="flex-1 bg-theme-bg items-center justify-center">
-        <ActivityIndicator size="large" color="#208AEF" />
+        <ActivityIndicator size="large" color="#FF5A1F" />
       </View>
     );
   }

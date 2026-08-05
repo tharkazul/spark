@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Custom Components
 import { CoachHighlightCard } from '../../components/dashboard/CoachHighlightCard';
+import { PMCMetricsCard } from '../../components/dashboard/PMCMetricsCard';
+import { QuickActionsBar } from '../../components/dashboard/QuickActionsBar';
 import { TodaysPlanCard } from '../../components/dashboard/TodaysPlanCard';
 import { NutritionProtocolCard } from '../../components/dashboard/NutritionProtocolCard';
 import { ActiveQuestsCard } from '../../components/dashboard/ActiveQuestsCard';
@@ -36,6 +38,7 @@ import { usePlan } from '../../context/PlanStore';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { useTabBar } from '../../context/TabBarContext';
 import { chatApi, userApi, activitiesApi } from '../../services/apiServices';
+import { briefingStorage } from '../../services/storage';
 import { PlannedWorkout } from '../../types/plan';
 import { UserProfile } from '../../types/user';
 import { Activity } from '../../types/activity';
@@ -72,6 +75,52 @@ function mapSportType(sportStr?: string): SportType {
   if (s.includes('MOBILITY') || s.includes('STRETCH') || s.includes('YOGA')) return 'MOBILITY';
   if (s.includes('REST')) return 'REST';
   return 'RUN';
+}
+
+function getSnappyCoachSummary(msgs: ChatMessage[], tsb: number = -7.9): string {
+  if (!msgs || msgs.length === 0) {
+    return 'Readiness is solid today. Focus on consistency for your scheduled training volume.';
+  }
+
+  // 1. Check for dedicated morning briefing / hype message
+  const morningMsg = msgs.slice().reverse().find(
+    (m) => (m.mood === 'hype' || m.mood === 'morning' || m.mood === 'reflection') && m.content
+  );
+  if (morningMsg && morningMsg.content) {
+    const text = morningMsg.content.trim();
+    if (text.length <= 160) return text;
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    return sentences.slice(0, 2).join(' ');
+  }
+
+  // 2. Extract action sentence from recent chat response
+  const lastCoachMsg = msgs.slice().reverse().find(
+    (m) => (m.role === 'coach' || m.role === 'assistant') && m.content
+  );
+
+  if (lastCoachMsg && lastCoachMsg.content) {
+    const text = lastCoachMsg.content.trim();
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    // Find an action sentence
+    const actionSentence = sentences.find((s) =>
+      /run|workout|session|focus|plan|rest|build|keep|let's|tempo|brick|interval|streak/i.test(s)
+    );
+    if (actionSentence && actionSentence.length >= 15 && actionSentence.length <= 160) {
+      return actionSentence.trim();
+    }
+    if (sentences.length > 0 && sentences[0].length <= 160) {
+      return sentences[0].trim();
+    }
+  }
+
+  // 3. Fallback guidance
+  if (tsb < -30) {
+    return 'High fatigue detected. Focus on active recovery and fueling today to avoid overtraining.';
+  } else if (tsb < -10) {
+    return 'Optimal training zone! You are building fitness according to plan. Stay consistent today.';
+  } else {
+    return 'Readiness is solid today. Stick to your scheduled volume to trigger new fitness adaptations.';
+  }
 }
 
 export default function DashboardScreen() {
@@ -123,6 +172,12 @@ export default function DashboardScreen() {
 
     async function loadBackendData() {
       try {
+        // Check local device cache for today's briefing
+        const cachedBriefing = await briefingStorage.getDailyBriefing(todayYYYYMMDD);
+        if (cachedBriefing && isMounted) {
+          setCoachMessage(cachedBriefing);
+        }
+
         const [chatHistory, profileData, historyData] = await Promise.allSettled([
           chatApi.getHistory(),
           userApi.getProfile(),
@@ -130,12 +185,9 @@ export default function DashboardScreen() {
         ]);
 
         if (isMounted && chatHistory.status === 'fulfilled' && Array.isArray(chatHistory.value)) {
-          const coachMsgs = chatHistory.value.filter(
-            (m) => m.role === 'coach' || m.role === 'assistant'
-          );
-          if (coachMsgs.length > 0) {
-            setCoachMessage(coachMsgs[coachMsgs.length - 1].content);
-          }
+          const summary = getSnappyCoachSummary(chatHistory.value);
+          setCoachMessage(summary);
+          await briefingStorage.setDailyBriefing(todayYYYYMMDD, summary);
         }
 
         if (isMounted && profileData.status === 'fulfilled' && profileData.value) {
@@ -400,7 +452,7 @@ export default function DashboardScreen() {
             <Text className="text-2xl font-extrabold text-theme-text tracking-tight">Dashboard</Text>
           </View>
           <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border px-3 py-1.5 rounded-full shadow-sm">
-            <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
+            <Ionicons name="calendar-outline" size={13} color="#FF5A1F" />
             <Text className="text-xs font-bold font-mono text-theme-muted">{todayHeaderLabel}</Text>
           </View>
         </View>
@@ -417,8 +469,8 @@ export default function DashboardScreen() {
               width: tabWidth,
               transform: [{ translateX: indicatorTranslateX }],
               left: 4,
-              backgroundColor: '#16ACBD1E',
-              borderColor: '#16ACBD',
+              backgroundColor: '#FF5A1F1E',
+              borderColor: '#FF5A1F',
               borderWidth: 1.5,
             }}
           />
@@ -479,6 +531,14 @@ export default function DashboardScreen() {
           <CoachHighlightCard
             message={coachMessage}
             onDiscussPlan={handleDiscussPlan}
+          />
+
+          {/* Quick Actions Row */}
+          <QuickActionsBar
+            onLogActivity={() => handleOpenAddModal(formatDayName(today), formatShortDate(today), todayYYYYMMDD)}
+            onLifeHappens={() => setIsAdaptModalOpen(true)}
+            onLogWeight={() => router.push('/physique')}
+            onNiggleCheck={() => router.push('/coach')}
           />
 
           {/* Today's Plan Highlight Card (Editable & Telemetry Visualized) */}

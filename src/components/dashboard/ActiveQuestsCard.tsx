@@ -79,10 +79,10 @@ export function ActiveQuestsCard() {
           className="flex-row items-center gap-1 bg-theme-card border border-theme-border px-2.5 py-1 rounded-lg shadow-sm"
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#16ACBD" />
+            <ActivityIndicator size="small" color="#FF5A1F" />
           ) : (
             <>
-              <Ionicons name="refresh-outline" size={12} color="#16ACBD" />
+              <Ionicons name="refresh-outline" size={12} color="#FF5A1F" />
               <Text className="text-[10px] font-bold text-theme-accent">
                 {activeQuest ? 'Reroll' : 'New Quest'}
               </Text>

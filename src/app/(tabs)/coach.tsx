@@ -112,19 +112,23 @@ export default function CoachScreen() {
 
   const scrollToBottom = (animated = true) => {
     if (isUserScrollingUpRef.current) return;
-    if (sections.length > 0) {
-      try {
-        const lastSectionIdx = sections.length - 1;
-        const lastItemIdx = sections[lastSectionIdx].data.length - 1;
-        if (lastItemIdx >= 0) {
-          sectionListRef.current?.scrollToLocation({
-            sectionIndex: lastSectionIdx,
-            itemIndex: lastItemIdx,
-            animated,
-          });
+    try {
+      (sectionListRef.current as any)?.scrollToEnd({ animated });
+    } catch (_) {
+      if (sections.length > 0) {
+        try {
+          const lastSectionIdx = sections.length - 1;
+          const lastItemIdx = sections[lastSectionIdx].data.length - 1;
+          if (lastItemIdx >= 0) {
+            sectionListRef.current?.scrollToLocation({
+              sectionIndex: lastSectionIdx,
+              itemIndex: lastItemIdx,
+              animated,
+            });
+          }
+        } catch (_) {
+          // fallback if layout not complete
         }
-      } catch (_) {
-        // fallback if layout not complete
       }
     }
   };
@@ -140,6 +144,7 @@ export default function CoachScreen() {
   useFocusEffect(
     useCallback(() => {
       const timer = setTimeout(() => {
+        setIsKeyboardOpen(true);
         inputRef.current?.focus();
       }, 350);
       return () => clearTimeout(timer);
@@ -153,8 +158,10 @@ export default function CoachScreen() {
 
     const showSub = Keyboard.addListener(showEvent, () => {
       setIsKeyboardOpen(true);
+      isUserScrollingUpRef.current = false;
       setTimeout(() => scrollToBottom(true), 50);
-      setTimeout(() => scrollToBottom(true), 200);
+      setTimeout(() => scrollToBottom(true), 150);
+      setTimeout(() => scrollToBottom(true), 300);
     });
 
     const hideSub = Keyboard.addListener(hideEvent, () => {
@@ -168,6 +175,16 @@ export default function CoachScreen() {
       hideSub.remove();
     };
   }, [sections]);
+
+  useEffect(() => {
+    isUserScrollingUpRef.current = false;
+    const t1 = setTimeout(() => scrollToBottom(true), 60);
+    const t2 = setTimeout(() => scrollToBottom(true), 220);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isKeyboardOpen]);
 
   useEffect(() => {
     scrollToBottom(true);
@@ -338,7 +355,7 @@ export default function CoachScreen() {
           {/* Chat Thread Container with Sticky Section Date Headers */}
           {loading && messages.length === 0 ? (
             <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#16ACBD" />
+              <ActivityIndicator size="large" color="#FF5A1F" />
               <Text className="text-theme-muted text-xs mt-2">Connecting with Spark...</Text>
             </View>
           ) : (
@@ -371,7 +388,7 @@ export default function CoachScreen() {
           {/* Streaming / Typing Indicator */}
           {sending ? (
             <View className="px-4 py-2 flex-row items-center self-start mb-2 ml-4 bg-theme-card/80 rounded-full border border-theme-border">
-              <ActivityIndicator size="small" color="#16ACBD" />
+              <ActivityIndicator size="small" color="#FF5A1F" />
               <Text className="text-theme-accent text-xs font-semibold ml-2">Spark is typing...</Text>
             </View>
           ) : null}
@@ -387,24 +404,28 @@ export default function CoachScreen() {
             />
           ) : null}
 
-          {/* UNIFIED INPUT MODULE CONTAINER (Single Persistent Node to Prevent Glitching) */}
+          {/* UNIFIED INPUT MODULE CONTAINER (Static multiline={true} Node to Fix Flashing Bug & Wider Pill) */}
           <View
             style={{
               marginBottom: !isKeyboardOpen ? (Platform.OS === 'ios' ? 116 : 98) : 4,
               alignSelf: !isKeyboardOpen ? 'flex-end' : 'stretch',
               marginRight: !isKeyboardOpen ? 16 : 12,
               marginLeft: !isKeyboardOpen ? 0 : 12,
-              maxWidth: !isKeyboardOpen ? '80%' : '100%',
+              maxWidth: !isKeyboardOpen ? '85%' : '100%',
+              minWidth: !isKeyboardOpen ? 190 : undefined,
               zIndex: 50,
             }}
             className="py-1"
           >
             <TouchableOpacity
-              activeOpacity={1}
-              onPress={() => inputRef.current?.focus()}
+              activeOpacity={0.85}
+              onPress={() => {
+                setIsKeyboardOpen(true);
+                setTimeout(() => inputRef.current?.focus(), 40);
+              }}
               className={`${
                 !isKeyboardOpen
-                  ? 'bg-theme-accent rounded-2xl rounded-br-sm shadow-lg px-4 py-3 flex-row items-center space-x-2'
+                  ? 'bg-theme-accent rounded-2xl rounded-br-sm shadow-lg px-4 py-3 flex-row items-center justify-between space-x-2'
                   : 'bg-theme-card rounded-3xl border border-theme-border p-2.5 shadow-lg'
               }`}
             >
@@ -429,33 +450,34 @@ export default function CoachScreen() {
                 </View>
               ) : null}
 
-              {/* The Single Persistent Text Input Node */}
+              {/* The Single Persistent Text Input Node with static multiline={true} */}
               <View
                 className={
                   !isKeyboardOpen
-                    ? 'flex-1 justify-center'
+                    ? 'flex-1 justify-center min-w-[140px]'
                     : 'px-2 py-1 min-h-[38px] max-h-[100px] justify-center'
                 }
               >
                 <RNTextInput
                   ref={inputRef}
                   placeholder="Talk to Spark..."
-                  placeholderTextColor={!isKeyboardOpen ? 'rgba(255, 255, 255, 0.85)' : '#8E8E93'}
+                  placeholderTextColor={!isKeyboardOpen ? 'rgba(255, 255, 255, 0.9)' : '#8E8E93'}
                   value={inputText}
                   onChangeText={setInputText}
                   onFocus={() => setIsKeyboardOpen(true)}
-                  multiline={isKeyboardOpen}
+                  multiline={true}
+                  numberOfLines={!isKeyboardOpen ? 1 : undefined}
                   className={
                     !isKeyboardOpen
-                      ? 'text-white font-medium text-sm p-0 m-0'
+                      ? 'text-white font-semibold text-sm p-0 m-0'
                       : 'text-theme-text text-sm p-0 m-0'
                   }
-                  style={isKeyboardOpen ? { maxHeight: 84 } : undefined}
+                  style={!isKeyboardOpen ? { height: 22 } : { maxHeight: 84 }}
                 />
               </View>
 
               {!isKeyboardOpen ? (
-                <Ionicons name="chatbubble-ellipses-outline" size={16} color="white" />
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="white" style={{ marginLeft: 6 }} />
               ) : null}
 
               {/* Bottom Actions Row (State 2 only) */}
@@ -467,7 +489,7 @@ export default function CoachScreen() {
                       onPress={handlePickImage}
                       className="w-8 h-8 rounded-full bg-theme-bg/60 border border-theme-border items-center justify-center active:opacity-70"
                     >
-                      <Ionicons name="attach-outline" size={18} color="#16ACBD" />
+                      <Ionicons name="attach-outline" size={18} color="#FF5A1F" />
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -481,7 +503,7 @@ export default function CoachScreen() {
                       <Ionicons
                         name={showSuggestions ? 'bulb' : 'bulb-outline'}
                         size={16}
-                        color={showSuggestions ? '#F59E0B' : '#16ACBD'}
+                        color={showSuggestions ? '#F59E0B' : '#FF5A1F'}
                       />
                     </TouchableOpacity>
                   </View>

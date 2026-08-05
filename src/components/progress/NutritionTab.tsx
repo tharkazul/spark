@@ -1,89 +1,17 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { usePhysique } from '../../context/PhysiqueStore';
+import { NutritionProtocolCard } from '../dashboard/NutritionProtocolCard';
 
-interface NutritionTabProps {
-  nutritionData?: {
-    title: string;
-    description: string;
-    carbsGrams: number;
-    proteinGrams: number;
-    fatGrams: number;
-  };
-}
+export const NutritionTab: React.FC = () => {
+  const { nutrition } = usePhysique();
 
-export const NutritionTab: React.FC<NutritionTabProps> = ({
-  nutritionData = {
-    title: 'Threshold Run Fueling & Muscle Preservation',
-    description:
-      'To fuel today\'s intense threshold run and support recovery from a high 23.94 Spark Points load, we are elevating carbohydrates to replenish glycogen while keeping protein exceptionally high to protect your 74kg muscle mass target during this weight-loss phase.',
-    carbsGrams: 425,
-    proteinGrams: 215,
-    fatGrams: 75,
-  },
-}) => {
   return (
     <View className="space-y-4">
       {/* DAILY AI NUTRITION PROTOCOL CARD */}
-      <Card className="mb-4 bg-theme-card border-theme-border relative overflow-hidden">
-        <View className="h-1 bg-gradient-to-r from-theme-accent via-blue-500 to-indigo-500 absolute top-0 left-0 right-0" />
-
-        <View className="flex-row items-center space-x-2 mb-3 mt-1">
-          <Text className="text-base">🥗</Text>
-          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-            Daily AI Nutrition Protocol
-          </Text>
-        </View>
-
-        <Text className="text-lg font-extrabold text-theme-text mb-2">
-          {nutritionData.title}
-        </Text>
-
-        <Text className="text-xs text-theme-muted leading-5 mb-5">
-          {nutritionData.description}
-        </Text>
-
-        {/* MACRO CIRCLES / TARGET BADGES */}
-        <View className="flex-row justify-around items-center py-2 border-t border-b border-theme-border/50 my-2">
-          {/* Carbs */}
-          <View className="items-center">
-            <View className="w-20 h-20 rounded-full border-4 border-[#208AEF] items-center justify-center bg-[#208AEF]/10 shadow-sm">
-              <Text className="text-base font-black text-theme-text">
-                {nutritionData.carbsGrams}g
-              </Text>
-            </View>
-            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-widest mt-2">
-              Carbs
-            </Text>
-          </View>
-
-          {/* Protein */}
-          <View className="items-center">
-            <View className="w-20 h-20 rounded-full border-4 border-[#E3494F] items-center justify-center bg-[#E3494F]/10 shadow-sm">
-              <Text className="text-base font-black text-theme-text">
-                {nutritionData.proteinGrams}g
-              </Text>
-            </View>
-            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-widest mt-2">
-              Protein
-            </Text>
-          </View>
-
-          {/* Fat */}
-          <View className="items-center">
-            <View className="w-20 h-20 rounded-full border-4 border-[#F9CF45] items-center justify-center bg-[#F9CF45]/10 shadow-sm">
-              <Text className="text-base font-black text-theme-text">
-                {nutritionData.fatGrams}g
-              </Text>
-            </View>
-            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-widest mt-2">
-              Fat
-            </Text>
-          </View>
-        </View>
-      </Card>
+      <NutritionProtocolCard nutrition={nutrition} />
 
       {/* FUELING STRATEGY & TIMING */}
       <Card className="mb-4 bg-theme-card border-theme-border">
@@ -94,8 +22,8 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
         <View className="space-y-3">
           {/* Pre-Workout */}
           <View className="flex-row items-center bg-theme-bg/60 border border-theme-border rounded-xl p-3 mb-2">
-            <View className="w-10 h-10 rounded-full bg-blue-500/15 items-center justify-center mr-3 border border-blue-500/30">
-              <Ionicons name="time-outline" size={20} color="#208AEF" />
+            <View className="w-10 h-10 rounded-full bg-orange-500/15 items-center justify-center mr-3 border border-orange-500/30">
+              <Ionicons name="time-outline" size={20} color="#FF5A1F" />
             </View>
             <View className="flex-1">
               <Text className="text-xs font-bold text-theme-text">Pre-Workout (60 mins prior)</Text>
@@ -137,7 +65,7 @@ export const NutritionTab: React.FC<NutritionTabProps> = ({
       <Card className="mb-6 bg-theme-card border-theme-border">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
-            <Ionicons name="water" size={18} color="#16ACBD" />
+            <Ionicons name="water" size={18} color="#FF5A1F" />
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
               Hydration Target
             </Text>

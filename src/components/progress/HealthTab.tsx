@@ -120,7 +120,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
             onPress={() => handleSelectBodyPart('left_calf', 'Left Calf')}
             className="flex-row items-center space-x-1"
           >
-            <Ionicons name="add-circle-outline" size={16} color="#16ACBD" />
+            <Ionicons name="add-circle-outline" size={16} color="#FF5A1F" />
             <Text className="text-xs font-bold text-theme-accent">Log New</Text>
           </TouchableOpacity>
         </View>

@@ -102,49 +102,15 @@ router.get("/api/events", authenticateToken, (req, res) => {
 });
 
 router.get("/api/chat/history", authenticateToken, (req, res) => {
-  db.get(
-    `SELECT daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
+  db.all(
+    `SELECT role, content, mood, timestamp, image_path FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
     [req.user.id],
-    (err, user) => {
-      const todayStr = new Date().toISOString().split("T")[0];
-      let usage = user ? (user.daily_token_usage || 0) : 0;
-      if (user && user.last_token_reset_date !== todayStr) {
-        usage = 0;
-      }
-      const limit = user ? getEffectiveTokenLimit(user) : 10000;
-
-      db.all(
-        `SELECT id, role, content, mood, timestamp, image_path FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
-        [req.user.id],
-        (err2, rows) => {
-          if (err2)
-            return res.status(500).json({ error: "Failed to load chat history." });
-          res.json({
-            history: rows || [],
-            tokenUsage: {
-              daily_token_usage: usage,
-              daily_token_limit: limit,
-              subscription_tier: user ? (user.subscription_tier || 'free') : 'free',
-            },
-          });
-        },
-      );
-    }
+    (err, rows) => {
+      if (err)
+        return res.status(500).json({ error: "Failed to load chat history." });
+      res.json(rows || []);
+    },
   );
-});
-
-router.delete("/api/chat/history", authenticateToken, (req, res) => {
-  db.run(`DELETE FROM chat_history WHERE user_id = ?`, [req.user.id], (err) => {
-    if (err) return res.status(500).json({ error: "Failed to clear chat history." });
-    res.json({ success: true, message: "Chat history cleared." });
-  });
-});
-
-router.post("/api/chat/clear", authenticateToken, (req, res) => {
-  db.run(`DELETE FROM chat_history WHERE user_id = ?`, [req.user.id], (err) => {
-    if (err) return res.status(500).json({ error: "Failed to clear chat history." });
-    res.json({ success: true, message: "Chat history cleared." });
-  });
 });
 
 router.post("/api/chat", authenticateToken, async (req, res) => {
@@ -228,15 +194,35 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           const phase = await getUserMacroPhase(req.user.id);
           try {
             db.all(
-              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
+              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
               [req.user.id],
               async (err, recentActivities) => {
                 const recentActivitiesText =
                   recentActivities && recentActivities.length > 0
                     ? recentActivities
                         .map(
-                          (a) =>
-                            `- ${getAMSDateString(a.start_date)} at ${new Date(a.start_date).toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.spark_score || 0)} Spark`,
+                          (a) => {
+                            let lapStr = "";
+                            if (a.laps_json) {
+                              try {
+                                const laps = JSON.parse(a.laps_json);
+                                if (laps && laps.length > 0) {
+                                  lapStr = " | Laps: " + laps.map(l => {
+                                    let pace = "";
+                                    if (l.average_speed > 0) {
+                                      const paceSecs = 1000 / l.average_speed;
+                                      const m = Math.floor(paceSecs / 60);
+                                      const s = Math.floor(paceSecs % 60);
+                                      pace = `, ${m}:${s.toString().padStart(2, '0')}/km`;
+                                    }
+                                    const hr = l.average_heartrate ? `, ${Math.round(l.average_heartrate)}bpm` : "";
+                                    return `[${l.name || 'Lap'}: ${(l.distance/1000).toFixed(1)}km in ${Math.round(l.moving_time/60)}m${pace}${hr}]`;
+                                  }).join(" ");
+                                }
+                              } catch (e) {}
+                            }
+                            return `- ${getAMSDateString(a.start_date)} at ${new Date(a.start_date).toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.spark_score || 0)} Spark${lapStr}`;
+                          }
                         )
                         .join("\n                    ")
                     : "No recent activities recorded.";
@@ -285,13 +271,15 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                 : "No upcoming events/milestones.";
 
                             db.all(
-                              `SELECT body_part, severity, notes FROM athlete_niggles WHERE user_id = ? AND status = 'active'`,
+                              `SELECT body_part, severity, notes, status FROM athlete_niggles WHERE user_id = ?`,
                               [req.user.id],
-                              async (err, niggleRows) => {
-                                let nigglesText =
-                                  "No active injuries or niggles reported.";
-                                if (niggleRows && niggleRows.length > 0) {
-                                  nigglesText = niggleRows
+                              async (err, allNiggleRows) => {
+                                const activeNiggles = (allNiggleRows || []).filter((n) => n.status === "active");
+                                const resolvedNiggles = (allNiggleRows || []).filter((n) => n.status === "resolved");
+
+                                let nigglesText = "No active injuries or niggles reported. Athlete is 100% healthy with no active physical limitations.";
+                                if (activeNiggles.length > 0) {
+                                  nigglesText = activeNiggles
                                     .map(
                                       (n) =>
                                         `- ${n.body_part}: Severity ${n.severity}/5. ${n.notes || ""}`,
@@ -299,10 +287,28 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                     .join("\n                    ");
                                 }
 
+                                let resolvedNigglesText = "";
+                                if (resolvedNiggles.length > 0) {
+                                  resolvedNigglesText =
+                                    "\n                    RESOLVED / HEALED INJURIES (NO LONGER ACTIVE):\n                    " +
+                                    resolvedNiggles
+                                      .map((n) => `- ${n.body_part}: FULLY HEALED / RESOLVED`)
+                                      .join("\n                    ");
+                                }
+
                                 db.all(
-                                  `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 6) ORDER BY id ASC`,
+                                  `SELECT body_part, fatigue_score, development_score FROM athlete_muscle_status WHERE user_id = ? AND (fatigue_score > 10 OR development_score > 10)`,
                                   [req.user.id],
-                                  async (err, historyRows) => {
+                                  async (err, muscleRows) => {
+                                    let muscleStatusText = "No significant muscle fatigue or peak development.";
+                                    if (muscleRows && muscleRows.length > 0) {
+                                      muscleStatusText = muscleRows.map(m => `- ${m.body_part}: Fatigue ${Math.round(m.fatigue_score)}, Peak Development ${Math.round(m.development_score)}`).join("\n                    ");
+                                    }
+
+                                    db.all(
+                                      `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 6) ORDER BY id ASC`,
+                                      [req.user.id],
+                                      async (err, historyRows) => {
                                     try {
                                       let cleanHistory = [];
 
@@ -394,8 +400,16 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     RECENT STRENGTH & PB HISTORY:
                     ${recentSetsText}
                     
-                    ACTIVE INJURIES / NIGGLES:
-                    ${nigglesText}
+                    MUSCLE STATUS (Fatigue vs Peak Development):
+                    ${muscleStatusText}
+                    
+                    ACTIVE INJURIES / NIGGLES (REAL-TIME SINGLE SOURCE OF TRUTH):
+                    ${nigglesText}${resolvedNigglesText}
+
+                    INJURY TRUTH & ACTIVE STATUS DIRECTIVES (CRITICAL):
+                    - The ACTIVE INJURIES section above is the SINGLE SOURCE OF TRUTH regarding physical injuries.
+                    - If an injury or body part (e.g. heel, knee, ankle, shoulder, back) is NOT listed under ACTIVE INJURIES or is listed under RESOLVED INJURIES, the athlete is FULLY HEALED and recovered.
+                    - NEVER ask about, mention, or express concern over past injuries (such as a heel injury) if they are NOT currently in ACTIVE INJURIES. Ignore any outdated references to past injuries in long-term memory or athlete context.
 
                     PHASE GUIDANCE:
                     - If phase is BASE: Focus on aerobic volume and consistency. Discourage racing or excessive intensity.
@@ -410,11 +424,13 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     3. Always use metric measurements exclusively (meters for distance, km/h for speed, min/km for pace). Never use imperial units.
                     4. Respond directly with your conversational text. Do not wrap your main reply in JSON.
                     5. CRITICAL DATE CONTEXT: If an activity in the user's recent history is tagged with [TODAY], you MUST refer to it as happening "today". NEVER refer to a [TODAY] activity as "yesterday" or "last night".
-                    6. INJURY GUARDRAILS: The athlete has active injuries listed above. You MUST alter the training plan and your advice based on this data to prevent further injury.
-                       - If an injury is Lower Body (Severity 3+): Strictly avoid high-impact running. Substitute required aerobic load with swimming or indoor cycling.
-                       - If an injury affects Grip/Hands: Substitute swimming or heavy upper-body strength with running or indoor cycling.
-                       - If Severity is 5: Schedule complete rest for the affected area.
-                       - Whenever you modify a plan due to an active injury, explain the substitution to the athlete.
+                    6. INJURY GUARDRAILS:
+                       - If ACTIVE INJURIES lists "No active injuries or niggles reported", treat the athlete as 100% healthy with ZERO physical restrictions.
+                       - Only if an injury is currently active:
+                         * Lower Body (Severity 3+): Avoid high-impact running. Substitute with swimming or indoor cycling.
+                         * Grip/Hands: Substitute swimming/heavy upper-body with running or indoor cycling.
+                         * Severity 5: Schedule complete rest for the affected area.
+                         * Explain any substitution made due to an active injury.
                     5. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout (e.g., Bike + Run), you MUST create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
                     6. INTERVALS: To create a repeating block (e.g., 8x 3min fast, 1min rest), use a "repeat" object in steps_json with "iterations" and an array of "steps".
                     7. SENTIMENT & SUPPORT: Pay close attention to the athlete's physical and mental state. If they mention soreness, exhaustion, poor sleep, or lack of motivation, immediately prioritize empathy and recovery. Strongly advise them to rest or dial back intensity, even if it means modifying the plan.
@@ -494,9 +510,34 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "start_date": "YYYY-MM-DD"
                       }
                     }
+                    \`\`\`
+
+                    DIET & MEAL LOGGING (CRITICAL):
+                    ONLY output a "log_diet" JSON block if the athlete explicitly mentions NEW food/drink items in their LATEST text message. NEVER re-emit a "log_diet" JSON block for meals or items mentioned in earlier conversation history or past turns! If the athlete is asking a general question, do NOT output a "log_diet" block.
+                    Format it exactly like this inside triple backticks:
+                    \`\`\`json
+                    {
+                      "type": "log_diet",
+                      "data": {
+                        "carbs": 120,
+                        "protein": 95,
+                        "fat": 40,
+                        "summary": "Pizza, 2x protein shakes, chicken sandwich, banana"
+                      }
+                    }
+                    \`\`\`
+
+                    WEIGHT LOGGING:
+                    If the athlete mentions their current weight, you MUST log it by outputting an additional JSON block. Format it exactly like this inside triple backticks:
+                    \`\`\`json
+                    {
+                      "type": "log_weight",
+                      "data": {
+                        "weight_kg": 75.5,
+                        "body_fat_percent": 15.0
+                      }
+                    }
                     \`\`\``;
-
-
 
                                       let aiReply = await generateWithFallback(
                                         message,
@@ -602,7 +643,93 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                   );
                                               },
                                             );
-                                            planUpdated = true; // Signal frontend to reload settings/dashboard
+                                            planUpdated = true;
+                                          } else if (
+                                            parsedData &&
+                                            parsedData.type === "log_weight" &&
+                                            parsedData.data &&
+                                            parsedData.data.weight_kg
+                                          ) {
+                                            const weightKg = parseFloat(parsedData.data.weight_kg);
+                                            const bodyFat = parsedData.data.body_fat_percent !== undefined ? parseFloat(parsedData.data.body_fat_percent) : null;
+                                            const todayStr = getAMSDateString();
+                                            db.run(
+                                              `INSERT INTO weight_log (user_id, date, weight_kg, body_fat_percent) VALUES (?, ?, ?, ?)
+                                               ON CONFLICT(user_id, date) DO UPDATE SET weight_kg=excluded.weight_kg, body_fat_percent=COALESCE(excluded.body_fat_percent, weight_log.body_fat_percent)`,
+                                              [req.user.id, todayStr, weightKg, bodyFat],
+                                              (err) => {
+                                                if (err) console.error("Failed to log weight:", err);
+                                              }
+                                            );
+                                          } else if (
+                                             parsedData &&
+                                             (parsedData.type === "log_nutrition" || parsedData.type === "log_diet") &&
+                                             parsedData.data
+                                           ) {
+                                             const diet = parsedData.data;
+                                             const todayStr = getAMSDateString();
+                                             const carbs = Number(diet.carbs || 0);
+                                             const protein = Number(diet.protein || 0);
+                                             const fat = Number(diet.fat || 0);
+                                             const summary = String(diet.summary || "").trim();
+
+                                             // Sync daily_diet_logs & nutrition_intake with deduplication check
+                                             await new Promise((resolveDiet) => {
+                                               db.get(
+                                                 `SELECT logged_carbs, logged_protein, logged_fat, items_summary FROM daily_diet_logs WHERE user_id = ? AND date = ?`,
+                                                 [req.user.id, todayStr],
+                                                 (err, existingRow) => {
+                                                   const existingSummary = existingRow ? (existingRow.items_summary || "") : "";
+
+                                                   // Guard: Skip if exact summary item has already been logged today
+                                                   if (summary && existingSummary && existingSummary.includes(summary)) {
+                                                     console.log(`[Diet] Skipping duplicate diet log: "${summary}"`);
+                                                     return resolveDiet();
+                                                   }
+
+                                                   const newCarbs = (existingRow ? (existingRow.logged_carbs || 0) : 0) + carbs;
+                                                   const newProtein = (existingRow ? (existingRow.logged_protein || 0) : 0) + protein;
+                                                   const newFat = (existingRow ? (existingRow.logged_fat || 0) : 0) + fat;
+
+                                                   let newSummary = existingSummary;
+                                                   if (summary) {
+                                                     newSummary = newSummary ? `${newSummary}, ${summary}` : summary;
+                                                   }
+
+                                                   // 1. Sync nutrition_intake
+                                                   db.run(
+                                                     `INSERT INTO nutrition_intake (user_id, date, carbs, protein, fat)
+                                                      VALUES (?, ?, ?, ?, ?)
+                                                      ON CONFLICT(user_id, date) DO UPDATE SET
+                                                        carbs = excluded.carbs,
+                                                        protein = excluded.protein,
+                                                        fat = excluded.fat`,
+                                                     [req.user.id, todayStr, newCarbs, newProtein, newFat],
+                                                     (err) => {
+                                                       if (err) console.error("Failed to insert nutrition intake:", err);
+                                                     }
+                                                   );
+
+                                                   // 2. Sync daily_diet_logs
+                                                   db.run(
+                                                     `INSERT INTO daily_diet_logs (user_id, date, logged_carbs, logged_protein, logged_fat, items_summary, updated_at)
+                                                      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                                                      ON CONFLICT(user_id, date) DO UPDATE SET
+                                                        logged_carbs = excluded.logged_carbs,
+                                                        logged_protein = excluded.logged_protein,
+                                                        logged_fat = excluded.logged_fat,
+                                                        items_summary = excluded.items_summary,
+                                                        updated_at = CURRENT_TIMESTAMP`,
+                                                     [req.user.id, todayStr, newCarbs, newProtein, newFat, newSummary],
+                                                     (err) => {
+                                                       if (err) console.error("Failed to upsert daily_diet_logs:", err);
+                                                       resolveDiet();
+                                                     }
+                                                   );
+                                                 }
+                                               );
+                                             });
+                                             planUpdated = true;
                                           } else if (
                                             parsedData &&
                                             parsedData.type ===
@@ -621,7 +748,44 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                 act.average_heartrate,
                                               );
 
-                                            // QUEST EVALUATION
+                                            await new Promise((resolveInsert) => {
+                                              db.run(
+                                                `INSERT INTO activities (id, user_id, name, sport_type, distance_km, moving_time_min, start_date, spark_score, sets_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                                [
+                                                  manualId,
+                                                  req.user.id,
+                                                  act.name || "Manual Workout",
+                                                  act.sport_type || "Workout",
+                                                  act.distance_km || 0,
+                                                  act.moving_time_min || 0,
+                                                  startDate,
+                                                  sparkScore,
+                                                  JSON.stringify(act.sets || []),
+                                                ],
+                                                (err) => {
+                                                  if (err)
+                                                    console.error(
+                                                      "Failed to insert manual activity:",
+                                                      err,
+                                                    );
+                                                  else {
+                                                    updateUserSparkAndCheckLevel(
+                                                      req.user.id,
+                                                    );
+                                                    // Invalidate today's nutrition cache so it incorporates the new workout
+                                                    const todayStr =
+                                                      startDate.split("T")[0];
+                                                    db.run(
+                                                      `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
+                                                      [req.user.id, todayStr],
+                                                    );
+                                                  }
+                                                  resolveInsert();
+                                                },
+                                              );
+                                            });
+
+                                            // QUEST EVALUATION AFTER INSERT
                                             try {
                                               const completedQuests =
                                                 await evaluateQuestsAgainstActivity(
@@ -632,6 +796,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                     moving_time_min:
                                                       act.moving_time_min || 0,
                                                     spark_score: sparkScore,
+                                                    sport_type: act.sport_type || "Workout",
                                                   },
                                                 );
 
@@ -639,16 +804,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                 completedQuests &&
                                                 completedQuests.length > 0
                                               ) {
-                                                const newQuest =
-                                                  await generateQuestForUser(
-                                                    req.user.id,
-                                                  );
-                                                let appendPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} Spark points! `;
-                                                if (newQuest) {
-                                                  appendPrompt += `I (the system) have assigned them a NEW quest: "${newQuest.description}". Give a short 1-2 sentence highly motivating response celebrating their completed quest and announcing their new quest!`;
-                                                } else {
-                                                  appendPrompt += `Give a short 1-2 sentence motivating response celebrating their completed quest!`;
-                                                }
+                                                let appendPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} Spark points! Give a short 1-2 sentence highly motivating response celebrating their completed quest!`;
                                                 const coachAddendum =
                                                   await generateWithFallback(
                                                     appendPrompt,
@@ -665,40 +821,6 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                 e,
                                               );
                                             }
-
-                                            db.run(
-                                              `INSERT INTO activities (id, user_id, name, sport_type, distance_km, moving_time_min, start_date, spark_score, sets_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                                              [
-                                                manualId,
-                                                req.user.id,
-                                                act.name || "Manual Workout",
-                                                act.sport_type || "Workout",
-                                                act.distance_km || 0,
-                                                act.moving_time_min || 0,
-                                                startDate,
-                                                sparkScore,
-                                                JSON.stringify(act.sets || []),
-                                              ],
-                                              (err) => {
-                                                if (err)
-                                                  console.error(
-                                                    "Failed to insert manual activity:",
-                                                    err,
-                                                  );
-                                                else {
-                                                  updateUserSparkAndCheckLevel(
-                                                    req.user.id,
-                                                  );
-                                                  // Invalidate today's nutrition cache so it incorporates the new workout
-                                                  const todayStr =
-                                                    startDate.split("T")[0];
-                                                  db.run(
-                                                    `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
-                                                    [req.user.id, todayStr],
-                                                  );
-                                                }
-                                              },
-                                            );
                                             planUpdated = true; // Signal frontend to reload data/charts
                                           }
                                         } catch (e) {
@@ -779,9 +901,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       const simulatedUserMessage = `Can you build my plan for next week, Spark?`;
                                       const coachAcknowledgement = `I've just crunched your latest numbers and pushed a fresh ${phase} phase plan to your dashboard. Go check it out—you're going to crush it!`;
 
+                                      const imagePathValue = imagePathsDB.length > 0 ? JSON.stringify(imagePathsDB) : null;
                                       db.run(
                                         `INSERT INTO chat_history (user_id, role, content, image_path) VALUES (?, 'user', ?, ?)`,
-                                        [req.user.id, message, JSON.stringify(imagePathsDB)],
+                                        [req.user.id, message, imagePathValue],
                                       );
                                       db.run(
                                         `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, ?)`,
@@ -804,21 +927,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         },
                                       );
 
-                                      const updatedUsage = (user.daily_token_usage || 0) + 150;
-                                      db.run(
-                                        `UPDATE users SET daily_token_usage = ? WHERE id = ?`,
-                                        [updatedUsage, req.user.id]
-                                      );
-
                                       res.json({
                                         reply: aiReply,
                                         mood: mood,
                                         planUpdated: planUpdated,
-                                        tokenUsage: {
-                                          daily_token_usage: updatedUsage,
-                                          daily_token_limit: currentDailyLimit,
-                                          subscription_tier: user.subscription_tier || 'free',
-                                        },
                                       });
                                     } catch (err) {
                                       console.error("Chat parsing error:", err);
@@ -830,6 +942,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                     }
                                   },
                                 ); // End chat history
+                                  },
+                                ); // End muscle status
                               },
                             ); // End niggles fetch
                           },
@@ -877,15 +991,35 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
           .json({ error: "Failed to load athlete context." });
 
       db.all(
-        `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
+        `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
         [req.user.id],
         async (err, recentActivities) => {
           const recentActivitiesText =
             recentActivities && recentActivities.length > 0
               ? recentActivities
                   .map(
-                    (a) =>
-                      `- ${getAMSDateString(a.start_date)}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.spark_score || 0)} Spark`,
+                    (a) => {
+                      let lapStr = "";
+                      if (a.laps_json) {
+                        try {
+                          const laps = JSON.parse(a.laps_json);
+                          if (laps && laps.length > 0) {
+                            lapStr = " | Laps: " + laps.map(l => {
+                              let pace = "";
+                              if (l.average_speed > 0) {
+                                const paceSecs = 1000 / l.average_speed;
+                                const m = Math.floor(paceSecs / 60);
+                                const s = Math.floor(paceSecs % 60);
+                                pace = `, ${m}:${s.toString().padStart(2, '0')}/km`;
+                              }
+                              const hr = l.average_heartrate ? `, ${Math.round(l.average_heartrate)}bpm` : "";
+                              return `[${l.name || 'Lap'}: ${(l.distance/1000).toFixed(1)}km in ${Math.round(l.moving_time/60)}m${pace}${hr}]`;
+                            }).join(" ");
+                          }
+                        } catch (e) {}
+                      }
+                      return `- ${getAMSDateString(a.start_date)}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.spark_score || 0)} Spark${lapStr}`;
+                    }
                   )
                   .join("\n")
               : "No recent activities recorded.";

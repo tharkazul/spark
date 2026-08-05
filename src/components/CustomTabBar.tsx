@@ -70,9 +70,9 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
   if (isKeyboardVisible) return null;
 
-  const bgColor = isDark ? 'rgba(28, 33, 36, 0.90)' : 'rgba(255, 255, 255, 0.90)';
+  const bgColor = isDark ? 'rgba(30, 41, 59, 0.90)' : 'rgba(255, 255, 255, 0.90)';
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.08)';
-  const activeBlobBg = isDark ? 'rgba(22, 172, 189, 0.25)' : 'rgba(22, 172, 189, 0.15)';
+  const activeBlobBg = isDark ? 'rgba(255, 107, 53, 0.20)' : 'rgba(255, 90, 31, 0.15)';
 
   // Filter routes to only include the 5 primary tab screens
   const visibleRoutes = state.routes.filter((route) => {
@@ -156,7 +156,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                       width: 58,
                       height: 58,
                       borderRadius: 29,
-                      backgroundColor: '#16ACBD',
+                      backgroundColor: isDark ? '#FF6B35' : '#FF5A1F',
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginTop: -22,
@@ -202,7 +202,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                 >
                   {options.tabBarIcon && options.tabBarIcon({ 
                     focused: isFocused, 
-                    color: isFocused ? '#16ACBD' : (isDark ? '#8E9BA4' : '#64748B'), 
+                    color: isFocused ? (isDark ? '#FF6B35' : '#FF5A1F') : (isDark ? '#94A3B8' : '#64748B'), 
                     size: 22 
                   })}
                 </View>

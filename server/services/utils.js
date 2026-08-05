@@ -118,7 +118,7 @@ function getUserLeaderboardString(userId) {
                    (COALESCE(SUM(a.spark_score), 0) + 
                     COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND created_at >= datetime('now', '-7 days')), 0)) as total_spark_score
             FROM users u
-            LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days')
+            LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days') AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10))
             WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
             GROUP BY u.id
             ORDER BY total_spark_score DESC
@@ -199,7 +199,7 @@ function generatePublicProfile(targetUserId, globalMaxStats) {
         if (err || !user) return resolve(null);
 
         db.all(
-          `SELECT id, name, distance_km, moving_time_min, start_date, sport_type, tss as spark_score FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
+          `SELECT id, name, distance_km, moving_time_min, start_date, sport_type, COALESCE(spark_score, tss, 0) as spark_score FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
           [targetUserId],
           async (err, activities) => {
             db.all(
@@ -340,6 +340,17 @@ Write this from the perspective of their coach (Tone: ${genericCoachTone}). Keep
                       console.error("Highlight generation failed", e);
                     }
 
+                    let activeTitle = null;
+                    try {
+                      activeTitle = await new Promise((res) => {
+                        db.get(
+                          `SELECT id, title, description FROM user_titles WHERE user_id = ? AND is_active = 1 LIMIT 1`,
+                          [targetUserId],
+                          (errT, rowT) => res(!errT && rowT ? rowT : null),
+                        );
+                      });
+                    } catch (e) {}
+
                     const profileData = {
                       username: user.username,
                       profilePictureUrl: user.profile_picture_url,
@@ -347,6 +358,7 @@ Write this from the perspective of their coach (Tone: ${genericCoachTone}). Keep
                       activities: activities,
                       trends: trends,
                       radar: radar,
+                      activeTitle: activeTitle,
                     };
 
                     db.run(
@@ -486,6 +498,21 @@ async function processTokenRefresh(
 
     const tokenData = await tokenRes.json();
     if (tokenData.access_token) {
+      if (tokenData.refresh_token && tokenData.refresh_token !== refreshToken) {
+        db.run(
+          `UPDATE users SET strava_refresh_token = ? WHERE id = ?`,
+          [tokenData.refresh_token, internalUserId],
+        );
+        db.run(
+          `UPDATE strava_tokens SET refresh_token = ?, access_token = ?, expires_at = ? WHERE user_id = ?`,
+          [
+            tokenData.refresh_token,
+            tokenData.access_token,
+            tokenData.expires_at || 0,
+            internalUserId,
+          ],
+        );
+      }
       resolve({
         accessToken: tokenData.access_token,
         internalUserId: internalUserId,
@@ -592,8 +619,8 @@ function getSparkLevelInfo(total_spark) {
   };
 }
 
-function calculateSparkScore(movingTimeMin, avgHr) {
-  if (!movingTimeMin) return 0;
+function calculateSparkScore(movingTimeMin, avgHr, fallbackScore = 0) {
+  if (!movingTimeMin || movingTimeMin <= 0) return fallbackScore || 0;
   let baseScore = movingTimeMin;
   let bonus = 0;
 
@@ -607,7 +634,7 @@ function calculateSparkScore(movingTimeMin, avgHr) {
     else bonus = -0.5;
   }
 
-  return Math.ceil(baseScore + baseScore * bonus);
+  return baseScore + baseScore * bonus;
 }
 
 function mapStravaSportToSpark(stravaSport) {
@@ -685,78 +712,147 @@ function formatStepsForStrava(stepsJson) {
   }
 }
 
+function getStravaShareSettings(userId, sportType) {
+  return new Promise((resolve) => {
+    db.all(
+      "SELECT metric, value FROM athlete_metrics WHERE user_id = ? AND metric IN ('strava_share_settings', 'strava_opt_out_activities')",
+      [userId],
+      (err, rows) => {
+        if (err || !rows || rows.length === 0) {
+          return resolve({ shareName: true, shareScore: true, shareStructure: true, shareLink: true });
+        }
+        const shareRow = rows.find(r => r.metric === 'strava_share_settings');
+        const optOutRow = rows.find(r => r.metric === 'strava_opt_out_activities');
+
+        if (shareRow && shareRow.value) {
+          try {
+            const settings = JSON.parse(shareRow.value);
+            if (settings[sportType]) {
+              return resolve({
+                shareName: !!settings[sportType].shareName,
+                shareScore: !!settings[sportType].shareScore,
+                shareStructure: !!settings[sportType].shareStructure,
+                shareLink: !!settings[sportType].shareLink,
+              });
+            }
+          } catch (e) {}
+        }
+
+        if (optOutRow && optOutRow.value) {
+          try {
+            const optOutList = JSON.parse(optOutRow.value);
+            if (Array.isArray(optOutList) && optOutList.includes(sportType)) {
+              return resolve({ shareName: false, shareScore: false, shareStructure: false, shareLink: false });
+            }
+          } catch (e) {}
+        }
+
+        resolve({ shareName: true, shareScore: true, shareStructure: true, shareLink: true });
+      }
+    );
+  });
+}
+
+function buildStravaUpdatePayload(existingDescription, plan, actualSpark, shareSettings) {
+  const { shareName, shareScore, shareStructure, shareLink } = shareSettings;
+  if (!shareName && !shareScore && !shareStructure && !shareLink) {
+    return null;
+  }
+
+  const payload = {};
+
+  if (shareName && plan && plan.description && plan.description.trim().length > 0) {
+    payload.name = plan.description.trim();
+  }
+
+  const descBlocks = [];
+  if (shareScore) {
+    if (plan && plan.target_spark != null) {
+      descBlocks.push(`Spark Target: ${plan.target_spark} Spark\nActual: ${Math.round(actualSpark)} Spark`);
+    } else {
+      descBlocks.push(`Actual: ${Math.round(actualSpark)} Spark`);
+    }
+  }
+
+  if (shareStructure && plan) {
+    let stepsContent = formatStepsForStrava(plan.steps_json);
+    const workoutContent = stepsContent
+      ? stepsContent
+      : plan.details && plan.details.trim().length > 0
+        ? plan.details
+        : null;
+    if (workoutContent) {
+      descBlocks.push(`Planned Workout:\n${workoutContent}`);
+    }
+  }
+
+  if (shareLink) {
+    descBlocks.push(`Generated by Spark:\nspark.amsterdamtriathlonassociation.uk`);
+  }
+
+  if (descBlocks.length > 0) {
+    const newDescriptionPart = descBlocks.join("\n\n");
+    if (existingDescription && existingDescription.trim().length > 0) {
+      if (!existingDescription.includes("Generated by Spark:") && !existingDescription.includes("Spark Target:")) {
+        payload.description = `${existingDescription.trim()}\n\n---\n${newDescriptionPart}`;
+      }
+    } else {
+      payload.description = newDescriptionPart;
+    }
+  }
+
+  if (Object.keys(payload).length === 0) {
+    return null;
+  }
+  return payload;
+}
+
 async function tagStravaActivity(userId, activity, token) {
   if (activity.description && activity.description.includes("Spark Target"))
     return;
 
+  const activityType = activity.sport_type || activity.type;
+  const shareSettings = await getStravaShareSettings(userId, activityType);
+  if (!shareSettings.shareName && !shareSettings.shareScore && !shareSettings.shareStructure && !shareSettings.shareLink) {
+    console.log(`🚫 Skipping Strava tag for ${activityType} activity ${activity.id} due to all sharing toggles off.`);
+    return;
+  }
+
+  const tss =
+    activity.suffer_score || Math.round((activity.moving_time / 3600) * 50);
+  const activityDate = activity.start_date_local
+    ? activity.start_date_local.split("T")[0]
+    : activity.start_date.split("T")[0];
+  const sparkSport = mapStravaSportToSpark(activityType);
+
   db.get(
-    "SELECT value FROM athlete_metrics WHERE user_id = ? AND metric = 'strava_opt_out_activities'",
-    [userId],
-    (err, optOutRow) => {
-      let optOutList = [];
-      if (optOutRow && optOutRow.value) {
-        try {
-          optOutList = JSON.parse(optOutRow.value);
-        } catch (e) {}
-      }
+    "SELECT description, target_spark, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND LOWER(sport) = LOWER(?)",
+    [userId, activityDate, sparkSport],
+    async (err, plan) => {
+      if (err || !plan) return;
 
-      const activityType = activity.sport_type || activity.type;
-      if (optOutList.includes(activityType)) {
-        console.log(
-          `🚫 Skipping Strava tag for ${activityType} activity ${activity.id} due to user opt-out.`,
+      const payload = buildStravaUpdatePayload(activity.description, plan, tss, shareSettings);
+      if (!payload) return;
+
+      try {
+        const updateRes = await fetch(
+          `https://www.strava.com/api/v3/activities/${activity.id}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          },
         );
-        return;
+        if (updateRes.ok)
+          console.log(
+            `✅ Strava activity updated for ${sparkSport} on ${activityDate}`,
+          );
+      } catch (e) {
+        console.error("Failed to tag Strava activity:", e);
       }
-
-      const tss =
-        activity.suffer_score || Math.round((activity.moving_time / 3600) * 50);
-      const activityDate = activity.start_date_local
-        ? activity.start_date_local.split("T")[0]
-        : activity.start_date.split("T")[0];
-      const sparkSport = mapStravaSportToSpark(
-        activity.sport_type || activity.type,
-      );
-
-      db.get(
-        "SELECT description, target_spark, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND LOWER(sport) = LOWER(?)",
-        [userId, activityDate, sparkSport],
-        async (err, plan) => {
-          if (err || !plan) return;
-
-          let stepsContent = formatStepsForStrava(plan.steps_json);
-          const workoutContent = stepsContent
-            ? stepsContent
-            : plan.details && plan.details.trim().length > 0
-              ? plan.details
-              : plan.description;
-
-          const newDescription = `Spark Target: ${plan.target_spark} Spark\nActual: ${Math.round(tss)} Spark\n\nPlanned Workout:\n${workoutContent}\n\nGenerated by Spark: spark.amsterdamtriathlonassociation.uk`;
-
-          const finalDescription = activity.description
-            ? `${activity.description}\n\n---\n${newDescription}`
-            : newDescription;
-
-          try {
-            const updateRes = await fetch(
-              `https://www.strava.com/api/v3/activities/${activity.id}`,
-              {
-                method: "PUT",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ description: finalDescription }),
-              },
-            );
-            if (updateRes.ok)
-              console.log(
-                `✅ Strava description updated for ${sparkSport} on ${activityDate}`,
-              );
-          } catch (e) {
-            console.error("Failed to tag Strava activity:", e);
-          }
-        },
-      );
     },
   );
 }
@@ -798,198 +894,206 @@ async function getStravaActivity(stravaAthleteId, activityId) {
     }
 
     const tss = data.suffer_score || Math.round((data.moving_time / 3600) * 50);
-    const sparkScore = calculateSparkScore(
-      data.moving_time / 60,
-      data.average_heartrate,
-    );
-
-    db.run(
-      `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
-      [
-        data.id,
-        internalUserId,
-        data.name,
-        data.sport_type,
-        data.distance / 1000,
-        data.total_elevation_gain,
-        data.moving_time / 60,
-        data.average_heartrate || null,
-        data.start_date,
-        tss,
-        sparkScore,
-      ],
-      (err) => {
-        if (!err) {
-          updateUserSparkAndCheckLevel(internalUserId);
-          sendSSEEvent(internalUserId, "sync_complete", {
-            provider: "strava",
-            activityId: data.id,
-          });
-
-          // Invalidate today's nutrition cache so it incorporates the new workout
-          const activityDateStr = data.start_date_local
-            ? data.start_date_local.split("T")[0]
-            : data.start_date.split("T")[0];
-          const todayStr = new Date().toISOString().split("T")[0];
-          if (activityDateStr === todayStr) {
-            db.run(
-              `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
-              [internalUserId, todayStr],
-            );
-          }
-        }
-      },
-    );
-
-    const activityDate = data.start_date_local
-      ? data.start_date_local.split("T")[0]
-      : data.start_date.split("T")[0];
-    const sparkSport = mapStravaSportToSpark(data.sport_type);
 
     db.get(
-      "SELECT value FROM athlete_metrics WHERE user_id = ? AND metric = 'strava_opt_out_activities'",
+      `SELECT spark_start_date FROM users WHERE id = ?`,
       [internalUserId],
-      (err, optOutRow) => {
-        let optOutList = [];
-        if (optOutRow && optOutRow.value) {
-          try {
-            optOutList = JSON.parse(optOutRow.value);
-          } catch (e) {}
-        }
+      (err, uRow) => {
+        const userStartDateDay = uRow && uRow.spark_start_date ? uRow.spark_start_date.substring(0, 10) : null;
+        const actStartDateDay = data.start_date ? data.start_date.substring(0, 10) : null;
 
-        if (optOutList.includes(data.sport_type)) {
-          console.log(
-            `🚫 Skipping AI automation and Strava update for ${data.sport_type} activity ${activityId} due to user opt-out.`,
+        let sparkScore = 0;
+        if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
+          sparkScore = calculateSparkScore(
+            data.moving_time / 60,
+            data.average_heartrate,
+            tss,
           );
-          return;
         }
 
-        db.get(
-          "SELECT description, target_spark, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
-          [internalUserId, activityDate, sparkSport, sparkSport.slice(0, 5)],
-          async (err, plan) => {
-            // Fetch the coach tone
-            db.get(
-              "SELECT coach_tone FROM users WHERE id = ?",
-              [internalUserId],
-              async (err, userRow) => {
-                const tone = userRow
-                  ? userRow.coach_tone
-                  : "Friendly and motivating";
+        let lapsJson = null;
+        if (data.laps && Array.isArray(data.laps) && data.laps.length > 0) {
+          const minimalLaps = data.laps.map(l => ({
+            name: l.name,
+            distance: l.distance,
+            moving_time: l.moving_time,
+            average_speed: l.average_speed,
+            average_heartrate: l.average_heartrate,
+            split: l.split
+          }));
+          lapsJson = JSON.stringify(minimalLaps);
+        }
 
-                let prompt = `The user just completed a ${sparkSport} activity: ${data.name}. They covered ${(data.distance / 1000).toFixed(1)}km in ${Math.round(data.moving_time / 60)} minutes, generating ${Math.round(sparkScore)} Spark. `;
-                let newDescription = null;
+        db.run(
+          `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score, laps_json) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json`,
+          [
+            data.id,
+            internalUserId,
+            data.name,
+            data.sport_type,
+            data.distance / 1000,
+            data.total_elevation_gain,
+            data.moving_time / 60,
+            data.average_heartrate || null,
+            data.start_date,
+            tss,
+            sparkScore,
+            lapsJson,
+          ],
+          async (err) => {
+            if (!err) {
+              updateUserSparkAndCheckLevel(internalUserId);
+              sendSSEEvent(internalUserId, "sync_complete", {
+                provider: "strava",
+                activityId: data.id,
+              });
 
-                if (plan) {
-                  let stepsContent = formatStepsForStrava(plan.steps_json);
-                  const workoutContent = stepsContent
-                    ? stepsContent
-                    : plan.details && plan.details.trim().length > 0
-                      ? plan.details
-                      : plan.description;
-                  newDescription = `Spark Target: ${plan.target_spark} Spark\nActual: ${Math.round(sparkScore)} Spark\n\nPlanned Workout:\n${workoutContent}\n\nGenerated by Spark: spark.amsterdamtriathlonassociation.uk`;
-                  prompt += `The planned workout for today was: "${workoutContent}" with a target of ${plan.target_spark} Spark. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}). Praise them if they hit the target or give constructive advice if they missed it.`;
-                } else {
-                  console.log(
-                    `⚠️ No matching ${sparkSport} plan found on ${activityDate}. Generating unplanned reaction.`,
-                  );
-                  prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).`;
-                }
+              // Invalidate today's nutrition cache so it incorporates the new workout
+              const activityDateStr = data.start_date_local
+                ? data.start_date_local.split("T")[0]
+                : data.start_date.split("T")[0];
+              const todayStr = getAMSDateString();
+              if (activityDateStr === todayStr) {
+                db.run(
+                  `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
+                  [internalUserId, todayStr],
+                );
+              }
+              
+              const activityDate = data.start_date_local
+                ? data.start_date_local.split("T")[0]
+                : data.start_date.split("T")[0];
+              const sparkSport = mapStravaSportToSpark(data.sport_type);
+              const shareSettings = await getStravaShareSettings(internalUserId, data.sport_type);
 
-                // QUEST EVALUATION
-                try {
-                  const completedQuests = await evaluateQuestsAgainstActivity(
-                    internalUserId,
-                    {
-                      distance_km: data.distance / 1000,
-                      moving_time_min: data.moving_time / 60,
-                      spark_score: sparkScore,
-                    },
-                  );
+              db.get(
+                "SELECT description, target_spark, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
+                [internalUserId, activityDate, sparkSport, sparkSport.slice(0, 5)],
+                async (err, plan) => {
+                  // Fetch the coach tone
+                  db.get(
+                    "SELECT coach_tone FROM users WHERE id = ?",
+                    [internalUserId],
+                    async (err, userRow) => {
+                      const tone = userRow
+                        ? userRow.coach_tone
+                        : "Friendly and motivating";
 
-                  if (completedQuests && completedQuests.length > 0) {
-                    const newQuest = await generateQuestForUser(internalUserId);
+                      let prompt = `The user just completed a ${sparkSport} activity: ${data.name}. They covered ${(data.distance / 1000).toFixed(1)}km in ${Math.round(data.moving_time / 60)} minutes, generating ${Math.round(sparkScore)} Spark. `;
+                      const updatePayload = buildStravaUpdatePayload(data.description, plan, sparkScore, shareSettings);
 
-                    prompt += `\n\nCRITICAL INFO: The user ALSO just completed their active quest: "${completedQuests[0].description}" and earned ${completedQuests[0].reward_points} Spark points! `;
-
-                    if (newQuest) {
-                      prompt += `I (the system) have automatically assigned them a NEW quest: "${newQuest.description}" (Target: ${newQuest.target_value} ${newQuest.target_metric}, Reward: ${newQuest.reward_points} Spark). You MUST enthusiastically celebrate their completed quest AND announce their brand new quest to keep them motivated!`;
-                    } else {
-                      prompt += `You MUST enthusiastically celebrate their completed quest!`;
-                    }
-                  }
-                } catch (e) {
-                  console.error(
-                    "Quest evaluation failed during Strava sync:",
-                    e,
-                  );
-                }
-
-                // AI MUSCLE IMPACT ANALYSIS
-                try {
-                   analyzeMuscleImpact(internalUserId, data, sparkSport, activityDate);
-                } catch(e) {
-                   console.error("AI Muscle Impact Analysis failed:", e);
-                }
-
-                // 1. Generate AI Coach Response
-                try {
-                  const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
-                  const aiReply = await generateWithFallback(
-                    prompt,
-                    systemPrompt,
-                  );
-                  db.run(
-                    `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
-                    [internalUserId, aiReply],
-                    (err) => {
-                      if (err) {
-                        console.error("Error inserting proactive coach message:", err);
-                        return;
+                      if (plan) {
+                        let stepsContent = formatStepsForStrava(plan.steps_json);
+                        const workoutContent = stepsContent
+                          ? stepsContent
+                          : plan.details && plan.details.trim().length > 0
+                            ? plan.details
+                            : plan.description;
+                        prompt += `The planned workout for today was: "${workoutContent}" with a target of ${plan.target_spark} Spark. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}). Praise them if they hit the target or give constructive advice if they missed it.`;
+                      } else {
+                        console.log(
+                          `⚠️ No matching ${sparkSport} plan found on ${activityDate}. Generating unplanned reaction.`,
+                        );
+                        prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).`;
                       }
-                      sendSSEEvent(internalUserId, "unread_message", {
-                        message: aiReply,
-                        mood: "hype",
-                      });
-                      console.log(
-                        `🤖 Sent proactive coach update for activity ${activityId}`,
-                      );
-                    }
-                  );
-                } catch (e) {
-                  console.error("Proactive coach activity update failed:", e);
-                }
 
-                // 2. Update Strava Description (only if there was a plan)
-                if (newDescription) {
-                  const updateRes = await fetch(
-                    `https://www.strava.com/api/v3/activities/${activityId}`,
-                    {
-                      method: "PUT",
-                      headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({ description: newDescription }),
+                      // QUEST EVALUATION
+                      try {
+                        const completedQuests = await evaluateQuestsAgainstActivity(
+                          internalUserId,
+                          {
+                            distance_km: data.distance / 1000,
+                            moving_time_min: data.moving_time / 60,
+                            spark_score: sparkScore,
+                          },
+                        );
+
+                        if (completedQuests && completedQuests.length > 0) {
+                          const newQuest = await generateQuestForUser(internalUserId);
+
+                          prompt += `\n\nCRITICAL INFO: The user ALSO just completed their active quest: "${completedQuests[0].description}" and earned ${completedQuests[0].reward_points} Spark points! `;
+
+                          if (newQuest) {
+                            prompt += `I (the system) have automatically assigned them a NEW quest: "${newQuest.description}" (Target: ${newQuest.target_value} ${newQuest.target_metric}, Reward: ${newQuest.reward_points} Spark). You MUST enthusiastically celebrate their completed quest AND announce their brand new quest to keep them motivated!`;
+                          } else {
+                            prompt += `You MUST enthusiastically celebrate their completed quest!`;
+                          }
+                        }
+                      } catch (e) {
+                        console.error(
+                          "Quest evaluation failed during Strava sync:",
+                          e,
+                        );
+                      }
+
+                      // AI MUSCLE IMPACT ANALYSIS
+                      try {
+                         analyzeMuscleImpact(internalUserId, data, sparkSport, activityDate);
+                      } catch(e) {
+                         console.error("AI Muscle Impact Analysis failed:", e);
+                      }
+
+                      // 1. Generate AI Coach Response
+                      try {
+                        const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
+                        const aiReply = await generateWithFallback(
+                          prompt,
+                          systemPrompt,
+                        );
+                        db.run(
+                          `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
+                          [internalUserId, aiReply],
+                          (err) => {
+                            if (err) {
+                              console.error("Error inserting proactive coach message:", err);
+                              return;
+                            }
+                            sendSSEEvent(internalUserId, "unread_message", {
+                              message: aiReply,
+                              mood: "hype",
+                            });
+                            console.log(
+                              `🤖 Sent proactive coach update for activity ${activityId}`,
+                            );
+                          }
+                        );
+                      } catch (e) {
+                        console.error("Proactive coach activity update failed:", e);
+                      }
+
+                      // 2. Update Strava Activity (title / description if enabled in settings)
+                      if (updatePayload) {
+                        const updateRes = await fetch(
+                          `https://www.strava.com/api/v3/activities/${activityId}`,
+                          {
+                            method: "PUT",
+                            headers: {
+                              Authorization: `Bearer ${accessToken}`,
+                              "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify(updatePayload),
+                          },
+                        );
+
+                        if (updateRes.ok) {
+                          console.log(
+                            `✅ Strava activity updated for activity ${activityId}!`,
+                          );
+                        } else {
+                          const errorData = await updateRes.json();
+                          console.error(
+                            `❌ Strava Activity Update Failed:`,
+                            errorData,
+                          );
+                        }
+                      }
                     },
                   );
-
-                  if (updateRes.ok) {
-                    console.log(
-                      `✅ Strava description updated for activity ${activityId}!`,
-                    );
-                  } else {
-                    const errorData = await updateRes.json();
-                    console.error(
-                      `❌ Strava Description Update Failed:`,
-                      errorData,
-                    );
-                  }
-                }
-              },
-            );
+                },
+              );
+            }
           },
         );
       },
@@ -1026,7 +1130,7 @@ async function syncAllStravaUsersOnStartup() {
 
       console.log("🔄 Running initial Strava sync for all connected users...");
       db.all(
-        "SELECT id FROM users WHERE strava_refresh_token IS NOT NULL",
+        "SELECT id, spark_start_date FROM users WHERE strava_refresh_token IS NOT NULL",
         [],
         async (err, users) => {
           if (err || !users) return;
@@ -1053,13 +1157,24 @@ async function syncAllStravaUsersOnStartup() {
               const activities = await actRes.json();
 
               if (Array.isArray(activities)) {
+                const userStartDateDay = user.spark_start_date ? user.spark_start_date.substring(0, 10) : null;
                 activities.forEach((act) => {
                   const tss =
                     act.suffer_score ||
                     Math.round((act.moving_time / 3600) * 50);
+                  const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
+                  let sparkScore = 0;
+                  if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
+                    sparkScore = calculateSparkScore(
+                      act.moving_time / 60,
+                      act.average_heartrate,
+                      tss,
+                    );
+                  }
                   db.run(
-                    `INSERT OR IGNORE INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
                     [
                       act.id,
                       user.id,
@@ -1071,9 +1186,11 @@ async function syncAllStravaUsersOnStartup() {
                       act.average_heartrate || 0,
                       act.start_date,
                       tss,
+                      sparkScore,
                     ],
                   );
                 });
+                updateUserSparkAndCheckLevel(user.id);
                 console.log(`✅ Startup sync complete for user ${user.id}`);
               } else {
                 console.error(
@@ -1100,41 +1217,79 @@ async function triggerBackgroundSummary(userId) {
       if (err || !user) return;
 
       db.all(
-        `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 10) ORDER BY id ASC`,
+        `SELECT body_part, severity, notes, status FROM athlete_niggles WHERE user_id = ?`,
         [userId],
-        async (err, historyRows) => {
-          if (err || !historyRows || historyRows.length === 0) return;
+        async (err, niggleRows) => {
+          const activeNiggles = (niggleRows || []).filter((n) => n.status === "active");
+          const resolvedNiggles = (niggleRows || []).filter((n) => n.status === "resolved");
 
-          const historyText = historyRows
-            .map((r) => `${r.role.toUpperCase()}: ${r.content}`)
-            .join("\n");
-          const currentSummary = user.long_term_memory || "No summary yet.";
+          const activeText =
+            activeNiggles.length > 0
+              ? activeNiggles
+                  .map(
+                    (n) =>
+                      `- ${n.body_part}: Severity ${n.severity}/5. ${n.notes || ""}`,
+                  )
+                  .join("\n")
+              : "No active injuries or niggles reported. Athlete is 100% healthy.";
 
-          const prompt = `You are a background AI assistant for an endurance coach app. Your job is to update the athlete's long-term memory summary based on recent chat history.
-            
+          const resolvedText =
+            resolvedNiggles.length > 0
+              ? resolvedNiggles
+                  .map((n) => `- ${n.body_part}: HEALED / RESOLVED`)
+                  .join("\n")
+              : "None.";
+
+          db.all(
+            `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 12) ORDER BY id ASC`,
+            [userId],
+            async (err, historyRows) => {
+              if (err) return;
+
+              const historyText =
+                historyRows && historyRows.length > 0
+                  ? historyRows
+                      .map((r) => `${r.role.toUpperCase()}: ${r.content}`)
+                      .join("\n")
+                  : "No recent chat.";
+
+              const currentSummary = user.long_term_memory || "No summary yet.";
+
+              const prompt = `You are a background AI assistant for an endurance coach app. Your job is to update the athlete's long-term memory summary based on recent chat history and REAL-TIME injury records.
+
 CURRENT LONG-TERM MEMORY:
 ${currentSummary}
+
+REAL-TIME ACTIVE INJURIES (REALITY / TRUTH):
+${activeText}
+
+REAL-TIME RESOLVED / HEALED INJURIES (REALITY / TRUTH):
+${resolvedText}
 
 RECENT CHAT HISTORY:
 ${historyText}
 
-INSTRUCTIONS:
-Update the long-term memory summary to incorporate any new important facts (injuries, new goals, shifts in mood, new baseline numbers). 
-Keep it extremely concise (under 150 words). Do not include pleasantries. Only output the new summary text.`;
+INSTRUCTIONS & CRITICAL RULES FOR INJURIES:
+1. INJURY TRUTH: Refer strictly to the ACTIVE INJURIES list above. If an injury (e.g. heel, knee, ankle, back) is listed under RESOLVED INJURIES or is NOT in ACTIVE INJURIES, REMOVE IT COMPLETELY from current physical issues in the summary! Note it as fully healed or omit it.
+2. DO NOT state that a resolved or non-active injury is currently hurting, bothering, or limiting the athlete.
+3. Update the long-term memory summary to incorporate any new important facts (new goals, shifts in mood, new baseline numbers).
+4. Keep it extremely concise (under 150 words). Do not include pleasantries. Only output the updated summary text.`;
 
-          try {
-            const newSummary = await generateWithFallback(prompt);
-            db.run(`UPDATE users SET long_term_memory = ? WHERE id = ?`, [
-              newSummary.trim(),
-              userId,
-            ]);
-            console.log(`✅ Updated long-term memory for user ${userId}`);
-          } catch (e) {
-            console.error(
-              `❌ Failed to update long-term memory for user ${userId}:`,
-              e,
-            );
-          }
+              try {
+                const newSummary = await generateWithFallback(prompt);
+                db.run(`UPDATE users SET long_term_memory = ? WHERE id = ?`, [
+                  newSummary.trim(),
+                  userId,
+                ]);
+                console.log(`✅ Updated long-term memory for user ${userId}`);
+              } catch (e) {
+                console.error(
+                  `❌ Failed to update long-term memory for user ${userId}:`,
+                  e,
+                );
+              }
+            },
+          );
         },
       );
     },
@@ -1143,16 +1298,22 @@ Keep it extremely concise (under 150 words). Do not include pleasantries. Only o
 
 function updateUserSparkAndCheckLevel(userId) {
   db.get(
-    `SELECT total_spark FROM users WHERE id = ?`,
+    `SELECT total_spark, spark_start_date FROM users WHERE id = ?`,
     [userId],
     (err, userRow) => {
       if (err || !userRow) return;
       const oldSpark = userRow.total_spark || 0;
       const oldLevelInfo = getSparkLevelInfo(oldSpark);
+      const sparkStartDateDay = userRow.spark_start_date ? userRow.spark_start_date.substring(0, 10) : null;
+
+      const query = sparkStartDateDay
+        ? `SELECT SUM(spark_score) as new_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`
+        : `SELECT SUM(spark_score) as new_total FROM activities WHERE user_id = ?`;
+      const queryParams = sparkStartDateDay ? [userId, sparkStartDateDay] : [userId];
 
       db.get(
-        `SELECT SUM(spark_score) as new_total FROM activities WHERE user_id = ?`,
-        [userId],
+        query,
+        queryParams,
         (err, row) => {
           if (err || !row) return;
           const newSpark = row.new_total || 0;
@@ -1228,7 +1389,7 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
   );
 }
 
-async function generateQuestForUser(userId, poolType = "personal") {
+async function generateQuestForUser(userId, poolType = "personal", previousQuest = null) {
   return new Promise((resolve, reject) => {
     db.all(
       `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 5`,
@@ -1250,7 +1411,7 @@ async function generateQuestForUser(userId, poolType = "personal") {
             
             Return ONLY a JSON object with this exact structure:
             {
-            "description": "Short description of the quest (e.g. Run 5k this weekend, or Complete 15km total biking and running)",
+            "description": "Short description of the quest (e.g. Run 5k this weekend, or Complete 15km total biking and running over 3 days)",
             "target_metric": "distance_km", // OR "moving_time_min", "spark_score", or "unique_sports"
             "target_value": 5,
             "target_sport": "Run, Ride", // Comma-separated list of required sports (e.g. Run, Ride, Swim) or 'Any'
@@ -1293,7 +1454,7 @@ async function generateQuestForUser(userId, poolType = "personal") {
             },
           );
         } catch (e) {
-          console.error("Failed to generate background quest:", e);
+          console.error("Failed to generate quest:", e);
           resolve(null);
         }
       },
@@ -1301,110 +1462,178 @@ async function generateQuestForUser(userId, poolType = "personal") {
   });
 }
 
-async function evaluateQuestsAgainstActivity(userId, activityData) {
-  return new Promise((resolve) => {
-    db.all(
-      `SELECT id, reward_points, description, target_metric, target_value, target_sport, is_accumulative, created_at FROM user_quests WHERE user_id = ? AND status = 'active'`,
+async function evaluateAndProgressQuests(userId) {
+  // Ensure existing active quests without expires_at get a default expiration date
+  await new Promise((resolve) => {
+    db.run(
+      `UPDATE user_quests SET expires_at = datetime(created_at, '+3 days') WHERE user_id = ? AND expires_at IS NULL AND status = 'active'`,
       [userId],
-      async (err, quests) => {
-        if (err || !quests || quests.length === 0) return resolve([]);
-
-        let completedQuests = [];
-
-        for (const q of quests) {
-          let targetSports = q.target_sport
-            ? q.target_sport.split(",").map((s) => s.trim().toLowerCase())
-            : ["any"];
-            
-          // Add Strava sport variations to ensure activities like VirtualRide count towards Ride quests
-          const sportsSet = new Set(targetSports);
-          if (sportsSet.has("ride")) {
-            sportsSet.add("virtualride");
-            sportsSet.add("ebikeride");
-            sportsSet.add("mountainbikeride");
-            sportsSet.add("gravelride");
-          }
-          if (sportsSet.has("run")) {
-            sportsSet.add("virtualrun");
-            sportsSet.add("trailrun");
-          }
-          targetSports = Array.from(sportsSet);
-
-          const isAnySport = targetSports.includes("any");
-
-          let achievedValue = 0;
-
-          if (q.is_accumulative) {
-            // Accumulative evaluation (sum across all matching activities since quest created_at)
-            const sumResult = await new Promise((res) => {
-              let sportCondition = "";
-              if (!isAnySport) {
-                const sportIn = targetSports.map((s) => `'${s}'`).join(",");
-                sportCondition = `AND LOWER(sport_type) IN (${sportIn})`;
-              }
-
-              if (q.target_metric === "unique_sports") {
-                db.get(
-                  `SELECT COUNT(DISTINCT LOWER(sport_type)) as total FROM activities WHERE user_id = ? AND start_date >= ? ${sportCondition}`,
-                  [userId, q.created_at],
-                  (err, row) => res(row ? row.total : 0),
-                );
-              } else {
-                const allowedMetrics = [
-                  "distance_km",
-                  "moving_time_min",
-                  "spark_score",
-                ];
-                const metricCol = allowedMetrics.includes(q.target_metric)
-                  ? q.target_metric
-                  : "distance_km";
-                db.get(
-                  `SELECT SUM(${metricCol}) as total FROM activities WHERE user_id = ? AND start_date >= ? ${sportCondition}`,
-                  [userId, q.created_at],
-                  (err, row) => res(row ? row.total : 0),
-                );
-              }
-            });
-            achievedValue = sumResult;
-          } else {
-            // Single activity evaluation
-            if (!isAnySport && activityData.sport_type) {
-              if (
-                !targetSports.includes(activityData.sport_type.toLowerCase())
-              ) {
-                continue; // Sport mismatch, skip
-              }
-            }
-
-            // Map the target metric to the actual activity data properties
-            if (q.target_metric === "distance_km")
-              achievedValue = activityData.distance_km;
-            else if (q.target_metric === "moving_time_min")
-              achievedValue = activityData.moving_time_min;
-            else if (q.target_metric === "spark_score")
-              achievedValue = activityData.spark_score;
-            else if (q.target_metric === "unique_sports") achievedValue = 1;
-          }
-
-          if (achievedValue >= q.target_value) {
-            completedQuests.push(q);
-            // Award points
-            db.run(
-              `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
-              [userId, q.reward_points, `Quest Completed: ${q.description}`],
-            );
-            // Mark complete
-            db.run(
-              `UPDATE user_quests SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?`,
-              [q.id],
-            );
-          }
-        }
-
-        resolve(completedQuests);
-      },
+      () => resolve(),
     );
   });
+
+  const quests = await new Promise((resolve) => {
+    db.all(
+      `SELECT * FROM user_quests WHERE user_id = ? ORDER BY created_at DESC`,
+      [userId],
+      (err, rows) => resolve(rows || []),
+    );
+  });
+
+  if (quests.length === 0) {
+    const newQuest = await generateQuestForUser(userId, "common");
+    if (newQuest) {
+      newQuest.current_value = 0;
+      return [newQuest];
+    }
+    return [];
+  }
+
+  const activities = await new Promise((resolve) => {
+    db.all(
+      `SELECT sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC`,
+      [userId],
+      (err, rows) => resolve(rows || []),
+    );
+  });
+
+  let activeCount = 0;
+  const now = Date.now();
+
+  for (const q of quests) {
+    if (q.status === "active") {
+      if (activeCount >= 1) {
+        // Enforce maximum of 1 active quest by voiding/closing older ones
+        q.status = "closed";
+        db.run(`UPDATE user_quests SET status = 'closed' WHERE id = ?`, [q.id]);
+        continue;
+      }
+      
+      const expiresAtStr = (q.expires_at || "").trim();
+      let isExpired = false;
+      let expiresTs = null;
+      if (expiresAtStr) {
+        const isoString =
+          expiresAtStr.replace(" ", "T") +
+          (expiresAtStr.includes("Z") || expiresAtStr.includes("+") ? "" : "Z");
+        expiresTs = new Date(isoString).getTime();
+        if (now >= expiresTs) {
+          isExpired = true;
+        }
+      }
+
+      if (isExpired) {
+        q.status = "expired";
+        db.run(`UPDATE user_quests SET status = 'expired' WHERE id = ?`, [q.id]);
+        continue;
+      }
+
+      let targetSports = q.target_sport
+        ? q.target_sport.split(",").map((s) => s.trim().toLowerCase())
+        : ["any"];
+      const sportsSet = new Set(targetSports);
+      if (sportsSet.has("ride") || sportsSet.has("bike") || sportsSet.has("cycling")) {
+        sportsSet.add("ride");
+        sportsSet.add("virtualride");
+        sportsSet.add("ebikeride");
+        sportsSet.add("mountainbikeride");
+        sportsSet.add("gravelride");
+      }
+      if (sportsSet.has("run") || sportsSet.has("running")) {
+        sportsSet.add("run");
+        sportsSet.add("virtualrun");
+        sportsSet.add("trailrun");
+        sportsSet.add("treadmill");
+      }
+      if (sportsSet.has("swim") || sportsSet.has("swimming")) {
+        sportsSet.add("swim");
+        sportsSet.add("openwaterswim");
+        sportsSet.add("poolswim");
+      }
+      targetSports = Array.from(sportsSet);
+      const isAnySport = targetSports.includes("any");
+
+      const createdStr = (q.created_at || "").trim();
+      const createdIso =
+        createdStr.replace(" ", "T") +
+        (createdStr.includes("Z") || createdStr.includes("+") ? "" : "Z");
+      const createdTs = new Date(createdIso).getTime() - 60 * 60 * 1000; // 1-hour grace period for timestamps
+
+      const matchingActivities = activities.filter((a) => {
+        if (!a.start_date) return false;
+        const actStr = String(a.start_date).trim();
+        const actIso =
+          actStr.replace(" ", "T") +
+          (actStr.includes("Z") || actStr.includes("+") || actStr.includes("T") ? "" : "Z");
+        const actTs = new Date(actIso).getTime();
+
+        // Must be AFTER created_at AND BEFORE expires_at
+        if (actTs < createdTs) return false;
+        if (expiresTs && actTs > expiresTs) return false;
+
+        if (!isAnySport && a.sport_type) {
+          if (!targetSports.includes(a.sport_type.toLowerCase())) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      let val = 0;
+      if (q.target_metric === "unique_sports") {
+        const unique = new Set(matchingActivities.map((a) => (a.sport_type || "").toLowerCase()));
+        val = unique.size;
+      } else {
+        const metricCol = ["distance_km", "moving_time_min", "spark_score"].includes(q.target_metric)
+          ? q.target_metric
+          : "distance_km";
+        if (q.is_accumulative) {
+          val = matchingActivities.reduce((sum, a) => sum + (parseFloat(a[metricCol]) || 0), 0);
+        } else {
+          val = matchingActivities.reduce((max, a) => Math.max(max, parseFloat(a[metricCol]) || 0), 0);
+        }
+      }
+
+      val = Math.round(val * 100) / 100;
+      q.current_value = val;
+
+      if (val >= q.target_value) {
+        q.status = "completed";
+        const completedAt = new Date().toISOString().replace("T", " ").substring(0, 19);
+        q.completed_at = completedAt;
+        db.run(
+          `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
+          [userId, q.reward_points, `Quest Completed: ${q.description}`],
+        );
+        db.run(
+          `UPDATE user_quests SET status = 'completed', completed_at = ? WHERE id = ?`,
+          [completedAt, q.id],
+        );
+      } else {
+        activeCount++;
+      }
+    } else {
+      if (q.status === "completed" && q.current_value === undefined) {
+        q.current_value = q.target_value;
+      }
+    }
+  }
+
+  // Automatically generate a new quest if no active quest remains
+  if (activeCount === 0) {
+    const newQuest = await generateQuestForUser(userId, "common");
+    if (newQuest) {
+      newQuest.current_value = 0;
+      quests.unshift(newQuest);
+    }
+  }
+
+  return quests;
+}
+
+async function evaluateQuestsAgainstActivity(userId, activityData) {
+  const allQuests = await evaluateAndProgressQuests(userId);
+  return allQuests.filter((q) => q.status === "completed");
 }
 
 async function calculateQuestProgress(userId, quest) {
@@ -1413,15 +1642,23 @@ async function calculateQuestProgress(userId, quest) {
       ? quest.target_sport.split(",").map((s) => s.trim().toLowerCase())
       : ["any"];
     const sportsSet = new Set(targetSports);
-    if (sportsSet.has("ride")) {
+    if (sportsSet.has("ride") || sportsSet.has("bike") || sportsSet.has("cycling")) {
+      sportsSet.add("ride");
       sportsSet.add("virtualride");
       sportsSet.add("ebikeride");
       sportsSet.add("mountainbikeride");
       sportsSet.add("gravelride");
     }
-    if (sportsSet.has("run")) {
+    if (sportsSet.has("run") || sportsSet.has("running")) {
+      sportsSet.add("run");
       sportsSet.add("virtualrun");
       sportsSet.add("trailrun");
+      sportsSet.add("treadmill");
+    }
+    if (sportsSet.has("swim") || sportsSet.has("swimming")) {
+      sportsSet.add("swim");
+      sportsSet.add("openwaterswim");
+      sportsSet.add("poolswim");
     }
     targetSports = Array.from(sportsSet);
     const isAnySport = targetSports.includes("any");
@@ -1432,11 +1669,20 @@ async function calculateQuestProgress(userId, quest) {
       sportCondition = `AND LOWER(sport_type) IN (${sportIn})`;
     }
 
+    const cutoff = quest.completed_at || quest.expires_at;
+    let timeCondition = "";
+    let params = [userId, quest.created_at];
+
+    if (cutoff) {
+      timeCondition = ` AND start_date <= ?`;
+      params.push(cutoff);
+    }
+
     if (quest.is_accumulative) {
       if (quest.target_metric === "unique_sports") {
         db.get(
-          `SELECT COUNT(DISTINCT LOWER(sport_type)) as total FROM activities WHERE user_id = ? AND start_date >= ? ${sportCondition}`,
-          [userId, quest.created_at],
+          `SELECT COUNT(DISTINCT LOWER(sport_type)) as total FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          params,
           (err, row) => resolve(row ? row.total || 0 : 0)
         );
       } else {
@@ -1445,16 +1691,16 @@ async function calculateQuestProgress(userId, quest) {
           ? quest.target_metric
           : "distance_km";
         db.get(
-          `SELECT SUM(${metricCol}) as total FROM activities WHERE user_id = ? AND start_date >= ? ${sportCondition}`,
-          [userId, quest.created_at],
+          `SELECT SUM(${metricCol}) as total FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          params,
           (err, row) => resolve(row ? (row.total ? parseFloat(row.total.toFixed(2)) : 0) : 0)
         );
       }
     } else {
       if (quest.target_metric === "unique_sports") {
         db.get(
-          `SELECT COUNT(id) as total FROM activities WHERE user_id = ? AND start_date >= ? ${sportCondition}`,
-          [userId, quest.created_at],
+          `SELECT COUNT(id) as total FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          params,
           (err, row) => resolve(row && row.total > 0 ? 1 : 0)
         );
       } else {
@@ -1463,8 +1709,8 @@ async function calculateQuestProgress(userId, quest) {
           ? quest.target_metric
           : "distance_km";
         db.get(
-          `SELECT MAX(${metricCol}) as max_val FROM activities WHERE user_id = ? AND start_date >= ? ${sportCondition}`,
-          [userId, quest.created_at],
+          `SELECT MAX(${metricCol}) as max_val FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          params,
           (err, row) => resolve(row ? (row.max_val ? parseFloat(row.max_val.toFixed(2)) : 0) : 0)
         );
       }
@@ -1478,10 +1724,10 @@ async function analyzeMuscleImpact(userId, activityData, sparkSport, activityDat
   Time: ${Math.round(activityData.moving_time / 60)} min.
   Sets: ${activityData.sets_json ? JSON.stringify(activityData.sets_json) : "None"}
   
-  Based on this, which muscle groups are fatigued? Output ONLY a JSON array mapping body parts to a fatigue score (1-100). 
+  Based on this, what is the training impact (stimulus) on the involved muscle groups? Output ONLY a JSON array mapping body parts to an impact score (1-100). 
   Use standard naming (e.g. "quads", "calves", "shoulders", "lower-back", "chest", "lats", "glutes", "hamstrings", "core").
   Example format:
-  [{"body_part": "quads", "fatigue_score": 30}, {"body_part": "shoulders", "fatigue_score": 15}]
+  [{"body_part": "quads", "impact_score": 30}, {"body_part": "shoulders", "impact_score": 15}]
   `;
 
   const systemPrompt = `You are a sports science AI. Output ONLY valid JSON, no markdown formatting, no preamble.`;
@@ -1494,14 +1740,23 @@ async function analyzeMuscleImpact(userId, activityData, sparkSport, activityDat
     const fatigueArray = JSON.parse(result);
     
     if (Array.isArray(fatigueArray)) {
-      const stmt = db.prepare(`INSERT INTO athlete_fatigue_log (user_id, date, body_part, fatigue_score) VALUES (?, ?, ?, ?)`);
+      const stmt = db.prepare(`
+        INSERT INTO athlete_muscle_status (user_id, body_part, fatigue_score, development_score) 
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, body_part) DO UPDATE SET 
+          fatigue_score = fatigue_score + excluded.fatigue_score,
+          development_score = development_score + excluded.development_score,
+          last_updated = CURRENT_TIMESTAMP
+      `);
       fatigueArray.forEach(f => {
-        if(f.body_part && f.fatigue_score) {
-          stmt.run(userId, activityDate, f.body_part, f.fatigue_score);
+        // Fallback to f.fatigue_score just in case the AI uses the old format
+        const score = f.impact_score || f.fatigue_score;
+        if(f.body_part && score) {
+          stmt.run(userId, f.body_part, score, score);
         }
       });
       stmt.finalize();
-      console.log(`✅ Saved muscle fatigue for ${activityData.name}`);
+      console.log(`✅ Saved muscle impact for ${activityData.name}`);
     }
   } catch(e) {
     console.error("Failed to parse muscle impact JSON", e);
@@ -1511,14 +1766,17 @@ async function analyzeMuscleImpact(userId, activityData, sparkSport, activityDat
 async function runDailyRecoveryJob() {
   console.log("🌙 Running daily recovery & degradation job...");
 
-  // 1. Fatigue Recovery
-  // Reduce all active fatigue scores by 40% (x 0.6)
-  db.run(`UPDATE athlete_fatigue_log SET fatigue_score = fatigue_score * 0.6 WHERE fatigue_score > 0`, (err) => {
-      if (err) console.error("Fatigue recovery error:", err);
+  // 1. Muscle Status Recovery (Fatigue & Development)
+  // Fatigue decays by 40% (x 0.6), Development decays by 10% (x 0.9)
+  db.run(`UPDATE athlete_muscle_status SET 
+            fatigue_score = fatigue_score * 0.6,
+            development_score = development_score * 0.9 
+          WHERE fatigue_score > 0 OR development_score > 0`, (err) => {
+      if (err) console.error("Muscle status recovery error:", err);
   });
 
-  // Delete fatigue logs that have dropped below 1 to keep DB clean
-  db.run(`DELETE FROM athlete_fatigue_log WHERE fatigue_score < 1`);
+  // Delete status logs that have dropped below 1 for both to keep DB clean
+  db.run(`DELETE FROM athlete_muscle_status WHERE fatigue_score < 1 AND development_score < 1`);
 
   // 2. Niggle Auto-Degradation
   // If an injury has been active for a multiple of 3 days, reduce severity.
@@ -1570,14 +1828,43 @@ async function runDailyRecoveryJob() {
   });
 }
 
+function resetDailyTokensForAllUsers() {
+  const todayStr = getAMSDateString();
+  db.run(
+    `UPDATE users SET 
+       daily_token_usage = 0, 
+       common_token_usage = 0, 
+       last_token_reset_date = ?, 
+       daily_token_limit = CASE WHEN subscription_tier = 'spark_plus' THEN 50000 ELSE 5000 END
+     WHERE last_token_reset_date != ? OR last_token_reset_date IS NULL`,
+    [todayStr, todayStr],
+    function (err) {
+      if (err) {
+        console.error("❌ Error running daily token reset:", err);
+      } else if (this.changes > 0) {
+        console.log(`🪙 Successfully reset tokens for ${this.changes} inactive/due user(s) for date: ${todayStr}`);
+      }
+    },
+  );
+}
+
+function resetDailyNutritionForAllUsers() {
+  const todayStr = getAMSDateString();
+  console.log(`🥗 Daily midnight nutrition reset executed for AMS date: ${todayStr}`);
+}
+
 function getEffectiveTokenLimit(user) {
-  let expectedLimit = user.subscription_tier === 'spark_plus' ? 50000 : 10000;
+  let expectedLimit = user.subscription_tier === 'spark_plus' ? 50000 : 5000;
   let dbLimit = user.daily_token_limit;
-  if (dbLimit === 50000 && expectedLimit === 10000) dbLimit = 10000;
+  if (dbLimit === 50000 && expectedLimit === 5000) dbLimit = 5000;
   return dbLimit || expectedLimit;
 }
 
 module.exports = {
+  resetDailyTokensForAllUsers,
+  resetDailyNutritionForAllUsers,
+  getStravaShareSettings,
+  buildStravaUpdatePayload,
   runDailyRecoveryJob,
   analyzeMuscleImpact,
   matchGarminExercise,
@@ -1604,6 +1891,7 @@ module.exports = {
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity,
+  evaluateAndProgressQuests,
   calculateQuestProgress,
   getEffectiveTokenLimit,
   sendMorningMessage: async () => {
