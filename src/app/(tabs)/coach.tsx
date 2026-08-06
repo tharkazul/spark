@@ -26,6 +26,7 @@ import { MarkdownText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { ChatMessage } from '../../types/chat';
+import { API_BASE_URL } from '../../constants/api';
 
 interface ChatSection {
   title: string;
@@ -307,7 +308,22 @@ export default function CoachScreen() {
     );
   };
 
-  const coachAvatarUri = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const getFullAvatarUrl = (path?: string) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  };
+
+  const lastCoachMessage = [...messages].reverse().find(m => m.role === 'coach' || m.role === 'assistant');
+  const lastMood = (lastCoachMessage?.role === 'coach' && lastCoachMessage?.mood) 
+    ? lastCoachMessage.mood.toLowerCase() 
+    : 'neutral';
+  
+  let coachAvatarPath = user?.coach_avatar_neutral;
+  if (lastMood === 'hype') coachAvatarPath = user?.coach_avatar_hype || user?.coach_avatar_neutral;
+  if (lastMood === 'disappointed') coachAvatarPath = user?.coach_avatar_disappointed || user?.coach_avatar_neutral;
+  
+  const coachAvatarUri = getFullAvatarUrl(coachAvatarPath) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
 
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>

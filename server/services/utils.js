@@ -1353,12 +1353,17 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
       if (!statsStr) statsStr = "No recorded stats yet.";
 
       db.get(
-        `SELECT coach_tone FROM users WHERE id = ?`,
+        `SELECT coach_tone, coach_name, coach_context FROM users WHERE id = ?`,
         [userId],
         async (err, user) => {
           if (err || !user) return;
 
-          const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${user.coach_tone || "Empathetic but demanding"}. Act like a real human in a continuous text message thread.`;
+          const coachName = user.coach_name || "Spark";
+          let toneText = user.coach_tone || "Empathetic but demanding";
+          if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
+            toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
+          }
+          const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
           const prompt = `The athlete just leveled up to Spark Level ${newLevel}! Here are their all-time stats so far: ${statsStr}. Write a short, highly motivating congratulatory message (1-3 sentences). Acknowledge their hard work.`;
 
           try {
@@ -1900,7 +1905,7 @@ module.exports = {
     
     // Find all users and any workouts they have planned for today
     db.all(
-      `SELECT u.id, u.coach_tone, m.sport, m.description, m.details 
+      `SELECT u.id, u.coach_tone, u.coach_name, u.coach_context, m.sport, m.description, m.details 
        FROM users u 
        LEFT JOIN micro_plan m ON u.id = m.user_id AND m.date = ?`,
       [todayStr],
@@ -1914,6 +1919,8 @@ module.exports = {
             usersMap.set(r.id, {
               id: r.id,
               coach_tone: r.coach_tone,
+              coach_name: r.coach_name,
+              coach_context: r.coach_context,
               workouts: []
             });
           }
@@ -1937,7 +1944,12 @@ module.exports = {
             }
             prompt += `Keep it under 3 sentences. DO NOT wrap it in JSON.`;
             
-            const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${user.coach_tone || "Friendly"}. Act like a real human in a continuous text message thread.`;
+            const coachName = user.coach_name || "Spark";
+            let toneText = user.coach_tone || "Friendly";
+            if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
+              toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
+            }
+            const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
             
             // Generate the message
             const aiReply = await generateWithFallback(prompt, systemPrompt);

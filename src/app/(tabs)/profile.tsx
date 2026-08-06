@@ -1,37 +1,60 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Text, Switch, TouchableOpacity, Modal, TextInput, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card } from '../../components/ui/Card';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'nativewind';
-import { useTabBar } from '../../context/TabBarContext';
+import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
-import { integrationsApi } from '../../services/apiServices';
+import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { LanguageSelector } from '../../components/LanguageSelector';
+import { integrationsApi } from '../../services/apiServices';
+
+import { ProfileTab } from '../../components/profile/ProfileTab';
+import { GoalsTab } from '../../components/profile/GoalsTab';
+import { ConnectionsTab } from '../../components/profile/ConnectionsTab';
+import { AccountTab } from '../../components/profile/AccountTab';
 
 WebBrowser.maybeCompleteAuthSession();
+
+export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account';
+const TABS: ProfileSubTab[] = ['profile', 'goals', 'connections', 'account'];
 
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
   const { t } = useLanguage();
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
-  const { colorScheme, toggleColorScheme } = useColorScheme();
   const { notifyScroll } = useTabBar();
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
 
-  const [garminModalVisible, setGarminModalVisible] = useState(false);
-  const [stravaModalVisible, setStravaModalVisible] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+
+  const [activeTab, setActiveTab] = useState<ProfileSubTab>('profile');
 
   // Garmin Form State
+  const [garminModalVisible, setGarminModalVisible] = useState(false);
   const [garminUser, setGarminUser] = useState('');
   const [garminPass, setGarminPass] = useState('');
   const [garminLoading, setGarminLoading] = useState(false);
 
-  // Strava Manual Form State
+  // Strava Form State
+  const [stravaModalVisible, setStravaModalVisible] = useState(false);
   const [stravaRefreshToken, setStravaRefreshToken] = useState('');
   const [stravaLoading, setStravaLoading] = useState(false);
   const [showManualStrava, setShowManualStrava] = useState(false);
@@ -42,6 +65,41 @@ export default function ProfileScreen() {
 
   const isGarminConnected = !!user?.garmin_connected;
   const isStravaConnected = !!user?.strava_connected;
+
+  // Real-time Date Label matching Dashboard header
+  const now = new Date();
+  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
+  const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
+  const dayNum = now.getDate();
+  const headerDateLabel = `${dayOfWeekShort}, ${monthShort} ${dayNum}`;
+
+  // Pill Indicator calculation matching Dashboard
+  const containerWidth = SCREEN_WIDTH - 40; // px-5 = 20px padding left & right
+  const tabWidth = (containerWidth - 8) / 4; // p-1 = 4px padding inside container
+
+  const indicatorLeft = scrollX.interpolate({
+    inputRange: [0, Math.max(1, SCREEN_WIDTH), Math.max(1, SCREEN_WIDTH * 2), Math.max(1, SCREEN_WIDTH * 3)],
+    outputRange: [4, 4 + tabWidth, 4 + tabWidth * 2, 4 + tabWidth * 3],
+    extrapolate: 'clamp',
+  });
+
+  const handleTabSwitch = (tab: ProfileSubTab) => {
+    Haptics.selectionAsync();
+    setActiveTab(tab);
+    const index = TABS.indexOf(tab);
+    if (index !== -1 && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
+    }
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const pageIndex = Math.round(offsetX / SCREEN_WIDTH);
+    const newTab = TABS[pageIndex];
+    if (newTab && newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+  };
 
   // Garmin handlers
   const handleConnectGarmin = async () => {
@@ -231,78 +289,157 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
-      <ScrollView
-        className="flex-1 px-4"
-        contentContainerStyle={{ paddingBottom: 100 }}
-        onScrollBeginDrag={notifyScroll}
-      >
-        <View className="items-center my-8">
-          <View className="w-24 h-24 rounded-full bg-theme-card border-2 border-theme-accent items-center justify-center mb-4">
-            <Ionicons name="person" size={40} color="#8E8E93" />
+      {/* Dashboard-style Top Header */}
+      <View className="px-5 pt-3 pb-2 border-b border-theme-border/50 bg-theme-bg">
+        <View className="flex-row justify-between items-center mb-3">
+          <View>
+            <Text className="text-2xl font-extrabold text-theme-text tracking-tight">
+              {t('profile.title') || 'Athlete Profile'}
+            </Text>
           </View>
-          <Text className="text-theme-text text-2xl font-bold">{username}</Text>
-          {email ? <Text className="text-theme-muted text-sm mt-1">{email}</Text> : null}
-          <Text className="text-theme-accent mt-1">{isSparkPlus ? 'Spark+ Member' : 'Free Member'}</Text>
+          <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border px-3 py-1.5 rounded-full">
+            <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
+            <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
+          </View>
         </View>
 
-        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">{t('nav.profile')}</Text>
-        <Card className="p-2 mb-6">
-          {renderSettingRow(
-            'moon',
-            t('profile.darkMode'),
-            <Switch
-              value={colorScheme === 'dark'}
-              onValueChange={toggleColorScheme}
-              trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
+        {/* Dashboard-style Sub-tab Navigation Segmented Control */}
+        <View className="relative flex-row bg-theme-card border border-theme-border rounded-2xl p-1 overflow-hidden">
+          {/* Smooth Real-time Animated Indicator Bubble */}
+          <Animated.View
+            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl border border-theme-accent/30"
+            style={{
+              left: indicatorLeft,
+              width: tabWidth,
+            }}
+          />
+
+          <TouchableOpacity
+            onPress={() => handleTabSwitch('profile')}
+            activeOpacity={0.8}
+            className="flex-1 py-2.5 items-center justify-center z-10"
+          >
+            <Text
+              className={`text-[11px] font-extrabold ${
+                activeTab === 'profile' ? 'text-theme-accent' : 'text-theme-muted'
+              }`}
+            >
+              {t('profile.tabProfile') || 'Profile'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleTabSwitch('goals')}
+            activeOpacity={0.8}
+            className="flex-1 py-2.5 items-center justify-center z-10"
+          >
+            <Text
+              className={`text-[11px] font-extrabold ${
+                activeTab === 'goals' ? 'text-theme-accent' : 'text-theme-muted'
+              }`}
+            >
+              {t('profile.tabGoals') || 'Goals'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleTabSwitch('connections')}
+            activeOpacity={0.8}
+            className="flex-1 py-2.5 items-center justify-center z-10"
+          >
+            <Text
+              className={`text-[11px] font-extrabold ${
+                activeTab === 'connections' ? 'text-theme-accent' : 'text-theme-muted'
+              }`}
+            >
+              {t('profile.tabConnections') || 'Connections'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleTabSwitch('account')}
+            activeOpacity={0.8}
+            className="flex-1 py-2.5 items-center justify-center z-10"
+          >
+            <Text
+              className={`text-[11px] font-extrabold ${
+                activeTab === 'account' ? 'text-theme-accent' : 'text-theme-muted'
+              }`}
+            >
+              {t('profile.tabAccount') || 'Account'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Swipeable View Pager / ScrollView Container */}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: false, listener: handleScroll }
+        )}
+        scrollEventThrottle={16}
+        className="flex-1"
+      >
+        {/* PROFILE TAB PAGE */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <ScrollView
+            className="flex-1 px-4 pt-4"
+            contentContainerStyle={{ paddingBottom: 110 }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
+          >
+            <ProfileTab
+              username={username}
+              email={email}
+              isSparkPlus={isSparkPlus}
+              renderSettingRow={renderSettingRow}
             />
-          )}
-          {renderSettingRow(
-            'notifications',
-            t('profile.pushNotifications'),
-            <Switch value={true} trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }} />
-          )}
-        </Card>
+          </ScrollView>
+        </View>
 
-        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">
-          {t('profile.languageSettingTitle')}
-        </Text>
-        <Card className="p-4 mb-6">
-          <Text className="text-theme-muted text-xs mb-3">
-            {t('profile.languageSettingDesc')}
-          </Text>
-          <LanguageSelector />
-        </Card>
+        {/* GOALS TAB PAGE */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <ScrollView
+            className="flex-1 px-4 pt-4"
+            contentContainerStyle={{ paddingBottom: 110 }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
+          >
+            <GoalsTab />
+          </ScrollView>
+        </View>
 
-        <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">{t('onboarding.integrationsTitle')}</Text>
-        <Card className="p-2 mb-6">
-          {renderSettingRow(
-            'fitness',
-            'Strava',
-            <View className="flex-row items-center">
-              <Text className={isStravaConnected ? 'text-theme-accent font-bold' : 'text-theme-muted font-bold'}>
-                {isStravaConnected ? t('common.success') : t('onboarding.connectStrava')}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color="#8E8E93" style={{ marginLeft: 6 }} />
-            </View>,
-            () => setStravaModalVisible(true)
-          )}
-          {renderSettingRow(
-            'watch',
-            'Garmin',
-            <View className="flex-row items-center">
-              <Text className={isGarminConnected ? 'text-theme-accent font-bold' : 'text-theme-muted font-bold'}>
-                {isGarminConnected ? t('common.success') : t('onboarding.connectStrava')}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color="#8E8E93" style={{ marginLeft: 6 }} />
-            </View>,
-            () => setGarminModalVisible(true)
-          )}
-        </Card>
+        {/* CONNECTIONS TAB PAGE */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <ScrollView
+            className="flex-1 px-4 pt-4"
+            contentContainerStyle={{ paddingBottom: 110 }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
+          >
+            <ConnectionsTab
+              onOpenGarminModal={() => setGarminModalVisible(true)}
+              onOpenStravaModal={() => setStravaModalVisible(true)}
+            />
+          </ScrollView>
+        </View>
 
-        <TouchableOpacity onPress={logout} className="mt-4 items-center">
-          <Text className="text-red-500 font-bold text-base">{t('profile.logout')}</Text>
-        </TouchableOpacity>
-
+        {/* ACCOUNT TAB PAGE */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <ScrollView
+            className="flex-1 px-4 pt-4"
+            contentContainerStyle={{ paddingBottom: 110 }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
+          >
+            <AccountTab onLogout={logout} isSparkPlus={isSparkPlus} />
+          </ScrollView>
+        </View>
       </ScrollView>
 
       {/* GARMIN CONNECTION MODAL */}

@@ -2,7 +2,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const dbPath = process.env.DB_PATH 
   ? path.resolve(__dirname, "..", process.env.DB_PATH) 
-  : path.join(__dirname, "..", "nana_multi.db");
+  : path.join(__dirname, "..", "spark_multi.db");
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
@@ -79,6 +79,11 @@ db.serialize(() => {
   );
   db.run(`ALTER TABLE users ADD COLUMN total_spark REAL DEFAULT 0`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN spark_start_date TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN coach_name TEXT DEFAULT 'Spark'`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN coach_context TEXT DEFAULT ''`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN coach_avatar_neutral TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN coach_avatar_hype TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN coach_avatar_disappointed TEXT`, (err) => {});
   db.run(`CREATE TABLE IF NOT EXISTS strava_tokens (
         user_id INTEGER PRIMARY KEY,
         access_token TEXT NOT NULL,

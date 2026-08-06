@@ -22,6 +22,22 @@ const profileStorage = multer.diskStorage({
 });
 const uploadProfile = multer({ storage: profileStorage });
 
+const coachAvatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, "../public/uploads/coaches");
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const mood = req.body.mood || "neutral";
+    cb(null, `coach_${req.user.id}_${mood}_${Date.now()}${ext}`);
+  },
+});
+const uploadCoachAvatar = multer({ storage: coachAvatarStorage });
+
 
 router.post("/api/settings/privacy", authenticateToken, (req, res) => {
   const { searchPrivacy } = req.body;
@@ -58,9 +74,46 @@ router.post(
   },
 );
 
+const handleCoachAvatarUpload = (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  const mood = (req.body.mood || "neutral").toLowerCase();
+  const url = `/uploads/coaches/${req.file.filename}`;
+
+  let colName = "coach_avatar_neutral";
+  if (mood === "hype") colName = "coach_avatar_hype";
+  else if (mood === "disappointed") colName = "coach_avatar_disappointed";
+
+  db.run(
+    `UPDATE users SET ${colName} = ? WHERE id = ?`,
+    [url, req.user.id],
+    function (err) {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "DB_ERROR" });
+      }
+      res.json({ success: true, mood, url });
+    },
+  );
+};
+
+router.post(
+  "/api/settings/coach-avatar",
+  authenticateToken,
+  uploadCoachAvatar.single("photo"),
+  handleCoachAvatarUpload
+);
+
+router.post(
+  "/api/user/settings/coach-avatar",
+  authenticateToken,
+  uploadCoachAvatar.single("photo"),
+  handleCoachAvatarUpload
+);
+
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, athlete_context, gender, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
+    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -84,6 +137,11 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
         hasGarmin: !!row.garmin_username,
         garminUsername: row.garmin_username,
         coachTone: row.coach_tone,
+        coachName: row.coach_name || 'Spark',
+        coachContext: row.coach_context || '',
+        coachAvatarNeutral: row.coach_avatar_neutral || null,
+        coachAvatarHype: row.coach_avatar_hype || null,
+        coachAvatarDisappointed: row.coach_avatar_disappointed || null,
         athleteContext: row.athlete_context,
         gender: row.gender,
         lastCycleStart: row.last_cycle_start,
@@ -104,6 +162,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
 router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
   const {
     coachTone,
+    coachName,
+    coachContext,
     athleteContext,
     gender,
     lastCycleStart,
@@ -114,9 +174,11 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     : "{}";
 
   db.run(
-    `UPDATE users SET coach_tone = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ? WHERE id = ?`,
+    `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ? WHERE id = ?`,
     [
       coachTone,
+      coachName || "Spark",
+      coachContext || "",
       athleteContext,
       gender || "Prefer not to say",
       lastCycleStart || null,

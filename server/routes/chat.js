@@ -146,7 +146,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
   }
 
   db.get(
-    `SELECT coach_tone, athlete_context, gender, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -364,9 +364,16 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                           req.user.id,
                                         );
 
+                                      const coachName = user.coach_name || 'Spark';
+                                      let coachToneText = user.coach_tone;
+                                      if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
+                                          coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
+                                      }
+
                                       const systemPrompt = `You are a real, highly experienced endurance coach sending text messages to an athlete.
-                    Name coach: Spark
-                    Tone: ${user.coach_tone}
+                    Name coach: ${coachName}
+                    Tone: ${coachToneText}
+                    ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
                     Current Training Phase: ${phase || user.training_phase || "Base/General"}
                     
                     TIME CONTEXT:
@@ -982,7 +989,7 @@ router.get("/api/chat/briefing", authenticateToken, (req, res) => {
 
 router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
   db.get(
-    `SELECT coach_tone, athlete_context, gender FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err || !user)
@@ -1052,8 +1059,14 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
                   const gamification = await getUserGamificationContext(
                     req.user.id,
                   );
-                  let systemPrompt = `You are Spark, an elite Ironman Triathlon and endurance coach.
+                  const coachName = user.coach_name || "Spark";
+                  let coachToneText = user.coach_tone;
+                  if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
+                    coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
+                  }
+                  let systemPrompt = `You are ${coachName}, an elite endurance coach.
 Today is ${todayStr}.
+${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ""}
 Athlete Context: ${user.athlete_context || "General endurance athlete"}
 Gender: ${user.gender || "Prefer not to say"}
 ${user.gender === "Female" ? "IMPORTANT: Track menstrual cycle phases and adjust demands based on the physically demanding days of her cycle." : ""}
@@ -1064,7 +1077,7 @@ Recent Completed Workouts:
 ${recentActivitiesText}
 Upcoming Workouts (Next 2 days):
 ${upcomingText}
-Your Tone & Persona: ${user.coach_tone || "empathetic"}
+Your Tone & Persona: ${coachToneText || "empathetic"}
 
 ${weatherContext}
 

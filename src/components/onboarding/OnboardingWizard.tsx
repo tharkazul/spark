@@ -15,6 +15,7 @@ import {
   NativeScrollEvent,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -192,6 +193,29 @@ export default function OnboardingWizard() {
   };
 
   const horizontalScrollRef = useRef<ScrollView>(null);
+  const datePickerSlideAnim = useRef(new Animated.Value(450)).current;
+
+  React.useEffect(() => {
+    if (showDatePicker) {
+      datePickerSlideAnim.setValue(450);
+      Animated.spring(datePickerSlideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 70,
+      }).start();
+    }
+  }, [showDatePicker, datePickerSlideAnim]);
+
+  const closeDatePickerModal = () => {
+    Animated.timing(datePickerSlideAnim, {
+      toValue: 450,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowDatePicker(false);
+    });
+  };
 
   const handleConfirmWheelDate = () => {
     if (isSelectedDateInPast()) {
@@ -201,7 +225,7 @@ export default function OnboardingWizard() {
     const m = (pickerMonth + 1).toString().padStart(2, '0');
     const d = pickerDay.toString().padStart(2, '0');
     setRaceDate(`${pickerYear}-${m}-${d}`);
-    setShowDatePicker(false);
+    closeDatePickerModal();
   };
 
   // Step 6: Subscription Placeholder State
@@ -293,28 +317,32 @@ export default function OnboardingWizard() {
 
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top', 'bottom']}>
-      {/* Date Picker Modal (iOS Native Wheel Style) */}
+      {/* Date Picker Modal (iOS Native Wheel Style with smooth backdrop fade & spring slide) */}
       <Modal
         visible={showDatePicker}
         transparent
-        animationType="slide"
-        onRequestClose={() => setShowDatePicker(false)}
+        animationType="fade"
+        onRequestClose={closeDatePickerModal}
       >
         <TouchableOpacity
           activeOpacity={1}
-          onPress={() => setShowDatePicker(false)}
-          className="flex-1 bg-black/50 justify-end"
+          onPress={closeDatePickerModal}
+          className="flex-1 bg-black/60 justify-end"
         >
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            className="w-full bg-white dark:bg-zinc-900 rounded-t-3xl pb-8 shadow-2xl border-t border-theme-border"
+            style={{ width: '100%' }}
           >
-            {/* Header: Cancel (Left), Confirm (Right) */}
-            <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-zinc-800">
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                <Text className="text-gray-500 text-base font-normal">Cancel</Text>
-              </TouchableOpacity>
+            <Animated.View
+              style={{ transform: [{ translateY: datePickerSlideAnim }] }}
+              className="w-full bg-white dark:bg-zinc-900 rounded-t-3xl pb-8 shadow-2xl border-t border-theme-border"
+            >
+              {/* Header: Cancel (Left), Confirm (Right) */}
+              <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-zinc-800">
+                <TouchableOpacity onPress={closeDatePickerModal}>
+                  <Text className="text-gray-500 text-base font-normal">Cancel</Text>
+                </TouchableOpacity>
 
               <TouchableOpacity onPress={handleConfirmWheelDate}>
                 <Text className={isSelectedDateInPast() ? "text-gray-400 dark:text-zinc-600 text-base font-bold" : "text-emerald-600 dark:text-emerald-400 text-base font-bold"}>
@@ -425,6 +453,7 @@ export default function OnboardingWizard() {
                 </ScrollView>
               </View>
             </View>
+            </Animated.View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

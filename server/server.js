@@ -10,7 +10,7 @@ const app = express();
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "15mb" }));
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
 // Route modules
 const authRoutes = require("./routes/auth");
@@ -105,7 +105,24 @@ process.on("SIGINT", () => {
   });
 });
 
+const http = require("http");
+const { WebSocketServer } = require("ws");
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+wss.on("connection", (ws) => {
+  ws.on("message", (message) => {
+    try {
+      const data = JSON.parse(message);
+      if (data.type === "auth") {
+        ws.token = data.token;
+      }
+    } catch (_) {}
+  });
+});
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT} (HTTP & WebSocket)`);
 });

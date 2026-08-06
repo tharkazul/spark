@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
@@ -14,6 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+
+// Context
+import { useUser } from '../../context/UserStore';
+import { useTabBar } from '../../context/TabBarContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 // Custom Dashboard Components
 import { TodaysPlanCard } from '../../components/dashboard/TodaysPlanCard';
@@ -37,6 +41,8 @@ import {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { user } = useUser();
+  const { t } = useLanguage();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -50,11 +56,23 @@ export default function DashboardScreen() {
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [isNiggleModalOpen, setIsNiggleModalOpen] = useState(false);
 
-  const [recordedWeight, setRecordedWeight] = useState<number>(74.5);
+  const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 74.5);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
+
+  // Dynamic real-time date calculation from device system clock
+  const now = new Date();
+  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' }); // e.g. 'Thu'
+  const dayOfWeekUpper = dayOfWeekShort.toUpperCase(); // e.g. 'THU'
+  const monthShort = now.toLocaleDateString('en-US', { month: 'short' }); // e.g. 'Aug'
+  const dayNum = now.getDate(); // e.g. 6
+
+  const headerDateLabel = `${dayOfWeekShort}, ${monthShort} ${dayNum}`; // e.g. 'Thu, Aug 6'
+  const todaysCardDateLabel = `${dayOfWeekUpper} ${monthShort} ${dayNum}`; // e.g. 'THU Aug 6'
+  const todayDateStr = `${monthShort} ${dayNum}`; // e.g. 'Aug 6'
+
   const [targetAddDay, setTargetAddDay] = useState<{ dayName: string; dateStr: string }>({
-    dayName: 'FRI',
-    dateStr: 'Jul 24',
+    dayName: dayOfWeekUpper,
+    dateStr: todayDateStr,
   });
 
   // Calculate dynamic dimensions for tab indicator bubble
@@ -66,6 +84,23 @@ export default function DashboardScreen() {
     outputRange: [4, 4 + tabWidth],
     extrapolate: 'clamp',
   });
+
+  // Dynamic user logged target race name & countdown
+  const mainRaceName = user?.target_event || 'Park 5k';
+  
+  const calculateDaysRemaining = (eventDateStr?: string): number => {
+    if (!eventDateStr) return 181;
+    try {
+      const targetDate = new Date(eventDateStr);
+      const diffTime = targetDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 0;
+    } catch {
+      return 181;
+    }
+  };
+
+  const daysRemaining = calculateDaysRemaining(user?.event_date);
 
   // Nutrition Protocol (Bottom of Dashboard)
   const nutrition: NutritionMacro = {
@@ -80,13 +115,13 @@ export default function DashboardScreen() {
     fatTarget: 70,
   };
 
-  // Training Phase (Renamed & Enhanced with Detailed Info + Completion Stats)
+  // Training Phase (Dynamic race target name from UserStore)
   const seasonInfo: MacroPeriodInfo = {
-    raceTargetName: 'Ironman 70.3',
-    daysRemaining: 36,
+    raceTargetName: mainRaceName,
+    daysRemaining: daysRemaining,
     currentPhaseIndex: 1, // BUILD phase
-    targetCTL: 95,
-    currentCTL: 68,
+    targetCTL: user?.target_ctl || 35,
+    currentCTL: user?.current_ctl || 68,
     phases: [
       {
         name: 'BASE PHASE',
@@ -123,12 +158,12 @@ export default function DashboardScreen() {
     ],
   };
 
-  // Today's Workouts (Top of Dashboard)
+  // Today's Workouts (Top of Dashboard - Real Today Date)
   const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutItem[]>([
     {
       id: 'w-today-1',
-      day: 'FRI',
-      dateStr: 'Jul 24',
+      day: dayOfWeekUpper,
+      dateStr: todayDateStr,
       type: 'SWIM',
       title: 'Sharpening CSS Swim Session',
       duration: '45 mins',
@@ -138,8 +173,8 @@ export default function DashboardScreen() {
     },
     {
       id: 'w-today-2',
-      day: 'FRI',
-      dateStr: 'Jul 24',
+      day: dayOfWeekUpper,
+      dateStr: todayDateStr,
       type: 'RUN',
       title: 'Morning Aerobic Maintenance Run',
       duration: '35 mins',
@@ -152,16 +187,17 @@ export default function DashboardScreen() {
     },
   ]);
 
-  // Micro Agenda (Full Week)
+  // Micro Agenda (Full Week: Aug 3 - Aug 9)
   const [weeklyAgenda, setWeeklyAgenda] = useState<DayAgenda[]>([
     {
       dayName: 'MON',
-      dateStr: 'Jul 20',
+      dateStr: 'Aug 3',
+      isPast: true,
       workouts: [
         {
           id: 'w-mon-1',
           day: 'MON',
-          dateStr: 'Jul 20',
+          dateStr: 'Aug 3',
           type: 'RUN',
           title: 'Controlled Aerobic Run - Injury Guardrail',
           duration: '50 mins',
@@ -175,12 +211,13 @@ export default function DashboardScreen() {
     },
     {
       dayName: 'TUE',
-      dateStr: 'Jul 21',
+      dateStr: 'Aug 4',
+      isPast: true,
       workouts: [
         {
           id: 'w-tue-1',
           day: 'TUE',
-          dateStr: 'Jul 21',
+          dateStr: 'Aug 4',
           type: 'STRENGTH',
           title: 'Secret At-Home Core & Mobility with Spark',
           duration: '35 mins',
@@ -194,12 +231,13 @@ export default function DashboardScreen() {
     },
     {
       dayName: 'WED',
-      dateStr: 'Jul 22',
+      dateStr: 'Aug 5',
+      isPast: true,
       workouts: [
         {
           id: 'w-wed-1',
           day: 'WED',
-          dateStr: 'Jul 22',
+          dateStr: 'Aug 5',
           type: 'BIKE',
           title: 'Threshold Interval Trainer Session',
           duration: '60 mins',
@@ -213,18 +251,13 @@ export default function DashboardScreen() {
     },
     {
       dayName: 'THU',
-      dateStr: 'Jul 23',
-      workouts: [],
-    },
-    {
-      dayName: 'FRI',
-      dateStr: 'Jul 24',
-      isToday: true,
+      dateStr: 'Aug 6',
+      isToday: true, // REAL TODAY!
       workouts: [
         {
           id: 'w-today-1',
-          day: 'FRI',
-          dateStr: 'Jul 24',
+          day: 'THU',
+          dateStr: 'Aug 6',
           type: 'SWIM',
           title: 'Sharpening CSS Swim Session',
           duration: '45 mins',
@@ -234,8 +267,8 @@ export default function DashboardScreen() {
         },
         {
           id: 'w-today-2',
-          day: 'FRI',
-          dateStr: 'Jul 24',
+          day: 'THU',
+          dateStr: 'Aug 6',
           type: 'RUN',
           title: 'Morning Aerobic Maintenance Run',
           duration: '35 mins',
@@ -248,13 +281,18 @@ export default function DashboardScreen() {
       ],
     },
     {
+      dayName: 'FRI',
+      dateStr: 'Aug 7',
+      workouts: [],
+    },
+    {
       dayName: 'SAT',
-      dateStr: 'Jul 25',
+      dateStr: 'Aug 8',
       workouts: [
         {
           id: 'w-sat-1',
           day: 'SAT',
-          dateStr: 'Jul 25',
+          dateStr: 'Aug 8',
           type: 'BIKE',
           title: 'Long Endurance Ride & Brick Run',
           duration: '120 mins',
@@ -266,12 +304,12 @@ export default function DashboardScreen() {
     },
     {
       dayName: 'SUN',
-      dateStr: 'Jul 26',
+      dateStr: 'Aug 9',
       workouts: [
         {
           id: 'w-sun-1',
           day: 'SUN',
-          dateStr: 'Jul 26',
+          dateStr: 'Aug 9',
           type: 'MOBILITY',
           title: 'Active Recovery Walk & Stretch',
           duration: '30 mins',
@@ -303,7 +341,7 @@ export default function DashboardScreen() {
   };
 
   // Add / Edit Workout logic
-  const handleOpenAddModal = (dayName = 'FRI', dateStr = 'Jul 24') => {
+  const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
     setSelectedWorkoutForEdit(null);
     setTargetAddDay({ dayName, dateStr });
     setIsAddModalOpen(true);
@@ -336,7 +374,7 @@ export default function DashboardScreen() {
         id: `w-${Date.now()}`,
       };
 
-      if (newWorkout.day === 'FRI' || newWorkout.dateStr === 'Jul 24') {
+      if (newWorkout.day === dayOfWeekUpper || newWorkout.dateStr === todayDateStr) {
         setTodaysWorkouts((prev) => [...prev, newWorkout]);
       }
 
@@ -389,19 +427,19 @@ export default function DashboardScreen() {
       <View className="px-5 pt-3 pb-2 border-b border-theme-border/50 bg-theme-bg">
         <View className="flex-row justify-between items-center mb-3">
           <View>
-            <Text className="text-2xl font-extrabold text-theme-text tracking-tight">Dashboard</Text>
+            <Text className="text-2xl font-extrabold text-theme-text tracking-tight">{t('nav.dashboard')}</Text>
           </View>
-          <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border px-3 py-1.5 rounded-full shadow-sm">
+          <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border px-3 py-1.5 rounded-full">
             <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
-            <Text className="text-xs font-bold font-mono text-theme-muted">Fri, Jul 24</Text>
+            <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
           </View>
         </View>
 
         {/* Sub-tab Navigation Segmented Control */}
-        <View className="relative flex-row bg-theme-card border border-theme-border rounded-2xl p-1 shadow-sm overflow-hidden">
+        <View className="relative flex-row bg-theme-card border border-theme-border rounded-2xl p-1 overflow-hidden">
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl border border-theme-accent/30 shadow-sm"
+            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl border border-theme-accent/30"
             style={{
               left: indicatorLeft,
               width: tabWidth,
@@ -418,7 +456,7 @@ export default function DashboardScreen() {
                 activeTab === 'dash' ? 'text-theme-accent' : 'text-theme-muted'
               }`}
             >
-              Dashboard
+              {t('nav.dashboard')}
             </Text>
           </TouchableOpacity>
 
@@ -460,11 +498,11 @@ export default function DashboardScreen() {
         >
           {/* 1. TODAY'S PLAN CARD */}
           <TodaysPlanCard
-            dateLabel="FRI Jul 24"
+            dateLabel={todaysCardDateLabel}
             tempLabel="24°C"
             workouts={todaysWorkouts}
             onAdaptPress={() => setIsAdaptModalOpen(true)}
-            onAddWorkout={() => handleOpenAddModal('FRI', 'Jul 24')}
+            onAddWorkout={() => handleOpenAddModal(dayOfWeekUpper, todayDateStr)}
             onSelectWorkout={handleSelectWorkoutForEdit}
           />
 
@@ -473,7 +511,7 @@ export default function DashboardScreen() {
 
           {/* 3. QUICK ACTIONS ROW */}
           <QuickActionsRow
-            onAddActivity={() => handleOpenAddModal('FRI', 'Jul 24')}
+            onAddActivity={() => handleOpenAddModal(dayOfWeekUpper, todayDateStr)}
             onLogWeight={() => setIsWeightModalOpen(true)}
             onReportInjury={() => setIsNiggleModalOpen(true)}
           />
@@ -494,7 +532,7 @@ export default function DashboardScreen() {
 
           {/* Micro Plan Agenda Card */}
           <MicroPlanAgendaCard
-            weekRangeLabel="Jul 20 - Jul 26"
+            weekRangeLabel="Aug 3 - Aug 9"
             agenda={weeklyAgenda}
             onPrevWeek={() => {}}
             onNextWeek={() => {}}

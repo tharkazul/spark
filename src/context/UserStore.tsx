@@ -87,6 +87,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           ...profileData,
           athlete_context: (profileData as any).athleteContext ?? (profileData as any).athlete_context ?? profileData.athlete_context,
           coach_tone: (profileData as any).coachTone ?? profileData.coach_tone,
+          coach_name: (profileData as any).coachName ?? profileData.coach_name ?? 'Spark',
+          coach_context: (profileData as any).coachContext ?? profileData.coach_context ?? '',
+          coach_avatar_neutral: (profileData as any).coachAvatarNeutral ?? profileData.coach_avatar_neutral,
+          coach_avatar_hype: (profileData as any).coachAvatarHype ?? profileData.coach_avatar_hype,
+          coach_avatar_disappointed: (profileData as any).coachAvatarDisappointed ?? profileData.coach_avatar_disappointed,
           garmin_connected: (profileData as any).hasGarmin ?? profileData.garmin_connected,
           strava_connected: (profileData as any).hasStrava ?? profileData.strava_connected,
         } : defaultFallbackUser(identifier.split('@')[0]);
@@ -141,6 +146,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           ...data,
           athlete_context: (data as any).athleteContext ?? (data as any).athlete_context ?? data.athlete_context,
           coach_tone: (data as any).coachTone ?? data.coach_tone,
+          coach_name: (data as any).coachName ?? data.coach_name,
+          coach_context: (data as any).coachContext ?? data.coach_context,
+          coach_avatar_neutral: (data as any).coachAvatarNeutral ?? data.coach_avatar_neutral,
+          coach_avatar_hype: (data as any).coachAvatarHype ?? data.coach_avatar_hype,
+          coach_avatar_disappointed: (data as any).coachAvatarDisappointed ?? data.coach_avatar_disappointed,
           garmin_connected: (data as any).hasGarmin ?? data.garmin_connected,
           strava_connected: (data as any).hasStrava ?? data.strava_connected,
         }));

@@ -8,6 +8,11 @@ export interface UserProfile {
   total_spark: number;
   level: number;
   coach_tone: string;
+  coach_name?: string;
+  coach_context?: string;
+  coach_avatar_neutral?: string;
+  coach_avatar_hype?: string;
+  coach_avatar_disappointed?: string;
   athlete_context?: string;
   long_term_memory?: string;
   profile_picture_url?: string;

@@ -27,12 +27,29 @@ export const userApi = {
       method: 'POST',
       body: JSON.stringify({
         coachTone: data.coach_tone,
+        coachName: data.coach_name,
+        coachContext: data.coach_context,
         athleteContext: data.athlete_context,
         targetEvent: data.target_event,
         eventDate: data.event_date,
         targetCtl: data.target_ctl,
       }),
     }),
+  uploadCoachAvatar: async (mood: string, fileUri: string) => {
+    const formData = new FormData();
+    const filename = fileUri.split('/').pop() || `avatar_${mood}.jpg`;
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    formData.append('photo', { uri: fileUri, name: filename, type } as any);
+    formData.append('mood', mood);
+
+    return apiClient<{ success: boolean; url: string; mood: string }>('/api/settings/coach-avatar', {
+      method: 'POST',
+      body: formData,
+      isFormData: true,
+    });
+  },
   trackSparkPlusClick: () =>
     apiClient<{ success: boolean }>('/api/track-spark-plus-click', { method: 'POST' }),
 };
