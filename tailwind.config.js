@@ -6,6 +6,50 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        brand: {
+          DEFAULT: '#FF5F3B',
+          deep: '#E8481F',
+          ink: '#1B1B1F',
+          accent: 'var(--accent)',
+        },
+        neutral: {
+          50: '#F7F7F9',
+          100: '#EAEAED',
+          200: '#DEDEE3',
+          400: '#B4B4BD',
+          600: '#6F6F79',
+          800: '#3A3A40',
+        },
+        dark: {
+          canvas: '#17171A',
+          card: '#212226',
+          border: '#2D2E33',
+          text: '#F5F5F7',
+          muted: '#9A9AA2',
+        },
+        semantic: {
+          success: 'var(--color-success)',
+          'success-bg': 'var(--color-success-bg)',
+          'success-text': 'var(--color-success-text)',
+          warning: 'var(--color-warning)',
+          'warning-bg': 'var(--color-warning-bg)',
+          'warning-text': 'var(--color-warning-text)',
+          error: 'var(--color-error)',
+          'error-bg': 'var(--color-error-bg)',
+          'error-text': 'var(--color-error-text)',
+          info: 'var(--color-info)',
+          'info-bg': 'var(--color-info-bg)',
+          'info-text': 'var(--color-info-text)',
+        },
+        sport: {
+          swim: 'var(--sport-swim)',
+          ride: 'var(--sport-ride)',
+          run: 'var(--sport-run)',
+          cardio: 'var(--sport-cardio)',
+          strength: 'var(--sport-strength)',
+          yoga: 'var(--sport-yoga)',
+          walk: 'var(--sport-walk)',
+        },
         theme: {
           bg: 'var(--bg-main)',
           card: 'var(--bg-card)',

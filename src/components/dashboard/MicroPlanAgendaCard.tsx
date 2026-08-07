@@ -66,53 +66,53 @@ export function MicroPlanAgendaCard({
     switch (type) {
       case 'SWIM':
         return {
-          bg: 'bg-blue-500/15',
-          text: 'text-blue-500',
-          borderColor: 'border-blue-500',
-          borderLeft: 'border-l-blue-500',
+          bg: 'bg-[#2E8FE0]/15',
+          text: 'text-[#2E8FE0]',
+          borderColor: 'border-[#2E8FE0]',
+          borderLeft: 'border-l-[#2E8FE0]',
           label: 'SWIM',
           icon: 'water-outline',
-          badgeColor: '#208AEF',
+          badgeColor: '#2E8FE0',
         };
       case 'RUN':
         return {
-          bg: 'bg-amber-500/15',
-          text: 'text-amber-500',
-          borderColor: 'border-amber-500',
-          borderLeft: 'border-l-amber-500',
+          bg: 'bg-[#D9A62E]/15',
+          text: 'text-[#D9A62E]',
+          borderColor: 'border-[#D9A62E]',
+          borderLeft: 'border-l-[#D9A62E]',
           label: 'RUN',
           icon: 'walk-outline',
-          badgeColor: '#F97316',
+          badgeColor: '#D9A62E',
         };
       case 'BIKE':
         return {
-          bg: 'bg-emerald-500/15',
-          text: 'text-emerald-500',
-          borderColor: 'border-emerald-500',
-          borderLeft: 'border-l-emerald-500',
+          bg: 'bg-[#4CAF6D]/15',
+          text: 'text-[#4CAF6D]',
+          borderColor: 'border-[#4CAF6D]',
+          borderLeft: 'border-l-[#4CAF6D]',
           label: 'BIKE',
           icon: 'bicycle-outline',
-          badgeColor: '#10B981',
+          badgeColor: '#4CAF6D',
         };
       case 'STRENGTH':
         return {
-          bg: 'bg-purple-500/15',
-          text: 'text-purple-500',
-          borderColor: 'border-purple-500',
-          borderLeft: 'border-l-purple-500',
+          bg: 'bg-[#B36AE0]/15',
+          text: 'text-[#B36AE0]',
+          borderColor: 'border-[#B36AE0]',
+          borderLeft: 'border-l-[#B36AE0]',
           label: 'STRENGTH',
           icon: 'barbell-outline',
-          badgeColor: '#A855F7',
+          badgeColor: '#B36AE0',
         };
       case 'MOBILITY':
         return {
-          bg: 'bg-teal-500/15',
-          text: 'text-teal-500',
-          borderColor: 'border-teal-500',
-          borderLeft: 'border-l-teal-500',
+          bg: 'bg-[#2EBFAF]/15',
+          text: 'text-[#2EBFAF]',
+          borderColor: 'border-[#2EBFAF]',
+          borderLeft: 'border-l-[#2EBFAF]',
           label: 'MOBILITY',
           icon: 'body-outline',
-          badgeColor: '#16ACBD',
+          badgeColor: '#2EBFAF',
         };
       default:
         return {
@@ -122,7 +122,7 @@ export function MicroPlanAgendaCard({
           borderLeft: 'border-l-gray-400',
           label: 'REST',
           icon: 'moon-outline',
-          badgeColor: '#8E9BA4',
+          badgeColor: '#6F6F79',
         };
     }
   };

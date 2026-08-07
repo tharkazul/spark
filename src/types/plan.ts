@@ -1,10 +1,11 @@
 import { SportType } from './activity';
 
 export interface WorkoutStep {
+  id: string;
   type: 'warmup' | 'interval' | 'recovery' | 'cooldown' | 'repeat' | 'rest';
-  condition_type?: 'time' | 'time_sec' | 'distance' | 'reps';
+  condition_type?: 'time' | 'time_sec' | 'distance' | 'distance_km' | 'reps';
   condition_value?: number;
-  target_type?: 'no.target' | 'heart.rate.zone' | 'power.zone' | 'pace.zone' | 'pace.exact' | 'speed.zone';
+  target_type?: 'no.target' | 'heart.rate.zone' | 'power.zone' | 'pace.zone' | 'pace.exact' | 'speed.zone' | 'speed.exact' | 'weight';
   zone?: number;
   weight?: number;
   exerciseName?: string;

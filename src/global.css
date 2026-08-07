@@ -4,34 +4,80 @@
 
 @layer base {
   :root {
-    --bg-main: #F4F6F9;
+    /* Brand */
+    --brand-primary: #FF5F3B;
+    --brand-deep: #E8481F;
+    --accent: #FF5F3B;
+    --accent-hover: #E8481F;
+    --accent-soft: rgba(255, 95, 59, 0.12);
+    --accent-border: rgba(255, 95, 59, 0.3);
+
+    /* Neutrals & Surfaces */
+    --gray-50: #F7F7F9;
+    --gray-100: #EAEAED;
+    --gray-200: #DEDEE3;
+    --gray-400: #B4B4BD;
+    --gray-600: #6F6F79;
+    --gray-800: #3A3A40;
+    --bg-main: #F7F7F9;
     --bg-card: #FFFFFF;
-    --border-color: #E2E8F0;
-    --text-main: #0F172A;
-    --text-muted: #64748B;
-    --accent: #FF5A1F;
-    --accent-hover: #E04810;
-    --accent-soft: #FFF0EB;
-    --accent-border: #FFD4C2;
-    --color-focus: #38BDF8;
-    --color-metric: #FF5A1F;
+    --border-color: #DEDEE3;
+    --text-main: #1B1B1F;
+    --text-muted: #6F6F79;
+
+    /* Semantic Status */
+    --color-success: #2FB673;
+    --color-success-bg: #E9F7EF;
+    --color-success-text: #0F5C34;
+    --color-warning: #F5A623;
+    --color-warning-bg: #FDF2E3;
+    --color-warning-text: #7A4A0A;
+    --color-error: #E5484D;
+    --color-error-bg: #FCEAEA;
+    --color-error-text: #7A1F1F;
+    --color-info: #3B82F6;
+    --color-info-bg: #E8F0FE;
+    --color-info-text: #123E80;
+    --color-focus: #3B82F6;
+    --color-metric: #FF5F3B;
+
+    /* Sport Indicators (Light Mode) */
+    --sport-swim: #2E8FE0;
+    --sport-ride: #4CAF6D;
+    --sport-run: #D9A62E;
+    --sport-cardio: #E0625A;
+    --sport-strength: #B36AE0;
+    --sport-yoga: #2EBFAF;
+    --sport-walk: #8FA82E;
   }
 
-  /* Note: React Native / NativeWind handles dark mode via the appearance hook, 
-     but we can also use media queries if we prefer web-standard */
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg-main: #0F172A;
-      --bg-card: #1E293B;
-      --border-color: #334155;
-      --text-main: #F8FAFC;
-      --text-muted: #94A3B8;
-      --accent: #FF6B35;
-      --accent-hover: #FF8554;
-      --accent-soft: rgba(255, 90, 31, 0.15);
-      --accent-border: rgba(255, 90, 31, 0.35);
-      --color-focus: #38BDF8;
-      --color-metric: #FF6B35;
+      /* Brand & Base */
+      --brand-primary: #FF6B45;
+      --brand-deep: #E8481F;
+      --accent: #FF6B45;
+      --accent-hover: #FF5F3B;
+      --accent-soft: rgba(255, 107, 69, 0.15);
+      --accent-border: rgba(255, 107, 69, 0.35);
+
+      /* Dark Surfaces & Text */
+      --bg-main: #17171A;
+      --bg-card: #212226;
+      --border-color: #2D2E33;
+      --text-main: #F5F5F7;
+      --text-muted: #9A9AA2;
+      --color-focus: #5BA8E8;
+      --color-metric: #FF6B45;
+
+      /* Sport Indicators (Dark Mode) */
+      --sport-swim: #5BA8E8;
+      --sport-ride: #6FC48A;
+      --sport-run: #E0B94F;
+      --sport-cardio: #E8837C;
+      --sport-strength: #C48AEA;
+      --sport-yoga: #4FD1C0;
+      --sport-walk: #A8C24F;
     }
   }
 }

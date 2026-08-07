@@ -28,48 +28,53 @@ export function TodaysPlanCard({
     switch (type) {
       case 'SWIM':
         return {
-          bg: 'bg-blue-500/10',
-          text: 'text-blue-500',
-          borderLeft: 'border-l-blue-500',
-          borderColor: 'border-blue-500/30',
+          bg: 'bg-[#2E8FE0]/10',
+          text: 'text-[#2E8FE0]',
+          borderLeft: 'border-l-[#2E8FE0]',
+          borderColor: 'border-[#2E8FE0]/30',
           label: 'SWIM',
           icon: 'water-outline',
+          badgeColor: '#2E8FE0',
         };
       case 'RUN':
         return {
-          bg: 'bg-amber-500/10',
-          text: 'text-amber-500',
-          borderLeft: 'border-l-amber-500',
-          borderColor: 'border-amber-500/30',
+          bg: 'bg-[#D9A62E]/10',
+          text: 'text-[#D9A62E]',
+          borderLeft: 'border-l-[#D9A62E]',
+          borderColor: 'border-[#D9A62E]/30',
           label: 'RUN',
           icon: 'walk-outline',
+          badgeColor: '#D9A62E',
         };
       case 'BIKE':
         return {
-          bg: 'bg-emerald-500/10',
-          text: 'text-emerald-500',
-          borderLeft: 'border-l-emerald-500',
-          borderColor: 'border-emerald-500/30',
+          bg: 'bg-[#4CAF6D]/10',
+          text: 'text-[#4CAF6D]',
+          borderLeft: 'border-l-[#4CAF6D]',
+          borderColor: 'border-[#4CAF6D]/30',
           label: 'BIKE',
           icon: 'bicycle-outline',
+          badgeColor: '#4CAF6D',
         };
       case 'STRENGTH':
         return {
-          bg: 'bg-purple-500/10',
-          text: 'text-purple-500',
-          borderLeft: 'border-l-purple-500',
-          borderColor: 'border-purple-500/30',
+          bg: 'bg-[#B36AE0]/10',
+          text: 'text-[#B36AE0]',
+          borderLeft: 'border-l-[#B36AE0]',
+          borderColor: 'border-[#B36AE0]/30',
           label: 'STRENGTH',
           icon: 'barbell-outline',
+          badgeColor: '#B36AE0',
         };
       case 'MOBILITY':
         return {
-          bg: 'bg-teal-500/10',
-          text: 'text-teal-500',
-          borderLeft: 'border-l-teal-500',
-          borderColor: 'border-teal-500/30',
+          bg: 'bg-[#2EBFAF]/10',
+          text: 'text-[#2EBFAF]',
+          borderLeft: 'border-l-[#2EBFAF]',
+          borderColor: 'border-[#2EBFAF]/30',
           label: 'MOBILITY',
           icon: 'body-outline',
+          badgeColor: '#2EBFAF',
         };
       default:
         return {
@@ -79,6 +84,7 @@ export function TodaysPlanCard({
           borderColor: 'border-gray-500/30',
           label: 'REST',
           icon: 'moon-outline',
+          badgeColor: '#6F6F79',
         };
     }
   };
@@ -94,133 +100,123 @@ export function TodaysPlanCard({
   };
 
   return (
-    <Card className="p-0 overflow-hidden mb-3.5 border-theme-border shadow-sm">
-      {/* Header Bar */}
-      <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
-        <View className="flex-row items-center gap-2">
-          <View className="w-7 h-7 rounded-lg bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
-            <Ionicons name="calendar-outline" size={14} color="#FF5A1F" />
+    <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
+      {/* Header Bar matching Quest Card design */}
+      <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
+        <View className="flex-row items-center gap-3">
+          <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
+            <Ionicons name="calendar-outline" size={20} color="#FF5F3B" />
           </View>
           <View>
-            <Text className="text-sm font-extrabold text-theme-text">Today's Plan</Text>
-            <Text className="text-[9px] text-theme-muted">Daily Training Schedule</Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-base font-extrabold text-theme-text">Today's Plan</Text>
+              <View className="bg-theme-accent px-2 py-0.5 rounded-full">
+                <Text className="text-[9px] font-extrabold text-white uppercase tracking-wider">Today</Text>
+              </View>
+            </View>
+            <Text className="text-[11px] text-theme-muted">{dateLabel} · {tempLabel}</Text>
           </View>
         </View>
 
-        {/* Right Info Row: Date + Temp + Adapt Button */}
-        <View className="flex-row items-center gap-1.5">
-          <View className="bg-theme-card px-2 py-0.5 rounded-lg border border-theme-border flex-row items-center gap-1">
-            <Ionicons name={(weatherIcon as any) || 'partly-sunny-outline'} size={12} color="#FF5A1F" />
-            <Text className="text-[10px] font-bold text-theme-text">{tempLabel}</Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={handleAdapt}
-            activeOpacity={0.7}
-            className="flex-row items-center gap-1 bg-theme-accent-soft px-2 py-0.5 rounded-lg border border-theme-accent/30"
-          >
-            <Ionicons name="flash" size={11} color="#FF5A1F" />
-            <Text className="text-[10px] font-extrabold text-theme-accent">ADAPT</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Adapt Plan Action Trigger Button matching Quest Card pill button */}
+        <TouchableOpacity
+          onPress={handleAdapt}
+          activeOpacity={0.7}
+          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
+        >
+          <Ionicons name="flash-outline" size={13} color="#F97316" />
+          <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Main Content Area */}
-      <View className="p-3.5">
-        {/* Workouts List */}
+      {/* Content Box matching Quest Card inner box styling */}
+      {workouts.length === 0 ? (
+        <View className="p-5 rounded-2xl border border-theme-border bg-theme-bg/60 flex-col items-center justify-center gap-2">
+          <Ionicons name="moon-outline" size={24} color="#6F6F79" />
+          <Text className="text-sm font-bold text-theme-text">Rest & Recovery Day</Text>
+          <Text className="text-xs text-theme-muted text-center px-4">
+            No structured sessions scheduled for today. Take time to stretch and refuel.
+          </Text>
+
+          <TouchableOpacity
+            onPress={handleAdd}
+            className="mt-2 flex-row items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-accent"
+          >
+            <Ionicons name="add" size={16} color="#FFFFFF" />
+            <Text className="text-xs font-extrabold text-white">Log Extra Activity</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
         <View className="space-y-3">
-          {workouts.length === 0 ? (
-            <View className="py-6 items-center justify-center">
-              <Ionicons name="sparkles-outline" size={28} color="#8E9BA4" />
-              <Text className="text-theme-muted text-xs mt-2 font-medium">No exercises scheduled for today</Text>
-            </View>
-          ) : (
-            workouts.map((workout) => {
-              const cfg = getDisciplineConfig(workout.type);
+          {workouts.map((workout) => {
+            const cfg = getDisciplineConfig(workout.type);
 
-              return (
-                <TouchableOpacity
-                  key={workout.id}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    onSelectWorkout(workout);
-                  }}
-                  activeOpacity={0.85}
-                  className={`p-4 rounded-2xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-card shadow-md my-1`}
-                >
-                  <View className="flex-row items-center justify-between mb-2">
-                    <View className="flex-row items-center gap-2">
-                      <View className={`px-2.5 py-1 rounded-lg ${cfg.bg} flex-row items-center gap-1`}>
-                        <Ionicons name={cfg.icon as any} size={12} color={workout.type === 'SWIM' ? '#208AEF' : workout.type === 'RUN' ? '#F97316' : workout.type === 'BIKE' ? '#10B981' : '#A855F7'} />
-                        <Text className={`text-[10px] font-extrabold tracking-wider ${cfg.text}`}>
-                          {cfg.label}
-                        </Text>
-                      </View>
-                    </View>
+            return (
+              <TouchableOpacity
+                key={workout.id}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onSelectWorkout(workout);
+                }}
+                activeOpacity={0.75}
+                className={`p-4 rounded-2xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-bg/60 flex-col gap-2`}
+              >
+                {/* Top Line: Discipline Tag & Spark Score */}
+                <View className="flex-row items-center justify-between">
+                  <View className={`px-2.5 py-0.5 rounded-md ${cfg.bg} flex-row items-center gap-1.5`}>
+                    <Ionicons name={cfg.icon as any} size={13} color={cfg.badgeColor} />
+                    <Text className={`text-xs font-extrabold ${cfg.text}`}>{cfg.label}</Text>
+                  </View>
 
-                    {/* Completion / Execution Status Visualization */}
-                    {workout.isCompleted ? (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-                        <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                        <Text className="text-[10px] font-extrabold text-emerald-500">
-                          {workout.executionScore ? `${workout.executionScore}% EXECUTED` : 'COMPLETED'}
-                        </Text>
-                      </View>
-                    ) : (
-                      <View className="flex-row items-center gap-1">
-                        {workout.isStructured && (
-                          <Text className="text-[10px] text-theme-accent font-bold">
-                            Structured
-                          </Text>
-                        )}
-                        <Ionicons name="cloud-done-outline" size={14} color="#8E9BA4" />
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-xs font-mono font-bold text-theme-accent">
+                      {workout.sparkPoints} Spark
+                    </Text>
+
+                    {workout.isCompleted && (
+                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                        <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                        <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
                       </View>
                     )}
                   </View>
+                </View>
 
-                  {/* Workout Title */}
-                  <Text className="text-base font-extrabold text-theme-text mb-2">
-                    {workout.title}
+                {/* Workout Title */}
+                <Text className="text-sm font-extrabold text-theme-text leading-snug">{workout.title}</Text>
+
+                {/* Subline: Duration, Telemetry & Action */}
+                <View className="flex-row items-center justify-between pt-1 border-t border-theme-border/40">
+                  <Text className="text-xs text-theme-muted font-bold">
+                    Target: {workout.duration || '45 mins'} · {workout.sparkPoints} Spark Points
                   </Text>
 
-                  {/* Uploaded Telemetry Visualization for Completed Activity */}
-                  {workout.isCompleted && workout.actualMetrics ? (
-                    <View className="bg-theme-bg/90 p-2.5 rounded-xl border border-theme-border/60 flex-row items-center justify-between mt-1">
-                      <View className="flex-row items-center gap-1.5">
-                        <Ionicons name="pulse" size={14} color="#10B981" />
-                        <Text className="text-xs font-mono font-bold text-theme-text">
-                          {workout.actualMetrics}
-                        </Text>
-                      </View>
-                      <Text className="text-[10px] font-mono text-emerald-500 font-bold">
-                        +{workout.sparkPoints} Spark
-                      </Text>
-                    </View>
+                  {workout.actualMetrics ? (
+                    <Text className="text-xs font-mono font-bold text-emerald-500">
+                      {workout.actualMetrics}
+                    </Text>
                   ) : (
-                    /* Planned Session Target Summary */
-                    <View className="flex-row items-center justify-between pt-1">
-                      <Text className="text-xs text-theme-muted font-medium">
-                        Target: {workout.duration || '45 mins'} · {workout.sparkPoints} Spark Points
-                      </Text>
-                      <Text className="text-[10px] text-theme-accent font-semibold">Tap to edit</Text>
+                    <View className="flex-row items-center gap-1">
+                      <Text className="text-xs font-bold text-theme-accent">Tap to edit</Text>
+                      <Ionicons name="arrow-forward" size={12} color="#FF5F3B" />
                     </View>
                   )}
-                </TouchableOpacity>
-              );
-            })
-          )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
 
-          {/* Dotted Add Button */}
+          {/* Quick Add Button */}
           <TouchableOpacity
             onPress={handleAdd}
-            activeOpacity={0.7}
-            className="w-full py-3.5 border border-dashed border-theme-border rounded-xl items-center justify-center flex-row gap-1 bg-theme-bg/30 mt-2"
+            activeOpacity={0.8}
+            className="w-full py-3 bg-theme-bg/60 border border-dashed border-theme-border rounded-2xl flex-row items-center justify-center gap-1.5 active:bg-theme-accent/10"
           >
-            <Ionicons name="add-circle-outline" size={18} color="#FF5A1F" />
-            <Text className="text-xs font-bold text-theme-accent">Add Exercise</Text>
+            <Ionicons name="add-circle-outline" size={16} color="#FF5F3B" />
+            <Text className="text-xs font-extrabold text-theme-accent">+ Add Exercise</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      )}
     </Card>
   );
 }

@@ -67,10 +67,15 @@ export default function LoginScreen() {
   return (
     <SafeAreaView className="flex-1 bg-theme-bg">
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} className="px-6 py-8">
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, paddingTop: 16, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          className="px-6"
+        >
           {/* Header branding */}
           <View className="items-center mb-8">
             <View className="w-16 h-16 rounded-2xl bg-theme-accent items-center justify-center mb-3 shadow-lg shadow-blue-500/30">

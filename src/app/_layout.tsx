@@ -1,6 +1,7 @@
 import '../global.css';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, View, ActivityIndicator } from 'react-native';
 import React, { useEffect } from 'react';
@@ -39,7 +40,7 @@ function RootNavigation() {
   if (loading) {
     return (
       <View className="flex-1 bg-theme-bg items-center justify-center">
-        <ActivityIndicator size="large" color="#FF5A1F" />
+        <ActivityIndicator size="large" color="#FF5F3B" />
       </View>
     );
   }
@@ -63,7 +64,9 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AppProviders>
-        <RootNavigation />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <RootNavigation />
+        </GestureHandlerRootView>
       </AppProviders>
     </ThemeProvider>
   );

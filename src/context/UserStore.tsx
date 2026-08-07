@@ -28,6 +28,15 @@ const defaultFallbackUser = (username: string): UserProfile => ({
   profile_picture_url: undefined,
   garmin_connected: false,
   strava_connected: false,
+  daily_availability: {
+    MON: 45,
+    TUE: 45,
+    WED: 60,
+    THU: 45,
+    FRI: 60,
+    SAT: 90,
+    SUN: 45,
+  },
   athlete_metrics: {
     max_hr: 192,
     resting_hr: 48,

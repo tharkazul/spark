@@ -46,7 +46,7 @@ export function Button({
       {...props}
     >
       {isLoading ? (
-        <ActivityIndicator color={variant === 'primary' ? 'white' : '#FF5A1F'} />
+        <ActivityIndicator color={variant === 'primary' ? 'white' : '#FF5F3B'} />
       ) : (
         <Text className={`text-base text-center ${getTextClasses()}`}>{label}</Text>
       )}

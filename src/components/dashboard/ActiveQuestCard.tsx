@@ -70,10 +70,10 @@ export function ActiveQuestCard({ onRerollQuest }: ActiveQuestCardProps) {
 
   return (
     <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
-      {/* Header matching screenshot */}
+      {/* Header matching uniform design (No border outline on top-left icon!) */}
       <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
         <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 items-center justify-center">
+          <View className="w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center">
             <Ionicons name="trophy-outline" size={20} color="#F59E0B" />
           </View>
           <View>
@@ -93,7 +93,7 @@ export function ActiveQuestCard({ onRerollQuest }: ActiveQuestCardProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Quest Details Box matching screenshot styling */}
+      {/* Quest Details Box */}
       <View className="p-4 rounded-2xl border border-theme-border bg-theme-bg/60">
         <View className="flex-row items-start justify-between gap-3 mb-4">
           <Text className="flex-1 text-sm font-extrabold text-theme-text leading-snug">

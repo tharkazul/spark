@@ -4,7 +4,6 @@ import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import { NutritionMacro } from '../../types/dashboard';
 import { MacroRingGauge } from './MacroRingGauge';
-import { physiqueApi } from '../../services/apiServices';
 import { usePhysique } from '../../context/PhysiqueStore';
 
 interface NutritionProtocolCardProps {
@@ -26,78 +25,80 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
   const hasLoggedFood = (nutrition.loggedCarbs || 0) > 0 || (nutrition.loggedProtein || 0) > 0 || (nutrition.loggedFat || 0) > 0;
 
   return (
-    <Card className="p-0 overflow-hidden mb-3.5 border-theme-border shadow-sm">
-      {/* Header Bar */}
-      <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
-        <View className="flex-row items-center gap-2">
-          <View className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 items-center justify-center">
-            <Ionicons name="restaurant-outline" size={14} color="#10B981" />
+    <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
+      {/* Header Bar matching Quest Card design */}
+      <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
+        <View className="flex-row items-center gap-3">
+          <View className="w-10 h-10 rounded-xl bg-emerald-500/15 items-center justify-center">
+            <Ionicons name="restaurant-outline" size={20} color="#10B981" />
           </View>
           <View>
-            <Text className="text-sm font-extrabold text-theme-text">Daily AI Nutrition Protocol</Text>
-            <Text className="text-[9px] text-theme-muted">Fueling & Conversational Meal Targets</Text>
+            <Text className="text-base font-extrabold text-theme-text">Daily AI Nutrition Protocol</Text>
+            <Text className="text-[11px] text-theme-muted">Fueling & Conversational Meal Targets</Text>
           </View>
         </View>
 
         {hasLoggedFood && (
           <TouchableOpacity
             onPress={handleClearLoggedFood}
-            className="flex-row items-center gap-1 bg-theme-card border border-theme-border px-2 py-1 rounded-lg"
+            className="bg-theme-card border border-theme-border px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
           >
-            <Ionicons name="refresh-outline" size={11} color="#94A3B8" />
-            <Text className="text-[9px] font-bold text-theme-muted">Reset Today</Text>
+            <Ionicons name="refresh-outline" size={12} color="#94A3B8" />
+            <Text className="text-xs font-bold text-theme-muted">Reset Today</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Main Content Area */}
-      <View className="p-3.5">
-        {/* Focus Title & Rationale */}
-        <Text className="text-base font-extrabold text-theme-text mb-1">
-          {nutrition.focusTitle}
-        </Text>
-        <Text className="text-xs text-theme-muted leading-relaxed mb-4">
-          {nutrition.rationale}
-        </Text>
+      {/* Content Box matching Quest Card inner box styling */}
+      <View className="p-4 rounded-2xl border border-theme-border bg-theme-bg/60">
+        {/* Rationale Banner */}
+        <View className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 mb-4">
+          <Text className="text-xs font-bold text-emerald-600 mb-0.5">{nutrition.focusTitle}</Text>
+          <Text className="text-xs text-theme-text/80 leading-relaxed">{nutrition.rationale}</Text>
+        </View>
 
-        {/* Macro Ring Gauges Grid (Protein, Carbs, Fat) */}
-        <View className="flex-row justify-around items-center pt-1 pb-3">
+        {/* 3 Macro Rings Row */}
+        <View className="flex-row items-center justify-around py-2">
+          {/* Carbohydrates Ring */}
+          <MacroRingGauge
+            label="Carbs"
+            current={nutrition.carbs}
+            target={nutrition.carbsTarget}
+            color="#3B82F6"
+            unit="g"
+          />
+
           {/* Protein Ring */}
           <MacroRingGauge
             label="Protein"
-            target={nutrition.protein}
-            logged={nutrition.loggedProtein || 0}
-          />
-
-          {/* Carbs Ring */}
-          <MacroRingGauge
-            label="Carbs"
-            target={nutrition.carbs}
-            logged={nutrition.loggedCarbs || 0}
+            current={nutrition.protein}
+            target={nutrition.proteinTarget}
+            color="#10B981"
+            unit="g"
           />
 
           {/* Fat Ring */}
           <MacroRingGauge
             label="Fat"
-            target={nutrition.fat}
-            logged={nutrition.loggedFat || 0}
+            current={nutrition.fat}
+            target={nutrition.fatTarget}
+            color="#F59E0B"
+            unit="g"
           />
         </View>
 
-        {/* Logged Meal Chips (when shared in chat) */}
+        {/* Logged Meal Items List */}
         {loggedItems.length > 0 && (
-          <View className="mt-2 pt-2.5 border-t border-theme-border/50">
-            <Text className="text-[10px] font-extrabold text-theme-muted uppercase tracking-wider mb-1.5">
-              Meals Logged via Coach Chat
-            </Text>
-            <View className="flex-row flex-wrap gap-1.5">
+          <View className="mt-4 pt-3 border-t border-theme-border/50">
+            <Text className="text-xs font-extrabold text-theme-text mb-2">Logged Foods Today</Text>
+            <View className="space-y-1.5">
               {loggedItems.map((item, idx) => (
                 <View
-                  key={idx}
-                  className="bg-theme-accent-soft/20 border border-theme-accent/30 px-2.5 py-1 rounded-lg flex-row items-center gap-1"
+                  key={`${item.name}-${idx}`}
+                  className="flex-row items-center justify-between p-2.5 bg-theme-card rounded-xl border border-theme-border"
                 >
-                  <Ionicons name="checkmark-circle" size={10} color="#FF5A1F" />
-                  <Text className="text-[10px] font-bold text-theme-text">{item}</Text>
+                  <Text className="text-xs font-bold text-theme-text">{item.name}</Text>
+                  <Text className="text-xs font-mono font-bold text-theme-accent">{item.calories} kcal</Text>
                 </View>
               ))}
             </View>

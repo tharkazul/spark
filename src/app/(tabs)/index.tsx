@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   NativeScrollEvent,
   Animated,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,7 +26,9 @@ import { ActiveQuestCard } from '../../components/dashboard/ActiveQuestCard';
 import { QuickActionsRow } from '../../components/dashboard/QuickActionsRow';
 import { NutritionProtocolCard } from '../../components/dashboard/NutritionProtocolCard';
 import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
-import { MicroPlanAgendaCard, DayAgenda } from '../../components/dashboard/MicroPlanAgendaCard';
+import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
+import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
+import { DayAgenda } from '../../components/dashboard/MicroPlanAgendaCard';
 
 // Modals
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
@@ -44,7 +47,9 @@ export default function DashboardScreen() {
   const { user } = useUser();
   const { t } = useLanguage();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const scrollViewRef = useRef<ScrollView>(null);
+
+  const mainViewPagerRef = useRef<ScrollView>(null);
+  const part3ScrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   // Sub-tab state ('dash' vs 'planning')
@@ -59,16 +64,20 @@ export default function DashboardScreen() {
   const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 74.5);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
 
-  // Dynamic real-time date calculation from device system clock
-  const now = new Date();
-  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' }); // e.g. 'Thu'
-  const dayOfWeekUpper = dayOfWeekShort.toUpperCase(); // e.g. 'THU'
-  const monthShort = now.toLocaleDateString('en-US', { month: 'short' }); // e.g. 'Aug'
-  const dayNum = now.getDate(); // e.g. 6
+  // Layout tracking for scrolling Part 3 cards
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(4); // Default FRI (index 4)
+  const [dayYPositions, setDayYPositions] = useState<Record<number, number>>({});
 
-  const headerDateLabel = `${dayOfWeekShort}, ${monthShort} ${dayNum}`; // e.g. 'Thu, Aug 6'
-  const todaysCardDateLabel = `${dayOfWeekUpper} ${monthShort} ${dayNum}`; // e.g. 'THU Aug 6'
-  const todayDateStr = `${monthShort} ${dayNum}`; // e.g. 'Aug 6'
+  // Dynamic real-time date calculation from system clock
+  const now = new Date();
+  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' }); // 'Fri'
+  const dayOfWeekUpper = dayOfWeekShort.toUpperCase(); // 'FRI'
+  const monthShort = now.toLocaleDateString('en-US', { month: 'short' }); // 'Aug'
+  const dayNum = now.getDate(); // 7
+
+  const headerDateLabel = `${dayOfWeekShort}, ${monthShort} ${dayNum}`; // 'Fri, Aug 7'
+  const todaysCardDateLabel = `${dayOfWeekUpper} ${monthShort} ${dayNum}`; // 'FRI Aug 7'
+  const todayDateStr = `${monthShort} ${dayNum}`; // 'Aug 7'
 
   const [targetAddDay, setTargetAddDay] = useState<{ dayName: string; dateStr: string }>({
     dayName: dayOfWeekUpper,
@@ -102,7 +111,7 @@ export default function DashboardScreen() {
 
   const daysRemaining = calculateDaysRemaining(user?.event_date);
 
-  // Nutrition Protocol (Bottom of Dashboard)
+  // Nutrition Protocol
   const nutrition: NutritionMacro = {
     focusTitle: 'Threshold Run Fuel & Muscle Recovery',
     rationale:
@@ -115,7 +124,7 @@ export default function DashboardScreen() {
     fatTarget: 70,
   };
 
-  // Training Phase (Dynamic race target name from UserStore)
+  // Part 1: Macro Periodization Info
   const seasonInfo: MacroPeriodInfo = {
     raceTargetName: mainRaceName,
     daysRemaining: daysRemaining,
@@ -158,36 +167,22 @@ export default function DashboardScreen() {
     ],
   };
 
-  // Today's Workouts (Top of Dashboard - Real Today Date)
+  // Today's Workouts (Dashboard Tab)
   const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutItem[]>([
     {
       id: 'w-today-1',
-      day: dayOfWeekUpper,
-      dateStr: todayDateStr,
-      type: 'SWIM',
-      title: 'Sharpening CSS Swim Session',
-      duration: '45 mins',
-      sparkPoints: 24,
+      day: 'FRI',
+      dateStr: 'Aug 7',
+      type: 'BIKE',
+      title: 'Lekker fietsen',
+      duration: '60 mins',
+      sparkPoints: 84,
       isStructured: true,
       isCompleted: false,
     },
-    {
-      id: 'w-today-2',
-      day: dayOfWeekUpper,
-      dateStr: todayDateStr,
-      type: 'RUN',
-      title: 'Morning Aerobic Maintenance Run',
-      duration: '35 mins',
-      sparkPoints: 32,
-      isStructured: true,
-      isCompleted: true,
-      actualDuration: '34:12',
-      actualMetrics: '154 avg bpm · 4:48/km pace',
-      executionScore: 98,
-    },
   ]);
 
-  // Micro Agenda (Full Week: Aug 3 - Aug 9)
+  // Full 7-Day Agenda (Planning Tab - Aug 3 - Aug 9)
   const [weeklyAgenda, setWeeklyAgenda] = useState<DayAgenda[]>([
     {
       dayName: 'MON',
@@ -252,38 +247,26 @@ export default function DashboardScreen() {
     {
       dayName: 'THU',
       dateStr: 'Aug 6',
-      isToday: true, // REAL TODAY!
-      workouts: [
-        {
-          id: 'w-today-1',
-          day: 'THU',
-          dateStr: 'Aug 6',
-          type: 'SWIM',
-          title: 'Sharpening CSS Swim Session',
-          duration: '45 mins',
-          sparkPoints: 24,
-          isStructured: true,
-          isCompleted: false,
-        },
-        {
-          id: 'w-today-2',
-          day: 'THU',
-          dateStr: 'Aug 6',
-          type: 'RUN',
-          title: 'Morning Aerobic Maintenance Run',
-          duration: '35 mins',
-          sparkPoints: 32,
-          isStructured: true,
-          isCompleted: true,
-          actualMetrics: '154 avg bpm · 4:48/km pace',
-          executionScore: 98,
-        },
-      ],
+      isPast: true,
+      workouts: [],
     },
     {
       dayName: 'FRI',
       dateStr: 'Aug 7',
-      workouts: [],
+      isToday: true, // TODAY!
+      workouts: [
+        {
+          id: 'w-today-1',
+          day: 'FRI',
+          dateStr: 'Aug 7',
+          type: 'BIKE',
+          title: 'Lekker fietsen',
+          duration: '60 mins',
+          sparkPoints: 84,
+          isStructured: true,
+          isCompleted: false,
+        },
+      ],
     },
     {
       dayName: 'SAT',
@@ -293,11 +276,11 @@ export default function DashboardScreen() {
           id: 'w-sat-1',
           day: 'SAT',
           dateStr: 'Aug 8',
-          type: 'BIKE',
-          title: 'Long Endurance Ride & Brick Run',
-          duration: '120 mins',
-          sparkPoints: 95,
-          isStructured: true,
+          type: 'STRENGTH',
+          title: 'Chest only session',
+          duration: '45 mins',
+          sparkPoints: 30,
+          isStructured: false,
           isCompleted: false,
         },
       ],
@@ -321,13 +304,13 @@ export default function DashboardScreen() {
     },
   ]);
 
-  // Tab Switching
+  // Tab Switching logic
   const handleTabSwitch = (tab: 'dash' | 'planning') => {
     Haptics.selectionAsync();
     setActiveTab(tab);
-    if (scrollViewRef.current) {
+    if (mainViewPagerRef.current) {
       const xOffset = tab === 'dash' ? 0 : SCREEN_WIDTH;
-      scrollViewRef.current.scrollTo({ x: xOffset, animated: true });
+      mainViewPagerRef.current.scrollTo({ x: xOffset, animated: true });
     }
   };
 
@@ -340,7 +323,20 @@ export default function DashboardScreen() {
     }
   };
 
-  // Add / Edit Workout logic
+  // Scroll Part 3 internally to Today's card (index 4) when Planning tab is selected
+  useEffect(() => {
+    if (activeTab === 'planning') {
+      const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
+      const targetIdx = todayIdx >= 0 ? todayIdx : 4;
+      const targetY = dayYPositions[targetIdx] || 0;
+      const timer = setTimeout(() => {
+        part3ScrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, dayYPositions]);
+
+  // Add / Edit / Remove Workout logic
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
     setSelectedWorkoutForEdit(null);
     setTargetAddDay({ dayName, dateStr });
@@ -390,12 +386,21 @@ export default function DashboardScreen() {
   };
 
   const handleDeleteWorkout = (workoutId: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setTodaysWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
     setWeeklyAgenda((prev) =>
       prev.map((day) => ({
         ...day,
         workouts: day.workouts.filter((w) => w.id !== workoutId),
       }))
+    );
+  };
+
+  const handleInvitePartner = (workout: WorkoutItem) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      'Invite Sent!',
+      `An invite link for "${workout.title}" has been generated. Share it with your training partner or coach.`
     );
   };
 
@@ -429,14 +434,14 @@ export default function DashboardScreen() {
           <View>
             <Text className="text-2xl font-extrabold text-theme-text tracking-tight">{t('nav.dashboard')}</Text>
           </View>
-          <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border px-3 py-1.5 rounded-full">
+          <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border/60 px-3 py-1.5 rounded-full">
             <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
             <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
           </View>
         </View>
 
         {/* Sub-tab Navigation Segmented Control */}
-        <View className="relative flex-row bg-theme-card border border-theme-border rounded-2xl p-1 overflow-hidden">
+        <View className="relative flex-row bg-theme-card border border-theme-border/60 rounded-2xl p-1 overflow-hidden">
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
             className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl border border-theme-accent/30"
@@ -478,7 +483,7 @@ export default function DashboardScreen() {
 
       {/* Swipeable View Pager / ScrollView Container */}
       <ScrollView
-        ref={scrollViewRef}
+        ref={mainViewPagerRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -520,29 +525,77 @@ export default function DashboardScreen() {
           <NutritionProtocolCard nutrition={nutrition} />
         </ScrollView>
 
-        {/* TAB 2: PLANNING SUBTAB */}
-        <ScrollView
-          style={{ width: SCREEN_WIDTH }}
-          className="flex-1 px-5 pt-4"
-          contentContainerStyle={{ paddingBottom: 110 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Training Phase Component */}
-          <SeasonRoadmapCard info={seasonInfo} />
+        {/* TAB 2: REDESIGNED 3-PART PLANNING SUBTAB */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1 px-5 pt-3">
+          {/* PINNED HEADER SECTION (Part 1 + Part 2 remain fixed at top!) */}
+          <View className="mb-2">
+            {/* Part 1: Compact Macro Phase Card */}
+            <SeasonRoadmapCard info={seasonInfo} />
 
-          {/* Micro Plan Agenda Card */}
-          <MicroPlanAgendaCard
-            weekRangeLabel="Aug 3 - Aug 9"
-            agenda={weeklyAgenda}
-            onPrevWeek={() => {}}
-            onNextWeek={() => {}}
-            onAutoGenerate={() => {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }}
-            onAddWorkoutToDay={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
-            onSelectWorkout={handleSelectWorkoutForEdit}
-          />
-        </ScrollView>
+            {/* Part 2: Week Plan Header Row & Side-by-Side Week Bar */}
+            <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/50 bg-theme-card border border-theme-border p-4 rounded-3xl shadow-sm">
+              <View className="flex-row items-center gap-3">
+                <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
+                  <Ionicons name="calendar-outline" size={20} color="#16ACBD" />
+                </View>
+                <Text className="text-base font-extrabold text-theme-text">Week Plan</Text>
+              </View>
+
+              {/* Week Navigator */}
+              <View className="flex-row items-center bg-theme-card border border-theme-border px-3 py-1.5 rounded-full shadow-sm">
+                <TouchableOpacity onPress={() => Haptics.selectionAsync()} className="px-1 py-0.5">
+                  <Ionicons name="chevron-back" size={13} color="#16ACBD" />
+                </TouchableOpacity>
+                <Text className="text-xs font-mono font-extrabold text-theme-text px-1">
+                  Aug 3 - Aug 9
+                </Text>
+                <TouchableOpacity onPress={() => Haptics.selectionAsync()} className="px-1 py-0.5">
+                  <Ionicons name="chevron-forward" size={13} color="#16ACBD" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <SideBySideWeekBar
+              agenda={weeklyAgenda}
+              selectedDayIndex={selectedDayIndex}
+              onSelectDay={(idx) => {
+                setSelectedDayIndex(idx);
+                if (dayYPositions[idx] !== undefined) {
+                  part3ScrollViewRef.current?.scrollTo({ y: dayYPositions[idx], animated: true });
+                }
+              }}
+            />
+          </View>
+
+          {/* SCROLLABLE BODY REGION (Part 3: Day by Day Cards scroll underneath Part 1 & 2!) */}
+          <ScrollView
+            ref={part3ScrollViewRef}
+            className="flex-1"
+            contentContainerStyle={{ paddingBottom: 120 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="space-y-3">
+              {weeklyAgenda.map((day, idx) => (
+                <View
+                  key={`${day.dayName}-${day.dateStr}`}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    setDayYPositions((prev) => ({ ...prev, [idx]: y }));
+                  }}
+                >
+                  <DetailedDayCard
+                    day={day}
+                    onAdaptPress={() => setIsAdaptModalOpen(true)}
+                    onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
+                    onSelectWorkout={handleSelectWorkoutForEdit}
+                    onDeleteWorkout={handleDeleteWorkout}
+                    onInvitePartner={handleInvitePartner}
+                  />
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
       </ScrollView>
 
       {/* Add / Edit Workout Modal */}
