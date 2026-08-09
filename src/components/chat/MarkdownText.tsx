@@ -91,7 +91,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser }) =
       {parts.map((part, idx) => {
         if (part.type === 'image' && part.url) {
           return (
-            <View key={`img-${idx}`} className="my-2 rounded-xl overflow-hidden bg-black/20 border border-theme-border">
+            <View key={`img-${idx}`} className="my-2 rounded-xl overflow-hidden bg-black/20">
               <Image
                 source={{ uri: part.url }}
                 style={{ width: '100%', height: 200 }}

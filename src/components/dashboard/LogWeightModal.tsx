@@ -61,12 +61,12 @@ export function LogWeightModal({
         <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
           <Animated.View
             style={{ transform: [{ translateY: slideAnim }] }}
-            className="bg-theme-card border-t border-theme-border rounded-t-[32px] p-6 shadow-2xl"
+            className="bg-theme-card rounded-t-[32px] p-6 shadow-2xl"
           >
             {/* Header */}
-            <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/60 mb-5">
+            <View className="flex-row items-center justify-between pb-4 mb-5">
               <View className="flex-row items-center gap-2.5">
-                <View className="w-9 h-9 rounded-xl bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
+                <View className="w-9 h-9 rounded-xl bg-theme-accent/15 items-center justify-center">
                   <Ionicons name="scale-outline" size={18} color="#16ACBD" />
                 </View>
                 <View>
@@ -77,20 +77,20 @@ export function LogWeightModal({
 
               <TouchableOpacity
                 onPress={onClose}
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border"
+                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
               >
                 <Ionicons name="close" size={18} color="#8E9BA4" />
               </TouchableOpacity>
             </View>
 
             {/* Roller / Stepper Unit Display */}
-            <View className="items-center py-6 bg-theme-bg/60 rounded-2xl border border-theme-border/80 mb-5">
+            <View className="items-center py-6 bg-theme-bg/60 rounded-2xl mb-5">
               <Text className="text-5xl font-extrabold text-theme-text font-mono tracking-tight mb-2">
                 {weight.toFixed(1)} <Text className="text-xl text-theme-muted font-normal">kg</Text>
               </Text>
 
               {diff !== 0 ? (
-                <View className={`px-3 py-1 rounded-full border ${diff > 0 ? 'bg-amber-500/15 border-amber-500/30' : 'bg-emerald-500/15 border-emerald-500/30'}`}>
+                <View className={`px-3 py-1 rounded-full ${diff > 0 ? 'bg-amber-500/15' : 'bg-emerald-500/15'}`}>
                   <Text className={`text-xs font-mono font-bold ${diff > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
                     {diff > 0 ? `+${diff} kg vs last log` : `${diff} kg vs last log`}
                   </Text>
@@ -103,28 +103,28 @@ export function LogWeightModal({
               <View className="flex-row items-center gap-3 mt-6">
                 <TouchableOpacity
                   onPress={() => adjustWeight(-1.0)}
-                  className="px-3.5 py-2 rounded-xl bg-theme-card border border-theme-border"
+                  className="px-3.5 py-2 rounded-xl bg-theme-card"
                 >
                   <Text className="text-xs font-mono font-bold text-theme-text">-1.0 kg</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(-0.1)}
-                  className="w-12 h-12 rounded-xl bg-theme-accent-soft border border-theme-accent/30 items-center justify-center"
+                  className="w-12 h-12 rounded-xl bg-theme-accent-soft items-center justify-center"
                 >
                   <Ionicons name="remove" size={22} color="#16ACBD" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(0.1)}
-                  className="w-12 h-12 rounded-xl bg-theme-accent-soft border border-theme-accent/30 items-center justify-center"
+                  className="w-12 h-12 rounded-xl bg-theme-accent-soft items-center justify-center"
                 >
                   <Ionicons name="add" size={22} color="#16ACBD" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(1.0)}
-                  className="px-3.5 py-2 rounded-xl bg-theme-card border border-theme-border"
+                  className="px-3.5 py-2 rounded-xl bg-theme-card"
                 >
                   <Text className="text-xs font-mono font-bold text-theme-text">+1.0 kg</Text>
                 </TouchableOpacity>
@@ -132,7 +132,7 @@ export function LogWeightModal({
             </View>
 
             {/* Pinned Buttons */}
-            <View className="flex-row gap-3 pt-3 border-t border-theme-border/40">
+            <View className="flex-row gap-3 pt-3">
               <View className="flex-1">
                 <Button label="Cancel" variant="outline" onPress={onClose} />
               </View>

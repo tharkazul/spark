@@ -279,7 +279,7 @@ export default function ProfileScreen() {
     <TouchableOpacity
       disabled={!onPress}
       onPress={onPress}
-      className="flex-row items-center py-4 border-b border-theme-border"
+      className="flex-row items-center py-4"
     >
       <Ionicons name={icon} size={22} color="#8E8E93" className="mr-4" />
       <Text className="text-theme-text text-base flex-1 ml-3">{title}</Text>
@@ -290,24 +290,24 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       {/* Dashboard-style Top Header */}
-      <View className="px-5 pt-3 pb-2 border-b border-theme-border/50 bg-theme-bg">
+      <View className="px-5 pt-3 pb-2 bg-theme-bg">
         <View className="flex-row justify-between items-center mb-3">
           <View>
             <Text className="text-2xl font-extrabold text-theme-text tracking-tight">
               {t('profile.title') || 'Athlete Profile'}
             </Text>
           </View>
-          <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border px-3 py-1.5 rounded-full">
+          <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full">
             <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
             <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
           </View>
         </View>
 
         {/* Dashboard-style Sub-tab Navigation Segmented Control */}
-        <View className="relative flex-row bg-theme-card border border-theme-border rounded-2xl p-1 overflow-hidden">
+        <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden">
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl border border-theme-accent/30"
+            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl"
             style={{
               left: indicatorLeft,
               width: tabWidth,
@@ -450,7 +450,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setGarminModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg p-6 rounded-t-3xl border-t border-theme-border">
+          <View className="bg-theme-bg p-6 rounded-t-3xl">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
                 <Ionicons name="watch-outline" size={24} color="#FF5A1F" />
@@ -467,7 +467,7 @@ export default function ProfileScreen() {
 
             {isGarminConnected ? (
               <View className="space-y-4 mb-4">
-                <View className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex-row items-center mb-2">
+                <View className="p-4 rounded-xl bg-green-500/10 flex-row items-center mb-2">
                   <Ionicons name="checkmark-circle" size={22} color="#10B981" />
                   <Text className="text-green-500 font-bold ml-2">Garmin is connected</Text>
                 </View>
@@ -490,7 +490,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   onPress={handleDisconnectGarmin}
                   disabled={garminLoading}
-                  className="border border-red-500/40 bg-red-500/10 py-3.5 rounded-xl items-center"
+                  className="bg-red-500/10 py-3.5 rounded-xl items-center"
                 >
                   <Text className="text-red-500 font-bold text-base">Disconnect Garmin</Text>
                 </TouchableOpacity>
@@ -500,7 +500,7 @@ export default function ProfileScreen() {
                 <View>
                   <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Username / Email</Text>
                   <TextInput
-                    className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
+                    className="bg-theme-card rounded-xl p-3.5 text-theme-text"
                     placeholder="email@example.com"
                     placeholderTextColor="#8E8E93"
                     value={garminUser}
@@ -513,7 +513,7 @@ export default function ProfileScreen() {
                 <View className="mt-3">
                   <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Password</Text>
                   <TextInput
-                    className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
+                    className="bg-theme-card rounded-xl p-3.5 text-theme-text"
                     placeholder="••••••••"
                     placeholderTextColor="#8E8E93"
                     value={garminPass}
@@ -547,7 +547,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setStravaModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg p-6 rounded-t-3xl border-t border-theme-border">
+          <View className="bg-theme-bg p-6 rounded-t-3xl">
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
                 <Ionicons name="fitness-outline" size={24} color="#FC4C02" />
@@ -564,7 +564,7 @@ export default function ProfileScreen() {
 
             {isStravaConnected ? (
               <View className="space-y-4 mb-4">
-                <View className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/30 flex-row items-center mb-2">
+                <View className="p-4 rounded-xl bg-orange-500/10 flex-row items-center mb-2">
                   <Ionicons name="checkmark-circle" size={22} color="#FC4C02" />
                   <Text className="text-orange-500 font-bold ml-2">Strava is connected</Text>
                 </View>
@@ -587,7 +587,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   onPress={handleDisconnectStrava}
                   disabled={stravaLoading}
-                  className="border border-red-500/40 bg-red-500/10 py-3.5 rounded-xl items-center"
+                  className="bg-red-500/10 py-3.5 rounded-xl items-center"
                 >
                   <Text className="text-red-500 font-bold text-base">Disconnect Strava</Text>
                 </TouchableOpacity>
@@ -612,7 +612,7 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   onPress={handleConnectDefaultStravaToken}
                   disabled={stravaLoading}
-                  className="bg-theme-card border border-theme-accent/40 py-3 rounded-xl items-center flex-row justify-center mb-3"
+                  className="bg-theme-card py-3 rounded-xl items-center flex-row justify-center mb-3"
                 >
                   <Ionicons name="key-outline" size={18} color="#FF5A1F" style={{ marginRight: 6 }} />
                   <Text className="text-theme-accent font-bold text-sm">Quick Connect (Saved Token)</Text>
@@ -631,7 +631,7 @@ export default function ProfileScreen() {
                   <View className="mt-2 space-y-3">
                     <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Strava Refresh Token</Text>
                     <TextInput
-                      className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
+                      className="bg-theme-card rounded-xl p-3.5 text-theme-text"
                       placeholder="Paste refresh token..."
                       placeholderTextColor="#8E8E93"
                       value={stravaRefreshToken}
@@ -641,7 +641,7 @@ export default function ProfileScreen() {
                     <TouchableOpacity
                       onPress={handleSaveStravaManualToken}
                       disabled={stravaLoading}
-                      className="bg-theme-card border border-theme-border py-3 rounded-xl items-center mt-2"
+                      className="bg-theme-card py-3 rounded-xl items-center mt-2"
                     >
                       {stravaLoading ? (
                         <ActivityIndicator color="#FFF" />

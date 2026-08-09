@@ -68,10 +68,10 @@ export default function ProgressScreen() {
         key={tabId}
         onPress={() => handleTabPress(tabId)}
         activeOpacity={0.8}
-        className={`px-4 py-2 rounded-xl border mr-2 ${
+        className={`px-4 py-2 rounded-xl mr-2 ${
           isActive
-            ? 'bg-theme-accent border-theme-accent'
-            : 'border-theme-border bg-theme-bg'
+            ? 'bg-theme-accent'
+            : 'bg-theme-card'
         }`}
       >
         <Text
@@ -97,7 +97,7 @@ export default function ProgressScreen() {
             {t('physique.subtitle')}
           </Text>
         </View>
-        <View className="px-3 py-1.5 bg-theme-bg border border-theme-border rounded-xl">
+        <View className="px-3 py-1.5 bg-theme-card rounded-xl">
           <Text className="text-xs font-bold text-theme-muted">{todayDateStr}</Text>
         </View>
       </View>

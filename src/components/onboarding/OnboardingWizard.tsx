@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,9 @@ import {
   Image,
   Modal,
   Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  KeyboardAvoidingView,
-  Platform,
   Animated,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,7 +21,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { userApi, integrationsApi } from '../../services/apiServices';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
-import { LanguageSelector } from '../LanguageSelector';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,28 +34,94 @@ const DURATION_OPTIONS = [
   { label: '120m+', value: 120 },
 ];
 
+const SUPPORTED_LANGUAGES = [
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'nl', label: 'Nederlands', flag: '🇳🇱' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+];
+
+export type ChatItemType =
+  | 'welcome_hero'
+  | 'coach_text'
+  | 'user_text'
+  | 'card_language'
+  | 'card_persona'
+  | 'card_context_event'
+  | 'card_schedule'
+  | 'card_integrations'
+  | 'card_paywall';
+
+export interface ChatNode {
+  id: string;
+  type: ChatItemType;
+  text?: string;
+  subtext?: string;
+  data?: any;
+}
+
 export default function OnboardingWizard() {
   const router = useRouter();
   const { user, refreshUser, updateUser } = useUser();
-  const { t } = useLanguage();
-  const [currentStep, setCurrentStep] = useState(1);
+  const { t, language, setLanguage } = useLanguage();
+
+  // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Context/Event, 4 = Schedule, 5 = Integrations, 6 = Paywall)
+  const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Step 1: Persona
+  // Chat Feed timeline nodes
+  const [timeline, setTimeline] = useState<ChatNode[]>([
+    { id: 'node_welcome', type: 'welcome_hero' },
+  ]);
+
+  const chatScrollViewRef = useRef<ScrollView>(null);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      chatScrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 150);
+  };
+
+  // Welcome Message Typewriter Effect
+  const WELCOME_MESSAGE =
+    "Hi! Welcome to Spark. 👋 I'm your AI endurance coach. I'm here to build your personalized training experience around your life, your goals, and your schedule. Let's build something awesome together!";
+  const [typedText, setTypedText] = useState('');
+
+  useEffect(() => {
+    if (currentStep === 0) {
+      setTypedText('');
+      const words = WELCOME_MESSAGE.split(' ');
+      let wordIndex = 0;
+
+      const timer = setInterval(() => {
+        if (wordIndex < words.length) {
+          wordIndex++;
+          setTypedText(words.slice(0, wordIndex).join(' '));
+        } else {
+          clearInterval(timer);
+        }
+      }, 100);
+
+      return () => clearInterval(timer);
+    }
+  }, [currentStep]);
+
+  // Form State
   const [coachTone, setCoachTone] = useState(
     user?.coach_tone || 'Empathetic but demanding elite endurance coach.'
   );
-
-  // Step 2: Context & Metrics
   const [athleteContext, setAthleteContext] = useState(user?.athlete_context || '');
+  const [coachReaction, setCoachReaction] = useState<string | null>(null);
+  const contextDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [metrics, setMetrics] = useState<{ label: string; value: string }[]>([
     { label: 'FTP (Watts)', value: user?.athlete_metrics?.ftp?.toString() || '' },
     { label: 'Max HR', value: user?.athlete_metrics?.max_hr?.toString() || '' },
     { label: 'Resting HR', value: user?.athlete_metrics?.resting_hr?.toString() || '' },
   ]);
 
-  // Step 4: Schedule
   const [availability, setAvailability] = useState<{ [day: string]: { available: boolean; maxMinutes: number } }>({
     Mon: { available: true, maxMinutes: 60 },
     Tue: { available: true, maxMinutes: 60 },
@@ -90,24 +153,124 @@ export default function OnboardingWizard() {
   const [targetCtl, setTargetCtl] = useState(user?.target_ctl?.toString() || '75');
   const [isEstimatingCtl, setIsEstimatingCtl] = useState(false);
   const [isAiFilled, setIsAiFilled] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
+
+  // Date Picker Modal State
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const currentYearNum = new Date().getFullYear();
+  const startYear = Math.max(2026, currentYearNum);
+  const YEARS = Array.from({ length: 6 }, (_, i) => (startYear + i).toString());
+
+  const [pickerMonth, setPickerMonth] = useState(() => {
+    if (raceDate) {
+      const parts = raceDate.split('-');
+      if (parts.length === 3) {
+        const mIdx = parseInt(parts[1], 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) return MONTHS[mIdx];
+      }
+    }
+    return MONTHS[new Date().getMonth()];
+  });
+
+  const [pickerDay, setPickerDay] = useState(() => {
+    if (raceDate) {
+      const parts = raceDate.split('-');
+      if (parts.length === 3) return parseInt(parts[2], 10).toString();
+    }
+    return new Date().getDate().toString();
+  });
+
+  const [pickerYear, setPickerYear] = useState(() => {
+    if (raceDate) {
+      const parts = raceDate.split('-');
+      if (parts.length === 3) {
+        const yr = parseInt(parts[0], 10);
+        if (yr >= startYear) return yr.toString();
+      }
+    }
+    return startYear.toString();
+  });
+
+  const getDaysInMonth = (monthName: string, yearStr: string) => {
+    const monthIndex = MONTHS.indexOf(monthName);
+    const year = parseInt(yearStr, 10);
+    if (monthIndex === -1 || isNaN(year)) return 31;
+    return new Date(year, monthIndex + 1, 0).getDate();
+  };
+
+  const currentDaysInMonth = getDaysInMonth(pickerMonth, pickerYear);
+  const PICKER_DAYS = Array.from({ length: currentDaysInMonth }, (_, i) => (i + 1).toString());
+
+  const isSelectedDateInPast = () => {
+    const monthIndex = MONTHS.indexOf(pickerMonth);
+    const day = parseInt(pickerDay, 10);
+    const year = parseInt(pickerYear, 10);
+    if (monthIndex === -1 || isNaN(day) || isNaN(year)) return false;
+    const selectedDate = new Date(year, monthIndex, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate < today;
+  };
+
+  const handleSetPickerMonth = (m: string) => {
+    setPickerMonth(m);
+    const maxDays = getDaysInMonth(m, pickerYear);
+    if (parseInt(pickerDay, 10) > maxDays) {
+      setPickerDay(maxDays.toString());
+    }
+  };
+
+  const handleSetPickerYear = (y: string) => {
+    setPickerYear(y);
+    const maxDays = getDaysInMonth(pickerMonth, y);
+    if (parseInt(pickerDay, 10) > maxDays) {
+      setPickerDay(maxDays.toString());
+    }
+  };
+
+  const handleConfirmDate = () => {
+    if (isSelectedDateInPast()) return;
+    const monthIndex = (MONTHS.indexOf(pickerMonth) + 1).toString().padStart(2, '0');
+    const dayStr = pickerDay.padStart(2, '0');
+    const formatted = `${pickerYear}-${monthIndex}-${dayStr}`;
+    setRaceDate(formatted);
+    setShowDatePicker(false);
+  };
+
+  const openDatePickerModal = () => {
+    let initialDate = new Date();
+    if (raceDate) {
+      const parts = raceDate.split('-').map(Number);
+      if (parts.length === 3 && !parts.some(isNaN)) {
+        const parsed = new Date(parts[0], parts[1] - 1, parts[2]);
+        if (!isNaN(parsed.getTime())) initialDate = parsed;
+      }
+    }
+    const initialYr = Math.max(startYear, initialDate.getFullYear()).toString();
+    setPickerYear(initialYr);
+    setPickerMonth(MONTHS[initialDate.getMonth()]);
+    const maxDays = getDaysInMonth(MONTHS[initialDate.getMonth()], initialYr);
+    const safeDay = Math.min(initialDate.getDate(), maxDays).toString();
+    setPickerDay(safeDay);
+    setShowDatePicker(true);
+  };
 
   const ctlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const handleRaceNameChange = (text: string) => {
     setRaceName(text);
     if (!text.trim()) {
       setIsEstimatingCtl(false);
       return;
     }
-
     setIsEstimatingCtl(true);
     if (ctlDebounceRef.current) clearTimeout(ctlDebounceRef.current);
-
     ctlDebounceRef.current = setTimeout(() => {
       const lower = text.toLowerCase();
-      let estimated = 75; // default fallback
-
+      let estimated = 75;
       if (lower.includes('140.6') || lower.includes('ironman 140') || (lower.includes('ironman') && !lower.includes('70.3'))) {
         estimated = 105;
       } else if (lower.includes('70.3') || lower.includes('half ironman')) {
@@ -119,142 +282,320 @@ export default function OnboardingWizard() {
       } else if (lower.includes('half marathon') || lower.includes('21k') || lower.includes('21.1')) {
         estimated = 55;
       } else if (lower.includes('10k')) {
-        estimated = 42;
+        estimated = 45;
       } else if (lower.includes('5k')) {
         estimated = 35;
-      } else if (lower.includes('fondo') || lower.includes('century')) {
-        estimated = 75;
-      } else if (lower.includes('triathlon') || lower.includes('olympic')) {
-        estimated = 60;
       }
-
       setTargetCtl(estimated.toString());
       setIsEstimatingCtl(false);
       setIsAiFilled(true);
-    }, 600);
+    }, 700);
   };
 
-  // Wheel Picker Date State
-  const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-  const currentYear = new Date().getFullYear();
-  const YEARS = Array.from({ length: 6 }, (_, i) => Math.max(2026, currentYear) + i);
-
-  const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
-  const [pickerDay, setPickerDay] = useState(new Date().getDate());
-  const [pickerYear, setPickerYear] = useState(Math.max(2026, currentYear));
-
-  const daysInSelectedMonth = new Date(pickerYear, pickerMonth + 1, 0).getDate();
-  const PICKER_DAYS = Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1);
-
-  const handleSetPickerMonth = (m: number) => {
-    setPickerMonth(m);
-    const maxDays = new Date(pickerYear, m + 1, 0).getDate();
-    if (pickerDay > maxDays) setPickerDay(maxDays);
-  };
-
-  const handleSetPickerYear = (y: number) => {
-    setPickerYear(y);
-    const maxDays = new Date(y, pickerMonth + 1, 0).getDate();
-    if (pickerDay > maxDays) setPickerDay(maxDays);
-  };
-
-  const isSelectedDateInPast = () => {
-    const selected = new Date(pickerYear, pickerMonth, pickerDay);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return selected < today;
-  };
-
-  const openDatePickerModal = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (raceDate) {
-      const parts = raceDate.split('-').map(Number);
-      if (parts.length === 3 && !parts.some(isNaN)) {
-        const parsed = new Date(parts[0], parts[1] - 1, parts[2]);
-        if (parsed >= today) {
-          setPickerYear(parts[0]);
-          setPickerMonth(parts[1] - 1);
-          setPickerDay(parts[2]);
-          setShowDatePicker(true);
-          return;
-        }
-      }
-    }
-
-    setPickerYear(Math.max(2026, today.getFullYear()));
-    setPickerMonth(today.getMonth());
-    setPickerDay(today.getDate());
-    setShowDatePicker(true);
-  };
-
-  const horizontalScrollRef = useRef<ScrollView>(null);
-  const datePickerSlideAnim = useRef(new Animated.Value(450)).current;
-
-  React.useEffect(() => {
-    if (showDatePicker) {
-      datePickerSlideAnim.setValue(450);
-      Animated.spring(datePickerSlideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 70,
-      }).start();
-    }
-  }, [showDatePicker, datePickerSlideAnim]);
-
-  const closeDatePickerModal = () => {
-    Animated.timing(datePickerSlideAnim, {
-      toValue: 450,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowDatePicker(false);
-    });
-  };
-
-  const handleConfirmWheelDate = () => {
-    if (isSelectedDateInPast()) {
-      Alert.alert('Invalid Date', 'Goal event date cannot be in the past. Please select today or a future date.');
+  const handleAthleteContextChange = (text: string) => {
+    setAthleteContext(text);
+    if (contextDebounceRef.current) clearTimeout(contextDebounceRef.current);
+    if (!text.trim() || text.trim().length < 6) {
+      setCoachReaction(null);
       return;
     }
-    const m = (pickerMonth + 1).toString().padStart(2, '0');
-    const d = pickerDay.toString().padStart(2, '0');
-    setRaceDate(`${pickerYear}-${m}-${d}`);
-    closeDatePickerModal();
+    contextDebounceRef.current = setTimeout(() => {
+      const lower = text.toLowerCase();
+      let reaction = "Got it! I've noted down your background so I can personalize your training plan and post-workout feedback.";
+      if (lower.includes('marathon') || lower.includes('42k') || lower.includes('21k') || lower.includes('half')) {
+        reaction = "Exciting distance goal! We'll build progressive long runs and periodized fueling to get you race-ready.";
+      } else if (lower.includes('ironman') || lower.includes('70.3') || lower.includes('triathlon')) {
+        reaction = "Triathlon target locked! We'll balance swim, bike, and run volume so you stay strong and avoid overtraining.";
+      } else if (lower.includes('parent') || lower.includes('kid') || lower.includes('family') || lower.includes('busy') || lower.includes('work')) {
+        reaction = "Balancing family, work, and training is super inspiring! I'll keep your schedule flexible so workouts fit seamlessly into your life. ⚡️";
+      } else if (lower.includes('morning') || lower.includes('early')) {
+        reaction = "Early morning sessions are great for consistency! I'll schedule key opener workouts right when you feel most energized.";
+      } else if (lower.includes('beginner') || lower.includes('start') || lower.includes('new')) {
+        reaction = "Welcome to endurance training! We'll focus on building a sustainable base safely step by step.";
+      } else if (lower.includes('bike') || lower.includes('cycle') || lower.includes('cycling') || lower.includes('gran fondo')) {
+        reaction = "Awesome cycling focus! We'll target solid aerobic power and cadence work to boost your endurance on two wheels.";
+      }
+      setCoachReaction(reaction);
+    }, 600);
   };
-
-  // Step 6: Subscription Placeholder State
-  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
 
   const addMetricRow = () => {
     setMetrics([...metrics, { label: '', value: '' }]);
   };
 
-  const handleCompleteSetup = async (isUpgrade = false) => {
+  const handleDayDurationChange = (day: string, duration: number) => {
+    setAvailability((prev) => ({
+      ...prev,
+      [day]: {
+        available: duration > 0,
+        maxMinutes: duration,
+      },
+    }));
+  };
+
+  const [isStreamingMessage, setIsStreamingMessage] = useState(false);
+
+  const appendCoachPromptAndCard = (
+    userText: string | null,
+    coachMessage: string,
+    cardType: ChatItemType,
+    dataToMarkPrevious?: { type: ChatItemType; key: string; val: any }
+  ) => {
+    setIsStreamingMessage(true);
+
+    setTimeline((prev) => {
+      let updated = [...prev];
+      if (dataToMarkPrevious) {
+        updated = updated.map((item) =>
+          item.type === dataToMarkPrevious.type
+            ? { ...item, data: { ...item.data, [dataToMarkPrevious.key]: dataToMarkPrevious.val } }
+            : item
+        );
+      }
+      if (userText) {
+        updated.push({
+          id: `user_${Date.now()}`,
+          type: 'user_text',
+          text: userText,
+        });
+      }
+      return updated;
+    });
+
+    scrollToBottom();
+
+    setTimeout(() => {
+      const coachNodeId = `coach_stream_${Date.now()}`;
+      setTimeline((prev) => [
+        ...prev,
+        {
+          id: coachNodeId,
+          type: 'coach_text',
+          text: '',
+        },
+      ]);
+      scrollToBottom();
+
+      const words = coachMessage.split(' ');
+      let wordIndex = 0;
+
+      const timer = setInterval(() => {
+        if (wordIndex < words.length) {
+          wordIndex++;
+          const currentSlice = words.slice(0, wordIndex).join(' ');
+          setTimeline((prev) =>
+            prev.map((item) => (item.id === coachNodeId ? { ...item, text: currentSlice } : item))
+          );
+          scrollToBottom();
+        } else {
+          clearInterval(timer);
+
+          setTimeout(() => {
+            setTimeline((prev) => [
+              ...prev,
+              {
+                id: `card_${cardType}_${Date.now()}`,
+                type: cardType,
+              },
+            ]);
+            scrollToBottom();
+            setIsStreamingMessage(false);
+          }, 250);
+        }
+      }, 120);
+    }, 300);
+  };
+
+  const appendCoachAckOnly = (userText: string, coachAck: string) => {
+    setIsStreamingMessage(true);
+
+    setTimeline((prev) => [
+      ...prev,
+      {
+        id: `user_${Date.now()}`,
+        type: 'user_text',
+        text: userText,
+      },
+    ]);
+    scrollToBottom();
+
+    setTimeout(() => {
+      const coachNodeId = `coach_stream_${Date.now()}`;
+      setTimeline((prev) => [
+        ...prev,
+        {
+          id: coachNodeId,
+          type: 'coach_text',
+          text: '',
+        },
+      ]);
+      scrollToBottom();
+
+      const words = coachAck.split(' ');
+      let wordIndex = 0;
+
+      const timer = setInterval(() => {
+        if (wordIndex < words.length) {
+          wordIndex++;
+          const currentSlice = words.slice(0, wordIndex).join(' ');
+          setTimeline((prev) =>
+            prev.map((item) => (item.id === coachNodeId ? { ...item, text: currentSlice } : item))
+          );
+          scrollToBottom();
+        } else {
+          clearInterval(timer);
+          setIsStreamingMessage(false);
+          scrollToBottom();
+        }
+      }, 100);
+    }, 250);
+  };
+
+  // Step Action Handlers for Chat Flow
+  const startChatOnboarding = () => {
+    setCurrentStep(1);
+    setTimeline([
+      {
+        id: 'node_welcome_banner',
+        type: 'coach_text',
+        text: WELCOME_MESSAGE,
+      },
+    ]);
+    scrollToBottom();
+
+    appendCoachPromptAndCard(null, 'Please select your preferred language:', 'card_language');
+  };
+
+  const handleSelectLanguageChoice = (langCode: string, langName: string) => {
+    if (isStreamingMessage) return;
+    setLanguage(langCode as any);
+
+    if (currentStep === 1) {
+      setCurrentStep(2);
+      appendCoachPromptAndCard(
+        `Language: ${langName}`,
+        `Thank you! I will communicate with you in ${langName}. 👋 First, how would you like me to talk to you during workouts and chat?`,
+        'card_persona',
+        { type: 'card_language', key: 'selected', val: langCode }
+      );
+    } else {
+      setTimeline((prev) =>
+        prev.map((item) => (item.type === 'card_language' ? { ...item, data: { selected: langCode } } : item))
+      );
+      appendCoachAckOnly(
+        `Updated Language: ${langName}`,
+        `Got it! Updated your preferred language to ${langName}. 👋`
+      );
+    }
+  };
+
+  const handleSelectPersonaChoice = (toneString: string, toneTitle: string) => {
+    if (isStreamingMessage) return;
+    setCoachTone(toneString);
+
+    if (currentStep === 2) {
+      setCurrentStep(3);
+      appendCoachPromptAndCard(
+        `Coach Tone: ${toneTitle}`,
+        `Awesome choice! ⚡️ Now, tell me a bit about yourself, your fitness base, or any main event on your calendar.`,
+        'card_context_event',
+        { type: 'card_persona', key: 'selected', val: toneTitle }
+      );
+    } else {
+      setTimeline((prev) =>
+        prev.map((item) => (item.type === 'card_persona' ? { ...item, data: { selected: toneTitle } } : item))
+      );
+      appendCoachAckOnly(
+        `Updated Coach Tone: ${toneTitle}`,
+        `Got it! Updated your coach tone preference to ${toneTitle}. ⚡️`
+      );
+    }
+  };
+
+  const handleConfirmContextAndEvent = () => {
+    if (isStreamingMessage) return;
+
+    if (currentStep === 3) {
+      setCurrentStep(4);
+      const feedback = coachReaction || "Got it! I've saved your background and event details.";
+      appendCoachPromptAndCard(
+        raceName ? `Event: ${raceName} (${raceDate || 'TBD'})` : 'Background details updated.',
+        `${feedback} Next, let's set your weekly training schedule availability!`,
+        'card_schedule',
+        { type: 'card_context_event', key: 'completed', val: true }
+      );
+    } else {
+      setTimeline((prev) =>
+        prev.map((item) => (item.type === 'card_context_event' ? { ...item, data: { completed: true } } : item))
+      );
+      appendCoachAckOnly(
+        raceName ? `Updated Event: ${raceName} (${raceDate || 'TBD'})` : 'Updated background details.',
+        'Got it! Saved your updated background and target event. ⚡️'
+      );
+    }
+  };
+
+  const handleConfirmScheduleChoice = () => {
+    if (isStreamingMessage) return;
+
+    if (currentStep === 4) {
+      setCurrentStep(5);
+      appendCoachPromptAndCard(
+        'Weekly availability schedule locked in.',
+        'Perfect! Would you like to connect Garmin or Strava to auto-sync your completed workouts and HRV data?',
+        'card_integrations',
+        { type: 'card_schedule', key: 'completed', val: true }
+      );
+    } else {
+      setTimeline((prev) =>
+        prev.map((item) => (item.type === 'card_schedule' ? { ...item, data: { completed: true } } : item))
+      );
+      appendCoachAckOnly(
+        'Updated weekly training schedule.',
+        'Got it! Updated your weekly availability schedule. ⚡️'
+      );
+    }
+  };
+
+  const handleConfirmIntegrationsChoice = () => {
+    if (isStreamingMessage) return;
+
+    if (currentStep === 5) {
+      setCurrentStep(6);
+      appendCoachPromptAndCard(
+        showGarmin ? 'Garmin connected.' : 'Integrations updated.',
+        "We're all set! ⚡️ I'm ready to craft your custom endurance plan. Select a tier to launch your training experience!",
+        'card_paywall',
+        { type: 'card_integrations', key: 'completed', val: true }
+      );
+    } else {
+      setTimeline((prev) =>
+        prev.map((item) => (item.type === 'card_integrations' ? { ...item, data: { completed: true } } : item))
+      );
+      appendCoachAckOnly(
+        showGarmin ? 'Garmin connected.' : 'Updated integrations.',
+        'Got it! Updated your device integrations. ⚡️'
+      );
+    }
+  };
+
+  const handleCompleteSetup = async (isTrial: boolean) => {
     setIsSubmitting(true);
     try {
-      if (isUpgrade) {
-        await userApi.trackSparkPlusClick();
-      }
-
-      // Save Coach settings
-      const formattedAvailability = Object.keys(availability).reduce((acc: any, day) => {
-        acc[day] = availability[day].available ? availability[day].maxMinutes : 0;
-        return acc;
-      }, {});
-
       const formattedMetricsContext = metrics
         .filter((m) => m.label.trim() && m.value.trim())
         .map((m) => `${m.label}: ${m.value}`)
         .join(', ');
 
       let cleanContext = athleteContext.trim();
-      if (cleanContext === 'New athlete.' || cleanContext === 'No context provided yet.') {
+      if (cleanContext.startsWith('Endurance athlete.')) {
+        cleanContext = cleanContext.replace(/^Endurance athlete\.\s*/, '');
+      }
+      if (cleanContext.includes('[Metrics:')) {
+        cleanContext = cleanContext.replace(/\s*\[Metrics:.*?\]/, '');
+        cleanContext = cleanContext.trim();
+      }
+      if (cleanContext === 'Endurance athlete.') {
         cleanContext = '';
       }
 
@@ -290,726 +631,773 @@ export default function OnboardingWizard() {
     }
   };
 
-  const goToStep = (targetStep: number) => {
-    const valid = Math.max(1, Math.min(totalSteps, targetStep));
-    setCurrentStep(valid);
-    horizontalScrollRef.current?.scrollTo({
-      x: (valid - 1) * SCREEN_WIDTH,
-      animated: true,
-    });
-  };
-
-  const nextStep = () => {
-    goToStep(currentStep + 1);
-  };
-
-  const prevStep = () => {
-    goToStep(currentStep - 1);
-  };
-
-  const handleMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = e.nativeEvent.contentOffset.x;
-    const newStep = Math.round(offsetX / SCREEN_WIDTH) + 1;
-    if (newStep >= 1 && newStep <= totalSteps && newStep !== currentStep) {
-      setCurrentStep(newStep);
-    }
-  };
-
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top', 'bottom']}>
-      {/* Date Picker Modal (iOS Native Wheel Style with smooth backdrop fade & spring slide) */}
-      <Modal
-        visible={showDatePicker}
-        transparent
-        animationType="fade"
-        onRequestClose={closeDatePickerModal}
-      >
+      {/* Date Picker Modal */}
+      <Modal visible={showDatePicker} transparent animationType="slide">
         <TouchableOpacity
           activeOpacity={1}
-          onPress={closeDatePickerModal}
-          className="flex-1 bg-black/60 justify-end"
+          onPress={() => setShowDatePicker(false)}
+          className="flex-1 justify-end bg-black/60"
         >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-            style={{ width: '100%' }}
-          >
-            <Animated.View
-              style={{ transform: [{ translateY: datePickerSlideAnim }] }}
-              className="w-full bg-white dark:bg-zinc-900 rounded-t-3xl pb-8 shadow-2xl border-t border-theme-border"
-            >
-              {/* Header: Cancel (Left), Confirm (Right) */}
-              <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-zinc-800">
-                <TouchableOpacity onPress={closeDatePickerModal}>
-                  <Text className="text-gray-500 text-base font-normal">Cancel</Text>
-                </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleConfirmWheelDate}>
-                <Text className={isSelectedDateInPast() ? "text-gray-400 dark:text-zinc-600 text-base font-bold" : "text-emerald-600 dark:text-emerald-400 text-base font-bold"}>
-                  Confirm
-                </Text>
+          <TouchableOpacity activeOpacity={1} className="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6">
+            <View className="flex-row justify-between items-center mb-4">
+              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <Text className="text-theme-muted font-semibold text-sm">Cancel</Text>
+              </TouchableOpacity>
+              <Text className="text-theme-text font-bold text-base">Select Target Event Date</Text>
+              <TouchableOpacity
+                onPress={handleConfirmDate}
+                disabled={isSelectedDateInPast()}
+                className={isSelectedDateInPast() ? 'opacity-40' : 'opacity-100'}
+              >
+                <Text className="text-[#FF5A1F] font-bold text-sm">Confirm</Text>
               </TouchableOpacity>
             </View>
 
             {isSelectedDateInPast() && (
-              <View className="bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-lg mx-6 mt-3">
-                <Text className="text-amber-600 dark:text-amber-400 text-xs text-center font-medium">
+              <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center space-x-2">
+                <Ionicons name="warning-outline" size={16} color="#ef4444" />
+                <Text className="text-red-500 text-xs font-bold text-center">
                   Goal date cannot be in the past
                 </Text>
               </View>
             )}
 
-            {/* Wheel Columns Container */}
-            <View className="h-52 my-2 relative justify-center">
-              {/* Selection Bar Borders (middle 44px) */}
-              <View
-                style={{ top: 84, height: 44 }}
-                className="absolute left-4 right-4 border-y border-gray-300 dark:border-zinc-700 pointer-events-none"
-              />
+            <View className="h-[200px] flex-row relative">
+              <View className="absolute top-[84px] left-0 right-0 h-[44px] bg-theme-card border-y border-theme-border rounded-lg" />
 
-              <View className="flex-row h-full px-2">
-                {/* Month Column */}
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  contentContainerStyle={{ paddingVertical: 84 }}
-                  className="flex-2"
-                >
-                  {MONTHS.map((m, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => handleSetPickerMonth(idx)}
-                      style={{ height: 44 }}
-                      className="items-center justify-center"
+              {/* Month Column */}
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                snapToInterval={44}
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingVertical: 84 }}
+                className="flex-1"
+              >
+                {MONTHS.map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    onPress={() => handleSetPickerMonth(m)}
+                    style={{ height: 44 }}
+                    className="items-center justify-center"
+                  >
+                    <Text
+                      className={`text-center text-lg ${
+                        pickerMonth === m
+                          ? 'font-bold text-black dark:text-white'
+                          : 'text-gray-400 dark:text-zinc-500 font-normal'
+                      }`}
                     >
-                      <Text
-                        className={`text-center text-lg ${
-                          pickerMonth === idx
-                            ? 'font-bold text-black dark:text-white'
-                            : 'text-gray-400 dark:text-zinc-500 font-normal'
-                        }`}
-                      >
-                        {m}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                      {m}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-                {/* Day Column */}
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  contentContainerStyle={{ paddingVertical: 84 }}
-                  className="flex-1"
-                >
-                  {PICKER_DAYS.map((d) => (
-                    <TouchableOpacity
-                      key={d}
-                      onPress={() => setPickerDay(d)}
-                      style={{ height: 44 }}
-                      className="items-center justify-center"
+              {/* Day Column */}
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                snapToInterval={44}
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingVertical: 84 }}
+                className="flex-1"
+              >
+                {PICKER_DAYS.map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    onPress={() => setPickerDay(d)}
+                    style={{ height: 44 }}
+                    className="items-center justify-center"
+                  >
+                    <Text
+                      className={`text-center text-lg ${
+                        pickerDay === d
+                          ? 'font-bold text-black dark:text-white'
+                          : 'text-gray-400 dark:text-zinc-500 font-normal'
+                      }`}
                     >
-                      <Text
-                        className={`text-center text-lg ${
-                          pickerDay === d
-                            ? 'font-bold text-black dark:text-white'
-                            : 'text-gray-400 dark:text-zinc-500 font-normal'
-                        }`}
-                      >
-                        {d}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                      {d}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-                {/* Year Column */}
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  contentContainerStyle={{ paddingVertical: 84 }}
-                  className="flex-1"
-                >
-                  {YEARS.map((y) => (
-                    <TouchableOpacity
-                      key={y}
-                      onPress={() => handleSetPickerYear(y)}
-                      style={{ height: 44 }}
-                      className="items-center justify-center"
+              {/* Year Column */}
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                snapToInterval={44}
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingVertical: 84 }}
+                className="flex-1"
+              >
+                {YEARS.map((y) => (
+                  <TouchableOpacity
+                    key={y}
+                    onPress={() => handleSetPickerYear(y)}
+                    style={{ height: 44 }}
+                    className="items-center justify-center"
+                  >
+                    <Text
+                      className={`text-center text-lg ${
+                        pickerYear === y
+                          ? 'font-bold text-black dark:text-white'
+                          : 'text-gray-400 dark:text-zinc-500 font-normal'
+                      }`}
                     >
-                      <Text
-                        className={`text-center text-lg ${
-                          pickerYear === y
-                            ? 'font-bold text-black dark:text-white'
-                            : 'text-gray-400 dark:text-zinc-500 font-normal'
-                        }`}
-                      >
-                        {y}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+                      {y}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-            </Animated.View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
-      {/* Header Stepper */}
-      <View className="px-6 pt-4 pb-2 border-b border-theme-border flex-row items-center justify-between">
+      {/* Header Stepper Bar */}
+      <View className="px-6 pt-4 pb-3 border-b border-theme-border flex-row items-center justify-between">
         <View className="flex-row items-center space-x-2">
-          {currentStep > 1 && (
-            <TouchableOpacity
-              onPress={prevStep}
-              className="mr-1 p-1 -ml-2 rounded-full active:bg-theme-card"
-            >
-              <Ionicons name="chevron-back" size={24} color="#FF5A1F" />
-            </TouchableOpacity>
-          )}
+          <View className="w-9 h-9 rounded-xl bg-[#FF5A1F] items-center justify-center shadow-md">
+            <Ionicons name="flash" size={22} color="#FFFFFF" />
+          </View>
           <View>
-            <Text className="text-theme-text text-xl font-bold font-barlow">{t('onboarding.title')}</Text>
-            <Text className="text-theme-muted text-xs">{t('onboarding.stepOf', { current: currentStep, total: totalSteps })}</Text>
+            <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">SPARK</Text>
+            <Text className="text-theme-muted text-[11px]">
+              {currentStep === 0 ? 'AI Endurance Coach' : `Step ${currentStep} of ${totalSteps}`}
+            </Text>
           </View>
         </View>
 
-        <View className="flex-row space-x-1">
-          {Array.from({ length: totalSteps }).map((_, idx) => (
-            <View
-              key={idx}
-              className={`h-2 rounded-full ${
-                idx + 1 === currentStep
-                  ? 'w-6 bg-theme-accent'
-                  : idx + 1 < currentStep
-                  ? 'w-2 bg-theme-accent/50'
-                  : 'w-2 bg-theme-border'
-              }`}
-            />
-          ))}
-        </View>
-      </View>
-
-      <ScrollView
-        ref={horizontalScrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleMomentumScrollEnd}
-        scrollEventThrottle={16}
-        keyboardShouldPersistTaps="handled"
-        className="flex-1"
-      >
-        {/* STEP 1: COACH PERSONA & LANGUAGE */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-6 pt-6"
-            contentContainerStyle={{ paddingBottom: 120 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
-          >
-            <View className="space-y-4">
-              {/* Language Selection Card at Start of Onboarding */}
-              <View className="p-4 rounded-xl border border-theme-border bg-theme-card shadow-sm mb-4">
-                <View className="flex-row items-center space-x-2 mb-1">
-                  <Ionicons name="language" size={20} color="#FF5A1F" />
-                  <Text className="text-theme-text font-bold text-base">
-                    {t('onboarding.selectLanguageTitle')}
-                  </Text>
-                </View>
-                <Text className="text-theme-muted text-xs mb-3">
-                  {t('onboarding.selectLanguageSubtitle')}
-                </Text>
-                <LanguageSelector />
-              </View>
-
-              <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                1. {t('onboarding.personaTitle')}
-              </Text>
-              <Text className="text-theme-text text-sm">
-                {t('onboarding.personaSubtitle')}
-              </Text>
-
-              <TouchableOpacity
-                onPress={() => setCoachTone('Empathetic but demanding elite endurance coach.')}
-                className={`p-4 rounded-xl border-2 ${
-                  coachTone === 'Empathetic but demanding elite endurance coach.'
-                    ? 'border-theme-accent bg-theme-card'
-                    : 'border-theme-border bg-theme-bg'
+        {currentStep >= 1 && (
+          <View className="flex-row space-x-1">
+            {Array.from({ length: totalSteps }).map((_, idx) => (
+              <View
+                key={idx}
+                className={`h-2 rounded-full ${
+                  idx + 1 === currentStep
+                    ? 'w-6 bg-[#FF5A1F]'
+                    : idx + 1 < currentStep
+                    ? 'w-2 bg-[#FF5A1F]/50'
+                    : 'w-2 bg-theme-border'
                 }`}
-              >
-                <View className="flex-row items-center">
-                  <View className="w-12 h-12 rounded-full bg-theme-accent/20 items-center justify-center mr-3">
-                    <Ionicons name="sparkles" size={24} color="#FF5A1F" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-theme-text font-bold text-base">{t('onboarding.toneEmpatheticTitle')}</Text>
-                    <Text className="text-theme-muted text-xs mt-1">
-                      {t('onboarding.toneEmpatheticDesc')}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setCoachTone('Strict with data, but with a dry, snarky British sense of humor.')}
-                className={`p-4 rounded-xl border-2 ${
-                  coachTone === 'Strict with data, but with a dry, snarky British sense of humor.'
-                    ? 'border-theme-accent bg-theme-card'
-                    : 'border-theme-border bg-theme-bg'
-                }`}
-              >
-                <View className="flex-row items-center">
-                  <View className="w-12 h-12 rounded-full bg-purple-500/20 items-center justify-center mr-3">
-                    <Ionicons name="analytics" size={24} color="#a855f7" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-theme-text font-bold text-base">{t('onboarding.toneStrictTitle')}</Text>
-                    <Text className="text-theme-muted text-xs mt-1">
-                      {t('onboarding.toneStrictDesc')}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setCoachTone('Enthusiastic cheerleader, extremely positive and forgiving.')}
-                className={`p-4 rounded-xl border-2 ${
-                  coachTone === 'Enthusiastic cheerleader, extremely positive and forgiving.'
-                    ? 'border-theme-accent bg-theme-card'
-                    : 'border-theme-border bg-theme-bg'
-                }`}
-              >
-                <View className="flex-row items-center">
-                  <View className="w-12 h-12 rounded-full bg-emerald-500/20 items-center justify-center mr-3">
-                    <Ionicons name="heart" size={24} color="#10b981" />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-theme-text font-bold text-base">{t('onboarding.toneCheerleaderTitle')}</Text>
-                    <Text className="text-theme-muted text-xs mt-1">
-                      {t('onboarding.toneCheerleaderDesc')}
-                    </Text>
-                  </View>
-                </View>
-
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* STEP 2: ATHLETE CONTEXT */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-6 pt-6"
-            contentContainerStyle={{ paddingBottom: 120 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
-          >
-            <View className="space-y-4">
-              <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                2. {t('onboarding.athleteContextTitle')}
-              </Text>
-              <Text className="text-theme-text text-sm">
-                {t('onboarding.athleteContextSubtitle')}
-              </Text>
-
-              <TextInput
-                multiline
-                numberOfLines={4}
-                value={athleteContext}
-                onChangeText={setAthleteContext}
-                placeholder={t('onboarding.athleteContextPlaceholder')}
-                placeholderTextColor="#8E8E93"
-                className="p-4 bg-theme-card border border-theme-border rounded-xl text-theme-text text-sm min-h-[100px]"
-                style={{ textAlignVertical: 'top' }}
               />
-
-              <View className="bg-theme-card border border-theme-border rounded-xl p-4 mt-2">
-                <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider mb-2">
-                  {t('onboarding.baselinesTitle')}
-                </Text>
-                {metrics.map((item, idx) => (
-                  <View key={idx} className="flex-row space-x-2 mb-2">
-                    <TextInput
-                      placeholder="Label (e.g. FTP)"
-                      placeholderTextColor="#8E8E93"
-                      value={item.label}
-                      onChangeText={(val) => {
-                        const updated = [...metrics];
-                        updated[idx].label = val;
-                        setMetrics(updated);
-                      }}
-                      className="flex-1 p-3 bg-theme-bg border border-theme-border rounded-lg text-theme-text text-xs"
-                    />
-                    <TextInput
-                      placeholder="Value"
-                      placeholderTextColor="#8E8E93"
-                      value={item.value}
-                      onChangeText={(val) => {
-                        const updated = [...metrics];
-                        updated[idx].value = val;
-                        setMetrics(updated);
-                      }}
-                      className="w-28 p-3 bg-theme-bg border border-theme-border rounded-lg text-theme-text text-xs"
-                    />
-                  </View>
-                ))}
-                <TouchableOpacity
-                  onPress={addMetricRow}
-                  className="mt-2 py-2 items-center bg-theme-accent/10 border border-theme-accent/30 rounded-lg"
-                >
-                  <Text className="text-theme-accent text-xs font-bold">{t('onboarding.addMetric')}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Goal Race Setup */}
-              <View className="bg-theme-card border border-theme-border rounded-xl p-4 space-y-3 mt-2">
-                <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                  {t('onboarding.targetEventTitle')}
-                </Text>
-                <TextInput
-                  placeholder={t('onboarding.raceNamePlaceholder')}
-                  placeholderTextColor="#8E8E93"
-                  value={raceName}
-                  onChangeText={handleRaceNameChange}
-                  className="p-3 bg-theme-bg border border-theme-border rounded-lg text-theme-text text-xs"
-                />
-                <View className="flex-row space-x-2">
-                  <TouchableOpacity
-                    onPress={openDatePickerModal}
-                    className="flex-1 p-3 bg-theme-bg border border-theme-border rounded-lg flex-row items-center justify-between"
-                  >
-                    <Text className={raceDate ? "text-theme-text text-xs font-medium" : "text-theme-muted text-xs"}>
-                      {raceDate || "Date (YYYY-MM-DD)"}
-                    </Text>
-                    <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
-                  </TouchableOpacity>
-
-                  <View className="w-28 p-3 bg-theme-bg border border-theme-border rounded-lg flex-row items-center justify-center relative">
-                    {isEstimatingCtl ? (
-                      <View className="flex-row items-center space-x-1">
-                        <ActivityIndicator size="small" color="#FF5A1F" />
-                        <Text className="text-[10px] text-theme-accent font-bold">Spark...</Text>
-                      </View>
-                    ) : (
-                      <>
-                        <TextInput
-                          placeholder="Target CTL"
-                          placeholderTextColor="#8E8E93"
-                          value={targetCtl}
-                          keyboardType="numeric"
-                          onChangeText={(val) => {
-                            setTargetCtl(val);
-                            setIsAiFilled(false);
-                          }}
-                          className="w-full text-theme-text text-xs text-center font-bold"
-                        />
-                        {isAiFilled && (
-                          <View className="absolute -top-2 -right-1 bg-theme-accent px-1.5 py-0.5 rounded-full">
-                            <Text className="text-[8px] text-white font-bold">⚡️ Spark</Text>
-                          </View>
-                        )}
-                      </>
-                    )}
-                  </View>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* STEP 3: SPARK & LEVELING */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-6 pt-6"
-            contentContainerStyle={{ paddingBottom: 120 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
-          >
-            <View className="space-y-4">
-              <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                3. {t('onboarding.sparkTitle')}
-              </Text>
-
-              <View className="bg-theme-card border border-theme-border rounded-2xl p-5">
-                <View className="w-12 h-12 rounded-full bg-amber-500/20 items-center justify-center mb-3">
-                  <Ionicons name="flash" size={26} color="#f59e0b" />
-                </View>
-                <Text className="text-theme-text font-bold text-lg mb-1">{t('onboarding.whatIsSparkTitle')}</Text>
-                <Text className="text-theme-muted text-xs leading-relaxed">
-                  {t('onboarding.whatIsSparkDesc')}
-                </Text>
-              </View>
-
-              <View className="bg-theme-card border border-theme-border rounded-2xl p-5">
-                <View className="w-12 h-12 rounded-full bg-theme-accent/20 items-center justify-center mb-3">
-                  <Ionicons name="trending-up" size={26} color="#FF5A1F" />
-                </View>
-                <Text className="text-theme-text font-bold text-lg mb-1">{t('onboarding.levelingUpTitle')}</Text>
-                <Text className="text-theme-muted text-xs leading-relaxed">
-                  {t('onboarding.levelingUpDesc')}
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-
-
-        {/* STEP 4: WEEKLY SCHEDULE AVAILABILITY */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-6 pt-6"
-            contentContainerStyle={{ paddingBottom: 120 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
-          >
-            <View className="space-y-4">
-              <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                4. {t('onboarding.scheduleTitle')}
-              </Text>
-              <Text className="text-theme-text text-sm">
-                {t('onboarding.scheduleSubtitle')}
-              </Text>
-
-              {DAYS.map((day) => {
-                const dayData = availability[day] || { available: true, maxMinutes: 60 };
-                const currentMins = dayData.available ? dayData.maxMinutes : 0;
-                const isRestDay = currentMins === 0;
-
-                return (
-                  <View
-                    key={day}
-                    className="p-3 bg-theme-card border border-theme-border rounded-xl space-y-2"
-                  >
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-theme-text font-bold text-base">{day}</Text>
-                      <Text className={`text-xs font-semibold ${isRestDay ? 'text-theme-muted italic' : 'text-theme-accent'}`}>
-                        {isRestDay ? t('common.restDay') : t('common.minsMax', { mins: currentMins })}
-                      </Text>
-                    </View>
-
-                    <View className="flex-row items-center justify-between pt-1 space-x-1.5">
-                      {DURATION_OPTIONS.map((opt) => {
-                        const isSelected = currentMins === opt.value;
-                        return (
-                          <TouchableOpacity
-                            key={opt.value}
-                            onPress={() =>
-                              setAvailability({
-                                ...availability,
-                                [day]: { available: opt.value > 0, maxMinutes: opt.value },
-                              })
-                            }
-                            className={`flex-1 py-1.5 rounded-lg border items-center justify-center ${
-                              isSelected
-                                ? 'bg-theme-accent border-theme-accent'
-                                : 'bg-theme-bg border-theme-border'
-                            }`}
-                          >
-                            <Text
-                              className={`text-xs font-bold ${
-                                isSelected ? 'text-white' : 'text-theme-muted'
-                              }`}
-                            >
-                              {opt.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* STEP 5: INTEGRATIONS & SYNC */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-6 pt-6"
-            contentContainerStyle={{ paddingBottom: 120 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
-          >
-            <View className="space-y-4">
-              <Text className="text-theme-muted text-xs font-bold uppercase tracking-wider">
-                5. {t('onboarding.integrationsTitle')}
-              </Text>
-
-              {/* Garmin Connect Toggle & Credentials */}
-              <View className="bg-theme-card border border-theme-border rounded-xl p-4 space-y-3">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center space-x-3">
-                    <Ionicons name="watch-outline" size={22} color="#007ACC" />
-                    <View>
-                      <Text className="text-theme-text font-bold text-sm">Garmin Connect</Text>
-                      <Text className="text-theme-muted text-xs">{t('onboarding.garminSyncSubtitle')}</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={showGarmin}
-                    onValueChange={setShowGarmin}
-                    trackColor={{ false: '#3A3A3C', true: '#FF5A1F' }}
-                  />
-                </View>
-
-                {showGarmin && (
-                  <View className="pt-2 space-y-2 border-t border-theme-border">
-                    <TextInput
-                      placeholder="Garmin Connect Email / Username"
-                      placeholderTextColor="#8E8E93"
-                      value={garminEmail}
-                      onChangeText={setGarminEmail}
-                      autoCapitalize="none"
-                      className="p-3 bg-theme-bg border border-theme-border rounded-lg text-theme-text text-xs"
-                    />
-                    <TextInput
-                      placeholder="Garmin Connect Password"
-                      placeholderTextColor="#8E8E93"
-                      secureTextEntry
-                      value={garminPassword}
-                      onChangeText={setGarminPassword}
-                      autoCapitalize="none"
-                      className="p-3 bg-theme-bg border border-theme-border rounded-lg text-theme-text text-xs"
-                    />
-                  </View>
-                )}
-              </View>
-
-              {/* Strava Connect */}
-              <View className="bg-theme-card border border-theme-border rounded-xl p-4 flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <Ionicons name="bicycle" size={20} color="#FC4C02" className="mr-3" />
-                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.stravaSyncTitle')}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => Alert.alert('Strava OAuth', 'Strava connection will open in web browser.')}
-                  className="bg-[#FC4C02] px-4 py-2 rounded-lg"
-                >
-                  <Text className="text-white font-bold text-xs">{t('onboarding.connectStrava')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* STEP 6: SUBSCRIPTION / SPARK PLUS PAYWALL */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-6 pt-6"
-            contentContainerStyle={{ paddingBottom: 120 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
-          >
-            <View className="space-y-4">
-              <View className="items-center my-2">
-                <View className="px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full flex-row items-center mb-2">
-                  <Ionicons name="flash" size={14} color="#f59e0b" className="mr-1" />
-                  <Text className="text-amber-500 font-bold text-xs uppercase tracking-wider">
-                    {t('onboarding.subscriptionBadge')}
-                  </Text>
-                </View>
-                <Text className="text-theme-text text-2xl font-bold font-barlow text-center">
-                  {t('onboarding.unlockPotentialTitle')}
-                </Text>
-                <Text className="text-theme-muted text-xs text-center mt-1 px-4">
-                  {t('onboarding.unlockPotentialSubtitle')}
-                </Text>
-              </View>
-
-              {/* Pricing Tiers */}
-              <View className="flex-row space-x-3">
-                <TouchableOpacity
-                  onPress={() => setSelectedPlan('annual')}
-                  className={`flex-1 p-4 rounded-2xl border-2 ${
-                    selectedPlan === 'annual'
-                      ? 'border-theme-accent bg-theme-card'
-                      : 'border-theme-border bg-theme-bg'
-                  }`}
-                >
-                  <View className="self-start px-2 py-0.5 bg-theme-accent rounded-full mb-2">
-                    <Text className="text-white font-bold text-[9px]">{t('onboarding.savePercent')}</Text>
-                  </View>
-                  <Text className="text-theme-text font-bold text-base">{t('onboarding.annual')}</Text>
-                  <Text className="text-theme-accent font-bold text-xl mt-1">€5.83<Text className="text-xs text-theme-muted">/mo</Text></Text>
-                  <Text className="text-theme-muted text-[10px] mt-1">€69.99 billed yearly</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setSelectedPlan('monthly')}
-                  className={`flex-1 p-4 rounded-2xl border-2 ${
-                    selectedPlan === 'monthly'
-                      ? 'border-theme-accent bg-theme-card'
-                      : 'border-theme-border bg-theme-bg'
-                  }`}
-                >
-                  <Text className="text-theme-text font-bold text-base mt-4">{t('onboarding.monthly')}</Text>
-                  <Text className="text-theme-text font-bold text-xl mt-1">€6.99<Text className="text-xs text-theme-muted">/mo</Text></Text>
-                  <Text className="text-theme-muted text-[10px] mt-1">Billed monthly</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Feature Checklist */}
-              <View className="bg-theme-card border border-theme-border rounded-2xl p-4 space-y-3">
-                {[
-                  'Increased Spark chat tokens',
-                  'Personalized daily macro periodization & fueling protocols',
-                  'Strava auto-tagging controls',
-                  'Social leaderboard',
-                ].map((feat, idx) => (
-                  <View key={idx} className="flex-row items-center space-x-2">
-                    <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
-                    <Text className="text-theme-text text-xs flex-1">{feat}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-
-      </ScrollView>
-
-      {/* Fixed Bottom Navigation Buttons */}
-      <View className="absolute bottom-0 left-0 right-0 p-6 bg-theme-bg border-t border-theme-border flex-row items-center">
-        {currentStep < totalSteps ? (
-          <TouchableOpacity
-            onPress={nextStep}
-            className="w-full py-3.5 rounded-xl bg-theme-accent shadow-sm items-center justify-center"
-          >
-            <Text className="text-white font-bold text-base">Next</Text>
-          </TouchableOpacity>
-        ) : (
-          <View className="w-full flex-row space-x-2">
-            <TouchableOpacity
-              onPress={() => handleCompleteSetup(false)}
-              disabled={isSubmitting}
-              className="flex-1 py-3.5 px-2 rounded-xl border border-theme-border bg-theme-card items-center justify-center"
-            >
-              <Text className="text-theme-muted text-xs font-bold text-center">Continue with Free Tier</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleCompleteSetup(true)}
-              disabled={isSubmitting}
-              className="flex-1 py-3.5 px-2 rounded-xl bg-theme-accent items-center justify-center shadow-sm"
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="text-white font-bold text-xs text-center">Start 14-Day Free Trial</Text>
-              )}
-            </TouchableOpacity>
+            ))}
           </View>
         )}
       </View>
+
+      {/* Main Chat Scroll Container */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        className="flex-1"
+      >
+        <ScrollView
+          ref={chatScrollViewRef}
+          className="flex-1 px-6 pt-4"
+          contentContainerStyle={{ paddingBottom: 140 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {timeline.map((node) => {
+            if (node.type === 'welcome_hero' && currentStep === 0) {
+              return (
+                <View key={node.id} className="items-center justify-center py-10 my-auto">
+                  {/* Glowing High-Visibility Avatar */}
+                  <View className="relative mb-6">
+                    <View className="w-28 h-28 rounded-full border-4 border-[#FF5A1F] shadow-2xl items-center justify-center overflow-hidden bg-[#FF5A1F]/20">
+                      <Image
+                        source={{
+                          uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+                        }}
+                        className="w-full h-full"
+                      />
+                    </View>
+                    <View className="absolute -bottom-1 -right-1 bg-[#FF5A1F] w-9 h-9 rounded-full items-center justify-center border-2 border-white dark:border-zinc-900 shadow-md">
+                      <Ionicons name="flash" size={20} color="#FFFFFF" />
+                    </View>
+                    <View className="absolute top-1 right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
+                  </View>
+
+                  {/* Large High-Contrast Speech Bubble */}
+                  <View className="w-full bg-[#FF5A1F]/15 border-2 border-[#FF5A1F] rounded-3xl p-6 shadow-xl relative mb-8">
+                    <View className="flex-row items-center space-x-2 mb-3">
+                      <Text className="text-[#FF5A1F] font-black text-xs uppercase tracking-widest">
+                        Spark · AI Endurance Coach
+                      </Text>
+                      <View className="w-2 h-2 rounded-full bg-[#FF5A1F]" />
+                    </View>
+
+                    <Text className="text-theme-text text-base font-bold leading-relaxed">
+                      {typedText}
+                      {typedText.length < WELCOME_MESSAGE.length && (
+                        <Text className="text-[#FF5A1F] font-black"> |</Text>
+                      )}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    onPress={startChatOnboarding}
+                    className="w-full py-4 rounded-2xl bg-[#FF5A1F] shadow-lg items-center justify-center flex-row space-x-2 active:opacity-90"
+                  >
+                    <Text className="text-white font-extrabold text-lg">Meet Your Coach & Begin</Text>
+                    <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            if (node.type === 'coach_text') {
+              return (
+                <View key={node.id} className="flex-row items-start space-x-3 mb-4 pr-10">
+                  <View className="relative">
+                    <Image
+                      source={{
+                        uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+                      }}
+                      className="w-10 h-10 rounded-full border-2 border-[#FF5A1F]"
+                    />
+                    <View className="absolute -bottom-1 -right-1 bg-[#FF5A1F] w-4 h-4 rounded-full items-center justify-center border border-theme-card">
+                      <Ionicons name="flash" size={9} color="#FFFFFF" />
+                    </View>
+                  </View>
+                  <View className="flex-1 bg-[#FF5A1F]/15 border-2 border-[#FF5A1F]/40 rounded-2xl p-4 shadow-sm">
+                    <View className="flex-row items-center space-x-1.5 mb-1">
+                      <Text className="text-[#FF5A1F] font-black text-xs uppercase tracking-wider">Spark</Text>
+                      <View className="px-1.5 py-0.2 bg-[#FF5A1F] rounded-md">
+                        <Text className="text-white text-[8px] font-black uppercase">AI Coach</Text>
+                      </View>
+                    </View>
+                    <Text className="text-theme-text font-semibold text-xs leading-relaxed">{node.text}</Text>
+                  </View>
+                </View>
+              );
+            }
+
+            if (node.type === 'user_text') {
+              return (
+                <View key={node.id} className="flex-row items-end justify-end mb-4 pl-12">
+                  <View className="bg-theme-card border border-theme-border rounded-2xl px-4 py-3 shadow-sm">
+                    <Text className="text-theme-text font-bold text-xs">{node.text}</Text>
+                  </View>
+                </View>
+              );
+            }
+
+            if (node.type === 'card_language') {
+              const isSelected = !!node.data?.selected;
+              return (
+                <View
+                  key={node.id}
+                  className={`bg-theme-card border-2 ${
+                    isSelected ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
+                  } rounded-2xl p-4 mb-5 space-y-3`}
+                >
+                  <View className="flex-row items-center space-x-2">
+                    <Ionicons name="language" size={20} color="#FF5A1F" />
+                    <Text className="text-theme-text font-bold text-sm">Select Your Preferred Language</Text>
+                  </View>
+
+                  <View className="flex-row flex-wrap gap-2 pt-1">
+                    {SUPPORTED_LANGUAGES.map((lang) => {
+                      const active = language === lang.code;
+                      return (
+                        <TouchableOpacity
+                          key={lang.code}
+                          disabled={isStreamingMessage}
+                          onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
+                          className={`px-4 py-2.5 rounded-xl border flex-row items-center space-x-2 ${
+                            active
+                              ? 'bg-[#FF5A1F] border-[#FF5A1F]'
+                              : 'bg-theme-bg border-theme-border active:bg-theme-card'
+                          }`}
+                        >
+                          <Text className="text-base">{lang.flag}</Text>
+                          <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-theme-text'}`}>
+                            {lang.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            }
+
+            if (node.type === 'card_persona') {
+              const isSelected = !!node.data?.selected;
+              return (
+                <View
+                  key={node.id}
+                  className={`bg-theme-card border-2 ${
+                    isSelected ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
+                  } rounded-2xl p-4 mb-5 space-y-3`}
+                >
+                  <Text className="text-theme-text font-bold text-sm">Choose Spark's Coaching Tone</Text>
+
+                  <TouchableOpacity
+                    disabled={isStreamingMessage}
+                    onPress={() =>
+                      handleSelectPersonaChoice(
+                        'Empathetic but demanding elite endurance coach.',
+                        'Empathetic & Demanding'
+                      )
+                    }
+                    className={`p-3.5 rounded-xl border-2 ${
+                      coachTone === 'Empathetic but demanding elite endurance coach.'
+                        ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
+                        : 'border-theme-border bg-theme-bg'
+                    }`}
+                  >
+                    <View className="flex-row items-center">
+                      <View className="w-10 h-10 rounded-full bg-[#FF5A1F]/20 items-center justify-center mr-3">
+                        <Ionicons name="sparkles" size={20} color="#FF5A1F" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-theme-text font-bold text-xs">Empathetic & Demanding (Default)</Text>
+                        <Text className="text-theme-muted text-[10px] mt-0.5">
+                          High expectations, supportive, data-backed guidance.
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    disabled={isStreamingMessage}
+                    onPress={() =>
+                      handleSelectPersonaChoice(
+                        'Strict with data, but with a dry, snarky British sense of humor.',
+                        'Strict Data & British Humor'
+                      )
+                    }
+                    className={`p-3.5 rounded-xl border-2 ${
+                      coachTone === 'Strict with data, but with a dry, snarky British sense of humor.'
+                        ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
+                        : 'border-theme-border bg-theme-bg'
+                    }`}
+                  >
+                    <View className="flex-row items-center">
+                      <View className="w-10 h-10 rounded-full bg-purple-500/20 items-center justify-center mr-3">
+                        <Ionicons name="analytics" size={20} color="#a855f7" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-theme-text font-bold text-xs">Strict Data & British Humor</Text>
+                        <Text className="text-theme-muted text-[10px] mt-0.5">
+                          Direct numbers focus with dry wit.
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    disabled={isStreamingMessage}
+                    onPress={() =>
+                      handleSelectPersonaChoice(
+                        'Enthusiastic cheerleader, extremely positive and forgiving.',
+                        'Positive Cheerleader'
+                      )
+                    }
+                    className={`p-3.5 rounded-xl border-2 ${
+                      coachTone === 'Enthusiastic cheerleader, extremely positive and forgiving.'
+                        ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
+                        : 'border-theme-border bg-theme-bg'
+                    }`}
+                  >
+                    <View className="flex-row items-center">
+                      <View className="w-10 h-10 rounded-full bg-emerald-500/20 items-center justify-center mr-3">
+                        <Ionicons name="heart" size={20} color="#10b981" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="text-theme-text font-bold text-xs">Positive Cheerleader</Text>
+                        <Text className="text-theme-muted text-[10px] mt-0.5">
+                          Always encouraging, empathetic, focuses on consistency over perfection.
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            if (node.type === 'card_context_event') {
+              const isCompleted = !!node.data?.completed;
+              return (
+                <View
+                  key={node.id}
+                  className={`bg-theme-card border-2 ${
+                    isCompleted ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
+                  } rounded-2xl p-4 mb-5 space-y-4`}
+                >
+                  <Text className="text-theme-text font-bold text-sm">Tell Us About Yourself & Main Event</Text>
+
+                  <TextInput
+                    editable={!isStreamingMessage}
+                    multiline
+                    numberOfLines={4}
+                    value={athleteContext}
+                    onChangeText={handleAthleteContextChange}
+                    placeholder="e.g. Amateur triathlete, parent of 2 kids, prefers morning runs..."
+                    placeholderTextColor="#8E8E93"
+                    className="p-4 bg-theme-bg border border-theme-border rounded-xl text-theme-text text-xs min-h-[90px]"
+                    style={{ textAlignVertical: 'top' }}
+                  />
+
+                  {/* Physiological Baselines */}
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 space-y-2">
+                    <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
+                      Physiological Baselines (Optional)
+                    </Text>
+                    {metrics.map((item, idx) => (
+                      <View key={idx} className="flex-row space-x-2">
+                        <TextInput
+                          editable={!isStreamingMessage}
+                          placeholder="Label (e.g. FTP)"
+                          placeholderTextColor="#8E8E93"
+                          value={item.label}
+                          onChangeText={(val) => {
+                            const updated = [...metrics];
+                            updated[idx].label = val;
+                            setMetrics(updated);
+                          }}
+                          className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                        />
+                        <TextInput
+                          editable={!isStreamingMessage}
+                          placeholder="Value"
+                          placeholderTextColor="#8E8E93"
+                          value={item.value}
+                          onChangeText={(val) => {
+                            const updated = [...metrics];
+                            updated[idx].value = val;
+                            setMetrics(updated);
+                          }}
+                          className="w-24 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                        />
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      disabled={isStreamingMessage}
+                      onPress={addMetricRow}
+                      className="py-1.5 items-center bg-[#FF5A1F]/10 border border-[#FF5A1F]/30 rounded-lg mt-1"
+                    >
+                      <Text className="text-[#FF5A1F] text-xs font-bold">+ Add Metric</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Main Goal Event Setup */}
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 space-y-2.5">
+                    <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
+                      Main Target Event
+                    </Text>
+                    <TextInput
+                      editable={!isStreamingMessage}
+                      placeholder="Race Name (e.g. Amsterdam Marathon)"
+                      placeholderTextColor="#8E8E93"
+                      value={raceName}
+                      onChangeText={handleRaceNameChange}
+                      className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                    />
+                    <View className="flex-row space-x-2">
+                      <TouchableOpacity
+                        disabled={isStreamingMessage}
+                        onPress={openDatePickerModal}
+                        className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
+                      >
+                        <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
+                          {raceDate || 'Date (YYYY-MM-DD)'}
+                        </Text>
+                        <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
+                      </TouchableOpacity>
+
+                      <View className="w-28 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-center relative">
+                        {isEstimatingCtl ? (
+                          <View className="flex-row items-center space-x-1">
+                            <ActivityIndicator size="small" color="#FF5A1F" />
+                            <Text className="text-[10px] text-[#FF5A1F] font-bold">Spark...</Text>
+                          </View>
+                        ) : (
+                          <>
+                            <TextInput
+                              editable={!isStreamingMessage}
+                              placeholder="Target CTL"
+                              placeholderTextColor="#8E8E93"
+                              value={targetCtl}
+                              keyboardType="numeric"
+                              onChangeText={(val) => {
+                                setTargetCtl(val);
+                                setIsAiFilled(false);
+                              }}
+                              className="w-full text-theme-text text-xs text-center font-bold"
+                            />
+                            {isAiFilled && (
+                              <View className="absolute -top-2 -right-1 bg-[#FF5A1F] px-1.5 py-0.5 rounded-full">
+                                <Text className="text-[8px] text-white font-bold">⚡️ Spark</Text>
+                              </View>
+                            )}
+                          </>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    disabled={isStreamingMessage}
+                    onPress={handleConfirmContextAndEvent}
+                    className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md"
+                  >
+                    <Text className="text-white font-bold text-xs">
+                      {isCompleted ? 'Update Details & Event ⚡️' : 'Confirm Details & Event ⚡️'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            if (node.type === 'card_schedule') {
+              const isCompleted = !!node.data?.completed;
+              return (
+                <View
+                  key={node.id}
+                  className={`bg-theme-card border-2 ${
+                    isCompleted ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
+                  } rounded-2xl p-4 mb-5 space-y-3`}
+                >
+                  <Text className="text-theme-text font-bold text-sm">Weekly Training Availability</Text>
+                  <Text className="text-theme-muted text-xs">
+                    Select how many minutes you can comfortably dedicate each day.
+                  </Text>
+
+                  <View className="space-y-3 pt-1">
+                    {DAYS.map((day) => {
+                      const currentVal = availability[day]?.maxMinutes || 0;
+                      return (
+                        <View key={day} className="bg-theme-bg p-3 rounded-xl border border-theme-border space-y-2">
+                          <View className="flex-row items-center justify-between">
+                            <Text className="text-theme-text font-bold text-xs">{day}</Text>
+                            <Text className="text-[#FF5A1F] font-bold text-xs">
+                              {currentVal === 0 ? 'Rest Day' : `${currentVal} mins`}
+                            </Text>
+                          </View>
+
+                          <View className="flex-row space-x-1 justify-between">
+                            {DURATION_OPTIONS.map((opt) => {
+                              const isSelected = currentVal === opt.value;
+                              return (
+                                <TouchableOpacity
+                                  key={opt.value}
+                                  disabled={isStreamingMessage}
+                                  onPress={() => handleDayDurationChange(day, opt.value)}
+                                  className={`flex-1 py-1.5 rounded-lg items-center justify-center border ${
+                                    isSelected
+                                      ? 'bg-[#FF5A1F] border-[#FF5A1F]'
+                                      : 'bg-theme-card border-theme-border'
+                                  }`}
+                                >
+                                  <Text
+                                    className={`text-[10px] font-bold ${
+                                      isSelected ? 'text-white' : 'text-theme-muted'
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  <TouchableOpacity
+                    disabled={isStreamingMessage}
+                    onPress={handleConfirmScheduleChoice}
+                    className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
+                  >
+                    <Text className="text-white font-bold text-xs">
+                      {isCompleted ? 'Update Schedule ⚡️' : 'Lock In Schedule ⚡️'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            if (node.type === 'card_integrations') {
+              const isCompleted = !!node.data?.completed;
+              return (
+                <View
+                  key={node.id}
+                  className={`bg-theme-card border-2 ${
+                    isCompleted ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
+                  } rounded-2xl p-4 mb-5 space-y-3`}
+                >
+                  <Text className="text-theme-text font-bold text-sm">Device & Fitness Sync</Text>
+
+                  {/* Garmin Connect */}
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 space-y-3">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center space-x-3">
+                        <Ionicons name="watch-outline" size={20} color="#007ACC" />
+                        <View>
+                          <Text className="text-theme-text font-bold text-xs">Garmin Connect</Text>
+                          <Text className="text-theme-muted text-[10px]">Sync daily workouts & HRV</Text>
+                        </View>
+                      </View>
+                      <Switch
+                        disabled={isStreamingMessage}
+                        value={showGarmin}
+                        onValueChange={setShowGarmin}
+                        trackColor={{ false: '#3A3A3C', true: '#FF5A1F' }}
+                      />
+                    </View>
+
+                    {showGarmin && (
+                      <View className="pt-2 space-y-2 border-t border-theme-border">
+                        <TextInput
+                          editable={!isStreamingMessage}
+                          placeholder="Garmin Email / Username"
+                          placeholderTextColor="#8E8E93"
+                          value={garminEmail}
+                          onChangeText={setGarminEmail}
+                          autoCapitalize="none"
+                          className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                        />
+                        <TextInput
+                          editable={!isStreamingMessage}
+                          placeholder="Garmin Password"
+                          placeholderTextColor="#8E8E93"
+                          secureTextEntry
+                          value={garminPassword}
+                          onChangeText={setGarminPassword}
+                          autoCapitalize="none"
+                          className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                        />
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Strava Connect */}
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 flex-row items-center justify-between">
+                    <View className="flex-row items-center space-x-2">
+                      <Ionicons name="bicycle" size={18} color="#FC4C02" />
+                      <Text className="text-theme-text font-bold text-xs">Strava Sync</Text>
+                    </View>
+                    <TouchableOpacity
+                      disabled={isStreamingMessage}
+                      onPress={() => Alert.alert('Strava OAuth', 'Strava connection will open in web browser.')}
+                      className="bg-[#FC4C02] px-3 py-1.5 rounded-lg"
+                    >
+                      <Text className="text-white font-bold text-[10px]">Connect Strava</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity
+                    disabled={isStreamingMessage}
+                    onPress={handleConfirmIntegrationsChoice}
+                    className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
+                  >
+                    <Text className="text-white font-bold text-xs">
+                      {isCompleted ? 'Update Sync Settings ⚡️' : 'Continue to Final Step ⚡️'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
+            if (node.type === 'card_paywall') {
+              return (
+                <View key={node.id} className="bg-theme-card border-2 border-[#FF5A1F] rounded-2xl p-5 mb-6 space-y-4 shadow-xl">
+                  <View className="items-center my-1">
+                    <View className="w-12 h-12 rounded-2xl bg-[#FF5A1F] items-center justify-center mb-2 shadow-lg">
+                      <Ionicons name="flash" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text className="text-theme-text font-extrabold text-lg text-center">Unlock Spark Plus</Text>
+                    <Text className="text-theme-muted text-xs text-center mt-1">
+                      Upgrade to unlock unlimited Spark chat, custom periodization, and automated sync.
+                    </Text>
+                  </View>
+
+                  {/* Pricing Tiers */}
+                  <View className="flex-row space-x-3">
+                    <TouchableOpacity
+                      onPress={() => setSelectedPlan('annual')}
+                      className={`flex-1 p-3.5 rounded-2xl border-2 ${
+                        selectedPlan === 'annual'
+                          ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
+                          : 'border-theme-border bg-theme-bg'
+                      }`}
+                    >
+                      <View className="self-start px-2 py-0.5 bg-[#FF5A1F] rounded-full mb-1.5">
+                        <Text className="text-white font-bold text-[9px]">SAVE 17%</Text>
+                      </View>
+                      <Text className="text-theme-text font-bold text-sm">Annual</Text>
+                      <Text className="text-[#FF5A1F] font-bold text-lg mt-0.5">
+                        €5.83<Text className="text-xs text-theme-muted">/mo</Text>
+                      </Text>
+                      <Text className="text-theme-muted text-[9px] mt-0.5">€69.99 billed yearly</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => setSelectedPlan('monthly')}
+                      className={`flex-1 p-3.5 rounded-2xl border-2 ${
+                        selectedPlan === 'monthly'
+                          ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
+                          : 'border-theme-border bg-theme-bg'
+                      }`}
+                    >
+                      <Text className="text-theme-text font-bold text-sm mt-4">Monthly</Text>
+                      <Text className="text-theme-text font-bold text-lg mt-0.5">
+                        €6.99<Text className="text-xs text-theme-muted">/mo</Text>
+                      </Text>
+                      <Text className="text-theme-muted text-[9px] mt-0.5">Billed monthly</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Feature Checklist */}
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 space-y-2">
+                    {[
+                      'Increased Spark chat tokens',
+                      'Personalized daily macro periodization & fueling protocols',
+                      'Strava auto-tagging controls',
+                      'Social leaderboard',
+                    ].map((feat, idx) => (
+                      <View key={idx} className="flex-row items-center space-x-2">
+                        <Ionicons name="checkmark-circle" size={16} color="#FF5A1F" />
+                        <Text className="text-theme-text text-xs flex-1">{feat}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <View className="space-y-2 pt-2">
+                    <TouchableOpacity
+                      onPress={() => handleCompleteSetup(true)}
+                      disabled={isSubmitting}
+                      className="w-full py-4 rounded-xl bg-[#FF5A1F] items-center justify-center shadow-lg"
+                    >
+                      {isSubmitting ? (
+                        <ActivityIndicator color="white" />
+                      ) : (
+                        <Text className="text-white font-extrabold text-sm">Start 14-Day Free Trial ⚡️</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleCompleteSetup(false)}
+                      disabled={isSubmitting}
+                      className="w-full py-3 rounded-xl border border-theme-border bg-theme-bg items-center justify-center"
+                    >
+                      <Text className="text-theme-muted text-xs font-bold">Continue with Free Tier</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            }
+
+            return null;
+          })}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

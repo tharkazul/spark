@@ -72,19 +72,19 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   };
 
   const getSeverityBadge = (sev: number) => {
-    let bg = 'bg-amber-500/15 border-amber-500/30 text-amber-500';
+    let bg = 'bg-amber-500/15 text-amber-500';
     let text = 'Severity 1 (Twinge)';
 
     if (sev >= 4) {
-      bg = 'bg-red-500/15 border-red-500/30 text-red-500';
+      bg = 'bg-red-500/15 text-red-500';
       text = `Severity ${sev} (Severe)`;
     } else if (sev >= 2) {
-      bg = 'bg-orange-500/15 border-orange-500/30 text-orange-500';
+      bg = 'bg-orange-500/15 text-orange-500';
       text = `Severity ${sev} (Moderate)`;
     }
 
     return (
-      <View className={`px-2.5 py-1 rounded-full border ${bg}`}>
+      <View className={`px-2.5 py-1 rounded-full ${bg}`}>
         <Text className="text-[10px] font-bold">{text}</Text>
       </View>
     );
@@ -93,7 +93,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   return (
     <View className="space-y-4">
       {/* INJURY TRACKER CARD */}
-      <Card className="mb-4 bg-theme-card border-theme-border">
+      <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
@@ -111,7 +111,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       </Card>
 
       {/* ACTIVE ISSUES LIST */}
-      <Card className="mb-6 bg-theme-card border-theme-border">
+      <Card className="mb-6 bg-theme-card">
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
             Active Issues Feed
@@ -135,7 +135,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
           niggles.map((item) => (
             <View
               key={item.id}
-              className="bg-theme-bg/70 border border-theme-border rounded-xl p-4 mb-3"
+              className="bg-theme-bg/70 rounded-xl p-4 mb-3"
             >
               <View className="flex-row justify-between items-start mb-2">
                 <View className="flex-row items-center space-x-2">
@@ -153,7 +153,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
                 </Text>
               ) : null}
 
-              <View className="flex-row justify-end space-x-2 pt-2 border-t border-theme-border/40">
+              <View className="flex-row justify-end space-x-2 pt-2">
                 <TouchableOpacity
                   onPress={() =>
                     handleSelectBodyPart(
@@ -161,14 +161,14 @@ export const HealthTab: React.FC<HealthTabProps> = ({
                       BODY_PARTS_LOOKUP[item.body_part] || item.body_part
                     )
                   }
-                  className="px-3 py-1.5 bg-theme-bg border border-theme-border rounded-lg"
+                  className="px-3 py-1.5 bg-theme-bg rounded-lg"
                 >
                   <Text className="text-xs font-bold text-theme-text">Edit</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => item.id && handleResolve(item.id)}
-                  className="px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 rounded-lg flex-row items-center space-x-1"
+                  className="px-3 py-1.5 bg-emerald-500/15 rounded-lg flex-row items-center space-x-1"
                 >
                   <Ionicons name="checkmark" size={14} color="#34C759" />
                   <Text className="text-xs font-bold text-[#34C759]">Mark Resolved</Text>
@@ -187,8 +187,8 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         onRequestClose={() => setModalVisible(false)}
       >
         <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-theme-card border-t border-theme-border rounded-t-3xl p-6 max-h-[85vh]">
-            <View className="flex-row justify-between items-center pb-4 mb-4 border-b border-theme-border">
+          <View className="bg-theme-card rounded-t-3xl p-6 max-h-[85vh]">
+            <View className="flex-row justify-between items-center pb-4 mb-4">
               <View>
                 <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
                   Log Issue / Soreness
@@ -200,7 +200,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border"
+                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
               >
                 <Ionicons name="close" size={18} color="#8E9BA4" />
               </TouchableOpacity>
@@ -219,10 +219,10 @@ export const HealthTab: React.FC<HealthTabProps> = ({
                       Haptics.selectionAsync();
                       setSeverity(level);
                     }}
-                    className={`w-12 h-12 rounded-xl items-center justify-center border ${
+                    className={`w-12 h-12 rounded-xl items-center justify-center ${
                       severity === level
-                        ? 'bg-theme-accent border-theme-accent'
-                        : 'bg-theme-bg border-theme-border'
+                        ? 'bg-theme-accent'
+                        : 'bg-theme-bg'
                     }`}
                   >
                     <Text
@@ -252,7 +252,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
                 placeholder="e.g. Sharp pain when stepping off curb..."
                 multiline
                 numberOfLines={3}
-                className="bg-theme-bg border border-theme-border text-theme-text rounded-xl p-3 text-sm mb-6"
+                className="bg-theme-bg text-theme-text rounded-xl p-3 text-sm mb-6"
                 style={{ textAlignVertical: 'top', minHeight: 80 }}
               />
 

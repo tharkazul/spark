@@ -267,7 +267,7 @@ export default function CoachScreen() {
           className={`px-4 py-3 rounded-2xl ${
             isUser
               ? 'bg-theme-accent rounded-br-sm shadow-sm'
-              : 'bg-theme-card border border-theme-border rounded-bl-sm shadow-sm'
+              : 'bg-theme-card rounded-bl-sm shadow-sm'
           }`}
         >
           {/* User attached images preview */}
@@ -328,8 +328,8 @@ export default function CoachScreen() {
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       {/* Clean Header */}
-      <View className="px-4 py-3 border-b border-theme-border bg-theme-bg z-10 flex-row items-center">
-        <View className="w-10 h-10 rounded-full border-2 border-theme-accent bg-theme-bg overflow-hidden mr-3 shadow-sm">
+      <View className="px-4 py-3 bg-theme-bg z-10 flex-row items-center">
+        <View className="w-10 h-10 rounded-full bg-theme-bg overflow-hidden mr-3 shadow-sm">
           <Image
             source={{ uri: coachAvatarUri }}
             className="w-full h-full"
@@ -349,7 +349,7 @@ export default function CoachScreen() {
 
       {/* Low Token Budget Warning Banner */}
       {showTokenWarning ? (
-        <View className="bg-amber-500/15 px-4 py-2 border-b border-amber-500/30 flex-row items-center justify-between">
+        <View className="bg-amber-500/15 px-4 py-2 flex-row items-center justify-between">
           <View className="flex-row items-center flex-1 mr-2">
             <Ionicons name="warning-outline" size={16} color="#F59E0B" />
             <Text className="text-amber-300 text-xs font-semibold ml-2">
@@ -392,7 +392,7 @@ export default function CoachScreen() {
               }}
               renderSectionHeader={({ section: { title } }) => (
                 <View className="py-2 items-center justify-center pointer-events-none z-10">
-                  <View className="bg-theme-card/95 border border-theme-border px-3.5 py-1 rounded-full shadow-xs">
+                  <View className="bg-theme-card/95 px-3.5 py-1 rounded-full shadow-xs">
                     <Text className="text-theme-muted text-[11px] font-bold">{title}</Text>
                   </View>
                 </View>
@@ -405,7 +405,7 @@ export default function CoachScreen() {
 
           {/* Streaming / Typing Indicator */}
           {sending ? (
-            <View className="px-4 py-2 flex-row items-center self-start mb-2 ml-4 bg-theme-card/80 rounded-full border border-theme-border">
+            <View className="px-4 py-2 flex-row items-center self-start mb-2 ml-4 bg-theme-card/80 rounded-full">
               <ActivityIndicator size="small" color="#FF5A1F" />
               <Text className="text-theme-accent text-xs font-semibold ml-2">{t('chat.thinking')}</Text>
             </View>
@@ -444,7 +444,7 @@ export default function CoachScreen() {
               className={`${
                 !isKeyboardOpen
                   ? 'bg-theme-accent rounded-2xl rounded-br-sm shadow-lg px-4 py-3 flex-row items-center justify-between space-x-2'
-                  : 'bg-theme-card rounded-3xl border border-theme-border p-2.5 shadow-lg'
+                  : 'bg-theme-card rounded-3xl p-2.5 shadow-lg'
               }`}
             >
               {/* Image Preview Thumbnails if attached (State 2) */}
@@ -459,7 +459,7 @@ export default function CoachScreen() {
                       />
                       <TouchableOpacity
                         onPress={() => handleRemoveImage(idx)}
-                        className="absolute -top-1.5 -right-1.5 bg-red-500 w-4 h-4 rounded-full items-center justify-center border border-white"
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 w-4 h-4 rounded-full items-center justify-center"
                       >
                         <Ionicons name="close" size={10} color="white" />
                       </TouchableOpacity>
@@ -501,22 +501,22 @@ export default function CoachScreen() {
 
               {/* Bottom Actions Row (State 2 only) */}
               {isKeyboardOpen ? (
-                <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/30 mt-1">
+                <View className="flex-row items-center justify-between pt-2 mt-1">
                   {/* Left Action Buttons */}
                   <View className="flex-row items-center space-x-2">
                     <TouchableOpacity
                       onPress={handlePickImage}
-                      className="w-8 h-8 rounded-full bg-theme-bg/60 border border-theme-border items-center justify-center active:opacity-70"
+                      className="w-8 h-8 rounded-full bg-theme-bg/60 items-center justify-center active:opacity-70"
                     >
                       <Ionicons name="attach-outline" size={18} color="#FF5A1F" />
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       onPress={() => setShowSuggestions(!showSuggestions)}
-                      className={`w-8 h-8 rounded-full border items-center justify-center ${
+                      className={`w-8 h-8 rounded-full items-center justify-center ${
                         showSuggestions
-                          ? 'bg-amber-500/20 border-amber-500'
-                          : 'bg-theme-bg/60 border-theme-border active:opacity-70'
+                          ? 'bg-amber-500/20'
+                          : 'bg-theme-bg/60 active:opacity-70'
                       }`}
                     >
                       <Ionicons
@@ -531,10 +531,10 @@ export default function CoachScreen() {
                   <View className="flex-row items-center space-x-2">
                     <TouchableOpacity
                       onPress={handleToggleVoiceInput}
-                      className={`w-8 h-8 rounded-full items-center justify-center border ${
+                      className={`w-8 h-8 rounded-full items-center justify-center ${
                         isRecording
-                          ? 'bg-red-500/20 border-red-500'
-                          : 'bg-theme-bg/60 border-theme-border active:opacity-70'
+                          ? 'bg-red-500/20'
+                          : 'bg-theme-bg/60 active:opacity-70'
                       }`}
                     >
                       <Ionicons

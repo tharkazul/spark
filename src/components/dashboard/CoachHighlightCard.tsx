@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
-import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -19,25 +18,25 @@ export function CoachHighlightCard({
   };
 
   return (
-    <Card className="p-0 overflow-hidden mb-3.5 border-theme-border shadow-sm">
+    <View className="p-0 overflow-hidden mb-4 rounded-3xl bg-theme-card/80 shadow-sm">
       {/* Header Bar */}
-      <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
+      <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/40">
         <View className="flex-row items-center gap-2">
-          <View className="w-7 h-7 rounded-lg bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
-            <Ionicons name="sparkles-outline" size={14} color="#FF5A1F" />
+          <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#38BDF8" />
           </View>
           <View>
-            <Text className="text-sm font-extrabold text-theme-text">Coach Highlights</Text>
-            <Text className="text-[9px] text-theme-muted">AI Daily Briefing & Advice</Text>
+            <Text className="text-sm font-extrabold text-theme-text">Coach Briefing</Text>
+            <Text className="text-[9px] text-theme-muted">Daily Insight & Advice</Text>
           </View>
         </View>
       </View>
 
-      {/* Main Card Content */}
+      {/* Main Content Area */}
       <View className="p-3.5">
         <View className="flex-row items-center gap-3 mb-3">
           {/* Coach Avatar */}
-          <View className="w-11 h-11 rounded-full border-2 border-theme-accent bg-theme-bg overflow-hidden shadow-md items-center justify-center">
+          <View className="w-11 h-11 rounded-full bg-theme-bg overflow-hidden shadow-md items-center justify-center">
             <Image
               source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' }}
               className="w-full h-full"
@@ -67,6 +66,6 @@ export function CoachHighlightCard({
           <Text className="text-white text-xs font-extrabold">Discuss Today's Plan</Text>
         </TouchableOpacity>
       </View>
-    </Card>
+    </View>
   );
 }

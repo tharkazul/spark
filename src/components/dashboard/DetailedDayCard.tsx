@@ -101,7 +101,7 @@ export function DetailedDayCard({
       }`}
     >
       {/* Day Header Row matching Quest Card header format */}
-      <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
+      <View className="flex-row items-center justify-between pb-3 mb-3.5">
         <View className="flex-row items-center gap-2.5">
           <View className="flex-row items-center gap-2">
             <Text className="text-xs font-black uppercase tracking-wider text-theme-muted">
@@ -119,7 +119,7 @@ export function DetailedDayCard({
           </View>
 
           {/* Weather Badge */}
-          <View className="flex-row items-center gap-1 bg-theme-bg border border-theme-border/60 px-2 py-0.5 rounded-full">
+          <View className="flex-row items-center gap-1 bg-theme-bg px-2 py-0.5 rounded-full">
             <Ionicons name="cloud-outline" size={12} color="#8E9BA4" />
             <Text className="text-[10px] font-bold text-theme-muted">{weatherTemp}</Text>
           </View>
@@ -131,7 +131,7 @@ export function DetailedDayCard({
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             onAdaptPress();
           }}
-          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
+          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
         >
           <Ionicons name="flash-outline" size={13} color="#F97316" />
           <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
@@ -140,7 +140,7 @@ export function DetailedDayCard({
 
       {/* Workouts List for this Day */}
       {!hasWorkouts ? (
-        <View className="p-4 bg-theme-bg/60 rounded-2xl border border-theme-border flex-row items-center justify-between">
+        <View className="p-4 bg-theme-bg/60 rounded-2xl flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
             <Ionicons name="moon-outline" size={16} color="#6F6F79" />
             <Text className="text-xs font-bold text-theme-muted">Rest / Recovery Day</Text>
@@ -148,7 +148,7 @@ export function DetailedDayCard({
 
           <TouchableOpacity
             onPress={() => onAddWorkout(day.dayName, day.dateStr)}
-            className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-theme-accent/10 border border-theme-accent/30"
+            className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-theme-accent/10"
           >
             <Ionicons name="add" size={13} color="#FF5F3B" />
             <Text className="text-xs font-bold text-theme-accent">Add Workout</Text>
@@ -162,7 +162,7 @@ export function DetailedDayCard({
             return (
               <View
                 key={workout.id}
-                className={`p-4 rounded-2xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-bg/60 flex-col gap-2`}
+                className={`p-4 rounded-2xl border-l-4 ${cfg.borderLeft} bg-theme-bg/60 flex-col gap-2`}
               >
                 {/* Top Discipline Line */}
                 <View className="flex-row items-center justify-between">
@@ -179,13 +179,13 @@ export function DetailedDayCard({
                     </Text>
 
                     {workout.isStructured && (
-                      <View className="px-2 py-0.5 bg-theme-card border border-theme-border rounded">
+                      <View className="px-2 py-0.5 bg-theme-card rounded">
                         <Text className="text-[9px] font-bold text-theme-muted">Structured</Text>
                       </View>
                     )}
 
                     {workout.isCompleted && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                         <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
                       </View>
@@ -213,10 +213,10 @@ export function DetailedDayCard({
                 </TouchableOpacity>
 
                 {/* Action Bar: Edit, Invite, Remove */}
-                <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/40 mt-1">
+                <View className="flex-row items-center justify-between pt-2 mt-1">
                   <TouchableOpacity
                     onPress={() => onSelectWorkout(workout)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card border border-theme-border rounded-lg"
+                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card rounded-lg"
                   >
                     <Ionicons name="create-outline" size={13} color="#FF5F3B" />
                     <Text className="text-xs font-bold text-theme-accent">Edit</Text>
@@ -224,7 +224,7 @@ export function DetailedDayCard({
 
                   <TouchableOpacity
                     onPress={() => onInvitePartner(workout)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card border border-theme-border rounded-lg"
+                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card rounded-lg"
                   >
                     <Ionicons name="person-add-outline" size={13} color="#6F6F79" />
                     <Text className="text-xs font-bold text-theme-muted">Invite Partner</Text>
@@ -232,7 +232,7 @@ export function DetailedDayCard({
 
                   <TouchableOpacity
                     onPress={() => onDeleteWorkout(workout.id)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg"
+                    className="flex-row items-center gap-1 px-3 py-1 bg-rose-500/10 rounded-lg"
                   >
                     <Ionicons name="trash-outline" size={13} color="#F43F5E" />
                     <Text className="text-xs font-bold text-rose-500">Remove</Text>

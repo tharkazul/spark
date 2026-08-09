@@ -10,7 +10,7 @@ const PROD_WS_URL = 'wss://spark.amsterdamtriathlonassociation.uk';
 
 // Local Development URLs
 const LOCAL_IP: string | null = null;
-const LOCAL_PORT = 3001;
+const LOCAL_PORT = 3009;
 
 const getLocalHost = (): string => {
   if (LOCAL_IP) return LOCAL_IP;

@@ -95,14 +95,14 @@ export const GoalsTab: React.FC = () => {
     <View className="space-y-6">
       {/* RACE CALENDAR & GOALS */}
       <Card className="p-4 mb-6">
-        <View className="flex-row justify-between items-center pb-3 mb-4 border-b border-theme-border">
+        <View className="flex-row justify-between items-center pb-3 mb-4">
           <View className="flex-row items-center gap-2">
             <View className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
             <Text className="text-theme-text font-bold text-sm">Race Calendar & Goals</Text>
           </View>
           <TouchableOpacity
             onPress={handleAddMilestone}
-            className="px-3 py-1.5 bg-theme-accent/10 border border-theme-accent/30 rounded-lg flex-row items-center"
+            className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
           >
             <Ionicons name="add" size={14} color="#FF5A1F" />
             <Text className="text-theme-accent font-bold text-xs ml-1">+ Add Race</Text>
@@ -113,7 +113,7 @@ export const GoalsTab: React.FC = () => {
         <TouchableOpacity
           onPress={() => setGuideExpanded(!guideExpanded)}
           activeOpacity={0.8}
-          className="p-3 bg-theme-bg border border-theme-border rounded-xl mb-4 flex-row items-center justify-between"
+          className="p-3 bg-theme-bg rounded-xl mb-4 flex-row items-center justify-between"
         >
           <View className="flex-row items-center flex-1 pr-2">
             <Ionicons name="information-circle-outline" size={18} color="#FF5A1F" />
@@ -129,29 +129,29 @@ export const GoalsTab: React.FC = () => {
         </TouchableOpacity>
 
         {guideExpanded && (
-          <View className="p-3 bg-theme-bg/60 border border-theme-border rounded-xl mb-4 space-y-2">
+          <View className="p-3 bg-theme-bg/60 rounded-xl mb-4 space-y-2">
             <View className="flex-row flex-wrap gap-2">
-              <View className="w-[48%] p-2 border border-theme-border rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">5K / Sprint Tri</Text>
                 <Text className="text-theme-muted text-[10px]">Target: 30 - 45 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 border border-theme-border rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">10K / Olympic Tri</Text>
                 <Text className="text-theme-muted text-[10px]">Target: 45 - 60 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 border border-theme-border rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">Half Marathon</Text>
                 <Text className="text-theme-muted text-[10px]">Target: 60 - 80 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 border border-theme-border rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">70.3 Half Ironman</Text>
                 <Text className="text-theme-muted text-[10px]">Target: 80 - 110 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 border border-theme-border rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">Full Marathon</Text>
                 <Text className="text-theme-muted text-[10px]">Target: 80 - 100+ CTL</Text>
               </View>
-              <View className="w-[48%] p-2 border border-theme-border rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">140.6 Full Ironman</Text>
                 <Text className="text-theme-muted text-[10px]">Target: 110 - 150+ CTL</Text>
               </View>
@@ -171,15 +171,15 @@ export const GoalsTab: React.FC = () => {
           {milestones.map((row) => (
             <View
               key={row.id}
-              className="p-3 bg-theme-bg border border-theme-border rounded-xl space-y-2"
+              className="p-3 bg-theme-bg rounded-xl space-y-2"
             >
               <View className="flex-row items-center justify-between">
                 <TouchableOpacity
                   onPress={() => handleToggleARace(row.id)}
-                  className={`px-2.5 py-1 rounded-full flex-row items-center border ${
+                  className={`px-2.5 py-1 rounded-full flex-row items-center ${
                     row.isARace
-                      ? 'bg-yellow-500/20 border-yellow-500'
-                      : 'bg-theme-card border-theme-border'
+                      ? 'bg-yellow-500/20'
+                      : 'bg-theme-card'
                   }`}
                 >
                   <Ionicons
@@ -212,7 +212,7 @@ export const GoalsTab: React.FC = () => {
                   onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
                   placeholder="Event Name (e.g. Berlin Marathon)"
                   placeholderTextColor="#8E8E93"
-                  className="bg-theme-card border border-theme-border rounded-lg p-2.5 text-xs text-theme-text font-bold"
+                  className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text font-bold"
                 />
 
                 <View className="flex-row gap-2">
@@ -225,7 +225,7 @@ export const GoalsTab: React.FC = () => {
                       onChangeText={(val) => handleUpdateMilestone(row.id, 'eventDate', val)}
                       placeholder="2026-10-18"
                       placeholderTextColor="#8E8E93"
-                      className="bg-theme-card border border-theme-border rounded-lg p-2.5 text-xs text-theme-text"
+                      className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text"
                     />
                   </View>
 
@@ -239,7 +239,7 @@ export const GoalsTab: React.FC = () => {
                       keyboardType="numeric"
                       placeholder="85"
                       placeholderTextColor="#8E8E93"
-                      className="bg-theme-card border border-theme-border rounded-lg p-2.5 text-xs text-theme-text font-bold"
+                      className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text font-bold"
                     />
                   </View>
                 </View>
@@ -260,7 +260,7 @@ export const GoalsTab: React.FC = () => {
         </TouchableOpacity>
 
         {savedSuccess && (
-          <View className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl mt-3 items-center">
+          <View className="p-3 bg-green-500/10 rounded-xl mt-3 items-center">
             <Text className="text-green-500 font-bold text-xs">
               Calendar saved successfully!
             </Text>

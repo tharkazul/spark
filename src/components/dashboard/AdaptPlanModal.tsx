@@ -53,7 +53,7 @@ export function AdaptPlanModal({
             className="bg-theme-card border border-theme-accent/40 rounded-[28px] p-6 w-full shadow-2xl"
           >
             {/* Top Icon */}
-            <View className="w-12 h-12 rounded-full bg-theme-accent/15 border border-theme-accent items-center justify-center self-center mb-3 shadow-md">
+            <View className="w-12 h-12 rounded-full bg-theme-accent/15 items-center justify-center self-center mb-3 shadow-md">
               <Ionicons name="flash" size={24} color="#16ACBD" />
             </View>
 
@@ -69,7 +69,7 @@ export function AdaptPlanModal({
             <View className="space-y-2.5 mb-6">
               <TouchableOpacity
                 onPress={() => handleOption('TIME_CRUNCH')}
-                className="p-3.5 bg-theme-bg rounded-xl border border-theme-border flex-row items-center gap-3"
+                className="p-3.5 bg-theme-bg rounded-xl flex-row items-center gap-3"
               >
                 <Ionicons name="time-outline" size={20} color="#16ACBD" />
                 <View className="flex-1">
@@ -80,7 +80,7 @@ export function AdaptPlanModal({
 
               <TouchableOpacity
                 onPress={() => handleOption('LOWER_INTENSITY')}
-                className="p-3.5 bg-theme-bg rounded-xl border border-theme-border flex-row items-center gap-3"
+                className="p-3.5 bg-theme-bg rounded-xl flex-row items-center gap-3"
               >
                 <Ionicons name="heart-outline" size={20} color="#10B981" />
                 <View className="flex-1">

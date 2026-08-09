@@ -47,18 +47,18 @@ export function WeekPlanCard({
   return (
     <View className="mb-8">
       {/* 1. Header & Week Navigator (Auto Generate button removed!) */}
-      <Card className="p-4 border-theme-border/60 bg-theme-card mb-4">
+      <Card className="p-4 bg-theme-card mb-4">
         <View className="flex-row items-center justify-between gap-2">
           {/* Title */}
           <View className="flex-row items-center gap-2">
-            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
+            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
               <Ionicons name="calendar-outline" size={16} color="#16ACBD" />
             </View>
             <Text className="text-lg font-extrabold text-theme-text">Week Plan</Text>
           </View>
 
           {/* Week Selector Navigator */}
-          <View className="flex-row items-center bg-theme-bg border border-theme-border/70 rounded-xl px-2 py-1 shrink-0">
+          <View className="flex-row items-center bg-theme-bg rounded-xl px-2 py-1 shrink-0">
             <TouchableOpacity onPress={onPrevWeek} className="px-2 py-1 active:opacity-60">
               <Ionicons name="chevron-back" size={14} color="#16ACBD" />
             </TouchableOpacity>

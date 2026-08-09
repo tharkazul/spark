@@ -88,7 +88,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Mode Switcher */}
-          <View className="flex-row bg-theme-card p-1 rounded-xl mb-6 border border-theme-border">
+          <View className="flex-row bg-theme-card p-1 rounded-xl mb-6">
             <TouchableOpacity
               onPress={() => {
                 setMode('login');
@@ -128,7 +128,7 @@ export default function LoginScreen() {
 
           {/* Error Message */}
           {errorMessage && (
-            <View className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4 flex-row items-center">
+            <View className="bg-red-500/10 rounded-xl p-3 mb-4 flex-row items-center">
               <Ionicons name="alert-circle" size={20} color="#EF4444" className="mr-2" />
               <Text className="text-red-500 text-xs font-medium flex-1 ml-2">{errorMessage}</Text>
             </View>
@@ -141,7 +141,7 @@ export default function LoginScreen() {
                 <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
                   {t('auth.chooseUsername')}
                 </Text>
-                <View className="flex-row items-center bg-theme-card border border-theme-border rounded-xl px-4 min-h-[56px]">
+                <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
                   <Ionicons name="person-outline" size={20} color="#8E8E93" />
                   <TextInput
                     placeholder="Athlete Username"
@@ -160,7 +160,7 @@ export default function LoginScreen() {
               <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
                 {t('auth.enterEmail')}
               </Text>
-              <View className="flex-row items-center bg-theme-card border border-theme-border rounded-xl px-4 min-h-[56px]">
+              <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
                 <Ionicons name="mail-outline" size={20} color="#8E8E93" />
                 <TextInput
                   placeholder="athlete@spark.com"
@@ -180,7 +180,7 @@ export default function LoginScreen() {
               <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
                 {t('auth.enterPassword')}
               </Text>
-              <View className="flex-row items-center bg-theme-card border border-theme-border rounded-xl px-4 min-h-[56px]">
+              <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
                 <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" />
                 <TextInput
                   placeholder="••••••••"

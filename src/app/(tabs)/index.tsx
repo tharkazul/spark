@@ -429,22 +429,22 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       {/* Top Header */}
-      <View className="px-5 pt-3 pb-2 border-b border-theme-border/50 bg-theme-bg">
+      <View className="px-5 pt-3 pb-2 bg-theme-bg">
         <View className="flex-row justify-between items-center mb-3">
           <View>
             <Text className="text-2xl font-extrabold text-theme-text tracking-tight">{t('nav.dashboard')}</Text>
           </View>
-          <View className="flex-row items-center gap-1.5 bg-theme-card border border-theme-border/60 px-3 py-1.5 rounded-full">
+          <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full">
             <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
             <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
           </View>
         </View>
 
         {/* Sub-tab Navigation Segmented Control */}
-        <View className="relative flex-row bg-theme-card border border-theme-border/60 rounded-2xl p-1 overflow-hidden">
+        <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden">
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl border border-theme-accent/30"
+            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl"
             style={{
               left: indicatorLeft,
               width: tabWidth,
@@ -533,7 +533,7 @@ export default function DashboardScreen() {
             <SeasonRoadmapCard info={seasonInfo} />
 
             {/* Part 2: Week Plan Header Row & Side-by-Side Week Bar */}
-            <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/50 bg-theme-card border border-theme-border p-4 rounded-3xl shadow-sm">
+            <View className="flex-row items-center justify-between pb-3 mb-3 bg-theme-card border border-theme-border p-4 rounded-3xl shadow-sm">
               <View className="flex-row items-center gap-3">
                 <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
                   <Ionicons name="calendar-outline" size={20} color="#16ACBD" />
@@ -542,7 +542,7 @@ export default function DashboardScreen() {
               </View>
 
               {/* Week Navigator */}
-              <View className="flex-row items-center bg-theme-card border border-theme-border px-3 py-1.5 rounded-full shadow-sm">
+              <View className="flex-row items-center bg-theme-card px-3 py-1.5 rounded-full shadow-sm">
                 <TouchableOpacity onPress={() => Haptics.selectionAsync()} className="px-1 py-0.5">
                   <Ionicons name="chevron-back" size={13} color="#16ACBD" />
                 </TouchableOpacity>

@@ -98,12 +98,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     <View className="space-y-6">
       {/* USER PROFILE HEADER */}
       <View className="items-center my-4">
-        <View className="w-24 h-24 rounded-full bg-theme-card border-2 border-theme-accent items-center justify-center mb-3 shadow-sm">
+        <View className="w-24 h-24 rounded-full bg-theme-card items-center justify-center mb-3 shadow-sm">
           <Ionicons name="person" size={40} color="#8E8E93" />
         </View>
         <Text className="text-theme-text text-2xl font-bold">{username}</Text>
         {email ? <Text className="text-theme-muted text-sm mt-0.5">{email}</Text> : null}
-        <View className="mt-2 px-3 py-1 bg-theme-accent/10 border border-theme-accent/30 rounded-full">
+        <View className="mt-2 px-3 py-1 bg-theme-accent/10 rounded-full">
           <Text className="text-theme-accent text-xs font-bold">
             {isSparkPlus ? '⚡ Spark+ Member' : 'Free Member'}
           </Text>
@@ -112,7 +112,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* TITLE CUPBOARD */}
       <Card className="p-4 mb-6">
-        <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border">
+        <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
             <Text className="text-theme-text font-bold text-sm">Title Cupboard</Text>
@@ -120,7 +120,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <TouchableOpacity
             onPress={handleGenerateTitle}
             disabled={generatingTitle}
-            className="px-3 py-1 bg-theme-bg border border-theme-accent rounded-lg flex-row items-center"
+            className="px-3 py-1 bg-theme-bg rounded-lg flex-row items-center"
           >
             {generatingTitle ? (
               <ActivityIndicator size="small" color="#FF5A1F" />
@@ -138,10 +138,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               <TouchableOpacity
                 key={item.id}
                 onPress={() => handleEquipTitle(item.id)}
-                className={`flex-row items-center justify-between p-3 rounded-xl border ${
+                className={`flex-row items-center justify-between p-3 rounded-xl ${
                   item.is_equipped
-                    ? 'bg-theme-accent/10 border-theme-accent'
-                    : 'bg-theme-bg border-theme-border'
+                    ? 'bg-theme-accent/10'
+                    : 'bg-theme-bg'
                 }`}
               >
                 <Text className="text-theme-text font-bold text-sm">{item.title_name}</Text>

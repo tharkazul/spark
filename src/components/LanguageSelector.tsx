@@ -19,7 +19,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
 
   if (compact) {
     return (
-      <View className="flex-row items-center bg-gray-100 dark:bg-zinc-800/80 p-1 rounded-full border border-gray-200 dark:border-zinc-700 flex-wrap">
+      <View className="flex-row items-center bg-gray-100 dark:bg-zinc-800/80 p-1 rounded-full flex-wrap">
         {options.map((opt) => {
           const active = language === opt.id;
           return (

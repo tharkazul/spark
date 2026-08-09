@@ -50,7 +50,7 @@ export default function ActivitiesScreen() {
               </View>
             </View>
             
-            <View className="flex-row justify-between bg-theme-bg p-3 rounded-xl border border-theme-border">
+            <View className="flex-row justify-between bg-theme-bg p-3 rounded-xl">
               <View>
                 <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Distance</Text>
                 <Text className="text-theme-text font-bold">{item.distance}</Text>

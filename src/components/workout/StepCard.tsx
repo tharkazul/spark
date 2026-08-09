@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { RenderItemParams } from 'react-native-draggable-flatlist';
 
 import { WorkoutStep, SportType } from '../../types/plan';
 import { styles, CARD_COLORS } from './StepCard.styles';

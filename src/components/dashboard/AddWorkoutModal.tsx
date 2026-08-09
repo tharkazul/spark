@@ -239,10 +239,10 @@ export function AddWorkoutModal({
             {/* Bottom Sheet Modal View */}
             <Animated.View
               style={{ transform: [{ translateY: slideAnim }] }}
-              className="w-full bg-theme-card border-t border-theme-border rounded-t-[32px] px-6 pt-6 pb-10 max-h-[92%] shadow-2xl flex-col flex-1"
+              className="w-full bg-theme-card rounded-t-[32px] px-6 pt-6 pb-10 max-h-[92%] shadow-2xl flex-col flex-1"
             >
               {/* Header */}
-              <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/60 mb-4">
+              <View className="flex-row items-center justify-between pb-4 mb-4">
                 <View>
                   <Text className="text-lg font-extrabold text-theme-text">
                     {initialWorkout ? 'Edit Garmin Exercise' : 'Add Garmin Exercise'}
@@ -254,7 +254,7 @@ export function AddWorkoutModal({
 
                 <TouchableOpacity
                   onPress={onClose}
-                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border"
+                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
                 >
                   <Ionicons name="close" size={18} color="#6F6F79" />
                 </TouchableOpacity>
@@ -286,10 +286,10 @@ export function AddWorkoutModal({
                               setSteps((prev) => scaleStepsForDuration(durationMinutes, prev, sport.type));
                             }}
                             activeOpacity={0.7}
-                            className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl border ${
+                            className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl ${
                               isSelected
-                                ? 'bg-theme-accent/15 border-theme-accent'
-                                : 'bg-theme-bg border-theme-border'
+                                ? 'bg-theme-accent/15'
+                                : 'bg-theme-bg'
                             }`}
                           >
                             <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#FF5F3B' : '#6F6F79'} />
@@ -336,7 +336,7 @@ export function AddWorkoutModal({
                         <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
                           Calculated Spark
                         </Text>
-                        <View className="h-[46px] bg-amber-500/15 border border-amber-500/30 rounded-xl px-3 flex-row items-center justify-between">
+                        <View className="h-[46px] bg-amber-500/15 rounded-xl px-3 flex-row items-center justify-between">
                           <View className="flex-row items-center gap-1.5">
                             <Ionicons name="sparkles" size={16} color="#F59E0B" />
                             <Text className="text-sm font-mono font-extrabold text-amber-500">
@@ -364,10 +364,10 @@ export function AddWorkoutModal({
                                 handleDurationChange(mins);
                               }}
                               activeOpacity={0.7}
-                              className={`px-3 py-1.5 rounded-xl border ${
+                              className={`px-3 py-1.5 rounded-xl ${
                                 isSelected
-                                  ? 'bg-theme-accent border-theme-accent'
-                                  : 'bg-theme-bg border-theme-border'
+                                  ? 'bg-theme-accent'
+                                  : 'bg-theme-bg'
                               }`}
                             >
                               <Text
@@ -387,7 +387,7 @@ export function AddWorkoutModal({
               />
 
               {/* Pinned Action Buttons */}
-              <View className="pt-4 border-t border-theme-border/50 mt-2">
+              <View className="pt-4 mt-2">
                 <View className="flex-row gap-3 mb-2">
                   <View className="flex-1">
                     <Button label="Cancel" variant="outline" onPress={onClose} />
@@ -405,7 +405,7 @@ export function AddWorkoutModal({
                 {initialWorkout && (
                   <TouchableOpacity
                     onPress={handleDelete}
-                    className="py-2.5 items-center justify-center border border-rose-500/30 bg-rose-500/10 rounded-xl mt-1"
+                    className="py-2.5 items-center justify-center bg-rose-500/10 rounded-xl mt-1"
                   >
                     <Text className="text-xs font-extrabold text-rose-500">Delete Exercise</Text>
                   </TouchableOpacity>

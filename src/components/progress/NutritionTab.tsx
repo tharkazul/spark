@@ -14,15 +14,15 @@ export const NutritionTab: React.FC = () => {
       <NutritionProtocolCard nutrition={nutrition} />
 
       {/* FUELING STRATEGY & TIMING */}
-      <Card className="mb-4 bg-theme-card border-theme-border">
+      <Card className="mb-4 bg-theme-card">
         <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-3">
           Fueling Schedule & Nutrient Timing
         </Text>
 
         <View className="space-y-3">
           {/* Pre-Workout */}
-          <View className="flex-row items-center bg-theme-bg/60 border border-theme-border rounded-xl p-3 mb-2">
-            <View className="w-10 h-10 rounded-full bg-orange-500/15 items-center justify-center mr-3 border border-orange-500/30">
+          <View className="flex-row items-center bg-theme-bg/60 rounded-xl p-3 mb-2">
+            <View className="w-10 h-10 rounded-full bg-orange-500/15 items-center justify-center mr-3">
               <Ionicons name="time-outline" size={20} color="#FF5A1F" />
             </View>
             <View className="flex-1">
@@ -34,8 +34,8 @@ export const NutritionTab: React.FC = () => {
           </View>
 
           {/* Intra-Workout */}
-          <View className="flex-row items-center bg-theme-bg/60 border border-theme-border rounded-xl p-3 mb-2">
-            <View className="w-10 h-10 rounded-full bg-amber-500/15 items-center justify-center mr-3 border border-amber-500/30">
+          <View className="flex-row items-center bg-theme-bg/60 rounded-xl p-3 mb-2">
+            <View className="w-10 h-10 rounded-full bg-amber-500/15 items-center justify-center mr-3">
               <Ionicons name="flash-outline" size={20} color="#F9CF45" />
             </View>
             <View className="flex-1">
@@ -47,8 +47,8 @@ export const NutritionTab: React.FC = () => {
           </View>
 
           {/* Post-Workout */}
-          <View className="flex-row items-center bg-theme-bg/60 border border-theme-border rounded-xl p-3">
-            <View className="w-10 h-10 rounded-full bg-emerald-500/15 items-center justify-center mr-3 border border-emerald-500/30">
+          <View className="flex-row items-center bg-theme-bg/60 rounded-xl p-3">
+            <View className="w-10 h-10 rounded-full bg-emerald-500/15 items-center justify-center mr-3">
               <Ionicons name="fitness-outline" size={20} color="#34C759" />
             </View>
             <View className="flex-1">
@@ -62,7 +62,7 @@ export const NutritionTab: React.FC = () => {
       </Card>
 
       {/* HYDRATION STATUS */}
-      <Card className="mb-6 bg-theme-card border-theme-border">
+      <Card className="mb-6 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
             <Ionicons name="water" size={18} color="#FF5A1F" />
@@ -73,7 +73,7 @@ export const NutritionTab: React.FC = () => {
           <Text className="text-xs font-bold text-theme-accent">2.4 / 3.2 L</Text>
         </View>
 
-        <View className="w-full h-2.5 bg-theme-bg rounded-full overflow-hidden border border-theme-border/50 my-1">
+        <View className="w-full h-2.5 bg-theme-bg rounded-full overflow-hidden my-1">
           <View style={{ width: '75%' }} className="h-full bg-theme-accent rounded-full" />
         </View>
       </Card>

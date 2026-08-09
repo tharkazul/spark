@@ -78,12 +78,12 @@ export function LogNiggleModal({
           <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
             <Animated.View
               style={{ transform: [{ translateY: slideAnim }] }}
-              className="bg-theme-card border-t border-theme-border rounded-t-[32px] p-6 shadow-2xl flex-col max-h-[92%]"
+              className="bg-theme-card rounded-t-[32px] p-6 shadow-2xl flex-col max-h-[92%]"
             >
               {/* Pinned Header */}
-              <View className="flex-row items-center justify-between pb-3.5 border-b border-theme-border/60 mb-4">
+              <View className="flex-row items-center justify-between pb-3.5 mb-4">
                 <View className="flex-row items-center gap-2.5">
-                  <View className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 items-center justify-center">
+                  <View className="w-9 h-9 rounded-xl bg-rose-500/15 items-center justify-center">
                     <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
                   </View>
                   <View>
@@ -94,7 +94,7 @@ export function LogNiggleModal({
 
                 <TouchableOpacity
                   onPress={onClose}
-                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border"
+                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
                 >
                   <Ionicons name="close" size={18} color="#8E9BA4" />
                 </TouchableOpacity>
@@ -143,14 +143,14 @@ export function LogNiggleModal({
                             Haptics.selectionAsync();
                             setSeverity(num);
                           }}
-                          className={`flex-1 py-2.5 rounded-xl items-center justify-center border ${
+                          className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
                             isSelected
                               ? num <= 3
-                                ? 'bg-emerald-500 border-emerald-500'
+                                ? 'bg-emerald-500'
                                 : num <= 6
-                                ? 'bg-amber-500 border-amber-500'
-                                : 'bg-rose-500 border-rose-500'
-                              : 'bg-theme-bg border-theme-border'
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                              : 'bg-theme-bg'
                           }`}
                         >
                           <Text
@@ -168,7 +168,7 @@ export function LogNiggleModal({
               </ScrollView>
 
               {/* Pinned Action Buttons */}
-              <View className="flex-row gap-3 pt-3 border-t border-theme-border/40 mt-2">
+              <View className="flex-row gap-3 pt-3 mt-2">
                 <View className="flex-1">
                   <Button label="Cancel" variant="outline" onPress={onClose} />
                 </View>

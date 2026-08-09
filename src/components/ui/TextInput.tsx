@@ -14,7 +14,7 @@ export function TextInput({ label, error, className = '', ...props }: Props) {
         </Text>
       )}
       <RNTextInput
-        className="w-full p-4 border border-theme-border rounded-xl text-base bg-theme-bg text-theme-text"
+        className="w-full p-4 rounded-xl text-base bg-theme-bg text-theme-text"
         placeholderTextColor="#8E8E93"
         {...props}
       />

@@ -35,7 +35,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
 
       <View className="space-y-2 mb-3">
         {plan.map((item, idx) => (
-          <View key={`prop-item-${idx}`} className="p-2.5 rounded-lg bg-theme-bg/60 border border-theme-border flex-row items-center justify-between">
+          <View key={`prop-item-${idx}`} className="p-2.5 rounded-lg bg-theme-bg/60 flex-row items-center justify-between">
             <View className="flex-1 mr-2">
               <Text className="text-theme-accent font-bold text-xs">{item.date} • {item.sport.toUpperCase()}</Text>
               <Text className="text-theme-text text-xs font-medium" numberOfLines={1}>{item.description}</Text>
@@ -50,12 +50,12 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
       </View>
 
       {isAccepted ? (
-        <View className="flex-row items-center justify-center p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40">
+        <View className="flex-row items-center justify-center p-2 rounded-lg bg-emerald-500/20">
           <Ionicons name="checkmark-circle" size={18} color="#10B981" />
           <Text className="text-emerald-400 font-bold text-xs ml-2">Plan Proposal Accepted</Text>
         </View>
       ) : isRejected ? (
-        <View className="flex-row items-center justify-center p-2 rounded-lg bg-red-500/20 border border-red-500/40">
+        <View className="flex-row items-center justify-center p-2 rounded-lg bg-red-500/20">
           <Ionicons name="close-circle" size={18} color="#EF4444" />
           <Text className="text-red-400 font-bold text-xs ml-2">Proposal Rejected</Text>
         </View>
@@ -63,7 +63,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
         <View className="flex-row space-x-2">
           <TouchableOpacity
             onPress={onReject}
-            className="flex-1 py-2.5 rounded-lg bg-theme-bg border border-theme-border items-center justify-center"
+            className="flex-1 py-2.5 rounded-lg bg-theme-bg items-center justify-center"
           >
             <Text className="text-theme-muted font-bold text-xs">Reject</Text>
           </TouchableOpacity>

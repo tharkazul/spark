@@ -31,7 +31,7 @@ export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({ onSelectSugg
           <TouchableOpacity
             key={`sugg-${idx}`}
             onPress={() => onSelectSuggestion(item.prompt)}
-            className="px-3.5 py-1.5 rounded-full bg-theme-card border border-theme-border flex-row items-center active:bg-theme-accent/20"
+            className="px-3.5 py-1.5 rounded-full bg-theme-card flex-row items-center active:bg-theme-accent/20"
           >
             <Text className="text-theme-text text-xs font-medium">{item.label}</Text>
           </TouchableOpacity>

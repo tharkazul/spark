@@ -58,12 +58,12 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
     <View className="space-y-6">
       {/* USAGE STATISTICS */}
       <Card className="p-4 mb-6">
-        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
+        <View className="flex-row items-center gap-2 pb-3 mb-3">
           <View className="w-2.5 h-2.5 rounded-full bg-purple-500" />
           <Text className="text-theme-text font-bold text-sm">Usage Statistics</Text>
         </View>
 
-        <View className="p-4 bg-theme-bg rounded-xl border border-theme-border flex-row items-center justify-between">
+        <View className="p-4 bg-theme-bg rounded-xl flex-row items-center justify-between">
           <View className="flex-1 pr-3">
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
               Personal Daily Token Use Rate
@@ -72,7 +72,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
               Tokens consumed today by AI Coach interactions
             </Text>
           </View>
-          <View className="px-3 py-1.5 bg-theme-accent/10 border border-theme-accent/30 rounded-xl">
+          <View className="px-3 py-1.5 bg-theme-accent/10 rounded-xl">
             <Text className="text-lg font-bold text-theme-accent">1,420</Text>
           </View>
         </View>
@@ -82,7 +82,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
       <TouchableOpacity
         onPress={handleSparkPlusClick}
         activeOpacity={0.9}
-        className="bg-gradient-to-r from-orange-500 to-purple-600 rounded-2xl p-6 mb-6 shadow-md border border-orange-400/30"
+        className="bg-gradient-to-r from-orange-500 to-purple-600 rounded-2xl p-6 mb-6 shadow-md"
       >
         <View className="flex-row items-center gap-2 mb-2">
           <Ionicons name="flash" size={24} color="#FFF" />
@@ -108,7 +108,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
 
       {/* DATA & PRIVACY */}
       <Card className="p-4 mb-6">
-        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
+        <View className="flex-row items-center gap-2 pb-3 mb-3">
           <View className="w-2.5 h-2.5 rounded-full bg-slate-500" />
           <Text className="text-theme-text font-bold text-sm">Account Data & Privacy</Text>
         </View>
@@ -116,7 +116,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
         <View className="space-y-3">
           <TouchableOpacity
             onPress={handleExportData}
-            className="p-3 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-between"
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
           >
             <View className="flex-row items-center">
               <Ionicons name="download-outline" size={18} color="#8E8E93" />
@@ -127,7 +127,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
 
           <TouchableOpacity
             onPress={handleDeleteAccount}
-            className="p-3 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-between"
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
           >
             <View className="flex-row items-center">
               <Ionicons name="trash-outline" size={18} color="#EF4444" />
@@ -141,7 +141,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
       {/* LOG OUT BUTTON */}
       <TouchableOpacity
         onPress={onLogout}
-        className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl items-center mb-6"
+        className="p-4 bg-red-500/10 rounded-xl items-center mb-6"
       >
         <Text className="text-red-500 font-bold text-base">{t('profile.logout')}</Text>
       </TouchableOpacity>

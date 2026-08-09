@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Quest } from '../../types/gamification';
@@ -59,16 +58,16 @@ export function ActiveQuestsCard() {
     : 0;
 
   return (
-    <Card className="p-0 overflow-hidden mb-3.5 border-theme-border shadow-sm">
+    <View className="p-0 overflow-hidden mb-4 rounded-3xl bg-theme-card/80 shadow-sm">
       {/* Header Bar */}
-      <View className="px-4 py-2.5 border-b border-theme-border/70 flex-row justify-between items-center bg-theme-bg/60">
+      <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/40">
         <View className="flex-row items-center gap-2">
-          <View className="w-7 h-7 rounded-lg bg-amber-500/15 border border-amber-500/30 items-center justify-center">
+          <View className="w-7 h-7 rounded-lg bg-amber-500/15 items-center justify-center">
             <Ionicons name="trophy-outline" size={14} color="#F97316" />
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Active Quest</Text>
-            <Text className="text-[9px] text-theme-muted">Single Weekly Challenge</Text>
+            <Text className="text-[9px] text-theme-muted">Weekly Goal</Text>
           </View>
         </View>
 
@@ -76,15 +75,15 @@ export function ActiveQuestsCard() {
           onPress={handleGenerateQuest}
           disabled={loading}
           activeOpacity={0.8}
-          className="flex-row items-center gap-1 bg-theme-card border border-theme-border px-2.5 py-1 rounded-lg shadow-sm"
+          className="flex-row items-center gap-1 bg-theme-bg/60 px-3 py-1.5 rounded-full"
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#FF5A1F" />
+            <ActivityIndicator size="small" color="#F97316" />
           ) : (
             <>
-              <Ionicons name="refresh-outline" size={12} color="#FF5A1F" />
-              <Text className="text-[10px] font-bold text-theme-accent">
-                {activeQuest ? 'Reroll' : 'New Quest'}
+              <Ionicons name="refresh-outline" size={12} color="#F97316" />
+              <Text className="text-[10px] font-bold text-amber-500">
+                {activeQuest ? 'Swap Challenge' : 'New Challenge'}
               </Text>
             </>
           )}
@@ -94,13 +93,13 @@ export function ActiveQuestsCard() {
       {/* Main Content Area */}
       <View className="p-3.5">
         {activeQuest ? (
-          <View className="p-4 bg-theme-bg/70 rounded-2xl border border-theme-border/60">
+          <View className="p-4 bg-theme-bg/50 rounded-2xl">
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-xs font-extrabold text-theme-text flex-1 pr-2 leading-tight">
                 {activeQuest.description}
               </Text>
-              <View className="bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex-row items-center gap-1">
-                <Ionicons name="sparkles" size={11} color="#F97316" />
+              <View className="bg-amber-500/10 px-2.5 py-0.5 rounded-full flex-row items-center gap-1">
+                <Ionicons name="flash" size={11} color="#F97316" />
                 <Text className="text-[10px] font-extrabold text-amber-500">
                   +{activeQuest.reward_points} Spark
                 </Text>
@@ -111,13 +110,13 @@ export function ActiveQuestsCard() {
             <View className="mt-1.5">
               <View className="flex-row justify-between items-center mb-1">
                 <Text className="text-[10px] text-theme-muted font-mono">
-                  Progress: {activeQuest.progress || 0} / {activeQuest.target_value}
+                  {activeQuest.progress || 0} of {activeQuest.target_value} done
                 </Text>
                 <Text className="text-[10px] font-mono font-bold text-theme-accent">
                   {progressPercent}%
                 </Text>
               </View>
-              <View className="w-full h-2.5 bg-theme-border/60 rounded-full overflow-hidden">
+              <View className="w-full h-2.5 bg-theme-bg/80 rounded-full overflow-hidden">
                 <View
                   className="h-full bg-amber-500 rounded-full"
                   style={{ width: `${progressPercent}%` }}
@@ -126,11 +125,11 @@ export function ActiveQuestsCard() {
             </View>
           </View>
         ) : (
-          <View className="py-4 items-center justify-center bg-theme-bg/40 rounded-2xl border border-dashed border-theme-border">
+          <View className="py-4 items-center justify-center bg-theme-bg/30 rounded-2xl">
             <Text className="text-xs text-theme-muted font-medium">No active quest</Text>
           </View>
         )}
       </View>
-    </Card>
+    </View>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { MacroPeriodInfo } from '../../types/dashboard';
@@ -21,32 +20,31 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
   };
 
   return (
-    <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
-      {/* Header Bar matching Quest Card design */}
+    <View className="p-4 md:p-5 rounded-3xl bg-theme-card/80 shadow-sm mb-5">
+      {/* Header Bar */}
       <TouchableOpacity
         onPress={toggleExpand}
         activeOpacity={0.75}
-        className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50"
+        className="flex-row items-center justify-between pb-3 mb-3.5"
       >
         <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="compass-outline" size={20} color="#16ACBD" />
+          <View className="w-10 h-10 rounded-2xl bg-theme-accent/15 items-center justify-center">
+            <Ionicons name="compass-outline" size={20} color="#38BDF8" />
           </View>
 
           <View className="flex-row items-center gap-1.5">
             <Text className="text-base font-extrabold text-theme-text">Training Phase</Text>
-            {/* Elegant Chevron Indicator */}
             <Ionicons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
               size={15}
-              color="#16ACBD"
+              color="#38BDF8"
             />
           </View>
         </View>
 
-        {/* Race Countdown Badge matching Quest Card pill button design */}
-        <View className="bg-theme-card border border-theme-accent/40 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm">
-          <Ionicons name="trophy-outline" size={13} color="#16ACBD" />
+        {/* Race Countdown Badge */}
+        <View className="bg-theme-bg/60 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm">
+          <Ionicons name="trophy-outline" size={13} color="#38BDF8" />
           <Text className="text-xs font-mono font-extrabold text-theme-accent">
             {info.daysRemaining}d to {info.raceTargetName}
           </Text>
@@ -57,11 +55,11 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
       <TouchableOpacity
         onPress={toggleExpand}
         activeOpacity={0.85}
-        className="relative w-full h-11 border border-theme-border rounded-2xl flex-row bg-theme-bg overflow-hidden"
+        className="relative w-full h-11 rounded-2xl flex-row bg-theme-bg/60 overflow-hidden"
       >
-        {/* Vibrant Orange Progress Fill Layer */}
+        {/* Progress Fill Layer */}
         <View
-          className="absolute top-0 bottom-0 left-0 bg-[#FF5A1F]/25 border-r border-[#FF5A1F]"
+          className="absolute top-0 bottom-0 left-0 bg-[#F97316]/25"
           style={{ width: `${progressPercent}%` }}
         />
 
@@ -73,9 +71,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           return (
             <View
               key={phase.name}
-              className={`flex-1 items-center justify-center border-r border-theme-border/40 z-10 bg-transparent ${
-                idx === info.phases.length - 1 ? 'border-r-0' : ''
-              }`}
+              className="flex-1 items-center justify-center z-10 bg-transparent"
             >
               <Text
                 className={`text-[11px] font-extrabold uppercase tracking-wider ${
@@ -94,10 +90,10 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
 
         {/* Today Indicator Line & Badge */}
         <View
-          className="absolute top-0 bottom-0 w-[2.5px] bg-[#FF5A1F] z-20"
+          className="absolute top-0 bottom-0 w-[2.5px] bg-[#F97316] z-20"
           style={{ left: `${progressPercent}%` }}
         >
-          <View className="absolute -top-2.5 -translate-x-1/2 left-0 bg-theme-card border border-theme-accent px-1 py-0.2 rounded shadow-sm">
+          <View className="absolute -top-2.5 -translate-x-1/2 left-0 bg-theme-card px-1 py-0.2 rounded shadow-sm">
             <Text className="text-[7.5px] font-extrabold text-theme-accent uppercase">Today</Text>
           </View>
         </View>
@@ -105,16 +101,16 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
 
       {/* Expanded Details Section */}
       {isExpanded && (
-        <View className="mt-4 pt-3.5 border-t border-theme-border/50">
+        <View className="mt-4 pt-3.5">
           {/* Fitness Projection Bar */}
-          <View className="bg-theme-bg/60 p-3 rounded-2xl border border-theme-border mb-3">
+          <View className="bg-theme-bg/50 p-3 rounded-2xl mb-3">
             <View className="flex-row justify-between items-center mb-1.5">
               <Text className="text-xs font-bold text-theme-text">Fitness Projection (CTL)</Text>
               <Text className="text-xs font-mono font-bold text-theme-accent">
                 {info.currentCTL} CTL <Text className="text-theme-muted font-normal">/ Target {info.targetCTL} CTL</Text>
               </Text>
             </View>
-            <View className="w-full h-2 bg-theme-border/60 rounded-full overflow-hidden">
+            <View className="w-full h-2 bg-theme-bg/80 rounded-full overflow-hidden">
               <View
                 className="h-full bg-theme-accent rounded-full"
                 style={{ width: `${Math.min(100, (info.currentCTL / info.targetCTL) * 100)}%` }}
@@ -131,12 +127,12 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
               return (
                 <View
                   key={phase.name}
-                  className={`p-3 rounded-2xl border ${
+                  className={`p-3 rounded-2xl ${
                     isActive
-                      ? 'bg-theme-accent-soft/30 border-theme-accent'
+                      ? 'bg-theme-accent-soft/30'
                       : isCompleted
-                      ? 'bg-theme-bg/50 border-theme-border/60'
-                      : 'bg-theme-bg/30 border-theme-border/40 opacity-70'
+                      ? 'bg-theme-bg/50'
+                      : 'bg-theme-bg/30 opacity-70'
                   }`}
                 >
                   <View className="flex-row items-center justify-between mb-1">
@@ -152,7 +148,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                     </View>
 
                     {isCompleted && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
                         <Text className="text-[8.5px] font-extrabold text-emerald-500">DONE</Text>
                       </View>
@@ -177,6 +173,6 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           </View>
         </View>
       )}
-    </Card>
+    </View>
   );
 }

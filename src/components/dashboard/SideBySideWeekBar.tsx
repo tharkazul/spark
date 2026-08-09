@@ -34,7 +34,7 @@ export function SideBySideWeekBar({
   };
 
   return (
-    <View className="flex-row gap-1.5 p-1.5 bg-theme-bg/80 rounded-2xl border border-slate-200 mb-3">
+    <View className="flex-row gap-1.5 p-1.5 bg-theme-bg/80 rounded-2xl mb-3">
       {agenda.map((day, idx) => {
         const isSelected = selectedDayIndex === idx;
         const isToday = day.isToday;
@@ -49,12 +49,12 @@ export function SideBySideWeekBar({
               onSelectDay(idx, day.dayName);
             }}
             activeOpacity={0.8}
-            className={`flex-1 rounded-xl overflow-hidden border ${
+            className={`flex-1 rounded-xl overflow-hidden ${
               isToday
-                ? 'border-theme-accent border-[1.5px] bg-theme-card'
+                ? 'bg-theme-card'
                 : isSelected
-                ? 'border-amber-500 border-[1.5px] bg-theme-card'
-                : 'border-slate-200 bg-theme-card'
+                ? 'bg-theme-card'
+                : 'bg-theme-card'
             }`}
           >
             <View

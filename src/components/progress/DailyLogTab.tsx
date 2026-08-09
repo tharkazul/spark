@@ -87,12 +87,12 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
   return (
     <View className="space-y-4">
       {/* DAILY LOG INPUT FORM */}
-      <Card className="mb-4 bg-theme-card border-theme-border">
+      <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-4">
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
             Daily Biometrics Log
           </Text>
-          <View className="px-3 py-1 bg-theme-bg border border-theme-border rounded-lg">
+          <View className="px-3 py-1 bg-theme-bg rounded-lg">
             <Text className="text-xs font-bold text-theme-accent">{date}</Text>
           </View>
         </View>
@@ -105,12 +105,12 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
           <View className="flex-row items-center space-x-3">
             <TouchableOpacity
               onPress={() => handleAdjustWeight(-0.5)}
-              className="w-12 h-12 bg-theme-bg border border-theme-border rounded-xl items-center justify-center"
+              className="w-12 h-12 bg-theme-bg rounded-xl items-center justify-center"
             >
               <Ionicons name="remove" size={20} color="#FF5A1F" />
             </TouchableOpacity>
 
-            <View className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-2.5 items-center justify-center">
+            <View className="flex-1 bg-theme-bg rounded-xl px-4 py-2.5 items-center justify-center">
               <TextInput
                 value={weightKg}
                 onChangeText={setWeightKg}
@@ -122,7 +122,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
 
             <TouchableOpacity
               onPress={() => handleAdjustWeight(0.5)}
-              className="w-12 h-12 bg-theme-bg border border-theme-border rounded-xl items-center justify-center"
+              className="w-12 h-12 bg-theme-bg rounded-xl items-center justify-center"
             >
               <Ionicons name="add" size={20} color="#FF5A1F" />
             </TouchableOpacity>
@@ -146,10 +146,10 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
                   Haptics.selectionAsync();
                   setSleepQuality(star);
                 }}
-                className={`flex-1 mx-1 py-2.5 rounded-xl border items-center justify-center ${
+                className={`flex-1 mx-1 py-2.5 rounded-xl items-center justify-center ${
                   sleepQuality >= star
-                    ? 'bg-amber-500/15 border-amber-500/40'
-                    : 'bg-theme-bg border-theme-border'
+                    ? 'bg-amber-500/15'
+                    : 'bg-theme-bg'
                 }`}
               >
                 <Ionicons
@@ -179,10 +179,10 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
                   Haptics.selectionAsync();
                   setFatigueLevel(lvl);
                 }}
-                className={`flex-1 mx-1 py-2.5 rounded-xl border items-center justify-center ${
+                className={`flex-1 mx-1 py-2.5 rounded-xl items-center justify-center ${
                   fatigueLevel === lvl
-                    ? 'bg-red-500/20 border-red-500'
-                    : 'bg-theme-bg border-theme-border'
+                    ? 'bg-red-500/20'
+                    : 'bg-theme-bg'
                 }`}
               >
                 <Text
@@ -208,7 +208,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
             placeholder="e.g. Left calf feels a bit tight after hill reps..."
             multiline
             numberOfLines={2}
-            className="bg-theme-bg border border-theme-border text-theme-text rounded-xl p-3 text-sm"
+            className="bg-theme-bg text-theme-text rounded-xl p-3 text-sm"
             style={{ textAlignVertical: 'top', minHeight: 60 }}
           />
         </View>
@@ -224,7 +224,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
               // Simulating photo picker touch
               setPhotoUri('selected');
             }}
-            className="bg-theme-bg border border-dashed border-theme-border rounded-xl p-3 flex-row items-center justify-center space-x-2"
+            className="bg-theme-bg rounded-xl p-3 flex-row items-center justify-center space-x-2"
           >
             <Ionicons name="camera-outline" size={18} color="#FF5A1F" />
             <Text className="text-xs font-bold text-theme-accent">
@@ -238,7 +238,7 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
       </Card>
 
       {/* HISTORY FEED */}
-      <Card className="mb-6 bg-theme-card border-theme-border">
+      <Card className="mb-6 bg-theme-card">
         <View className="flex-row items-center space-x-2 mb-3">
           <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
@@ -252,9 +252,9 @@ export const DailyLogTab: React.FC<DailyLogTabProps> = ({
           history.map((entry) => (
             <View
               key={entry.id}
-              className="bg-theme-bg/70 border border-theme-border rounded-xl p-4 mb-3"
+              className="bg-theme-bg/70 rounded-xl p-4 mb-3"
             >
-              <View className="flex-row justify-between items-center mb-2 pb-2 border-b border-theme-border/50">
+              <View className="flex-row justify-between items-center mb-2 pb-2">
                 <Text className="text-sm font-extrabold text-theme-text">{entry.date}</Text>
 
                 <TouchableOpacity onPress={() => entry.id && handleDelete(entry.id)}>

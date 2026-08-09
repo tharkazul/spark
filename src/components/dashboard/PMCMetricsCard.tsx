@@ -38,13 +38,13 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
     ? readinessScore 
     : Math.max(0, Math.min(100, Math.round(50 + Math.max(-20, Math.min(20, tsb * 0.5)))));
 
-  let readinessBadge = { text: 'Optimal Building', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' };
+  let readinessBadge = { text: 'Optimal Building', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: '' };
   if (computedReadiness < 40 || tsb < -30) {
-    readinessBadge = { text: 'High Fatigue / Rest Needed', color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30' };
+    readinessBadge = { text: 'High Fatigue / Rest Needed', color: 'text-red-500', bg: 'bg-red-500/10', border: '' };
   } else if (computedReadiness < 65 || tsb < -10) {
-    readinessBadge = { text: 'Productive Build', color: 'text-theme-accent', bg: 'bg-theme-accent/10', border: 'border-theme-accent/30' };
+    readinessBadge = { text: 'Productive Build', color: 'text-theme-accent', bg: 'bg-theme-accent/10', border: '' };
   } else if (tsb > 10) {
-    readinessBadge = { text: 'Race Ready / Fresh', color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: 'border-emerald-400/30' };
+    readinessBadge = { text: 'Race Ready / Fresh', color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: '' };
   }
 
   return (
@@ -58,7 +58,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
           </Text>
         </View>
         {tier === 'spark_plus' && (
-          <View className="bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full flex-row items-center">
+          <View className="bg-amber-500/15 px-2 py-0.5 rounded-full flex-row items-center">
             <Ionicons name="flash" size={10} color="#f59e0b" className="mr-1" />
             <Text className="text-[10px] text-amber-500 font-bold">Spark Plus AI</Text>
           </View>
@@ -68,7 +68,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
       {/* 4 Grid Metric Cards with Sparklines */}
       <View className="flex-row flex-wrap gap-2.5">
         {/* CTL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card border border-theme-border rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
               Fitness (CTL)
@@ -97,7 +97,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         </View>
 
         {/* ATL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card border border-theme-border rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
               Fatigue (ATL)
@@ -126,7 +126,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         </View>
 
         {/* Readiness (TSB) Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card border border-theme-border rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
               Readiness (TSB)
@@ -148,7 +148,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             height={32}
             width={120}
           />
-          <View className={`self-start mt-1.5 px-2 py-0.5 rounded-full border ${readinessBadge.bg} ${readinessBadge.border}`}>
+          <View className={`self-start mt-1.5 px-2 py-0.5 rounded-full ${readinessBadge.bg}`}>
             <Text className={`text-[9px] font-bold ${readinessBadge.color}`}>
               {readinessBadge.text}
             </Text>
@@ -156,7 +156,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         </View>
 
         {/* Body Weight Trend Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card border border-theme-border rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
               Body Weight

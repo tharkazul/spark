@@ -57,16 +57,16 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     <View className="space-y-6">
       {/* GARMIN CONNECT INTEGRATION */}
       <Card className="p-4 mb-6">
-        <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border">
+        <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="watch-outline" size={20} color="#FF5A1F" />
             <Text className="text-theme-text font-bold text-sm">Garmin Connect Integration</Text>
           </View>
           <View
-            className={`px-2 py-0.5 rounded border ${
+            className={`px-2 py-0.5 rounded ${
               isGarminConnected
-                ? 'bg-green-500/10 border-green-500/30'
-                : 'bg-red-500/10 border-red-500/30'
+                ? 'bg-green-500/10'
+                : 'bg-red-500/10'
             }`}
           >
             <Text
@@ -98,7 +98,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <TouchableOpacity
               onPress={handleSyncGarmin}
               disabled={garminSyncing}
-              className="bg-theme-bg border border-theme-border px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+              className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
             >
               {garminSyncing ? (
                 <ActivityIndicator size="small" color="#FF5A1F" />
@@ -115,16 +115,16 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
       {/* STRAVA INTEGRATION */}
       <Card className="p-4 mb-6">
-        <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border">
+        <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="fitness-outline" size={20} color="#FF5A1F" />
             <Text className="text-theme-text font-bold text-sm">Strava Integration</Text>
           </View>
           <View
-            className={`px-2 py-0.5 rounded border ${
+            className={`px-2 py-0.5 rounded ${
               isStravaConnected
-                ? 'bg-green-500/10 border-green-500/30'
-                : 'bg-red-500/10 border-red-500/30'
+                ? 'bg-green-500/10'
+                : 'bg-red-500/10'
             }`}
           >
             <Text
@@ -156,7 +156,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <TouchableOpacity
               onPress={handleSyncStrava}
               disabled={stravaSyncing}
-              className="bg-theme-bg border border-theme-border px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+              className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
             >
               {stravaSyncing ? (
                 <ActivityIndicator size="small" color="#FF5A1F" />
@@ -173,7 +173,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
       {/* STRAVA AUTOMATIONS */}
       <Card className="p-4 mb-6">
-        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
+        <View className="flex-row items-center gap-2 pb-3 mb-3">
           <View className="w-2.5 h-2.5 rounded-full bg-[#ff6b6b]" />
           <Text className="text-theme-text font-bold text-sm">Strava Automations</Text>
         </View>
@@ -183,7 +183,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </Text>
 
         <View className="space-y-3">
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
+          <View className="flex-row items-center justify-between py-2">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Spark Score in Caption</Text>
               <Text className="text-theme-muted text-[10px]">Add calculated XP and TSS to caption</Text>
@@ -195,7 +195,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
+          <View className="flex-row items-center justify-between py-2">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Post AI Workout Summary Title</Text>
               <Text className="text-theme-muted text-[10px]">Auto-generate catchy workout title</Text>
@@ -207,7 +207,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
+          <View className="flex-row items-center justify-between py-2">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Muscle Strain Metrics</Text>
               <Text className="text-theme-muted text-[10px]">Share affected muscle group load</Text>

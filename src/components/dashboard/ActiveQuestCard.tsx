@@ -69,9 +69,9 @@ export function ActiveQuestCard({ onRerollQuest }: ActiveQuestCardProps) {
   const progressPercent = Math.round((quest.currentProgress / quest.totalTarget) * 100);
 
   return (
-    <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
-      {/* Header matching uniform design (No border outline on top-left icon!) */}
-      <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
+    <Card className="p-4 md:p-5 shadow-sm mb-5">
+      {/* Header matching uniform design */}
+      <View className="flex-row items-center justify-between pb-3 mb-3.5">
         <View className="flex-row items-center gap-3">
           <View className="w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center">
             <Ionicons name="trophy-outline" size={20} color="#F59E0B" />
@@ -86,7 +86,7 @@ export function ActiveQuestCard({ onRerollQuest }: ActiveQuestCardProps) {
         <TouchableOpacity
           onPress={handleReroll}
           activeOpacity={0.7}
-          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
+          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
         >
           <Ionicons name="refresh" size={13} color="#F59E0B" />
           <Text className="text-xs font-bold text-amber-500">Reroll</Text>
@@ -94,14 +94,14 @@ export function ActiveQuestCard({ onRerollQuest }: ActiveQuestCardProps) {
       </View>
 
       {/* Quest Details Box */}
-      <View className="p-4 rounded-2xl border border-theme-border bg-theme-bg/60">
+      <View className="p-4 rounded-2xl bg-theme-bg/60">
         <View className="flex-row items-start justify-between gap-3 mb-4">
           <Text className="flex-1 text-sm font-extrabold text-theme-text leading-snug">
             {quest.title}
           </Text>
 
           {/* Spark Bonus Badge */}
-          <View className="bg-amber-500/15 border border-amber-500/30 px-3 py-1 rounded-full flex-row items-center gap-1 shrink-0">
+          <View className="bg-amber-500/15 px-3 py-1 rounded-full flex-row items-center gap-1 shrink-0">
             <Ionicons name="sparkles" size={12} color="#F59E0B" />
             <Text className="text-xs font-mono font-extrabold text-amber-500">
               +{quest.sparkBonus} Spark
@@ -120,7 +120,7 @@ export function ActiveQuestCard({ onRerollQuest }: ActiveQuestCardProps) {
             </Text>
           </View>
 
-          <View className="w-full h-2 bg-theme-border/60 rounded-full overflow-hidden">
+          <View className="w-full h-2 bg-theme-bg rounded-full overflow-hidden">
             <View
               className="h-full bg-amber-500 rounded-full"
               style={{ width: `${progressPercent}%` }}

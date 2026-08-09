@@ -101,7 +101,7 @@ export const CoachPersonaSettings: React.FC = () => {
 
   return (
     <Card className="p-4 mb-6 space-y-4">
-      <View className="flex-row items-center border-b border-theme-border pb-3 mb-2">
+      <View className="flex-row items-center pb-3 mb-2">
         <Ionicons name="sparkles" size={20} color="#FF5A1F" />
         <Text className="text-base font-bold text-theme-text ml-2">Coach Persona & Settings</Text>
       </View>
@@ -116,10 +116,10 @@ export const CoachPersonaSettings: React.FC = () => {
             <TouchableOpacity
               key={opt.value}
               onPress={() => setSelectedTone(opt.value)}
-              className={`p-3 rounded-xl border flex-row items-center justify-between mb-2 ${
+              className={`p-3 rounded-xl flex-row items-center justify-between mb-2 ${
                 selectedTone === opt.value
-                  ? 'border-theme-accent bg-theme-accent/10'
-                  : 'border-theme-border bg-theme-bg/50'
+                  ? 'bg-theme-accent/10'
+                  : 'bg-theme-bg/50'
               }`}
             >
               <Text className={`text-sm ${selectedTone === opt.value ? 'font-bold text-theme-accent' : 'text-theme-text'}`}>
@@ -135,11 +135,11 @@ export const CoachPersonaSettings: React.FC = () => {
 
       {/* Custom Coach Fields */}
       {isCustomSelected && (
-        <View className="p-3 bg-theme-bg/60 border border-theme-border rounded-xl space-y-3 mb-3">
+        <View className="p-3 bg-theme-bg/60 rounded-xl space-y-3 mb-3">
           <View>
             <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Coach Name</Text>
             <TextInput
-              className="bg-theme-card border border-theme-border rounded-xl p-3 text-theme-text text-sm"
+              className="bg-theme-card rounded-xl p-3 text-theme-text text-sm"
               placeholder="Coach Name: XXX"
               placeholderTextColor="#8E8E93"
               value={coachName}
@@ -150,7 +150,7 @@ export const CoachPersonaSettings: React.FC = () => {
           <View className="mt-2">
             <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Coach Context</Text>
             <TextInput
-              className="bg-theme-card border border-theme-border rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
+              className="bg-theme-card rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
               placeholder="Coach Context: XXX"
               placeholderTextColor="#8E8E93"
               value={coachContext}
@@ -175,7 +175,7 @@ export const CoachPersonaSettings: React.FC = () => {
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('neutral')}
                   disabled={uploadingMood === 'neutral'}
-                  className="w-16 h-16 rounded-full border border-theme-border bg-theme-card items-center justify-center overflow-hidden mb-1"
+                  className="w-16 h-16 rounded-full bg-theme-card items-center justify-center overflow-hidden mb-1"
                 >
                   {user?.coach_avatar_neutral ? (
                     <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_neutral)! }} className="w-full h-full" />
@@ -199,7 +199,7 @@ export const CoachPersonaSettings: React.FC = () => {
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('hype')}
                   disabled={uploadingMood === 'hype'}
-                  className="w-16 h-16 rounded-full border border-theme-border bg-theme-card items-center justify-center overflow-hidden mb-1"
+                  className="w-16 h-16 rounded-full bg-theme-card items-center justify-center overflow-hidden mb-1"
                 >
                   {user?.coach_avatar_hype ? (
                     <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_hype)! }} className="w-full h-full" />
@@ -223,7 +223,7 @@ export const CoachPersonaSettings: React.FC = () => {
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('disappointed')}
                   disabled={uploadingMood === 'disappointed'}
-                  className="w-16 h-16 rounded-full border border-theme-border bg-theme-card items-center justify-center overflow-hidden mb-1"
+                  className="w-16 h-16 rounded-full bg-theme-card items-center justify-center overflow-hidden mb-1"
                 >
                   {user?.coach_avatar_disappointed ? (
                     <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_disappointed)! }} className="w-full h-full" />
@@ -251,7 +251,7 @@ export const CoachPersonaSettings: React.FC = () => {
           Athlete Background Context
         </Text>
         <TextInput
-          className="bg-theme-card border border-theme-border rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
+          className="bg-theme-card rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
           placeholder="e.g. Training for marathon, has 2 kids..."
           placeholderTextColor="#8E8E93"
           value={athleteContext}

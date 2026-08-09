@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { WorkoutItem, SportType } from '../../types/dashboard';
@@ -67,62 +66,56 @@ export function MicroPlanAgendaCard({
       case 'SWIM':
         return {
           bg: 'bg-[#2E8FE0]/15',
-          text: 'text-[#2E8FE0]',
-          borderColor: 'border-[#2E8FE0]',
-          borderLeft: 'border-l-[#2E8FE0]',
+          text: 'text-[#38BDF8]',
+          borderLeft: 'border-l-[#38BDF8]',
           label: 'SWIM',
           icon: 'water-outline',
-          badgeColor: '#2E8FE0',
+          badgeColor: '#38BDF8',
         };
       case 'RUN':
         return {
-          bg: 'bg-[#D9A62E]/15',
-          text: 'text-[#D9A62E]',
-          borderColor: 'border-[#D9A62E]',
-          borderLeft: 'border-l-[#D9A62E]',
+          bg: 'bg-[#F97316]/15',
+          text: 'text-[#FB923C]',
+          borderLeft: 'border-l-[#FB923C]',
           label: 'RUN',
           icon: 'walk-outline',
-          badgeColor: '#D9A62E',
+          badgeColor: '#FB923C',
         };
       case 'BIKE':
         return {
-          bg: 'bg-[#4CAF6D]/15',
-          text: 'text-[#4CAF6D]',
-          borderColor: 'border-[#4CAF6D]',
-          borderLeft: 'border-l-[#4CAF6D]',
+          bg: 'bg-[#10B981]/15',
+          text: 'text-[#34D399]',
+          borderLeft: 'border-l-[#34D399]',
           label: 'BIKE',
           icon: 'bicycle-outline',
-          badgeColor: '#4CAF6D',
+          badgeColor: '#34D399',
         };
       case 'STRENGTH':
         return {
-          bg: 'bg-[#B36AE0]/15',
-          text: 'text-[#B36AE0]',
-          borderColor: 'border-[#B36AE0]',
-          borderLeft: 'border-l-[#B36AE0]',
+          bg: 'bg-[#A855F7]/15',
+          text: 'text-[#C084FC]',
+          borderLeft: 'border-l-[#C084FC]',
           label: 'STRENGTH',
           icon: 'barbell-outline',
-          badgeColor: '#B36AE0',
+          badgeColor: '#C084FC',
         };
       case 'MOBILITY':
         return {
-          bg: 'bg-[#2EBFAF]/15',
-          text: 'text-[#2EBFAF]',
-          borderColor: 'border-[#2EBFAF]',
-          borderLeft: 'border-l-[#2EBFAF]',
+          bg: 'bg-[#14B8A6]/15',
+          text: 'text-[#2DD4BF]',
+          borderLeft: 'border-l-[#2DD4BF]',
           label: 'MOBILITY',
           icon: 'body-outline',
-          badgeColor: '#2EBFAF',
+          badgeColor: '#2DD4BF',
         };
       default:
         return {
-          bg: 'bg-gray-500/15',
-          text: 'text-gray-400',
-          borderColor: 'border-gray-500',
-          borderLeft: 'border-l-gray-400',
+          bg: 'bg-slate-700/20',
+          text: 'text-slate-400',
+          borderLeft: 'border-l-slate-400',
           label: 'REST',
           icon: 'moon-outline',
-          badgeColor: '#6F6F79',
+          badgeColor: '#94A3B8',
         };
     }
   };
@@ -157,22 +150,22 @@ export function MicroPlanAgendaCard({
   };
 
   return (
-    <Card className="p-0 overflow-hidden mb-8 border-theme-border/60 bg-theme-card">
+    <View className="p-0 overflow-hidden mb-8 rounded-3xl bg-theme-card/80 shadow-sm">
       {/* Header & Week Navigator */}
-      <View className="p-4 border-b border-theme-border/50 bg-theme-bg/40">
+      <View className="p-4 bg-theme-bg/40">
         <View className="flex-row items-center justify-between gap-2 mb-3">
           {/* Title */}
           <View className="flex-row items-center gap-2">
-            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 border border-theme-accent/30 items-center justify-center">
-              <Ionicons name="calendar-outline" size={16} color="#16ACBD" />
+            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
+              <Ionicons name="calendar-outline" size={16} color="#38BDF8" />
             </View>
             <Text className="text-lg font-extrabold text-theme-text">Week Plan</Text>
           </View>
 
           {/* Week Selector Navigator */}
-          <View className="flex-row items-center bg-theme-bg border border-theme-border/70 rounded-xl px-2 py-1 shrink-0">
+          <View className="flex-row items-center bg-theme-bg/80 rounded-xl px-2 py-1 shrink-0">
             <TouchableOpacity onPress={handlePrev} className="px-2 py-1 active:opacity-60">
-              <Ionicons name="chevron-back" size={14} color="#16ACBD" />
+              <Ionicons name="chevron-back" size={14} color="#38BDF8" />
             </TouchableOpacity>
 
             <Text className="text-xs font-mono font-extrabold text-theme-text px-1">
@@ -180,17 +173,17 @@ export function MicroPlanAgendaCard({
             </Text>
 
             <TouchableOpacity onPress={handleNext} className="px-2 py-1 active:opacity-60">
-              <Ionicons name="chevron-forward" size={14} color="#16ACBD" />
+              <Ionicons name="chevron-forward" size={14} color="#38BDF8" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* PROMINENT AI PRIMARY ACTION BUTTON (Solid background, never disappears!) */}
+        {/* AI Action Button */}
         <TouchableOpacity
           onPress={handleGenerate}
           disabled={isLoading}
           activeOpacity={0.85}
-          className={`w-full bg-theme-accent py-3 px-4 rounded-xl flex-row items-center justify-center gap-2 ${
+          className={`w-full bg-theme-accent py-3 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${
             isLoading ? 'opacity-80' : 'active:opacity-90'
           }`}
         >
@@ -203,9 +196,9 @@ export function MicroPlanAgendaCard({
             </View>
           ) : (
             <View className="flex-row items-center justify-center gap-2">
-              <Ionicons name="sparkles" size={16} color="#FFFFFF" />
+              <Ionicons name="flash" size={16} color="#FFFFFF" />
               <Text className="text-sm font-extrabold text-white">
-                Auto-Generate Week with Spark AI
+                Auto-Generate Week with AI Coach
               </Text>
             </View>
           )}
@@ -225,7 +218,7 @@ export function MicroPlanAgendaCard({
                 <TouchableOpacity
                   onPress={() => toggleDayExpanded(day)}
                   activeOpacity={0.75}
-                  className="bg-theme-bg/80 border border-theme-border/60 p-3 rounded-2xl flex-row items-center justify-between gap-2 active:bg-theme-accent/10"
+                  className="bg-theme-bg/60 p-3 rounded-2xl flex-row items-center justify-between gap-2 active:bg-theme-accent/10"
                 >
                   <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
                     <Text className="text-xs font-black uppercase tracking-wider text-theme-muted shrink-0">
@@ -240,7 +233,7 @@ export function MicroPlanAgendaCard({
                           return (
                             <View
                               key={w.id}
-                              className={`px-2 py-0.5 rounded-md ${cfg.bg} border border-theme-border/40 flex-row items-center gap-1 shrink min-w-0`}
+                              className={`px-2 py-0.5 rounded-md ${cfg.bg} flex-row items-center gap-1 shrink min-w-0`}
                             >
                               <Ionicons name={cfg.icon as any} size={11} color={cfg.badgeColor} />
                               <Text
@@ -254,44 +247,44 @@ export function MicroPlanAgendaCard({
                         })}
                       </View>
                     ) : (
-                      <View className="px-2 py-0.5 rounded-md bg-gray-500/15 border border-gray-500/20 flex-row items-center gap-1">
-                        <Ionicons name="moon-outline" size={11} color="#8E9BA4" />
-                        <Text className="text-[10px] font-bold text-gray-400">Rest / Recovery Day</Text>
+                      <View className="px-2 py-0.5 rounded-md bg-slate-700/20 flex-row items-center gap-1">
+                        <Ionicons name="moon-outline" size={11} color="#94A3B8" />
+                        <Text className="text-[10px] font-bold text-slate-400">Rest / Recovery Day</Text>
                       </View>
                     )}
                   </View>
 
                   <View className="flex-row items-center gap-2 shrink-0">
                     {hasWorkouts && day.workouts.every((w) => w.isCompleted) && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
                         <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
                       </View>
                     )}
 
                     {/* Distinct Expand Chevron */}
-                    <View className="w-6 h-6 rounded-full bg-theme-card border border-theme-border/60 items-center justify-center">
-                      <Ionicons name="chevron-down" size={13} color="#16ACBD" />
+                    <View className="w-6 h-6 rounded-full bg-theme-bg/80 items-center justify-center">
+                      <Ionicons name="chevron-down" size={13} color="#38BDF8" />
                     </View>
                   </View>
                 </TouchableOpacity>
               ) : (
                 /* FULL EXPANDED VIEW */
                 <View
-                  className={`rounded-2xl border ${
+                  className={`rounded-2xl ${
                     day.isToday
-                      ? 'bg-theme-card border-theme-accent/50'
-                      : 'bg-theme-card border-theme-border/70'
+                      ? 'bg-theme-card/90'
+                      : 'bg-theme-card/60'
                   } overflow-hidden`}
                 >
                   {/* Interactive Header Row */}
                   <TouchableOpacity
                     onPress={() => toggleDayExpanded(day)}
                     activeOpacity={0.75}
-                    className={`px-3.5 py-2.5 flex-row items-center justify-between border-b ${
+                    className={`px-3.5 py-2.5 flex-row items-center justify-between ${
                       day.isToday
-                        ? 'bg-theme-accent-soft/30 border-theme-accent/30'
-                        : 'bg-theme-bg/80 border-theme-border/40'
+                        ? 'bg-theme-accent-soft/20'
+                        : 'bg-theme-bg/60'
                     }`}
                   >
                     <View className="flex-row items-center gap-2">
@@ -308,10 +301,10 @@ export function MicroPlanAgendaCard({
                         </View>
                       )}
 
-                      <Ionicons name="chevron-up" size={14} color="#16ACBD" />
+                      <Ionicons name="chevron-up" size={14} color="#38BDF8" />
                     </View>
 
-                    {/* Distinct "+ Add" Button */}
+                    {/* "+ Add" Button */}
                     <TouchableOpacity
                       onPress={(e) => {
                         e.stopPropagation();
@@ -319,9 +312,9 @@ export function MicroPlanAgendaCard({
                         onAddWorkoutToDay(day.dayName, day.dateStr);
                       }}
                       activeOpacity={0.8}
-                      className="flex-row items-center gap-1 px-3 py-1 rounded-xl bg-theme-accent/15 border border-theme-accent/40 active:bg-theme-accent/30"
+                      className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-theme-accent/15 active:bg-theme-accent/30"
                     >
-                      <Ionicons name="add-circle-outline" size={14} color="#16ACBD" />
+                      <Ionicons name="add-circle-outline" size={14} color="#38BDF8" />
                       <Text className="text-xs font-extrabold text-theme-accent">Add</Text>
                     </TouchableOpacity>
                   </TouchableOpacity>
@@ -329,8 +322,8 @@ export function MicroPlanAgendaCard({
                   {/* Day Workouts Container */}
                   <View className="p-3 bg-theme-bg/30 space-y-2.5">
                     {!hasWorkouts ? (
-                      <View className="py-3 px-3.5 bg-theme-bg/60 rounded-xl border border-theme-border/40 flex-row items-center gap-2">
-                        <Ionicons name="moon-outline" size={16} color="#8E9BA4" />
+                      <View className="py-3 px-3.5 bg-theme-bg/40 rounded-xl flex-row items-center gap-2">
+                        <Ionicons name="moon-outline" size={16} color="#94A3B8" />
                         <Text className="text-xs font-bold text-theme-muted">Rest / Recovery Day</Text>
                       </View>
                     ) : (
@@ -345,7 +338,7 @@ export function MicroPlanAgendaCard({
                               onSelectWorkout(workout);
                             }}
                             activeOpacity={0.75}
-                            className={`p-3.5 rounded-xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-card shadow-sm flex-col gap-2 active:bg-theme-accent/5`}
+                            className={`p-3.5 rounded-xl border-l-4 ${cfg.borderLeft} bg-theme-card/80 flex-col gap-2 active:bg-theme-accent/5`}
                           >
                             {/* Top Line: Discipline Tag & Spark Score */}
                             <View className="flex-row items-center justify-between">
@@ -358,11 +351,11 @@ export function MicroPlanAgendaCard({
 
                               <View className="flex-row items-center gap-2">
                                 <Text className="text-xs font-mono font-bold text-theme-accent">
-                                  {workout.sparkPoints} Spark
+                                  +{workout.sparkPoints} Spark
                                 </Text>
 
                                 {workout.isCompleted && (
-                                  <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                  <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
                                     <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                                     <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
                                   </View>
@@ -375,10 +368,10 @@ export function MicroPlanAgendaCard({
                               {workout.title}
                             </Text>
 
-                            {/* Subline: Duration, Telemetry & Clickable Edit Indicator */}
-                            <View className="flex-row items-center justify-between pt-1 border-t border-theme-border/30">
-                              <Text className="text-xs text-theme-muted font-bold">
-                                Duration: {workout.duration || '45 mins'}
+                            {/* Subline: Human Duration & Chevron */}
+                            <View className="flex-row items-center justify-between pt-1">
+                              <Text className="text-xs text-theme-muted font-medium">
+                                {workout.duration || '45 min'} session · +{workout.sparkPoints} Spark
                               </Text>
 
                               {workout.actualMetrics ? (
@@ -386,10 +379,7 @@ export function MicroPlanAgendaCard({
                                   {workout.actualMetrics}
                                 </Text>
                               ) : (
-                                <View className="flex-row items-center gap-1">
-                                  <Text className="text-xs font-bold text-theme-accent">Tap to edit</Text>
-                                  <Ionicons name="arrow-forward" size={12} color="#16ACBD" />
-                                </View>
+                                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
                               )}
                             </View>
                           </TouchableOpacity>
@@ -403,6 +393,6 @@ export function MicroPlanAgendaCard({
           );
         })}
       </View>
-    </Card>
+    </View>
   );
 }

@@ -1,13 +1,20 @@
 import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 
 import { WorkoutStep } from '../../types/plan';
 import { SportType } from '../../types/dashboard';
 import { makeStepId } from '../../utils/stepId';
 import { StepCard } from '../workout/StepCard';
+
+let DraggableFlatListComponent: any = FlatList;
+try {
+  const mod = require('react-native-draggable-flatlist');
+  DraggableFlatListComponent = mod.default || mod;
+} catch (e) {
+  DraggableFlatListComponent = FlatList;
+}
 
 interface WorkoutStepBuilderProps {
   steps: WorkoutStep[];
@@ -224,10 +231,10 @@ export function WorkoutStepBuilder({ steps, sport, onChangeSteps, ListHeaderComp
   );
 
   return (
-    <DraggableFlatList
+    <DraggableFlatListComponent
       data={steps}
-      keyExtractor={(item) => item.id!}
-      onDragEnd={({ data }) => {
+      keyExtractor={(item: any) => item.id!}
+      onDragEnd={({ data }: any) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         updateStepsAndNotify(data);
       }}

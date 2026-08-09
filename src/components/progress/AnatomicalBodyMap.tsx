@@ -94,7 +94,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   return (
     <View className="items-center py-2">
       {/* Front / Back Toggle Buttons */}
-      <View className="flex-row bg-theme-bg p-1 rounded-xl border border-theme-border mb-4">
+      <View className="flex-row bg-theme-bg p-1 rounded-xl mb-4">
         <TouchableOpacity
           onPress={() => {
             Haptics.selectionAsync();
@@ -133,7 +133,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       </View>
 
       {/* SVG Anatomical Mannequin Body Map */}
-      <View className="bg-theme-bg/60 p-4 rounded-2xl border border-theme-border/60 shadow-sm relative items-center justify-center">
+      <View className="bg-theme-bg/60 p-4 rounded-2xl shadow-sm relative items-center justify-center">
         <Svg width={220} height={360} viewBox="0 0 220 360">
           {/* Background grid line accents */}
           <Circle cx="110" cy="180" r="140" stroke="#5A6973" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.15" />

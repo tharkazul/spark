@@ -23,7 +23,7 @@ export const ProfileSubNav: React.FC<ProfileSubNavProps> = ({
   };
 
   return (
-    <View className="border-b border-theme-border bg-theme-bg pb-2 mb-4">
+    <View className="bg-theme-bg pb-2 mb-4">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -37,10 +37,10 @@ export const ProfileSubNav: React.FC<ProfileSubNavProps> = ({
               key={tab}
               onPress={() => handlePress(tab)}
               activeOpacity={0.7}
-              className={`px-4 py-2.5 mr-2 rounded-xl border ${
+              className={`px-4 py-2.5 mr-2 rounded-xl ${
                 isActive
-                  ? 'bg-theme-accent border-theme-accent'
-                  : 'bg-theme-card border-theme-border'
+                  ? 'bg-theme-accent'
+                  : 'bg-theme-card'
               }`}
             >
               <Text

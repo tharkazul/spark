@@ -57,10 +57,10 @@ export const SparkTab: React.FC<SparkTabProps> = ({
   return (
     <View className="space-y-4">
       {/* SPARK LEVEL CARD */}
-      <Card className="mb-4 bg-theme-card border-theme-border">
+      <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
-            <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
+            <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
               <Ionicons name="flash" size={18} color="#FF5A1F" />
             </View>
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
@@ -73,7 +73,7 @@ export const SparkTab: React.FC<SparkTabProps> = ({
         </View>
 
         {/* Progress Fill Bar */}
-        <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden border border-theme-border/50 my-2">
+        <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden my-2">
           <View
             style={{ width: `${xpPercent}%` }}
             className="h-full bg-theme-accent rounded-full"
@@ -87,12 +87,12 @@ export const SparkTab: React.FC<SparkTabProps> = ({
       </Card>
 
       {/* ATHLETE ARCHETYPE CARD */}
-      <Card className="mb-4 bg-theme-card border-theme-border">
+      <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
             Athlete Archetype
           </Text>
-          <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full border border-theme-accent/30">
+          <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full">
             <Text className="text-[10px] font-bold text-theme-accent uppercase">Balanced Hybrid</Text>
           </View>
         </View>
@@ -113,7 +113,7 @@ export const SparkTab: React.FC<SparkTabProps> = ({
       />
 
       {/* QUESTS LOG */}
-      <Card className="mb-6 bg-theme-card border-theme-border">
+      <Card className="mb-6 bg-theme-card">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center space-x-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
@@ -124,7 +124,7 @@ export const SparkTab: React.FC<SparkTabProps> = ({
           <Text className="text-[11px] text-theme-muted">1 Active</Text>
         </View>
 
-        <View className="bg-theme-bg/70 border border-theme-border rounded-xl p-4">
+        <View className="bg-theme-bg/70 rounded-xl p-4">
           <Text className="text-sm font-bold text-theme-text mb-1">
             Complete 10km Total Distance
           </Text>
@@ -132,7 +132,7 @@ export const SparkTab: React.FC<SparkTabProps> = ({
             Across any combination of your favorite activities (Run, Ride, or Swim) over the next 3 days.
           </Text>
 
-          <View className="flex-row justify-between items-center pt-2 border-t border-theme-border/50">
+          <View className="flex-row justify-between items-center pt-2">
             <View className="flex-row items-center space-x-1">
               <Ionicons name="trophy-outline" size={14} color="#FF5A1F" />
               <Text className="text-xs font-bold text-theme-accent">Reward: 75 Spark</Text>
