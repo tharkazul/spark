@@ -12,16 +12,12 @@ interface ActivityContextType {
   syncStrava: () => Promise<void>;
 }
 
-const defaultActivities: Activity[] = [
-  { id: '1', name: 'Morning Run in San Francisco', sport_type: 'Run', distance_km: 10.2, moving_time_min: 52.2, start_date: 'Today, 7:00 AM', spark_score: 24.5 },
-  { id: '2', name: 'Recovery Ride', sport_type: 'Ride', distance_km: 25.0, moving_time_min: 75.0, start_date: 'Yesterday, 5:30 PM', spark_score: 18.0 },
-  { id: '3', name: 'Track Session', sport_type: 'Run', distance_km: 8.5, moving_time_min: 45.3, start_date: 'Wed, 6:00 PM', spark_score: 31.2 },
-];
+const defaultActivities: Activity[] = [];
 
 const ActivityContext = createContext<ActivityContextType | undefined>(undefined);
 
 export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [activities, setActivities] = useState<Activity[]>(defaultActivities);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +25,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     setLoading(true);
     try {
       const data = await activitiesApi.getActivities();
-      if (data && Array.isArray(data) && data.length > 0) {
+      if (data && Array.isArray(data)) {
         setActivities(data);
       }
       setError(null);

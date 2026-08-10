@@ -21,14 +21,14 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
 
   return (
     <View>
-      {/* Header Bar */}
+      {/* Header Bar matching TodaysPlanCard header format */}
       <TouchableOpacity
         onPress={toggleExpand}
         activeOpacity={0.75}
-        className="flex-row items-center justify-between mb-3"
+        className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50"
       >
         <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-2xl bg-theme-accent/15 items-center justify-center">
+          <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
             <Ionicons name="compass-outline" size={20} color="#FF5F3B" />
           </View>
 
@@ -42,10 +42,10 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           </View>
         </View>
 
-        {/* Race Countdown Badge */}
-        <View className="bg-theme-bg/60 px-3 py-1.5 rounded-full flex-row items-center gap-1.5">
-          <Ionicons name="trophy-outline" size={13} color="#FF5F3B" />
-          <Text className="text-xs font-mono font-extrabold text-theme-accent">
+        {/* Race Countdown Badge matching TodaysPlanCard ADAPT button styling */}
+        <View className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm">
+          <Ionicons name="trophy-outline" size={13} color="#F97316" />
+          <Text className="text-xs font-bold text-amber-500">
             {info.daysRemaining}d to {info.raceTargetName}
           </Text>
         </View>
@@ -103,7 +103,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
       {isExpanded && (
         <View className="mt-4 pt-3.5">
           {/* Fitness Projection Bar */}
-          <View className="bg-theme-bg/50 p-3 rounded-2xl mb-3">
+          <View className="bg-theme-bg/50 p-3 rounded-2xl mb-3 border border-theme-border/40">
             <View className="flex-row justify-between items-center mb-1.5">
               <Text className="text-xs font-bold text-theme-text">Fitness Projection (CTL)</Text>
               <Text className="text-xs font-mono font-bold text-theme-accent">
@@ -127,12 +127,12 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
               return (
                 <View
                   key={phase.name}
-                  className={`p-3 rounded-2xl ${
+                  className={`p-3 rounded-2xl border ${
                     isActive
-                      ? 'bg-theme-accent-soft/30'
+                      ? 'bg-theme-accent-soft/30 border-theme-accent'
                       : isCompleted
-                      ? 'bg-theme-bg/50'
-                      : 'bg-theme-bg/30 opacity-70'
+                      ? 'bg-theme-bg/50 border-theme-border/60'
+                      : 'bg-theme-bg/30 border-theme-border/40 opacity-70'
                   }`}
                 >
                   <View className="flex-row items-center justify-between mb-1">
@@ -148,7 +148,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                     </View>
 
                     {isCompleted && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
                         <Text className="text-[8.5px] font-extrabold text-emerald-500">DONE</Text>
                       </View>

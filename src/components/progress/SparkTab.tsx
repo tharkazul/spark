@@ -7,31 +7,55 @@ import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useUser } from '../../context/UserStore';
+import { useActivities } from '../../context/ActivityStore';
+import { usePhysique } from '../../context/PhysiqueStore';
 import { canAccessQuests } from '../../utils/permissions';
+import { getSparkLevelInfo } from '../../utils/gamification';
+import { calculateAthleteArchetype, ArchetypeData } from '../../utils/archetypeUtils';
+import { calculatePMCMetrics } from '../../utils/pmcUtils';
 
 interface SparkTabProps {
   levelInfo?: {
     level: number;
     currentXp: number;
     nextLevelXp: number;
+    progressPercent?: number;
   };
-  archetypeData?: {
-    endurance: number;
-    strength: number;
-    versatility: number;
-    explosiveness: number;
-  };
+  archetypeData?: ArchetypeData;
 }
 
 export const SparkTab: React.FC<SparkTabProps> = ({
-  levelInfo = { level: 14, currentXp: 10351, nextLevelXp: 10842 },
-  archetypeData = { endurance: 82, strength: 65, versatility: 74, explosiveness: 58 },
+  levelInfo: customLevelInfo,
+  archetypeData: customArchetypeData,
 }) => {
   const { user } = useUser();
-  const xpPercent = Math.min(
-    100,
-    Math.round((levelInfo.currentXp / levelInfo.nextLevelXp) * 100)
+  const { activities } = useActivities();
+  const { physiqueLogs } = usePhysique();
+
+  const computedInfo = getSparkLevelInfo(user?.total_spark ?? 0);
+  const activeLevelInfo = customLevelInfo || {
+    level: computedInfo.level,
+    currentXp: computedInfo.totalSpark,
+    nextLevelXp: computedInfo.nextLevelThreshold,
+    progressPercent: computedInfo.progressPercent,
+  };
+
+  const computedArchetype = calculateAthleteArchetype(activities, user?.athlete_metrics);
+  const activeArchetypeData = customArchetypeData || computedArchetype;
+  const activeArchetypeTitle = customArchetypeData?.title || computedArchetype.title;
+
+  const pmcMetrics = calculatePMCMetrics(
+    activities,
+    user?.athlete_metrics?.weight_kg || 0,
+    physiqueLogs
   );
+
+  const xpPercent = activeLevelInfo.progressPercent !== undefined
+    ? activeLevelInfo.progressPercent
+    : Math.min(
+        100,
+        Math.round((activeLevelInfo.currentXp / (activeLevelInfo.nextLevelXp || 1)) * 100)
+      );
 
   // Mock 30-Day trend datasets matching PWA sparklines
   const fitnessData = [
@@ -52,11 +76,6 @@ export const SparkTab: React.FC<SparkTabProps> = ({
     { value: 23 }, { value: 25 }, { value: 33 }, { value: 40 },
   ];
 
-  const weightData = [
-    { value: 76.5 }, { value: 76.2 }, { value: 76.0 }, { value: 75.6 },
-    { value: 75.3 }, { value: 75.1 }, { value: 74.8 }, { value: 74.5 },
-  ];
-
   return (
     <View className="space-y-4">
       {/* SPARK LEVEL CARD */}
@@ -67,11 +86,11 @@ export const SparkTab: React.FC<SparkTabProps> = ({
               <Ionicons name="flash" size={18} color="#FF5A1F" />
             </View>
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              SPARK LEVEL <Text className="text-theme-accent text-lg font-black">{levelInfo.level}</Text>
+              SPARK LEVEL <Text className="text-theme-accent text-lg font-black">{activeLevelInfo.level}</Text>
             </Text>
           </View>
           <Text className="text-xs font-semibold text-theme-muted">
-            {levelInfo.currentXp} <Text className="text-theme-text font-bold">/ {levelInfo.nextLevelXp} XP</Text>
+            {activeLevelInfo.currentXp} <Text className="text-theme-text font-bold">/ {activeLevelInfo.nextLevelXp} XP</Text>
           </Text>
         </View>
 
@@ -96,23 +115,27 @@ export const SparkTab: React.FC<SparkTabProps> = ({
             Athlete Archetype
           </Text>
           <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full">
-            <Text className="text-[10px] font-bold text-theme-accent uppercase">Balanced Hybrid</Text>
+            <Text className="text-[10px] font-bold text-theme-accent uppercase">{activeArchetypeTitle}</Text>
           </View>
         </View>
 
-        <AthleteRadarChart data={archetypeData} size={230} />
+        <AthleteRadarChart data={activeArchetypeData} size={260} />
       </Card>
 
       {/* PMC TELEMETRY METRICS CARDS WITH SPARKLINES */}
       <PMCMetricsCard
-        ctl={64.2}
-        atl={72.1}
-        tsb={-7.9}
-        weightKg={74.5}
-        ctlHistory={[58, 59, 60, 61.5, 62.8, 63.5, 64.2]}
-        atlHistory={[65, 68, 67, 70, 71.5, 70.8, 72.1]}
-        tsbHistory={[-7, -9, -7, -8.5, -8.7, -7.3, -7.9]}
-        weightHistory={[75.2, 75.0, 74.8, 74.7, 74.6, 74.5, 74.5]}
+        ctl={pmcMetrics.ctl}
+        atl={pmcMetrics.atl}
+        tsb={pmcMetrics.tsb}
+        readinessScore={pmcMetrics.readinessScore}
+        weightKg={pmcMetrics.weightKg}
+        ctlDelta={pmcMetrics.ctlDelta}
+        atlDelta={pmcMetrics.atlDelta}
+        ctlHistory={pmcMetrics.ctlHistory}
+        atlHistory={pmcMetrics.atlHistory}
+        tsbHistory={pmcMetrics.tsbHistory}
+        weightHistory={pmcMetrics.weightHistory}
+        tier={user?.subscription_tier || 'free'}
       />
 
       {/* QUESTS LOG */}

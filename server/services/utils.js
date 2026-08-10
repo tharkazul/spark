@@ -1306,17 +1306,23 @@ function updateUserSparkAndCheckLevel(userId) {
       const oldLevelInfo = getSparkLevelInfo(oldSpark);
       const sparkStartDateDay = userRow.spark_start_date ? userRow.spark_start_date.substring(0, 10) : null;
 
-      const query = sparkStartDateDay
-        ? `SELECT SUM(spark_score) as new_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`
-        : `SELECT SUM(spark_score) as new_total FROM activities WHERE user_id = ?`;
+      const actQuery = sparkStartDateDay
+        ? `SELECT COALESCE(SUM(spark_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`
+        : `SELECT COALESCE(SUM(spark_score), 0) as act_total FROM activities WHERE user_id = ?`;
       const queryParams = sparkStartDateDay ? [userId, sparkStartDateDay] : [userId];
 
-      db.get(
-        query,
-        queryParams,
-        (err, row) => {
-          if (err || !row) return;
-          const newSpark = row.new_total || 0;
+      db.get(actQuery, queryParams, (err, actRow) => {
+        if (err) return;
+        const actTotal = actRow ? (actRow.act_total || 0) : 0;
+
+        const bonusQuery = sparkStartDateDay
+          ? `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`
+          : `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ?`;
+
+        db.get(bonusQuery, queryParams, (err, bonusRow) => {
+          if (err) return;
+          const bonusTotal = bonusRow ? (bonusRow.bonus_total || 0) : 0;
+          const newSpark = Math.round((actTotal + bonusTotal) * 10) / 10;
 
           db.run(
             `UPDATE users SET total_spark = ? WHERE id = ?`,
@@ -1331,8 +1337,8 @@ function updateUserSparkAndCheckLevel(userId) {
               }
             },
           );
-        },
-      );
+        });
+      });
     },
   );
 }

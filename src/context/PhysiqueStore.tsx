@@ -24,23 +24,12 @@ const defaultNutrition: NutritionProtocol = {
   fatTarget: 70,
 };
 
-const defaultLogs: PhysiqueEntry[] = [
-  {
-    id: 1,
-    date: '2026-07-24',
-    weight_kg: 74.5,
-    body_fat_percent: 13.8,
-    lean_mass_kg: 64.2,
-    sleep_quality: 8,
-    fatigue_level: 3,
-    notes: 'Feeling lean and well rested.',
-  },
-];
+const defaultLogs: PhysiqueEntry[] = [];
 
 const PhysiqueContext = createContext<PhysiqueContextType | undefined>(undefined);
 
 export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [physiqueLogs, setPhysiqueLogs] = useState<PhysiqueEntry[]>(defaultLogs);
+  const [physiqueLogs, setPhysiqueLogs] = useState<PhysiqueEntry[]>([]);
   const [nutrition, setNutrition] = useState<NutritionProtocol>(defaultNutrition);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);

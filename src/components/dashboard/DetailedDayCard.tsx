@@ -92,6 +92,13 @@ export function DetailedDayCard({
 
   const hasWorkouts = day.workouts.length > 0;
 
+  const formatHumanDuration = (durationStr?: string, sport?: SportType) => {
+    if (!durationStr) return `45 min ${sport ? sport.toLowerCase() : 'session'}`;
+    const cleanDur = durationStr.replace(/mins?/i, 'min').trim();
+    const sportName = sport ? sport.toLowerCase() : 'session';
+    return `${cleanDur} ${sportName}`;
+  };
+
   return (
     <Card
       className={`p-4 md:p-5 mb-5 border shadow-sm ${
@@ -100,38 +107,38 @@ export function DetailedDayCard({
           : 'border-theme-border bg-theme-card'
       }`}
     >
-      {/* Day Header Row matching Quest Card header format */}
-      <View className="flex-row items-center justify-between pb-3 mb-3.5">
-        <View className="flex-row items-center gap-2.5">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-xs font-black uppercase tracking-wider text-theme-muted">
-              {day.dayName}
-            </Text>
-            <Text className="text-base font-extrabold text-theme-text">{day.dateStr}</Text>
-
-            {day.isToday && (
-              <View className="bg-theme-accent px-2 py-0.5 rounded-full">
-                <Text className="text-[9px] font-extrabold text-white uppercase tracking-wider">
-                  Today
-                </Text>
-              </View>
-            )}
+      {/* Day Header Row matching TodaysPlanCard header format */}
+      <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
+        <View className="flex-row items-center gap-3">
+          <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
+            <Ionicons name="calendar-outline" size={20} color="#FF5F3B" />
           </View>
 
-          {/* Weather Badge */}
-          <View className="flex-row items-center gap-1 bg-theme-bg px-2 py-0.5 rounded-full">
-            <Ionicons name="cloud-outline" size={12} color="#8E9BA4" />
-            <Text className="text-[10px] font-bold text-theme-muted">{weatherTemp}</Text>
+          <View>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-base font-extrabold text-theme-text">{day.dayName} {day.dateStr}</Text>
+
+              {day.isToday && (
+                <View className="bg-theme-accent px-2 py-0.5 rounded-full">
+                  <Text className="text-[9px] font-extrabold text-white uppercase tracking-wider">
+                    Today
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <Text className="text-[11px] text-theme-muted">{weatherTemp} · Scheduled</Text>
           </View>
         </View>
 
-        {/* Adapt Plan Trigger matching Quest Card pill button design */}
+        {/* Adapt Plan Trigger matching TodaysPlanCard ADAPT button styling */}
         <TouchableOpacity
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             onAdaptPress();
           }}
-          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
+          activeOpacity={0.7}
+          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
         >
           <Ionicons name="flash-outline" size={13} color="#F97316" />
           <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
@@ -140,29 +147,31 @@ export function DetailedDayCard({
 
       {/* Workouts List for this Day */}
       {!hasWorkouts ? (
-        <View className="p-4 bg-theme-bg/60 rounded-2xl flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="moon-outline" size={16} color="#6F6F79" />
-            <Text className="text-xs font-bold text-theme-muted">Rest / Recovery Day</Text>
-          </View>
+        <View className="p-5 rounded-2xl border border-theme-border bg-theme-bg/60 flex-col items-center justify-center gap-2">
+          <Ionicons name="moon-outline" size={24} color="#6F6F79" />
+          <Text className="text-sm font-bold text-theme-text">Rest & Recovery Day</Text>
+          <Text className="text-xs text-theme-muted text-center px-4">
+            No structured sessions scheduled for this day. Take time to stretch and refuel.
+          </Text>
 
           <TouchableOpacity
             onPress={() => onAddWorkout(day.dayName, day.dateStr)}
-            className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-theme-accent/10"
+            className="mt-2 flex-row items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-accent"
           >
-            <Ionicons name="add" size={13} color="#FF5F3B" />
-            <Text className="text-xs font-bold text-theme-accent">Add Workout</Text>
+            <Ionicons name="add" size={16} color="#FFFFFF" />
+            <Text className="text-xs font-extrabold text-white">Log Extra Activity</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View className="space-y-3">
           {day.workouts.map((workout) => {
             const cfg = getDisciplineConfig(workout.type);
+            const humanDuration = formatHumanDuration(workout.duration, workout.type);
 
             return (
               <View
                 key={workout.id}
-                className={`p-4 rounded-2xl border-l-4 ${cfg.borderLeft} bg-theme-bg/60 flex-col gap-2`}
+                className={`p-4 rounded-2xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-bg/60 flex-col gap-2`}
               >
                 {/* Top Discipline Line */}
                 <View className="flex-row items-center justify-between">
@@ -175,17 +184,17 @@ export function DetailedDayCard({
 
                   <View className="flex-row items-center gap-2">
                     <Text className="text-xs font-mono font-bold text-theme-accent">
-                      {workout.sparkPoints} Spark
+                      +{workout.sparkPoints} Spark
                     </Text>
 
                     {workout.isStructured && (
-                      <View className="px-2 py-0.5 bg-theme-card rounded">
+                      <View className="px-2 py-0.5 bg-theme-card border border-theme-border/60 rounded">
                         <Text className="text-[9px] font-bold text-theme-muted">Structured</Text>
                       </View>
                     )}
 
                     {workout.isCompleted && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                         <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
                       </View>
@@ -201,22 +210,26 @@ export function DetailedDayCard({
                   <Text className="text-sm font-extrabold text-theme-text leading-snug">
                     {workout.title}
                   </Text>
-                  <Text className="text-xs text-theme-muted font-bold mt-0.5">
-                    Duration: {workout.duration || '45 mins'}
+                </TouchableOpacity>
+
+                {/* Subline: Clean Metric Summary */}
+                <View className="flex-row items-center justify-between pt-1 border-t border-theme-border/40">
+                  <Text className="text-xs text-theme-muted font-bold">
+                    {humanDuration} · +{workout.sparkPoints} Spark
                   </Text>
 
                   {workout.actualMetrics && (
-                    <Text className="text-xs font-mono text-emerald-500 font-bold mt-0.5">
+                    <Text className="text-xs font-mono text-emerald-500 font-bold">
                       {workout.actualMetrics}
                     </Text>
                   )}
-                </TouchableOpacity>
+                </View>
 
                 {/* Action Bar: Edit, Invite, Remove */}
-                <View className="flex-row items-center justify-between pt-2 mt-1">
+                <View className="flex-row items-center justify-between pt-2 mt-1 border-t border-theme-border/20">
                   <TouchableOpacity
                     onPress={() => onSelectWorkout(workout)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card rounded-lg"
+                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card border border-theme-border/60 rounded-lg"
                   >
                     <Ionicons name="create-outline" size={13} color="#FF5F3B" />
                     <Text className="text-xs font-bold text-theme-accent">Edit</Text>
@@ -224,7 +237,7 @@ export function DetailedDayCard({
 
                   <TouchableOpacity
                     onPress={() => onInvitePartner(workout)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card rounded-lg"
+                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card border border-theme-border/60 rounded-lg"
                   >
                     <Ionicons name="person-add-outline" size={13} color="#6F6F79" />
                     <Text className="text-xs font-bold text-theme-muted">Invite Partner</Text>
@@ -232,7 +245,7 @@ export function DetailedDayCard({
 
                   <TouchableOpacity
                     onPress={() => onDeleteWorkout(workout.id)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-rose-500/10 rounded-lg"
+                    className="flex-row items-center gap-1 px-3 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg"
                   >
                     <Ionicons name="trash-outline" size={13} color="#F43F5E" />
                     <Text className="text-xs font-bold text-rose-500">Remove</Text>

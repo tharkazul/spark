@@ -13,11 +13,11 @@ interface LogWeightModalProps {
 
 export function LogWeightModal({
   visible,
-  previousWeight = 74.5,
+  previousWeight = 70.0,
   onClose,
   onSaveWeight,
 }: LogWeightModalProps) {
-  const [weight, setWeight] = useState<number>(previousWeight);
+  const [weight, setWeight] = useState<number>(previousWeight || 70.0);
   const slideAnim = useRef(new Animated.Value(400)).current;
 
   useEffect(() => {

@@ -194,3 +194,24 @@ export const chatApi = {
     }),
   checkin: () => apiClient<{ message: string }>('/api/chat/checkin', { method: 'POST' }),
 };
+
+export const adminApi = {
+  getUsage: () => apiClient<any[]>('/api/admin/usage'),
+  simulate24h: () => apiClient<{ success: boolean; message?: string }>('/api/admin/simulate-24h', { method: 'POST' }),
+  triggerMorning: () => apiClient<{ success: boolean; message?: string }>('/api/admin/trigger-morning', { method: 'POST' }),
+  addTokens: (targetUsername: string) =>
+    apiClient<{ success: boolean; message?: string }>('/api/admin/add-tokens', {
+      method: 'POST',
+      body: JSON.stringify({ targetUsername }),
+    }),
+  setTier: (targetUsername: string, tier: string) =>
+    apiClient<{ success: boolean; message?: string }>('/api/admin/set-tier', {
+      method: 'POST',
+      body: JSON.stringify({ targetUsername, tier }),
+    }),
+  deleteUser: (targetUsername: string) =>
+    apiClient<{ success: boolean; message?: string }>(`/api/admin/delete-user/${encodeURIComponent(targetUsername)}`, {
+      method: 'DELETE',
+    }),
+};
+

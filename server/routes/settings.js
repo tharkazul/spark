@@ -132,33 +132,42 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
 
       const isCompleted = row.onboarding_completed === 1;
 
-      res.json({
-        id: row.id,
-        username: row.username,
-        hasStrava: !!row.strava_refresh_token,
-        hasGarmin: !!row.garmin_username,
-        garminUsername: row.garmin_username,
-        coachTone: row.coach_tone,
-        coachName: row.coach_name || 'Spark',
-        coachContext: row.coach_context || '',
-        coachAvatarNeutral: row.coach_avatar_neutral || null,
-        coachAvatarHype: row.coach_avatar_hype || null,
-        coachAvatarDisappointed: row.coach_avatar_disappointed || null,
-        athleteContext: row.athlete_context,
-        gender: row.gender,
-        lastCycleStart: row.last_cycle_start,
-        averageCycleLength: row.average_cycle_length || 28,
-        searchPrivacy: row.search_privacy === 1,
-        profilePictureUrl: row.profile_picture_url,
-        trainingAvailability: availability,
-        sparkLevel: sparkLevelInfo,
-        dailyTokenUsage: dailyUsage,
-        dailyTokenLimit: currentLimit,
-        subscriptionTier: row.subscription_tier || 'free',
-        subscription_tier: row.subscription_tier || 'free',
-        onboardingCompleted: isCompleted,
-        onboarding_completed: isCompleted,
-      });
+      db.get(
+        `SELECT name, date, target_ctl FROM milestones WHERE user_id = ? AND is_main = 1 LIMIT 1`,
+        [req.user.id],
+        (mErr, milestoneRow) => {
+          res.json({
+            id: row.id,
+            username: row.username,
+            hasStrava: !!row.strava_refresh_token,
+            hasGarmin: !!row.garmin_username,
+            garminUsername: row.garmin_username,
+            coachTone: row.coach_tone,
+            coachName: row.coach_name || 'Spark',
+            coachContext: row.coach_context || '',
+            coachAvatarNeutral: row.coach_avatar_neutral || null,
+            coachAvatarHype: row.coach_avatar_hype || null,
+            coachAvatarDisappointed: row.coach_avatar_disappointed || null,
+            athleteContext: row.athlete_context,
+            gender: row.gender,
+            lastCycleStart: row.last_cycle_start,
+            averageCycleLength: row.average_cycle_length || 28,
+            searchPrivacy: row.search_privacy === 1,
+            profilePictureUrl: row.profile_picture_url,
+            trainingAvailability: availability,
+            sparkLevel: sparkLevelInfo,
+            dailyTokenUsage: dailyUsage,
+            dailyTokenLimit: currentLimit,
+            subscriptionTier: row.subscription_tier || 'free',
+            subscription_tier: row.subscription_tier || 'free',
+            target_event: milestoneRow ? milestoneRow.name : undefined,
+            event_date: milestoneRow ? milestoneRow.date : undefined,
+            target_ctl: milestoneRow ? milestoneRow.target_ctl : undefined,
+            onboardingCompleted: isCompleted,
+            onboarding_completed: isCompleted,
+          });
+        }
+      );
     },
   );
 });
@@ -173,6 +182,9 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     lastCycleStart,
     trainingAvailability,
     onboardingCompleted,
+    targetEvent,
+    eventDate,
+    targetCtl,
   } = req.body;
   const availabilityStr = trainingAvailability
     ? JSON.stringify(trainingAvailability)
@@ -198,6 +210,25 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
         return res
           .status(500)
           .json({ error: "Failed to update coach settings." });
+
+      if (targetEvent || eventDate || targetCtl) {
+        db.run(
+          `DELETE FROM milestones WHERE user_id = ? AND is_main = 1`,
+          [req.user.id],
+          () => {
+            db.run(
+              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main) VALUES (?, ?, ?, ?, 1)`,
+              [
+                req.user.id,
+                targetEvent || "Main Event",
+                eventDate || null,
+                targetCtl ? parseFloat(targetCtl) : null,
+              ],
+            );
+          }
+        );
+      }
+
       res.json({ message: "Coach updated successfully!" });
     },
   );

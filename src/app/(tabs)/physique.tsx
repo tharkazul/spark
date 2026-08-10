@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SparkTab } from '../../components/progress/SparkTab';
 import { NutritionTab } from '../../components/progress/NutritionTab';
@@ -104,7 +105,7 @@ export default function ProgressScreen() {
   };
 
   return (
-    <View className="flex-1 bg-theme-bg">
+    <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       {/* TOP HEADER MATCHING DASHBOARD EXACT POSITIONING */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
         <View className="flex-row justify-between items-center mb-3">
@@ -220,6 +221,6 @@ export default function ProgressScreen() {
           </ScrollView>
         </View>
       </Animated.ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

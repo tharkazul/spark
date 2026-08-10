@@ -20,17 +20,17 @@ interface PMCMetricsProps {
 }
 
 export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
-  ctl = 64.2,
-  atl = 72.1,
-  tsb = -7.9,
+  ctl = 0,
+  atl = 0,
+  tsb = 0,
   readinessScore,
-  weightKg = 74.5,
-  ctlDelta = 1.4,
-  atlDelta = 3.2,
-  ctlHistory = [58, 59, 60, 61.5, 62.8, 63.5, 64.2],
-  atlHistory = [65, 68, 67, 70, 71.5, 70.8, 72.1],
-  tsbHistory = [-7, -9, -7, -8.5, -8.7, -7.3, -7.9],
-  weightHistory = [75.2, 75.0, 74.8, 74.7, 74.6, 74.5, 74.5],
+  weightKg = 0,
+  ctlDelta = 0,
+  atlDelta = 0,
+  ctlHistory = [],
+  atlHistory = [],
+  tsbHistory = [],
+  weightHistory = [],
   tier = 'free',
 }) => {
   // Calculate Readiness score if not provided directly
@@ -164,7 +164,8 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             <Ionicons name="scale-outline" size={12} color="#FF5A1F" />
           </View>
           <Text className="text-2xl font-extrabold text-theme-text font-barlow tracking-tight mb-2">
-            {weightKg.toFixed(1)} <Text className="text-xs text-theme-muted font-normal">kg</Text>
+            {weightKg > 0 ? `${weightKg.toFixed(1)} ` : '-- '}
+            <Text className="text-xs text-theme-muted font-normal">kg</Text>
           </Text>
 
           {/* Sparkline Graph */}

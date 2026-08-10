@@ -24,12 +24,13 @@ const defaultFallbackUser = (username: string): UserProfile => ({
   id: 1,
   username: username || 'Athlete',
   subscription_tier: 'spark_plus',
-  total_spark: 1420.5,
-  level: 14,
+  total_spark: 0,
+  level: 1,
   coach_tone: 'Empathetic but demanding elite endurance coach.',
   profile_picture_url: undefined,
   garmin_connected: false,
   strava_connected: false,
+  onboarding_completed: true,
   daily_availability: {
     MON: 45,
     TUE: 45,
@@ -43,7 +44,7 @@ const defaultFallbackUser = (username: string): UserProfile => ({
     max_hr: 192,
     resting_hr: 48,
     ftp: 285,
-    weight_kg: 74.5,
+    weight_kg: undefined,
   },
 });
 
@@ -110,6 +111,9 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           coach_avatar_disappointed: (profileData as any).coachAvatarDisappointed ?? profileData.coach_avatar_disappointed,
           garmin_connected: (profileData as any).hasGarmin ?? profileData.garmin_connected,
           strava_connected: (profileData as any).hasStrava ?? profileData.strava_connected,
+          onboarding_completed: Boolean(
+            (profileData as any).onboardingCompleted ?? (profileData as any).onboarding_completed ?? true
+          ),
         } : defaultFallbackUser(identifier.split('@')[0]);
 
         setUser(finalUser);
@@ -169,7 +173,9 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           coach_avatar_disappointed: (data as any).coachAvatarDisappointed ?? data.coach_avatar_disappointed,
           garmin_connected: (data as any).hasGarmin ?? data.garmin_connected,
           strava_connected: (data as any).hasStrava ?? data.strava_connected,
-          onboarding_completed: (data as any).onboardingCompleted ?? (data as any).onboarding_completed,
+          onboarding_completed: Boolean(
+            (data as any).onboardingCompleted ?? (data as any).onboarding_completed ?? prev?.onboarding_completed ?? true
+          ),
         }));
       }
       setError(null);
@@ -217,7 +223,9 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
             coach_tone: (profile as any).coachTone ?? profile.coach_tone,
             garmin_connected: (profile as any).hasGarmin ?? profile.garmin_connected,
             strava_connected: (profile as any).hasStrava ?? profile.strava_connected,
-            onboarding_completed: (profile as any).onboardingCompleted ?? (profile as any).onboarding_completed,
+            onboarding_completed: Boolean(
+              (profile as any).onboardingCompleted ?? (profile as any).onboarding_completed ?? true
+            ),
           } : defaultFallbackUser('Athlete');
 
           setUser(finalUser);
