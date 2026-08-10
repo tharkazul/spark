@@ -1,51 +1,43 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { View, TouchableOpacity, useColorScheme, Animated, TouchableWithoutFeedback, Keyboard, Platform } from 'react-native';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import React, { useEffect, useState } from 'react';
+import { View, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Platform } from 'react-native';
+import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBar } from '../context/TabBarContext';
+import { useKeyboardMotionContext } from '../context/KeyboardMotionContext';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 
 const TAB_ORDER = ['index', 'physique', 'coach', 'social', 'profile'];
+const TAB_BAR_HEIGHT = 62;
 
-export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { registerScrollListener } = useTabBar();
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const { registerScrollListener, setTabBarOccupied } = useTabBar();
+  const { progress } = useKeyboardMotionContext();
+  
+  const [barInteractive, setBarInteractive] = useState(true);
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+  useAnimatedReaction(
+    () => progress.value < 0.5,
+    (v, p) => {
+      if (v !== p) {
+        runOnJS(setBarInteractive)(v);
+      }
+    }
+  );
+
+  const scaleAnim = useSharedValue(1);
+  const opacityAnim = useSharedValue(1);
 
   const expandBar = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 6,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scaleAnim.value = withSpring(1, { damping: 15, stiffness: 200 });
+    opacityAnim.value = withTiming(1, { duration: 180 });
   };
 
   const shrinkBar = () => {
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 0.9,
-        friction: 7,
-        tension: 70,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0.88,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    scaleAnim.value = withSpring(0.9, { damping: 15, stiffness: 200 });
+    opacityAnim.value = withTiming(0.88, { duration: 220 });
   };
 
   useEffect(() => {
@@ -55,30 +47,25 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
     return unsubscribe;
   }, [registerScrollListener]);
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, () => setIsKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setIsKeyboardVisible(false));
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  if (isKeyboardVisible) return null;
-
   const bgColor = isDark ? 'rgba(30, 41, 59, 0.90)' : 'rgba(255, 255, 255, 0.90)';
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.08)';
   const activeBlobBg = isDark ? 'rgba(255, 107, 53, 0.20)' : 'rgba(255, 90, 31, 0.15)';
 
-  // Filter routes to only include the 5 primary tab screens
   const visibleRoutes = state.routes.filter((route) => {
     const { options } = descriptors[route.key];
     if ((options as any).href === null) return false;
     return TAB_ORDER.includes(route.name);
+  });
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const totalOffset = TAB_BAR_HEIGHT + insets.bottom + 32;
+    return {
+      transform: [
+        { scale: scaleAnim.value },
+        { translateY: progress.value * totalOffset }
+      ],
+      opacity: opacityAnim.value * (1 - progress.value),
+    };
   });
 
   return (
@@ -91,14 +78,17 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         alignItems: 'center',
         justifyContent: 'center',
       }}
-      pointerEvents="box-none"
+      pointerEvents={barInteractive ? 'box-none' : 'none'}
     >
       <TouchableWithoutFeedback onPress={expandBar}>
         <Animated.View 
-          style={{
+          onLayout={(e) => {
+            setTabBarOccupied(Math.max(insets.bottom, 16) + e.nativeEvent.layout.height);
+          }}
+          style={[{
             width: '85%',
             maxWidth: 380,
-            height: 62,
+            height: TAB_BAR_HEIGHT,
             backgroundColor: bgColor,
             borderColor: borderColor,
             borderWidth: 1,
@@ -112,14 +102,13 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             shadowOpacity: 0.14,
             shadowRadius: 16,
             elevation: 6,
-            transform: [{ scale: scaleAnim }],
-            opacity: opacityAnim,
-          }}
+          }, animatedStyle]}
         >
           {visibleRoutes.map((route) => {
             const { options } = descriptors[route.key];
             const routeIndex = state.routes.findIndex((r) => r.key === route.key);
-            const isFocused = state.index === routeIndex;
+            const activeRouteName = state.routes[state.index]?.name;
+            const isFocused = state.index === routeIndex || (route.name === 'index' && activeRouteName === 'planning');
             const isCenterButton = route.name === 'coach';
 
             const onPress = () => {

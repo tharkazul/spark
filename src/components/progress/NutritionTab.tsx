@@ -14,7 +14,7 @@ export const NutritionTab: React.FC = () => {
       <NutritionProtocolCard nutrition={nutrition} />
 
       {/* FUELING STRATEGY & TIMING */}
-      <Card className="mb-4 bg-theme-card">
+      <Card className="mb-6 bg-theme-card">
         <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-3">
           Fueling Schedule & Nutrient Timing
         </Text>
@@ -58,23 +58,6 @@ export const NutritionTab: React.FC = () => {
               </Text>
             </View>
           </View>
-        </View>
-      </Card>
-
-      {/* HYDRATION STATUS */}
-      <Card className="mb-6 bg-theme-card">
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center space-x-2">
-            <Ionicons name="water" size={18} color="#FF5A1F" />
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              Hydration Target
-            </Text>
-          </View>
-          <Text className="text-xs font-bold text-theme-accent">2.4 / 3.2 L</Text>
-        </View>
-
-        <View className="w-full h-2.5 bg-theme-bg rounded-full overflow-hidden my-1">
-          <View style={{ width: '75%' }} className="h-full bg-theme-accent rounded-full" />
         </View>
       </Card>
     </View>

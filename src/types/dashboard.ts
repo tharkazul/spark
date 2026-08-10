@@ -14,6 +14,7 @@ export interface WorkoutItem {
   actualMetrics?: string; // e.g. "158 avg bpm · 245W · 4:12/km"
   executionScore?: number; // e.g. 98 (% target hit)
   notes?: string;
+  steps?: any[];
 }
 
 export interface NutritionMacro {
@@ -25,6 +26,10 @@ export interface NutritionMacro {
   fatTarget: number;
   focusTitle: string;
   rationale: string;
+  loggedItems?: string | string[];
+  loggedCarbs?: number;
+  loggedProtein?: number;
+  loggedFat?: number;
 }
 
 export interface TrainingPhaseDetail {

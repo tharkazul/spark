@@ -1,7 +1,8 @@
 import { SportType } from './activity';
+export { SportType };
 
 export interface WorkoutStep {
-  id: string;
+  id?: string;
   type: 'warmup' | 'interval' | 'recovery' | 'cooldown' | 'repeat' | 'rest';
   condition_type?: 'time' | 'time_sec' | 'distance' | 'distance_km' | 'reps';
   condition_value?: number;

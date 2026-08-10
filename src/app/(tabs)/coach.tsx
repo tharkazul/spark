@@ -1,32 +1,46 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  SectionList,
-  KeyboardAvoidingView,
+  FlatList,
   Platform,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
   Keyboard,
   TextInput as RNTextInput,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  StyleSheet
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming, 
+  useAnimatedScrollHandler, 
+  useAnimatedReaction, 
+  runOnJS 
+} from 'react-native-reanimated';
 
 import { useCoachChat } from '../../context/CoachChatStore';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
-import { MarkdownText } from '../../components/chat/MarkdownText';
+import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { ChatMessage } from '../../types/chat';
 import { API_BASE_URL } from '../../constants/api';
+import { getCoachAvatarSource } from '../../utils/avatarUtils';
+import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
+import { useTabBar } from '../../context/TabBarContext';
+import { ChatMacroStrip } from '../../components/chat/ChatMacroStrip';
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+
+type ComposerState = 'seated' | 'docked';
+const SHOW_THRESHOLD = 96;
 
 interface ChatSection {
   title: string;
@@ -37,161 +51,202 @@ interface ChatSection {
 function formatDateHeader(dateObj: Date): string {
   if (!dateObj || isNaN(dateObj.getTime())) return '';
   const now = new Date();
-
-  // Normalize to midnight to compare exact calendar days
   const dDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
   const nDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
   const diffDays = Math.round((nDate.getTime() - dDate.getTime()) / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) return 'Today';
   if (diffDays === 1) return 'Yesterday';
   if (diffDays > 1 && diffDays < 7) {
-    return dateObj.toLocaleDateString([], { weekday: 'long' }); // e.g. "Monday"
+    return dateObj.toLocaleDateString([], { weekday: 'long' });
   }
   if (dateObj.getFullYear() === now.getFullYear()) {
-    return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }); // e.g. "Tue, 28 Jul"
+    return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   }
   return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function groupMessagesByDate(messagesList: ChatMessage[]): ChatSection[] {
-  const sectionsMap: { [key: string]: { title: string; dateKey: string; data: ChatMessage[] } } = {};
+type ChatListItem = 
+  | { type: 'message'; data: ChatMessage; isFirstInRun: boolean }
+  | { type: 'date'; title: string; id: string };
 
-  messagesList.forEach((msg) => {
+function flattenMessages(messagesList: ChatMessage[]): ChatListItem[] {
+  const items: ChatListItem[] = [];
+  let currentDateKey = '';
+  let prevMsg: ChatMessage | null = null;
+  
+  messagesList.forEach((msg, index) => {
     const d = new Date(msg.timestamp || Date.now());
-    const dateKey = isNaN(d.getTime())
-      ? 'today'
-      : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-
-    if (!sectionsMap[dateKey]) {
-      sectionsMap[dateKey] = {
-        title: isNaN(d.getTime()) ? 'Today' : formatDateHeader(d),
-        dateKey,
-        data: [],
-      };
+    const dateKey = isNaN(d.getTime()) ? 'today' : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    
+    if (dateKey !== currentDateKey) {
+      currentDateKey = dateKey;
+      items.push({ type: 'date', title: isNaN(d.getTime()) ? 'Today' : formatDateHeader(d), id: `date-${dateKey}` });
+      prevMsg = null;
     }
-    sectionsMap[dateKey].data.push(msg);
+    
+    const isFirstInRun = prevMsg === null || prevMsg.role !== msg.role;
+    items.push({ type: 'message', data: msg, isFirstInRun });
+    prevMsg = msg;
   });
-
-  return Object.values(sectionsMap);
+  
+  return items.reverse();
 }
+
+const MessageRow = React.memo(({ item, isFirstInRun, coachTone, onAccept, onReject }: { item: ChatMessage, isFirstInRun: boolean, coachTone?: string, onAccept: any, onReject: any }) => {
+  const hasText = hasRenderableText(item.content);
+  const hasImages = !!item.images?.length;
+  const hasProposal = !!item.proposedPlan?.length;
+  if (!hasText && !hasImages && !hasProposal) return null;
+  
+  const isUser = item.role === 'user';
+  return (
+    <View className={`mb-4 ${isUser ? 'self-end max-w-[80%]' : 'self-start w-full'}`}>
+      {!isUser && isFirstInRun && (
+        <View className="flex-row items-start gap-3 mb-1">
+          <View className="relative">
+            <Image
+              source={getCoachAvatarSource(coachTone, item.mood)}
+              className="w-10 h-10 rounded-full"
+            />
+          </View>
+          <View className="flex-1 mt-1">
+            <View className="flex-row items-center gap-1.5 mb-1">
+              <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Spark</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      <View className={`${isUser ? 'bg-theme-card rounded-3xl px-4 py-2.5' : 'pl-14 pr-4'}`}>
+        {item.images && item.images.length > 0 ? (
+          <View className="mb-2 flex-row flex-wrap gap-2">
+            {item.images.map((imgUri, imgIdx) => (
+              <Image
+                key={`msg-img-${imgIdx}`}
+                source={{ uri: imgUri }}
+                style={{ width: 140, height: 140, borderRadius: 10 }}
+                contentFit="cover"
+              />
+            ))}
+          </View>
+        ) : null}
+
+        <MarkdownText content={item.content} isUser={isUser} />
+
+        {item.proposedPlan && item.proposedPlan.length > 0 ? (
+          <ProposalCard
+            plan={item.proposedPlan}
+            status={item.proposalStatus}
+            onAccept={() => onAccept(item.id, item.proposedPlan!)}
+            onReject={() => onReject(item.id)}
+          />
+        ) : null}
+
+        <Text className="text-[11px] mt-1.5 self-end text-theme-muted">
+          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+    </View>
+  );
+});
 
 export default function CoachScreen() {
   const { t } = useLanguage();
-  const {
-    messages,
-    sendMessage,
-    sending,
-    loading,
-    acceptProposal,
-    rejectProposal,
-    tokenUsage,
-    error,
-  } = useCoachChat();
-
+  const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, tokenUsage, error } = useCoachChat();
   const { user } = useUser();
+  const insets = useSafeAreaInsets();
+  const { height, progress } = useKeyboardMotionContext();
+  const { tabBarOccupied } = useTabBar();
 
+  const [composerState, setComposerState] = useState<ComposerState>('seated');
   const [inputText, setInputText] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [pillInteractive, setPillInteractive] = useState(false);
 
-  const sectionListRef = useRef<SectionList>(null);
+  const sectionListRef = useRef<any>(null);
   const inputRef = useRef<RNTextInput>(null);
-  const isUserScrollingUpRef = useRef<boolean>(false);
+  const isPinnedToBottom = useRef(true);
+  const hasUserScrolled = useRef(false);
+  const didInitialScroll = useRef(false);
 
-  // Group messages into sections by calendar date
-  const sections = groupMessagesByDate(messages);
+  const distanceFromBottom = useSharedValue(0);
 
-  // Calculate daily token usage percentage
+  const flatItems = useMemo(() => flattenMessages(messages), [messages]);
+
+  const scrollToBottom = useCallback((animated = true) => {
+    try {
+      sectionListRef.current?.scrollToOffset({ offset: 0, animated });
+    } catch (err) {}
+  }, []);
+
+  const updatePinned = useCallback((pinned: boolean) => {
+    if (!hasUserScrolled.current) return;
+    isPinnedToBottom.current = pinned;
+  }, []);
+
+  const activateComposer = useCallback(() => {
+    setComposerState('docked');
+  }, []);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      distanceFromBottom.value = e.contentOffset.y;
+    },
+  });
+
+  useAnimatedReaction(
+    () => distanceFromBottom.value < SHOW_THRESHOLD,
+    (pinned, was) => {
+      if (pinned !== was) runOnJS(updatePinned)(pinned);
+    }
+  );
+
+  useAnimatedReaction(
+    () => distanceFromBottom.value > SHOW_THRESHOLD,
+    (show, prev) => {
+      if (show !== prev) {
+        runOnJS(setPillInteractive)(show);
+      }
+    }
+  );
+
+  useAnimatedReaction(
+    () => progress.value > 0.05,
+    (opening, was) => {
+      if (opening && !was) runOnJS(scrollToBottom)(true);
+    }
+  );
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidHide', () => {
+      if (inputText.trim().length === 0 && selectedImages.length === 0) {
+        setComposerState('seated');
+      }
+    });
+    return () => sub.remove();
+  }, [inputText, selectedImages]);
+
+  useEffect(() => {
+    if (composerState === 'docked') {
+      inputRef.current?.focus();
+    }
+  }, [composerState]);
+
+  useEffect(() => {
+    if (isPinnedToBottom.current) {
+      scrollToBottom(true);
+    }
+  }, [messages.length, sending, scrollToBottom]);
+
   const dailyUsage = tokenUsage?.daily_token_usage || 0;
-  const dailyLimit = tokenUsage?.daily_token_limit || (user?.subscription_tier === 'spark_plus' ? 50000 : 10000);
+  const dailyLimit = tokenUsage?.daily_token_limit || (user?.subscription_tier === 'spark_plus' ? 500000 : 100000);
   const remainingTokens = Math.max(0, dailyLimit - dailyUsage);
   const remainingPercent = Math.round((remainingTokens / dailyLimit) * 100);
   const showTokenWarning = remainingPercent <= 10;
   const isOutOfTokens = remainingTokens <= 0;
-
-  const scrollToBottom = (animated = true) => {
-    if (isUserScrollingUpRef.current) return;
-    try {
-      (sectionListRef.current as any)?.scrollToEnd({ animated });
-    } catch (_) {
-      if (sections.length > 0) {
-        try {
-          const lastSectionIdx = sections.length - 1;
-          const lastItemIdx = sections[lastSectionIdx].data.length - 1;
-          if (lastItemIdx >= 0) {
-            sectionListRef.current?.scrollToLocation({
-              sectionIndex: lastSectionIdx,
-              itemIndex: lastItemIdx,
-              animated,
-            });
-          }
-        } catch (_) {
-          // fallback if layout not complete
-        }
-      }
-    }
-  };
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
-    // User is considered scrolling up if more than 60px away from bottom
-    isUserScrollingUpRef.current = distanceFromBottom > 60;
-  };
-
-  // State 0: Auto focus input on screen load / tab focus
-  useFocusEffect(
-    useCallback(() => {
-      const timer = setTimeout(() => {
-        setIsKeyboardOpen(true);
-        inputRef.current?.focus();
-      }, 350);
-      return () => clearTimeout(timer);
-    }, [])
-  );
-
-  // Keyboard show/hide listeners with automatic message bottom alignment
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, () => {
-      setIsKeyboardOpen(true);
-      isUserScrollingUpRef.current = false;
-      setTimeout(() => scrollToBottom(true), 50);
-      setTimeout(() => scrollToBottom(true), 150);
-      setTimeout(() => scrollToBottom(true), 300);
-    });
-
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setIsKeyboardOpen(false);
-      setTimeout(() => scrollToBottom(true), 50);
-      setTimeout(() => scrollToBottom(true), 200);
-    });
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [sections]);
-
-  useEffect(() => {
-    isUserScrollingUpRef.current = false;
-    const t1 = setTimeout(() => scrollToBottom(true), 60);
-    const t2 = setTimeout(() => scrollToBottom(true), 220);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [isKeyboardOpen]);
-
-  useEffect(() => {
-    scrollToBottom(true);
-  }, [messages.length, sending]);
 
   const handlePickImage = async () => {
     try {
@@ -211,7 +266,6 @@ export default function CoachScreen() {
         setSelectedImages((prev) => [...prev, base64Uri]);
       }
     } catch (error) {
-      console.error('Image picker error:', error);
       Alert.alert('Notice', 'Image attachment not supported in current environment.');
     }
   };
@@ -226,11 +280,7 @@ export default function CoachScreen() {
       setInputText((prev) => (prev ? `${prev} (voice input completed)` : "My calf is feeling a bit tight today."));
     } else {
       setIsRecording(true);
-      Alert.alert(
-        'Voice Recording Activated',
-        'Speak now... (Tap mic again to finish dictation)',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Voice Recording Activated', 'Speak now... (Tap mic again to finish dictation)', [{ text: 'OK' }]);
     }
   };
 
@@ -243,70 +293,25 @@ export default function CoachScreen() {
     setSelectedImages([]);
     setIsRecording(false);
     setShowSuggestions(false);
-    isUserScrollingUpRef.current = false;
+    isPinnedToBottom.current = true;
 
     sendMessage(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined);
   };
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isUser = item.role === 'user';
-    return (
-      <View className={`mb-4 max-w-[88%] ${isUser ? 'self-end' : 'self-start'}`}>
-        {!isUser && (
-          <View className="flex-row items-center mb-1 ml-1">
-            <Text className="text-theme-accent font-bold text-xs mr-2">🤖 Spark</Text>
-            {item.mood && item.mood !== 'default' && (
-              <View className="bg-theme-accent/20 px-2 py-0.5 rounded-full">
-                <Text className="text-theme-accent text-[10px] uppercase font-bold">{item.mood}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View
-          className={`px-4 py-3 rounded-2xl ${
-            isUser
-              ? 'bg-theme-accent rounded-br-sm shadow-sm'
-              : 'bg-theme-card rounded-bl-sm shadow-sm'
-          }`}
-        >
-          {/* User attached images preview */}
-          {item.images && item.images.length > 0 ? (
-            <View className="mb-2 flex-row flex-wrap gap-2">
-              {item.images.map((imgUri, imgIdx) => (
-                <Image
-                  key={`msg-img-${imgIdx}`}
-                  source={{ uri: imgUri }}
-                  style={{ width: 140, height: 140, borderRadius: 10 }}
-                  contentFit="cover"
-                />
-              ))}
-            </View>
-          ) : null}
-
-          <MarkdownText content={item.content} isUser={isUser} />
-
-          {/* Embedded Workout Proposal Card if coach proposed a plan */}
-          {item.proposedPlan && item.proposedPlan.length > 0 ? (
-            <ProposalCard
-              plan={item.proposedPlan}
-              status={item.proposalStatus}
-              onAccept={() => acceptProposal(item.id, item.proposedPlan!)}
-              onReject={() => rejectProposal(item.id)}
-            />
-          ) : null}
-
-          <Text
-            className={`text-[10px] mt-1.5 self-end ${
-              isUser ? 'text-white/70' : 'text-theme-muted'
-            }`}
-          >
-            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+  const renderItem = useCallback(({ item }: { item: ChatListItem }) => {
+    if (item.type === 'date') {
+      return (
+        <View className="py-4 items-center justify-center my-4">
+          <Text className="text-theme-muted text-[12px] font-medium">{item.title}</Text>
         </View>
+      );
+    }
+    return (
+      <View>
+        <MessageRow item={item.data} isFirstInRun={item.isFirstInRun} coachTone={user?.coach_tone} onAccept={acceptProposal} onReject={rejectProposal} />
       </View>
     );
-  };
+  }, [user?.coach_tone, acceptProposal, rejectProposal]);
 
   const getFullAvatarUrl = (path?: string) => {
     if (!path) return null;
@@ -315,28 +320,65 @@ export default function CoachScreen() {
   };
 
   const lastCoachMessage = [...messages].reverse().find(m => m.role === 'coach' || m.role === 'assistant');
-  const lastMood = (lastCoachMessage?.role === 'coach' && lastCoachMessage?.mood) 
-    ? lastCoachMessage.mood.toLowerCase() 
-    : 'neutral';
-  
+  const lastMood = (lastCoachMessage?.role === 'coach' && lastCoachMessage?.mood) ? lastCoachMessage.mood.toLowerCase() : 'neutral';
   let coachAvatarPath = user?.coach_avatar_neutral;
   if (lastMood === 'hype') coachAvatarPath = user?.coach_avatar_hype || user?.coach_avatar_neutral;
   if (lastMood === 'disappointed') coachAvatarPath = user?.coach_avatar_disappointed || user?.coach_avatar_neutral;
-  
-  const coachAvatarUri = getFullAvatarUrl(coachAvatarPath) || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const customAvatarUri = getFullAvatarUrl(coachAvatarPath);
+  const avatarSource = customAvatarUri ? { uri: customAvatarUri } : getCoachAvatarSource(user?.coach_tone);
+
+  const seatStyle = useAnimatedStyle(() => ({
+    opacity: withTiming(composerState === 'docked' ? 0 : 1, { duration: 120 }),
+  }));
+
+  const composerStyle = useAnimatedStyle(() => {
+    const keyboardLift = Math.max(0, height.value - insets.bottom);
+    const tabBarClearance = (1 - progress.value) * tabBarOccupied;
+    return {
+      opacity: withTiming(composerState === 'docked' ? 1 : 0, { duration: 140 }),
+      transform: [{ translateY: -(keyboardLift + tabBarClearance) }],
+    };
+  });
+
+  const pillStyle = useAnimatedStyle(() => {
+    const show = distanceFromBottom.value > SHOW_THRESHOLD ? 1 : 0;
+    return {
+      opacity: withTiming(show, { duration: 150 }),
+      transform: [
+        { scale: withTiming(show ? 1 : 0.9, { duration: 150 }) },
+        { translateY: withTiming(show ? 0 : 6, { duration: 150 }) },
+      ],
+    };
+  });
+
+  const renderInlineInvitation = () => (
+    <Animated.View
+      style={seatStyle}
+      pointerEvents={composerState === 'docked' ? 'none' : 'auto'}
+      className="px-4 pt-2 pb-6"
+    >
+      <TouchableOpacity
+        onPress={activateComposer}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Message your coach"
+        className="flex-row items-center bg-theme-card border border-theme-border rounded-full px-4 py-3"
+        style={{ gap: 10 }}
+      >
+        <Ionicons name="chatbubble-outline" size={18} color="#9CA3AF" />
+        <Text className="text-theme-muted text-[16px] flex-1" numberOfLines={1}>
+          Message your coach
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
-      {/* Clean Header */}
       <View className="px-4 py-3 bg-theme-bg z-10 flex-row items-center">
         <View className="w-10 h-10 rounded-full bg-theme-bg overflow-hidden mr-3 shadow-sm">
-          <Image
-            source={{ uri: coachAvatarUri }}
-            className="w-full h-full"
-            contentFit="cover"
-          />
+          <Image source={avatarSource} className="w-full h-full" contentFit="cover" />
         </View>
-
         <View className="flex-1">
           <Text className="text-theme-text text-base font-extrabold">Spark</Text>
           {isOutOfTokens ? (
@@ -347,7 +389,6 @@ export default function CoachScreen() {
         </View>
       </View>
 
-      {/* Low Token Budget Warning Banner */}
       {showTokenWarning ? (
         <View className="bg-amber-500/15 px-4 py-2 flex-row items-center justify-between">
           <View className="flex-row items-center flex-1 mr-2">
@@ -364,204 +405,152 @@ export default function CoachScreen() {
         </View>
       ) : null}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-        keyboardVerticalOffset={0}
-      >
-        <View className="flex-1">
-          {/* Chat Thread Container with Sticky Section Date Headers */}
-          {loading && messages.length === 0 ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#FF5A1F" />
-              <Text className="text-theme-muted text-xs mt-2">Connecting with Spark...</Text>
-            </View>
-          ) : (
-            <SectionList
-              ref={sectionListRef}
-              sections={sections}
-              keyExtractor={(item, index) => `${item.id}-${index}`}
-              stickySectionHeadersEnabled={true}
-              onScroll={handleScroll}
-              onScrollBeginDrag={() => Keyboard.dismiss()}
-              keyboardShouldPersistTaps="handled"
-              onContentSizeChange={() => {
-                if (!isUserScrollingUpRef.current) {
-                  scrollToBottom(false);
-                }
-              }}
-              renderSectionHeader={({ section: { title } }) => (
-                <View className="py-2 items-center justify-center pointer-events-none z-10">
-                  <View className="bg-theme-card/95 px-3.5 py-1 rounded-full shadow-xs">
-                    <Text className="text-theme-muted text-[11px] font-bold">{title}</Text>
+      <View className="flex-1">
+        {loading && messages.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#FF5A1F" />
+            <Text className="text-theme-muted text-xs mt-2">Connecting with Spark...</Text>
+          </View>
+        ) : (
+          <AnimatedFlatList
+            ref={sectionListRef}
+            data={flatItems}
+            keyExtractor={(item: any, index: number) => item.type === 'date' ? item.id : `msg-${item.data.id || index}`}
+            inverted={true}
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
+            onScrollBeginDrag={() => { hasUserScrolled.current = true; }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            renderItem={renderItem}
+            ListHeaderComponent={
+              <View>
+                {sending ? (
+                  <View className="px-4 py-2 flex-row items-center self-start mb-4 ml-4 bg-theme-card/80 rounded-full">
+                    <ActivityIndicator size="small" color="#FF5A1F" />
+                    <Text className="text-theme-accent text-xs font-semibold ml-2">{t('chat.thinking')}</Text>
                   </View>
-                </View>
-              )}
-              renderItem={renderMessage}
-              contentContainerStyle={{ padding: 16, paddingBottom: !isKeyboardOpen ? 140 : 16 }}
-              className="flex-1"
-            />
-          )}
+                ) : null}
+                {renderInlineInvitation()}
+              </View>
+            }
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: tabBarOccupied + 16, paddingBottom: 16 }}
+            className="flex-1"
+          />
+        )}
+      </View>
 
-          {/* Streaming / Typing Indicator */}
-          {sending ? (
-            <View className="px-4 py-2 flex-row items-center self-start mb-2 ml-4 bg-theme-card/80 rounded-full">
-              <ActivityIndicator size="small" color="#FF5A1F" />
-              <Text className="text-theme-accent text-xs font-semibold ml-2">{t('chat.thinking')}</Text>
+      <View style={[StyleSheet.absoluteFill, { paddingBottom: Math.max(insets.bottom, 16) }]} pointerEvents="box-none" className="justify-end items-center">
+        {/* Jump To Latest Pill */}
+        <Animated.View style={[pillStyle, { marginBottom: 12 }]} pointerEvents={pillInteractive ? 'auto' : 'none'}>
+          <TouchableOpacity
+            onPress={() => {
+              isPinnedToBottom.current = true;
+              scrollToBottom(true);
+            }}
+            className="flex-row items-center bg-theme-card border border-theme-border rounded-full px-3.5 py-2"
+            style={{ gap: 6, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { height: 2, width: 0 }, elevation: 3 }}
+            accessibilityLabel="Scroll to latest message"
+          >
+            <Ionicons name="arrow-down" size={15} color="#9CA3AF" />
+            <Text className="text-theme-muted text-[13px] font-medium">Latest</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Docked Composer */}
+        <Animated.View
+          pointerEvents={composerState === 'docked' ? 'auto' : 'none'}
+          style={[composerStyle, { 
+            position: 'absolute',
+            bottom: Math.max(insets.bottom, 16),
+            left: 0,
+            right: 0,
+            paddingHorizontal: 12,
+          }]}
+        >
+          {showSuggestions && composerState === 'docked' ? (
+            <View className="mb-2">
+              <QuickSuggestions
+                onSelectSuggestion={(promptText) => {
+                  setInputText(promptText);
+                  setShowSuggestions(false);
+                  inputRef.current?.focus();
+                }}
+              />
             </View>
           ) : null}
 
-          {/* Quick Suggestions (Only shown if user toggles them open) */}
-          {showSuggestions ? (
-            <QuickSuggestions
-              onSelectSuggestion={(promptText) => {
-                setInputText(promptText);
-                setShowSuggestions(false);
-                inputRef.current?.focus();
-              }}
-            />
-          ) : null}
+          <ChatMacroStrip
+            isVisible={user?.isChatMacroStripVisible ?? true}
+            onToggle={user?.toggleChatMacroStrip || (() => {})}
+          />
 
-          {/* UNIFIED INPUT MODULE CONTAINER (Static multiline={true} Node to Fix Flashing Bug & Wider Pill) */}
-          <View
-            style={{
-              marginBottom: !isKeyboardOpen ? (Platform.OS === 'ios' ? 116 : 98) : 4,
-              alignSelf: !isKeyboardOpen ? 'flex-end' : 'stretch',
-              marginRight: !isKeyboardOpen ? 16 : 12,
-              marginLeft: !isKeyboardOpen ? 0 : 12,
-              maxWidth: !isKeyboardOpen ? '85%' : '100%',
-              minWidth: !isKeyboardOpen ? 190 : undefined,
-              zIndex: 50,
-            }}
-            className="py-1"
-          >
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                setIsKeyboardOpen(true);
-                setTimeout(() => inputRef.current?.focus(), 40);
-              }}
-              className={`${
-                !isKeyboardOpen
-                  ? 'bg-theme-accent rounded-2xl rounded-br-sm shadow-lg px-4 py-3 flex-row items-center justify-between space-x-2'
-                  : 'bg-theme-card rounded-3xl p-2.5 shadow-lg'
-              }`}
-            >
-              {/* Image Preview Thumbnails if attached (State 2) */}
-              {isKeyboardOpen && selectedImages.length > 0 ? (
-                <View className="mb-2 flex-row gap-2 px-1">
-                  {selectedImages.map((imgUri, idx) => (
-                    <View key={`thumb-${idx}`} className="relative">
-                      <Image
-                        source={{ uri: imgUri }}
-                        style={{ width: 48, height: 48, borderRadius: 8 }}
-                        contentFit="cover"
-                      />
-                      <TouchableOpacity
-                        onPress={() => handleRemoveImage(idx)}
-                        className="absolute -top-1.5 -right-1.5 bg-red-500 w-4 h-4 rounded-full items-center justify-center"
-                      >
-                        <Ionicons name="close" size={10} color="white" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+          <View className="bg-theme-card rounded-3xl p-2.5 shadow-lg border border-theme-border">
+            {selectedImages.length > 0 ? (
+              <View className="mb-2 flex-row gap-2 px-1">
+                {selectedImages.map((imgUri, idx) => (
+                  <View key={`thumb-${idx}`} className="relative">
+                    <Image source={{ uri: imgUri }} style={{ width: 48, height: 48, borderRadius: 8 }} contentFit="cover" />
+                    <TouchableOpacity
+                      onPress={() => handleRemoveImage(idx)}
+                      className="absolute -top-1.5 -right-1.5 bg-red-500 w-4 h-4 rounded-full items-center justify-center"
+                    >
+                      <Ionicons name="close" size={10} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : null}
 
-              {/* The Single Persistent Text Input Node with static multiline={true} */}
-              <View
-                className={
-                  !isKeyboardOpen
-                    ? 'flex-1 justify-center min-w-[140px]'
-                    : 'px-2 py-1 min-h-[38px] max-h-[100px] justify-center'
-                }
-              >
-                <RNTextInput
-                  ref={inputRef}
-                  placeholder={t('chat.inputPlaceholder')}
-                  placeholderTextColor={!isKeyboardOpen ? 'rgba(255, 255, 255, 0.9)' : '#8E8E93'}
-                  value={inputText}
-                  onChangeText={setInputText}
-                  onFocus={() => setIsKeyboardOpen(true)}
-                  multiline={true}
-                  numberOfLines={!isKeyboardOpen ? 1 : undefined}
+            <View className="px-2 py-1 min-h-[38px] max-h-[100px] justify-center">
+              <RNTextInput
+                ref={inputRef}
+                placeholder={t('chat.inputPlaceholder')}
+                placeholderTextColor="#8E8E93"
+                value={inputText}
+                onChangeText={setInputText}
+                multiline={true}
+                blurOnSubmit={false}
+                onSubmitEditing={handleSend}
+                className="text-theme-text text-[16px] p-0 m-0"
+                style={{ maxHeight: 84 }}
+              />
+            </View>
 
-                  className={
-                    !isKeyboardOpen
-                      ? 'text-white font-semibold text-sm p-0 m-0'
-                      : 'text-theme-text text-sm p-0 m-0'
-                  }
-                  style={!isKeyboardOpen ? { height: 22 } : { maxHeight: 84 }}
-                />
+            <View className="flex-row items-center justify-between pt-2 mt-1 border-t border-theme-border/50">
+              <View className="flex-row items-center gap-2">
+                <TouchableOpacity onPress={handlePickImage} className="w-8 h-8 rounded-full bg-theme-bg/60 items-center justify-center active:opacity-70">
+                  <Ionicons name="attach-outline" size={18} color="#FF5A1F" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowSuggestions(!showSuggestions)}
+                  className={`w-8 h-8 rounded-full items-center justify-center ${showSuggestions ? 'bg-amber-500/20' : 'bg-theme-bg/60 active:opacity-70'}`}
+                >
+                  <Ionicons name={showSuggestions ? 'bulb' : 'bulb-outline'} size={16} color={showSuggestions ? '#F59E0B' : '#FF5A1F'} />
+                </TouchableOpacity>
               </View>
 
-              {!isKeyboardOpen ? (
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color="white" style={{ marginLeft: 6 }} />
-              ) : null}
-
-              {/* Bottom Actions Row (State 2 only) */}
-              {isKeyboardOpen ? (
-                <View className="flex-row items-center justify-between pt-2 mt-1">
-                  {/* Left Action Buttons */}
-                  <View className="flex-row items-center space-x-2">
-                    <TouchableOpacity
-                      onPress={handlePickImage}
-                      className="w-8 h-8 rounded-full bg-theme-bg/60 items-center justify-center active:opacity-70"
-                    >
-                      <Ionicons name="attach-outline" size={18} color="#FF5A1F" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => setShowSuggestions(!showSuggestions)}
-                      className={`w-8 h-8 rounded-full items-center justify-center ${
-                        showSuggestions
-                          ? 'bg-amber-500/20'
-                          : 'bg-theme-bg/60 active:opacity-70'
-                      }`}
-                    >
-                      <Ionicons
-                        name={showSuggestions ? 'bulb' : 'bulb-outline'}
-                        size={16}
-                        color={showSuggestions ? '#F59E0B' : '#FF5A1F'}
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Right Action Buttons */}
-                  <View className="flex-row items-center space-x-2">
-                    <TouchableOpacity
-                      onPress={handleToggleVoiceInput}
-                      className={`w-8 h-8 rounded-full items-center justify-center ${
-                        isRecording
-                          ? 'bg-red-500/20'
-                          : 'bg-theme-bg/60 active:opacity-70'
-                      }`}
-                    >
-                      <Ionicons
-                        name={isRecording ? 'mic' : 'mic-outline'}
-                        size={16}
-                        color={isRecording ? '#EF4444' : '#94A3B8'}
-                      />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={handleSend}
-                      disabled={sending || (!inputText.trim() && selectedImages.length === 0)}
-                      className={`w-9 h-9 rounded-full items-center justify-center shadow-sm ${
-                        sending || (!inputText.trim() && selectedImages.length === 0)
-                          ? 'bg-theme-accent/40'
-                          : 'bg-theme-accent'
-                      }`}
-                    >
-                      <Ionicons name="send" size={15} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : null}
-            </TouchableOpacity>
+              <View className="flex-row items-center gap-2">
+                <TouchableOpacity
+                  onPress={handleToggleVoiceInput}
+                  className={`w-8 h-8 rounded-full items-center justify-center ${isRecording ? 'bg-red-500/20' : 'bg-theme-bg/60 active:opacity-70'}`}
+                >
+                  <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={16} color={isRecording ? '#EF4444' : '#94A3B8'} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleSend}
+                  disabled={sending || (!inputText.trim() && selectedImages.length === 0)}
+                  className={`w-9 h-9 rounded-full items-center justify-center shadow-sm ${
+                    sending || (!inputText.trim() && selectedImages.length === 0) ? 'bg-theme-accent/40' : 'bg-theme-accent'
+                  }`}
+                >
+                  <Ionicons name="send" size={15} color="white" />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
     </SafeAreaView>
   );
 }

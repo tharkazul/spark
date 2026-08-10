@@ -6,12 +6,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { useUser } from '../context/UserStore';
 import { userApi } from '../services/apiServices';
 import { API_BASE_URL } from '../constants/api';
+import { canConfigureCoach } from '../utils/permissions';
 
 const TONE_OPTIONS = [
   { label: 'Empathetic & Demanding (Default)', value: 'Empathetic but demanding elite endurance coach.' },
   { label: 'Strict Data Nerd', value: 'Strict with data, but with a dry, snarky British sense of humor.' },
   { label: 'Enthusiastic Cheerleader', value: 'Enthusiastic cheerleader, extremely positive and forgiving.' },
-  { label: 'Configure own coach', value: 'custom' },
+  { label: 'Configure own coach (Premium)', value: 'custom', premium: true },
 ];
 
 export const CoachPersonaSettings: React.FC = () => {
@@ -112,24 +113,40 @@ export const CoachPersonaSettings: React.FC = () => {
           Coach Tone & Style
         </Text>
         <View className="space-y-2">
-          {TONE_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              onPress={() => setSelectedTone(opt.value)}
-              className={`p-3 rounded-xl flex-row items-center justify-between mb-2 ${
-                selectedTone === opt.value
-                  ? 'bg-theme-accent/10'
-                  : 'bg-theme-bg/50'
-              }`}
-            >
-              <Text className={`text-sm ${selectedTone === opt.value ? 'font-bold text-theme-accent' : 'text-theme-text'}`}>
-                {opt.label}
-              </Text>
-              {selectedTone === opt.value && (
-                <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
-              )}
-            </TouchableOpacity>
-          ))}
+          {TONE_OPTIONS.map((opt) => {
+            const isPremiumOption = (opt as any).premium;
+            const hasPremium = canConfigureCoach(user?.subscription_tier);
+            const isLocked = isPremiumOption && !hasPremium;
+
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => {
+                  if (!isLocked) {
+                    setSelectedTone(opt.value);
+                  } else {
+                    Alert.alert('Premium Feature', 'Upgrade to Premium to configure your own coach persona!');
+                  }
+                }}
+                activeOpacity={isLocked ? 1 : 0.7}
+                className={`p-3 rounded-xl flex-row items-center justify-between mb-2 ${
+                  selectedTone === opt.value
+                    ? 'bg-theme-accent/10'
+                    : 'bg-theme-bg/50'
+                }`}
+              >
+                <View className="flex-row items-center flex-1">
+                  <Text className={`text-sm ${selectedTone === opt.value ? 'font-bold text-theme-accent' : 'text-theme-text'} ${isLocked ? 'text-theme-muted' : ''}`}>
+                    {opt.label}
+                  </Text>
+                  {isLocked && <Ionicons name="lock-closed" size={14} color="#8E8E93" className="ml-2" />}
+                </View>
+                {selectedTone === opt.value && !isLocked && (
+                  <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 

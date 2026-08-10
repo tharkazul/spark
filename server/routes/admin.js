@@ -6,6 +6,18 @@ const { getUserLeaderboardString } = require("../services/utils");
 const { generateWithFallback } = require("../services/ai");
 const { sendSSEEvent } = require("../services/sse");
 
+const adminAuthMiddleware = (req, res, next) => {
+  const isRutger = req.user.username && req.user.username.toLowerCase().includes("rutger");
+  const isFelix = req.user.username && req.user.username.toLowerCase().includes("felixson");
+  const isAdminTier = req.user.subscription_tier === 'admin';
+  if (!isRutger && !isFelix && !isAdminTier && req.user.id !== 1) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  next();
+};
+
+router.use("/api/admin", adminAuthMiddleware);
+
 router.post("/api/admin/simulate-24h", authenticateToken, async (req, res) => {
   const user = req.user;
   console.log(`🤖 Simulating 24h inactivity for user ${user.id}...`);
@@ -52,13 +64,6 @@ router.post("/api/admin/trigger-morning", authenticateToken, async (req, res) =>
 });
 
 router.get("/api/admin/usage", authenticateToken, (req, res) => {
-  const isRutger =
-    req.user.username && req.user.username.toLowerCase().includes("rutger");
-  const isFelix =
-    req.user.username && req.user.username.toLowerCase().includes("felixson");
-  if (!isRutger && !isFelix && req.user.id !== 1) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
   const query = `
         SELECT 
             u.username, 
@@ -75,6 +80,7 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
             CASE WHEN u.garmin_username IS NOT NULL AND u.garmin_username != '' THEN 1 ELSE 0 END as garmin_connected,
             (SELECT COUNT(*) FROM activities WHERE user_id = u.id) as activities_count
         FROM users u
+        WHERE u.deleted_at IS NULL
         ORDER BY u.login_count DESC
     `;
   db.all(query, [], (err, rows) => {
@@ -94,37 +100,27 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
 });
 
 router.post("/api/admin/add-tokens", authenticateToken, (req, res) => {
-  const isRutger =
-    req.user.username && req.user.username.toLowerCase().includes("rutger");
-  const isFelix =
-    req.user.username && req.user.username.toLowerCase().includes("felixson");
-  if (!isRutger && !isFelix && req.user.id !== 1) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
-
   const { targetUsername } = req.body;
   if (!targetUsername) return res.status(400).json({ error: "Missing username" });
 
   db.run(
-    `UPDATE users SET daily_token_limit = COALESCE(daily_token_limit, 50000) + 50000 WHERE username = ?`,
+    `UPDATE users SET daily_token_limit = COALESCE(daily_token_limit, 50000) + 50000 WHERE username = ? AND deleted_at IS NULL`,
     [targetUsername],
     function (err) {
       if (err) return res.status(500).json({ error: "Database error" });
-      if (this.changes === 0) return res.status(404).json({ error: "User not found" });
+      if (this.changes === 0) return res.status(404).json({ error: "User not found or deleted" });
+      
+      db.run(
+        `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'add_tokens', ?, '+50000 tokens')`,
+        [req.user.username, targetUsername]
+      );
+      
       res.json({ success: true, message: "Added 50k tokens to limit." });
     },
   );
 });
 
 router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req, res) => {
-  const isRutger =
-    req.user.username && req.user.username.toLowerCase().includes("rutger");
-  const isFelix =
-    req.user.username && req.user.username.toLowerCase().includes("felixson");
-  if (!isRutger && !isFelix && req.user.id !== 1) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
-
   const { targetUsername } = req.params;
   if (!targetUsername) return res.status(400).json({ error: "Missing username" });
   
@@ -132,54 +128,24 @@ router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req,
       return res.status(403).json({ error: "Cannot delete admin accounts" });
   }
 
-    db.get(`SELECT id FROM users WHERE username = ?`, [targetUsername], (err, row) => {
-        if (err || !row) return res.status(404).json({ error: "User not found" });
-        const userId = row.id;
-        
-        const tablesWithUserId = [
-            "activities", "micro_plan", "weight_log", "chat_history", 
-            "athlete_metrics", "user_daily_metrics", "user_quests", 
-            "completed_quests", "user_xp", "nutrition_protocols", 
-            "kudos", "public_profile_cache", "completed_micro_steps", 
-            "push_subscriptions", "garmin_health_data", "user_titles", 
-            "athlete_niggles"
-        ];
-
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            
-            tablesWithUserId.forEach(table => {
-                db.run(`DELETE FROM ${table} WHERE user_id = ?`, [userId], function(err) {
-                    if (err) console.error(`Error deleting from ${table}:`, err.message);
-                });
-            });
-
-            // Special cases
-            db.run(`DELETE FROM connections WHERE user_id = ? OR friend_id = ?`, [userId, userId], function(err) {
-                if (err) console.error("Error deleting connections:", err.message);
-            });
-
-            db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err) {
-                if (err) {
-                    console.error("Error deleting user:", err.message);
-                    db.run("ROLLBACK");
-                    return res.status(500).json({ error: "Failed to delete user" });
-                }
-                db.run("COMMIT", function(err) {
-                    if (err) return res.status(500).json({ error: "Failed to commit deletion" });
-                    res.json({ success: true, message: "Account deleted completely." });
-                });
-            });
-        });
-    });
+  db.run(
+    `UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE username = ? AND deleted_at IS NULL`,
+    [targetUsername],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (this.changes === 0) return res.status(404).json({ error: "User not found or already deleted" });
+      
+      db.run(
+        `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'soft_delete', ?, 'Account soft deleted')`,
+        [req.user.username, targetUsername]
+      );
+      
+      res.json({ success: true, message: "Account deleted (soft)." });
+    }
+  );
 });
 
 router.post("/api/admin/set-tier", authenticateToken, (req, res) => {
-    const isRutger = req.user.username && req.user.username.toLowerCase().includes("rutger");
-    const isFelix = req.user.username && req.user.username.toLowerCase().includes("felixson");
-    if (!isRutger && !isFelix && req.user.id !== 1) {
-        return res.status(403).json({ error: "Unauthorized" });
-    }
 
     const { targetUsername, tier } = req.body;
     if (!targetUsername || !tier) return res.status(400).json({ error: "Missing parameters" });

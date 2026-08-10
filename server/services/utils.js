@@ -1859,10 +1859,17 @@ function resetDailyNutritionForAllUsers() {
 }
 
 function getEffectiveTokenLimit(user) {
-  let expectedLimit = user.subscription_tier === 'spark_plus' ? 50000 : 5000;
-  let dbLimit = user.daily_token_limit;
-  if (dbLimit === 50000 && expectedLimit === 5000) dbLimit = 5000;
-  return dbLimit || expectedLimit;
+  let expectedLimit = 5000;
+  if (user.subscription_tier === 'subscription' || user.subscription_tier === 'spark_plus') expectedLimit = 50000;
+  else if (user.subscription_tier === 'premium') expectedLimit = 100000;
+  else if (user.subscription_tier === 'admin') expectedLimit = 500000;
+
+  let dbLimit = user.daily_token_limit || 0;
+  if (dbLimit === 50000 && expectedLimit === 5000) dbLimit = 5000; // Handle old logic downgrade
+  if (dbLimit < expectedLimit || dbLimit === 5000 || dbLimit === 50000) {
+    return expectedLimit;
+  }
+  return dbLimit;
 }
 
 module.exports = {

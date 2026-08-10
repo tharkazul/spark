@@ -20,11 +20,13 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
     }
   };
 
-  const loggedItems = nutrition.loggedItems || [];
+  const rawItems = nutrition.loggedItems;
+  const loggedItems: any[] = Array.isArray(rawItems) ? rawItems : (typeof rawItems === 'string' ? rawItems.split(',').filter(Boolean) : []);
   const hasLoggedFood = (nutrition.loggedCarbs || 0) > 0 || (nutrition.loggedProtein || 0) > 0 || (nutrition.loggedFat || 0) > 0;
 
   return (
-    <View className="p-0 overflow-hidden mb-4 rounded-3xl bg-theme-card/80 shadow-sm">
+    <View className="mb-4 rounded-3xl bg-theme-card shadow-sm">
+      <View className="p-0 overflow-hidden rounded-3xl">
       {/* Header Bar matching Quest Card header design */}
       <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/40">
         <View className="flex-row items-center gap-2">
@@ -62,21 +64,21 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
             {/* Carbohydrates Ring */}
             <MacroRingGauge
               label="Carbs"
-              target={nutrition.carbs}
+              target={nutrition.carbsTarget}
               logged={nutrition.loggedCarbs || 0}
             />
 
             {/* Protein Ring */}
             <MacroRingGauge
               label="Protein"
-              target={nutrition.protein}
+              target={nutrition.proteinTarget}
               logged={nutrition.loggedProtein || 0}
             />
 
             {/* Fat Ring */}
             <MacroRingGauge
               label="Fat"
-              target={nutrition.fat}
+              target={nutrition.fatTarget}
               logged={nutrition.loggedFat || 0}
             />
           </View>
@@ -100,6 +102,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
               </View>
             </View>
           )}
+        </View>
         </View>
       </View>
     </View>

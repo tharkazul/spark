@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Text, View } from 'react-native';
 import { MacroPeriodInfo } from '../../types/dashboard';
+import { Card } from '../ui/Card';
 
 interface MacroPeriodizationCardProps {
   info: MacroPeriodInfo;
@@ -12,7 +12,7 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
   const currentPhaseName = info.phases[info.currentPhaseIndex]?.name || 'BUILD';
 
   return (
-    <Card className="p-0 overflow-hidden mb-3.5 shadow-sm">
+    <Card className="p-0 overflow-hidden mb-3.5">
       {/* Header Bar */}
       <View className="px-4 py-2.5 flex-row justify-between items-center bg-theme-bg/60">
         <View className="flex-row items-center gap-2">
@@ -26,7 +26,7 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
         </View>
 
         {/* Days Countdown Badge */}
-        <View className="bg-theme-card px-2.5 py-1 rounded-lg shadow-sm">
+        <View className="bg-theme-card px-2.5 py-1 rounded-lg">
           <Text className="text-[10px] font-mono font-extrabold text-theme-accent">
             {info.daysRemaining} Days to {info.raceTargetName}
           </Text>
@@ -35,7 +35,7 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
 
       {/* Stage Timeline */}
       <View className="p-3.5">
-        <View className="relative w-full h-12 rounded-xl flex-row bg-theme-bg overflow-hidden shadow-inner">
+        <View className="relative w-full h-12 rounded-xl flex-row bg-theme-bg overflow-hidden">
           {info.phases.map((phase, idx) => {
             const isCurrent = idx === info.currentPhaseIndex;
 
@@ -45,9 +45,8 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
                 className={`flex-1 items-center justify-center ${isCurrent ? 'bg-theme-accent/15' : ''}`}
               >
                 <Text
-                  className={`text-[10px] font-extrabold uppercase tracking-widest ${
-                    isCurrent ? 'text-theme-accent' : 'text-theme-muted'
-                  }`}
+                  className={`text-[10px] font-extrabold uppercase tracking-widest ${isCurrent ? 'text-theme-accent' : 'text-theme-muted'
+                    }`}
                 >
                   {phase.name}
                 </Text>

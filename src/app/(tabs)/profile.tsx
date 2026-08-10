@@ -25,15 +25,17 @@ import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { integrationsApi } from '../../services/apiServices';
 
+import { isAdmin } from '../../utils/permissions';
+
 import { ProfileTab } from '../../components/profile/ProfileTab';
 import { GoalsTab } from '../../components/profile/GoalsTab';
 import { ConnectionsTab } from '../../components/profile/ConnectionsTab';
 import { AccountTab } from '../../components/profile/AccountTab';
+import { AdminTab } from '../../components/profile/AdminTab'; // I will create this
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account';
-const TABS: ProfileSubTab[] = ['profile', 'goals', 'connections', 'account'];
+export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account' | 'admin';
 
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
@@ -41,6 +43,11 @@ export default function ProfileScreen() {
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
   const { notifyScroll } = useTabBar();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
+
+  const userIsAdmin = isAdmin(user?.subscription_tier);
+  const TABS: ProfileSubTab[] = userIsAdmin 
+    ? ['profile', 'goals', 'connections', 'account', 'admin'] 
+    : ['profile', 'goals', 'connections', 'account'];
 
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -75,11 +82,11 @@ export default function ProfileScreen() {
 
   // Pill Indicator calculation matching Dashboard
   const containerWidth = SCREEN_WIDTH - 40; // px-5 = 20px padding left & right
-  const tabWidth = (containerWidth - 8) / 4; // p-1 = 4px padding inside container
+  const tabWidth = (containerWidth - 8) / TABS.length; // p-1 = 4px padding inside container
 
   const indicatorLeft = scrollX.interpolate({
-    inputRange: [0, Math.max(1, SCREEN_WIDTH), Math.max(1, SCREEN_WIDTH * 2), Math.max(1, SCREEN_WIDTH * 3)],
-    outputRange: [4, 4 + tabWidth, 4 + tabWidth * 2, 4 + tabWidth * 3],
+    inputRange: TABS.map((_, i) => Math.max(1, SCREEN_WIDTH * i)),
+    outputRange: TABS.map((_, i) => 4 + tabWidth * i),
     extrapolate: 'clamp',
   });
 
@@ -369,6 +376,21 @@ export default function ProfileScreen() {
               {t('profile.tabAccount') || 'Account'}
             </Text>
           </TouchableOpacity>
+          {userIsAdmin && (
+            <TouchableOpacity
+              onPress={() => handleTabSwitch('admin')}
+              activeOpacity={0.8}
+              className="flex-1 py-2.5 items-center justify-center z-10"
+            >
+              <Text
+                className={`text-[11px] font-extrabold ${
+                  activeTab === 'admin' ? 'text-theme-accent' : 'text-theme-muted'
+                }`}
+              >
+                Admin
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -440,6 +462,20 @@ export default function ProfileScreen() {
             <AccountTab onLogout={logout} isSparkPlus={isSparkPlus} />
           </ScrollView>
         </View>
+
+        {/* ADMIN TAB PAGE */}
+        {userIsAdmin && (
+          <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+            <ScrollView
+              className="flex-1 px-4 pt-4"
+              contentContainerStyle={{ paddingBottom: 110 }}
+              showsVerticalScrollIndicator={false}
+              onScrollBeginDrag={notifyScroll}
+            >
+              <AdminTab />
+            </ScrollView>
+          </View>
+        )}
       </ScrollView>
 
       {/* GARMIN CONNECTION MODAL */}

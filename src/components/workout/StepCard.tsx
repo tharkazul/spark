@@ -14,10 +14,10 @@ export type StepCardProps = {
   isActive: boolean;
   drag: () => void;
   isSubStep?: boolean;
-  onUpdate: (id: string, field: keyof WorkoutStep, val: any) => void;
-  onRemove: (id: string) => void;
-  onUpdateSub?: (parentId: string, subId: string, field: keyof WorkoutStep, val: any) => void;
-  onRemoveSub?: (parentId: string, subId: string) => void;
+  onUpdate: (id: string | undefined, field: keyof WorkoutStep, val: any) => void;
+  onRemove: (id: string | undefined) => void;
+  onUpdateSub?: (parentId: string | undefined, subId: string | undefined, field: keyof WorkoutStep, val: any) => void;
+  onRemoveSub?: (parentId: string | undefined, subId: string | undefined) => void;
 };
 
 const getPaceUnitLabel = (currentSport: SportType | string) => {

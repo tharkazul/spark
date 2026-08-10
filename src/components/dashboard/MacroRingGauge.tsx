@@ -6,6 +6,7 @@ interface MacroRingGaugeProps {
   label: 'Protein' | 'Carbs' | 'Fat';
   target: number;
   logged: number;
+  size?: number;
 }
 
 const CONFIG = {
@@ -29,10 +30,9 @@ const CONFIG = {
   },
 };
 
-export function MacroRingGauge({ label, target, logged }: MacroRingGaugeProps) {
+export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGaugeProps) {
   const cfg = CONFIG[label];
-  const size = 96;
-  const strokeWidth = 11;
+  const strokeWidth = Math.max(6, Math.floor(size * 0.11));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 

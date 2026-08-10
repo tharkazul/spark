@@ -31,30 +31,36 @@ export function QuickActionsRow({
         <TouchableOpacity
           onPress={() => handlePress(onAddActivity)}
           activeOpacity={0.8}
-          className="flex-1 bg-theme-card/80 p-3.5 rounded-2xl flex-row items-center justify-center gap-2 shadow-sm"
+          className="flex-1 bg-theme-card p-3 rounded-2xl border border-theme-border/50 items-center justify-center gap-1.5 shadow-sm"
         >
-          <Ionicons name="add-circle-outline" size={18} color="#38BDF8" />
-          <Text className="text-xs font-extrabold text-theme-text">+ Activity</Text>
+          <View className="w-8 h-8 rounded-full bg-amber-500/15 items-center justify-center">
+            <Ionicons name="add" size={18} color="#F59E0B" />
+          </View>
+          <Text className="text-xs font-extrabold text-theme-text mt-1">Activity</Text>
         </TouchableOpacity>
 
         {/* Weight Log */}
         <TouchableOpacity
           onPress={() => handlePress(onLogWeight)}
           activeOpacity={0.8}
-          className="flex-1 bg-theme-card/80 p-3.5 rounded-2xl flex-row items-center justify-center gap-2 shadow-sm"
+          className="flex-1 bg-theme-card p-3 rounded-2xl border border-theme-border/50 items-center justify-center gap-1.5 shadow-sm"
         >
-          <Ionicons name="scale-outline" size={18} color="#38BDF8" />
-          <Text className="text-xs font-extrabold text-theme-text">Weight</Text>
+          <View className="w-8 h-8 rounded-full bg-slate-500/15 items-center justify-center">
+            <Ionicons name="scale-outline" size={16} color="#9CA3AF" />
+          </View>
+          <Text className="text-xs font-extrabold text-theme-text mt-1">Weight</Text>
         </TouchableOpacity>
 
         {/* Injury */}
         <TouchableOpacity
           onPress={() => handlePress(onReportInjury)}
           activeOpacity={0.8}
-          className="flex-1 bg-theme-card/80 p-3.5 rounded-2xl flex-row items-center justify-center gap-2 shadow-sm"
+          className="flex-1 bg-theme-card p-3 rounded-2xl border border-theme-border/50 items-center justify-center gap-1.5 shadow-sm"
         >
-          <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
-          <Text className="text-xs font-extrabold text-theme-text">Injury</Text>
+          <View className="w-8 h-8 rounded-full bg-red-500/15 items-center justify-center">
+            <Ionicons name="bandage-outline" size={16} color="#EF4444" />
+          </View>
+          <Text className="text-xs font-extrabold text-theme-text mt-1">Injury</Text>
         </TouchableOpacity>
       </View>
     </View>

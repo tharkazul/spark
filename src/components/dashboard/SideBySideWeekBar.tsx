@@ -34,7 +34,7 @@ export function SideBySideWeekBar({
   };
 
   return (
-    <View className="flex-row gap-1.5 p-1.5 bg-theme-bg/80 rounded-2xl mb-3">
+    <View className="flex-row gap-1.5">
       {agenda.map((day, idx) => {
         const isSelected = selectedDayIndex === idx;
         const isToday = day.isToday;
@@ -49,30 +49,24 @@ export function SideBySideWeekBar({
               onSelectDay(idx, day.dayName);
             }}
             activeOpacity={0.8}
-            className={`flex-1 rounded-xl overflow-hidden ${
-              isToday
-                ? 'bg-theme-card'
-                : isSelected
-                ? 'bg-theme-card'
-                : 'bg-theme-card'
-            }`}
+            className="flex-1 rounded-xl overflow-hidden bg-theme-bg"
           >
             <View
               className={`py-1 items-center justify-center ${
-                isToday
-                  ? 'bg-theme-accent'
-                  : isSelected
-                  ? 'bg-amber-500'
-                  : 'bg-[#3B82F6]'
+                isToday ? 'bg-theme-accent' : isSelected ? 'bg-theme-text' : 'bg-theme-muted/25'
               }`}
             >
-              <Text className="text-[10px] font-extrabold text-white uppercase tracking-wider">
+              <Text
+                className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                  isToday || isSelected ? 'text-white' : 'text-theme-muted'
+                }`}
+              >
                 {day.dayName}
               </Text>
             </View>
 
             {/* Content Body: SVG Discipline Icons & Spark Score (No border outlines on icons!) */}
-            <View className="p-1 items-center justify-between min-h-[66px] bg-theme-card">
+            <View className="p-1 items-center justify-between min-h-[66px] bg-theme-bg">
               {/* SVG Vector Icons */}
               <View className="items-center justify-center gap-1 my-1 flex-1">
                 {hasWorkouts ? (
@@ -81,21 +75,21 @@ export function SideBySideWeekBar({
                     return (
                       <View
                         key={w.id}
-                        className="w-6.5 h-6.5 rounded-lg bg-theme-bg items-center justify-center"
+                        className="w-7 h-7 rounded-lg bg-theme-card items-center justify-center"
                       >
                         <Ionicons name={cfg.icon as any} size={14} color={cfg.color} />
                       </View>
                     );
                   })
                 ) : (
-                  <View className="w-6.5 h-6.5 rounded-lg bg-gray-500/10 items-center justify-center">
+                  <View className="w-7 h-7 rounded-lg bg-gray-500/10 items-center justify-center">
                     <Ionicons name="moon-outline" size={14} color="#6F6F79" />
                   </View>
                 )}
               </View>
 
               {/* Spark points or Completion Check */}
-              <View className="items-center justify-center pt-0.5 border-t border-slate-200 w-full">
+              <View className="items-center justify-center pt-0.5 border-t border-theme-border/40 w-full">
                 {hasWorkouts && day.workouts.every((w) => w.isCompleted) ? (
                   <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                 ) : (

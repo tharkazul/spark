@@ -16,11 +16,11 @@ const defaultNutrition: NutritionProtocol = {
   focusTitle: 'Threshold Run Fuel & Muscle Recovery',
   rationale:
     'Based on your high 24 Spark Points load yesterday, prioritize complex carbs and quick protein synthesis to restore glycogen stores.',
-  carbs: 320,
+  loggedCarbs: 320,
   carbsTarget: 350,
-  protein: 160,
+  loggedProtein: 160,
   proteinTarget: 170,
-  fat: 65,
+  loggedFat: 65,
   fatTarget: 70,
 };
 
@@ -62,15 +62,12 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
         setNutrition({
           focusTitle: p.title || 'Daily Endurance Protocol',
           rationale: p.rationale || 'Tailored to your body mass and today\'s training load.',
-          carbs: p.carbs || 300,
-          carbsTarget: p.carbs || 300,
-          protein: p.protein || 140,
-          proteinTarget: p.protein || 140,
-          fat: p.fat || 65,
-          fatTarget: p.fat || 65,
-          loggedCarbs: p.loggedCarbs || 0,
-          loggedProtein: p.loggedProtein || 0,
-          loggedFat: p.loggedFat || 0,
+          loggedCarbs: p.loggedCarbs || p.carbs || 0,
+          carbsTarget: p.carbsTarget || 300,
+          loggedProtein: p.loggedProtein || p.protein || 0,
+          proteinTarget: p.proteinTarget || 140,
+          loggedFat: p.loggedFat || p.fat || 0,
+          fatTarget: p.fatTarget || 65,
           loggedItems: p.loggedItems || [],
         });
       }

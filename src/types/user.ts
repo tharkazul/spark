@@ -1,4 +1,4 @@
-export type SubscriptionTier = 'free' | 'spark_plus';
+export type SubscriptionTier = 'free' | 'subscription' | 'spark_plus' | 'premium' | 'admin';
 
 export interface UserProfile {
   id: number;
@@ -29,4 +29,5 @@ export interface UserProfile {
     ftp?: number;
     weight_kg?: number;
   };
+  onboarding_completed?: boolean;
 }

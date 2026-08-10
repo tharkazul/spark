@@ -20,16 +20,16 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
   };
 
   return (
-    <View className="p-4 md:p-5 rounded-3xl bg-theme-card/80 shadow-sm mb-5">
+    <View>
       {/* Header Bar */}
       <TouchableOpacity
         onPress={toggleExpand}
         activeOpacity={0.75}
-        className="flex-row items-center justify-between pb-3 mb-3.5"
+        className="flex-row items-center justify-between mb-3"
       >
         <View className="flex-row items-center gap-3">
           <View className="w-10 h-10 rounded-2xl bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="compass-outline" size={20} color="#38BDF8" />
+            <Ionicons name="compass-outline" size={20} color="#FF5F3B" />
           </View>
 
           <View className="flex-row items-center gap-1.5">
@@ -37,14 +37,14 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
             <Ionicons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
               size={15}
-              color="#38BDF8"
+              color="#FF5F3B"
             />
           </View>
         </View>
 
         {/* Race Countdown Badge */}
-        <View className="bg-theme-bg/60 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm">
-          <Ionicons name="trophy-outline" size={13} color="#38BDF8" />
+        <View className="bg-theme-bg/60 px-3 py-1.5 rounded-full flex-row items-center gap-1.5">
+          <Ionicons name="trophy-outline" size={13} color="#FF5F3B" />
           <Text className="text-xs font-mono font-extrabold text-theme-accent">
             {info.daysRemaining}d to {info.raceTargetName}
           </Text>
@@ -55,11 +55,11 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
       <TouchableOpacity
         onPress={toggleExpand}
         activeOpacity={0.85}
-        className="relative w-full h-11 rounded-2xl flex-row bg-theme-bg/60 overflow-hidden"
+        className="relative w-full h-11 rounded-2xl flex-row bg-theme-bg overflow-hidden"
       >
         {/* Progress Fill Layer */}
         <View
-          className="absolute top-0 bottom-0 left-0 bg-[#F97316]/25"
+          className="absolute top-0 bottom-0 left-0 bg-[#F97316]/20"
           style={{ width: `${progressPercent}%` }}
         />
 

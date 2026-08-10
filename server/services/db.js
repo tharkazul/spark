@@ -84,6 +84,16 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_neutral TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_hype TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_disappointed TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN deleted_at TEXT`, (err) => {});
+  db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        admin_username TEXT, 
+        action TEXT, 
+        target_username TEXT, 
+        details TEXT, 
+        timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+    )`);
   db.run(`CREATE TABLE IF NOT EXISTS strava_tokens (
         user_id INTEGER PRIMARY KEY,
         access_token TEXT NOT NULL,

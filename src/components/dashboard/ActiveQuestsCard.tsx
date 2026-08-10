@@ -58,7 +58,8 @@ export function ActiveQuestsCard() {
     : 0;
 
   return (
-    <View className="p-0 overflow-hidden mb-4 rounded-3xl bg-theme-card/80 shadow-sm">
+    <View className="mb-4 rounded-3xl bg-theme-card shadow-sm">
+      <View className="p-0 overflow-hidden rounded-3xl">
       {/* Header Bar */}
       <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/40">
         <View className="flex-row items-center gap-2">
@@ -129,6 +130,7 @@ export function ActiveQuestsCard() {
             <Text className="text-xs text-theme-muted font-medium">No active quest</Text>
           </View>
         )}
+      </View>
       </View>
     </View>
   );

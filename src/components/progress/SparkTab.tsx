@@ -6,6 +6,8 @@ import { AthleteRadarChart } from './AthleteRadarChart';
 import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useUser } from '../../context/UserStore';
+import { canAccessQuests } from '../../utils/permissions';
 
 interface SparkTabProps {
   levelInfo?: {
@@ -25,6 +27,7 @@ export const SparkTab: React.FC<SparkTabProps> = ({
   levelInfo = { level: 14, currentXp: 10351, nextLevelXp: 10842 },
   archetypeData = { endurance: 82, strength: 65, versatility: 74, explosiveness: 58 },
 }) => {
+  const { user } = useUser();
   const xpPercent = Math.min(
     100,
     Math.round((levelInfo.currentXp / levelInfo.nextLevelXp) * 100)
@@ -113,40 +116,42 @@ export const SparkTab: React.FC<SparkTabProps> = ({
       />
 
       {/* QUESTS LOG */}
-      <Card className="mb-6 bg-theme-card">
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center space-x-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              Quests Log
-            </Text>
-          </View>
-          <Text className="text-[11px] text-theme-muted">1 Active</Text>
-        </View>
-
-        <View className="bg-theme-bg/70 rounded-xl p-4">
-          <Text className="text-sm font-bold text-theme-text mb-1">
-            Complete 10km Total Distance
-          </Text>
-          <Text className="text-xs text-theme-muted mb-3 leading-4">
-            Across any combination of your favorite activities (Run, Ride, or Swim) over the next 3 days.
-          </Text>
-
-          <View className="flex-row justify-between items-center pt-2">
-            <View className="flex-row items-center space-x-1">
-              <Ionicons name="trophy-outline" size={14} color="#FF5A1F" />
-              <Text className="text-xs font-bold text-theme-accent">Reward: 75 Spark</Text>
+      {canAccessQuests(user?.subscription_tier) && (
+        <Card className="mb-6 bg-theme-card">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center space-x-2">
+              <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
+              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+                Quests Log
+              </Text>
             </View>
-
-            <TouchableOpacity
-              onPress={() => Haptics.selectionAsync()}
-              className="px-3 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg"
-            >
-              <Text className="text-xs font-bold text-theme-accent">Status: Active</Text>
-            </TouchableOpacity>
+            <Text className="text-[11px] text-theme-muted">1 Active</Text>
           </View>
-        </View>
-      </Card>
+
+          <View className="bg-theme-bg/70 rounded-xl p-4">
+            <Text className="text-sm font-bold text-theme-text mb-1">
+              Complete 10km Total Distance
+            </Text>
+            <Text className="text-xs text-theme-muted mb-3 leading-4">
+              Across any combination of your favorite activities (Run, Ride, or Swim) over the next 3 days.
+            </Text>
+
+            <View className="flex-row justify-between items-center pt-2">
+              <View className="flex-row items-center space-x-1">
+                <Ionicons name="trophy-outline" size={14} color="#FF5A1F" />
+                <Text className="text-xs font-bold text-theme-accent">Reward: 75 Spark</Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => Haptics.selectionAsync()}
+                className="px-3 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg"
+              >
+                <Text className="text-xs font-bold text-theme-accent">Status: Active</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Card>
+      )}
     </View>
   );
 };

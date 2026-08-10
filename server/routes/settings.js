@@ -113,7 +113,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
+    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -129,6 +129,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
       const currentLimit = getEffectiveTokenLimit(row);
       const todayStr = getAMSDateString();
       const dailyUsage = (row.last_token_reset_date === todayStr) ? (row.daily_token_usage || 0) : 0;
+
+      const isCompleted = row.onboarding_completed === 1;
 
       res.json({
         id: row.id,
@@ -154,6 +156,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
         dailyTokenLimit: currentLimit,
         subscriptionTier: row.subscription_tier || 'free',
         subscription_tier: row.subscription_tier || 'free',
+        onboardingCompleted: isCompleted,
+        onboarding_completed: isCompleted,
       });
     },
   );
@@ -168,13 +172,16 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     gender,
     lastCycleStart,
     trainingAvailability,
+    onboardingCompleted,
   } = req.body;
   const availabilityStr = trainingAvailability
     ? JSON.stringify(trainingAvailability)
     : "{}";
 
+  const markCompleted = onboardingCompleted ? 1 : 0;
+
   db.run(
-    `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ? WHERE id = ?`,
+    `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ?, onboarding_completed = CASE WHEN ? = 1 THEN 1 ELSE onboarding_completed END WHERE id = ?`,
     [
       coachTone,
       coachName || "Spark",
@@ -183,6 +190,7 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
       gender || "Prefer not to say",
       lastCycleStart || null,
       availabilityStr,
+      markCompleted,
       req.user.id,
     ],
     function (err) {

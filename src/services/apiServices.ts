@@ -33,6 +33,7 @@ export const userApi = {
         targetEvent: data.target_event,
         eventDate: data.event_date,
         targetCtl: data.target_ctl,
+        onboardingCompleted: data.onboarding_completed,
       }),
     }),
   uploadCoachAvatar: async (mood: string, fileUri: string) => {
@@ -47,7 +48,6 @@ export const userApi = {
     return apiClient<{ success: boolean; url: string; mood: string }>('/api/settings/coach-avatar', {
       method: 'POST',
       body: formData,
-      isFormData: true,
     });
   },
   trackSparkPlusClick: () =>

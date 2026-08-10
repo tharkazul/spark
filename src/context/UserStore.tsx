@@ -16,6 +16,8 @@ interface UserContextType {
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
   trackSparkPlus: () => Promise<void>;
+  isChatMacroStripVisible: boolean;
+  toggleChatMacroStrip: () => void;
 }
 
 const defaultFallbackUser = (username: string): UserProfile => ({
@@ -52,6 +54,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isChatMacroStripVisible, setIsChatMacroStripVisible] = useState<boolean>(true);
+
+  const toggleChatMacroStrip = () => {
+    setIsChatMacroStripVisible((prev) => !prev);
+  };
 
   const logout = async () => {
     wsService.disconnect();
@@ -162,6 +169,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           coach_avatar_disappointed: (data as any).coachAvatarDisappointed ?? data.coach_avatar_disappointed,
           garmin_connected: (data as any).hasGarmin ?? data.garmin_connected,
           strava_connected: (data as any).hasStrava ?? data.strava_connected,
+          onboarding_completed: (data as any).onboardingCompleted ?? (data as any).onboarding_completed,
         }));
       }
       setError(null);
@@ -175,7 +183,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       await userApi.updateSettings(data);
     } catch (err: any) {
-      console.error('Failed to sync user settings:', err);
+      console.warn('Failed to sync user settings:', err?.message || err);
     }
   };
 
@@ -209,6 +217,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
             coach_tone: (profile as any).coachTone ?? profile.coach_tone,
             garmin_connected: (profile as any).hasGarmin ?? profile.garmin_connected,
             strava_connected: (profile as any).hasStrava ?? profile.strava_connected,
+            onboarding_completed: (profile as any).onboardingCompleted ?? (profile as any).onboarding_completed,
           } : defaultFallbackUser('Athlete');
 
           setUser(finalUser);
@@ -273,6 +282,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         refreshUser,
         updateUser,
         trackSparkPlus,
+        isChatMacroStripVisible,
+        toggleChatMacroStrip,
       }}
     >
       {children}

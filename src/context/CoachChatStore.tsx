@@ -53,7 +53,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const [error, setError] = useState<string | null>(null);
   const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>({
     daily_token_usage: 1200,
-    daily_token_limit: 10000,
+    daily_token_limit: 100000,
     subscription_tier: 'free',
   });
 

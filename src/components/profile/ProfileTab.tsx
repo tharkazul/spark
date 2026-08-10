@@ -85,7 +85,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     }
   };
 
-  const handleEquipTitle = (id: number) => {
+  const handleEquipTitle = (id: number | string) => {
     setTitles((prev) =>
       prev.map((t) => ({
         ...t,

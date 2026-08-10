@@ -37,7 +37,7 @@ router.post("/login", (req, res) => {
   const { username, password } = req.body;
 
   db.get(
-    `SELECT * FROM users WHERE username = ?`,
+    `SELECT * FROM users WHERE username = ? AND deleted_at IS NULL`,
     [username],
     async (err, user) => {
       if (err || !user)

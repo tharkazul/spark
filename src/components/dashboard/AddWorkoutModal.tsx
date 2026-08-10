@@ -14,6 +14,7 @@ import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { SportType, WorkoutItem } from '../../types/dashboard';
+import { WorkoutStep } from '../../types/plan';
 import { WorkoutStepBuilder, calculateWbSpark } from './WorkoutStepBuilder';
 import { ensureStepIds } from '../../utils/stepId';
 import { useUser } from '../../context/UserStore';

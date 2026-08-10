@@ -7,6 +7,8 @@ import { useColorScheme, View, ActivityIndicator } from 'react-native';
 import React, { useEffect } from 'react';
 import { AppProviders } from '../context/AppProviders';
 import { useUser } from '../context/UserStore';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { KeyboardMotionProvider } from '../context/KeyboardMotionContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -21,10 +23,7 @@ function RootNavigation() {
     const inAuthGroup = segments[0] === 'login';
     const inOnboarding = segments[0] === 'onboarding';
 
-    const isNewAthlete = !user?.athlete_context ||
-                         user?.athlete_context === 'New athlete.' ||
-                         user?.athlete_context === 'No context provided yet.' ||
-                         user?.athlete_context.trim() === '';
+    const isNewAthlete = !user?.onboarding_completed;
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace('/login');
@@ -64,9 +63,13 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AppProviders>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootNavigation />
-        </GestureHandlerRootView>
+        <KeyboardProvider>
+          <KeyboardMotionProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootNavigation />
+            </GestureHandlerRootView>
+          </KeyboardMotionProvider>
+        </KeyboardProvider>
       </AppProviders>
     </ThemeProvider>
   );

@@ -116,11 +116,11 @@ export function WorkoutStepBuilder({ steps, sport, onChangeSteps, ListHeaderComp
     updateStepsAndNotify([...steps, repeatStep]);
   };
 
-  const handleUpdateStep = useCallback((id: string, field: keyof WorkoutStep, val: any) => {
+  const handleUpdateStep = useCallback((id: string | undefined, field: keyof WorkoutStep, val: any) => {
     updateStepsAndNotify(steps.map((s) => (s.id === id ? { ...s, [field]: val } : s)));
   }, [steps, updateStepsAndNotify]);
 
-  const handleUpdateSubStep = useCallback((parentId: string, subId: string, field: keyof WorkoutStep, val: any) => {
+  const handleUpdateSubStep = useCallback((parentId: string | undefined, subId: string | undefined, field: keyof WorkoutStep, val: any) => {
     updateStepsAndNotify(
       steps.map((s) =>
         s.id !== parentId
@@ -133,12 +133,12 @@ export function WorkoutStepBuilder({ steps, sport, onChangeSteps, ListHeaderComp
     );
   }, [steps, updateStepsAndNotify]);
 
-  const handleRemoveStep = useCallback((id: string) => {
+  const handleRemoveStep = useCallback((id: string | undefined) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     updateStepsAndNotify(steps.filter((s) => s.id !== id));
   }, [steps, updateStepsAndNotify]);
 
-  const handleRemoveSubStep = useCallback((parentId: string, subId: string) => {
+  const handleRemoveSubStep = useCallback((parentId: string | undefined, subId: string | undefined) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     updateStepsAndNotify(
       steps.map((s) =>
@@ -152,14 +152,14 @@ export function WorkoutStepBuilder({ steps, sport, onChangeSteps, ListHeaderComp
     );
   }, [steps, updateStepsAndNotify]);
 
-  const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<WorkoutStep>) => {
+  const renderItem = useCallback(({ item, drag, isActive }: { item: WorkoutStep; drag?: () => void; isActive?: boolean }) => {
     return (
       <StepCard
         step={item}
         isStrength={isStrength}
         sport={sport || 'RUN'}
-        isActive={isActive}
-        drag={drag}
+        isActive={!!isActive}
+        drag={drag || (() => {})}
         onUpdate={handleUpdateStep}
         onRemove={handleRemoveStep}
         onUpdateSub={handleUpdateSubStep}

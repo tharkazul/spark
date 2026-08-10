@@ -25,7 +25,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
     <View className="mt-3 p-4 rounded-xl bg-theme-card border border-theme-accent/40 shadow-sm">
       <View className="flex-row items-center mb-3">
         <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center mr-2">
-          <Ionicons name="calendar-outline" size={18} color="#00E5FF" />
+          <Ionicons name="calendar-outline" size={18} color="#FF5A1F" />
         </View>
         <View className="flex-1">
           <Text className="text-theme-text font-bold text-sm">Spark Workout Proposal</Text>
@@ -33,7 +33,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
         </View>
       </View>
 
-      <View className="space-y-2 mb-3">
+      <View className="gap-2 mb-3">
         {plan.map((item, idx) => (
           <View key={`prop-item-${idx}`} className="p-2.5 rounded-lg bg-theme-bg/60 flex-row items-center justify-between">
             <View className="flex-1 mr-2">
@@ -60,7 +60,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
           <Text className="text-red-400 font-bold text-xs ml-2">Proposal Rejected</Text>
         </View>
       ) : (
-        <View className="flex-row space-x-2">
+        <View className="flex-row gap-2">
           <TouchableOpacity
             onPress={onReject}
             className="flex-1 py-2.5 rounded-lg bg-theme-bg items-center justify-center"
@@ -70,7 +70,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
 
           <TouchableOpacity
             onPress={onAccept}
-            className="flex-1 py-2.5 rounded-lg bg-theme-accent items-center justify-center flex-row space-x-1"
+            className="flex-1 py-2.5 rounded-lg bg-theme-accent items-center justify-center flex-row gap-1"
           >
             <Ionicons name="checkmark" size={16} color="white" />
             <Text className="text-white font-bold text-xs">Accept Plan</Text>

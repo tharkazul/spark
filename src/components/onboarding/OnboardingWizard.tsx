@@ -14,13 +14,18 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { userApi, integrationsApi } from '../../services/apiServices';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
+import { MarkdownText } from '../chat/MarkdownText';
+import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -45,6 +50,7 @@ const SUPPORTED_LANGUAGES = [
 export type ChatItemType =
   | 'welcome_hero'
   | 'coach_text'
+  | 'coach_typing'
   | 'user_text'
   | 'card_language'
   | 'card_persona'
@@ -61,6 +67,56 @@ export interface ChatNode {
   data?: any;
 }
 
+function TypingDots() {
+  const dots = useRef([
+    new Animated.Value(0.25),
+    new Animated.Value(0.25),
+    new Animated.Value(0.25),
+  ]).current;
+
+  useEffect(() => {
+    const anims = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 160),
+          Animated.timing(dot, {
+            toValue: 1,
+            duration: 320,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot, {
+            toValue: 0.25,
+            duration: 320,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.delay((dots.length - 1 - i) * 160),
+        ])
+      )
+    );
+    anims.forEach((a) => a.start());
+    return () => anims.forEach((a) => a.stop());
+  }, []);
+
+  return (
+    <View className="flex-row items-center" style={{ gap: 5, height: 26 }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: 4,
+            backgroundColor: '#9CA3AF',
+            opacity: dot,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 export default function OnboardingWizard() {
   const router = useRouter();
   const { user, refreshUser, updateUser } = useUser();
@@ -70,6 +126,11 @@ export default function OnboardingWizard() {
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { height: keyboardHeight } = useKeyboardMotionContext();
+
+  const keyboardStyle = useAnimatedStyle(() => ({
+    paddingBottom: Math.max(0, keyboardHeight.value - (Platform.OS === 'ios' ? 34 : 0))
+  }));
 
   // Chat Feed timeline nodes
   const [timeline, setTimeline] = useState<ChatNode[]>([
@@ -335,6 +396,57 @@ export default function OnboardingWizard() {
 
   const [isStreamingMessage, setIsStreamingMessage] = useState(false);
 
+  const TYPING_NODE_ID = 'coach_typing_indicator';
+
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+
+  useEffect(() => () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    intervalsRef.current.forEach(clearInterval);
+  }, []);
+
+  const streamCoachMessage = (
+    message: string,
+    opts: { thinkingMs?: number; wordMs?: number; onDone?: () => void } = {}
+  ) => {
+    const { thinkingMs = 750, wordMs = 55, onDone } = opts;
+
+    setTimeline((prev) => [...prev, { id: TYPING_NODE_ID, type: 'coach_typing' }]);
+    scrollToBottom();
+
+    const t = setTimeout(() => {
+      const coachNodeId = `coach_stream_${Date.now()}`;
+
+      setTimeline((prev) => [
+        ...prev.filter((n) => n.id !== TYPING_NODE_ID),
+        { id: coachNodeId, type: 'coach_text', text: '' },
+      ]);
+      scrollToBottom();
+
+      const words = message.split(' ');
+      let i = 0;
+
+      const timer = setInterval(() => {
+        if (i < words.length) {
+          i++;
+          const slice = words.slice(0, i).join(' ');
+          setTimeline((prev) =>
+            prev.map((n) => (n.id === coachNodeId ? { ...n, text: slice } : n))
+          );
+          scrollToBottom();
+        } else {
+          clearInterval(timer);
+          onDone?.();
+        }
+      }, wordMs);
+
+      intervalsRef.current.push(timer);
+    }, thinkingMs);
+
+    timeoutsRef.current.push(t);
+  };
+
   const appendCoachPromptAndCard = (
     userText: string | null,
     coachMessage: string,
@@ -353,102 +465,35 @@ export default function OnboardingWizard() {
         );
       }
       if (userText) {
-        updated.push({
-          id: `user_${Date.now()}`,
-          type: 'user_text',
-          text: userText,
-        });
+        updated.push({ id: `user_${Date.now()}`, type: 'user_text', text: userText });
       }
       return updated;
     });
-
     scrollToBottom();
 
-    setTimeout(() => {
-      const coachNodeId = `coach_stream_${Date.now()}`;
-      setTimeline((prev) => [
-        ...prev,
-        {
-          id: coachNodeId,
-          type: 'coach_text',
-          text: '',
-        },
-      ]);
-      scrollToBottom();
-
-      const words = coachMessage.split(' ');
-      let wordIndex = 0;
-
-      const timer = setInterval(() => {
-        if (wordIndex < words.length) {
-          wordIndex++;
-          const currentSlice = words.slice(0, wordIndex).join(' ');
-          setTimeline((prev) =>
-            prev.map((item) => (item.id === coachNodeId ? { ...item, text: currentSlice } : item))
-          );
+    streamCoachMessage(coachMessage, {
+      onDone: () => {
+        const t = setTimeout(() => {
+          setTimeline((prev) => [
+            ...prev,
+            { id: `card_${cardType}_${Date.now()}`, type: cardType },
+          ]);
           scrollToBottom();
-        } else {
-          clearInterval(timer);
-
-          setTimeout(() => {
-            setTimeline((prev) => [
-              ...prev,
-              {
-                id: `card_${cardType}_${Date.now()}`,
-                type: cardType,
-              },
-            ]);
-            scrollToBottom();
-            setIsStreamingMessage(false);
-          }, 250);
-        }
-      }, 120);
-    }, 300);
+          setIsStreamingMessage(false);
+        }, 300);
+        timeoutsRef.current.push(t);
+      },
+    });
   };
 
   const appendCoachAckOnly = (userText: string, coachAck: string) => {
     setIsStreamingMessage(true);
-
     setTimeline((prev) => [
       ...prev,
-      {
-        id: `user_${Date.now()}`,
-        type: 'user_text',
-        text: userText,
-      },
+      { id: `user_${Date.now()}`, type: 'user_text', text: userText },
     ]);
     scrollToBottom();
-
-    setTimeout(() => {
-      const coachNodeId = `coach_stream_${Date.now()}`;
-      setTimeline((prev) => [
-        ...prev,
-        {
-          id: coachNodeId,
-          type: 'coach_text',
-          text: '',
-        },
-      ]);
-      scrollToBottom();
-
-      const words = coachAck.split(' ');
-      let wordIndex = 0;
-
-      const timer = setInterval(() => {
-        if (wordIndex < words.length) {
-          wordIndex++;
-          const currentSlice = words.slice(0, wordIndex).join(' ');
-          setTimeline((prev) =>
-            prev.map((item) => (item.id === coachNodeId ? { ...item, text: currentSlice } : item))
-          );
-          scrollToBottom();
-        } else {
-          clearInterval(timer);
-          setIsStreamingMessage(false);
-          scrollToBottom();
-        }
-      }, 100);
-    }, 250);
+    streamCoachMessage(coachAck, { thinkingMs: 550, onDone: () => setIsStreamingMessage(false) });
   };
 
   // Step Action Handlers for Chat Flow
@@ -611,6 +656,7 @@ export default function OnboardingWizard() {
         target_event: raceName || undefined,
         event_date: raceDate || undefined,
         target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
+        onboarding_completed: true,
       } as any);
 
       if (showGarmin && garminEmail && garminPassword) {
@@ -656,7 +702,7 @@ export default function OnboardingWizard() {
             </View>
 
             {isSelectedDateInPast() && (
-              <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center space-x-2">
+              <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center gap-2">
                 <Ionicons name="warning-outline" size={16} color="#ef4444" />
                 <Text className="text-red-500 text-xs font-bold text-center">
                   Goal date cannot be in the past
@@ -757,7 +803,7 @@ export default function OnboardingWizard() {
 
       {/* Header Stepper Bar */}
       <View className="px-6 pt-4 pb-3 border-b border-theme-border flex-row items-center justify-between">
-        <View className="flex-row items-center space-x-2">
+        <View className="flex-row items-center gap-2">
           <View className="w-9 h-9 rounded-xl bg-[#FF5A1F] items-center justify-center shadow-md">
             <Ionicons name="flash" size={22} color="#FFFFFF" />
           </View>
@@ -770,7 +816,7 @@ export default function OnboardingWizard() {
         </View>
 
         {currentStep >= 1 && (
-          <View className="flex-row space-x-1">
+          <View className="flex-row gap-1">
             {Array.from({ length: totalSteps }).map((_, idx) => (
               <View
                 key={idx}
@@ -788,9 +834,8 @@ export default function OnboardingWizard() {
       </View>
 
       {/* Main Chat Scroll Container */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      <Reanimated.View
+        style={[{ flex: 1 }, keyboardStyle]}
         className="flex-1"
       >
         <ScrollView
@@ -804,42 +849,27 @@ export default function OnboardingWizard() {
             if (node.type === 'welcome_hero' && currentStep === 0) {
               return (
                 <View key={node.id} className="items-center justify-center py-10 my-auto">
-                  {/* Glowing High-Visibility Avatar */}
                   <View className="relative mb-6">
-                    <View className="w-28 h-28 rounded-full border-4 border-[#FF5A1F] shadow-2xl items-center justify-center overflow-hidden bg-[#FF5A1F]/20">
+                    <View className="w-28 h-28 rounded-full items-center justify-center overflow-hidden bg-theme-bg">
                       <Image
-                        source={{
-                          uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-                        }}
+                        source={getCoachAvatarSource(coachTone)}
                         className="w-full h-full"
                       />
                     </View>
-                    <View className="absolute -bottom-1 -right-1 bg-[#FF5A1F] w-9 h-9 rounded-full items-center justify-center border-2 border-white dark:border-zinc-900 shadow-md">
-                      <Ionicons name="flash" size={20} color="#FFFFFF" />
-                    </View>
-                    <View className="absolute top-1 right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-900" />
                   </View>
 
-                  {/* Large High-Contrast Speech Bubble */}
-                  <View className="w-full bg-[#FF5A1F]/15 border-2 border-[#FF5A1F] rounded-3xl p-6 shadow-xl relative mb-8">
-                    <View className="flex-row items-center space-x-2 mb-3">
-                      <Text className="text-[#FF5A1F] font-black text-xs uppercase tracking-widest">
-                        Spark · AI Endurance Coach
-                      </Text>
-                      <View className="w-2 h-2 rounded-full bg-[#FF5A1F]" />
-                    </View>
-
-                    <Text className="text-theme-text text-base font-bold leading-relaxed">
+                  <View className="w-full mb-8">
+                    <Text className="text-theme-text text-[22px] leading-[32px] font-semibold">
                       {typedText}
                       {typedText.length < WELCOME_MESSAGE.length && (
-                        <Text className="text-[#FF5A1F] font-black"> |</Text>
+                        <Text className="text-[#FF5A1F]">▌</Text>
                       )}
                     </Text>
                   </View>
 
                   <TouchableOpacity
                     onPress={startChatOnboarding}
-                    className="w-full py-4 rounded-2xl bg-[#FF5A1F] shadow-lg items-center justify-center flex-row space-x-2 active:opacity-90"
+                    className="w-full py-4 rounded-2xl bg-[#FF5A1F] items-center justify-center flex-row gap-2 active:opacity-90"
                   >
                     <Text className="text-white font-extrabold text-lg">Meet Your Coach & Begin</Text>
                     <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
@@ -848,28 +878,29 @@ export default function OnboardingWizard() {
               );
             }
 
-            if (node.type === 'coach_text') {
+            if (node.type === 'coach_typing') {
               return (
-                <View key={node.id} className="flex-row items-start space-x-3 mb-4 pr-10">
+                <View key={node.id} className="mb-7">
+                  <TypingDots />
+                </View>
+              );
+            }
+
+            if (node.type === 'coach_text') {
+              if (!node.text?.trim()) return null;
+              return (
+                <View key={node.id} className="flex-row items-start gap-3 mb-4 pr-4">
                   <View className="relative">
                     <Image
-                      source={{
-                        uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                      }}
-                      className="w-10 h-10 rounded-full border-2 border-[#FF5A1F]"
+                      source={getCoachAvatarSource(coachTone)}
+                      className="w-10 h-10 rounded-full"
                     />
-                    <View className="absolute -bottom-1 -right-1 bg-[#FF5A1F] w-4 h-4 rounded-full items-center justify-center border border-theme-card">
-                      <Ionicons name="flash" size={9} color="#FFFFFF" />
-                    </View>
                   </View>
-                  <View className="flex-1 bg-[#FF5A1F]/15 border-2 border-[#FF5A1F]/40 rounded-2xl p-4 shadow-sm">
-                    <View className="flex-row items-center space-x-1.5 mb-1">
-                      <Text className="text-[#FF5A1F] font-black text-xs uppercase tracking-wider">Spark</Text>
-                      <View className="px-1.5 py-0.2 bg-[#FF5A1F] rounded-md">
-                        <Text className="text-white text-[8px] font-black uppercase">AI Coach</Text>
-                      </View>
+                  <View className="flex-1 mt-1">
+                    <View className="flex-row items-center gap-1.5 mb-1">
+                      <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Spark</Text>
                     </View>
-                    <Text className="text-theme-text font-semibold text-xs leading-relaxed">{node.text}</Text>
+                    <MarkdownText content={node.text || ''} isUser={false} />
                   </View>
                 </View>
               );
@@ -877,9 +908,9 @@ export default function OnboardingWizard() {
 
             if (node.type === 'user_text') {
               return (
-                <View key={node.id} className="flex-row items-end justify-end mb-4 pl-12">
-                  <View className="bg-theme-card border border-theme-border rounded-2xl px-4 py-3 shadow-sm">
-                    <Text className="text-theme-text font-bold text-xs">{node.text}</Text>
+                <View key={node.id} className="flex-row justify-end mb-7 pl-12">
+                  <View className="bg-theme-card rounded-3xl px-4 py-2.5 max-w-[80%]">
+                    <Text className="text-theme-text text-[16px] leading-[24px]">{node.text}</Text>
                   </View>
                 </View>
               );
@@ -890,11 +921,11 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border-2 ${
-                    isSelected ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
-                  } rounded-2xl p-4 mb-5 space-y-3`}
+                  className={`bg-theme-card border ${
+                    isSelected ? 'border-theme-border' : 'border-[#FF5A1F]/50'
+                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
                 >
-                  <View className="flex-row items-center space-x-2">
+                  <View className="flex-row items-center gap-2">
                     <Ionicons name="language" size={20} color="#FF5A1F" />
                     <Text className="text-theme-text font-bold text-sm">Select Your Preferred Language</Text>
                   </View>
@@ -907,7 +938,7 @@ export default function OnboardingWizard() {
                           key={lang.code}
                           disabled={isStreamingMessage}
                           onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
-                          className={`px-4 py-2.5 rounded-xl border flex-row items-center space-x-2 ${
+                          className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 ${
                             active
                               ? 'bg-[#FF5A1F] border-[#FF5A1F]'
                               : 'bg-theme-bg border-theme-border active:bg-theme-card'
@@ -930,9 +961,9 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border-2 ${
-                    isSelected ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
-                  } rounded-2xl p-4 mb-5 space-y-3`}
+                  className={`bg-theme-card border ${
+                    isSelected ? 'border-theme-border' : 'border-[#FF5A1F]/50'
+                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
                 >
                   <Text className="text-theme-text font-bold text-sm">Choose Spark's Coaching Tone</Text>
 
@@ -944,7 +975,7 @@ export default function OnboardingWizard() {
                         'Empathetic & Demanding'
                       )
                     }
-                    className={`p-3.5 rounded-xl border-2 ${
+                    className={`p-3.5 rounded-xl border ${
                       coachTone === 'Empathetic but demanding elite endurance coach.'
                         ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
                         : 'border-theme-border bg-theme-bg'
@@ -971,7 +1002,7 @@ export default function OnboardingWizard() {
                         'Strict Data & British Humor'
                       )
                     }
-                    className={`p-3.5 rounded-xl border-2 ${
+                    className={`p-3.5 rounded-xl border ${
                       coachTone === 'Strict with data, but with a dry, snarky British sense of humor.'
                         ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
                         : 'border-theme-border bg-theme-bg'
@@ -998,7 +1029,7 @@ export default function OnboardingWizard() {
                         'Positive Cheerleader'
                       )
                     }
-                    className={`p-3.5 rounded-xl border-2 ${
+                    className={`p-3.5 rounded-xl border ${
                       coachTone === 'Enthusiastic cheerleader, extremely positive and forgiving.'
                         ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
                         : 'border-theme-border bg-theme-bg'
@@ -1025,9 +1056,9 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border-2 ${
-                    isCompleted ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
-                  } rounded-2xl p-4 mb-5 space-y-4`}
+                  className={`bg-theme-card border ${
+                    isCompleted ? 'border-theme-border' : 'border-[#FF5A1F]/50'
+                  } rounded-2xl p-4 mb-5 gap-4 shadow-sm`}
                 >
                   <Text className="text-theme-text font-bold text-sm">Tell Us About Yourself & Main Event</Text>
 
@@ -1044,12 +1075,12 @@ export default function OnboardingWizard() {
                   />
 
                   {/* Physiological Baselines */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 space-y-2">
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2">
                     <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
                       Physiological Baselines (Optional)
                     </Text>
                     {metrics.map((item, idx) => (
-                      <View key={idx} className="flex-row space-x-2">
+                      <View key={idx} className="flex-row gap-2">
                         <TextInput
                           editable={!isStreamingMessage}
                           placeholder="Label (e.g. FTP)"
@@ -1086,7 +1117,7 @@ export default function OnboardingWizard() {
                   </View>
 
                   {/* Main Goal Event Setup */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 space-y-2.5">
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2.5">
                     <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
                       Main Target Event
                     </Text>
@@ -1098,7 +1129,7 @@ export default function OnboardingWizard() {
                       onChangeText={handleRaceNameChange}
                       className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
                     />
-                    <View className="flex-row space-x-2">
+                    <View className="flex-row gap-2">
                       <TouchableOpacity
                         disabled={isStreamingMessage}
                         onPress={openDatePickerModal}
@@ -1112,7 +1143,7 @@ export default function OnboardingWizard() {
 
                       <View className="w-28 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-center relative">
                         {isEstimatingCtl ? (
-                          <View className="flex-row items-center space-x-1">
+                          <View className="flex-row items-center gap-1">
                             <ActivityIndicator size="small" color="#FF5A1F" />
                             <Text className="text-[10px] text-[#FF5A1F] font-bold">Spark...</Text>
                           </View>
@@ -1159,20 +1190,20 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border-2 ${
-                    isCompleted ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
-                  } rounded-2xl p-4 mb-5 space-y-3`}
+                  className={`bg-theme-card border ${
+                    isCompleted ? 'border-theme-border' : 'border-[#FF5A1F]/50'
+                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
                 >
                   <Text className="text-theme-text font-bold text-sm">Weekly Training Availability</Text>
                   <Text className="text-theme-muted text-xs">
                     Select how many minutes you can comfortably dedicate each day.
                   </Text>
 
-                  <View className="space-y-3 pt-1">
+                  <View className="gap-3 pt-1">
                     {DAYS.map((day) => {
                       const currentVal = availability[day]?.maxMinutes || 0;
                       return (
-                        <View key={day} className="bg-theme-bg p-3 rounded-xl border border-theme-border space-y-2">
+                        <View key={day} className="bg-theme-bg p-3 rounded-xl border border-theme-border gap-2">
                           <View className="flex-row items-center justify-between">
                             <Text className="text-theme-text font-bold text-xs">{day}</Text>
                             <Text className="text-[#FF5A1F] font-bold text-xs">
@@ -1180,7 +1211,7 @@ export default function OnboardingWizard() {
                             </Text>
                           </View>
 
-                          <View className="flex-row space-x-1 justify-between">
+                          <View className="flex-row gap-1 justify-between">
                             {DURATION_OPTIONS.map((opt) => {
                               const isSelected = currentVal === opt.value;
                               return (
@@ -1228,16 +1259,16 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border-2 ${
-                    isCompleted ? 'border-[#FF5A1F]/40' : 'border-[#FF5A1F] shadow-lg'
-                  } rounded-2xl p-4 mb-5 space-y-3`}
+                  className={`bg-theme-card border ${
+                    isCompleted ? 'border-theme-border' : 'border-[#FF5A1F]/50'
+                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
                 >
                   <Text className="text-theme-text font-bold text-sm">Device & Fitness Sync</Text>
 
                   {/* Garmin Connect */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 space-y-3">
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-3">
                     <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center space-x-3">
+                      <View className="flex-row items-center gap-3">
                         <Ionicons name="watch-outline" size={20} color="#007ACC" />
                         <View>
                           <Text className="text-theme-text font-bold text-xs">Garmin Connect</Text>
@@ -1253,7 +1284,7 @@ export default function OnboardingWizard() {
                     </View>
 
                     {showGarmin && (
-                      <View className="pt-2 space-y-2 border-t border-theme-border">
+                      <View className="pt-2 gap-2 border-t border-theme-border">
                         <TextInput
                           editable={!isStreamingMessage}
                           placeholder="Garmin Email / Username"
@@ -1279,7 +1310,7 @@ export default function OnboardingWizard() {
 
                   {/* Strava Connect */}
                   <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 flex-row items-center justify-between">
-                    <View className="flex-row items-center space-x-2">
+                    <View className="flex-row items-center gap-2">
                       <Ionicons name="bicycle" size={18} color="#FC4C02" />
                       <Text className="text-theme-text font-bold text-xs">Strava Sync</Text>
                     </View>
@@ -1307,7 +1338,7 @@ export default function OnboardingWizard() {
 
             if (node.type === 'card_paywall') {
               return (
-                <View key={node.id} className="bg-theme-card border-2 border-[#FF5A1F] rounded-2xl p-5 mb-6 space-y-4 shadow-xl">
+                <View key={node.id} className="bg-theme-card border border-theme-border rounded-2xl p-5 mb-6 gap-4 shadow-sm">
                   <View className="items-center my-1">
                     <View className="w-12 h-12 rounded-2xl bg-[#FF5A1F] items-center justify-center mb-2 shadow-lg">
                       <Ionicons name="flash" size={24} color="#FFFFFF" />
@@ -1319,10 +1350,10 @@ export default function OnboardingWizard() {
                   </View>
 
                   {/* Pricing Tiers */}
-                  <View className="flex-row space-x-3">
+                  <View className="flex-row gap-3">
                     <TouchableOpacity
                       onPress={() => setSelectedPlan('annual')}
-                      className={`flex-1 p-3.5 rounded-2xl border-2 ${
+                      className={`flex-1 p-3.5 rounded-2xl border ${
                         selectedPlan === 'annual'
                           ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
                           : 'border-theme-border bg-theme-bg'
@@ -1340,7 +1371,7 @@ export default function OnboardingWizard() {
 
                     <TouchableOpacity
                       onPress={() => setSelectedPlan('monthly')}
-                      className={`flex-1 p-3.5 rounded-2xl border-2 ${
+                      className={`flex-1 p-3.5 rounded-2xl border ${
                         selectedPlan === 'monthly'
                           ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
                           : 'border-theme-border bg-theme-bg'
@@ -1355,21 +1386,21 @@ export default function OnboardingWizard() {
                   </View>
 
                   {/* Feature Checklist */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 space-y-2">
+                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
                     {[
                       'Increased Spark chat tokens',
                       'Personalized daily macro periodization & fueling protocols',
                       'Strava auto-tagging controls',
                       'Social leaderboard',
                     ].map((feat, idx) => (
-                      <View key={idx} className="flex-row items-center space-x-2">
+                      <View key={idx} className="flex-row items-center gap-2">
                         <Ionicons name="checkmark-circle" size={16} color="#FF5A1F" />
                         <Text className="text-theme-text text-xs flex-1">{feat}</Text>
                       </View>
                     ))}
                   </View>
 
-                  <View className="space-y-2 pt-2">
+                  <View className="gap-2 pt-2">
                     <TouchableOpacity
                       onPress={() => handleCompleteSetup(true)}
                       disabled={isSubmitting}
@@ -1397,7 +1428,7 @@ export default function OnboardingWizard() {
             return null;
           })}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </Reanimated.View>
     </SafeAreaView>
   );
 }
