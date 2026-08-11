@@ -1,26 +1,31 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
 import { canAccessLeaderboard } from '../../utils/permissions';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
 
+import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
+
 export default function SocialScreen() {
   const { user } = useUser();
   const { t } = useLanguage();
+  const { tabBarOccupied } = useTabBar();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const hasAccess = canAccessLeaderboard(user?.subscription_tier);
 
   return (
-    <SafeAreaView className="flex-1 bg-theme-bg">
+    <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
-        <Text className="text-2xl font-extrabold text-theme-text tracking-tight">Social</Text>
+        <ScreenHeaderTitleRow title="Social" />
       </View>
 
-      <ScrollView className="flex-1 px-5 pt-4" contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-5 pt-2" contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }} showsVerticalScrollIndicator={false}>
         {!hasAccess ? (
           <View className="bg-theme-card rounded-2xl p-6 items-center justify-center mt-10">
             <Ionicons name="lock-closed" size={48} color="#16ACBD" className="mb-4" />
@@ -54,6 +59,6 @@ export default function SocialScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

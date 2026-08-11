@@ -14,8 +14,12 @@ export interface PhysiqueEntry {
 }
 
 export interface NutritionProtocol {
+  title?: string;
   focusTitle: string;
   rationale: string;
+  carbs?: number;
+  protein?: number;
+  fat?: number;
   loggedCarbs: number;
   carbsTarget: number;
   loggedProtein: number;

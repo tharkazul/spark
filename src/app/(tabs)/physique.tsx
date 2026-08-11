@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SparkTab } from '../../components/progress/SparkTab';
 import { NutritionTab } from '../../components/progress/NutritionTab';
@@ -20,25 +20,21 @@ import { HealthTab } from '../../components/progress/HealthTab';
 import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
 
+import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
+
 const TABS = ['spark', 'nutrition', 'health'] as const;
 type TabType = typeof TABS[number];
 
 export default function ProgressScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const { notifyScroll } = useTabBar();
+  const { notifyScroll, tabBarOccupied } = useTabBar();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<TabType>('spark');
 
-  const now = new Date();
-  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
-  const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
-  const dayNum = now.getDate();
-  const headerDateLabel = `${dayOfWeekShort}, ${monthShort} ${dayNum}`;
-
-  // Segment width for 3 equal pills inside bg-theme-card rounded-2xl p-1 (px-5 outer padding = 40px, p-1 inner padding = 8px)
   const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 3;
 
   const indicatorTranslateX = scrollX.interpolate({
@@ -47,7 +43,6 @@ export default function ProgressScreen() {
     extrapolate: 'clamp',
   });
 
-  // Opacity interpolations for pill text labels
   const sparkWhiteOpacity = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
     outputRange: [1, 0],
@@ -105,18 +100,10 @@ export default function ProgressScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
+    <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
       {/* TOP HEADER MATCHING DASHBOARD EXACT POSITIONING */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
-        <View className="flex-row justify-between items-center mb-3">
-          <View>
-            <Text className="text-2xl font-extrabold text-theme-text tracking-tight">Progress</Text>
-          </View>
-          <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full shadow-sm">
-            <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
-            <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
-          </View>
-        </View>
+        <ScreenHeaderTitleRow title="Progress" />
 
         {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
         <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden">
@@ -188,8 +175,8 @@ export default function ProgressScreen() {
         {/* SPARK PAGE */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
-            className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: 120 }}
+            className="flex-1 px-5 pt-0"
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -201,7 +188,7 @@ export default function ProgressScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: 120 }}
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -213,7 +200,7 @@ export default function ProgressScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: 120 }}
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -221,6 +208,6 @@ export default function ProgressScreen() {
           </ScrollView>
         </View>
       </Animated.ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

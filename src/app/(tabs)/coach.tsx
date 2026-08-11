@@ -154,7 +154,7 @@ const MessageRow = React.memo(({ item, isFirstInRun, coachTone, onAccept, onReje
 export default function CoachScreen() {
   const { t } = useLanguage();
   const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, tokenUsage, error } = useCoachChat();
-  const { user } = useUser();
+  const { user, isChatMacroStripVisible, toggleChatMacroStrip } = useUser();
   const insets = useSafeAreaInsets();
   const { height, progress } = useKeyboardMotionContext();
   const { tabBarOccupied } = useTabBar();
@@ -298,7 +298,7 @@ export default function CoachScreen() {
     sendMessage(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined);
   };
 
-  const renderItem = useCallback(({ item }: { item: ChatListItem }) => {
+  const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
     if (item.type === 'date') {
       return (
         <View className="py-4 items-center justify-center my-4">
@@ -481,8 +481,8 @@ export default function CoachScreen() {
           ) : null}
 
           <ChatMacroStrip
-            isVisible={user?.isChatMacroStripVisible ?? true}
-            onToggle={user?.toggleChatMacroStrip || (() => {})}
+            isVisible={isChatMacroStripVisible ?? true}
+            onToggle={toggleChatMacroStrip || (() => {})}
           />
 
           <View className="bg-theme-card rounded-3xl p-2.5 shadow-lg border border-theme-border">

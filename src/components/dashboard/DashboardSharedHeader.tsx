@@ -1,20 +1,18 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Animated, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../../context/LanguageContext';
+import { useHeaderLayout } from '../../context/HeaderLayoutContext';
+import { ScreenHeaderTitleRow } from '../ui/ScreenHeaderTitleRow';
 
 export function DashboardSharedHeader({ position }: { position: Animated.AnimatedInterpolation<number> }) {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useLanguage();
-
-  const now = new Date();
-  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
-  const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
-  const dayNum = now.getDate();
-  const headerDateLabel = `${dayOfWeekShort}, ${monthShort} ${dayNum}`;
+  const { setHeaderHeight } = useHeaderLayout();
 
   // Container width is SCREEN_WIDTH - 40 (px-5 padding). Inside is p-1 padding (8px total).
   const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 2;
@@ -28,13 +26,29 @@ export function DashboardSharedHeader({ position }: { position: Animated.Animate
   const headerTranslateX = position.interpolate({
     inputRange: [0, 1, 2],
     outputRange: [0, 0, -SCREEN_WIDTH],
+    extrapolate: 'clamp',
   });
 
   const opacity = position.interpolate({
     inputRange: [0, 1, 1.99, 2],
     outputRange: [1, 1, 1, 0],
+    extrapolate: 'clamp',
   });
 
+  // Animated Title Opacity
+  const dashboardTitleOpacity = position.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0, 0],
+    extrapolate: 'clamp',
+  });
+
+  const planningTitleOpacity = position.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Animated Pill Label Opacity
   const dashboardWhiteOpacity = position.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0],
@@ -58,20 +72,32 @@ export function DashboardSharedHeader({ position }: { position: Animated.Animate
   });
 
   return (
-    <SafeAreaView edges={['top']} className="absolute top-0 left-0 right-0 z-50" pointerEvents="box-none">
+    <View 
+      className="absolute top-0 left-0 right-0 z-50" 
+      pointerEvents="box-none"
+      style={{ paddingTop: insets.top }}
+      onLayout={(e) => {
+        const h = e.nativeEvent.layout.height;
+        console.log('[DEBUG] DashboardSharedHeader onLayout height:', h, 'insets.top:', insets.top);
+        if (h > 0) {
+          setHeaderHeight(h);
+        }
+      }}
+    >
       <Animated.View style={{ transform: [{ translateX: headerTranslateX }], opacity }} className="px-5 pt-3 pb-2 bg-theme-bg" pointerEvents="box-none">
-        <View className="flex-row justify-between items-center mb-3">
-          <View>
-            <Text className="text-2xl font-extrabold text-theme-text tracking-tight">{t('nav.dashboard') || 'Dashboard'}</Text>
+        <ScreenHeaderTitleRow>
+          <View className="relative justify-center flex-1">
+            <Animated.Text style={{ opacity: dashboardTitleOpacity }} className="text-2xl font-extrabold text-theme-text tracking-tight absolute">
+              {t('nav.dashboard') === 'nav.dashboard' ? 'Dashboard' : t('nav.dashboard')}
+            </Animated.Text>
+            <Animated.Text style={{ opacity: planningTitleOpacity }} className="text-2xl font-extrabold text-theme-text tracking-tight">
+              {t('nav.planning') === 'nav.planning' ? 'Planning' : t('nav.planning')}
+            </Animated.Text>
           </View>
-          <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full">
-            <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
-            <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
-          </View>
-        </View>
+        </ScreenHeaderTitleRow>
 
         {/* Header Indicator */}
-        <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden">
+        <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden" pointerEvents="auto">
           <Animated.View 
             className="absolute top-1 bottom-1 bg-theme-accent rounded-xl" 
             style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }} 
@@ -90,6 +116,6 @@ export function DashboardSharedHeader({ position }: { position: Animated.Animate
           </TouchableOpacity>
         </View>
       </Animated.View>
-    </SafeAreaView>
+    </View>
   );
 }

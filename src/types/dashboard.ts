@@ -32,6 +32,13 @@ export interface NutritionMacro {
   loggedFat?: number;
 }
 
+export interface DayAgenda {
+  dayName: string;
+  dateStr: string;
+  isToday?: boolean;
+  workouts: WorkoutItem[];
+}
+
 export interface TrainingPhaseDetail {
   name: string;
   weeks: string;

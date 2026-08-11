@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card } from '../../components/ui/Card';
+import { Card } from '../components/ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useActivities } from '../../context/ActivityStore';
-import { useLanguage } from '../../context/LanguageContext';
+import { useActivities } from '../context/ActivityStore';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ActivitiesScreen() {
   const { activities, loading, refreshActivities } = useActivities();

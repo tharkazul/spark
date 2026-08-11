@@ -47,7 +47,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       if (nutritionData.status === 'fulfilled' && nutritionData.value) {
-        const p = nutritionData.value;
+        const p: any = nutritionData.value;
         setNutrition({
           focusTitle: p.title || 'Daily Endurance Protocol',
           rationale: p.rationale || 'Tailored to your body mass and today\'s training load.',

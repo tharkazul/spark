@@ -1,14 +1,20 @@
 async function fetchUsage() {
     try {
+        const token = localStorage.getItem('nana_token');
+        if (!token) {
+            showLoginModal();
+            return;
+        }
+
         const response = await fetch('/api/admin/usage', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('nana_token')}`
+                'Authorization': `Bearer ${token}`
             }
         });
 
         if (!response.ok) {
             if (response.status === 403 || response.status === 401) {
-                window.location.href = '/';
+                showLoginModal();
                 return;
             }
             throw new Error(`Failed to fetch: ${response.status}`);
@@ -182,6 +188,47 @@ function showError(msg) {
         toast.classList.add('pointer-events-none');
     }, 4000);
 }
+
+function showLoginModal() {
+    document.getElementById('loginModal').classList.remove('hidden');
+}
+
+document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('loginError');
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+    
+    err.classList.add('hidden');
+    btn.disabled = true;
+    btn.innerText = 'Logging in...';
+
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            localStorage.setItem('nana_token', data.token);
+            document.getElementById('loginModal').classList.add('hidden');
+            fetchUsage();
+        } else {
+            err.innerText = data.error || 'Login failed';
+            err.classList.remove('hidden');
+        }
+    } catch (error) {
+        err.innerText = 'Network error';
+        err.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerText = 'Sign In';
+    }
+});
 
 // Init
 document.addEventListener('DOMContentLoaded', fetchUsage);

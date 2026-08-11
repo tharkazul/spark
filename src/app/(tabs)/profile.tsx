@@ -1,53 +1,51 @@
-import React, { useState, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useRef, useState } from 'react';
 import {
-  ScrollView,
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  TextInput,
   ActivityIndicator,
   Alert,
   Animated,
-  useWindowDimensions,
-  NativeSyntheticEvent,
+  Modal,
   NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
-import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTabBar } from '../../context/TabBarContext';
+import { useUser } from '../../context/UserStore';
 import { integrationsApi } from '../../services/apiServices';
 
-import { isAdmin } from '../../utils/permissions';
 
-import { ProfileTab } from '../../components/profile/ProfileTab';
-import { GoalsTab } from '../../components/profile/GoalsTab';
-import { ConnectionsTab } from '../../components/profile/ConnectionsTab';
 import { AccountTab } from '../../components/profile/AccountTab';
-import { AdminTab } from '../../components/profile/AdminTab'; // I will create this
+import { ConnectionsTab } from '../../components/profile/ConnectionsTab';
+import { GoalsTab } from '../../components/profile/GoalsTab';
+import { ProfileTab } from '../../components/profile/ProfileTab';
+import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account' | 'admin';
+export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account';
 
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
   const { t } = useLanguage();
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
-  const { notifyScroll } = useTabBar();
+  const { notifyScroll, tabBarOccupied } = useTabBar();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  const userIsAdmin = isAdmin(user?.subscription_tier);
-  const TABS: ProfileSubTab[] = userIsAdmin 
-    ? ['profile', 'goals', 'connections', 'account', 'admin'] 
-    : ['profile', 'goals', 'connections', 'account'];
+  const TABS: ProfileSubTab[] = ['profile', 'goals', 'connections', 'account'];
+
 
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -295,20 +293,10 @@ export default function ProfileScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
+    <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
       {/* Dashboard-style Top Header */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
-        <View className="flex-row justify-between items-center mb-3">
-          <View>
-            <Text className="text-2xl font-extrabold text-theme-text tracking-tight">
-              {t('profile.title') || 'Athlete Profile'}
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full">
-            <Ionicons name="calendar-outline" size={13} color="#16ACBD" />
-            <Text className="text-xs font-bold font-mono text-theme-muted">{headerDateLabel}</Text>
-          </View>
-        </View>
+        <ScreenHeaderTitleRow title={t('profile.title') || 'Athlete Profile'} />
 
         {/* Dashboard-style Sub-tab Navigation Segmented Control */}
         <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden">
@@ -327,9 +315,8 @@ export default function ProfileScreen() {
             className="flex-1 py-2.5 items-center justify-center z-10"
           >
             <Text
-              className={`text-[11px] font-extrabold ${
-                activeTab === 'profile' ? 'text-theme-accent' : 'text-theme-muted'
-              }`}
+              className={`text-[11px] font-extrabold ${activeTab === 'profile' ? 'text-theme-accent' : 'text-theme-muted'
+                }`}
             >
               {t('profile.tabProfile') || 'Profile'}
             </Text>
@@ -341,9 +328,8 @@ export default function ProfileScreen() {
             className="flex-1 py-2.5 items-center justify-center z-10"
           >
             <Text
-              className={`text-[11px] font-extrabold ${
-                activeTab === 'goals' ? 'text-theme-accent' : 'text-theme-muted'
-              }`}
+              className={`text-[11px] font-extrabold ${activeTab === 'goals' ? 'text-theme-accent' : 'text-theme-muted'
+                }`}
             >
               {t('profile.tabGoals') || 'Goals'}
             </Text>
@@ -355,9 +341,8 @@ export default function ProfileScreen() {
             className="flex-1 py-2.5 items-center justify-center z-10"
           >
             <Text
-              className={`text-[11px] font-extrabold ${
-                activeTab === 'connections' ? 'text-theme-accent' : 'text-theme-muted'
-              }`}
+              className={`text-[11px] font-extrabold ${activeTab === 'connections' ? 'text-theme-accent' : 'text-theme-muted'
+                }`}
             >
               {t('profile.tabConnections') || 'Connections'}
             </Text>
@@ -369,28 +354,12 @@ export default function ProfileScreen() {
             className="flex-1 py-2.5 items-center justify-center z-10"
           >
             <Text
-              className={`text-[11px] font-extrabold ${
-                activeTab === 'account' ? 'text-theme-accent' : 'text-theme-muted'
-              }`}
+              className={`text-[11px] font-extrabold ${activeTab === 'account' ? 'text-theme-accent' : 'text-theme-muted'
+                }`}
             >
               {t('profile.tabAccount') || 'Account'}
             </Text>
           </TouchableOpacity>
-          {userIsAdmin && (
-            <TouchableOpacity
-              onPress={() => handleTabSwitch('admin')}
-              activeOpacity={0.8}
-              className="flex-1 py-2.5 items-center justify-center z-10"
-            >
-              <Text
-                className={`text-[11px] font-extrabold ${
-                  activeTab === 'admin' ? 'text-theme-accent' : 'text-theme-muted'
-                }`}
-              >
-                Admin
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
@@ -411,7 +380,7 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: 110 }}
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -428,7 +397,7 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: 110 }}
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -440,7 +409,7 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: 110 }}
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -455,27 +424,13 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: 110 }}
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
             <AccountTab onLogout={logout} isSparkPlus={isSparkPlus} />
           </ScrollView>
         </View>
-
-        {/* ADMIN TAB PAGE */}
-        {userIsAdmin && (
-          <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-            <ScrollView
-              className="flex-1 px-4 pt-4"
-              contentContainerStyle={{ paddingBottom: 110 }}
-              showsVerticalScrollIndicator={false}
-              onScrollBeginDrag={notifyScroll}
-            >
-              <AdminTab />
-            </ScrollView>
-          </View>
-        )}
       </ScrollView>
 
       {/* GARMIN CONNECTION MODAL */}
@@ -692,6 +647,6 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }

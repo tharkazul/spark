@@ -6,13 +6,14 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
+import { useHeaderLayout } from '../../context/HeaderLayoutContext';
+import { useTabBar } from '../../context/TabBarContext';
 import { canAccessQuests } from '../../utils/permissions';
 
 import { TodaysPlanCard } from '../../components/dashboard/TodaysPlanCard';
@@ -33,8 +34,9 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { t } = useLanguage();
+  const { headerHeight } = useHeaderLayout();
+  const { tabBarOccupied } = useTabBar();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
@@ -118,14 +120,12 @@ export default function DashboardScreen() {
     router.push('/coach');
   };
 
-  const headerSpacerHeight = (insets.top || 20) + 110;
-
   return (
     <View className="flex-1 bg-theme-bg" style={{ flex: 1, width: '100%', height: '100%' }}>
-      {/* Header Spacer dynamically matching DashboardSharedHeader height */}
-      <View style={{ height: headerSpacerHeight }} />
+      {/* Header Spacer dynamically measured from DashboardSharedHeader onLayout */}
+      <View style={{ height: headerHeight }} />
 
-      <ScrollView className="flex-1 px-5 pt-1" contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 px-5 pt-2" contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }} showsVerticalScrollIndicator={false} contentInsetAdjustmentBehavior="never">
         <TodaysPlanCard
           dateLabel={todaysCardDateLabel}
           tempLabel="24°C"

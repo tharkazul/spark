@@ -2,11 +2,12 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NutritionMacro } from '../../types/dashboard';
+import { NutritionProtocol } from '../../types/physique';
 import { MacroRingGauge } from './MacroRingGauge';
 import { usePhysique } from '../../context/PhysiqueStore';
 
 interface NutritionProtocolCardProps {
-  nutrition: NutritionMacro;
+  nutrition: NutritionMacro | NutritionProtocol;
 }
 
 export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps) {

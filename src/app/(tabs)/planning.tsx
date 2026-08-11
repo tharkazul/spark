@@ -7,13 +7,13 @@ import {
   useWindowDimensions,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
+import { useHeaderLayout } from '../../context/HeaderLayoutContext';
+import { useTabBar } from '../../context/TabBarContext';
 import { Card } from '../../components/ui/Card';
 
 import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
@@ -54,7 +54,8 @@ export default function PlanningScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { t } = useLanguage();
-  const insets = useSafeAreaInsets();
+  const { headerHeight } = useHeaderLayout();
+  const { tabBarOccupied } = useTabBar();
   
   const part3ScrollViewRef = useRef<ScrollView>(null);
   
@@ -362,14 +363,12 @@ export default function PlanningScreen() {
     router.push('/coach');
   };
 
-  const headerSpacerHeight = (insets.top || 20) + 110;
-
   return (
     <View className="flex-1 bg-theme-bg" style={{ flex: 1, width: '100%', height: '100%' }}>
-      {/* Header Spacer dynamically matching DashboardSharedHeader height */}
-      <View style={{ height: headerSpacerHeight }} />
+      {/* Header Spacer dynamically measured from DashboardSharedHeader onLayout */}
+      <View style={{ height: headerHeight }} />
 
-      <View className="flex-1 px-5 pt-1">
+      <View className="flex-1 px-5 pt-2">
         {/* Pinned plan context — Card matching TodaysPlanCard styling */}
         <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
           <SeasonRoadmapCard info={seasonInfo} />
@@ -404,7 +403,7 @@ export default function PlanningScreen() {
           />
         </Card>
 
-        <ScrollView ref={part3ScrollViewRef} className="flex-1" contentContainerStyle={{ paddingBottom: 120, gap: 12 }} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={part3ScrollViewRef} className="flex-1" contentContainerStyle={{ paddingBottom: tabBarOccupied + 20, gap: 12 }} showsVerticalScrollIndicator={false}>
           {weeklyAgenda.map((day, idx) => (
             <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {
               const y = e.nativeEvent.layout.y;

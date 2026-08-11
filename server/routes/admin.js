@@ -7,6 +7,9 @@ const { generateWithFallback } = require("../services/ai");
 const { sendSSEEvent } = require("../services/sse");
 
 const adminAuthMiddleware = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
   const isRutger = req.user.username && req.user.username.toLowerCase().includes("rutger");
   const isFelix = req.user.username && req.user.username.toLowerCase().includes("felixson");
   const isAdminTier = req.user.subscription_tier === 'admin';
@@ -16,7 +19,7 @@ const adminAuthMiddleware = (req, res, next) => {
   next();
 };
 
-router.use("/api/admin", adminAuthMiddleware);
+router.use("/api/admin", authenticateToken, adminAuthMiddleware);
 
 router.post("/api/admin/simulate-24h", authenticateToken, async (req, res) => {
   const user = req.user;
