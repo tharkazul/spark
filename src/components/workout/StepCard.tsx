@@ -44,6 +44,12 @@ const getPacePlaceholder = (currentSport: SportType | string) => {
   }
 };
 
+// Strips trailing unit suffixes (e.g. "4:15 min/km" -> "4:15", "250W" -> "250") left over from
+// legacy AI output that didn't follow the "numeric value only" instruction. Anchored to the end
+// of the string so it never eats a stray "w"/"m" that's part of the actual number.
+const stripTargetUnits = (value: string | undefined) =>
+  (value || '').replace(/\s*(min\/km|min\/100m|km\/u|watts|w)\s*$/i, '').trim();
+
 const StepCardComponent = ({
   step,
   isStrength,
@@ -59,9 +65,18 @@ const StepCardComponent = ({
   const condType = step.condition_type || 'time';
   const isTime = condType === 'time' || condType === 'time_sec';
   const isDistance = condType === 'distance' || condType === 'distance_km';
-  const targetType = step.target_type || 'no.target';
+  const rawTargetType = step.target_type || 'no.target';
+  let targetType = rawTargetType;
+  if (step.target_value && (targetType === 'no.target' || (targetType as any) === 'open')) {
+    if (String(step.target_value).includes(':') || String(step.target_value).toLowerCase().includes('min')) {
+      targetType = 'pace.exact';
+    } else if (String(step.target_value).toLowerCase().includes('w')) {
+      targetType = 'power.exact';
+    }
+  }
   const isZoneTarget = targetType === 'heart.rate.zone' || targetType === 'power.zone';
   const isPaceTarget = targetType === 'pace.exact' || targetType === 'pace.zone';
+  const isExactPowerTarget = targetType === 'power.exact';
   const isStrengthOrMobility = sport === 'STRENGTH' || sport === 'MOBILITY';
 
   const colorConfig = CARD_COLORS[step.type as keyof typeof CARD_COLORS] || CARD_COLORS.default;
@@ -305,6 +320,7 @@ const StepCardComponent = ({
                           { key: 'no.target', label: 'Open' },
                           { key: 'heart.rate.zone', label: 'HR Z' },
                           { key: 'power.zone', label: 'Pwr Z' },
+                          { key: 'power.exact', label: 'Pwr W' },
                           { key: 'pace.exact', label: 'Pace' },
                         ]
                     ).map((target) => {
@@ -373,7 +389,7 @@ const StepCardComponent = ({
               {isPaceTarget && !isStrengthOrMobility && (
                 <View className="flex-row items-center gap-2 pt-0.5">
                   <TextInput
-                    value={step.target_value || ''}
+                    value={stripTargetUnits(step.target_value)}
                     onChangeText={(text) => onUpdate(step.id, 'target_value', text)}
                     keyboardType={sport === 'BIKE' ? 'decimal-pad' : 'numbers-and-punctuation'}
                     placeholder={getPacePlaceholder(sport)}
@@ -382,6 +398,19 @@ const StepCardComponent = ({
                   <Text className="text-xs font-extrabold text-theme-accent">
                     {getPaceUnitLabel(sport)}
                   </Text>
+                </View>
+              )}
+
+              {isExactPowerTarget && !isStrengthOrMobility && (
+                <View className="flex-row items-center gap-2 pt-0.5">
+                  <TextInput
+                    value={stripTargetUnits(step.target_value)}
+                    onChangeText={(text) => onUpdate(step.id, 'target_value', text)}
+                    keyboardType="number-pad"
+                    placeholder="250"
+                    className="w-24 bg-theme-card border border-slate-200 rounded-xl px-3 py-1 text-xs font-mono font-bold text-theme-text text-center"
+                  />
+                  <Text className="text-xs font-extrabold text-theme-accent">W</Text>
                 </View>
               )}
 

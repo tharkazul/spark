@@ -15,6 +15,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
   avgCycleLength = 28,
 }) => {
   const { user, updateUser } = useUser();
+  const [loading, setLoading] = useState(false);
 
   // If gender is Male, cycle tracking is hidden completely
   if (user?.gender === 'Male') {
@@ -23,8 +24,6 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
 
   // Determine if cycle tracking is active for current user (defaults to enabled for Female & Prefer not to share)
   const isEnabled = user?.cycle_tracking_enabled !== false;
-
-  const [loading, setLoading] = useState(false);
 
   // Compute current cycle day & phase from user.last_cycle_start
   const todayStr = new Date().toISOString().split('T')[0];

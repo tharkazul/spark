@@ -15,9 +15,10 @@ import {
   Platform,
   KeyboardAvoidingView,
   Easing,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
@@ -42,7 +43,7 @@ const DURATION_OPTIONS = [
   { label: '120m+', value: 120 },
 ];
 
-const SUPPORTED_LANGUAGES = [
+const SUPPORTED_LANGUAGES: Array<{ code: string; label: string; flag: string; disabled?: boolean }> = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'nl', label: 'Nederlands', flag: '🇳🇱' },
   { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
@@ -122,7 +123,7 @@ function TypingDots() {
 }
 
 export default function OnboardingWizard() {
-  const router = useRouter();
+
   const { user, refreshUser, updateUser } = useUser();
   const { t, language, setLanguage } = useLanguage();
 
@@ -175,7 +176,7 @@ export default function OnboardingWizard() {
 
   // Form State
   const [coachTone, setCoachTone] = useState(
-    user?.coach_tone || 'Empathetic but demanding elite endurance coach.'
+    user?.coach_tone || ''
   );
   const [gender, setGender] = useState<string>(user?.gender || 'Prefer not to share');
   const [athleteContext, setAthleteContext] = useState(user?.athlete_context || '');
@@ -741,24 +742,23 @@ export default function OnboardingWizard() {
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top', 'bottom']}>
       {/* Date Picker Modal */}
       <Modal visible={showDatePicker} transparent animationType="slide">
-        <TouchableOpacity
-          activeOpacity={1}
+        <Pressable
           onPress={() => setShowDatePicker(false)}
           className="flex-1 justify-end bg-black/60"
         >
-          <TouchableOpacity activeOpacity={1} className="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6">
+          <Pressable className="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6">
             <View className="flex-row justify-between items-center mb-4">
-              <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+              <Pressable onPress={() => setShowDatePicker(false)}>
                 <Text className="text-theme-muted font-semibold text-sm">Cancel</Text>
-              </TouchableOpacity>
+              </Pressable>
               <Text className="text-theme-text font-bold text-base">Select Target Event Date</Text>
-              <TouchableOpacity
+              <Pressable
                 onPress={handleConfirmDate}
                 disabled={isSelectedDateInPast()}
                 className={isSelectedDateInPast() ? 'opacity-40' : 'opacity-100'}
               >
                 <Text className="text-[#FF5A1F] font-bold text-sm">Confirm</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             {isSelectedDateInPast() && (
@@ -782,7 +782,7 @@ export default function OnboardingWizard() {
                 className="flex-1"
               >
                 {MONTHS.map((m) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={m}
                     onPress={() => handleSetPickerMonth(m)}
                     style={{ height: 44 }}
@@ -797,7 +797,7 @@ export default function OnboardingWizard() {
                     >
                       {m}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </ScrollView>
 
@@ -810,7 +810,7 @@ export default function OnboardingWizard() {
                 className="flex-1"
               >
                 {PICKER_DAYS.map((d) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={d}
                     onPress={() => setPickerDay(d)}
                     style={{ height: 44 }}
@@ -825,7 +825,7 @@ export default function OnboardingWizard() {
                     >
                       {d}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </ScrollView>
 
@@ -838,7 +838,7 @@ export default function OnboardingWizard() {
                 className="flex-1"
               >
                 {YEARS.map((y) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={y}
                     onPress={() => handleSetPickerYear(y)}
                     style={{ height: 44 }}
@@ -853,12 +853,12 @@ export default function OnboardingWizard() {
                     >
                       {y}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </ScrollView>
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Header Stepper Bar */}
@@ -880,12 +880,15 @@ export default function OnboardingWizard() {
             {Array.from({ length: totalSteps }).map((_, idx) => (
               <View
                 key={idx}
-                className={`h-2 rounded-full ${
+                style={
                   idx + 1 === currentStep
-                    ? 'w-6 bg-[#FF5A1F]'
+                    ? { backgroundColor: '#FF5A1F' }
                     : idx + 1 < currentStep
-                    ? 'w-2 bg-[#FF5A1F]/50'
-                    : 'w-2 bg-theme-border'
+                    ? { backgroundColor: 'rgba(255, 90, 31, 0.5)' }
+                    : undefined
+                }
+                className={`h-2 rounded-full bg-theme-border ${
+                  idx + 1 === currentStep ? 'w-6' : 'w-2'
                 }`}
               />
             ))}
@@ -927,13 +930,13 @@ export default function OnboardingWizard() {
                     </Text>
                   </View>
 
-                  <TouchableOpacity
+                  <Pressable
                     onPress={startChatOnboarding}
                     className="w-full py-4 rounded-2xl bg-[#FF5A1F] items-center justify-center flex-row gap-2 active:opacity-90"
                   >
                     <Text className="text-white font-extrabold text-lg">Meet Your Coach & Begin</Text>
                     <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             }
@@ -978,37 +981,55 @@ export default function OnboardingWizard() {
 
             if (node.type === 'card_language') {
               const isSelected = !!node.data?.selected;
+              const languagesList = [
+                ...SUPPORTED_LANGUAGES,
+                { code: 'more', label: 'More soon', flag: '🌐', disabled: true },
+              ];
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border ${
-                    isSelected ? 'border-theme-border' : 'border-[#FF5A1F]/50'
-                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
+                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                  style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
                   <View className="flex-row items-center gap-2">
                     <Ionicons name="language" size={20} color="#FF5A1F" />
                     <Text className="text-theme-text font-bold text-sm">Select Your Preferred Language</Text>
                   </View>
 
-                  <View className="flex-row flex-wrap gap-2 pt-1">
-                    {SUPPORTED_LANGUAGES.map((lang) => {
-                      const active = language === lang.code;
+                  <View className="flex-row flex-wrap justify-between gap-y-2.5 pt-1">
+                    {languagesList.map((lang) => {
+                      if (lang.disabled) {
+                        return (
+                          <View
+                            key="more"
+                            style={{ width: '48.5%' }}
+                            className="py-3 px-3 rounded-xl border border-dashed border-theme-border/60 bg-theme-bg/40 flex-row items-center justify-center gap-2 opacity-60"
+                          >
+                            <Text className="text-base">🌐</Text>
+                            <Text className="text-xs font-semibold text-theme-muted">More soon</Text>
+                          </View>
+                        );
+                      }
+                      const active = node.data?.selected === lang.code;
                       return (
-                        <TouchableOpacity
+                        <Pressable
                           key={lang.code}
                           disabled={isStreamingMessage}
+                          style={[
+                            { width: '48.5%' },
+                            active && { backgroundColor: '#FF5A1F', borderColor: '#FF5A1F' },
+                          ]}
                           onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
-                          className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 ${
-                            active
-                              ? 'bg-[#FF5A1F] border-[#FF5A1F]'
-                              : 'bg-theme-bg border-theme-border active:bg-theme-card'
-                          }`}
+                          className="py-3 px-3 rounded-xl border flex-row items-center justify-center gap-2 active:bg-theme-card bg-theme-bg border-theme-border shadow-sm"
                         >
                           <Text className="text-base">{lang.flag}</Text>
-                          <Text className={`text-xs font-bold ${active ? 'text-white' : 'text-theme-text'}`}>
+                          <Text
+                            className="text-xs font-bold text-theme-text"
+                            style={active ? { color: '#FFFFFF' } : undefined}
+                          >
                             {lang.label}
                           </Text>
-                        </TouchableOpacity>
+                        </Pressable>
                       );
                     })}
                   </View>
@@ -1021,13 +1042,12 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border ${
-                    isSelected ? 'border-theme-border' : 'border-[#FF5A1F]/50'
-                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
+                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                  style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
                   <Text className="text-theme-text font-bold text-sm">Choose Spark's Coaching Tone</Text>
 
-                  <TouchableOpacity
+                  <Pressable
                     disabled={isStreamingMessage}
                     onPress={() =>
                       handleSelectPersonaChoice(
@@ -1035,15 +1055,19 @@ export default function OnboardingWizard() {
                         'Empathetic & Demanding'
                       )
                     }
-                    className={`p-3.5 rounded-xl border ${
-                      coachTone === 'Empathetic but demanding elite endurance coach.'
-                        ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
-                        : 'border-theme-border bg-theme-bg'
-                    }`}
+                    className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                    style={
+                      node.data?.selected === 'Empathetic & Demanding'
+                        ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                        : undefined
+                    }
                   >
                     <View className="flex-row items-center">
-                      <View className="w-10 h-10 rounded-full bg-[#FF5A1F]/20 items-center justify-center mr-3">
-                        <Ionicons name="sparkles" size={20} color="#FF5A1F" />
+                      <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
+                        <Image
+                          source={getCoachAvatarSource('Empathetic but demanding elite endurance coach.')}
+                          className="w-full h-full"
+                        />
                       </View>
                       <View className="flex-1">
                         <Text className="text-theme-text font-bold text-xs">Empathetic & Demanding (Default)</Text>
@@ -1052,9 +1076,9 @@ export default function OnboardingWizard() {
                         </Text>
                       </View>
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
 
-                  <TouchableOpacity
+                  <Pressable
                     disabled={isStreamingMessage}
                     onPress={() =>
                       handleSelectPersonaChoice(
@@ -1062,15 +1086,19 @@ export default function OnboardingWizard() {
                         'Strict Data & British Humor'
                       )
                     }
-                    className={`p-3.5 rounded-xl border ${
-                      coachTone === 'Strict with data, but with a dry, snarky British sense of humor.'
-                        ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
-                        : 'border-theme-border bg-theme-bg'
-                    }`}
+                    className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                    style={
+                      node.data?.selected === 'Strict Data & British Humor'
+                        ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                        : undefined
+                    }
                   >
                     <View className="flex-row items-center">
-                      <View className="w-10 h-10 rounded-full bg-purple-500/20 items-center justify-center mr-3">
-                        <Ionicons name="analytics" size={20} color="#a855f7" />
+                      <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
+                        <Image
+                          source={getCoachAvatarSource('Strict with data, but with a dry, snarky British sense of humor.')}
+                          className="w-full h-full"
+                        />
                       </View>
                       <View className="flex-1">
                         <Text className="text-theme-text font-bold text-xs">Strict Data & British Humor</Text>
@@ -1079,9 +1107,9 @@ export default function OnboardingWizard() {
                         </Text>
                       </View>
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
 
-                  <TouchableOpacity
+                  <Pressable
                     disabled={isStreamingMessage}
                     onPress={() =>
                       handleSelectPersonaChoice(
@@ -1089,15 +1117,19 @@ export default function OnboardingWizard() {
                         'Positive Cheerleader'
                       )
                     }
-                    className={`p-3.5 rounded-xl border ${
-                      coachTone === 'Enthusiastic cheerleader, extremely positive and forgiving.'
-                        ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
-                        : 'border-theme-border bg-theme-bg'
-                    }`}
+                    className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                    style={
+                      node.data?.selected === 'Positive Cheerleader'
+                        ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                        : undefined
+                    }
                   >
                     <View className="flex-row items-center">
-                      <View className="w-10 h-10 rounded-full bg-emerald-500/20 items-center justify-center mr-3">
-                        <Ionicons name="heart" size={20} color="#10b981" />
+                      <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
+                        <Image
+                          source={getCoachAvatarSource('Enthusiastic cheerleader, extremely positive and forgiving.')}
+                          className="w-full h-full"
+                        />
                       </View>
                       <View className="flex-1">
                         <Text className="text-theme-text font-bold text-xs">Positive Cheerleader</Text>
@@ -1106,7 +1138,7 @@ export default function OnboardingWizard() {
                         </Text>
                       </View>
                     </View>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             }
@@ -1129,15 +1161,16 @@ export default function OnboardingWizard() {
                       { label: 'Female', val: 'Female', icon: 'female-outline', desc: 'Includes hormonal cycle tracking & phase-adjusted training.' },
                       { label: 'Prefer not to share', val: 'Prefer not to share', icon: 'shield-outline', desc: 'General athletic profile without specified gender.' },
                     ].map((opt) => (
-                      <TouchableOpacity
+                      <Pressable
                         key={opt.val}
                         disabled={isStreamingMessage}
                         onPress={() => handleSelectGenderChoice(opt.val, opt.label)}
-                        className={`p-3.5 rounded-xl border ${
+                        className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                        style={
                           selectedGender === opt.val
-                            ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
-                            : 'border-theme-border bg-theme-bg'
-                        }`}
+                            ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                            : undefined
+                        }
                       >
                         <View className="flex-row items-center">
                           <View className="w-9 h-9 rounded-full bg-[#FF5A1F]/15 items-center justify-center mr-3">
@@ -1151,7 +1184,7 @@ export default function OnboardingWizard() {
                             <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
                           )}
                         </View>
-                      </TouchableOpacity>
+                      </Pressable>
                     ))}
                   </View>
                 </View>
@@ -1163,9 +1196,8 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border ${
-                    isCompleted ? 'border-theme-border' : 'border-[#FF5A1F]/50'
-                  } rounded-2xl p-4 mb-5 gap-4 shadow-sm`}
+                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-4 shadow-sm"
+                  style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
                   <Text className="text-theme-text font-bold text-sm">Tell Us About Yourself & Main Event</Text>
 
@@ -1214,13 +1246,13 @@ export default function OnboardingWizard() {
                         />
                       </View>
                     ))}
-                    <TouchableOpacity
+                    <Pressable
                       disabled={isStreamingMessage}
                       onPress={addMetricRow}
                       className="py-1.5 items-center bg-[#FF5A1F]/10 border border-[#FF5A1F]/30 rounded-lg mt-1"
                     >
                       <Text className="text-[#FF5A1F] text-xs font-bold">+ Add Metric</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
 
                   {/* Main Goal Event Setup */}
@@ -1237,7 +1269,7 @@ export default function OnboardingWizard() {
                       className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
                     />
                     <View className="flex-row gap-2">
-                      <TouchableOpacity
+                      <Pressable
                         disabled={isStreamingMessage}
                         onPress={openDatePickerModal}
                         className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
@@ -1246,7 +1278,7 @@ export default function OnboardingWizard() {
                           {raceDate || 'Date (YYYY-MM-DD)'}
                         </Text>
                         <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
-                      </TouchableOpacity>
+                      </Pressable>
 
                       <View className="w-28 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-center relative">
                         {isEstimatingCtl ? (
@@ -1279,7 +1311,7 @@ export default function OnboardingWizard() {
                     </View>
                   </View>
 
-                  <TouchableOpacity
+                  <Pressable
                     disabled={isStreamingMessage}
                     onPress={handleConfirmContextAndEvent}
                     className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md"
@@ -1287,7 +1319,7 @@ export default function OnboardingWizard() {
                     <Text className="text-white font-bold text-xs">
                       {isCompleted ? 'Update Details & Event ⚡️' : 'Confirm Details & Event ⚡️'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             }
@@ -1297,9 +1329,8 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border ${
-                    isCompleted ? 'border-theme-border' : 'border-[#FF5A1F]/50'
-                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
+                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                  style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
                   <Text className="text-theme-text font-bold text-sm">Weekly Training Availability</Text>
                   <Text className="text-theme-muted text-xs">
@@ -1322,24 +1353,24 @@ export default function OnboardingWizard() {
                             {DURATION_OPTIONS.map((opt) => {
                               const isSelected = currentVal === opt.value;
                               return (
-                                <TouchableOpacity
+                                <Pressable
                                   key={opt.value}
                                   disabled={isStreamingMessage}
                                   onPress={() => handleDayDurationChange(day, opt.value)}
-                                  className={`flex-1 py-1.5 rounded-lg items-center justify-center border ${
+                                  className="flex-1 py-1.5 rounded-lg items-center justify-center border bg-theme-card border-theme-border"
+                                  style={
                                     isSelected
-                                      ? 'bg-[#FF5A1F] border-[#FF5A1F]'
-                                      : 'bg-theme-card border-theme-border'
-                                  }`}
+                                      ? { backgroundColor: '#FF5A1F', borderColor: '#FF5A1F' }
+                                      : undefined
+                                  }
                                 >
                                   <Text
-                                    className={`text-[10px] font-bold ${
-                                      isSelected ? 'text-white' : 'text-theme-muted'
-                                    }`}
+                                    className="text-[10px] font-bold text-theme-muted"
+                                    style={isSelected ? { color: '#FFFFFF' } : undefined}
                                   >
                                     {opt.label}
                                   </Text>
-                                </TouchableOpacity>
+                                </Pressable>
                               );
                             })}
                           </View>
@@ -1348,7 +1379,7 @@ export default function OnboardingWizard() {
                     })}
                   </View>
 
-                  <TouchableOpacity
+                  <Pressable
                     disabled={isStreamingMessage}
                     onPress={handleConfirmScheduleChoice}
                     className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
@@ -1356,7 +1387,7 @@ export default function OnboardingWizard() {
                     <Text className="text-white font-bold text-xs">
                       {isCompleted ? 'Update Schedule ⚡️' : 'Lock In Schedule ⚡️'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             }
@@ -1366,9 +1397,8 @@ export default function OnboardingWizard() {
               return (
                 <View
                   key={node.id}
-                  className={`bg-theme-card border ${
-                    isCompleted ? 'border-theme-border' : 'border-[#FF5A1F]/50'
-                  } rounded-2xl p-4 mb-5 gap-3 shadow-sm`}
+                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                  style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
                   <Text className="text-theme-text font-bold text-sm">Device & Fitness Sync</Text>
 
@@ -1421,16 +1451,16 @@ export default function OnboardingWizard() {
                       <Ionicons name="bicycle" size={18} color="#FC4C02" />
                       <Text className="text-theme-text font-bold text-xs">Strava Sync</Text>
                     </View>
-                    <TouchableOpacity
+                    <Pressable
                       disabled={isStreamingMessage}
                       onPress={handleConnectStravaOAuth}
                       className="bg-[#FC4C02] px-3 py-1.5 rounded-lg"
                     >
                       <Text className="text-white font-bold text-[10px]">Connect Strava</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
 
-                  <TouchableOpacity
+                  <Pressable
                     disabled={isStreamingMessage}
                     onPress={handleConfirmIntegrationsChoice}
                     className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
@@ -1438,7 +1468,7 @@ export default function OnboardingWizard() {
                     <Text className="text-white font-bold text-xs">
                       {isCompleted ? 'Update Sync Settings ⚡️' : 'Continue to Final Step ⚡️'}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             }
@@ -1458,13 +1488,14 @@ export default function OnboardingWizard() {
 
                   {/* Pricing Tiers */}
                   <View className="flex-row gap-3">
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => setSelectedPlan('annual')}
-                      className={`flex-1 p-3.5 rounded-2xl border ${
+                      className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
+                      style={
                         selectedPlan === 'annual'
-                          ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
-                          : 'border-theme-border bg-theme-bg'
-                      }`}
+                          ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          : undefined
+                      }
                     >
                       <View className="self-start px-2 py-0.5 bg-[#FF5A1F] rounded-full mb-1.5">
                         <Text className="text-white font-bold text-[9px]">SAVE 17%</Text>
@@ -1474,22 +1505,23 @@ export default function OnboardingWizard() {
                         €5.83<Text className="text-xs text-theme-muted">/mo</Text>
                       </Text>
                       <Text className="text-theme-muted text-[9px] mt-0.5">€69.99 billed yearly</Text>
-                    </TouchableOpacity>
+                    </Pressable>
 
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => setSelectedPlan('monthly')}
-                      className={`flex-1 p-3.5 rounded-2xl border ${
+                      className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
+                      style={
                         selectedPlan === 'monthly'
-                          ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
-                          : 'border-theme-border bg-theme-bg'
-                      }`}
+                          ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          : undefined
+                      }
                     >
                       <Text className="text-theme-text font-bold text-sm mt-4">Monthly</Text>
                       <Text className="text-theme-text font-bold text-lg mt-0.5">
                         €6.99<Text className="text-xs text-theme-muted">/mo</Text>
                       </Text>
                       <Text className="text-theme-muted text-[9px] mt-0.5">Billed monthly</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
 
                   {/* Feature Checklist */}
@@ -1508,7 +1540,7 @@ export default function OnboardingWizard() {
                   </View>
 
                   <View className="gap-2 pt-2">
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => handleCompleteSetup(true)}
                       disabled={isSubmitting}
                       className="w-full py-4 rounded-xl bg-[#FF5A1F] items-center justify-center shadow-lg"
@@ -1518,15 +1550,15 @@ export default function OnboardingWizard() {
                       ) : (
                         <Text className="text-white font-extrabold text-sm">Start 14-Day Free Trial ⚡️</Text>
                       )}
-                    </TouchableOpacity>
+                    </Pressable>
 
-                    <TouchableOpacity
+                    <Pressable
                       onPress={() => handleCompleteSetup(false)}
                       disabled={isSubmitting}
                       className="w-full py-3 rounded-xl border border-theme-border bg-theme-bg items-center justify-center"
                     >
                       <Text className="text-theme-muted text-xs font-bold">Continue with Free Tier</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
               );

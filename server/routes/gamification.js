@@ -266,7 +266,7 @@ router.post(
         Recent activities:
         ${activitiesStr}
         
-        Return ONLY a JSON object with this exact structure:
+        Please respond using this JSON schema:
         {
           "title": "The Title Name",
           "description": "A short, funny, or epic description of why they earned it."
@@ -275,17 +275,14 @@ router.post(
         try {
           const aiReply = await generateWithFallback(
             prompt,
-            "You are a JSON-only API that outputs valid JSON.",
+            "You are a sports gamification engine.",
             null,
             null,
             userId,
-            "common"
+            "common",
+            true
           );
-          const jsonStr = aiReply
-            .replace(/\`\`\`json/g, "")
-            .replace(/\`\`\`/g, "")
-            .trim();
-          const titleData = JSON.parse(jsonStr);
+          const titleData = JSON.parse(aiReply);
 
           // Check if user currently has an active title
           db.get(

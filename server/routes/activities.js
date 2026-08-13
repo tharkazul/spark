@@ -505,8 +505,13 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             5. Use metric measurements exclusively (km, kg, km/h). DO NOT repeat greetings, filler words, or preamble.
             6. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout, create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
             7. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array, NOT in the 'details' text! Use "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and push for progressive overload.
-        6. TARGETS: If a workout requires a specific pace (e.g. "4:15 min/km") or power (e.g. "250W") instead of a generic zone, add a "target_value" string to the step object (e.g., "target_value": "4:15 min/km"). Otherwise, continue using "zone": <number>.
-        7. SPARK TARGETS: Calculate "target_spark" for your plan. 1 minute of endurance activity = 1.2 Spark. For high intensity (Zone 3/4+), use 1.3 or 1.4 Spark per min. For Zone 1/Rest, use 1.0 Spark per min. For Strength Training, allocate exactly 0.5 Spark per set (ignore rest time).
+            8. TARGETS: If a workout step requires a specific pace or power target:
+               - For exact pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and set "target_value": "4:15" (do NOT include "min/km" in target_value!).
+               - For exact power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
+               - For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
+               - For HR Zones: set "target_type": "heart.rate.zone" and "zone": <1-5>.
+               - For open targets: set "target_type": "no.target".
+            9. SPARK TARGETS: Calculate "target_spark" for your plan. 1 minute of endurance activity = 1.2 Spark. For high intensity (Zone 3/4+), use 1.3 or 1.4 Spark per min. For Zone 1/Rest, use 1.0 Spark per min. For Strength Training, allocate exactly 0.5 Spark per set (ignore rest time).
 
         WORKOUT PLANNING (CRITICAL):
         If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 

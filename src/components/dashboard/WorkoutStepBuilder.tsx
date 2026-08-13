@@ -54,7 +54,7 @@ export function calculateWbSpark(steps: WorkoutStep[], isStrength: boolean, spor
           if (z >= 4) multiplier = 1.5;
           else if (z === 3) multiplier = 1.3;
           else if (z <= 1) multiplier = 1.0;
-        } else if (sub.target_type === 'pace.exact') {
+        } else if (sub.target_type === 'pace.exact' || sub.target_type === 'power.exact') {
           multiplier = 1.4;
         }
         repeatMins += mins * multiplier;
@@ -68,7 +68,7 @@ export function calculateWbSpark(steps: WorkoutStep[], isStrength: boolean, spor
         if (z >= 4) multiplier = 1.5;
         else if (z === 3) multiplier = 1.3;
         else if (z <= 1) multiplier = 1.0;
-      } else if (step.target_type === 'pace.exact') {
+      } else if (step.target_type === 'pace.exact' || step.target_type === 'power.exact') {
         multiplier = 1.4;
       }
       totalSpark += mins * multiplier;

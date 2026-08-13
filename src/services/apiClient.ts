@@ -30,17 +30,22 @@ export const setOnRateLimitHandler = (callback: ((message?: string) => void) | n
   onRateLimitCallback = callback;
 };
 
+export interface ApiClientOptions extends RequestInit {
+  skipAuthInterceptor?: boolean;
+}
+
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiClientOptions = {}
 ): Promise<T> {
+  const { skipAuthInterceptor, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
+    ...(fetchOptions.headers as Record<string, string>),
   };
 
-  if (!(options.body instanceof FormData)) {
+  if (!(fetchOptions.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
 
@@ -49,12 +54,12 @@ export async function apiClient<T>(
   }
 
   const response = await fetch(url, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
-  // Universal 401 interceptor (excluding login/register auth endpoints)
-  if (response.status === 401 && !endpoint.includes('/api/auth/')) {
+  // Universal 401 interceptor (excluding login/register auth endpoints and requests with skipAuthInterceptor)
+  if (response.status === 401 && !endpoint.includes('/api/auth/') && !skipAuthInterceptor) {
     if (onUnauthorizedCallback) {
       onUnauthorizedCallback();
     }

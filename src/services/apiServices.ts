@@ -36,6 +36,7 @@ export const userApi = {
         targetCtl: data.target_ctl,
         onboardingCompleted: data.onboarding_completed,
       }),
+      skipAuthInterceptor: true,
     }),
   uploadCoachAvatar: async (mood: string, fileUri: string) => {
     const formData = new FormData();

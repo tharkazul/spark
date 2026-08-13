@@ -1420,7 +1420,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
             Recent activities:
             ${activitiesStr}
             
-            Return ONLY a JSON object with this exact structure:
+            Please respond using this JSON schema:
             {
             "description": "Short description of the quest (e.g. Run 5k this weekend, or Complete 15km total biking and running over 3 days)",
             "target_metric": "distance_km", // OR "moving_time_min", "spark_score", or "unique_sports"
@@ -1434,17 +1434,14 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
         try {
           const aiReply = await generateWithFallback(
             prompt,
-            "You are a JSON-only API that outputs valid JSON.",
+            "You are an AI quest generator.",
             null,
             null,
             userId,
-            poolType
+            poolType,
+            true
           );
-          const jsonStr = aiReply
-            .replace(/\`\`\`json/g, "")
-            .replace(/\`\`\`/g, "")
-            .trim();
-          const questData = JSON.parse(jsonStr);
+          const questData = JSON.parse(aiReply);
           const daysLimit = Math.max(1, Math.min(7, parseInt(questData.time_limit_days) || 3));
 
           db.run(
@@ -1735,19 +1732,18 @@ async function analyzeMuscleImpact(userId, activityData, sparkSport, activityDat
   Time: ${Math.round(activityData.moving_time / 60)} min.
   Sets: ${activityData.sets_json ? JSON.stringify(activityData.sets_json) : "None"}
   
-  Based on this, what is the training impact (stimulus) on the involved muscle groups? Output ONLY a JSON array mapping body parts to an impact score (1-100). 
+  Based on this, what is the training impact (stimulus) on the involved muscle groups? Output a JSON array mapping body parts to an impact score (1-100). 
   Use standard naming (e.g. "quads", "calves", "shoulders", "lower-back", "chest", "lats", "glutes", "hamstrings", "core").
   Example format:
   [{"body_part": "quads", "impact_score": 30}, {"body_part": "shoulders", "impact_score": 15}]
   `;
 
-  const systemPrompt = `You are a sports science AI. Output ONLY valid JSON, no markdown formatting, no preamble.`;
+  const systemPrompt = `You are a sports science AI.`;
 
   try {
     // Import here to avoid circular dependency issues if any, though it's likely already imported
     const { generateWithFallback } = require('./ai'); 
-    let result = await generateWithFallback(prompt, systemPrompt);
-    result = result.replace(/```json/g, "").replace(/```/g, "").trim();
+    let result = await generateWithFallback(prompt, systemPrompt, null, null, userId, "personal", true);
     const fatigueArray = JSON.parse(result);
     
     if (Array.isArray(fatigueArray)) {

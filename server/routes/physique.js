@@ -537,7 +537,7 @@ Based on today's completed activities (if any), planned training load, macro pha
 - Protein should always be kept very high (1.8g - 2.2g per kg of bodyweight, which is roughly ${Math.round(weight * 1.8)}g - ${Math.round(weight * 2.2)}g for this athlete) to preserve and build muscle mass.
 - Ensure total calories make sense for an endurance athlete of their weight and align with any weight loss/gain goals mentioned in their notes.
 
-You MUST respond with ONLY a raw JSON object containing exactly these keys:
+Please respond using this JSON schema:
 {
   "title": "String (e.g. 'High Carb / Big Session')",
   "rationale": "String (1-2 sentences explaining why, referencing the specific exercise name and type if completed)",
@@ -553,14 +553,9 @@ You MUST respond with ONLY a raw JSON object containing exactly these keys:
                       [],
                       null,
                       req.user.id,
-                      "common"
+                      "common",
+                      true
                     );
-                    // Extract JSON between the first { and last } to avoid markdown formatting issues
-                    const firstBrace = aiReply.indexOf("{");
-                    const lastBrace = aiReply.lastIndexOf("}");
-                    if (firstBrace !== -1 && lastBrace !== -1) {
-                      aiReply = aiReply.substring(firstBrace, lastBrace + 1);
-                    }
 
                     const protocol = JSON.parse(aiReply);
 

@@ -1,6 +1,13 @@
 import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { Activity } from '../types/activity';
+
+const getSharingModule = () => {
+  try {
+    return require('expo-sharing');
+  } catch (e) {
+    return null;
+  }
+};
 
 export async function exportActivitiesToCSV(activities: Activity[]): Promise<boolean> {
   if (!activities || activities.length === 0) {
@@ -32,15 +39,18 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
   file.create();
   file.write(csvContent);
 
-  const canShare = await Sharing.isAvailableAsync();
-  if (canShare) {
-    await Sharing.shareAsync(file.uri, {
-      mimeType: 'text/csv',
-      dialogTitle: 'Export Spark Workout History',
-      UTI: 'public.comma-separated-values-text',
-    });
-    return true;
-  } else {
-    throw new Error('Sharing is not available on this device.');
+  const Sharing = getSharingModule();
+  if (Sharing && typeof Sharing.isAvailableAsync === 'function') {
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Export Spark Workout History',
+        UTI: 'public.comma-separated-values-text',
+      });
+      return true;
+    }
   }
+
+  throw new Error('Sharing is not available on this device/environment.');
 }

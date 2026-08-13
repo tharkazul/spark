@@ -6,7 +6,7 @@ export interface WorkoutStep {
   type: 'warmup' | 'interval' | 'recovery' | 'cooldown' | 'repeat' | 'rest';
   condition_type?: 'time' | 'time_sec' | 'distance' | 'distance_km' | 'reps';
   condition_value?: number;
-  target_type?: 'no.target' | 'heart.rate.zone' | 'power.zone' | 'pace.zone' | 'pace.exact' | 'speed.zone' | 'speed.exact' | 'weight';
+  target_type?: 'no.target' | 'heart.rate.zone' | 'power.zone' | 'power.exact' | 'pace.zone' | 'pace.exact' | 'speed.zone' | 'speed.exact' | 'weight';
   zone?: number;
   weight?: number;
   exerciseName?: string;

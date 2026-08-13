@@ -15,7 +15,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
+
+const getImageManipulator = () => {
+  try {
+    return require('expo-image-manipulator');
+  } catch (e) {
+    return null;
+  }
+};
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -278,15 +285,22 @@ export default function CoachScreen() {
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
         const asset = result.assets[0];
-        const manipulated = await ImageManipulator.manipulateAsync(
-          asset.uri,
-          [{ resize: { width: 1600 } }],
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-        );
+        const ImageManipulator = getImageManipulator();
+        if (ImageManipulator && typeof ImageManipulator.manipulateAsync === 'function') {
+          const manipulated = await ImageManipulator.manipulateAsync(
+            asset.uri,
+            [{ resize: { width: 1600 } }],
+            { compress: 0.7, format: ImageManipulator.SaveFormat?.JPEG || 'jpeg', base64: true }
+          );
 
-        if (manipulated.base64) {
-          const base64Uri = `data:image/jpeg;base64,${manipulated.base64}`;
-          setSelectedImages((prev) => [...prev, base64Uri]);
+          if (manipulated?.base64) {
+            const base64Uri = `data:image/jpeg;base64,${manipulated.base64}`;
+            setSelectedImages((prev) => [...prev, base64Uri]);
+          } else {
+            setSelectedImages((prev) => [...prev, asset.uri]);
+          }
+        } else {
+          setSelectedImages((prev) => [...prev, asset.uri]);
         }
       }
     } catch (error) {
@@ -557,7 +571,7 @@ export default function CoachScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setShowSuggestions(!showSuggestions)}
-                  className={`w-8 h-8 rounded-full items-center justify-center ${showSuggestions ? 'bg-amber-500/20' : 'bg-theme-bg/60 active:opacity-70'}`}
+                  className={`w-8 h-8 rounded-full items-center justify-center active:opacity-70 ${showSuggestions ? 'bg-amber-500/20' : 'bg-theme-bg/60'}`}
                 >
                   <Ionicons name={showSuggestions ? 'bulb' : 'bulb-outline'} size={16} color={showSuggestions ? '#F59E0B' : '#FF5A1F'} />
                 </TouchableOpacity>
@@ -566,7 +580,7 @@ export default function CoachScreen() {
               <View className="flex-row items-center gap-2">
                 <TouchableOpacity
                   onPress={handleToggleVoiceInput}
-                  className={`w-8 h-8 rounded-full items-center justify-center ${isRecording ? 'bg-red-500/20' : 'bg-theme-bg/60 active:opacity-70'}`}
+                  className={`w-8 h-8 rounded-full items-center justify-center active:opacity-70 ${isRecording ? 'bg-red-500/20' : 'bg-theme-bg/60'}`}
                 >
                   <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={16} color={isRecording ? '#EF4444' : '#94A3B8'} />
                 </TouchableOpacity>

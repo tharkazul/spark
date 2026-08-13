@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 const db = require("./db");
 
 // --- GEMINI LOAD BALANCER REGISTRY ---
@@ -89,6 +89,7 @@ async function generateWithFallback(
   imagesBase64 = null,
   userId = null,
   poolType = "personal",
+  isJson = false
 ) {
   let lastError = null;
 
@@ -100,15 +101,16 @@ async function generateWithFallback(
         `🤖 Attempting AI generation with ${config.name} (${config.model})...`,
       );
 
-      const genAI = new GoogleGenerativeAI(config.apiKey);
+      const ai = new GoogleGenAI({ apiKey: config.apiKey });
 
       // Build model options
-      const modelOptions = { model: config.model };
+      const genConfig = {};
       if (systemInstruction) {
-        modelOptions.systemInstruction = systemInstruction;
+        genConfig.systemInstruction = systemInstruction;
       }
-
-      const model = genAI.getGenerativeModel(modelOptions);
+      if (isJson) {
+        genConfig.responseMimeType = "application/json";
+      }
 
       let result;
 
@@ -122,15 +124,23 @@ async function generateWithFallback(
 
       if (chatHistory) {
         // If history is provided, use the Chat interface
-        const chat = model.startChat({ history: chatHistory });
-        result = await chat.sendMessage(promptContent);
+        const chat = ai.chats.create({
+            model: config.model,
+            config: genConfig,
+            history: chatHistory
+        });
+        result = await chat.sendMessage({ message: promptContent });
       } else {
         // Otherwise, use a standard single-shot prompt
-        result = await model.generateContent(promptContent);
+        result = await ai.models.generateContent({
+            model: config.model,
+            contents: promptContent,
+            config: genConfig
+        });
       }
 
       // Log Token Usage to terminal for monitoring
-      const usage = result.response.usageMetadata;
+      const usage = result.usageMetadata;
       if (usage) {
         console.log(
           `🪙 Tokens Used -> Input: ${usage.promptTokenCount} | Output: ${usage.candidatesTokenCount} | Total: ${usage.totalTokenCount}`,
@@ -145,7 +155,7 @@ async function generateWithFallback(
       }
 
       console.log(`✅ AI Success using ${config.name}!`);
-      return result.response.text();
+      return result.text;
     } catch (error) {
       console.warn(`⚠️ ${config.name} failed. Reason: ${error.message}`);
       lastError = error;
