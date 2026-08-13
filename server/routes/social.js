@@ -33,7 +33,8 @@ const {
   updateUserSparkAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
-  evaluateQuestsAgainstActivity
+  evaluateQuestsAgainstActivity,
+  evaluateAndProgressQuests
 } = require('../services/utils');
 
 router.get("/api/my-profile", authenticateToken, (req, res) => {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { PlannedWorkout } from '../types/plan';
 import { planApi } from '../services/apiServices';
+import { useUser } from './UserStore';
 
 interface PlanContextType {
   plan: PlannedWorkout[];
@@ -41,11 +42,13 @@ const defaultPlan: PlannedWorkout[] = [
 const PlanContext = createContext<PlanContextType | undefined>(undefined);
 
 export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useUser();
   const [plan, setPlan] = useState<PlannedWorkout[]>(defaultPlan);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshPlan = async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const data = await planApi.getMicroPlan();
@@ -68,37 +71,31 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       console.error('Failed to add workout:', err);
       // Fallback local update
       const localId = `w-${Date.now()}`;
-      setPlan((prev) => [...prev, { id: localId, target_spark: 30, description: '', sport: 'RUN', date: new Date().toISOString().split('T')[0], ...workout } as PlannedWorkout]);
+      setPlan((prev) => [...prev, { id: localId, isCompleted: false, ...workout } as PlannedWorkout]);
     }
   };
 
   const updateWorkout = async (id: string | number, workout: Partial<PlannedWorkout>) => {
+    setPlan((prev) => prev.map((w) => (w.id === id ? { ...w, ...workout } : w)));
     try {
       await planApi.updateWorkout(id, workout);
-      await refreshPlan();
     } catch (err: any) {
       console.error('Failed to update workout:', err);
-      setPlan((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...workout } : item))
-      );
     }
   };
 
   const deleteWorkout = async (id: string | number) => {
+    setPlan((prev) => prev.filter((w) => w.id !== id));
     try {
       await planApi.deleteWorkout(id);
-      await refreshPlan();
     } catch (err: any) {
       console.error('Failed to delete workout:', err);
-      setPlan((prev) => prev.filter((item) => item.id !== id));
     }
   };
 
   const toggleComplete = (id: string | number) => {
     setPlan((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, isCompleted: !item.isCompleted } : item
-      )
+      prev.map((w) => (w.id === id ? { ...w, isCompleted: !w.isCompleted } : w))
     );
   };
 
@@ -108,7 +105,7 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       await planApi.generatePlan(params);
       await refreshPlan();
     } catch (err: any) {
-      console.error('Adapt plan error:', err);
+      console.error('Failed to adapt plan:', err);
     } finally {
       setLoading(false);
     }
@@ -120,15 +117,16 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       await planApi.pushForward(dateStr);
       await refreshPlan();
     } catch (err: any) {
-      console.error('Push forward error:', err);
+      console.error('Failed to push plan forward:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     refreshPlan();
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <PlanContext.Provider

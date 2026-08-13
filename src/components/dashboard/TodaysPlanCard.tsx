@@ -177,6 +177,25 @@ export function TodaysPlanCard({
                   </View>
 
                   <View className="flex-row items-center gap-2">
+                    <TouchableOpacity
+                      onPress={async (e) => {
+                        e.stopPropagation();
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        try {
+                          const { syncGarminWorkout } = require('../../api/integrations');
+                          await syncGarminWorkout([{ date: workout.dateStr || new Date().toISOString().split('T')[0], sport: workout.type }]);
+                          const { Alert } = require('react-native');
+                          Alert.alert('Garmin Push Complete', `"${workout.title}" has been pushed to your Garmin watch.`);
+                        } catch (err: any) {
+                          const { Alert } = require('react-native');
+                          Alert.alert('Garmin Push Failed', err.message || 'Check your Garmin credentials in Settings.');
+                        }
+                      }}
+                      className="p-1 rounded-full bg-blue-500/10 border border-blue-500/30"
+                    >
+                      <Ionicons name="watch-outline" size={14} color="#3B82F6" />
+                    </TouchableOpacity>
+
                     <Text className="text-xs font-mono font-bold text-theme-accent">
                       +{workout.sparkPoints} Spark
                     </Text>

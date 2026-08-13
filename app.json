@@ -9,9 +9,16 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.anonymous.spark-native"
+      "bundleIdentifier": "com.sparkapp.fitness",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Spark requires camera access to capture physique check-in photos and coach avatars.",
+        "NSMicrophoneUsageDescription": "Spark requires microphone access for voice coaching notes and audio logs.",
+        "NSPhotoLibraryUsageDescription": "Spark requires photo library access to choose workout and progress photos.",
+        "NSLocationWhenInUseUsageDescription": "Spark requires location access to track outdoor running, cycling, and GPS activity routes."
+      }
     },
     "android": {
+      "package": "com.sparkapp.fitness",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

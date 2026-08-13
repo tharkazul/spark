@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Quest, UserTitle } from '../types/gamification';
 import { gamificationApi } from '../services/apiServices';
 import { wsService } from '../services/websocket';
+import { useUser } from './UserStore';
 
 interface GamificationContextType {
   quests: Quest[];
@@ -39,12 +40,14 @@ const defaultQuests: Quest[] = [
 const GamificationContext = createContext<GamificationContextType | undefined>(undefined);
 
 export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useUser();
   const [quests, setQuests] = useState<Quest[]>(defaultQuests);
   const [titles, setTitles] = useState<UserTitle[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshGamification = async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const data = await gamificationApi.getGamificationData();
@@ -83,6 +86,7 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     refreshGamification();
 
     const unsubQuestUpdated = wsService.subscribeToEvent('quest_updated', () => refreshGamification());
@@ -94,7 +98,7 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
       unsubQuestCompleted();
       unsubTitleUnlocked();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <GamificationContext.Provider

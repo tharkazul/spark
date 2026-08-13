@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Niggle } from '../types/health';
 import { healthApi } from '../services/apiServices';
+import { useUser } from './UserStore';
 
 interface HealthContextType {
   niggles: Niggle[];
@@ -24,11 +25,13 @@ const defaultNiggles: Niggle[] = [
 const HealthContext = createContext<HealthContextType | undefined>(undefined);
 
 export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useUser();
   const [niggles, setNiggles] = useState<Niggle[]>(defaultNiggles);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshNiggles = async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const data = await healthApi.getActiveNiggles();
@@ -81,8 +84,9 @@ export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     refreshNiggles();
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <HealthContext.Provider

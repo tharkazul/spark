@@ -1,52 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Quest } from '../../types/gamification';
-import { gamificationApi } from '../../services/apiServices';
-
-const defaultActiveQuest: Quest = {
-  id: 'q-active-1',
-  description: 'Log 3 Threshold Rides this week',
-  target_metric: 'rides',
-  target_value: 3,
-  progress: 2,
-  reward_points: 75,
-  status: 'active',
-  target_sport: 'BIKE',
-};
+import { useGamification } from '../../context/GamificationStore';
 
 export function ActiveQuestsCard() {
-  const [activeQuest, setActiveQuest] = useState<Quest | null>(defaultActiveQuest);
+  const { quests, generateQuest: generateNewQuest } = useGamification();
   const [loading, setLoading] = useState(false);
 
-  const fetchActiveQuest = async () => {
-    try {
-      const data = await gamificationApi.getGamificationData();
-      if (data && Array.isArray(data.quests)) {
-        const currentActive = data.quests.find((q) => q.status === 'active');
-        if (currentActive) {
-          setActiveQuest(currentActive);
-        }
-      }
-    } catch (err) {
-      console.log('Active Quest fetch info:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchActiveQuest();
-  }, []);
+  const activeQuest = quests.find((q) => q.status === 'active') || quests[0] || null;
 
   const handleGenerateQuest = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setLoading(true);
     try {
-      const newQuest = await gamificationApi.generateQuest();
-      if (newQuest) {
-        setActiveQuest(newQuest);
-      }
+      await generateNewQuest();
     } catch (err) {
       console.error('Generate quest error:', err);
     } finally {

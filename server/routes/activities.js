@@ -482,8 +482,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                   const systemPrompt = `You are Coach Spark, an elite Ironman Triathlon and endurance coach.
                 Tone: ${user.coach_tone || "empathetic"}
                 Athlete Context: ${user.athlete_context || "General endurance athlete"}
-                Gender: ${user.gender || "Prefer not to say"}
-                ${user.gender === "Female" ? "IMPORTANT: Adjust training load taking the menstrual cycle into consideration. Distribute exercises carefully around the physically demanding days." : ""}
+                Gender: ${user.gender || "Prefer not to share"}
+                ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT: Adjust training load taking the menstrual cycle into consideration. Distribute exercises carefully around the physically demanding days." : ""}
                 Schedule Boundaries:
                 ${availabilityText}
                 Key Physiological Metrics: ${metricsText}

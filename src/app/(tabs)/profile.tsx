@@ -18,15 +18,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { API_BASE_URL } from '../../constants/api';
 import { useActivities } from '../../context/ActivityStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
 import { integrationsApi } from '../../services/apiServices';
 
-
 import { AccountTab } from '../../components/profile/AccountTab';
+import { AdminTab } from '../../components/profile/AdminTab';
 import { ConnectionsTab } from '../../components/profile/ConnectionsTab';
 import { GoalsTab } from '../../components/profile/GoalsTab';
 import { ProfileTab } from '../../components/profile/ProfileTab';
@@ -34,7 +34,7 @@ import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account';
+export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account' | 'admin';
 
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
@@ -44,8 +44,10 @@ export default function ProfileScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const TABS: ProfileSubTab[] = ['profile', 'goals', 'connections', 'account'];
-
+  const userIsAdmin = user?.subscription_tier === 'admin';
+  const TABS: ProfileSubTab[] = userIsAdmin
+    ? ['profile', 'goals', 'connections', 'account', 'admin']
+    : ['profile', 'goals', 'connections', 'account'];
 
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -83,7 +85,7 @@ export default function ProfileScreen() {
   const tabWidth = (containerWidth - 8) / TABS.length; // p-1 = 4px padding inside container
 
   const indicatorLeft = scrollX.interpolate({
-    inputRange: TABS.map((_, i) => Math.max(1, SCREEN_WIDTH * i)),
+    inputRange: TABS.map((_, i) => i * SCREEN_WIDTH),
     outputRange: TABS.map((_, i) => 4 + tabWidth * i),
     extrapolate: 'clamp',
   });
@@ -174,15 +176,21 @@ export default function ProfileScreen() {
     setStravaLoading(true);
     try {
       const clientId = '208765';
-      const redirectUri = 'http://localhost:8081';
-      const authUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
-        redirectUri
+      const stravaRedirectUri = `${API_BASE_URL}/oauthredirect`;
+      const appDeepLink = Linking.createURL('oauthredirect');
+      const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
+        stravaRedirectUri
       )}&scope=activity:read_all,activity:write&approval_prompt=force`;
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, appDeepLink);
       if (result.type === 'success' && result.url) {
-        const parsed = Linking.parse(result.url);
-        const code = (parsed.queryParams?.code as string) || (new URL(result.url).searchParams.get('code') as string);
+        let code: string | undefined;
+        try {
+          code = new URL(result.url).searchParams.get('code') || undefined;
+        } catch (_) {
+          const match = result.url.match(/[?&]code=([^&]+)/);
+          if (match) code = match[1];
+        }
         if (code) {
           const res = await integrationsApi.exchangeStravaCode(code);
           await refreshUser();
@@ -195,22 +203,6 @@ export default function ProfileScreen() {
       }
     } catch (err: any) {
       Alert.alert('Strava Error', err.message || 'Failed to complete Strava OAuth.');
-    } finally {
-      setStravaLoading(false);
-    }
-  };
-
-  const handleConnectDefaultStravaToken = async () => {
-    setStravaLoading(true);
-    try {
-      const defaultToken = '760f27089e849721cf66a5a6557a6c66bca3597e';
-      const res = await integrationsApi.saveStravaRefreshToken(defaultToken);
-      await refreshUser();
-      await refreshActivities();
-      Alert.alert('Strava Connected', res.message || 'Strava token saved successfully!');
-      setStravaModalVisible(false);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save Strava token.');
     } finally {
       setStravaLoading(false);
     }
@@ -302,64 +294,52 @@ export default function ProfileScreen() {
         <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden">
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent-soft rounded-xl"
+            className="absolute top-1 bottom-1 bg-theme-accent rounded-xl"
             style={{
               left: indicatorLeft,
               width: tabWidth,
             }}
           />
 
-          <TouchableOpacity
-            onPress={() => handleTabSwitch('profile')}
-            activeOpacity={0.8}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <Text
-              className={`text-[11px] font-extrabold ${activeTab === 'profile' ? 'text-theme-accent' : 'text-theme-muted'
-                }`}
-            >
-              {t('profile.tabProfile') || 'Profile'}
-            </Text>
-          </TouchableOpacity>
+          {TABS.map((tab, i) => {
+            const opacityWhite = scrollX.interpolate({
+              inputRange: [(i - 1) * SCREEN_WIDTH, i * SCREEN_WIDTH, (i + 1) * SCREEN_WIDTH],
+              outputRange: [0, 1, 0],
+              extrapolate: 'clamp',
+            });
+            const opacityGrey = scrollX.interpolate({
+              inputRange: [(i - 1) * SCREEN_WIDTH, i * SCREEN_WIDTH, (i + 1) * SCREEN_WIDTH],
+              outputRange: [1, 0, 1],
+              extrapolate: 'clamp',
+            });
 
-          <TouchableOpacity
-            onPress={() => handleTabSwitch('goals')}
-            activeOpacity={0.8}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <Text
-              className={`text-[11px] font-extrabold ${activeTab === 'goals' ? 'text-theme-accent' : 'text-theme-muted'
-                }`}
-            >
-              {t('profile.tabGoals') || 'Goals'}
-            </Text>
-          </TouchableOpacity>
+            const labelMap: Record<ProfileSubTab, string> = {
+              profile: t('profile.tabProfile') || 'Profile',
+              goals: t('profile.tabGoals') || 'Goals',
+              connections: t('profile.tabConnections') || 'Connections',
+              account: t('profile.tabAccount') || 'Account',
+              admin: 'Admin',
+            };
+            const label = labelMap[tab];
 
-          <TouchableOpacity
-            onPress={() => handleTabSwitch('connections')}
-            activeOpacity={0.8}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <Text
-              className={`text-[11px] font-extrabold ${activeTab === 'connections' ? 'text-theme-accent' : 'text-theme-muted'
-                }`}
-            >
-              {t('profile.tabConnections') || 'Connections'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => handleTabSwitch('account')}
-            activeOpacity={0.8}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <Text
-              className={`text-[11px] font-extrabold ${activeTab === 'account' ? 'text-theme-accent' : 'text-theme-muted'
-                }`}
-            >
-              {t('profile.tabAccount') || 'Account'}
-            </Text>
-          </TouchableOpacity>
+            return (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => handleTabSwitch(tab)}
+                activeOpacity={0.8}
+                className="flex-1 py-2.5 items-center justify-center z-10"
+              >
+                <View className="relative items-center justify-center">
+                  <Animated.Text style={{ opacity: opacityWhite }} className="text-[11px] font-extrabold text-white absolute" numberOfLines={1}>
+                    {label}
+                  </Animated.Text>
+                  <Animated.Text style={{ opacity: opacityGrey }} className="text-[11px] font-extrabold text-[#6F6F79]" numberOfLines={1}>
+                    {label}
+                  </Animated.Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -588,25 +568,16 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   onPress={handleConnectStravaOAuth}
                   disabled={stravaLoading}
-                  className="bg-[#FC4C02] py-4 rounded-xl items-center flex-row justify-center mb-2"
+                  className="bg-[#FC4C02] py-4 rounded-xl items-center flex-row justify-center mb-3"
                 >
                   {stravaLoading ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
                     <>
                       <Ionicons name="fitness-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text className="text-white font-bold text-base">Connect with Strava (OAuth)</Text>
+                      <Text className="text-white font-bold text-base">Connect with Strava</Text>
                     </>
                   )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleConnectDefaultStravaToken}
-                  disabled={stravaLoading}
-                  className="bg-theme-card py-3 rounded-xl items-center flex-row justify-center mb-3"
-                >
-                  <Ionicons name="key-outline" size={18} color="#FF5A1F" style={{ marginRight: 6 }} />
-                  <Text className="text-theme-accent font-bold text-sm">Quick Connect (Saved Token)</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity

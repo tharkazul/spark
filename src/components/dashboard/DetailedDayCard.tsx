@@ -225,7 +225,7 @@ export function DetailedDayCard({
                   )}
                 </View>
 
-                {/* Action Bar: Edit, Invite, Remove */}
+                {/* Action Bar: Edit, Push to Garmin, Invite, Remove */}
                 <View className="flex-row items-center justify-between pt-2 mt-1 border-t border-theme-border/20">
                   <TouchableOpacity
                     onPress={() => onSelectWorkout(workout)}
@@ -236,19 +236,37 @@ export function DetailedDayCard({
                   </TouchableOpacity>
 
                   <TouchableOpacity
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      try {
+                        const { syncGarminWorkout } = require('../../api/integrations');
+                        await syncGarminWorkout([{ date: day.dateStr || new Date().toISOString().split('T')[0], sport: workout.type }]);
+                        const { Alert } = require('react-native');
+                        Alert.alert('Garmin Push Complete', `"${workout.title}" has been pushed to your Garmin watch.`);
+                      } catch (err: any) {
+                        const { Alert } = require('react-native');
+                        Alert.alert('Garmin Push Failed', err.message || 'Check your Garmin credentials in Settings.');
+                      }
+                    }}
+                    className="flex-row items-center gap-1 px-3 py-1 bg-blue-500/10 border border-blue-500/30 rounded-lg"
+                  >
+                    <Ionicons name="watch-outline" size={13} color="#3B82F6" />
+                    <Text className="text-xs font-bold text-blue-500">Garmin</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
                     onPress={() => onInvitePartner(workout)}
                     className="flex-row items-center gap-1 px-3 py-1 bg-theme-card border border-theme-border/60 rounded-lg"
                   >
                     <Ionicons name="person-add-outline" size={13} color="#6F6F79" />
-                    <Text className="text-xs font-bold text-theme-muted">Invite Partner</Text>
+                    <Text className="text-xs font-bold text-theme-muted">Invite</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     onPress={() => onDeleteWorkout(workout.id)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg"
+                    className="flex-row items-center gap-1 px-2.5 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg"
                   >
                     <Ionicons name="trash-outline" size={13} color="#F43F5E" />
-                    <Text className="text-xs font-bold text-rose-500">Remove</Text>
                   </TouchableOpacity>
                 </View>
               </View>

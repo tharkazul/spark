@@ -15,13 +15,20 @@ const TONE_OPTIONS = [
   { label: 'Configure own coach (Premium)', value: 'custom', premium: true },
 ];
 
+const GENDER_OPTIONS = [
+  { label: 'Male', value: 'Male', icon: 'male-outline' },
+  { label: 'Female', value: 'Female', icon: 'female-outline' },
+  { label: 'Prefer not to share', value: 'Prefer not to share', icon: 'shield-outline' },
+];
+
 export const CoachPersonaSettings: React.FC = () => {
-  const { user, refreshUser } = useUser();
+  const { user, refreshUser, updateUser } = useUser();
 
   const [selectedTone, setSelectedTone] = useState<string>('Empathetic but demanding elite endurance coach.');
   const [coachName, setCoachName] = useState<string>('Spark');
   const [coachContext, setCoachContext] = useState<string>('');
   const [athleteContext, setAthleteContext] = useState<string>('');
+  const [gender, setGender] = useState<string>(user?.gender || 'Prefer not to share');
   const [saving, setSaving] = useState<boolean>(false);
   const [uploadingMood, setUploadingMood] = useState<string | null>(null);
 
@@ -36,6 +43,7 @@ export const CoachPersonaSettings: React.FC = () => {
       setCoachName(user.coach_name || 'Spark');
       setCoachContext(user.coach_context || '');
       setAthleteContext(user.athlete_context || '');
+      setGender(user.gender || 'Prefer not to share');
     }
   }, [user]);
 
@@ -47,8 +55,11 @@ export const CoachPersonaSettings: React.FC = () => {
         coach_name: coachName,
         coach_context: coachContext,
         athlete_context: athleteContext,
+        gender: gender,
       });
+      await updateUser({ gender });
       await refreshUser();
+      Alert.alert('Saved', 'Coach persona & athlete settings saved successfully.');
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to save coach settings.');
     } finally {
@@ -261,6 +272,44 @@ export const CoachPersonaSettings: React.FC = () => {
           </View>
         </View>
       )}
+
+      {/* Gender Selection Field */}
+      <View className="mt-3 mb-2">
+        <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+          Athlete Gender
+        </Text>
+        <View className="flex-row gap-2">
+          {GENDER_OPTIONS.map((opt) => {
+            const isSelected = gender === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                onPress={() => setGender(opt.value)}
+                className={`flex-1 p-3 rounded-xl border flex-row items-center justify-center space-x-1.5 ${
+                  isSelected
+                    ? 'bg-theme-accent/15 border-theme-accent'
+                    : 'bg-theme-card border-theme-border/40'
+                }`}
+              >
+                <Ionicons
+                  name={opt.icon as any}
+                  size={15}
+                  color={isSelected ? '#FF5A1F' : '#8E9BA4'}
+                  style={{ marginRight: 4 }}
+                />
+                <Text
+                  className={`text-xs font-bold ${
+                    isSelected ? 'text-theme-accent' : 'text-theme-text'
+                  }`}
+                  numberOfLines={1}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
 
       {/* Athlete Context Field */}
       <View className="mt-2">

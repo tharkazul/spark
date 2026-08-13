@@ -103,7 +103,7 @@ router.get("/api/events", authenticateToken, (req, res) => {
 
 router.get("/api/chat/history", authenticateToken, (req, res) => {
   db.all(
-    `SELECT role, content, mood, timestamp, image_path FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
+    `SELECT id, role, content, mood, timestamp, image_path, payload_json FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
     [req.user.id],
     (err, rows) => {
       if (err)
@@ -384,10 +384,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     ${await getWeatherContext()}
                     
                     ATHLETE CONTEXT:
-                    Gender: ${user.gender || "Prefer not to say"}
+                    Gender: ${user.gender || "Prefer not to share"}
                     ${user.athlete_context}
                     
-                    ${user.gender === "Female" ? "IMPORTANT FOR FEMALE ATHLETES: Proactively ask when her menstrual cycle starts to optimize training. Track these dates in your long term memory. Suggest and distribute exercises carefully, reducing physical demand during the strenuous days of the cycle." : ""}
+                    ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT FOR FEMALE & ATHLETES TRACKING CYCLES: Proactively ask when her/their menstrual cycle starts to optimize training. Track these dates in your long term memory. Suggest and distribute exercises carefully, reducing physical demand during the strenuous days of the cycle." : ""}
 
                     LONG-TERM MEMORY (From Past Conversations):
                     ${user.long_term_memory}
@@ -508,7 +508,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     }
                     \`\`\`
 
-                    MENSTRUAL CYCLE LOGGING (CRITICAL FOR FEMALES):
+                    ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? `MENSTRUAL CYCLE LOGGING:
                     If the athlete mentions that their period/menstrual cycle started today or on a specific date, you MUST update the cycle tracking system by outputting an additional JSON block. Format it exactly like this inside triple backticks:
                     \`\`\`json
                     {
@@ -518,6 +518,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                       }
                     }
                     \`\`\`
+` : ""}
 
                     DIET & MEAL LOGGING (CRITICAL):
                     ONLY output a "log_diet" JSON block if the athlete explicitly mentions NEW food/drink items in their LATEST text message. NEVER re-emit a "log_diet" JSON block for meals or items mentioned in earlier conversation history or past turns! If the athlete is asking a general question, do NOT output a "log_diet" block.
@@ -1079,8 +1080,8 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
 Today is ${todayStr}.
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ""}
 Athlete Context: ${user.athlete_context || "General endurance athlete"}
-Gender: ${user.gender || "Prefer not to say"}
-${user.gender === "Female" ? "IMPORTANT: Track menstrual cycle phases and adjust demands based on the physically demanding days of her cycle." : ""}
+Gender: ${user.gender || "Prefer not to share"}
+${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT: Track menstrual cycle phases and adjust demands based on the physically demanding days of the cycle." : ""}
 Key Physiological Metrics:
 ${metricsText}
 Current Macro Phase: ${phase}

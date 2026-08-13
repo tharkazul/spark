@@ -59,3 +59,13 @@ export interface MacroPeriodInfo {
   currentCTL: number;
   phases: TrainingPhaseDetail[];
 }
+
+export interface DayAgenda {
+  dayName: string;
+  dateStr: string;
+  isToday: boolean;
+  isPast: boolean;
+  workouts: WorkoutItem[];
+}
+
+

@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserProfile } from '../types/user';
 import { userApi, authApi } from '../services/apiServices';
-import { setAuthToken, setOnUnauthorizedHandler } from '../services/apiClient';
+import { setAuthToken, setOnUnauthorizedHandler, setOnRateLimitHandler } from '../services/apiClient';
 import { tokenStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
+import { realtimeEngine } from '../realtime/realtimeEngine';
 
 interface UserContextType {
   user: UserProfile | null;
@@ -206,6 +207,10 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       logout();
     });
 
+    setOnRateLimitHandler((msg) => {
+      console.warn('[Rate Limit Warning]', msg);
+    });
+
     const initAuth = async () => {
       setLoading(true);
       try {
@@ -244,15 +249,15 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      wsService.disconnect();
+      realtimeEngine.cleanup();
       return;
     }
 
     tokenStorage.getToken().then((token) => {
-      wsService.connect(token || undefined);
+      realtimeEngine.init(token || undefined);
     });
 
-    const unsubSpark = wsService.subscribeToEvent('spark_updated', (data: any) => {
+    const unsubSpark = realtimeEngine.subscribe('spark_updated', (data: any) => {
       const added = typeof data.spark === 'number' ? data.spark : typeof data.points === 'number' ? data.points : 0;
       const total = typeof data.total_spark === 'number' ? data.total_spark : undefined;
       setUser((prev) => {
@@ -264,7 +269,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       });
     });
 
-    const unsubLevel = wsService.subscribeToEvent('level_up', (data: any) => {
+    const unsubLevel = realtimeEngine.subscribe('level_up', (data: any) => {
       const newLevel = data.level || data.new_level;
       if (newLevel) {
         setUser((prev) => (prev ? { ...prev, level: newLevel } : null));

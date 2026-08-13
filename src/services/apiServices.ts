@@ -6,6 +6,7 @@ import { PhysiqueEntry, NutritionProtocol } from '../types/physique';
 import { Quest, UserTitle } from '../types/gamification';
 import { Niggle } from '../types/health';
 import { ChatMessage, TokenUsage } from '../types/chat';
+import { SocialFeedActivity, ActivityComment, SocialConnection, LeaderboardResponse } from '../types/social';
 
 export const authApi = {
   login: (credentials: { email?: string; username?: string; password: string }) =>
@@ -52,13 +53,28 @@ export const userApi = {
   },
   trackSparkPlusClick: () =>
     apiClient<{ success: boolean }>('/api/track-spark-plus-click', { method: 'POST' }),
+  requestAccountData: () =>
+    apiClient<{ success: boolean; message: string }>('/api/request-account-data', { method: 'POST' }),
+  deleteAccount: () =>
+    apiClient<{ success: boolean; message: string }>('/api/user/account', { method: 'DELETE' }),
 };
 
 export const activitiesApi = {
   getActivities: () => apiClient<Activity[]>('/api/history'),
+  getActivityDetail: (id: string | number) => apiClient<Activity>(`/api/activity/${id}`),
   getDashboardData: () => apiClient<any>('/api/dashboard-data'),
   syncGarmin: (workouts?: any[]) => apiClient<{ success: boolean; message?: string }>('/api/sync-garmin', { method: 'POST', body: JSON.stringify({ workouts }) }),
   syncStrava: () => apiClient<{ success: boolean; message?: string; count?: number }>('/api/sync-strava', { method: 'POST' }),
+  getComments: (activityId: string | number) => apiClient<{ comments: ActivityComment[] }>(`/api/activities/${activityId}/comments`),
+  postComment: (activityId: string | number, comment: string) =>
+    apiClient<{ success: boolean; comment: ActivityComment }>(`/api/activities/${activityId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
+  deleteComment: (activityId: string | number, commentId: string | number) =>
+    apiClient<{ success: boolean; deletedId: string | number }>(`/api/activities/${activityId}/comments/${commentId}`, {
+      method: 'DELETE',
+    }),
 };
 
 export const integrationsApi = {
@@ -143,6 +159,9 @@ export const physiqueApi = {
       carbs?: number;
       protein?: number;
       fat?: number;
+      carbsTarget?: number;
+      proteinTarget?: number;
+      fatTarget?: number;
       loggedCarbs?: number;
       loggedProtein?: number;
       loggedFat?: number;
@@ -179,7 +198,13 @@ export const healthApi = {
     }),
   resolveNiggle: (id: number | string) =>
     apiClient<{ success: boolean }>(`/api/niggles/${id}/resolve`, { method: 'POST' }),
+  logCycleStart: (cycleStartDate: string) =>
+    apiClient<{ success: boolean }>('/api/user/cycle/log', {
+      method: 'POST',
+      body: JSON.stringify({ cycleStartDate }),
+    }),
 };
+
 
 export const chatApi = {
   getHistory: () => apiClient<ChatMessage[] | { history: ChatMessage[]; tokenUsage?: TokenUsage }>('/api/chat/history'),
@@ -214,4 +239,40 @@ export const adminApi = {
       method: 'DELETE',
     }),
 };
+
+export const socialApi = {
+  getFeed: () => apiClient<{ activities: SocialFeedActivity[] }>('/api/social/feed'),
+  toggleKudos: (activityId: string | number) =>
+    apiClient<{ success: boolean; added: boolean }>('/api/social/kudos', {
+      method: 'POST',
+      body: JSON.stringify({ activityId }),
+    }),
+  getLeaderboard: () => apiClient<LeaderboardResponse>('/api/social/leaderboard'),
+  getConnections: () => apiClient<{ connections: SocialConnection[] }>('/api/social/connections'),
+  searchUser: (username: string) =>
+    apiClient<{ found: boolean; user?: { id: number; username: string; status?: string } }>('/api/social/search', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    }),
+  connectUser: (friendId: number | string) =>
+    apiClient<{ success: boolean }>('/api/social/connect', {
+      method: 'POST',
+      body: JSON.stringify({ friendId }),
+    }),
+  acceptUser: (friendId: number | string) =>
+    apiClient<{ success: boolean }>('/api/social/accept', {
+      method: 'POST',
+      body: JSON.stringify({ friendId }),
+    }),
+  getProfile: (userId: number | string) => apiClient<any>(`/api/social/profile/${userId}`),
+  acceptInvite: (inviteId: number | string) =>
+    apiClient<{ success: boolean; message?: string }>(`/api/social/invite/${inviteId}/accept`, {
+      method: 'POST',
+    }),
+  declineInvite: (inviteId: number | string) =>
+    apiClient<{ success: boolean; message?: string }>(`/api/social/invite/${inviteId}/decline`, {
+      method: 'POST',
+    }),
+};
+
 

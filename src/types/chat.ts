@@ -13,6 +13,35 @@ export interface ProposedWorkoutItem {
   steps_json?: string | any[];
 }
 
+export interface EventInvitePayload {
+  type: 'event_invite';
+  invite_id: number | string;
+  micro_plan_id: number | string;
+  sport: string;
+  date: string;
+  description?: string;
+  inviter_name?: string;
+  inviter_avatar?: string;
+  status: 'pending' | 'accepted' | 'declined';
+}
+
+export interface SocialMentionPayload {
+  type: 'social_mention';
+  activity_id: number | string;
+  author_name: string;
+  author_avatar?: string;
+  comment_text: string;
+  created_at?: string;
+}
+
+export interface WorkoutProposalPayload {
+  type: 'workout_proposal';
+  plan: ProposedWorkoutItem[];
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+export type ChatPayload = EventInvitePayload | SocialMentionPayload | WorkoutProposalPayload;
+
 export interface ChatMessage {
   id: string | number;
   user_id?: number;
@@ -23,4 +52,6 @@ export interface ChatMessage {
   images?: string[];
   proposedPlan?: ProposedWorkoutItem[];
   proposalStatus?: 'pending' | 'accepted' | 'rejected';
+  payload_json?: ChatPayload;
 }
+

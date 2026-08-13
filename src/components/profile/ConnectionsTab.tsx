@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Card } from '../ui/Card';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
@@ -9,6 +10,31 @@ interface ConnectionsTabProps {
   onOpenGarminModal: () => void;
   onOpenStravaModal: () => void;
 }
+
+export type SportType = 'running' | 'cycling' | 'swimming' | 'strength';
+
+export interface StravaSportToggles {
+  captionSparkScore: boolean;
+  titleSummary: boolean;
+  includeMuscleStrain: boolean;
+  includeFueling: boolean;
+}
+
+const STORAGE_KEY_AUTOMATIONS = 'spark_strava_automations_by_sport';
+
+const DEFAULT_TOGGLES: Record<SportType, StravaSportToggles> = {
+  running: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
+  cycling: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
+  swimming: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: false, includeFueling: false },
+  strength: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: false },
+};
+
+const SPORT_OPTIONS: { id: SportType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'running', label: 'Run', icon: 'walk-outline' },
+  { id: 'cycling', label: 'Cycle', icon: 'bicycle-outline' },
+  { id: 'swimming', label: 'Swim', icon: 'water-outline' },
+  { id: 'strength', label: 'Strength', icon: 'barbell-outline' },
+];
 
 export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   onOpenGarminModal,
@@ -23,11 +49,34 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
 
-  // Strava Automation Toggles
-  const [captionSparkScore, setCaptionSparkScore] = useState(true);
-  const [titleSummary, setTitleSummary] = useState(true);
-  const [includeMuscleStrain, setIncludeMuscleStrain] = useState(true);
-  const [includeFueling, setIncludeFueling] = useState(false);
+  // Strava Automation Toggles per sport type
+  const [selectedSport, setSelectedSport] = useState<SportType>('running');
+  const [sportToggles, setSportToggles] = useState<Record<SportType, StravaSportToggles>>(DEFAULT_TOGGLES);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_AUTOMATIONS).then((stored) => {
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setSportToggles((prev) => ({ ...prev, ...parsed }));
+        } catch (_) {}
+      }
+    });
+  }, []);
+
+  const handleToggleChange = (toggleKey: keyof StravaSportToggles, value: boolean) => {
+    setSportToggles((prev) => {
+      const updated = {
+        ...prev,
+        [selectedSport]: {
+          ...prev[selectedSport],
+          [toggleKey]: value,
+        },
+      };
+      AsyncStorage.setItem(STORAGE_KEY_AUTOMATIONS, JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const handleSyncGarmin = async () => {
     setGarminSyncing(true);
@@ -52,6 +101,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       setStravaSyncing(false);
     }
   };
+
+  const currentToggles = sportToggles[selectedSport] || DEFAULT_TOGGLES[selectedSport];
 
   return (
     <View className="space-y-6">
@@ -171,50 +222,80 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </View>
       </Card>
 
-      {/* STRAVA AUTOMATIONS */}
+      {/* STRAVA AUTOMATIONS PER SPORT TYPE */}
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3">
           <View className="w-2.5 h-2.5 rounded-full bg-[#ff6b6b]" />
-          <Text className="text-theme-text font-bold text-sm">Strava Automations</Text>
+          <Text className="text-theme-text font-bold text-sm">Strava Automations (Per Sport)</Text>
         </View>
 
         <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
-          All recorded activities are universally analyzed by your AI Coach. Use the controls below to customize what details Spark shares to your Strava activity captions and workout titles.
+          Customize what details Spark AI Coach posts to your Strava captions for each individual sport type.
         </Text>
 
+        {/* SPORT TYPE SELECTOR TABS */}
+        <View className="flex-row bg-theme-bg p-1 rounded-xl mb-4">
+          {SPORT_OPTIONS.map((sport) => {
+            const isSelected = selectedSport === sport.id;
+            return (
+              <TouchableOpacity
+                key={sport.id}
+                onPress={() => setSelectedSport(sport.id)}
+                className={`flex-1 py-2 rounded-lg flex-row items-center justify-center gap-1 ${
+                  isSelected ? 'bg-orange-500 shadow-sm' : ''
+                }`}
+              >
+                <Ionicons
+                  name={sport.icon}
+                  size={14}
+                  color={isSelected ? '#FFFFFF' : '#8E8E93'}
+                />
+                <Text
+                  className={`text-xs font-bold ${
+                    isSelected ? 'text-white' : 'text-theme-muted'
+                  }`}
+                >
+                  {sport.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* 4 STRAVA AUTOMATION TOGGLES FOR SELECTED SPORT */}
         <View className="space-y-3">
-          <View className="flex-row items-center justify-between py-2">
+          <View className="flex-row items-center justify-between py-2 border-b border-theme-bg/60">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Spark Score in Caption</Text>
               <Text className="text-theme-muted text-[10px]">Add calculated XP and TSS to caption</Text>
             </View>
             <Switch
-              value={captionSparkScore}
-              onValueChange={setCaptionSparkScore}
+              value={currentToggles.captionSparkScore}
+              onValueChange={(val) => handleToggleChange('captionSparkScore', val)}
               trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-2">
+          <View className="flex-row items-center justify-between py-2 border-b border-theme-bg/60">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Post AI Workout Summary Title</Text>
               <Text className="text-theme-muted text-[10px]">Auto-generate catchy workout title</Text>
             </View>
             <Switch
-              value={titleSummary}
-              onValueChange={setTitleSummary}
+              value={currentToggles.titleSummary}
+              onValueChange={(val) => handleToggleChange('titleSummary', val)}
               trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-2">
+          <View className="flex-row items-center justify-between py-2 border-b border-theme-bg/60">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Muscle Strain Metrics</Text>
               <Text className="text-theme-muted text-[10px]">Share affected muscle group load</Text>
             </View>
             <Switch
-              value={includeMuscleStrain}
-              onValueChange={setIncludeMuscleStrain}
+              value={currentToggles.includeMuscleStrain}
+              onValueChange={(val) => handleToggleChange('includeMuscleStrain', val)}
               trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
             />
           </View>
@@ -225,8 +306,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <Text className="text-theme-muted text-[10px]">Post carb/protein intake advice</Text>
             </View>
             <Switch
-              value={includeFueling}
-              onValueChange={setIncludeFueling}
+              value={currentToggles.includeFueling}
+              onValueChange={(val) => handleToggleChange('includeFueling', val)}
               trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
             />
           </View>
@@ -235,3 +316,4 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     </View>
   );
 };
+

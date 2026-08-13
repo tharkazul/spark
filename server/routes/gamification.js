@@ -33,7 +33,8 @@ const {
   updateUserSparkAndCheckLevel,
   triggerLevelUpCoachPrompt,
   evaluateAndProgressQuests,
-  calculateQuestProgress
+  calculateQuestProgress,
+  generateQuestForUser
 } = require('../services/utils');
 
 function getTimeRemainingStr(expiresAt) {

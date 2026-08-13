@@ -158,7 +158,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                       elevation: 8,
                     }}
                   >
-                    {options.tabBarIcon && options.tabBarIcon({ focused: isFocused, color: '#FFFFFF', size: 26 } as any)}
+                    {(options.tabBarIcon as any) && (options.tabBarIcon as any)({ focused: isFocused, color: '#FFFFFF', size: 26 })}
                   </View>
                 </TouchableOpacity>
               );
@@ -189,7 +189,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                     justifyContent: 'center',
                   }}
                 >
-                  {options.tabBarIcon && options.tabBarIcon({ 
+                  {(options.tabBarIcon as any) && (options.tabBarIcon as any)({ 
                     focused: isFocused, 
                     color: isFocused ? (isDark ? '#FF6B35' : '#FF5A1F') : (isDark ? '#94A3B8' : '#64748B'), 
                     size: 22 

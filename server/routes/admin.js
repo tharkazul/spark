@@ -10,13 +10,17 @@ const adminAuthMiddleware = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const isRutger = req.user.username && req.user.username.toLowerCase().includes("rutger");
-  const isFelix = req.user.username && req.user.username.toLowerCase().includes("felixson");
-  const isAdminTier = req.user.subscription_tier === 'admin';
-  if (!isRutger && !isFelix && !isAdminTier && req.user.id !== 1) {
-    return res.status(403).json({ error: "Unauthorized" });
-  }
-  next();
+  const username = req.user.username ? req.user.username.toLowerCase() : "";
+  const isRutger = username.includes("rutger");
+  const isFelix = username.includes("felixson");
+  const isAdminTier = req.user.subscription_tier === "admin";
+  db.get(`SELECT role FROM users WHERE id = ?`, [req.user.id], (err, row) => {
+    const isAdminRole = row && row.role === "admin";
+    if (!isRutger && !isFelix && !isAdminTier && !isAdminRole && req.user.id !== 1) {
+      return res.status(403).json({ error: "Unauthorized: Admin access required" });
+    }
+    next();
+  });
 };
 
 router.use("/api/admin", authenticateToken, adminAuthMiddleware);

@@ -7,6 +7,9 @@ export interface UserProfile {
   subscription_tier: SubscriptionTier;
   total_spark: number;
   level: number;
+  gender?: string;
+  last_cycle_start?: string;
+  cycle_tracking_enabled?: boolean;
   coach_tone: string;
   coach_name?: string;
   coach_context?: string;
@@ -31,3 +34,4 @@ export interface UserProfile {
   };
   onboarding_completed?: boolean;
 }
+

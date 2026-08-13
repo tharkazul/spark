@@ -4,6 +4,8 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
 import { AnatomicalBodyMap, ActiveNiggle, BODY_PARTS_LOOKUP } from './AnatomicalBodyMap';
+import { CycleTrackingWidget } from './CycleTrackingWidget';
+import { MuscleFatigueCard } from './MuscleFatigueCard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -92,13 +94,16 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
   return (
     <View className="space-y-4">
+      {/* CYCLE TRACKER & COACH SYNC WIDGET */}
+      <CycleTrackingWidget />
+
       {/* INJURY TRACKER CARD */}
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
+            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              Injury & Soreness Tracker
+              Injury & Soreness Heatmap
             </Text>
           </View>
           <Text className="text-[11px] font-semibold text-theme-accent">
@@ -109,6 +114,10 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         {/* Anatomical Mannequin Body Map */}
         <AnatomicalBodyMap activeNiggles={niggles} onSelectBodyPart={handleSelectBodyPart} />
       </Card>
+
+      {/* MUSCLE FATIGUE SCORES BREAKDOWN CARD */}
+      <MuscleFatigueCard />
+
 
       {/* ACTIVE ISSUES LIST */}
       <Card className="mb-6 bg-theme-card">
@@ -149,7 +158,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
               {item.notes ? (
                 <Text className="text-xs text-theme-muted mb-3 leading-4">
-                  "{item.notes}"
+                  &quot;{item.notes}&quot;
                 </Text>
               ) : null}
 

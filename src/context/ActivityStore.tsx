@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Activity } from '../types/activity';
 import { activitiesApi } from '../services/apiServices';
 import { wsService } from '../services/websocket';
+import { useUser } from './UserStore';
 
 interface ActivityContextType {
   activities: Activity[];
@@ -17,11 +18,13 @@ const defaultActivities: Activity[] = [];
 const ActivityContext = createContext<ActivityContextType | undefined>(undefined);
 
 export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useUser();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshActivities = async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const data = await activitiesApi.getActivities();
@@ -61,6 +64,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     refreshActivities();
 
     const unsubActivity = wsService.subscribeToEvent('activity_synced', () => refreshActivities());
@@ -72,7 +76,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
       unsubStrava();
       unsubGarmin();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <ActivityContext.Provider

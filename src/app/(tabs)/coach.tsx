@@ -15,6 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -29,6 +30,8 @@ import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
+import { EventInviteCard } from '../../components/chat/EventInviteCard';
+import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { ChatMessage } from '../../types/chat';
 import { API_BASE_URL } from '../../constants/api';
@@ -93,11 +96,12 @@ function flattenMessages(messagesList: ChatMessage[]): ChatListItem[] {
   return items.reverse();
 }
 
-const MessageRow = React.memo(({ item, isFirstInRun, coachTone, onAccept, onReject }: { item: ChatMessage, isFirstInRun: boolean, coachTone?: string, onAccept: any, onReject: any }) => {
+const MessageRow = React.memo(({ item, isFirstInRun, coachTone, onAccept, onReject, onAcceptInvite, onDeclineInvite }: { item: ChatMessage, isFirstInRun: boolean, coachTone?: string, onAccept: any, onReject: any, onAcceptInvite: any, onDeclineInvite: any }) => {
   const hasText = hasRenderableText(item.content);
   const hasImages = !!item.images?.length;
   const hasProposal = !!item.proposedPlan?.length;
-  if (!hasText && !hasImages && !hasProposal) return null;
+  const hasPayloadCard = !!item.payload_json;
+  if (!hasText && !hasImages && !hasProposal && !hasPayloadCard) return null;
   
   const isUser = item.role === 'user';
   return (
@@ -134,6 +138,18 @@ const MessageRow = React.memo(({ item, isFirstInRun, coachTone, onAccept, onReje
 
         <MarkdownText content={item.content} isUser={isUser} />
 
+        {item.payload_json?.type === 'event_invite' ? (
+          <EventInviteCard
+            payload={item.payload_json}
+            onAccept={onAcceptInvite}
+            onDecline={onDeclineInvite}
+          />
+        ) : item.payload_json?.type === 'social_mention' ? (
+          <SocialMentionCard
+            payload={item.payload_json}
+          />
+        ) : null}
+
         {item.proposedPlan && item.proposedPlan.length > 0 ? (
           <ProposalCard
             plan={item.proposedPlan}
@@ -153,7 +169,7 @@ const MessageRow = React.memo(({ item, isFirstInRun, coachTone, onAccept, onReje
 
 export default function CoachScreen() {
   const { t } = useLanguage();
-  const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, tokenUsage, error } = useCoachChat();
+  const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error } = useCoachChat();
   const { user, isChatMacroStripVisible, toggleChatMacroStrip } = useUser();
   const insets = useSafeAreaInsets();
   const { height, progress } = useKeyboardMotionContext();
@@ -257,16 +273,25 @@ export default function CoachScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions ? ImagePicker.MediaTypeOptions.Images : ('images' as any),
         allowsEditing: false,
-        quality: 0.7,
-        base64: true,
+        quality: 0.8,
       });
 
-      if (!result.canceled && result.assets && result.assets[0]?.base64) {
-        const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        setSelectedImages((prev) => [...prev, base64Uri]);
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        const asset = result.assets[0];
+        const manipulated = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 1600 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+
+        if (manipulated.base64) {
+          const base64Uri = `data:image/jpeg;base64,${manipulated.base64}`;
+          setSelectedImages((prev) => [...prev, base64Uri]);
+        }
       }
     } catch (error) {
-      Alert.alert('Notice', 'Image attachment not supported in current environment.');
+      console.error('Image processing error:', error);
+      Alert.alert('Notice', 'Image attachment or compression failed.');
     }
   };
 
@@ -308,10 +333,18 @@ export default function CoachScreen() {
     }
     return (
       <View>
-        <MessageRow item={item.data} isFirstInRun={item.isFirstInRun} coachTone={user?.coach_tone} onAccept={acceptProposal} onReject={rejectProposal} />
+        <MessageRow
+          item={item.data}
+          isFirstInRun={item.isFirstInRun}
+          coachTone={user?.coach_tone}
+          onAccept={acceptProposal}
+          onReject={rejectProposal}
+          onAcceptInvite={acceptInvite}
+          onDeclineInvite={declineInvite}
+        />
       </View>
     );
-  }, [user?.coach_tone, acceptProposal, rejectProposal]);
+  }, [user?.coach_tone, acceptProposal, rejectProposal, acceptInvite, declineInvite]);
 
   const getFullAvatarUrl = (path?: string) => {
     if (!path) return null;
@@ -422,7 +455,7 @@ export default function CoachScreen() {
             onScrollBeginDrag={() => { hasUserScrolled.current = true; }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-            renderItem={renderItem}
+            renderItem={renderItem as any}
             ListHeaderComponent={
               <View>
                 {sending ? (

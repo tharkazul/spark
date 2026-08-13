@@ -28,3 +28,4 @@ export interface NutritionProtocol {
   fatTarget: number;
   loggedItems?: string[];
 }
+

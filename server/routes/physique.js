@@ -70,8 +70,7 @@ router.post("/api/user/cycle/log", authenticateToken, (req, res) => {
     function (err) {
       if (err)
         return res.status(500).json({ error: "Failed to log cycle start." });
-      console.log('NUTRITION API for user', req.user.id, 'date', todayStr, 'intakeRow:', intakeRow);
-        res.json({ message: "Cycle logged successfully!" });
+      res.json({ message: "Cycle logged successfully!" });
     },
   );
 });
@@ -265,7 +264,7 @@ router.get("/api/images/physique/:filename", authenticateToken, (req, res) => {
       .status(403)
       .json({ error: "Forbidden: You do not have access to this image." });
   }
-  const filePath = path.join(__dirname, "secure_uploads/physique", filename);
+  const filePath = path.join(__dirname, "../secure_uploads/physique", filename);
   if (!fs.existsSync(filePath)) return res.status(404).send("Not found");
   res.sendFile(filePath);
 });

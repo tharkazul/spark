@@ -1,5 +1,22 @@
 export type SportType = 'SWIM' | 'BIKE' | 'RUN' | 'STRENGTH' | 'MOBILITY' | 'REST';
 
+export interface ActivityLap {
+  lap_index: number;
+  distance_km: number;
+  elapsed_time_min: number;
+  split_pace?: string;
+  average_heartrate?: number;
+  elevation_gain_m?: number;
+}
+
+export interface StrengthSetItem {
+  exerciseName: string;
+  weight?: number;
+  reps?: number;
+  durationSec?: number;
+  completed?: boolean;
+}
+
 export interface Activity {
   id: string | number;
   user_id?: number;
@@ -9,11 +26,17 @@ export interface Activity {
   elevation_m?: number;
   moving_time_min: number;
   average_heartrate?: number;
+  max_heartrate?: number;
+  average_power_w?: number;
   start_date: string;
   tss?: number;
   spark_score?: number;
   sets_json?: string;
+  polyline?: string;
   kudos_count?: number;
+  has_kudosed?: boolean;
+  comments_count?: number;
+  laps?: ActivityLap[];
 }
 
 export interface PMCDataPoint {

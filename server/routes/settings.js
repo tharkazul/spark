@@ -113,7 +113,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
+    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -150,6 +150,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             coachAvatarDisappointed: row.coach_avatar_disappointed || null,
             athleteContext: row.athlete_context,
             gender: row.gender,
+            cycleTrackingEnabled: row.cycle_tracking_enabled !== 0,
+            cycle_tracking_enabled: row.cycle_tracking_enabled !== 0,
             lastCycleStart: row.last_cycle_start,
             averageCycleLength: row.average_cycle_length || 28,
             searchPrivacy: row.search_privacy === 1,
@@ -179,6 +181,8 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     coachContext,
     athleteContext,
     gender,
+    cycleTrackingEnabled,
+    cycle_tracking_enabled,
     lastCycleStart,
     trainingAvailability,
     onboardingCompleted,
@@ -191,15 +195,18 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     : "{}";
 
   const markCompleted = onboardingCompleted ? 1 : 0;
+  const cycleTrackingVal = cycleTrackingEnabled !== undefined ? cycleTrackingEnabled : cycle_tracking_enabled;
+  const cycleTrackingValNum = cycleTrackingVal === false || cycleTrackingVal === 0 ? 0 : cycleTrackingVal === true || cycleTrackingVal === 1 ? 1 : null;
 
   db.run(
-    `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ?, onboarding_completed = CASE WHEN ? = 1 THEN 1 ELSE onboarding_completed END WHERE id = ?`,
+    `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, cycle_tracking_enabled = COALESCE(?, cycle_tracking_enabled), last_cycle_start = ?, training_availability = ?, onboarding_completed = CASE WHEN ? = 1 THEN 1 ELSE onboarding_completed END WHERE id = ?`,
     [
       coachTone,
       coachName || "Spark",
       coachContext || "",
       athleteContext,
-      gender || "Prefer not to say",
+      gender || "Prefer not to share",
+      cycleTrackingValNum,
       lastCycleStart || null,
       availabilityStr,
       markCompleted,

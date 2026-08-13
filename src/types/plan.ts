@@ -10,6 +10,9 @@ export interface WorkoutStep {
   zone?: number;
   weight?: number;
   exerciseName?: string;
+  garmin_exercise_name?: string;
+  garmin_category_key?: string;
+  garmin_exercise_key?: string;
   iterations?: number;
   steps?: WorkoutStep[];
   target_value?: string;

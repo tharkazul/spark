@@ -19,8 +19,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { userApi, integrationsApi } from '../../services/apiServices';
+import { API_BASE_URL } from '../../constants/api';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { MarkdownText } from '../chat/MarkdownText';
@@ -54,6 +57,7 @@ export type ChatItemType =
   | 'user_text'
   | 'card_language'
   | 'card_persona'
+  | 'card_gender'
   | 'card_context_event'
   | 'card_schedule'
   | 'card_integrations'
@@ -122,9 +126,9 @@ export default function OnboardingWizard() {
   const { user, refreshUser, updateUser } = useUser();
   const { t, language, setLanguage } = useLanguage();
 
-  // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Context/Event, 4 = Schedule, 5 = Integrations, 6 = Paywall)
+  // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Gender, 4 = Context/Event, 5 = Schedule, 6 = Integrations, 7 = Paywall)
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 6;
+  const totalSteps = 7;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { height: keyboardHeight } = useKeyboardMotionContext();
 
@@ -173,6 +177,7 @@ export default function OnboardingWizard() {
   const [coachTone, setCoachTone] = useState(
     user?.coach_tone || 'Empathetic but demanding elite endurance coach.'
   );
+  const [gender, setGender] = useState<string>(user?.gender || 'Prefer not to share');
   const [athleteContext, setAthleteContext] = useState(user?.athlete_context || '');
   const [coachReaction, setCoachReaction] = useState<string | null>(null);
   const contextDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -542,8 +547,8 @@ export default function OnboardingWizard() {
       setCurrentStep(3);
       appendCoachPromptAndCard(
         `Coach Tone: ${toneTitle}`,
-        `Awesome choice! ⚡️ Now, tell me a bit about yourself, your fitness base, or any main event on your calendar.`,
-        'card_context_event',
+        `Awesome choice! ⚡️ To help tailor your physiological recovery & recommendations, please select your gender:`,
+        'card_gender',
         { type: 'card_persona', key: 'selected', val: toneTitle }
       );
     } else {
@@ -557,11 +562,34 @@ export default function OnboardingWizard() {
     }
   };
 
-  const handleConfirmContextAndEvent = () => {
+  const handleSelectGenderChoice = (genderVal: string, genderLabel: string) => {
     if (isStreamingMessage) return;
+    setGender(genderVal);
 
     if (currentStep === 3) {
       setCurrentStep(4);
+      appendCoachPromptAndCard(
+        `Gender: ${genderLabel}`,
+        `Thank you! Now, tell me a bit about yourself, your fitness base, or any main event on your calendar.`,
+        'card_context_event',
+        { type: 'card_gender', key: 'selected', val: genderVal }
+      );
+    } else {
+      setTimeline((prev) =>
+        prev.map((item) => (item.type === 'card_gender' ? { ...item, data: { selected: genderVal } } : item))
+      );
+      appendCoachAckOnly(
+        `Updated Gender: ${genderLabel}`,
+        `Got it! Updated your gender preference to ${genderLabel}. ⚡️`
+      );
+    }
+  };
+
+  const handleConfirmContextAndEvent = () => {
+    if (isStreamingMessage) return;
+
+    if (currentStep === 4) {
+      setCurrentStep(5);
       const feedback = coachReaction || "Got it! I've saved your background and event details.";
       appendCoachPromptAndCard(
         raceName ? `Event: ${raceName} (${raceDate || 'TBD'})` : 'Background details updated.',
@@ -583,8 +611,8 @@ export default function OnboardingWizard() {
   const handleConfirmScheduleChoice = () => {
     if (isStreamingMessage) return;
 
-    if (currentStep === 4) {
-      setCurrentStep(5);
+    if (currentStep === 5) {
+      setCurrentStep(6);
       appendCoachPromptAndCard(
         'Weekly availability schedule locked in.',
         'Perfect! Would you like to connect Garmin or Strava to auto-sync your completed workouts and HRV data?',
@@ -605,8 +633,8 @@ export default function OnboardingWizard() {
   const handleConfirmIntegrationsChoice = () => {
     if (isStreamingMessage) return;
 
-    if (currentStep === 5) {
-      setCurrentStep(6);
+    if (currentStep === 6) {
+      setCurrentStep(7);
       appendCoachPromptAndCard(
         showGarmin ? 'Garmin connected.' : 'Integrations updated.',
         "We're all set! ⚡️ I'm ready to craft your custom endurance plan. Select a tier to launch your training experience!",
@@ -653,6 +681,7 @@ export default function OnboardingWizard() {
       await updateUser({
         coach_tone: coachTone,
         athlete_context: fullContext,
+        gender: gender,
         target_event: raceName || undefined,
         event_date: raceDate || undefined,
         target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
@@ -674,6 +703,37 @@ export default function OnboardingWizard() {
       Alert.alert('Error', err.message || 'Failed to save setup. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleConnectStravaOAuth = async () => {
+    try {
+      const clientId = '208765';
+      const stravaRedirectUri = 'https://spark.amsterdamtriathlonassociation.uk/oauthredirect';
+      const appDeepLink = Linking.createURL('oauthredirect');
+      const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
+        stravaRedirectUri
+      )}&scope=activity:read_all,activity:write&approval_prompt=force`;
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, appDeepLink);
+      if (result.type === 'success' && result.url) {
+        let code: string | undefined;
+        try {
+          code = new URL(result.url).searchParams.get('code') || undefined;
+        } catch (_) {
+          const match = result.url.match(/[?&]code=([^&]+)/);
+          if (match) code = match[1];
+        }
+        if (code) {
+          const res = await integrationsApi.exchangeStravaCode(code);
+          await refreshUser();
+          Alert.alert('Strava Connected', res.message || 'Strava connected successfully!');
+        } else {
+          Alert.alert('Strava Error', 'No authorization code returned from Strava.');
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Strava Error', err.message || 'Failed to complete Strava OAuth.');
     }
   };
 
@@ -1051,6 +1111,53 @@ export default function OnboardingWizard() {
               );
             }
 
+            if (node.type === 'card_gender') {
+              const selectedGender = node.data?.selected || gender;
+              return (
+                <View
+                  key={node.id}
+                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                >
+                  <Text className="text-theme-text font-bold text-sm">Select Your Gender</Text>
+                  <Text className="text-theme-muted text-xs">
+                    This helps your AI Coach tailor physiological recovery, load calculations, and cycle tracking.
+                  </Text>
+                  
+                  <View className="gap-2.5 mt-1">
+                    {[
+                      { label: 'Male', val: 'Male', icon: 'male-outline', desc: 'Physiological profile optimized for male athletes.' },
+                      { label: 'Female', val: 'Female', icon: 'female-outline', desc: 'Includes hormonal cycle tracking & phase-adjusted training.' },
+                      { label: 'Prefer not to share', val: 'Prefer not to share', icon: 'shield-outline', desc: 'General athletic profile without specified gender.' },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        key={opt.val}
+                        disabled={isStreamingMessage}
+                        onPress={() => handleSelectGenderChoice(opt.val, opt.label)}
+                        className={`p-3.5 rounded-xl border ${
+                          selectedGender === opt.val
+                            ? 'border-[#FF5A1F] bg-[#FF5A1F]/10'
+                            : 'border-theme-border bg-theme-bg'
+                        }`}
+                      >
+                        <View className="flex-row items-center">
+                          <View className="w-9 h-9 rounded-full bg-[#FF5A1F]/15 items-center justify-center mr-3">
+                            <Ionicons name={opt.icon as any} size={18} color="#FF5A1F" />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-theme-text font-bold text-xs">{opt.label}</Text>
+                            <Text className="text-theme-muted text-[10px] mt-0.5">{opt.desc}</Text>
+                          </View>
+                          {selectedGender === opt.val && (
+                            <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              );
+            }
+
             if (node.type === 'card_context_event') {
               const isCompleted = !!node.data?.completed;
               return (
@@ -1316,7 +1423,7 @@ export default function OnboardingWizard() {
                     </View>
                     <TouchableOpacity
                       disabled={isStreamingMessage}
-                      onPress={() => Alert.alert('Strava OAuth', 'Strava connection will open in web browser.')}
+                      onPress={handleConnectStravaOAuth}
                       className="bg-[#FC4C02] px-3 py-1.5 rounded-lg"
                     >
                       <Text className="text-white font-bold text-[10px]">Connect Strava</Text>

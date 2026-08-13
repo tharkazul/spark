@@ -7,7 +7,7 @@ import { MacroRingGauge } from './MacroRingGauge';
 import { usePhysique } from '../../context/PhysiqueStore';
 
 interface NutritionProtocolCardProps {
-  nutrition: NutritionMacro | NutritionProtocol;
+  nutrition: NutritionMacro | NutritionProtocol | any;
 }
 
 export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps) {

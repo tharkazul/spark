@@ -110,22 +110,25 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </View>
       </View>
 
-      {/* TITLE CUPBOARD */}
+      {/* PERSONAL TITLES MANAGER */}
+      <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">
+        Personal Titles & Accolades
+      </Text>
       <Card className="p-4 mb-6">
-        <View className="flex-row justify-between items-center pb-3 mb-3">
-          <View className="flex-row items-center gap-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
-            <Text className="text-theme-text font-bold text-sm">Title Cupboard</Text>
+        <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border/20">
+          <View className="flex-row items-center space-x-2">
+            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
+            <Text className="text-theme-text font-bold text-sm">Active Athlete Title</Text>
           </View>
           <TouchableOpacity
             onPress={handleGenerateTitle}
             disabled={generatingTitle}
-            className="px-3 py-1 bg-theme-bg rounded-lg flex-row items-center"
+            className="px-3 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center"
           >
             {generatingTitle ? (
               <ActivityIndicator size="small" color="#FF5A1F" />
             ) : (
-              <Text className="text-theme-accent font-bold text-xs">+ Generate Title</Text>
+              <Text className="text-theme-accent font-bold text-xs">+ Unlock Quest Title</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -138,19 +141,28 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               <TouchableOpacity
                 key={item.id}
                 onPress={() => handleEquipTitle(item.id)}
-                className={`flex-row items-center justify-between p-3 rounded-xl ${
+                className={`flex-row items-center justify-between p-3 rounded-xl mb-1.5 ${
                   item.is_equipped
-                    ? 'bg-theme-accent/10'
+                    ? 'bg-theme-accent/15 border border-theme-accent/40'
                     : 'bg-theme-bg'
                 }`}
               >
-                <Text className="text-theme-text font-bold text-sm">{item.title_name}</Text>
+                <View className="flex-row items-center space-x-2">
+                  <Ionicons
+                    name={item.is_equipped ? 'ribbon' : 'ribbon-outline'}
+                    size={18}
+                    color={item.is_equipped ? '#FF5A1F' : '#8E9BA4'}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text className="text-theme-text font-bold text-sm">{item.title_name}</Text>
+                </View>
+
                 {item.is_equipped ? (
-                  <View className="px-2 py-0.5 bg-theme-accent rounded">
+                  <View className="px-2.5 py-1 bg-theme-accent rounded-full">
                     <Text className="text-white text-[10px] font-bold">Equipped</Text>
                   </View>
                 ) : (
-                  <Text className="text-theme-muted text-xs">Equip</Text>
+                  <Text className="text-theme-muted text-xs font-semibold">Tap to Equip</Text>
                 )}
               </TouchableOpacity>
             ))}

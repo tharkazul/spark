@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ChatMessage, TokenUsage, ProposedWorkoutItem } from '../types/chat';
-import { chatApi, planApi } from '../services/apiServices';
+import { ChatMessage, TokenUsage, ProposedWorkoutItem, ChatPayload } from '../types/chat';
+import { chatApi, planApi, socialApi } from '../services/apiServices';
 import { chatStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
 import { usePlan } from './PlanStore';
@@ -17,6 +17,8 @@ interface CoachChatContextType {
   clearHistory: () => Promise<void>;
   acceptProposal: (messageId: string | number, plan: ProposedWorkoutItem[]) => Promise<void>;
   rejectProposal: (messageId: string | number) => void;
+  acceptInvite: (inviteId: string | number) => Promise<void>;
+  declineInvite: (inviteId: string | number) => Promise<void>;
   checkin: () => Promise<void>;
 }
 
@@ -44,6 +46,32 @@ const parseWorkoutProposals = (content: string): ProposedWorkoutItem[] | undefin
   return undefined;
 };
 
+const parsePayloadJson = (msg: any): ChatPayload | undefined => {
+  if (msg.payload_json) {
+    if (typeof msg.payload_json === 'object') return msg.payload_json;
+    try {
+      return JSON.parse(msg.payload_json);
+    } catch (_) {}
+  }
+  if (typeof msg.content === 'string' && msg.content.includes('invite-buttons-')) {
+    const inviteMatch = msg.content.match(/invite-buttons-(\d+)/);
+    if (inviteMatch && inviteMatch[1]) {
+      const inviteId = inviteMatch[1];
+      const isAccepted = msg.content.includes('Accepted');
+      const isDeclined = msg.content.includes('Declined');
+      return {
+        type: 'event_invite',
+        invite_id: inviteId,
+        micro_plan_id: inviteId,
+        sport: 'Group Workout',
+        date: 'Scheduled Event',
+        status: isAccepted ? 'accepted' : isDeclined ? 'declined' : 'pending',
+      };
+    }
+  }
+  return undefined;
+};
+
 const CoachChatContext = createContext<CoachChatContextType | undefined>(undefined);
 
 export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -58,7 +86,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   });
 
   const { refreshPlan } = usePlan();
-  const { user } = useUser();
+  const { user, isAuthenticated } = useUser();
 
   const setMessages = (action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     setMessagesState((prev) => {
@@ -81,15 +109,19 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
     const proposedPlan = parseWorkoutProposals(msg.content);
+    const payload = parsePayloadJson(msg);
     return {
       ...msg,
       images: msg.images || images,
       proposedPlan: msg.proposedPlan || proposedPlan,
       proposalStatus: msg.proposalStatus || (proposedPlan ? 'pending' : undefined),
+      payload_json: msg.payload_json || payload,
     };
   };
 
+
   const refreshMessages = async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const local = await chatStorage.getChatHistory();
@@ -206,6 +238,51 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     );
   };
 
+  const acceptInvite = async (inviteId: string | number) => {
+    try {
+      await socialApi.acceptInvite(inviteId);
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (
+            msg.payload_json?.type === 'event_invite' &&
+            String(msg.payload_json.invite_id) === String(inviteId)
+          ) {
+            return {
+              ...msg,
+              payload_json: { ...msg.payload_json, status: 'accepted' },
+            };
+          }
+          return msg;
+        })
+      );
+      await refreshPlan();
+    } catch (err) {
+      console.error('Failed to accept invite:', err);
+    }
+  };
+
+  const declineInvite = async (inviteId: string | number) => {
+    try {
+      await socialApi.declineInvite(inviteId);
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (
+            msg.payload_json?.type === 'event_invite' &&
+            String(msg.payload_json.invite_id) === String(inviteId)
+          ) {
+            return {
+              ...msg,
+              payload_json: { ...msg.payload_json, status: 'declined' },
+            };
+          }
+          return msg;
+        })
+      );
+    } catch (err) {
+      console.error('Failed to decline invite:', err);
+    }
+  };
+
   const checkin = async () => {
     try {
       const res = await chatApi.checkin();
@@ -312,6 +389,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         clearHistory,
         acceptProposal,
         rejectProposal,
+        acceptInvite,
+        declineInvite,
         checkin,
       }}
     >
@@ -327,3 +406,4 @@ export const useCoachChat = (): CoachChatContextType => {
   }
   return context;
 };
+

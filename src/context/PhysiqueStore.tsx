@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { PhysiqueEntry, NutritionProtocol } from '../types/physique';
 import { physiqueApi } from '../services/apiServices';
+import { useUser } from './UserStore';
 
 interface PhysiqueContextType {
   physiqueLogs: PhysiqueEntry[];
@@ -29,12 +30,14 @@ const defaultLogs: PhysiqueEntry[] = [];
 const PhysiqueContext = createContext<PhysiqueContextType | undefined>(undefined);
 
 export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useUser();
   const [physiqueLogs, setPhysiqueLogs] = useState<PhysiqueEntry[]>([]);
   const [nutrition, setNutrition] = useState<NutritionProtocol>(defaultNutrition);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshPhysique = async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const [logsData, nutritionData] = await Promise.allSettled([
@@ -93,8 +96,9 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     refreshPhysique();
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <PhysiqueContext.Provider

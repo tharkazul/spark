@@ -2,7 +2,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const dbPath = process.env.DB_PATH 
   ? path.resolve(__dirname, "..", process.env.DB_PATH) 
-  : path.join(__dirname, "..", "spark_multi.db");
+  : path.join(__dirname, "..", "spark_native.db");
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
@@ -44,6 +44,14 @@ db.serialize(() => {
     (err) => {},
   );
   db.run(
+    `ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`,
+    (err) => {},
+  );
+  db.run(
+    `ALTER TABLE chat_history ADD COLUMN payload_json TEXT`,
+    (err) => {},
+  );
+  db.run(
     `ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'`,
     (err) => {},
   );
@@ -57,6 +65,14 @@ db.serialize(() => {
   );
   db.run(
     `ALTER TABLE users ADD COLUMN last_token_reset_date TEXT`,
+    (err) => {},
+  );
+  db.run(
+    `ALTER TABLE users ADD COLUMN login_count INTEGER DEFAULT 0`,
+    (err) => {},
+  );
+  db.run(
+    `ALTER TABLE users ADD COLUMN chat_count INTEGER DEFAULT 0`,
     (err) => {},
   );
   db.run(
@@ -75,6 +91,10 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN last_cycle_start TEXT`, (err) => {});
   db.run(
     `ALTER TABLE users ADD COLUMN average_cycle_length INTEGER DEFAULT 28`,
+    (err) => {},
+  );
+  db.run(
+    `ALTER TABLE users ADD COLUMN cycle_tracking_enabled INTEGER DEFAULT 1`,
     (err) => {},
   );
   db.run(`ALTER TABLE users ADD COLUMN total_spark REAL DEFAULT 0`, (err) => {});
