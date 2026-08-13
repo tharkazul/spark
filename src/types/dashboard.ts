@@ -36,6 +36,7 @@ export interface DayAgenda {
   dayName: string;
   dateStr: string;
   isToday?: boolean;
+  isPast?: boolean;
   workouts: WorkoutItem[];
 }
 
@@ -45,8 +46,8 @@ export interface TrainingPhaseDetail {
   focus: string;
   description: string;
   status: 'completed' | 'active' | 'upcoming';
-  progressPercent?: number; // for active phase (0-100)
-  achievementLabel?: string; // e.g. 'Done at 92% Target CTL'
+  progressPercent?: number;
+  achievementLabel?: string;
   targetCTL?: number;
   achievedCTL?: number;
 }
@@ -58,14 +59,6 @@ export interface MacroPeriodInfo {
   targetCTL: number;
   currentCTL: number;
   phases: TrainingPhaseDetail[];
-}
-
-export interface DayAgenda {
-  dayName: string;
-  dateStr: string;
-  isToday: boolean;
-  isPast: boolean;
-  workouts: WorkoutItem[];
 }
 
 
