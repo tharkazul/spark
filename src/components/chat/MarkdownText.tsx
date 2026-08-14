@@ -1,12 +1,47 @@
 import React from 'react';
 import { View, StyleSheet, Platform, useColorScheme } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import FitImage from 'react-native-fit-image';
 
 interface MarkdownTextProps {
   content: string;
   isUser?: boolean;
   textColorOverride?: string;
 }
+
+const markdownRules = {
+  image: (
+    node: any,
+    children: any,
+    parent: any,
+    styles: any,
+    allowedImageHandlers: any,
+    defaultImageHandler: any,
+  ) => {
+    const { src, alt } = node.attributes;
+    const allowed = Array.isArray(allowedImageHandlers)
+      ? allowedImageHandlers
+      : ['http://', 'https://', 'data:image/'];
+    const show = allowed.some((value: string) => src.toLowerCase().startsWith(value.toLowerCase()));
+
+    if (!show && defaultImageHandler === null) {
+      return null;
+    }
+
+    const uri = show ? src : `${defaultImageHandler || ''}${src}`;
+
+    return (
+      <FitImage
+        key={node.key}
+        indicator={true}
+        style={styles._VIEW_SAFE_image}
+        source={{ uri }}
+        accessible={!!alt}
+        accessibilityLabel={alt || undefined}
+      />
+    );
+  },
+};
 
 export const hasRenderableText = (content?: string) =>
   !!content?.replace(/```json[\s\S]*?```/gi, '').trim();
@@ -146,7 +181,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, tex
 
   return (
     <View className="w-full">
-      <Markdown style={styles}>
+      <Markdown rules={markdownRules} style={styles}>
         {cleanedContent}
       </Markdown>
     </View>
