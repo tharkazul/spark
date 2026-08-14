@@ -150,7 +150,7 @@ export const fr: TranslationKeys = {
     subtitle: 'Conseils personnalisés d\'entraînement et de récupération',
     inputPlaceholder: 'Posez une question sur votre entraînement ou récupération...',
     send: 'Envoyer',
-    thinking: 'Coach Nana réfléchit...',
+    thinking: 'Spark réfléchit...',
     suggestedQuestions: 'SUGGESTIONS :',
     suggested1: 'Comment structurer mes séances cette semaine ?',
     suggested2: 'Quel est mon état actuel de récupération ?',

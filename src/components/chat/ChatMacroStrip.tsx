@@ -29,19 +29,19 @@ export function ChatMacroStrip({ isVisible, onToggle }: ChatMacroStripProps) {
               label="Carbs"
               target={nutrition.carbsTarget}
               logged={nutrition.loggedCarbs || 0}
-              size={64}
+              size={80}
             />
             <MacroRingGauge
               label="Protein"
               target={nutrition.proteinTarget}
               logged={nutrition.loggedProtein || 0}
-              size={64}
+              size={80}
             />
             <MacroRingGauge
               label="Fat"
               target={nutrition.fatTarget}
               logged={nutrition.loggedFat || 0}
-              size={64}
+              size={80}
             />
           </View>
         </View>

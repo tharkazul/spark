@@ -423,23 +423,51 @@ router.delete("/api/physique/:id", authenticateToken, (req, res) => {
 
 
 router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
-  const todayStr = require('../services/utils').getAMSDateString();
+  const { getAMSDateString } = require('../services/utils');
+  const todayStr = getAMSDateString();
 
   const sendNutritionResponse = (protocol) => {
-    console.log("TRACE: sendNutritionResponse called with protocol:", JSON.stringify(protocol));
     db.get(
-      `SELECT carbs, protein, fat FROM nutrition_intake WHERE user_id = ? AND date = ?`,
+      `SELECT logged_carbs, logged_protein, logged_fat, items_summary FROM daily_diet_logs WHERE user_id = ? AND date = ?`,
       [req.user.id, todayStr],
-      (err, intakeRow) => {
-        if (err) console.error("TRACE: db.get error:", err);
-        console.log("TRACE: intakeRow is:", intakeRow);
-        const payloadToSend = {
-          suggested: protocol,
-          intake: intakeRow || null,
-        };
-        console.log("TRACE: Sending payload:", JSON.stringify(payloadToSend));
-        res.json(payloadToSend);
-      },
+      (err, dietRow) => {
+        db.get(
+          `SELECT carbs, protein, fat FROM nutrition_intake WHERE user_id = ? AND date = ?`,
+          [req.user.id, todayStr],
+          (err2, intakeRow) => {
+            const loggedCarbs = Math.round((dietRow && dietRow.logged_carbs) || (intakeRow && intakeRow.carbs) || 0);
+            const loggedProtein = Math.round((dietRow && dietRow.logged_protein) || (intakeRow && intakeRow.protein) || 0);
+            const loggedFat = Math.round((dietRow && dietRow.logged_fat) || (intakeRow && intakeRow.fat) || 0);
+            const itemsSummary = dietRow ? (dietRow.items_summary || "") : "";
+            const loggedItems = itemsSummary ? itemsSummary.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+            const protocolCarbs = Number(protocol.carbs || 300);
+            const protocolProtein = Number(protocol.protein || 140);
+            const protocolFat = Number(protocol.fat || 65);
+
+            res.json({
+              title: protocol.title || "Daily Nutrition Protocol",
+              rationale: protocol.rationale || "",
+              carbs: protocolCarbs,
+              carbsTarget: protocolCarbs,
+              protein: protocolProtein,
+              proteinTarget: protocolProtein,
+              fat: protocolFat,
+              fatTarget: protocolFat,
+              loggedCarbs,
+              loggedProtein,
+              loggedFat,
+              loggedItems,
+              suggested: protocol,
+              intake: {
+                carbs: loggedCarbs,
+                protein: loggedProtein,
+                fat: loggedFat,
+              },
+            });
+          }
+        );
+      }
     );
   };
 

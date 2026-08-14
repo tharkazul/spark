@@ -51,16 +51,33 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
 
       if (nutritionData.status === 'fulfilled' && nutritionData.value) {
         const p: any = nutritionData.value;
+        const suggested = p.suggested || p;
+        const intake = p.intake || {};
+
+        const carbsTarget = Number(suggested.carbs || p.carbsTarget || p.carbs || 300);
+        const proteinTarget = Number(suggested.protein || p.proteinTarget || p.protein || 140);
+        const fatTarget = Number(suggested.fat || p.fatTarget || p.fat || 65);
+
+        const loggedCarbs = Number(p.loggedCarbs ?? intake.carbs ?? 0);
+        const loggedProtein = Number(p.loggedProtein ?? intake.protein ?? 0);
+        const loggedFat = Number(p.loggedFat ?? intake.fat ?? 0);
+        const loggedItems = Array.isArray(p.loggedItems)
+          ? p.loggedItems
+          : (p.items_summary ? p.items_summary.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+
         setNutrition({
-          focusTitle: p.title || 'Daily Endurance Protocol',
-          rationale: p.rationale || 'Tailored to your body mass and today\'s training load.',
-          loggedCarbs: p.loggedCarbs || p.carbs || 0,
-          carbsTarget: p.carbsTarget || 300,
-          loggedProtein: p.loggedProtein || p.protein || 0,
-          proteinTarget: p.proteinTarget || 140,
-          loggedFat: p.loggedFat || p.fat || 0,
-          fatTarget: p.fatTarget || 65,
-          loggedItems: p.loggedItems || [],
+          focusTitle: suggested.title || p.title || p.focusTitle || 'Daily Endurance Protocol',
+          rationale: suggested.rationale || p.rationale || 'Tailored to your body mass and today\'s training load.',
+          carbs: carbsTarget,
+          carbsTarget: carbsTarget,
+          protein: proteinTarget,
+          proteinTarget: proteinTarget,
+          fat: fatTarget,
+          fatTarget: fatTarget,
+          loggedCarbs,
+          loggedProtein,
+          loggedFat,
+          loggedItems,
         });
       }
       setError(null);

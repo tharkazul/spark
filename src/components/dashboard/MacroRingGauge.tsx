@@ -11,21 +11,21 @@ interface MacroRingGaugeProps {
 
 const CONFIG = {
   Protein: {
-    trackColor: '#D0E1FD',
-    progressColor: '#38BDF8',
-    textColor: '#38BDF8',
+    trackColor: 'rgba(56, 189, 248, 0.20)',
+    progressColor: '#0284C7',
+    textColor: '#0284C7',
     bgSoft: '#F0F6FE',
   },
   Carbs: {
-    trackColor: '#D4ECCE',
+    trackColor: 'rgba(16, 185, 129, 0.20)',
     progressColor: '#10B981',
-    textColor: '#10B981',
+    textColor: '#059669',
     bgSoft: '#F2FBF0',
   },
   Fat: {
-    trackColor: '#FCD3D3',
+    trackColor: 'rgba(239, 68, 68, 0.20)',
     progressColor: '#EF4444',
-    textColor: '#EF4444',
+    textColor: '#DC2626',
     bgSoft: '#FEF2F2',
   },
 };
@@ -42,22 +42,15 @@ export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGa
   const clampedPct = Math.min(100, Math.max(0, actualPct));
   const strokeDashoffset = circumference - (circumference * clampedPct) / 100;
 
-  // Calculate coordinates for percentage badge bubble along the circle arc
-  const angleDeg = -90 + (clampedPct / 100) * 360;
-  const angleRad = (angleDeg * Math.PI) / 180;
-  const badgeX = size / 2 + radius * Math.cos(angleRad);
-  const badgeY = size / 2 + radius * Math.sin(angleRad);
-
-  // Badge background & text styles for high percentage intake
-  let badgeBg = 'bg-white border-gray-300';
-  let badgeText = 'text-gray-800';
+  // Percentage color styling for high/overflow intake
+  let pctColor = cfg.textColor;
   if (actualPct >= 120) {
-    badgeBg = 'bg-red-100 border-red-400';
-    badgeText = 'text-red-900';
+    pctColor = '#DC2626'; // red-600
   } else if (actualPct > 100) {
-    badgeBg = 'bg-amber-100 border-amber-400';
-    badgeText = 'text-amber-900';
+    pctColor = '#D97706'; // amber-600
   }
+
+  const isSmall = size < 80;
 
   return (
     <View className="items-center justify-center relative">
@@ -92,32 +85,30 @@ export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGa
         </Svg>
 
         {/* Center Content */}
-        <View className="absolute inset-0 items-center justify-center p-2">
-          <Text className="text-xs font-extrabold text-theme-text text-center">
+        <View className="absolute inset-0 items-center justify-center p-1">
+          <Text className={`${isSmall ? 'text-[11px]' : 'text-xs'} font-medium text-theme-text text-center`}>
             {label}
           </Text>
-          <Text className="text-[10px] font-mono text-theme-muted font-bold mt-0.5">
-            {hasData ? `${logged}g / ${target}g` : `${target}g`}
-          </Text>
-        </View>
 
-        {/* Floating Percentage Badge */}
-        {hasData && (
-          <View
-            style={{
-              position: 'absolute',
-              left: badgeX - 14,
-              top: badgeY - 14,
-              width: 28,
-              height: 28,
-            }}
-            className={`rounded-full border items-center justify-center shadow-md z-20 ${badgeBg}`}
-          >
-            <Text className={`text-[9px] font-extrabold ${badgeText}`}>
-              {actualPct}%
+          {hasData ? (
+            <>
+              <Text
+                style={{ color: pctColor }}
+                className={`${isSmall ? 'text-xs my-0.5' : 'text-sm my-0.5'} font-medium text-center`}
+                numberOfLines={1}
+              >
+                {actualPct}%
+              </Text>
+              <Text className={`${isSmall ? 'text-[9px]' : 'text-[10px]'} font-normal text-theme-muted text-center`}>
+                {logged}g / {target}g
+              </Text>
+            </>
+          ) : (
+            <Text className={`${isSmall ? 'text-[9px] mt-0.5' : 'text-[10px] mt-0.5'} font-normal text-theme-muted text-center`}>
+              {target}g
             </Text>
-          </View>
-        )}
+          )}
+        </View>
       </View>
     </View>
   );

@@ -10,6 +10,7 @@ import {
   Keyboard,
   TextInput as RNTextInput,
   Image as RNImage,
+  KeyboardAvoidingView,
   Modal,
   StyleSheet
 } from 'react-native';
@@ -212,62 +213,106 @@ export default function CoachScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Fullscreen preview image modal state for click-to-expand
   const [previewImage, setPreviewImage] = useState<string | number | null>(null);
+  const [showScrollDownBtn, setShowScrollDownBtn] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<RNTextInput>(null);
 
   const flatItems = useMemo(() => flattenMessagesChronological(messages), [messages]);
 
-  const initialScrollDone = useRef(false);
-  const isScrolledToBottom = useRef(true);
+  const stickyHeaderIndices = useMemo(() => {
+    const indices: number[] = [];
+    flatItems.forEach((item, index) => {
+      if (item.type === 'date') {
+        indices.push(index);
+      }
+    });
+    return indices;
+  }, [flatItems]);
 
-  const forceScrollToBottom = useCallback((animated = false) => {
+  const initialScrollDone = useRef(false);
+  const isUserScrolledUp = useRef(false);
+
+  const forceScrollToBottom = useCallback((animated = true) => {
     try {
       flatListRef.current?.scrollToEnd({ animated });
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToOffset({ offset: 9999999, animated });
+        } catch (_) {}
+      }, 80);
+      setTimeout(() => {
+        try {
+          flatListRef.current?.scrollToEnd({ animated });
+        } catch (_) {}
+      }, 200);
     } catch (_) {}
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      isScrolledToBottom.current = true;
+      isUserScrolledUp.current = false;
       initialScrollDone.current = false;
+      setShowScrollDownBtn(false);
       const t1 = setTimeout(() => forceScrollToBottom(false), 50);
-      const t2 = setTimeout(() => forceScrollToBottom(true), 200);
-      const t3 = setTimeout(() => forceScrollToBottom(true), 450);
+      const t2 = setTimeout(() => forceScrollToBottom(true), 150);
+      const t3 = setTimeout(() => forceScrollToBottom(true), 350);
+      const t4 = setTimeout(() => forceScrollToBottom(true), 600);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
         clearTimeout(t3);
+        clearTimeout(t4);
       };
     }, [forceScrollToBottom])
   );
 
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const isAtBottom = contentSize.height - layoutMeasurement.height - contentOffset.y < 60;
-    isScrolledToBottom.current = isAtBottom;
+    if (contentSize.height <= 0) return;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    const isScrolledUp = distanceFromBottom > 150;
+    isUserScrolledUp.current = isScrolledUp;
+    setShowScrollDownBtn(isScrolledUp);
   };
 
   const handleContentSizeChange = () => {
     if (!initialScrollDone.current) {
       initialScrollDone.current = true;
       forceScrollToBottom(false);
-      setTimeout(() => forceScrollToBottom(true), 120);
-    } else if (isScrolledToBottom.current) {
-      forceScrollToBottom(true);
+      setTimeout(() => forceScrollToBottom(true), 100);
+      setTimeout(() => forceScrollToBottom(true), 300);
     }
   };
 
+  // Scroll to bottom whenever messages change (new user message or coach reply)
   useEffect(() => {
-    if (isScrolledToBottom.current || sending) {
-      const timer = setTimeout(() => {
-        forceScrollToBottom(true);
-      }, 60);
-      return () => clearTimeout(timer);
+    isUserScrolledUp.current = false;
+    const t1 = setTimeout(() => forceScrollToBottom(true), 50);
+    const t2 = setTimeout(() => forceScrollToBottom(true), 150);
+    const t3 = setTimeout(() => forceScrollToBottom(true), 350);
+    const t4 = setTimeout(() => forceScrollToBottom(true), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [messages.length, forceScrollToBottom]);
+
+  // Scroll when sending state toggles
+  useEffect(() => {
+    if (sending) {
+      isUserScrolledUp.current = false;
+      const t1 = setTimeout(() => forceScrollToBottom(true), 50);
+      const t2 = setTimeout(() => forceScrollToBottom(true), 200);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }
-  }, [messages.length, sending, forceScrollToBottom]);
+  }, [sending, forceScrollToBottom]);
 
   const dailyUsage = tokenUsage?.daily_token_usage || 0;
   const dailyLimit = tokenUsage?.daily_token_limit || (user?.subscription_tier === 'spark_plus' ? 500000 : 100000);
@@ -362,9 +407,9 @@ export default function CoachScreen() {
   const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
     if (item.type === 'date') {
       return (
-        <View className="py-2 items-center justify-center my-2">
-          <View className="bg-theme-card/90 border border-theme-border px-3 py-0.5 rounded-full shadow-xs">
-            <Text className="text-theme-muted text-[11px] font-bold">{item.title}</Text>
+        <View className="py-2 items-center justify-center pointer-events-none">
+          <View className="bg-theme-card border border-theme-border px-4 py-1 rounded-full shadow-md">
+            <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">{item.title}</Text>
           </View>
         </View>
       );
@@ -402,6 +447,11 @@ export default function CoachScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+        className="flex-1"
+      >
       {/* Click-to-Expand Image Lightbox Modal */}
       <Modal
         visible={!!previewImage}
@@ -535,6 +585,7 @@ export default function CoachScreen() {
             data={flatItems}
             keyExtractor={(item: any, index: number) => item.type === 'date' ? item.id : `msg-${item.data.id || index}`}
             inverted={false}
+            stickyHeaderIndices={stickyHeaderIndices}
             onScroll={handleScroll}
             scrollEventThrottle={16}
             onContentSizeChange={handleContentSizeChange}
@@ -546,6 +597,24 @@ export default function CoachScreen() {
             className="flex-1"
           />
         )}
+
+        {/* Floating Scroll-Down-to-Bottom Button */}
+        {showScrollDownBtn ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => forceScrollToBottom(true)}
+            className="absolute bottom-3 right-4 z-40 bg-theme-accent w-10 h-10 rounded-full shadow-lg items-center justify-center"
+            style={{
+              elevation: 8,
+              shadowColor: '#FF5A1F',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 6,
+            }}
+          >
+            <Ionicons name="chevron-down" size={22} color="white" />
+          </TouchableOpacity>
+        ) : null}
 
         {sending ? (
           <View className="px-4 py-2 flex-row items-center self-start mb-2 ml-4 bg-theme-card/80 rounded-full border border-theme-border">
@@ -646,6 +715,7 @@ export default function CoachScreen() {
           </View>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

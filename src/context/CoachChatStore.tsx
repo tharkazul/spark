@@ -5,6 +5,7 @@ import { chatStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
 import { usePlan } from './PlanStore';
 import { useUser } from './UserStore';
+import { usePhysique } from './PhysiqueStore';
 
 interface CoachChatContextType {
   messages: ChatMessage[];
@@ -72,6 +73,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   });
 
   const { refreshPlan } = usePlan();
+  const { refreshPhysique } = usePhysique();
   const { user, isAuthenticated } = useUser();
 
   const setMessages = (action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
@@ -169,6 +171,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         if (res.planUpdated) {
           refreshPlan();
         }
+        refreshPhysique();
       }
     } catch (err: any) {
       console.error('Send message error:', err);

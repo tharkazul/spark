@@ -575,9 +575,18 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                       const jsonMatches = [
                                         ...aiReply.matchAll(
-                                          /```json\n?([\s\S]*?)```/gi,
+                                          /```(?:json)?\n?([\s\S]*?)```/gi,
                                         ),
                                       ];
+
+                                      // Fallback: if no fenced code block was found, check if a raw JSON object exists in the reply
+                                      if (jsonMatches.length === 0) {
+                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|metrics)"[\s\S]*?\}/);
+                                        if (rawJsonMatch) {
+                                          jsonMatches.push([rawJsonMatch[0], rawJsonMatch[0]]);
+                                        }
+                                      }
+
                                       for (const match of jsonMatches) {
                                         try {
                                           const parsedData = JSON.parse(
@@ -868,7 +877,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       }
 
                                       aiReply = aiReply
-                                        .replace(/```json[\s\S]*?```/gi, "")
+                                        .replace(/```(?:json)?[\s\S]*?```/gi, "")
+                                        .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|metrics)"[\s\S]*?\}/gi, "")
                                         .trim();
 
                                       let mood = "default";
