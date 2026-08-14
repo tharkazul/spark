@@ -16,7 +16,8 @@
         "NSPhotoLibraryUsageDescription": "Spark requires photo library access to choose workout and progress photos.",
         "NSLocationWhenInUseUsageDescription": "Spark requires location access to track outdoor running, cycling, and GPS activity routes.",
         "NSHealthShareUsageDescription": "Spark needs access to read your workouts, heart rate, and activity metrics.",
-        "NSHealthUpdateUsageDescription": "Spark needs permission to save scheduled workouts to your Apple Watch and Apple Health."
+        "NSHealthUpdateUsageDescription": "Spark needs permission to save scheduled workouts to your Apple Watch and Apple Health.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,

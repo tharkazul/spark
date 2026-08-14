@@ -28,12 +28,14 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>sparknative</string>
-          <string>com.anonymous.spark-native</string>
+          <string>com.sparkapp.fitness</string>
         </array>
       </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
@@ -46,11 +48,17 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your camera</string>
+    <string>Spark requires camera access to capture physique check-in photos and coach avatars.</string>
+    <key>NSHealthShareUsageDescription</key>
+    <string>Spark needs access to read your workouts, heart rate, and activity metrics.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Spark needs permission to save scheduled workouts to your Apple Watch and Apple Health.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Spark requires location access to track outdoor running, cycling, and GPS activity routes.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <string>Spark requires microphone access for voice coaching notes and audio logs.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your photos</string>
+    <string>Spark requires photo library access to choose workout and progress photos.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
