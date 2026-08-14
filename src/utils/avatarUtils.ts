@@ -1,6 +1,6 @@
 export function getCoachAvatarSource(coachTone?: string, mood?: string) {
   const tone = coachTone || '';
-  const suffix = mood && ['default', 'hype', 'disappointed'].includes(mood) ? mood : 'default';
+  const suffix = mood && ['hype', 'disappointed'].includes(mood.toLowerCase()) ? mood.toLowerCase() : 'default';
   
   if (tone.includes('Cheerleader') || tone.includes('cheerleader')) {
     if (suffix === 'hype') return require('../../assets/avatars/cheer-hype.png');

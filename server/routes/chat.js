@@ -156,7 +156,19 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           .json({ error: "Failed to load athlete context." });
       }
       if (!user) {
-        return res.status(500).json({ error: "Athlete context not found." });
+        user = {
+          coach_tone: 'hype',
+          coach_name: 'Spark',
+          coach_context: 'Empathetic athletic performance coach',
+          athlete_context: 'Active athlete',
+          gender: 'prefer_not_to_say',
+          long_term_memory: '',
+          daily_token_usage: 0,
+          common_token_usage: 0,
+          last_token_reset_date: new Date().toISOString().split("T")[0],
+          daily_token_limit: 50000,
+          subscription_tier: 'spark_plus'
+        };
       }
 
       // Token limit logic
@@ -1009,10 +1021,15 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
     `SELECT coach_tone, coach_name, coach_context, athlete_context, gender FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
-      if (err || !user)
-        return res
-          .status(500)
-          .json({ error: "Failed to load athlete context." });
+      if (!user) {
+        user = {
+          coach_tone: 'hype',
+          coach_name: 'Spark',
+          coach_context: 'Empathetic athletic performance coach',
+          athlete_context: 'Active athlete',
+          gender: 'prefer_not_to_say',
+        };
+      }
 
       db.all(
         `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,

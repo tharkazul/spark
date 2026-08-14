@@ -31,7 +31,7 @@ export function QuickActionsRow({
         <TouchableOpacity
           onPress={() => handlePress(onAddActivity)}
           activeOpacity={0.7}
-          className="flex-1 bg-theme-card border border-amber-500/40 p-3 rounded-2xl items-center justify-center gap-1.5 shadow-sm"
+          className="flex-1 bg-theme-card border border-amber-500/40 p-3 rounded-2xl items-center justify-center gap-1.5"
         >
           <View className="w-8 h-8 rounded-full bg-amber-500/15 items-center justify-center">
             <Ionicons name="add" size={18} color="#F97316" />
@@ -43,7 +43,7 @@ export function QuickActionsRow({
         <TouchableOpacity
           onPress={() => handlePress(onLogWeight)}
           activeOpacity={0.7}
-          className="flex-1 bg-theme-card border border-amber-500/40 p-3 rounded-2xl items-center justify-center gap-1.5 shadow-sm"
+          className="flex-1 bg-theme-card border border-amber-500/40 p-3 rounded-2xl items-center justify-center gap-1.5"
         >
           <View className="w-8 h-8 rounded-full bg-amber-500/15 items-center justify-center">
             <Ionicons name="scale-outline" size={16} color="#F97316" />
@@ -55,7 +55,7 @@ export function QuickActionsRow({
         <TouchableOpacity
           onPress={() => handlePress(onReportInjury)}
           activeOpacity={0.7}
-          className="flex-1 bg-theme-card border border-rose-500/40 p-3 rounded-2xl items-center justify-center gap-1.5 shadow-sm"
+          className="flex-1 bg-theme-card border border-rose-500/40 p-3 rounded-2xl items-center justify-center gap-1.5"
         >
           <View className="w-8 h-8 rounded-full bg-rose-500/15 items-center justify-center">
             <Ionicons name="bandage-outline" size={16} color="#F43F5E" />

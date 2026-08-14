@@ -76,6 +76,7 @@ export const de: TranslationKeys = {
     scheduleSubtitle: 'Lege verfügbare Tage und maximale Trainingsminuten fest.',
     integrationsTitle: 'Integrationen & Sync',
     garminSyncSubtitle: 'Tägliche Workouts & HRV synchronisieren',
+    appleHealthSyncSubtitle: 'Workouts an Apple Watch senden & HealthKit synchronisieren',
     stravaSyncTitle: 'Strava-Synchronisierung',
     connectStrava: 'Strava verbinden',
     subscriptionBadge: 'Spark Plus Abonnement',

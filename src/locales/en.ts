@@ -74,6 +74,7 @@ export const en = {
     scheduleSubtitle: 'Configure available days and maximum training minutes. Spark will distribute weekly volume within these bounds.',
     integrationsTitle: 'Integrations & Sync',
     garminSyncSubtitle: 'Sync daily workouts & HRV',
+    appleHealthSyncSubtitle: 'Deploy workouts to Apple Watch & sync HealthKit',
     stravaSyncTitle: 'Strava Sync',
     connectStrava: 'Connect Strava',
     subscriptionBadge: 'Spark Plus Subscription',

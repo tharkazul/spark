@@ -72,8 +72,8 @@ export function ActiveQuestsCard() {
             </Text>
             <View className="bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex-row items-center gap-1">
               <Ionicons name="flash" size={11} color="#F97316" />
-              <Text className="text-[10px] font-extrabold text-amber-500">
-                +{activeQuest.reward_points} Spark
+              <Text className="text-[10px] font-extrabold font-rajdhani text-amber-500">
+                +{Math.round(activeQuest.reward_points || 0)} Spark
               </Text>
             </View>
           </View>
@@ -81,8 +81,8 @@ export function ActiveQuestsCard() {
           {/* Subline & Progress Bar matching TodaysPlanCard subline styling */}
           <View className="pt-1.5 border-t border-theme-border/40">
             <View className="flex-row justify-between items-center mb-1.5">
-              <Text className="text-xs text-theme-muted font-bold">
-                {activeQuest.progress || 0} of {activeQuest.target_value} done
+              <Text className="text-xs text-theme-muted font-bold font-rajdhani">
+                {Math.round(activeQuest.progress || 0)} of {Math.round(activeQuest.target_value || 0)} done
               </Text>
               <Text className="text-xs font-mono font-bold text-amber-500">
                 {progressPercent}%

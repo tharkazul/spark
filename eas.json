@@ -16,9 +16,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "ios": {
-        "enterpriseProvisioning": "adhoc"
-      },
+      "distribution": "store",
       "android": {
         "buildType": "app-bundle"
       }

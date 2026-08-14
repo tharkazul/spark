@@ -14,13 +14,15 @@ export function ChatMacroStrip({ isVisible, onToggle }: ChatMacroStripProps) {
   const { nutrition } = usePhysique();
 
   const handleToggle = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (_) {}
     onToggle();
   };
 
   return (
     <View className="mb-3 px-2">
-      {isVisible && (
+      {isVisible ? (
         <View className="bg-theme-card border border-theme-border/50 rounded-3xl p-3 shadow-sm mb-2">
           <View className="flex-row items-center justify-around">
             <MacroRingGauge
@@ -43,7 +45,7 @@ export function ChatMacroStrip({ isVisible, onToggle }: ChatMacroStripProps) {
             />
           </View>
         </View>
-      )}
+      ) : null}
 
       <TouchableOpacity
         onPress={handleToggle}

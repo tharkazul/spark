@@ -44,9 +44,6 @@ const getPacePlaceholder = (currentSport: SportType | string) => {
   }
 };
 
-// Strips trailing unit suffixes (e.g. "4:15 min/km" -> "4:15", "250W" -> "250") left over from
-// legacy AI output that didn't follow the "numeric value only" instruction. Anchored to the end
-// of the string so it never eats a stray "w"/"m" that's part of the actual number.
 const stripTargetUnits = (value: string | undefined) =>
   (value || '').replace(/\s*(min\/km|min\/100m|km\/u|watts|w)\s*$/i, '').trim();
 
@@ -81,7 +78,7 @@ const StepCardComponent = ({
 
   const colorConfig = CARD_COLORS[step.type as keyof typeof CARD_COLORS] || CARD_COLORS.default;
 
-  // React Native Reanimated hook to elevate active card
+  // React Native Reanimated hook - shadow ONLY active during drag to prevent text shadows
   const animatedStyles = useAnimatedStyle(() => {
     return {
       transform: [
@@ -93,11 +90,11 @@ const StepCardComponent = ({
           }),
         },
       ],
-      elevation: isActive ? 16 : 1,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: isActive ? 8 : 1 },
-      shadowOpacity: isActive ? 0.2 : 0.05,
-      shadowRadius: isActive ? 12 : 3,
+      elevation: isActive ? 16 : 0,
+      shadowColor: isActive ? '#000' : 'transparent',
+      shadowOffset: { width: 0, height: isActive ? 8 : 0 },
+      shadowOpacity: isActive ? 0.2 : 0,
+      shadowRadius: isActive ? 12 : 0,
       zIndex: isActive ? 99 : 1,
     };
   }, [isActive]);
@@ -365,7 +362,7 @@ const StepCardComponent = ({
                               onUpdate(step.id, 'zone', zoneNum);
                             }}
                             activeOpacity={0.7}
-                            className={`px-3 py-1 rounded-xl border shadow-sm ${
+                            className={`px-3 py-1 rounded-xl border ${
                               isSelected
                                 ? 'bg-theme-accent border-theme-accent'
                                 : 'bg-theme-card border-slate-200'
@@ -459,7 +456,7 @@ const StepCardComponent = ({
                   step={subStep}
                   isStrength={isStrength}
                   sport={sport}
-                  isActive={false} // substeps aren't dragged independently
+                  isActive={false}
                   drag={() => {}}
                   isSubStep={true}
                   onUpdate={(id, field, val) => {

@@ -31,5 +31,8 @@ const getLocalHost = (): string => {
 const getLocalBaseUrl = (): string => `http://${getLocalHost()}:${LOCAL_PORT}`;
 const getLocalWsUrl = (): string => `ws://${getLocalHost()}:${LOCAL_PORT}`;
 
-export const API_BASE_URL = USE_LOCAL_BACKEND ? getLocalBaseUrl() : PROD_API_BASE_URL;
-export const WS_URL = USE_LOCAL_BACKEND ? getLocalWsUrl() : PROD_WS_URL;
+// In development (__DEV__ = true), use local backend if USE_LOCAL_BACKEND is true.
+// In production/TestFlight (__DEV__ = false), always point to the remote Termux server.
+export const API_BASE_URL = (__DEV__ && USE_LOCAL_BACKEND) ? getLocalBaseUrl() : PROD_API_BASE_URL;
+export const WS_URL = (__DEV__ && USE_LOCAL_BACKEND) ? getLocalWsUrl() : PROD_WS_URL;
+

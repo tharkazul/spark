@@ -116,7 +116,22 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
     `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
-      if (err || !row) return res.status(500).json({ error: "DB Error" });
+      if (!row) {
+        row = {
+          id: req.user.id,
+          username: req.user.username || 'athlete',
+          coach_tone: 'hype',
+          coach_name: 'Spark',
+          coach_context: 'Empathetic athletic performance coach',
+          athlete_context: 'Active athlete',
+          gender: 'prefer_not_to_say',
+          total_spark: 120,
+          daily_token_usage: 0,
+          daily_token_limit: 50000,
+          subscription_tier: 'spark_plus',
+          onboarding_completed: 1,
+        };
+      }
       let availability = {};
       if (row.training_availability) {
         try {

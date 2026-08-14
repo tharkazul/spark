@@ -176,7 +176,7 @@ export const LeaderboardSubTab: React.FC = () => {
 
               <View className="items-end">
                 <Text className="text-base font-black text-theme-accent font-mono">
-                  {activeTab === 'spark' ? item.total_spark_score || 0 : item.quests_completed_7d || 0}
+                  {activeTab === 'spark' ? Math.round(item.total_spark_score || 0) : item.quests_completed_7d || 0}
                 </Text>
                 <Text className="text-[10px] text-theme-muted uppercase font-bold">
                   {activeTab === 'spark' ? 'Points' : 'Quests'}

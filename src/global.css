@@ -12,6 +12,11 @@
     --accent-soft: rgba(255, 95, 59, 0.12);
     --accent-border: rgba(255, 95, 59, 0.3);
 
+    /* Typography */
+    --font-sans: 'PlusJakartaSans-Medium';
+    --font-mono: 'Rajdhani-Bold';
+    --font-numeric: 'Rajdhani-Bold';
+
     /* Neutrals & Surfaces */
     --gray-50: #F7F7F9;
     --gray-100: #EAEAED;

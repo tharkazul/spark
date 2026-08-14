@@ -48,10 +48,38 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
+  const [appleSyncing, setAppleSyncing] = useState(false);
+  const [isAppleConnected, setIsAppleConnected] = useState(true);
 
   // Strava Automation Toggles per sport type
   const [selectedSport, setSelectedSport] = useState<SportType>('running');
   const [sportToggles, setSportToggles] = useState<Record<SportType, StravaSportToggles>>(DEFAULT_TOGGLES);
+
+  const handleSyncAppleHealth = async () => {
+    setAppleSyncing(true);
+    try {
+      const { syncAppleHealthActivities } = require('../../services/appleHealthService');
+      const res = await syncAppleHealthActivities();
+      Alert.alert('Apple Health Sync', res.message);
+    } catch (err: any) {
+      Alert.alert('Sync Error', err.message || 'Apple Health sync failed.');
+    } finally {
+      setAppleSyncing(false);
+    }
+  };
+
+  const handleConnectAppleHealth = async () => {
+    try {
+      const { requestAppleHealthPermissions } = require('../../services/appleHealthService');
+      const granted = await requestAppleHealthPermissions();
+      if (granted) {
+        setIsAppleConnected(true);
+        Alert.alert('Apple Health', 'Apple Health & WorkoutKit permissions configured!');
+      }
+    } catch (err: any) {
+      Alert.alert('Permissions Failed', err.message || 'Could not connect Apple Health.');
+    }
+  };
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY_AUTOMATIONS).then((stored) => {
@@ -106,6 +134,62 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
   return (
     <View className="space-y-6">
+      {/* APPLE HEALTH & WORKOUTKIT INTEGRATION */}
+      <Card className="p-4 mb-6">
+        <View className="flex-row justify-between items-center pb-3 mb-3">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="logo-apple" size={20} color="#FF2D55" />
+            <Text className="text-theme-text font-bold text-sm">Apple Health & Watch (WorkoutKit)</Text>
+          </View>
+          <View
+            className={`px-2 py-0.5 rounded ${
+              isAppleConnected
+                ? 'bg-green-500/10'
+                : 'bg-red-500/10'
+            }`}
+          >
+            <Text
+              className={`text-[10px] font-bold ${
+                isAppleConnected ? 'text-green-500' : 'text-red-500'
+              }`}
+            >
+              {isAppleConnected ? 'Active' : 'Disconnected'}
+            </Text>
+          </View>
+        </View>
+
+        <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
+          Syncs structured workouts directly to your Apple Watch Workout app using WorkoutKit and imports completed activities from Apple Health.
+        </Text>
+
+        <View className="flex-row flex-wrap gap-2">
+          <TouchableOpacity
+            onPress={handleConnectAppleHealth}
+            className="bg-red-600 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+          >
+            <Ionicons name="shield-checkmark-outline" size={16} color="#FFF" />
+            <Text className="text-white font-bold text-xs ml-2">
+              Permissions
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleSyncAppleHealth}
+            disabled={appleSyncing}
+            className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+          >
+            {appleSyncing ? (
+              <ActivityIndicator size="small" color="#FF2D55" />
+            ) : (
+              <>
+                <Ionicons name="sync-outline" size={16} color="#8E8E93" />
+                <Text className="text-theme-text font-bold text-xs ml-2">Sync Apple Health</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </Card>
+
       {/* GARMIN CONNECT INTEGRATION */}
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-3">

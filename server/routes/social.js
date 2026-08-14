@@ -208,9 +208,12 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
     [req.user.id, req.user.id, req.user.id],
     (err, rows) => {
       if (rows) {
-        rows.forEach(
-          (r) => (r.spark_level = getSparkLevelInfo(r.total_spark).level),
-        );
+        rows.forEach((r) => {
+          r.spark_level = getSparkLevelInfo(r.total_spark).level;
+          if (typeof r.spark_score === "number") {
+            r.spark_score = Math.round(r.spark_score);
+          }
+        });
       }
       res.json({ activities: rows || [] });
     },
@@ -254,9 +257,12 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
         (err, rows) => {
           if (err) return reject(err);
           if (rows) {
-            rows.forEach(
-              (r) => (r.spark_level = getSparkLevelInfo(r.total_spark).level),
-            );
+            rows.forEach((r) => {
+              r.spark_level = getSparkLevelInfo(r.total_spark).level;
+              if (typeof r.total_spark_score === "number") {
+                r.total_spark_score = Math.round(r.total_spark_score);
+              }
+            });
           }
           resolve(rows || []);
         },
@@ -290,7 +296,7 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
         spark_level: user.spark_level,
         completed_quests_count: userQuests.length,
         total_quest_spark: Math.round(total_quest_spark),
-        quests: userQuests.map((q) => ({ description: q.description, points: q.reward_points })),
+        quests: userQuests.map((q) => ({ description: q.description, points: Math.round(q.reward_points || 0) })),
       };
     });
 
@@ -320,9 +326,12 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
         (err, rows) => {
           if (err) return resolve([]);
           if (rows) {
-            rows.forEach(
-              (r) => (r.spark_level = getSparkLevelInfo(r.total_spark).level),
-            );
+            rows.forEach((r) => {
+              r.spark_level = getSparkLevelInfo(r.total_spark).level;
+              if (typeof r.spark_score === "number") {
+                r.spark_score = Math.round(r.spark_score);
+              }
+            });
           }
           resolve(rows || []);
         },

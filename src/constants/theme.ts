@@ -88,26 +88,25 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
+    sans: 'PlusJakartaSans-Medium',
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+    mono: 'Rajdhani-Bold',
+    numeric: 'Rajdhani-Bold',
   },
   default: {
-    sans: 'normal',
+    sans: 'PlusJakartaSans_500Medium',
     serif: 'serif',
     rounded: 'normal',
-    mono: 'monospace',
+    mono: 'Rajdhani_700Bold',
+    numeric: 'Rajdhani_700Bold',
   },
   web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    sans: 'PlusJakartaSans_500Medium, sans-serif',
+    serif: 'serif',
+    rounded: 'sans-serif',
+    mono: 'Rajdhani_700Bold, monospace',
+    numeric: 'Rajdhani_700Bold, monospace',
   },
 });
 

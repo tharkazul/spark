@@ -107,7 +107,7 @@ export function TodaysPlanCard({
   };
 
   return (
-    <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
+    <Card className="p-4 md:p-5 border-theme-border mb-5">
       {/* Header Bar matching Native Card design */}
       <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
         <View className="flex-row items-center gap-3">
@@ -121,7 +121,7 @@ export function TodaysPlanCard({
                 <Text className="text-[9px] font-extrabold text-white uppercase tracking-wider">Today</Text>
               </View>
             </View>
-            <Text className="text-[11px] text-theme-muted">{dateLabel} · {tempLabel}</Text>
+            <Text className="text-[11px] text-theme-muted font-bold">{dateLabel} · {tempLabel}</Text>
           </View>
         </View>
 
@@ -129,7 +129,7 @@ export function TodaysPlanCard({
         <TouchableOpacity
           onPress={handleAdapt}
           activeOpacity={0.7}
-          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
+          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
           <Ionicons name="flash-outline" size={13} color="#F97316" />
           <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
@@ -141,7 +141,7 @@ export function TodaysPlanCard({
         <View className="p-5 rounded-2xl border border-theme-border bg-theme-bg/60 flex-col items-center justify-center gap-2">
           <Ionicons name="moon-outline" size={24} color="#6F6F79" />
           <Text className="text-sm font-bold text-theme-text">Rest & Recovery Day</Text>
-          <Text className="text-xs text-theme-muted text-center px-4">
+          <Text className="text-xs text-theme-muted text-center px-4 font-bold">
             No structured sessions scheduled for today. Take time to stretch and refuel.
           </Text>
 
@@ -177,27 +177,8 @@ export function TodaysPlanCard({
                   </View>
 
                   <View className="flex-row items-center gap-2">
-                    <TouchableOpacity
-                      onPress={async (e) => {
-                        e.stopPropagation();
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        try {
-                          const { syncGarminWorkout } = require('../../api/integrations');
-                          await syncGarminWorkout([{ date: workout.dateStr || new Date().toISOString().split('T')[0], sport: workout.type }]);
-                          const { Alert } = require('react-native');
-                          Alert.alert('Garmin Push Complete', `"${workout.title}" has been pushed to your Garmin watch.`);
-                        } catch (err: any) {
-                          const { Alert } = require('react-native');
-                          Alert.alert('Garmin Push Failed', err.message || 'Check your Garmin credentials in Settings.');
-                        }
-                      }}
-                      className="p-1 rounded-full bg-blue-500/10 border border-blue-500/30"
-                    >
-                      <Ionicons name="watch-outline" size={14} color="#3B82F6" />
-                    </TouchableOpacity>
-
                     <Text className="text-xs font-mono font-bold text-theme-accent">
-                      +{workout.sparkPoints} Spark
+                      +{Math.round(workout.sparkPoints || 0)} Spark
                     </Text>
 
                     {workout.isCompleted && (
@@ -213,9 +194,9 @@ export function TodaysPlanCard({
                 <Text className="text-sm font-extrabold text-theme-text leading-snug">{workout.title}</Text>
 
                 {/* Subline: Clean Human Metric Summary */}
-                <View className="flex-row items-center justify-between pt-1 border-t border-theme-border/40">
+                <View className="flex-row items-center justify-between pt-1 border-t border-theme-border/50">
                   <Text className="text-xs text-theme-muted font-bold">
-                    {humanDuration} · +{workout.sparkPoints} Spark
+                    {humanDuration} · +{Math.round(workout.sparkPoints || 0)} Spark
                   </Text>
 
                   {workout.actualMetrics ? (

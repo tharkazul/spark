@@ -101,7 +101,7 @@ export function DetailedDayCard({
 
   return (
     <Card
-      className={`p-4 md:p-5 mb-5 border shadow-sm ${
+      className={`p-4 md:p-5 mb-5 border ${
         day.isToday
           ? 'border-theme-accent border-[1.5px] bg-theme-card'
           : 'border-theme-border bg-theme-card'
@@ -127,7 +127,7 @@ export function DetailedDayCard({
               )}
             </View>
 
-            <Text className="text-[11px] text-theme-muted">{weatherTemp} · Scheduled</Text>
+            <Text className="text-[11px] text-theme-muted font-bold">{weatherTemp} · Scheduled</Text>
           </View>
         </View>
 
@@ -138,7 +138,7 @@ export function DetailedDayCard({
             onAdaptPress();
           }}
           activeOpacity={0.7}
-          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
+          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
           <Ionicons name="flash-outline" size={13} color="#F97316" />
           <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
@@ -150,7 +150,7 @@ export function DetailedDayCard({
         <View className="p-5 rounded-2xl border border-theme-border bg-theme-bg/60 flex-col items-center justify-center gap-2">
           <Ionicons name="moon-outline" size={24} color="#6F6F79" />
           <Text className="text-sm font-bold text-theme-text">Rest & Recovery Day</Text>
-          <Text className="text-xs text-theme-muted text-center px-4">
+          <Text className="text-xs text-theme-muted text-center px-4 font-bold">
             No structured sessions scheduled for this day. Take time to stretch and refuel.
           </Text>
 
@@ -169,8 +169,13 @@ export function DetailedDayCard({
             const humanDuration = formatHumanDuration(workout.duration, workout.type);
 
             return (
-              <View
+              <TouchableOpacity
                 key={workout.id}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onSelectWorkout(workout);
+                }}
+                activeOpacity={0.8}
                 className={`p-4 rounded-2xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-bg/60 flex-col gap-2`}
               >
                 {/* Top Discipline Line */}
@@ -184,11 +189,11 @@ export function DetailedDayCard({
 
                   <View className="flex-row items-center gap-2">
                     <Text className="text-xs font-mono font-bold text-theme-accent">
-                      +{workout.sparkPoints} Spark
+                      +{Math.round(workout.sparkPoints || 0)} Spark
                     </Text>
 
                     {workout.isStructured && (
-                      <View className="px-2 py-0.5 bg-theme-card border border-theme-border/60 rounded">
+                      <View className="px-2 py-0.5 bg-theme-card border border-theme-border rounded">
                         <Text className="text-[9px] font-bold text-theme-muted">Structured</Text>
                       </View>
                     )}
@@ -203,73 +208,40 @@ export function DetailedDayCard({
                 </View>
 
                 {/* Workout Title */}
-                <TouchableOpacity
-                  onPress={() => onSelectWorkout(workout)}
-                  activeOpacity={0.8}
-                >
-                  <Text className="text-sm font-extrabold text-theme-text leading-snug">
-                    {workout.title}
-                  </Text>
-                </TouchableOpacity>
+                <Text className="text-sm font-extrabold text-theme-text leading-snug">
+                  {workout.title}
+                </Text>
 
-                {/* Subline: Clean Metric Summary */}
-                <View className="flex-row items-center justify-between pt-1 border-t border-theme-border/40">
+                {/* Clean Subline & Quick Actions Bar */}
+                <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/50">
                   <Text className="text-xs text-theme-muted font-bold">
-                    {humanDuration} · +{workout.sparkPoints} Spark
+                    {humanDuration} · +{Math.round(workout.sparkPoints || 0)} Spark
                   </Text>
 
-                  {workout.actualMetrics && (
-                    <Text className="text-xs font-mono text-emerald-500 font-bold">
-                      {workout.actualMetrics}
-                    </Text>
-                  )}
+                  <View className="flex-row items-center gap-2">
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        onInvitePartner(workout);
+                      }}
+                      className="flex-row items-center gap-1 px-2.5 py-1 bg-theme-card border border-theme-border rounded-lg"
+                    >
+                      <Ionicons name="person-add-outline" size={12} color="#6F6F79" />
+                      <Text className="text-[11px] font-bold text-theme-muted">Invite</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        onDeleteWorkout(workout.id);
+                      }}
+                      className="flex-row items-center gap-1 px-2 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg"
+                    >
+                      <Ionicons name="trash-outline" size={12} color="#F43F5E" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-
-                {/* Action Bar: Edit, Push to Garmin, Invite, Remove */}
-                <View className="flex-row items-center justify-between pt-2 mt-1 border-t border-theme-border/20">
-                  <TouchableOpacity
-                    onPress={() => onSelectWorkout(workout)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card border border-theme-border/60 rounded-lg"
-                  >
-                    <Ionicons name="create-outline" size={13} color="#FF5F3B" />
-                    <Text className="text-xs font-bold text-theme-accent">Edit</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={async () => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      try {
-                        const { syncGarminWorkout } = require('../../api/integrations');
-                        await syncGarminWorkout([{ date: day.dateStr || new Date().toISOString().split('T')[0], sport: workout.type }]);
-                        const { Alert } = require('react-native');
-                        Alert.alert('Garmin Push Complete', `"${workout.title}" has been pushed to your Garmin watch.`);
-                      } catch (err: any) {
-                        const { Alert } = require('react-native');
-                        Alert.alert('Garmin Push Failed', err.message || 'Check your Garmin credentials in Settings.');
-                      }
-                    }}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-blue-500/10 border border-blue-500/30 rounded-lg"
-                  >
-                    <Ionicons name="watch-outline" size={13} color="#3B82F6" />
-                    <Text className="text-xs font-bold text-blue-500">Garmin</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => onInvitePartner(workout)}
-                    className="flex-row items-center gap-1 px-3 py-1 bg-theme-card border border-theme-border/60 rounded-lg"
-                  >
-                    <Ionicons name="person-add-outline" size={13} color="#6F6F79" />
-                    <Text className="text-xs font-bold text-theme-muted">Invite</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => onDeleteWorkout(workout.id)}
-                    className="flex-row items-center gap-1 px-2.5 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg"
-                  >
-                    <Ionicons name="trash-outline" size={13} color="#F43F5E" />
-                  </TouchableOpacity>
-                </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
 

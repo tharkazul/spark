@@ -106,6 +106,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_disappointed TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN deleted_at TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'en'`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {});
   db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         admin_username TEXT, 

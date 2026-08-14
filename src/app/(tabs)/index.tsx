@@ -35,7 +35,7 @@ export default function DashboardScreen() {
   const { user } = useUser();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
-  const { tabBarOccupied } = useTabBar();
+  const { notifyScroll, tabBarOccupied } = useTabBar();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -125,7 +125,13 @@ export default function DashboardScreen() {
       {/* Header Spacer dynamically measured from DashboardSharedHeader onLayout */}
       <View style={{ height: headerHeight }} />
 
-      <ScrollView className="flex-1 px-5 pt-2" contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }} showsVerticalScrollIndicator={false} contentInsetAdjustmentBehavior="never">
+      <ScrollView 
+        className="flex-1 px-5 pt-2" 
+        contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }} 
+        showsVerticalScrollIndicator={false} 
+        contentInsetAdjustmentBehavior="never"
+        onScrollBeginDrag={notifyScroll}
+      >
         <TodaysPlanCard
           dateLabel={todaysCardDateLabel}
           tempLabel="24°C"

@@ -14,7 +14,13 @@
         "NSCameraUsageDescription": "Spark requires camera access to capture physique check-in photos and coach avatars.",
         "NSMicrophoneUsageDescription": "Spark requires microphone access for voice coaching notes and audio logs.",
         "NSPhotoLibraryUsageDescription": "Spark requires photo library access to choose workout and progress photos.",
-        "NSLocationWhenInUseUsageDescription": "Spark requires location access to track outdoor running, cycling, and GPS activity routes."
+        "NSLocationWhenInUseUsageDescription": "Spark requires location access to track outdoor running, cycling, and GPS activity routes.",
+        "NSHealthShareUsageDescription": "Spark needs access to read your workouts, heart rate, and activity metrics.",
+        "NSHealthUpdateUsageDescription": "Spark needs permission to save scheduled workouts to your Apple Watch and Apple Health."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
       }
     },
     "android": {
@@ -46,6 +52,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "eb8027ec-2138-4891-a3a4-684be50bfbdb"
+      }
     }
   }
 }

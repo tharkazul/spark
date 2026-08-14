@@ -99,7 +99,7 @@ export function normalizeActivityDetail(raw: any): NormalizedActivity {
   const start_date = raw.start_date || raw.start_date_local || raw.date || new Date().toISOString();
 
   // Handle spark score / TSS
-  const spark_score =
+  const rawSpark =
     typeof raw.spark_score === 'number'
       ? raw.spark_score
       : typeof raw.tss === 'number'
@@ -107,6 +107,7 @@ export function normalizeActivityDetail(raw: any): NormalizedActivity {
       : typeof raw.daily_spark === 'number'
       ? raw.daily_spark
       : 0;
+  const spark_score = Math.round(rawSpark);
 
   const formatted_duration = formatDuration(movingTimeMin);
   const formatted_distance = `${distanceKm.toFixed(1)} km`;

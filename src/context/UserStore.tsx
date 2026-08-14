@@ -56,7 +56,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isChatMacroStripVisible, setIsChatMacroStripVisible] = useState<boolean>(true);
+  const [isChatMacroStripVisible, setIsChatMacroStripVisible] = useState<boolean>(false);
 
   const toggleChatMacroStrip = () => {
     setIsChatMacroStripVisible((prev) => !prev);

@@ -324,7 +324,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                 <View className="w-[48%] bg-theme-bg p-3 rounded-xl mb-2.5 border border-theme-border/50">
                   <Text className="text-[10px] uppercase font-bold text-theme-muted">Spark Score</Text>
                   <Text className="text-lg font-black text-theme-accent font-mono">
-                    +{activity?.spark_score || activity?.tss || 0} TSS
+                    +{Math.round(activity?.spark_score || activity?.tss || 0)} Spark
                   </Text>
                 </View>
 

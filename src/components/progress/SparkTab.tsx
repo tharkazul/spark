@@ -86,11 +86,11 @@ export const SparkTab: React.FC<SparkTabProps> = ({
               <Ionicons name="flash" size={18} color="#FF5A1F" />
             </View>
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              SPARK LEVEL <Text className="text-theme-accent text-lg font-black">{activeLevelInfo.level}</Text>
+              SPARK LEVEL <Text className="text-theme-accent text-lg font-black font-rajdhani">{Math.round(activeLevelInfo.level)}</Text>
             </Text>
           </View>
-          <Text className="text-xs font-semibold text-theme-muted">
-            {activeLevelInfo.currentXp} <Text className="text-theme-text font-bold">/ {activeLevelInfo.nextLevelXp} XP</Text>
+          <Text className="text-xs font-semibold text-theme-muted font-rajdhani">
+            {Math.round(activeLevelInfo.currentXp)} <Text className="text-theme-text font-bold">/ {Math.round(activeLevelInfo.nextLevelXp)} XP</Text>
           </Text>
         </View>
 

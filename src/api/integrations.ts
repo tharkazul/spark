@@ -20,3 +20,12 @@ export async function syncGarminWorkout(workouts: GarminSyncWorkoutPayload[]): P
     body: JSON.stringify({ workouts }),
   });
 }
+
+/**
+ * Pushes structured workout to Apple Watch via WorkoutKit
+ */
+export async function syncAppleWorkout(workout: any): Promise<GarminSyncResponse> {
+  const { deployWorkoutToAppleWatch } = require('../services/appleHealthService');
+  return deployWorkoutToAppleWatch(workout);
+}
+

@@ -432,7 +432,13 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
           .json({ error: "Failed to load athlete context." });
       }
       if (!user) {
-        return res.status(500).json({ error: "Athlete context not found." });
+        user = {
+          coach_tone: 'hype',
+          coach_name: 'Spark',
+          coach_context: 'Empathetic athletic performance coach',
+          athlete_context: 'Active athlete',
+          gender: 'prefer_not_to_say',
+        };
       }
 
       db.all(

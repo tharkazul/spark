@@ -4,11 +4,12 @@ import {
   Text,
   Modal,
   TouchableOpacity,
-  ScrollView,
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from '../ui/TextInput';
 import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,6 +87,7 @@ export function AddWorkoutModal({
   onDelete,
 }: AddWorkoutModalProps) {
   const { user } = useUser();
+  const insets = useSafeAreaInsets();
 
   const [selectedSport, setSelectedSport] = useState<SportType>('RUN');
   const [title, setTitle] = useState('');
@@ -124,32 +126,26 @@ export function AddWorkoutModal({
         setSteps(ensureStepIds(scaleStepsForDuration(dur, [], initialWorkout.type)));
       }
     } else {
-      // 1. Fetch user's preferred duration for targetDayName from backend/onboarding preferences!
       const dayKey = targetDayName.toUpperCase();
       const userPreferredDur = user?.daily_availability?.[dayKey] || (dayKey === 'SAT' ? 90 : 60);
 
       setSelectedSport('RUN');
       setTitle('');
       setDurationMinutes(userPreferredDur);
-
-      // 2. Pre-fill smart steps matching the preferred duration!
       setSteps(ensureStepIds(scaleStepsForDuration(userPreferredDur, [], 'RUN')));
     }
     setCustomSpark(null);
   }, [initialWorkout, visible, targetDayName, user]);
 
-  // Handle changing duration via preset pills or text input
   const handleDurationChange = (newMins: number) => {
     setDurationMinutes(newMins);
     if (newMins > 0) {
-      // Smartly re-balance interval steps to match the new duration!
       const rebalancedSteps = scaleStepsForDuration(newMins, steps, selectedSport);
       setSteps(rebalancedSteps);
       setCustomSpark(calculateWbSpark(rebalancedSteps, selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY', selectedSport));
     }
   };
 
-  // Calculate Spark Points dynamically from structured steps or duration
   const calculateSparkPoints = (type: SportType, mins: number, currentSteps: WorkoutStep[]): number => {
     if (currentSteps && currentSteps.length > 0) {
       return calculateWbSpark(currentSteps, type === 'STRENGTH', type);
@@ -176,9 +172,11 @@ export function AddWorkoutModal({
     return Math.max(5, Math.round(mins * ratePerMin));
   };
 
-  const calculatedSpark = customSpark !== null
-    ? customSpark
-    : calculateSparkPoints(selectedSport, durationMinutes, steps);
+  const calculatedSpark = Math.round(
+    customSpark !== null
+      ? customSpark
+      : calculateSparkPoints(selectedSport, durationMinutes, steps)
+  );
 
   const sports: { type: SportType; label: string; icon: string }[] = [
     { type: 'RUN', label: 'Run', icon: 'walk-outline' },
@@ -218,6 +216,90 @@ export function AddWorkoutModal({
     }
   };
 
+  const handleGarminSync = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const { syncGarminWorkout } = require('../../api/integrations');
+      await syncGarminWorkout([{ date: targetDateStr || new Date().toISOString().split('T')[0], sport: selectedSport }]);
+      Alert.alert('Garmin Push Complete', `"${title || 'Workout'}" has been pushed to your Garmin watch.`);
+    } catch (err: any) {
+      Alert.alert('Garmin Push Failed', err.message || 'Check your Garmin credentials in Settings.');
+    }
+  };
+
+  const handleAppleWatchSync = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const { deployWorkoutToAppleWatch } = require('../../services/appleHealthService');
+      const res = await deployWorkoutToAppleWatch({
+        id: initialWorkout?.id || '1',
+        date: targetDateStr || new Date().toISOString().split('T')[0],
+        sport: selectedSport,
+        description: title || 'Workout',
+        target_spark: calculatedSpark,
+        steps_json: steps,
+      });
+      Alert.alert(res.success ? 'Apple Watch Sync' : 'Apple Watch Failed', res.message);
+    } catch (err: any) {
+      Alert.alert('Apple Watch Error', err.message || 'Failed to deploy to Apple Watch.');
+    }
+  };
+
+  // Footer containing Device Sync and Primary Save / Cancel / Delete Actions
+  const renderFooter = () => (
+    <View style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
+      {/* Device Sync Row */}
+      <View className="mb-4">
+        <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
+          Sync to Device
+        </Text>
+        <View className="flex-row gap-2.5">
+          <TouchableOpacity
+            onPress={handleGarminSync}
+            activeOpacity={0.7}
+            className="flex-1 py-2.5 px-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex-row items-center justify-center gap-1.5"
+          >
+            <Ionicons name="watch-outline" size={15} color="#3B82F6" />
+            <Text className="text-xs font-bold text-blue-500">Garmin</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleAppleWatchSync}
+            activeOpacity={0.7}
+            className="flex-1 py-2.5 px-3 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center justify-center gap-1.5"
+          >
+            <Ionicons name="logo-apple" size={15} color="#FF2D55" />
+            <Text className="text-xs font-bold text-red-500">Apple Watch</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Primary Action Buttons */}
+      <View className="flex-row gap-3 mb-2">
+        <View className="flex-1">
+          <Button label="Cancel" variant="outline" onPress={onClose} />
+        </View>
+        <View className="flex-1">
+          <Button
+            label={initialWorkout ? 'Update Exercise' : 'Save Exercise'}
+            variant="primary"
+            onPress={handleSave}
+          />
+        </View>
+      </View>
+
+      {/* Delete button if editing */}
+      {initialWorkout && (
+        <TouchableOpacity
+          onPress={handleDelete}
+          className="py-2.5 items-center justify-center bg-rose-500/10 rounded-xl mt-1"
+        >
+          <Text className="text-xs font-extrabold text-rose-500">Delete Exercise</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -229,192 +311,134 @@ export function AddWorkoutModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-          <View className="flex-1 bg-theme-bg">
-            {/* Backdrop overlay tap to dismiss */}
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={onClose}
-              className="absolute inset-0"
-            />
+        <View className="flex-1 bg-theme-bg">
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={onClose}
+            className="absolute inset-0"
+          />
 
-            {/* Bottom Sheet Modal View */}
-            <Animated.View
-              style={{ transform: [{ translateY: slideAnim }] }}
-              className="w-full bg-theme-card rounded-t-[32px] px-6 pt-6 pb-10 max-h-[92%] shadow-2xl flex-col flex-1"
-            >
-              {/* Header */}
-              <View className="flex-row items-center justify-between pb-4 mb-4">
-                <View>
-                  <Text className="text-lg font-extrabold text-theme-text">
-                    {initialWorkout ? 'Edit Garmin Exercise' : 'Add Garmin Exercise'}
-                  </Text>
-                  <Text className="text-xs text-theme-muted">
-                    {initialWorkout ? initialWorkout.title : `Scheduling for ${targetDayName} ${targetDateStr}`}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={onClose}
-                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-                >
-                  <Ionicons name="close" size={18} color="#6F6F79" />
-                </TouchableOpacity>
+          {/* Bottom Sheet Modal View */}
+          <Animated.View
+            style={{ transform: [{ translateY: slideAnim }] }}
+            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-6 flex-1 shadow-2xl"
+          >
+            {/* Header */}
+            <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/40 mb-2">
+              <View>
+                <Text className="text-lg font-extrabold text-theme-text">
+                  {initialWorkout ? 'Edit Workout' : 'Add Workout'}
+                </Text>
+                <Text className="text-xs text-theme-muted">
+                  {initialWorkout ? initialWorkout.title : `Scheduling for ${targetDayName} ${targetDateStr}`}
+                </Text>
               </View>
 
-              {/* GARMIN-LIKE STRUCTURED ACTIVITY BUILDER */}
-              <WorkoutStepBuilder
-                steps={steps}
-                sport={selectedSport}
-                onChangeSteps={(newSteps, computedSpark) => {
-                  setSteps(newSteps);
-                  setCustomSpark(computedSpark);
-                }}
-                ListHeaderComponent={
-                  <>
-                    {/* Sport Selector */}
-                    <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2.5">
-                      Select Discipline
-                    </Text>
-                    <View className="flex-row flex-wrap gap-2 mb-4">
-                      {sports.map((sport) => {
-                        const isSelected = selectedSport === sport.type;
-                        return (
-                          <TouchableOpacity
-                            key={sport.type}
-                            onPress={() => {
-                              Haptics.selectionAsync();
-                              setSelectedSport(sport.type);
-                              setSteps((prev) => scaleStepsForDuration(durationMinutes, prev, sport.type));
-                            }}
-                            activeOpacity={0.7}
-                            className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl ${
-                              isSelected
-                                ? 'bg-theme-accent/15'
-                                : 'bg-theme-bg'
-                            }`}
-                          >
-                            <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#FF5F3B' : '#6F6F79'} />
-                            <Text className={`text-xs font-extrabold ${isSelected ? 'text-theme-accent' : 'text-theme-muted'}`}>
-                              {sport.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border/60"
+              >
+                <Ionicons name="close" size={18} color="#6F6F79" />
+              </TouchableOpacity>
+            </View>
 
-                    {/* Exercise Title Input */}
-                    <View className="mb-4">
+            {/* STRUCTURED ACTIVITY BUILDER */}
+            <WorkoutStepBuilder
+              steps={steps}
+              sport={selectedSport}
+              durationMinutes={durationMinutes}
+              quickDurations={quickDurations}
+              onDurationChange={handleDurationChange}
+              onChangeSteps={(newSteps, computedSpark) => {
+                setSteps(newSteps);
+                setCustomSpark(computedSpark);
+              }}
+              ListHeaderComponent={
+                <>
+                  {/* Sport Selector */}
+                  <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2.5 mt-2">
+                    Select Discipline
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2 mb-4">
+                    {sports.map((sport) => {
+                      const isSelected = selectedSport === sport.type;
+                      return (
+                        <TouchableOpacity
+                          key={sport.type}
+                          onPress={() => {
+                            Haptics.selectionAsync();
+                            setSelectedSport(sport.type);
+                            setSteps((prev) => scaleStepsForDuration(durationMinutes, prev, sport.type));
+                          }}
+                          activeOpacity={0.7}
+                          className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl ${
+                            isSelected
+                              ? 'bg-theme-accent/15 border border-theme-accent/40'
+                              : 'bg-theme-bg border border-theme-border/60'
+                          }`}
+                        >
+                          <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#FF5F3B' : '#6F6F79'} />
+                          <Text className={`text-xs font-extrabold ${isSelected ? 'text-theme-accent' : 'text-theme-muted'}`}>
+                            {sport.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {/* Exercise Title Input */}
+                  <View className="mb-4">
+                    <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
+                      Workout Title
+                    </Text>
+                    <TextInput
+                      value={title}
+                      onChangeText={setTitle}
+                      placeholder="e.g. Interval Threshold Run"
+                    />
+                  </View>
+
+                  {/* Duration Selector & Auto-Calculated Spark Points */}
+                  <View className="flex-row gap-3 mb-2">
+                    {/* Duration Input */}
+                    <View className="flex-1">
                       <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
-                        Workout Title
+                        Duration (mins)
                       </Text>
                       <TextInput
-                        value={title}
-                        onChangeText={setTitle}
-                        placeholder="e.g. Interval Threshold Run"
+                        value={durationMinutes > 0 ? durationMinutes.toString() : ''}
+                        onChangeText={(val) => {
+                          const parsed = parseInt(val, 10);
+                          handleDurationChange(isNaN(parsed) ? 0 : parsed);
+                        }}
+                        keyboardType="number-pad"
+                        placeholder="45"
                       />
                     </View>
 
-                    {/* Duration Selector & Auto-Calculated Spark Points */}
-                    <View className="flex-row gap-3 mb-3">
-                      {/* Duration Input */}
-                      <View className="flex-1">
-                        <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
-                          Duration (mins)
-                        </Text>
-                        <TextInput
-                          value={durationMinutes > 0 ? durationMinutes.toString() : ''}
-                          onChangeText={(val) => {
-                            const parsed = parseInt(val, 10);
-                            handleDurationChange(isNaN(parsed) ? 0 : parsed);
-                          }}
-                          keyboardType="number-pad"
-                          placeholder="45"
-                        />
-                      </View>
-
-                      {/* Auto-Calculated Spark Points Badge Box */}
-                      <View className="flex-1">
-                        <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
-                          Calculated Spark
-                        </Text>
-                        <View className="h-[46px] bg-amber-500/15 rounded-xl px-3 flex-row items-center justify-between">
-                          <View className="flex-row items-center gap-1.5">
-                            <Ionicons name="sparkles" size={16} color="#F59E0B" />
-                            <Text className="text-sm font-mono font-extrabold text-amber-500">
-                              +{calculatedSpark} Spark
-                            </Text>
-                          </View>
-                          <Text className="text-[10px] font-bold text-amber-600/80">Auto</Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Quick Duration Pills */}
-                    <View className="mb-5">
-                      <Text className="text-[11px] font-bold text-theme-muted mb-2">
-                        Quick Duration Presets:
+                    {/* Auto-Calculated Spark Points Badge Box */}
+                    <View className="flex-1">
+                      <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
+                        Calculated Spark
                       </Text>
-                      <View className="flex-row flex-wrap gap-2">
-                        {quickDurations.map((mins) => {
-                          const isSelected = durationMinutes === mins;
-                          return (
-                            <TouchableOpacity
-                              key={mins}
-                              onPress={() => {
-                                Haptics.selectionAsync();
-                                handleDurationChange(mins);
-                              }}
-                              activeOpacity={0.7}
-                              className={`px-3 py-1.5 rounded-xl ${
-                                isSelected
-                                  ? 'bg-theme-accent'
-                                  : 'bg-theme-bg'
-                              }`}
-                            >
-                              <Text
-                                className={`text-xs font-mono font-extrabold ${
-                                  isSelected ? 'text-white' : 'text-theme-text'
-                                }`}
-                              >
-                                {mins}m
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
+                      <View className="h-[46px] bg-amber-500/15 border border-amber-500/30 rounded-xl px-3 flex-row items-center justify-between">
+                        <View className="flex-row items-center gap-1.5">
+                          <Ionicons name="sparkles" size={16} color="#F59E0B" />
+                          <Text className="text-sm font-mono font-extrabold text-amber-500">
+                            +{calculatedSpark} Spark
+                          </Text>
+                        </View>
+                        <Text className="text-[10px] font-bold text-amber-600/80">Auto</Text>
                       </View>
                     </View>
-                  </>
-                }
-              />
-
-              {/* Pinned Action Buttons */}
-              <View className="pt-4 mt-2">
-                <View className="flex-row gap-3 mb-2">
-                  <View className="flex-1">
-                    <Button label="Cancel" variant="outline" onPress={onClose} />
                   </View>
-                  <View className="flex-1">
-                    <Button
-                      label={initialWorkout ? 'Update Exercise' : 'Save Exercise'}
-                      variant="primary"
-                      onPress={handleSave}
-                    />
-                  </View>
-                </View>
-
-                {/* Delete button if editing */}
-                {initialWorkout && (
-                  <TouchableOpacity
-                    onPress={handleDelete}
-                    className="py-2.5 items-center justify-center bg-rose-500/10 rounded-xl mt-1"
-                  >
-                    <Text className="text-xs font-extrabold text-rose-500">Delete Exercise</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </Animated.View>
-          </View>
-        </KeyboardAvoidingView>
+                </>
+              }
+              ListFooterComponent={renderFooter()}
+            />
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

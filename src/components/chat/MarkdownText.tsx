@@ -1,58 +1,33 @@
 import React from 'react';
-import { View, StyleSheet, Platform, useColorScheme } from 'react-native';
+import { View, StyleSheet, Platform, useColorScheme, TouchableOpacity } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import FitImage from 'react-native-fit-image';
+import { API_BASE_URL } from '../../constants/api';
 
 interface MarkdownTextProps {
   content: string;
   isUser?: boolean;
   textColorOverride?: string;
+  onImagePress?: (uri: string) => void;
 }
 
-const markdownRules = {
-  image: (
-    node: any,
-    children: any,
-    parent: any,
-    styles: any,
-    allowedImageHandlers: any,
-    defaultImageHandler: any,
-  ) => {
-    const { src, alt } = node.attributes;
-    const allowed = Array.isArray(allowedImageHandlers)
-      ? allowedImageHandlers
-      : ['http://', 'https://', 'data:image/'];
-    const show = allowed.some((value: string) => src.toLowerCase().startsWith(value.toLowerCase()));
-
-    if (!show && defaultImageHandler === null) {
-      return null;
-    }
-
-    const uri = show ? src : `${defaultImageHandler || ''}${src}`;
-
-    return (
-      <FitImage
-        key={node.key}
-        indicator={true}
-        style={styles._VIEW_SAFE_image}
-        source={{ uri }}
-        accessible={!!alt}
-        accessibilityLabel={alt || undefined}
-      />
-    );
-  },
+const getFullImageUrl = (src?: string) => {
+  if (!src) return '';
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
+    return src;
+  }
+  return `${API_BASE_URL}${src.startsWith('/') ? src : `/${src}`}`;
 };
 
 export const hasRenderableText = (content?: string) =>
   !!content?.replace(/```json[\s\S]*?```/gi, '').trim();
 
-export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, textColorOverride }) => {
+export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, textColorOverride, onImagePress }) => {
   if (!content) return null;
 
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  // Filter out standalone JSON blocks used for proposals or structured payloads
   const cleanedContent = content.replace(/```json[\s\S]*?```/gi, '').trim();
   if (!cleanedContent) return null;
 
@@ -60,6 +35,31 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, tex
   const textColor = textColorOverride || (isUser ? '#FFFFFF' : defaultCoachColor);
   const accentColor = isUser ? '#FFFFFF' : '#FF5A1F';
   const mutedColor = isUser ? 'rgba(255,255,255,0.7)' : isDark ? '#94A3B8' : '#64748B';
+
+  const markdownRules = {
+    image: (node: any) => {
+      const { src, alt } = node.attributes;
+      const uri = getFullImageUrl(src);
+      if (!uri) return null;
+
+      return (
+        <TouchableOpacity
+          key={node.key}
+          activeOpacity={0.9}
+          onPress={() => onImagePress?.(uri)}
+          style={{ width: '100%', marginVertical: 8 }}
+        >
+          <FitImage
+            source={{ uri }}
+            indicator={false}
+            style={{ borderRadius: 12, overflow: 'hidden' }}
+            accessible={!!alt}
+            accessibilityLabel={alt || undefined}
+          />
+        </TouchableOpacity>
+      );
+    },
+  };
 
   const styles = StyleSheet.create({
     body: {

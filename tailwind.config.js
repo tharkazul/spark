@@ -5,6 +5,22 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['PlusJakartaSans_500Medium', 'PlusJakartaSans-Medium', 'sans-serif'],
+        jakarta: ['PlusJakartaSans_500Medium', 'PlusJakartaSans-Medium', 'sans-serif'],
+        'jakarta-regular': ['PlusJakartaSans_400Regular', 'PlusJakartaSans-Regular', 'sans-serif'],
+        'jakarta-medium': ['PlusJakartaSans_500Medium', 'PlusJakartaSans-Medium', 'sans-serif'],
+        'jakarta-semibold': ['PlusJakartaSans_600SemiBold', 'PlusJakartaSans-SemiBold', 'sans-serif'],
+        'jakarta-bold': ['PlusJakartaSans_700Bold', 'PlusJakartaSans-Bold', 'sans-serif'],
+        'jakarta-extrabold': ['PlusJakartaSans_800ExtraBold', 'PlusJakartaSans-ExtraBold', 'sans-serif'],
+        rajdhani: ['Rajdhani_700Bold', 'Rajdhani-Bold', 'sans-serif'],
+        'rajdhani-medium': ['Rajdhani_500Medium', 'Rajdhani-Medium', 'sans-serif'],
+        'rajdhani-semibold': ['Rajdhani_600SemiBold', 'Rajdhani-SemiBold', 'sans-serif'],
+        'rajdhani-bold': ['Rajdhani_700Bold', 'Rajdhani-Bold', 'sans-serif'],
+        numeric: ['Rajdhani_700Bold', 'Rajdhani-Bold', 'sans-serif'],
+        mono: ['Rajdhani_700Bold', 'Rajdhani-Bold', 'monospace'],
+        barlow: ['Rajdhani_700Bold', 'Rajdhani-Bold', 'sans-serif'],
+      },
       colors: {
         brand: {
           DEFAULT: '#FF5F3B',

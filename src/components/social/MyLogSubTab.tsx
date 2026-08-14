@@ -185,8 +185,8 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
               <View className="items-end">
                 <View className="px-2 py-0.5 bg-theme-accent/15 rounded-full mb-1">
-                  <Text className="text-[11px] font-black text-theme-accent">
-                    +{act.spark_score || act.tss || 0} Spark
+                  <Text className="text-[11px] font-black font-rajdhani text-theme-accent">
+                    +{Math.round(act.spark_score || act.tss || 0)} Spark
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#6F6F79" />

@@ -38,7 +38,7 @@ export function SideBySideWeekBar({
       {agenda.map((day, idx) => {
         const isSelected = selectedDayIndex === idx;
         const isToday = day.isToday;
-        const totalSpark = day.workouts.reduce((acc, w) => acc + w.sparkPoints, 0);
+        const totalSpark = Math.round(day.workouts.reduce((acc, w) => acc + (w.sparkPoints || 0), 0));
         const hasWorkouts = day.workouts.length > 0;
 
         return (

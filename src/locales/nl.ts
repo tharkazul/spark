@@ -76,6 +76,7 @@ export const nl: TranslationKeys = {
     scheduleSubtitle: 'Stel beschikbare dagen en maximale trainingsminuten in. Spark verdeelt het trainingsvolume binnen deze grenzen.',
     integrationsTitle: 'Koppelingen & Sync',
     garminSyncSubtitle: 'Sync dagelijkse workouts & HRV',
+    appleHealthSyncSubtitle: 'Deploy workouts naar Apple Watch & sync HealthKit',
     stravaSyncTitle: 'Strava Synchronisatie',
     connectStrava: 'Verbind Strava',
     subscriptionBadge: 'Spark Plus Abonnement',

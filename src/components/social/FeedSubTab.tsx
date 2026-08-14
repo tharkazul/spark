@@ -136,7 +136,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
 
             <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
               <Ionicons name="flash" size={12} color="#FF5F3B" />
-              <Text className="text-xs font-black text-theme-accent ml-1">+{item.spark_score} Spark</Text>
+              <Text className="text-xs font-black font-rajdhani text-theme-accent ml-1">+{Math.round(item.spark_score || 0)} Spark</Text>
             </View>
           </View>
 

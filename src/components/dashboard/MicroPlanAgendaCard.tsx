@@ -351,7 +351,7 @@ export function MicroPlanAgendaCard({
 
                               <View className="flex-row items-center gap-2">
                                 <Text className="text-xs font-mono font-bold text-theme-accent">
-                                  +{workout.sparkPoints} Spark
+                                  +{Math.round(workout.sparkPoints || 0)} Spark
                                 </Text>
 
                                 {workout.isCompleted && (
@@ -371,7 +371,7 @@ export function MicroPlanAgendaCard({
                             {/* Subline: Human Duration & Chevron */}
                             <View className="flex-row items-center justify-between pt-1">
                               <Text className="text-xs text-theme-muted font-medium">
-                                {workout.duration || '45 min'} session · +{workout.sparkPoints} Spark
+                                {workout.duration || '45 min'} session · +{Math.round(workout.sparkPoints || 0)} Spark
                               </Text>
 
                               {workout.actualMetrics ? (

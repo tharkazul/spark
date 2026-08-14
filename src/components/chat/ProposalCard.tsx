@@ -42,7 +42,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
             </View>
             {item.target_spark ? (
               <View className="bg-amber-500/20 px-2 py-1 rounded-md">
-                <Text className="text-amber-400 font-bold text-xs">+{item.target_spark} Spark</Text>
+                <Text className="text-amber-400 font-bold font-rajdhani text-xs">+{Math.round(item.target_spark)} Spark</Text>
               </View>
             ) : null}
           </View>

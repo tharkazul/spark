@@ -31,6 +31,6 @@ export function getSparkLevelInfo(totalSpark: number = 0): SparkLevelInfo {
     currentLevelThreshold: Math.round(currentLevelThreshold),
     nextLevelThreshold: Math.round(nextLevelThreshold),
     progressPercent: Math.min(Math.max(Math.round(progressPercent), 0), 100),
-    totalSpark: Math.round(spark * 10) / 10,
+    totalSpark: Math.round(spark),
   };
 }

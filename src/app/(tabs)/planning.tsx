@@ -7,9 +7,11 @@ import {
   useWindowDimensions,
   Alert,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
@@ -54,10 +56,12 @@ export default function PlanningScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const { headerHeight } = useHeaderLayout();
-  const { tabBarOccupied } = useTabBar();
+  const { tabBarOccupied, notifyScroll } = useTabBar();
   
   const part3ScrollViewRef = useRef<ScrollView>(null);
+  const hasScrolledToTodayRef = useRef(false);
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
@@ -295,9 +299,26 @@ export default function PlanningScreen() {
   });
 
   useEffect(() => {
+    hasScrolledToTodayRef.current = false;
     const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
     setSelectedDayIndex(todayIdx >= 0 ? todayIdx : 0);
   }, [weekStart]);
+
+  // Automatically scroll to Today's card when opening planning subtab or layout measures
+  useEffect(() => {
+    const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
+    const targetIdx = todayIdx >= 0 ? todayIdx : 0;
+
+    if (!hasScrolledToTodayRef.current && dayYPositions[targetIdx] !== undefined) {
+      hasScrolledToTodayRef.current = true;
+      setTimeout(() => {
+        part3ScrollViewRef.current?.scrollTo({
+          y: dayYPositions[targetIdx],
+          animated: true,
+        });
+      }, 100);
+    }
+  }, [dayYPositions, weeklyAgenda]);
 
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
     setSelectedWorkoutForEdit(null);
@@ -403,7 +424,13 @@ export default function PlanningScreen() {
           />
         </Card>
 
-        <ScrollView ref={part3ScrollViewRef} className="flex-1" contentContainerStyle={{ paddingBottom: tabBarOccupied + 20, gap: 12 }} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          ref={part3ScrollViewRef} 
+          className="flex-1" 
+          contentContainerStyle={{ paddingBottom: tabBarOccupied + 20, gap: 12 }} 
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={notifyScroll}
+        >
           {weeklyAgenda.map((day, idx) => (
             <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {
               const y = e.nativeEvent.layout.y;
