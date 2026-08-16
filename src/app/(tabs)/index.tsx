@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useUser } from '../../context/UserStore';
+import { usePlan } from '../../context/PlanStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
@@ -33,6 +34,7 @@ import {
 export default function DashboardScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { plan } = usePlan();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
   const { notifyScroll, tabBarOccupied } = useTabBar();
@@ -47,6 +49,7 @@ export default function DashboardScreen() {
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
 
   const now = new Date();
+  const todayYYYYMMDD = now.toISOString().split('T')[0];
   const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
   const dayOfWeekUpper = dayOfWeekShort.toUpperCase();
   const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
@@ -61,7 +64,7 @@ export default function DashboardScreen() {
     dateStr: todayDateStr,
   });
 
-  const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutItem[]>([
+  const [fallbackWorkouts, setFallbackWorkouts] = useState<WorkoutItem[]>([
     {
       id: 'w-today-1',
       day: 'FRI',
@@ -74,6 +77,30 @@ export default function DashboardScreen() {
       isCompleted: false,
     },
   ]);
+
+  const todaysWorkouts = useMemo(() => {
+    if (plan && Array.isArray(plan)) {
+      const filtered = plan.filter(
+        (w) => w.date === todayYYYYMMDD || w.day === 'TODAY' || w.day === dayOfWeekUpper
+      );
+      if (filtered.length > 0) {
+        return filtered.map((w) => ({
+          id: String(w.id),
+          day: w.day || dayOfWeekUpper,
+          dateStr: todayDateStr,
+          type: (w.sport || 'RUN').toUpperCase() as any,
+          title: w.description || `${w.sport} Workout`,
+          duration: w.details || '45 mins',
+          sparkPoints: w.target_spark || 30,
+          isStructured: !!w.steps_json,
+          isCompleted: !!w.isCompleted,
+          actualMetrics: w.actualMetrics,
+          executionScore: w.executionScore,
+        }));
+      }
+    }
+    return fallbackWorkouts;
+  }, [plan, todayYYYYMMDD, dayOfWeekUpper, todayDateStr, fallbackWorkouts]);
 
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
     setSelectedWorkoutForEdit(null);
@@ -88,24 +115,24 @@ export default function DashboardScreen() {
 
   const handleSaveWorkout = (workoutData: Omit<WorkoutItem, 'id'>, existingId?: string) => {
     if (existingId) {
-      setTodaysWorkouts((prev) =>
+      setFallbackWorkouts((prev) =>
         prev.map((w) => (w.id === existingId ? { ...w, ...workoutData } : w))
       );
     } else {
       const newWorkout: WorkoutItem = { ...workoutData, id: `w-${Date.now()}` };
       if (newWorkout.day === dayOfWeekUpper || newWorkout.dateStr === todayDateStr) {
-        setTodaysWorkouts((prev) => [...prev, newWorkout]);
+        setFallbackWorkouts((prev) => [...prev, newWorkout]);
       }
     }
   };
 
   const handleDeleteWorkout = (workoutId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    setTodaysWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
+    setFallbackWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
   };
 
   const handleConfirmAdaptation = (type: string) => {
-    setTodaysWorkouts((prev) =>
+    setFallbackWorkouts((prev) =>
       prev.map((w) =>
         w.isCompleted ? w : { ...w, title: `${w.title} (Adapted - ${type})`, duration: '30 mins' }
       )

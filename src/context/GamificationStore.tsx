@@ -11,6 +11,7 @@ interface GamificationContextType {
   error: string | null;
   refreshGamification: () => Promise<void>;
   generateQuest: () => Promise<void>;
+  swapQuest: (questId?: number | string) => Promise<void>;
   claimQuest: (id: number | string) => void;
 }
 
@@ -68,12 +69,49 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
   const generateQuest = async () => {
     setLoading(true);
     try {
-      const newQuest = await gamificationApi.generateQuest();
-      if (newQuest) {
-        setQuests((prev) => [...prev, newQuest]);
+      // Check if user already has an active quest; if so, swap/refresh it instead of failing
+      const activeQuest = quests.find((q) => q.status === 'active');
+      if (activeQuest) {
+        await swapQuest(activeQuest.id);
+        return;
       }
-    } catch (err) {
-      console.error('Generate quest error:', err);
+
+      const res = await gamificationApi.generateQuest();
+      if (res && res.quest) {
+        setQuests((prev) => [res.quest, ...prev.filter((q) => q.id !== res.quest.id)]);
+      }
+      await refreshGamification();
+    } catch (err: any) {
+      console.error('Generate quest error:', err.message || err);
+      // If error indicates active quest exists, fallback to refresh
+      const activeQuest = quests.find((q) => q.status === 'active');
+      if (activeQuest && err.message?.includes('already have an active quest')) {
+        await swapQuest(activeQuest.id);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const swapQuest = async (questId?: number | string) => {
+    setLoading(true);
+    try {
+      const activeQ = quests.find((q) => q.status === 'active');
+      const targetId = questId || activeQ?.id || 0;
+      const res = await gamificationApi.refreshQuest(targetId);
+      if (res && res.quest) {
+        setQuests((prev) => [res.quest, ...prev.filter((q) => q.id !== res.quest.id && q.id !== targetId)]);
+      }
+      await refreshGamification();
+    } catch (err: any) {
+      console.warn('Swap quest warning:', err.message || err);
+      try {
+        const res = await gamificationApi.generateQuest();
+        if (res && res.quest) {
+          setQuests((prev) => [res.quest, ...prev.filter((q) => q.id !== res.quest.id)]);
+        }
+        await refreshGamification();
+      } catch (_) {}
     } finally {
       setLoading(false);
     }
@@ -109,6 +147,7 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
         error,
         refreshGamification,
         generateQuest,
+        swapQuest,
         claimQuest,
       }}
     >

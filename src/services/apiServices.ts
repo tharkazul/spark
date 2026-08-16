@@ -186,7 +186,15 @@ export const physiqueApi = {
 
 export const gamificationApi = {
   getGamificationData: () => apiClient<{ quests: Quest[]; titles: UserTitle[]; total_spark: number }>('/api/gamification'),
-  generateQuest: () => apiClient<Quest>('/api/gamification/generate_quest', { method: 'POST' }),
+  generateQuest: () => apiClient<{ success: boolean; quest: Quest }>('/api/gamification/generate_quest', { method: 'POST' }),
+  refreshQuest: (quest_id: number | string) =>
+    apiClient<{ success: boolean; quest: Quest }>('/api/gamification/refresh_quest', {
+      method: 'POST',
+      body: JSON.stringify({ quest_id }),
+    }),
+  generateTitle: () => apiClient<{ success: boolean; title: UserTitle }>('/api/gamification/generate_title', { method: 'POST' }),
+  equipTitle: (id: number | string) =>
+    apiClient<{ success: boolean; equipped: boolean; activeTitleId: any }>(`/api/titles/${id}/equip`, { method: 'POST' }),
 };
 
 export const healthApi = {

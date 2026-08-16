@@ -107,110 +107,94 @@ export function TodaysPlanCard({
   };
 
   return (
-    <Card className="p-4 md:p-5 border-theme-border mb-5">
-      {/* Header Bar matching Native Card design */}
-      <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
-        <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="calendar-outline" size={20} color="#FF5F3B" />
-          </View>
-          <View>
-            <View className="flex-row items-center gap-2">
-              <Text className="text-base font-extrabold text-theme-text">Today's Plan</Text>
-              <View className="bg-theme-accent px-2 py-0.5 rounded-full">
-                <Text className="text-[9px] font-extrabold text-white uppercase tracking-wider">Today</Text>
-              </View>
-            </View>
-            <Text className="text-[11px] text-theme-muted font-bold">{dateLabel} · {tempLabel}</Text>
-          </View>
+    <View className="mb-5">
+      {/* Header Bar */}
+      <View className="flex-row items-center justify-between mb-3 px-1">
+        <View className="flex-row items-center gap-2">
+          <Text className="text-base font-extrabold text-theme-text">Today's Plan</Text>
+          <Text className="text-xs text-theme-muted font-bold">· {tempLabel}</Text>
         </View>
 
         {/* Adapt Plan Action Trigger Button */}
         <TouchableOpacity
           onPress={handleAdapt}
           activeOpacity={0.7}
-          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
+          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
         >
-          <Ionicons name="flash-outline" size={13} color="#F97316" />
-          <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
+          <Ionicons name="flash-outline" size={13} color="#FF5F3B" />
+          <Text className="text-xs font-bold text-theme-accent">ADAPT</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Content Area */}
+      {/* Single-layer Workout Items */}
       {workouts.length === 0 ? (
-        <View className="p-5 rounded-2xl border border-theme-border bg-theme-bg/60 flex-col items-center justify-center gap-2">
-          <Ionicons name="moon-outline" size={24} color="#6F6F79" />
-          <Text className="text-sm font-bold text-theme-text">Rest & Recovery Day</Text>
-          <Text className="text-xs text-theme-muted text-center px-4 font-bold">
-            No structured sessions scheduled for today. Take time to stretch and refuel.
-          </Text>
-
+        <Card className="p-4 bg-theme-card flex-row items-center justify-between">
+          <View className="flex-row items-center gap-3 flex-1">
+            <View className="w-10 h-10 rounded-xl bg-gray-500/15 items-center justify-center">
+              <Ionicons name="moon-outline" size={20} color="#6F6F79" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-extrabold text-theme-text">Rest & Recovery Day</Text>
+              <Text className="text-xs text-theme-muted font-medium">Stretch, refuel and recover</Text>
+            </View>
+          </View>
           <TouchableOpacity
             onPress={handleAdd}
-            className="mt-2 flex-row items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-accent"
+            className="px-3 py-1.5 rounded-xl bg-theme-accent/15"
           >
-            <Ionicons name="add" size={16} color="#FFFFFF" />
-            <Text className="text-xs font-extrabold text-white">Log Extra Activity</Text>
+            <Text className="text-xs font-extrabold text-theme-accent">+ Log</Text>
           </TouchableOpacity>
-        </View>
+        </Card>
       ) : (
-        <View className="space-y-3">
+        <View className="space-y-2.5">
           {workouts.map((workout) => {
             const cfg = getDisciplineConfig(workout.type);
             const humanDuration = formatHumanDuration(workout.duration, workout.type);
 
             return (
-              <TouchableOpacity
+              <Card
                 key={workout.id}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  onSelectWorkout(workout);
-                }}
-                activeOpacity={0.75}
-                className={`p-4 rounded-2xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-bg/60 flex-col gap-2`}
+                className="p-3.5 bg-theme-card"
               >
-                {/* Top Line: Discipline Tag & Spark Score */}
-                <View className="flex-row items-center justify-between">
-                  <View className={`px-2.5 py-0.5 rounded-md ${cfg.bg} flex-row items-center gap-1.5`}>
-                    <Ionicons name={cfg.icon as any} size={13} color={cfg.badgeColor} />
-                    <Text className={`text-xs font-extrabold ${cfg.text}`}>{cfg.label}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    onSelectWorkout(workout);
+                  }}
+                  activeOpacity={0.75}
+                  className="flex-row items-center justify-between"
+                >
+                  {/* Left: Sport Icon + Title & Duration */}
+                  <View className="flex-row items-center gap-3 flex-1 mr-3">
+                    <View className={`w-10 h-10 rounded-xl ${cfg.bg} items-center justify-center`}>
+                      <Ionicons name={cfg.icon as any} size={20} color={cfg.badgeColor} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
+                        {workout.title}
+                      </Text>
+                      <Text className="text-xs text-theme-muted font-bold mt-0.5">
+                        {humanDuration} {workout.actualMetrics ? `· ${workout.actualMetrics}` : ''}
+                      </Text>
+                    </View>
                   </View>
 
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-xs font-mono font-bold text-theme-accent">
-                      +{Math.round(workout.sparkPoints || 0)} Spark
+                  {/* Right: Spark Points + Status */}
+                  <View className="items-end gap-1">
+                    <Text className="text-sm font-mono font-extrabold text-theme-accent">
+                      +{Math.round(workout.sparkPoints || 0)} ⚡
                     </Text>
-
-                    {workout.isCompleted && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                        <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                    {workout.isCompleted ? (
+                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                        <Ionicons name="checkmark-circle" size={10} color="#10B981" />
                         <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
                       </View>
+                    ) : (
+                      <Text className="text-[10px] text-theme-muted font-bold">Tap to edit</Text>
                     )}
                   </View>
-                </View>
-
-                {/* Workout Title */}
-                <Text className="text-sm font-extrabold text-theme-text leading-snug">{workout.title}</Text>
-
-                {/* Subline: Clean Human Metric Summary */}
-                <View className="flex-row items-center justify-between pt-1 border-t border-theme-border/50">
-                  <Text className="text-xs text-theme-muted font-bold">
-                    {humanDuration} · +{Math.round(workout.sparkPoints || 0)} Spark
-                  </Text>
-
-                  {workout.actualMetrics ? (
-                    <Text className="text-xs font-mono font-bold text-emerald-500">
-                      {workout.actualMetrics}
-                    </Text>
-                  ) : (
-                    <View className="flex-row items-center gap-1">
-                      <Text className="text-xs font-bold text-theme-accent">Tap to edit</Text>
-                      <Ionicons name="arrow-forward" size={12} color="#FF5F3B" />
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </Card>
             );
           })}
 
@@ -218,13 +202,13 @@ export function TodaysPlanCard({
           <TouchableOpacity
             onPress={handleAdd}
             activeOpacity={0.8}
-            className="w-full py-3 bg-theme-bg/60 border border-dashed border-theme-border rounded-2xl flex-row items-center justify-center gap-1.5 active:bg-theme-accent/10"
+            className="w-full py-2.5 bg-theme-card/60 rounded-xl flex-row items-center justify-center gap-1.5"
           >
-            <Ionicons name="add-circle-outline" size={16} color="#FF5F3B" />
+            <Ionicons name="add-circle-outline" size={15} color="#FF5F3B" />
             <Text className="text-xs font-extrabold text-theme-accent">+ Add Exercise</Text>
           </TouchableOpacity>
         </View>
       )}
-    </Card>
+    </View>
   );
 }

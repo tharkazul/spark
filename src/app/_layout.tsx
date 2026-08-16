@@ -44,8 +44,12 @@ function RootNavigation() {
     } else if (isAuthenticated) {
       if (isNewAthlete && !inOnboarding) {
         router.replace('/onboarding');
-      } else if (!isNewAthlete && (inAuthGroup || inOnboarding)) {
-        router.replace('/(tabs)');
+      } else if (!isNewAthlete) {
+        if (inAuthGroup || inOnboarding) {
+          router.replace('/(tabs)/coach');
+        } else if ((segments as string[]).length === 0 || (segments[0] === '(tabs)' && (segments as string[]).length === 1)) {
+          router.replace('/(tabs)/coach');
+        }
       }
     }
   }, [isAuthenticated, loading, segments, user]);

@@ -21,8 +21,8 @@ export function QuickActionsRow({
   };
 
   return (
-    <View className="mb-5">
-      <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2.5">
+    <View className="mb-6">
+      <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2.5 px-1">
         Quick Actions
       </Text>
 
@@ -30,37 +30,37 @@ export function QuickActionsRow({
         {/* + Activity */}
         <TouchableOpacity
           onPress={() => handlePress(onAddActivity)}
-          activeOpacity={0.7}
-          className="flex-1 bg-theme-card border border-amber-500/40 p-3 rounded-2xl items-center justify-center gap-1.5"
+          activeOpacity={0.75}
+          className="flex-1 bg-theme-card p-3 rounded-2xl flex-row items-center justify-center gap-2 shadow-xs"
         >
-          <View className="w-8 h-8 rounded-full bg-amber-500/15 items-center justify-center">
-            <Ionicons name="add" size={18} color="#F97316" />
+          <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
+            <Ionicons name="add" size={16} color="#FF5F3B" />
           </View>
-          <Text className="text-xs font-bold text-amber-500 mt-0.5">Activity</Text>
+          <Text className="text-xs font-bold text-theme-text">Activity</Text>
         </TouchableOpacity>
 
         {/* Weight Log */}
         <TouchableOpacity
           onPress={() => handlePress(onLogWeight)}
-          activeOpacity={0.7}
-          className="flex-1 bg-theme-card border border-amber-500/40 p-3 rounded-2xl items-center justify-center gap-1.5"
+          activeOpacity={0.75}
+          className="flex-1 bg-theme-card p-3 rounded-2xl flex-row items-center justify-center gap-2 shadow-xs"
         >
-          <View className="w-8 h-8 rounded-full bg-amber-500/15 items-center justify-center">
-            <Ionicons name="scale-outline" size={16} color="#F97316" />
+          <View className="w-7 h-7 rounded-lg bg-amber-500/15 items-center justify-center">
+            <Ionicons name="scale-outline" size={15} color="#F59E0B" />
           </View>
-          <Text className="text-xs font-bold text-amber-500 mt-0.5">Weight</Text>
+          <Text className="text-xs font-bold text-theme-text">Weight</Text>
         </TouchableOpacity>
 
-        {/* Injury */}
+        {/* Injury / Niggle */}
         <TouchableOpacity
           onPress={() => handlePress(onReportInjury)}
-          activeOpacity={0.7}
-          className="flex-1 bg-theme-card border border-rose-500/40 p-3 rounded-2xl items-center justify-center gap-1.5"
+          activeOpacity={0.75}
+          className="flex-1 bg-theme-card p-3 rounded-2xl flex-row items-center justify-center gap-2 shadow-xs"
         >
-          <View className="w-8 h-8 rounded-full bg-rose-500/15 items-center justify-center">
-            <Ionicons name="bandage-outline" size={16} color="#F43F5E" />
+          <View className="w-7 h-7 rounded-lg bg-rose-500/15 items-center justify-center">
+            <Ionicons name="bandage-outline" size={15} color="#F43F5E" />
           </View>
-          <Text className="text-xs font-bold text-rose-500 mt-0.5">Injury</Text>
+          <Text className="text-xs font-bold text-theme-text">Injury</Text>
         </TouchableOpacity>
       </View>
     </View>

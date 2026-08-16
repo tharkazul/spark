@@ -78,9 +78,10 @@ export function DashboardSharedHeader({ position }: { position: Animated.Animate
       style={{ paddingTop: insets.top }}
       onLayout={(e) => {
         const h = e.nativeEvent.layout.height;
-        console.log('[DEBUG] DashboardSharedHeader onLayout height:', h, 'insets.top:', insets.top);
         if (h > 0) {
-          setHeaderHeight(h);
+          requestAnimationFrame(() => {
+            setHeaderHeight(h);
+          });
         }
       }}
     >

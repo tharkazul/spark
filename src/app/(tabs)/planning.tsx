@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useUser } from '../../context/UserStore';
+import { usePlan } from '../../context/PlanStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
@@ -274,6 +275,8 @@ export default function PlanningScreen() {
     return [];
   };
 
+  const { plan, addWorkout: addPlanWorkout, updateWorkout: updatePlanWorkout, deleteWorkout: deletePlanWorkout } = usePlan();
+
   // Compute 7-Day Agenda Dynamically from weekStart
   const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
   const weeklyAgenda: DayAgenda[] = DAYS_HEADER.map((dayName, idx) => {
@@ -286,8 +289,27 @@ export default function PlanningScreen() {
     const isToday = dateYYYYMMDD === todayYYYYMMDD;
     const isPast = dayDate < todayMidnight;
 
+    const storeWorkoutsForDay = plan ? plan.filter((w) => w.date === dateYYYYMMDD || (isToday && (w.day === 'TODAY' || w.day === dayName))) : [];
+    const mappedStoreWorkouts: WorkoutItem[] = storeWorkoutsForDay.map((w) => ({
+      id: String(w.id),
+      day: w.day || dayName,
+      dateStr: dateStr,
+      type: (w.sport || 'RUN').toUpperCase() as any,
+      title: w.description || `${w.sport} Workout`,
+      duration: w.details || '45 mins',
+      sparkPoints: w.target_spark || 30,
+      isStructured: !!w.steps_json,
+      isCompleted: !!w.isCompleted,
+      actualMetrics: w.actualMetrics,
+      executionScore: w.executionScore,
+    }));
+
     const customWorkouts = customWorkoutsByDate[dateYYYYMMDD];
-    const workouts = customWorkouts !== undefined ? customWorkouts : getSampleWorkoutsForDay(dayName, dateStr, isPast);
+    const workouts = customWorkouts !== undefined 
+      ? customWorkouts 
+      : mappedStoreWorkouts.length > 0 
+      ? mappedStoreWorkouts 
+      : getSampleWorkoutsForDay(dayName, dateStr, isPast);
 
     return {
       dayName,

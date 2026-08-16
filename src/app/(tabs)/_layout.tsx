@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Animated } from 'react-native';
 import { withLayoutContext } from 'expo-router';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -11,10 +11,12 @@ import { HeaderLayoutProvider } from '../../context/HeaderLayoutContext';
 const { Navigator } = createMaterialTopTabNavigator();
 const MaterialTopTabs = withLayoutContext(Navigator);
 
-function TabBarWrapper({ props, setPagerPosition }: { props: any, setPagerPosition: (pos: any) => void }) {
+function TabBarWrapper({ props, onPosition }: { props: any, onPosition: (pos: any) => void }) {
   useEffect(() => {
-    setPagerPosition(props.position);
-  }, [props.position]);
+    if (props.position) {
+      onPosition(props.position);
+    }
+  }, [props.position, onPosition]);
   return <CustomTabBar {...props} />;
 }
 
@@ -22,12 +24,22 @@ export default function TabLayout() {
   const defaultPosition = useRef(new Animated.Value(0)).current;
   const [pagerPosition, setPagerPosition] = useState<Animated.AnimatedInterpolation<number> | null>(null);
 
+  const onPosition = useCallback((pos: any) => {
+    setPagerPosition((prev) => prev || pos);
+  }, []);
+
+  const renderTabBar = useCallback(
+    (props: any) => <TabBarWrapper props={props} onPosition={onPosition} />,
+    [onPosition]
+  );
+
   return (
     <HeaderLayoutProvider>
       <View className="flex-1 bg-theme-bg">
         <MaterialTopTabs
+          initialRouteName="coach"
           tabBarPosition="bottom"
-          tabBar={(props: any) => <TabBarWrapper props={props} setPagerPosition={setPagerPosition} />}
+          tabBar={renderTabBar}
           screenOptions={{
             swipeEnabled: true,
           }}

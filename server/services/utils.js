@@ -1458,12 +1458,50 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
             ],
             function (err) {
               if (err) return reject(err);
-              resolve(questData);
+              resolve({
+                id: this.lastID,
+                user_id: userId,
+                status: 'active',
+                current_value: 0,
+                ...questData,
+              });
             },
           );
         } catch (e) {
-          console.error("Failed to generate quest:", e);
-          resolve(null);
+          console.error("Failed to generate quest via AI, using fallback template:", e);
+          const fallbackQuest = {
+            description: "Log 10km total distance over the next 3 days",
+            target_metric: "distance_km",
+            target_value: 10,
+            target_sport: "Any",
+            is_accumulative: true,
+            reward_points: 50,
+          };
+          db.run(
+            `INSERT INTO user_quests (user_id, description, target_metric, target_value, target_sport, is_accumulative, reward_points, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+3 days'))`,
+            [
+              userId,
+              fallbackQuest.description,
+              fallbackQuest.target_metric,
+              fallbackQuest.target_value,
+              fallbackQuest.target_sport,
+              1,
+              fallbackQuest.reward_points,
+            ],
+            function (errInsert) {
+              if (errInsert) {
+                console.error("Fallback quest DB insert error:", errInsert);
+                return resolve(null);
+              }
+              resolve({
+                id: this.lastID,
+                user_id: userId,
+                status: 'active',
+                current_value: 0,
+                ...fallbackQuest,
+              });
+            }
+          );
         }
       },
     );

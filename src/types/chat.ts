@@ -44,6 +44,8 @@ export type ChatPayload = EventInvitePayload | SocialMentionPayload | WorkoutPro
 
 export interface ChatMessage {
   id: string | number;
+  clientId?: string;
+  tempId?: string;
   user_id?: number;
   role: 'user' | 'coach' | 'assistant';
   content: string;

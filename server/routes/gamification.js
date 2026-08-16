@@ -190,30 +190,59 @@ router.post(
     const userId = req.user.id;
     const { quest_id } = req.body;
 
-    db.get(
-      `SELECT * FROM user_quests WHERE id = ? AND user_id = ? AND status = 'active'`,
-      [quest_id, userId],
-      async (err, quest) => {
-        if (err || !quest) {
-          return res.status(404).json({ error: "Active quest not found or already completed." });
-        }
+    const findQuestQuery = quest_id
+      ? `SELECT * FROM user_quests WHERE user_id = ? AND status = 'active' AND id = ? LIMIT 1`
+      : `SELECT * FROM user_quests WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`;
+    const queryParams = quest_id ? [userId, quest_id] : [userId];
 
+    db.get(findQuestQuery, queryParams, async (err, quest) => {
+      if ((err || !quest) && quest_id) {
+        // Fallback: search for any active quest for this user if target quest_id was not found
+        return db.get(
+          `SELECT * FROM user_quests WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
+          [userId],
+          async (err2, fallbackQuest) => {
+            if (err2 || !fallbackQuest) {
+              // No active quest to void; generate a new quest directly
+              try {
+                const newQuest = await generateQuestForUser(userId, "common");
+                return res.json({ success: true, quest: newQuest });
+              } catch (e) {
+                return res.status(500).json({ error: "Failed to generate replacement quest" });
+              }
+            }
+            return doSwap(fallbackQuest);
+          }
+        );
+      }
+
+      if (!quest) {
+        // No active quest found; generate a new quest directly
         try {
-          // Mark old quest as replaced/void
-          db.run(`UPDATE user_quests SET status = 'void' WHERE id = ?`, [quest.id]);
-          // Generate easier quest using the common token pool
-          const newQuest = await generateQuestForUser(userId, "common", quest);
+          const newQuest = await generateQuestForUser(userId, "common");
+          return res.json({ success: true, quest: newQuest });
+        } catch (e) {
+          return res.status(500).json({ error: "Failed to generate replacement quest" });
+        }
+      }
+
+      doSwap(quest);
+
+      async function doSwap(targetQuest) {
+        try {
+          db.run(`UPDATE user_quests SET status = 'void' WHERE id = ?`, [targetQuest.id]);
+          const newQuest = await generateQuestForUser(userId, "common", targetQuest);
           if (!newQuest) {
-            return res.status(500).json({ error: "Failed to generate easier replacement quest" });
+            return res.status(500).json({ error: "Failed to generate replacement quest" });
           }
           newQuest.current_value = 0;
           res.json({ success: true, quest: newQuest });
         } catch (e) {
           console.error("Failed to refresh quest:", e);
-          res.status(500).json({ error: "Failed to generate easier replacement quest" });
+          res.status(500).json({ error: "Failed to generate replacement quest" });
         }
       }
-    );
+    });
   },
 );
 

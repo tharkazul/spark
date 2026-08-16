@@ -7,18 +7,19 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Keyboard,
   TextInput as RNTextInput,
   Image as RNImage,
-  KeyboardAvoidingView,
   Modal,
+  Animated,
   StyleSheet
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
+import { KeyboardAvoidingView, KeyboardEvents } from 'react-native-keyboard-controller';
 
 const getImageManipulator = () => {
   try {
@@ -31,6 +32,8 @@ const getImageManipulator = () => {
 import { useCoachChat } from '../../context/CoachChatStore';
 import { useUser } from '../../context/UserStore';
 import { usePlan } from '../../context/PlanStore';
+import { usePhysique } from '../../context/PhysiqueStore';
+import { useGamification } from '../../context/GamificationStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
@@ -40,9 +43,9 @@ import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { ChatMessage } from '../../types/chat';
 import { API_BASE_URL } from '../../constants/api';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
-import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
 import { useTabBar } from '../../context/TabBarContext';
 import { ChatMacroStrip } from '../../components/chat/ChatMacroStrip';
+import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
 
 interface ChatSection {
   title: string;
@@ -69,35 +72,56 @@ function formatDateHeader(dateObj: Date): string {
 }
 
 type ChatListItem = 
-  | { type: 'message'; data: ChatMessage; isFirstInRun: boolean }
+  | { type: 'message'; data: ChatMessage; isFirstInRun: boolean; isLastInRun: boolean }
   | { type: 'date'; title: string; id: string };
 
 function flattenMessagesChronological(messagesList: ChatMessage[]): ChatListItem[] {
   const items: ChatListItem[] = [];
   let currentDateKey = '';
-  let prevMsg: ChatMessage | null = null;
   
-  messagesList.forEach((msg, index) => {
+  const TIME_GAP_MS = 20 * 60 * 1000; // 20 minutes
+
+  for (let i = 0; i < messagesList.length; i++) {
+    const msg = messagesList[i];
+    const prevMsg = i > 0 ? messagesList[i - 1] : null;
+    const nextMsg = i < messagesList.length - 1 ? messagesList[i + 1] : null;
+
     const d = new Date(msg.timestamp || Date.now());
     const dateKey = isNaN(d.getTime()) ? 'today' : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-    
+
     if (dateKey !== currentDateKey) {
       currentDateKey = dateKey;
       items.push({ type: 'date', title: isNaN(d.getTime()) ? 'Today' : formatDateHeader(d), id: `date-${dateKey}` });
-      prevMsg = null;
     }
-    
-    const isFirstInRun = prevMsg === null || prevMsg.role !== msg.role;
-    items.push({ type: 'message', data: msg, isFirstInRun });
-    prevMsg = msg;
-  });
-  
+
+    let isFirstInRun = true;
+    if (prevMsg && prevMsg.role === msg.role) {
+      const prevDate = new Date(prevMsg.timestamp || Date.now());
+      const diffPrev = Math.abs(d.getTime() - prevDate.getTime());
+      if (diffPrev < TIME_GAP_MS) {
+        isFirstInRun = false;
+      }
+    }
+
+    let isLastInRun = true;
+    if (nextMsg && nextMsg.role === msg.role) {
+      const nextDate = new Date(nextMsg.timestamp || Date.now());
+      const diffNext = Math.abs(nextDate.getTime() - d.getTime());
+      if (diffNext < TIME_GAP_MS) {
+        isLastInRun = false;
+      }
+    }
+
+    items.push({ type: 'message', data: msg, isFirstInRun, isLastInRun });
+  }
+
   return items;
 }
 
 const MessageRow = React.memo(({
   item,
   isFirstInRun,
+  isLastInRun,
   coachTone,
   onAccept,
   onReject,
@@ -107,6 +131,7 @@ const MessageRow = React.memo(({
 }: {
   item: ChatMessage;
   isFirstInRun: boolean;
+  isLastInRun: boolean;
   coachTone?: string;
   onAccept: any;
   onReject: any;
@@ -186,13 +211,15 @@ const MessageRow = React.memo(({
           />
         ) : null}
 
-        <Text
-          className={`text-[10px] mt-1.5 self-end ${
-            isUser ? 'text-white/70' : 'text-theme-muted'
-          }`}
-        >
-          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
+        {isLastInRun && (
+          <Text
+            className={`text-[10px] mt-1.5 self-end ${
+              isUser ? 'text-white/70' : 'text-theme-muted'
+            }`}
+          >
+            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -203,116 +230,135 @@ export default function CoachScreen() {
   const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error } = useCoachChat();
   const { user, isChatMacroStripVisible, toggleChatMacroStrip } = useUser();
   const { plan } = usePlan();
+  const { nutrition, clearLoggedNutrition } = usePhysique();
   const insets = useSafeAreaInsets();
-  const { height, progress } = useKeyboardMotionContext();
   const { tabBarOccupied, notifyScroll } = useTabBar();
+  const router = useRouter();
+  const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
 
-  const [showWorkoutBar, setShowWorkoutBar] = useState(false);
+  const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
+  const [isNutritionModalOpen, setIsNutritionModalOpen] = useState(false);
+  const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
+  const [questLoading, setQuestLoading] = useState(false);
+
   const [inputText, setInputText] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  const BOTTOM_THRESHOLD = 80;
+
   const [previewImage, setPreviewImage] = useState<string | number | null>(null);
   const [showScrollDownBtn, setShowScrollDownBtn] = useState(false);
+
+  const [floatingDate, setFloatingDate] = useState<string>('');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<RNTextInput>(null);
 
-  const flatItems = useMemo(() => flattenMessagesChronological(messages), [messages]);
+  const isPinnedToBottom = useRef(true);
 
-  const stickyHeaderIndices = useMemo(() => {
-    const indices: number[] = [];
-    flatItems.forEach((item, index) => {
-      if (item.type === 'date') {
-        indices.push(index);
-      }
-    });
-    return indices;
-  }, [flatItems]);
-
-  const initialScrollDone = useRef(false);
-  const isUserScrolledUp = useRef(false);
-
-  const forceScrollToBottom = useCallback((animated = true) => {
-    try {
-      flatListRef.current?.scrollToEnd({ animated });
-      setTimeout(() => {
-        try {
-          flatListRef.current?.scrollToOffset({ offset: 9999999, animated });
-        } catch (_) {}
-      }, 80);
-      setTimeout(() => {
-        try {
-          flatListRef.current?.scrollToEnd({ animated });
-        } catch (_) {}
-      }, 200);
-    } catch (_) {}
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      isUserScrolledUp.current = false;
-      initialScrollDone.current = false;
-      setShowScrollDownBtn(false);
-      const t1 = setTimeout(() => forceScrollToBottom(false), 50);
-      const t2 = setTimeout(() => forceScrollToBottom(true), 150);
-      const t3 = setTimeout(() => forceScrollToBottom(true), 350);
-      const t4 = setTimeout(() => forceScrollToBottom(true), 600);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-        clearTimeout(t4);
-      };
-    }, [forceScrollToBottom])
+  // 1. DATA: reverse the flattened array
+  const flatItems = useMemo(
+    () => flattenMessagesChronological(messages).slice().reverse(),
+    [messages]
   );
 
-  const handleScroll = (event: any) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    if (contentSize.height <= 0) return;
-    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
-    const isScrolledUp = distanceFromBottom > 150;
-    isUserScrolledUp.current = isScrolledUp;
-    setShowScrollDownBtn(isScrolledUp);
-  };
+  // 2. SCROLL TO BOTTOM: offset 0 is newest message
+  const scrollToBottom = useCallback((animated = true) => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
+  }, []);
 
-  const handleContentSizeChange = () => {
-    if (!initialScrollDone.current) {
-      initialScrollDone.current = true;
-      forceScrollToBottom(false);
-      setTimeout(() => forceScrollToBottom(true), 100);
-      setTimeout(() => forceScrollToBottom(true), 300);
-    }
-  };
+  const showFloatingDate = useCallback(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
 
-  // Scroll to bottom whenever messages change (new user message or coach reply)
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    fadeTimer.current = setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }, 1200);
+  }, [fadeAnim]);
+
+  // 3. SCROLL HANDLER
+  const handleScroll = useCallback((event: any) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const atBottom = y <= BOTTOM_THRESHOLD;
+    isPinnedToBottom.current = atBottom;
+    setShowScrollDownBtn((prev) => (prev === !atBottom ? prev : !atBottom));
+    showFloatingDate();
+  }, [showFloatingDate]);
+
+  // 4. FOCUS
+  useFocusEffect(
+    useCallback(() => {
+      isPinnedToBottom.current = true;
+      setShowScrollDownBtn(false);
+      scrollToBottom(false);
+    }, [scrollToBottom])
+  );
+
+  // 5. NEW MESSAGE WHILE PINNED
+  const lastItemKey = flatItems[0]
+    ? (flatItems[0].type === 'date' ? flatItems[0].id : flatItems[0].data.id)
+    : null;
+
   useEffect(() => {
-    isUserScrolledUp.current = false;
-    const t1 = setTimeout(() => forceScrollToBottom(true), 50);
-    const t2 = setTimeout(() => forceScrollToBottom(true), 150);
-    const t3 = setTimeout(() => forceScrollToBottom(true), 350);
-    const t4 = setTimeout(() => forceScrollToBottom(true), 600);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
-  }, [messages.length, forceScrollToBottom]);
-
-  // Scroll when sending state toggles
-  useEffect(() => {
-    if (sending) {
-      isUserScrolledUp.current = false;
-      const t1 = setTimeout(() => forceScrollToBottom(true), 50);
-      const t2 = setTimeout(() => forceScrollToBottom(true), 200);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
+    if (lastItemKey && isPinnedToBottom.current) {
+      scrollToBottom(true);
     }
-  }, [sending, forceScrollToBottom]);
+  }, [lastItemKey, scrollToBottom]);
+
+  // 6. CONTENT PADDING — top and bottom swap for scaleY(-1)
+  const listContentStyle = useMemo(
+    () => ({
+      paddingHorizontal: 16,
+      paddingTop: 20,     // renders at visual bottom in inverted list
+      paddingBottom: 16,  // renders at visual top in inverted list
+    }),
+    []
+  );
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 10,
+  });
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: any[] }) => {
+    if (!viewableItems || viewableItems.length === 0) return;
+    // In an inverted list, highest index is at the visual top of the viewport
+    let topItem = viewableItems[0];
+    for (let i = 1; i < viewableItems.length; i++) {
+      if ((viewableItems[i].index ?? 0) > (topItem.index ?? 0)) {
+        topItem = viewableItems[i];
+      }
+    }
+
+    if (topItem && topItem.item) {
+      const it = topItem.item as ChatListItem;
+      if (it.type === 'date') {
+        setFloatingDate(it.title);
+      } else if (it.type === 'message' && it.data.timestamp) {
+        const d = new Date(it.data.timestamp);
+        if (!isNaN(d.getTime())) {
+          setFloatingDate(formatDateHeader(d));
+        }
+      }
+    }
+  });
+
+  const keyExtractor = useCallback((item: any, index: number) => {
+    if (item.type === 'date') return item.id;
+    const m = item.data;
+    return `msg-${m.clientId ?? m.id ?? m.tempId ?? `pending-${index}`}`;
+  }, []);
 
   const dailyUsage = tokenUsage?.daily_token_usage || 0;
   const dailyLimit = tokenUsage?.daily_token_limit || (user?.subscription_tier === 'spark_plus' ? 500000 : 100000);
@@ -383,6 +429,7 @@ export default function CoachScreen() {
     const rawText = textOverride !== undefined ? textOverride : inputText;
     const textToSend = rawText.trim();
     if ((!textToSend && selectedImages.length === 0) || sending) return;
+
     const imagesToSend = [...selectedImages];
 
     setInputText('');
@@ -391,25 +438,17 @@ export default function CoachScreen() {
     setShowSuggestions(false);
 
     sendMessage(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined);
-  };
 
-  const handleTextChange = (text: string) => {
-    if (text.includes('\n')) {
-      const cleanText = text.replace(/\n/g, '');
-      if (cleanText.trim().length > 0 || selectedImages.length > 0) {
-        handleSend(cleanText);
-        return;
-      }
-    }
-    setInputText(text);
+    isPinnedToBottom.current = true;
+    scrollToBottom(true);
   };
 
   const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
     if (item.type === 'date') {
       return (
-        <View className="py-2 items-center justify-center pointer-events-none">
-          <View className="bg-theme-card border border-theme-border px-4 py-1 rounded-full shadow-md">
-            <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">{item.title}</Text>
+        <View className="py-2.5 items-center justify-center pointer-events-none">
+          <View className="bg-theme-card/95 border border-theme-border/80 px-4 py-1 rounded-full shadow-xs">
+            <Text className="text-theme-muted text-[11px] font-bold tracking-wide">{item.title}</Text>
           </View>
         </View>
       );
@@ -418,6 +457,7 @@ export default function CoachScreen() {
       <MessageRow
         item={item.data}
         isFirstInRun={item.isFirstInRun}
+        isLastInRun={item.isLastInRun}
         coachTone={user?.coach_tone}
         onAccept={acceptProposal}
         onReject={rejectProposal}
@@ -434,7 +474,10 @@ export default function CoachScreen() {
     return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
   };
 
-  const lastCoachMessage = [...messages].reverse().find(m => m.role === 'coach' || m.role === 'assistant');
+  const lastCoachMessage = useMemo(
+    () => [...messages].reverse().find((m) => m.role === 'coach' || m.role === 'assistant'),
+    [messages]
+  );
   const rawMood = (lastCoachMessage?.role === 'coach' && lastCoachMessage?.mood) ? lastCoachMessage.mood.toLowerCase() : 'default';
   const lastMood = ['hype', 'disappointed'].includes(rawMood) ? rawMood : 'default';
   let coachAvatarPath = user?.coach_avatar_neutral;
@@ -445,10 +488,48 @@ export default function CoachScreen() {
     ? { uri: customAvatarUri } 
     : getCoachAvatarSource(user?.coach_tone, lastMood);
 
+  const primaryWorkout = todayWorkouts[0] || null;
+  const totalTodaySpark = todayWorkouts.reduce((acc, w) => acc + (w.target_spark || (w as any).sparkPoints || 0), 0);
+
+  const activeQuest = quests?.find((q) => q.status === 'active') || quests?.[0] || null;
+  const questProgressPercent = activeQuest
+    ? Math.min(100, Math.round(((activeQuest.progress || 0) / (activeQuest.target_value || 1)) * 100))
+    : 0;
+
+  const handleGenerateQuestInCoach = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setQuestLoading(true);
+    try {
+      if (activeQuest) {
+        await swapActiveQuest(activeQuest.id);
+        setIsQuestModalOpen(false);
+      } else {
+        await generateNewQuest();
+      }
+    } catch (err) {
+      console.error('Generate quest error in coach:', err);
+    } finally {
+      setQuestLoading(false);
+    }
+  };
+
+  const getSportIconConfig = (sport?: string) => {
+    const s = (sport || '').toUpperCase();
+    if (s.includes('RUN')) return { icon: 'walk-outline', color: '#D9A62E', bg: 'bg-[#D9A62E]/15' };
+    if (s.includes('BIKE') || s.includes('CYCL')) return { icon: 'bicycle-outline', color: '#4CAF6D', bg: 'bg-[#4CAF6D]/15' };
+    if (s.includes('SWIM')) return { icon: 'water-outline', color: '#2E8FE0', bg: 'bg-[#2E8FE0]/15' };
+    if (s.includes('STRENGTH')) return { icon: 'barbell-outline', color: '#B36AE0', bg: 'bg-[#B36AE0]/15' };
+    if (s.includes('MOBILITY')) return { icon: 'body-outline', color: '#2EBFAF', bg: 'bg-[#2EBFAF]/15' };
+    return { icon: 'flash-outline', color: '#FF5F3B', bg: 'bg-theme-accent/15' };
+  };
+
+  const now = new Date();
+  const dateBadgeStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         keyboardVerticalOffset={0}
         className="flex-1"
       >
@@ -489,42 +570,368 @@ export default function CoachScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* Header bar matching spark/ with top toggle action buttons */}
-      <View className="px-4 py-3 border-b border-theme-border/50 bg-theme-bg z-10 flex-row items-center justify-between">
+      {/* Workout Detail Sheet Modal */}
+      <Modal
+        visible={isWorkoutModalOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsWorkoutModalOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setIsWorkoutModalOpen(false)}
+          className="flex-1 bg-black/60 justify-end"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            className="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+          >
+            <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center gap-3">
+                <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
+                  <Ionicons
+                    name={getSportIconConfig(primaryWorkout?.sport).icon as any}
+                    size={24}
+                    color={getSportIconConfig(primaryWorkout?.sport).color}
+                  />
+                </View>
+                <View>
+                  <Text className="text-lg font-black text-theme-text">
+                    {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
+                  </Text>
+                  <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
+                </View>
+              </View>
+              {totalTodaySpark > 0 ? (
+                <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
+                  <Text className="text-sm font-mono font-extrabold text-theme-accent">
+                    +{Math.round(totalTodaySpark)} Total Spark
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {todayWorkouts.length > 0 ? (
+              <View className="space-y-3 mb-5">
+                {todayWorkouts.map((w, idx) => {
+                  const cfg = getSportIconConfig(w.sport);
+                  return (
+                    <View key={`modal-w-${idx}`} className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60">
+                      {/* Top Sport Line */}
+                      <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
+                        <View className="flex-row items-center gap-2">
+                          <View className={`w-7 h-7 rounded-lg ${cfg.bg} items-center justify-center`}>
+                            <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
+                          </View>
+                          <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
+                        </View>
+                        {w.target_spark ? (
+                          <View className="bg-theme-accent/15 px-2.5 py-0.5 rounded-full">
+                            <Text className="text-xs font-mono font-extrabold text-theme-accent">
+                              +{Math.round(w.target_spark)}⚡
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      {/* Workout Title / Name */}
+                      {w.description ? (
+                        <Text className="text-sm font-extrabold text-theme-text mb-1.5 leading-snug">
+                          {w.description}
+                        </Text>
+                      ) : null}
+
+                      {/* Workout Focus / Instructions (Normal weight, clean wrapping) */}
+                      {w.details ? (
+                        <Text className="text-xs text-theme-muted font-normal leading-relaxed">
+                          {w.details}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
+                <Ionicons name="moon-outline" size={28} color="#6F6F79" />
+                <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
+                <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
+              </View>
+            )}
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => {
+                  setIsWorkoutModalOpen(false);
+                  router.push('/(tabs)/planning');
+                }}
+                className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
+              >
+                <Ionicons name="calendar-outline" size={16} color="#FF5F3B" />
+                <Text className="text-xs font-extrabold text-theme-accent">View Full Plan</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsWorkoutModalOpen(false)}
+                className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+              >
+                <Text className="text-xs font-black text-white">Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Nutrition Detail Sheet Modal (Live & Functional matching Progress Page) */}
+      <Modal
+        visible={isNutritionModalOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsNutritionModalOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setIsNutritionModalOpen(false)}
+          className="flex-1 bg-black/60 justify-end"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            className="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[85%]"
+          >
+            <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center gap-3">
+                <View className="w-12 h-12 rounded-2xl bg-emerald-500/15 items-center justify-center">
+                  <Ionicons name="restaurant-outline" size={24} color="#10B981" />
+                </View>
+                <View>
+                  <Text className="text-lg font-black text-theme-text">Today's Fueling Plan</Text>
+                  <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Targets</Text>
+                </View>
+              </View>
+              {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      await clearLoggedNutrition();
+                    } catch (e) {
+                      console.error('Failed to clear nutrition:', e);
+                    }
+                  }}
+                  className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border/50"
+                >
+                  <Ionicons name="refresh-outline" size={12} color="#94A3B8" />
+                  <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Rationale Banner */}
+            <View className="p-3.5 bg-emerald-500/10 rounded-2xl mb-4 border border-emerald-500/20">
+              <Text className="text-xs font-bold text-emerald-500 mb-0.5">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
+              <Text className="text-xs text-theme-text/80 leading-relaxed font-normal">{nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}</Text>
+            </View>
+
+            {/* 3 Live Macro Rings Row */}
+            <View className="bg-theme-bg/60 p-4 rounded-2xl border border-theme-border/60 mb-4 flex-row justify-around items-center">
+              <MacroRingGauge
+                label="Carbs"
+                target={nutrition?.carbsTarget || 280}
+                logged={nutrition?.loggedCarbs || 0}
+                size={88}
+              />
+              <MacroRingGauge
+                label="Protein"
+                target={nutrition?.proteinTarget || 200}
+                logged={nutrition?.loggedProtein || 0}
+                size={88}
+              />
+              <MacroRingGauge
+                label="Fat"
+                target={nutrition?.fatTarget || 80}
+                logged={nutrition?.loggedFat || 0}
+                size={88}
+              />
+            </View>
+
+
+
+            <TouchableOpacity
+              onPress={() => setIsNutritionModalOpen(false)}
+              className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center mt-2"
+            >
+              <Text className="text-xs font-black text-white">Got it</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Quest Detail Sheet Modal */}
+      <Modal
+        visible={isQuestModalOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsQuestModalOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setIsQuestModalOpen(false)}
+          className="flex-1 bg-black/60 justify-end"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            className="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+          >
+            <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center gap-3">
+                <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
+                  <Ionicons name="trophy" size={26} color="#F97316" />
+                </View>
+                <View>
+                  <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+                  <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
+                </View>
+              </View>
+              <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
+                <Text className="text-sm font-mono font-extrabold text-amber-500">
+                  +{Math.round(activeQuest?.reward_points || 0)} Spark
+                </Text>
+              </View>
+            </View>
+
+            <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
+              <Text className="text-sm font-bold text-theme-text leading-relaxed">
+                {activeQuest?.description || 'Complete your active challenges this week to earn bonus Spark points.'}
+              </Text>
+            </View>
+
+            <View className="mb-6">
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+                  Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
+                </Text>
+                <Text className="text-sm font-mono font-bold text-amber-500">
+                  {questProgressPercent}%
+                </Text>
+              </View>
+              <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
+                <View
+                  className="h-full bg-amber-500 rounded-full"
+                  style={{ width: `${questProgressPercent}%` }}
+                />
+              </View>
+            </View>
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={handleGenerateQuestInCoach}
+                disabled={questLoading}
+                className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
+              >
+                {questLoading ? (
+                  <ActivityIndicator size="small" color="#F97316" />
+                ) : (
+                  <>
+                    <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                    <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsQuestModalOpen(false)}
+                className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+              >
+                <Text className="text-xs font-black text-white">Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Header bar with Avatar, Status, and Date */}
+      <View className="px-4 pt-3 pb-1.5 bg-theme-bg z-10 flex-row items-center justify-between">
         <View className="flex-row items-center flex-1 mr-2">
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => setPreviewImage(avatarSource)}
-            className="w-9 h-9 rounded-full bg-theme-bg overflow-hidden mr-3 border border-theme-accent/40 shadow-sm items-center justify-center"
+            className="w-9 h-9 rounded-full bg-theme-bg overflow-hidden mr-2.5 border border-theme-accent/40 shadow-sm items-center justify-center"
           >
             <RNImage source={avatarSource} style={{ width: 36, height: 36, borderRadius: 18 }} resizeMode="cover" />
           </TouchableOpacity>
-          <View className="flex-row items-center">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
+          <View className="flex-row items-center space-x-1.5">
+            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-1.5" />
             <Text className="text-theme-text text-base font-black">Spark</Text>
           </View>
         </View>
 
-        {/* Top Header Toggle Buttons (Today's Plan & Diet Rings) */}
-        <View className="flex-row items-center space-x-2">
-          <TouchableOpacity
-            onPress={() => setShowWorkoutBar(!showWorkoutBar)}
-            className={`px-2.5 py-1 rounded-full border flex-row items-center ${
-              showWorkoutBar ? 'bg-theme-accent/20 border-theme-accent' : 'bg-theme-card border-theme-border'
-            }`}
-          >
-            <Text className="text-[11px] font-bold text-theme-text">🏃 Plan</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => toggleChatMacroStrip?.()}
-            className={`px-2.5 py-1 rounded-full border flex-row items-center ${
-              isChatMacroStripVisible ? 'bg-theme-accent/20 border-theme-accent' : 'bg-theme-card border-theme-border'
-            }`}
-          >
-            <Text className="text-[11px] font-bold text-theme-text">🥗 Rings</Text>
-          </TouchableOpacity>
+        {/* Header Right: Date Pill */}
+        <View className="bg-theme-card px-3 py-1.5 rounded-full border border-theme-border flex-row items-center gap-1.5">
+          <Ionicons name="calendar-outline" size={12} color="#FF5F3B" />
+          <Text className="text-xs font-bold text-theme-text">{dateBadgeStr}</Text>
         </View>
+      </View>
+
+      {/* Option A Docked Glanceable Telemetry Micro-Pill Strip (Equal Width flex-1) */}
+      <View className="px-4 pb-2.5 pt-0.5 bg-theme-bg border-b border-theme-border/40 flex-row items-center gap-2">
+        {/* 1. Workout Micro-Pill */}
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.selectionAsync();
+            setIsWorkoutModalOpen(true);
+          }}
+          activeOpacity={0.75}
+          className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+        >
+          <Ionicons
+            name={getSportIconConfig(primaryWorkout?.sport).icon as any}
+            size={14}
+            color={getSportIconConfig(primaryWorkout?.sport).color}
+          />
+          <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
+            {primaryWorkout?.sport || 'Rest'}
+          </Text>
+          {primaryWorkout?.target_spark ? (
+            <Text className="text-[11px] font-mono font-extrabold text-theme-accent">
+              +{Math.round(primaryWorkout.target_spark)}⚡
+            </Text>
+          ) : null}
+        </TouchableOpacity>
+
+        {/* 2. Nutrition Micro-Pill */}
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.selectionAsync();
+            setIsNutritionModalOpen(true);
+          }}
+          activeOpacity={0.75}
+          className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+        >
+          <Ionicons name="nutrition-outline" size={14} color="#10B981" />
+          <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
+            Nutrition
+          </Text>
+        </TouchableOpacity>
+
+        {/* 3. Quest Micro-Pill */}
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.selectionAsync();
+            setIsQuestModalOpen(true);
+          }}
+          activeOpacity={0.75}
+          className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+        >
+          <Ionicons name="trophy" size={13} color="#F97316" />
+          <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
+            Quest
+          </Text>
+          <Text className="text-[11px] font-mono font-extrabold text-amber-500">
+            {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Low Token Budget Warning Banner */}
@@ -544,36 +951,23 @@ export default function CoachScreen() {
         </View>
       ) : null}
 
-      {/* TOP SECTION: Today's Workout Bar & Diet Macro Rings */}
-      {showWorkoutBar ? (
-        <View className="px-4 py-3 bg-theme-card border-b border-theme-border flex-col">
-          <View className="flex-row items-center justify-between mb-1.5">
-            <Text className="text-xs font-black uppercase text-theme-accent tracking-wider">🏃 Today's Workout</Text>
-          </View>
-          {todayWorkouts.length > 0 ? (
-            todayWorkouts.map((w, idx) => (
-              <View key={`today-w-${idx}`} className="p-2 rounded-lg bg-theme-bg border border-theme-border/50 mb-1 flex-row items-center justify-between">
-                <Text className="text-theme-text text-xs font-bold">{w.sport} • {w.description}</Text>
-                {w.target_spark ? <Text className="text-amber-400 font-bold font-rajdhani text-xs">+{Math.round(w.target_spark)} Spark</Text> : null}
-              </View>
-            ))
-          ) : (
-            <Text className="text-theme-muted text-xs">No workouts scheduled for today.</Text>
-          )}
-        </View>
-      ) : null}
-
-      {isChatMacroStripVisible ? (
-        <View className="bg-theme-card border-b border-theme-border py-2 px-3">
-          <ChatMacroStrip
-            isVisible={true}
-            onToggle={toggleChatMacroStrip || (() => {})}
-          />
-        </View>
-      ) : null}
-
       {/* CHAT MESSAGES STREAM */}
-      <View className="flex-1">
+      <View className="flex-1 relative">
+        {/* Floating Date Pill (Telegram/WhatsApp style) */}
+        {floatingDate ? (
+          <Animated.View
+            pointerEvents="none"
+            style={{ opacity: fadeAnim }}
+            className="absolute top-2 self-center z-40"
+          >
+            <View className="bg-theme-card/95 border border-theme-border/80 px-3.5 py-1 rounded-full shadow-md">
+              <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">
+                {floatingDate}
+              </Text>
+            </View>
+          </Animated.View>
+        ) : null}
+
         {loading && messages.length === 0 ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color="#16ACBD" />
@@ -583,30 +977,50 @@ export default function CoachScreen() {
           <FlatList
             ref={flatListRef}
             data={flatItems}
-            keyExtractor={(item: any, index: number) => item.type === 'date' ? item.id : `msg-${item.data.id || index}`}
-            inverted={false}
-            stickyHeaderIndices={stickyHeaderIndices}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            inverted
             onScroll={handleScroll}
             scrollEventThrottle={16}
-            onContentSizeChange={handleContentSizeChange}
+            onScrollBeginDrag={notifyScroll}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={11}
+            removeClippedSubviews={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-            renderItem={renderItem}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 }}
-            onScrollBeginDrag={notifyScroll}
+            contentContainerStyle={listContentStyle}
             className="flex-1"
+            onViewableItemsChanged={onViewableItemsChanged.current}
+            viewabilityConfig={viewabilityConfig.current}
           />
         )}
+
+        {/* Un-inlined floating typing indicator (does not steal height or jump list) */}
+        {sending ? (
+          <View
+            pointerEvents="none"
+            className="absolute bottom-3 left-4 z-30 px-4 py-2 flex-row items-center bg-theme-card/95 rounded-full border border-theme-border shadow-md"
+          >
+            <ActivityIndicator size="small" color="#16ACBD" />
+            <Text className="text-theme-accent text-xs font-semibold ml-2">
+              {t('chat.thinking')}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Floating Scroll-Down-to-Bottom Button */}
         {showScrollDownBtn ? (
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => forceScrollToBottom(true)}
+            onPress={() => {
+              Haptics.selectionAsync();
+              scrollToBottom(true);
+            }}
             className="absolute bottom-3 right-4 z-40 bg-theme-accent w-10 h-10 rounded-full shadow-lg items-center justify-center"
             style={{
               elevation: 8,
-              shadowColor: '#FF5A1F',
+              shadowColor: '#FF5F3B',
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.4,
               shadowRadius: 6,
@@ -615,19 +1029,12 @@ export default function CoachScreen() {
             <Ionicons name="chevron-down" size={22} color="white" />
           </TouchableOpacity>
         ) : null}
-
-        {sending ? (
-          <View className="px-4 py-2 flex-row items-center self-start mb-2 ml-4 bg-theme-card/80 rounded-full border border-theme-border">
-            <ActivityIndicator size="small" color="#16ACBD" />
-            <Text className="text-theme-accent text-xs font-semibold ml-2">{t('chat.thinking')}</Text>
-          </View>
-        ) : null}
       </View>
 
       {/* Bottom Input Area */}
       <View 
         style={{ paddingBottom: Math.max(tabBarOccupied + 12, 100) }}
-        className="p-3 bg-theme-bg border-t border-theme-border/60"
+        className="p-3 bg-theme-bg"
       >
         {showSuggestions ? (
           <View className="mb-2">
@@ -666,13 +1073,8 @@ export default function CoachScreen() {
               placeholder="Ask about your training, nutrition, or recovery..."
               placeholderTextColor="#8E8E93"
               value={inputText}
-              onChangeText={handleTextChange}
-              onKeyPress={(e) => {
-                if (e.nativeEvent.key === 'Enter') {
-                  handleSend();
-                }
-              }}
-              multiline={true}
+              onChangeText={setInputText}
+              multiline={false}
               blurOnSubmit={false}
               returnKeyType="send"
               enterKeyHint="send"
@@ -705,11 +1107,17 @@ export default function CoachScreen() {
               <TouchableOpacity
                 onPress={() => handleSend()}
                 disabled={sending || (!inputText.trim() && selectedImages.length === 0)}
-                className={`w-9 h-9 rounded-full items-center justify-center shadow-sm ${
-                  sending || (!inputText.trim() && selectedImages.length === 0) ? 'bg-theme-accent/40' : 'bg-theme-accent'
+                className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${
+                  sending || (!inputText.trim() && selectedImages.length === 0)
+                    ? 'bg-theme-bg/60 border-theme-border opacity-50'
+                    : 'bg-amber-500/15 border-amber-500/40'
                 }`}
               >
-                <Ionicons name="send" size={15} color="white" />
+                <Ionicons
+                  name="send"
+                  size={15}
+                  color={sending || (!inputText.trim() && selectedImages.length === 0) ? '#8E8E93' : '#F97316'}
+                />
               </TouchableOpacity>
             </View>
           </View>

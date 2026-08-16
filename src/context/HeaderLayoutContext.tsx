@@ -12,9 +12,21 @@ const HeaderLayoutContext = createContext<HeaderLayoutContextType>({
 
 export const HeaderLayoutProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [headerHeight, setHeaderHeightState] = useState(140);
+  const isMountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const setHeaderHeight = useCallback((h: number) => {
-    setHeaderHeightState((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+    requestAnimationFrame(() => {
+      if (isMountedRef.current) {
+        setHeaderHeightState((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+      }
+    });
   }, []);
 
   return (

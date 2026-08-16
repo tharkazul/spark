@@ -145,6 +145,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
+      clientId: `c-user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       content: text,
       role: 'user',
       timestamp: new Date().toISOString(),
@@ -159,6 +160,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       if (res && res.reply) {
         const coachMsg: ChatMessage = processMessageItem({
           id: `coach-${Date.now()}`,
+          clientId: `c-coach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           content: res.reply,
           role: 'coach',
           mood: res.mood || 'default',
@@ -178,6 +180,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       setError(null);
       const fallbackCoachMsg: ChatMessage = processMessageItem({
         id: `coach-fallback-${Date.now()}`,
+        clientId: `c-fallback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         content: `I got your message! I'm processing your workout data right now. Feel free to ask me anything else about your training or recovery! 🚀`,
         role: 'coach',
         timestamp: new Date().toISOString(),

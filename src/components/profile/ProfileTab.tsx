@@ -59,39 +59,42 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const handleGenerateTitle = async () => {
     setGeneratingTitle(true);
     try {
-      const newQuest = await gamificationApi.generateQuest();
-      const newTitleName = `✨ ${newQuest?.title || 'Master Athlete'}`;
-      const newTitleObj: UserTitle = {
-        id: Date.now(),
-        title_name: newTitleName,
-        is_equipped: 0,
-        unlocked_at: new Date().toISOString(),
-      };
-      setTitles((prev) => [...prev, newTitleObj]);
-      Alert.alert('New Title Generated!', `Unlocked: ${newTitleName}`);
-    } catch (err: any) {
-      Alert.alert('Title Generated', 'Unlocked: 🏆 Endurance Legend!');
-      setTitles((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          title_name: '🏆 Endurance Legend',
-          is_equipped: 0,
+      const res = await gamificationApi.generateTitle();
+      if (res && res.title) {
+        const titleData = res.title;
+        const newTitleObj: UserTitle = {
+          id: titleData.id || Date.now(),
+          title_name: titleData.title || titleData.title_name || 'Master Athlete',
+          description: titleData.description,
+          is_equipped: (titleData as any).is_active || (titleData as any).is_equipped ? 1 : 0,
           unlocked_at: new Date().toISOString(),
-        },
-      ]);
+        };
+        setTitles((prev) => [newTitleObj, ...prev]);
+        Alert.alert('New Title Generated!', `Unlocked: ${newTitleObj.title_name}`);
+      } else {
+        await fetchTitles();
+      }
+    } catch (err: any) {
+      console.error('Title generation error:', err.message || err);
+      Alert.alert('Error', 'Failed to generate new title. Please try again.');
     } finally {
       setGeneratingTitle(false);
     }
   };
 
-  const handleEquipTitle = (id: number | string) => {
-    setTitles((prev) =>
-      prev.map((t) => ({
-        ...t,
-        is_equipped: t.id === id ? 1 : 0,
-      }))
-    );
+  const handleEquipTitle = async (id: number | string) => {
+    try {
+      setTitles((prev) =>
+        prev.map((t) => ({
+          ...t,
+          is_equipped: t.id === id ? (t.is_equipped ? 0 : 1) : 0,
+        }))
+      );
+      await gamificationApi.equipTitle(id);
+      await fetchTitles();
+    } catch (err: any) {
+      console.error('Equip title error:', err.message || err);
+    }
   };
 
   return (
