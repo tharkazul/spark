@@ -109,7 +109,6 @@ export default function ProfileScreen() {
   // Garmin handlers
   const handleConnectGarmin = async () => {
     if (!garminUser.trim() || !garminPass.trim()) {
-      Alert.alert('Error', 'Please enter both your Garmin username and password.');
       return;
     }
     setGarminLoading(true);
@@ -121,49 +120,36 @@ export default function ProfileScreen() {
       await refreshUser();
       setGarminUser('');
       setGarminPass('');
-      Alert.alert('Garmin Connected', res.message || 'Garmin credentials saved successfully!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setGarminModalVisible(false);
     } catch (err: any) {
-      Alert.alert('Garmin Error', err.message || 'Failed to save Garmin credentials.');
+      console.error('Garmin connect error:', err);
     } finally {
       setGarminLoading(false);
     }
   };
 
   const handleDisconnectGarmin = async () => {
-    Alert.alert(
-      'Disconnect Garmin',
-      'Are you sure you want to disconnect Garmin? This will stop Spark from pushing structured workouts to your watch.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: async () => {
-            setGarminLoading(true);
-            try {
-              await integrationsApi.disconnectGarmin();
-              await refreshUser();
-              Alert.alert('Disconnected', 'Garmin disconnected successfully.');
-              setGarminModalVisible(false);
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to disconnect Garmin.');
-            } finally {
-              setGarminLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    setGarminLoading(true);
+    try {
+      await integrationsApi.disconnectGarmin();
+      await refreshUser();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setGarminModalVisible(false);
+    } catch (err: any) {
+      console.error('Garmin disconnect error:', err);
+    } finally {
+      setGarminLoading(false);
+    }
   };
 
   const handleSyncGarmin = async () => {
     setGarminLoading(true);
     try {
       await syncGarmin();
-      Alert.alert('Garmin Sync', 'Garmin sync completed successfully!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Sync Error', err.message || 'Garmin sync failed.');
+      console.error('Garmin sync error:', err);
     } finally {
       setGarminLoading(false);
     }
@@ -190,17 +176,15 @@ export default function ProfileScreen() {
           if (match) code = match[1];
         }
         if (code) {
-          const res = await integrationsApi.exchangeStravaCode(code);
+          await integrationsApi.exchangeStravaCode(code);
           await refreshUser();
           await refreshActivities();
-          Alert.alert('Strava Connected', res.message || 'Strava connected successfully!');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setStravaModalVisible(false);
-        } else {
-          Alert.alert('Strava Error', 'No authorization code returned from Strava.');
         }
       }
     } catch (err: any) {
-      Alert.alert('Strava Error', err.message || 'Failed to complete Strava OAuth.');
+      console.error('Strava OAuth error:', err);
     } finally {
       setStravaLoading(false);
     }
@@ -208,58 +192,44 @@ export default function ProfileScreen() {
 
   const handleSaveStravaManualToken = async () => {
     if (!stravaRefreshToken.trim()) {
-      Alert.alert('Error', 'Please enter a valid Strava refresh token.');
       return;
     }
     setStravaLoading(true);
     try {
-      const res = await integrationsApi.saveStravaRefreshToken(stravaRefreshToken.trim());
+      await integrationsApi.saveStravaRefreshToken(stravaRefreshToken.trim());
       await refreshUser();
       await refreshActivities();
       setStravaRefreshToken('');
-      Alert.alert('Strava Connected', res.message || 'Strava token saved successfully!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setStravaModalVisible(false);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save Strava token.');
+      console.error('Strava token save error:', err);
     } finally {
       setStravaLoading(false);
     }
   };
 
   const handleDisconnectStrava = async () => {
-    Alert.alert(
-      'Disconnect Strava',
-      'Are you sure you want to disconnect Strava?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Disconnect',
-          style: 'destructive',
-          onPress: async () => {
-            setStravaLoading(true);
-            try {
-              await integrationsApi.disconnectStrava();
-              await refreshUser();
-              Alert.alert('Disconnected', 'Strava disconnected successfully.');
-              setStravaModalVisible(false);
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to disconnect Strava.');
-            } finally {
-              setStravaLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    setStravaLoading(true);
+    try {
+      await integrationsApi.disconnectStrava();
+      await refreshUser();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setStravaModalVisible(false);
+    } catch (err: any) {
+      console.error('Strava disconnect error:', err);
+    } finally {
+      setStravaLoading(false);
+    }
   };
 
   const handleSyncStrava = async () => {
     setStravaLoading(true);
     try {
       await syncStrava();
-      Alert.alert('Strava Sync', 'Strava activities synced successfully!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Sync Error', err.message || 'Strava sync failed.');
+      console.error('Strava sync error:', err);
     } finally {
       setStravaLoading(false);
     }

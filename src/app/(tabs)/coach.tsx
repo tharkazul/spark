@@ -40,6 +40,7 @@ import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownT
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { EventInviteCard } from '../../components/chat/EventInviteCard';
 import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
+import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { ChatMessage } from '../../types/chat';
 import { API_BASE_URL } from '../../constants/api';
 import { hasSubscriptionTier } from '../../utils/permissions';
@@ -404,7 +405,6 @@ export default function CoachScreen() {
   const handlePickImage = async () => {
     try {
       if (!ImagePicker || typeof ImagePicker.launchImageLibraryAsync !== 'function') {
-        Alert.alert('Image Attachment', 'Image picker is not supported on this device/environment.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -435,7 +435,6 @@ export default function CoachScreen() {
       }
     } catch (error) {
       console.error('Image processing error:', error);
-      Alert.alert('Notice', 'Image attachment or compression failed.');
     }
   };
 
@@ -444,12 +443,12 @@ export default function CoachScreen() {
   };
 
   const handleToggleVoiceInput = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (isRecording) {
       setIsRecording(false);
       setInputText((prev) => (prev ? `${prev} (voice input completed)` : "My calf is feeling a bit tight today."));
     } else {
       setIsRecording(true);
-      Alert.alert('Voice Recording Activated', 'Speak now... (Tap mic again to finish dictation)', [{ text: 'OK' }]);
     }
   };
 

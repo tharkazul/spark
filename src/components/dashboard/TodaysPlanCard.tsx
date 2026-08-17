@@ -119,7 +119,7 @@ export function TodaysPlanCard({
         <TouchableOpacity
           onPress={handleAdapt}
           activeOpacity={0.7}
-          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm"
+          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
           <Ionicons name="flash-outline" size={13} color="#FF5F3B" />
           <Text className="text-xs font-bold text-theme-accent">ADAPT</Text>
@@ -135,20 +135,27 @@ export function TodaysPlanCard({
             </View>
             <View className="flex-1">
               <Text className="text-sm font-extrabold text-theme-text">Rest & Recovery Day</Text>
-              <Text className="text-xs text-theme-muted font-medium">Stretch, refuel and recover</Text>
+              <Text className="text-xs text-theme-muted font-medium">Stretch, hydrate and absorb recent training</Text>
             </View>
           </View>
-          <TouchableOpacity
-            onPress={handleAdd}
-            className="px-3 py-1.5 rounded-xl bg-theme-accent/15"
-          >
-            <Text className="text-xs font-extrabold text-theme-accent">+ Log</Text>
-          </TouchableOpacity>
+          <View className="items-end gap-1">
+            <Text className="text-sm font-mono font-extrabold text-theme-muted">0 ⚡</Text>
+            <TouchableOpacity
+              onPress={handleAdd}
+              className="px-2.5 py-1 rounded-lg bg-theme-accent/15"
+            >
+              <Text className="text-[10px] font-extrabold text-theme-accent">+ Log</Text>
+            </TouchableOpacity>
+          </View>
         </Card>
       ) : (
         <View className="space-y-2.5">
           {workouts.map((workout) => {
-            const cfg = getDisciplineConfig(workout.type);
+            const isRest = workout.type === 'REST' || 
+                           (workout.title || '').toLowerCase().includes('rest') || 
+                           (workout.title || '').toLowerCase().includes('recovery');
+            const sparkVal = isRest ? 0 : Math.round(workout.sparkPoints || 0);
+            const cfg = getDisciplineConfig(isRest ? 'REST' : workout.type);
             const humanDuration = formatHumanDuration(workout.duration, workout.type);
 
             return (
@@ -174,15 +181,15 @@ export function TodaysPlanCard({
                         {workout.title}
                       </Text>
                       <Text className="text-xs text-theme-muted font-bold mt-0.5">
-                        {humanDuration} {workout.actualMetrics ? `· ${workout.actualMetrics}` : ''}
+                        {isRest ? 'Rest & Absorb Training' : humanDuration} {workout.actualMetrics ? `· ${workout.actualMetrics}` : ''}
                       </Text>
                     </View>
                   </View>
 
                   {/* Right: Spark Points + Status */}
                   <View className="items-end gap-1">
-                    <Text className="text-sm font-mono font-extrabold text-theme-accent">
-                      +{Math.round(workout.sparkPoints || 0)} ⚡
+                    <Text className={`text-sm font-mono font-extrabold ${sparkVal > 0 ? 'text-theme-accent' : 'text-theme-muted'}`}>
+                      +{sparkVal} ⚡
                     </Text>
                     {workout.isCompleted ? (
                       <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">

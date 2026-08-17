@@ -14,18 +14,16 @@ interface PhysiqueContextType {
 }
 
 const defaultNutrition: NutritionProtocol = {
-  focusTitle: 'Threshold Run Fuel & Muscle Recovery',
-  rationale:
-    'Based on your high 24 Spark Points load yesterday, prioritize complex carbs and quick protein synthesis to restore glycogen stores.',
-  loggedCarbs: 320,
-  carbsTarget: 350,
-  loggedProtein: 160,
-  proteinTarget: 170,
-  loggedFat: 65,
-  fatTarget: 70,
+  focusTitle: 'Daily Fueling & Recovery Protocol',
+  rationale: 'Prioritize complex carbs and lean protein to support muscle recovery and sustain glycogen levels.',
+  loggedCarbs: 0,
+  carbsTarget: 300,
+  loggedProtein: 0,
+  proteinTarget: 140,
+  loggedFat: 0,
+  fatTarget: 65,
+  loggedItems: [],
 };
-
-const defaultLogs: PhysiqueEntry[] = [];
 
 const PhysiqueContext = createContext<PhysiqueContextType | undefined>(undefined);
 

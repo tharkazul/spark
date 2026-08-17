@@ -395,7 +395,6 @@ export default function PlanningScreen() {
 
   const handleInvitePartner = (workout: WorkoutItem) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Invite Sent!', `An invite link for "${workout.title}" has been generated.`);
   };
 
   const handleConfirmAdaptation = (type: string) => {

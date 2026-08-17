@@ -24,7 +24,7 @@ import {
   Rajdhani_700Bold,
 } from '@expo-google-fonts/rajdhani';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigation() {
   const { user, isAuthenticated, loading } = useUser();
@@ -95,7 +95,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
 
@@ -108,16 +108,16 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AppProviders>
-        <KeyboardProvider>
-          <KeyboardMotionProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AppProviders>
+          <KeyboardProvider>
+            <KeyboardMotionProvider>
               <RootNavigation />
-            </GestureHandlerRootView>
-          </KeyboardMotionProvider>
-        </KeyboardProvider>
-      </AppProviders>
-    </ThemeProvider>
+            </KeyboardMotionProvider>
+          </KeyboardProvider>
+        </AppProviders>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

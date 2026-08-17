@@ -8,7 +8,7 @@
     "scheme": "sparknative",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.sparkapp.fitness",
       "infoPlist": {
         "NSCameraUsageDescription": "Spark requires camera access to capture physique check-in photos and coach avatars.",
@@ -51,8 +51,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},

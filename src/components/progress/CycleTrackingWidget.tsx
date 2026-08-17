@@ -63,7 +63,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
     phaseIcon = 'moon-outline';
   }
 
-  const handleLogPeriodStart = async () => {
+  const handleLogPeriodToday = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(true);
     try {
@@ -72,14 +72,12 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
         last_cycle_start: todayStr,
         cycle_tracking_enabled: true,
       });
-      Alert.alert('Cycle Logged', 'Period start recorded as today. AI Coach training load adapted.');
     } catch (err: any) {
       // Fallback local update if offline
       await updateUser({
         last_cycle_start: todayStr,
         cycle_tracking_enabled: true,
       });
-      Alert.alert('Cycle Updated', 'Cycle start saved to athlete profile.');
     } finally {
       setLoading(false);
     }
@@ -190,7 +188,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           <Text className="text-xs text-theme-muted leading-4 mb-2">{phaseDesc}</Text>
 
           <TouchableOpacity
-            onPress={handleLogPeriodStart}
+            onPress={handleLogPeriodToday}
             disabled={loading}
             className="self-start px-3 py-1.5 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center space-x-1"
           >

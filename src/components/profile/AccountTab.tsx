@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { userApi } from '../../services/apiServices';
 import { useLanguage } from '../../context/LanguageContext';
@@ -27,19 +28,11 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
 
   const handleSparkPlusClick = async () => {
     setTrackingUpgrade(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       await userApi.trackSparkPlusClick();
-      Alert.alert(
-        isMember ? 'Spark+ Active' : 'Spark+ Premium',
-        isMember
-          ? 'Your account has full access to all premium features including high-capacity AI Coach tokens, custom coaching models, and periodization.'
-          : 'Spark+ gives you 50,000 daily AI Coach tokens, priority workout generation, advanced periodization, and direct Garmin sync!'
-      );
     } catch (err) {
-      Alert.alert(
-        isMember ? 'Spark+ Active' : 'Spark+ Premium',
-        'Spark+ gives you unlimited daily AI Coach tokens, priority workout generation, advanced periodization, and direct Garmin sync!'
-      );
+      // silent catch
     } finally {
       setTrackingUpgrade(false);
     }
@@ -50,70 +43,28 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
 
   const handleExportData = async () => {
     setExporting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const res = await userApi.requestAccountData();
-      Alert.alert(
-        'Export Request Recorded',
-        res.message || 'Your activity history, physique logs, and settings compilation request has been recorded.'
-      );
+      await userApi.requestAccountData();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert(
-        'Export Data',
-        err?.message || 'Your activity history, physique logs, and settings will be compiled. A link will be sent to your email.'
-      );
+      console.error('Export data error:', err);
     } finally {
       setExporting(false);
     }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? All workout history, physique logs, AI chat messages, and social connections will be permanently removed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue Deletion',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Final Confirmation',
-              'This action is PERMANENT and CANNOT be undone. Are you absolutely sure?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Permanently Delete My Account',
-                  style: 'destructive',
-                  onPress: async () => {
-                    setDeleting(true);
-                    try {
-                      const res = await userApi.deleteAccount();
-                      Alert.alert(
-                        'Account Deleted',
-                        res.message || 'Your account and data have been permanently deleted.',
-                        [
-                          {
-                            text: 'OK',
-                            onPress: () => onLogout(),
-                          },
-                        ]
-                      );
-                    } catch (err: any) {
-                      Alert.alert(
-                        'Deletion Error',
-                        err?.message || 'Failed to delete account. Please try again or contact support.'
-                      );
-                    } finally {
-                      setDeleting(false);
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-      ]
-    );
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    try {
+      await userApi.deleteAccount();
+      onLogout();
+    } catch (err: any) {
+      console.error('Deletion error:', err);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (

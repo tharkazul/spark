@@ -22,6 +22,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as Haptics from 'expo-haptics';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { userApi, integrationsApi } from '../../services/apiServices';
 import { API_BASE_URL } from '../../constants/api';
@@ -701,7 +702,8 @@ export default function OnboardingWizard() {
       await refreshUser();
       router.replace('/(tabs)');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save setup. Please try again.');
+      console.error('Onboarding save error:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } finally {
       setIsSubmitting(false);
     }
@@ -726,15 +728,13 @@ export default function OnboardingWizard() {
           if (match) code = match[1];
         }
         if (code) {
-          const res = await integrationsApi.exchangeStravaCode(code);
+          await integrationsApi.exchangeStravaCode(code);
           await refreshUser();
-          Alert.alert('Strava Connected', res.message || 'Strava connected successfully!');
-        } else {
-          Alert.alert('Strava Error', 'No authorization code returned from Strava.');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
       }
     } catch (err: any) {
-      Alert.alert('Strava Error', err.message || 'Failed to complete Strava OAuth.');
+      console.error('Onboarding Strava OAuth error:', err);
     }
   };
 

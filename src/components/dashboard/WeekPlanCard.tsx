@@ -38,10 +38,6 @@ export function WeekPlanCard({
 
   const handleInvitePartner = (workout: WorkoutItem) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert(
-      'Invite Sent!',
-      `An invite link for "${workout.title}" has been generated. Share it with your training partner or coach.`
-    );
   };
 
   return (

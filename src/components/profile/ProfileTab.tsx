@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { LanguageSelector } from '../LanguageSelector';
 import { CoachPersonaSettings } from '../CoachPersonaSettings';
@@ -52,7 +53,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission Required', 'Access to photos is required to update your profile picture.');
         return;
       }
 
@@ -69,16 +69,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         try {
           await userApi.uploadProfilePicture(fileUri);
           await refreshUser();
-          Alert.alert('Success', 'Profile picture updated successfully!');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
-          Alert.alert('Error', err.message || 'Failed to upload profile picture.');
+          console.error('Failed to upload profile picture:', err);
         } finally {
           setUploadingPhoto(false);
         }
       }
     } catch (err: any) {
       console.error('Image picker error:', err);
-      Alert.alert('Error', 'Could not open image picker.');
     }
   };
 

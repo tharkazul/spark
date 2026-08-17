@@ -28,7 +28,6 @@ export function isHealthKitSupported(): boolean {
  */
 export async function requestAppleHealthPermissions(): Promise<boolean> {
   if (!isHealthKitSupported()) {
-    Alert.alert('Apple Health', 'Apple Health & WorkoutKit are only supported on iOS devices.');
     return false;
   }
 
@@ -38,7 +37,6 @@ export async function requestAppleHealthPermissions(): Promise<boolean> {
     return true;
   } catch (err) {
     console.error('[AppleHealthService] Authorization error:', err);
-    Alert.alert('Permission Error', 'Could not request Apple Health permissions.');
     return false;
   }
 }

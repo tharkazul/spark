@@ -494,3 +494,6 @@ export const useCoachChat = (): CoachChatContextType => {
   }
   return context;
 };
+
+export const useCoachChatStore = useCoachChat;
+

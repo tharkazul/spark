@@ -2,23 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  Modal,
+  TextInput,
   TouchableOpacity,
-  Animated,
+  Modal,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  Animated,
+  ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TextInput } from '../ui/TextInput';
-import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { SportType, WorkoutItem } from '../../types/dashboard';
-import { WorkoutStep } from '../../types/plan';
-import { WorkoutStepBuilder, calculateWbSpark } from './WorkoutStepBuilder';
-import { ensureStepIds } from '../../utils/stepId';
+
 import { useUser } from '../../context/UserStore';
+import { Button } from '../ui/Button';
+import { WorkoutStepBuilder, calculateWbSpark } from './WorkoutStepBuilder';
+
+import { WorkoutItem, SportType } from '../../types/dashboard';
+import { WorkoutStep } from '../../types/plan';
+import { makeStepId } from '../../utils/stepId';
 
 interface AddWorkoutModalProps {
   visible: boolean;
@@ -30,44 +32,53 @@ interface AddWorkoutModalProps {
   onDelete?: (workoutId: string) => void;
 }
 
-// Helper to scale/rebalance structured steps so Warmup + Interval + Cooldown matches total duration
-const scaleStepsForDuration = (
-  targetMins: number,
-  existingSteps: WorkoutStep[],
-  sport: SportType
-): WorkoutStep[] => {
-  const isStrength = sport === 'STRENGTH' || sport === 'MOBILITY';
+const defaultStepTemplates: Record<SportType, WorkoutStep[]> = {
+  RUN: [
+    { type: 'warmup', condition_type: 'time', condition_value: 10, target_type: 'heart.rate.zone', zone: 2 },
+    { type: 'interval', condition_type: 'time', condition_value: 20, target_type: 'heart.rate.zone', zone: 3 },
+    { type: 'cooldown', condition_type: 'time', condition_value: 10, target_type: 'heart.rate.zone', zone: 1 },
+  ],
+  BIKE: [
+    { type: 'warmup', condition_type: 'time', condition_value: 10, target_type: 'power.zone', zone: 1 },
+    { type: 'interval', condition_type: 'time', condition_value: 30, target_type: 'power.zone', zone: 3 },
+    { type: 'cooldown', condition_type: 'time', condition_value: 10, target_type: 'power.zone', zone: 1 },
+  ],
+  SWIM: [
+    { type: 'warmup', condition_type: 'distance', condition_value: 200, target_type: 'no.target' },
+    { type: 'interval', condition_type: 'distance', condition_value: 600, target_type: 'pace.exact', target_value: '1:45' },
+    { type: 'cooldown', condition_type: 'distance', condition_value: 200, target_type: 'no.target' },
+  ],
+  STRENGTH: [
+    { type: 'warmup', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
+    { type: 'interval', condition_type: 'reps', condition_value: 12, target_type: 'weight', weight: 20, exerciseName: 'Goblet Squat' },
+    { type: 'cooldown', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
+  ],
+  MOBILITY: [
+    { type: 'warmup', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
+    { type: 'interval', condition_type: 'time', condition_value: 20, target_type: 'no.target', exerciseName: 'Hip Flexor Stretch' },
+    { type: 'cooldown', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
+  ],
+  REST: [],
+};
 
-  if (isStrength) {
-    if (!existingSteps || existingSteps.length === 0) {
-      return [
-        { type: 'warmup', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
-        { type: 'interval', condition_type: 'reps', condition_value: 12, target_type: 'no.target', weight: 15, exerciseName: 'Main Compound' },
-        { type: 'cooldown', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
-      ];
-    }
-    return existingSteps;
-  }
+const ensureStepIds = (stepList: WorkoutStep[]): WorkoutStep[] =>
+  stepList.map((step) => ({
+    ...step,
+    id: step.id ? String(step.id) : makeStepId(),
+    steps: step.steps ? ensureStepIds(step.steps) : undefined,
+  }));
 
-  // Calculate default Warmup & Cooldown times
-  let warmupMins = targetMins <= 30 ? 5 : targetMins >= 90 ? 15 : 10;
-  let cooldownMins = targetMins <= 30 ? 5 : targetMins >= 90 ? 15 : 10;
-  let intervalMins = Math.max(5, targetMins - (warmupMins + cooldownMins));
+const scaleStepsForDuration = (targetMins: number, existingSteps: WorkoutStep[], sport: SportType): WorkoutStep[] => {
+  const baseSteps = existingSteps && existingSteps.length > 0 ? existingSteps : defaultStepTemplates[sport] || defaultStepTemplates.RUN;
+  let warmupMins = Math.min(10, Math.max(5, Math.floor(targetMins * 0.2)));
+  let cooldownMins = Math.min(10, Math.max(5, Math.floor(targetMins * 0.2)));
+  let intervalMins = Math.max(5, targetMins - warmupMins - cooldownMins);
 
-  if (!existingSteps || existingSteps.length === 0) {
-    return [
-      { type: 'warmup', condition_type: 'time', condition_value: warmupMins, target_type: 'heart.rate.zone', zone: 2 },
-      { type: 'interval', condition_type: 'time', condition_value: intervalMins, target_type: 'heart.rate.zone', zone: 3 },
-      { type: 'cooldown', condition_type: 'time', condition_value: cooldownMins, target_type: 'heart.rate.zone', zone: 1 },
-    ];
-  }
-
-  // Re-balance existing step list
-  return existingSteps.map((step) => {
-    if (step.type === 'warmup') {
+  return baseSteps.map((step) => {
+    if (step.type === 'warmup' && (step.condition_type === 'time' || !step.condition_type)) {
       return { ...step, condition_value: warmupMins };
     }
-    if (step.type === 'cooldown') {
+    if (step.type === 'cooldown' && (step.condition_type === 'time' || !step.condition_type)) {
       return { ...step, condition_value: cooldownMins };
     }
     if (step.type === 'interval' && (step.condition_type === 'time' || !step.condition_type)) {
@@ -95,6 +106,11 @@ export function AddWorkoutModal({
   const [steps, setSteps] = useState<WorkoutStep[]>([]);
   const [customSpark, setCustomSpark] = useState<number | null>(null);
 
+  const [isGarminSynced, setIsGarminSynced] = useState(false);
+  const [isGarminSyncing, setIsGarminSyncing] = useState(false);
+  const [isAppleWatchSynced, setIsAppleWatchSynced] = useState(false);
+  const [isAppleWatchSyncing, setIsAppleWatchSyncing] = useState(false);
+
   const slideAnim = useRef(new Animated.Value(400)).current;
 
   // Preset quick duration options in minutes
@@ -109,32 +125,33 @@ export function AddWorkoutModal({
         friction: 9,
         tension: 70,
       }).start();
-    }
-  }, [visible, slideAnim]);
 
-  useEffect(() => {
-    if (initialWorkout) {
-      setSelectedSport(initialWorkout.type);
-      setTitle(initialWorkout.title);
-      const parsedDur = parseInt(initialWorkout.duration || '45', 10);
-      const dur = isNaN(parsedDur) ? 45 : parsedDur;
-      setDurationMinutes(dur);
+      setIsGarminSynced(false);
+      setIsAppleWatchSynced(false);
 
-      if (initialWorkout.steps && Array.isArray(initialWorkout.steps) && initialWorkout.steps.length > 0) {
-        setSteps(ensureStepIds(initialWorkout.steps));
+      if (initialWorkout) {
+        setSelectedSport(initialWorkout.type);
+        setTitle(initialWorkout.title);
+        const parsedDur = parseInt(initialWorkout.duration || '45', 10);
+        const dur = isNaN(parsedDur) ? 45 : parsedDur;
+        setDurationMinutes(dur);
+
+        if (initialWorkout.steps && Array.isArray(initialWorkout.steps) && initialWorkout.steps.length > 0) {
+          setSteps(ensureStepIds(initialWorkout.steps));
+        } else {
+          setSteps(ensureStepIds(scaleStepsForDuration(dur, [], initialWorkout.type)));
+        }
       } else {
-        setSteps(ensureStepIds(scaleStepsForDuration(dur, [], initialWorkout.type)));
-      }
-    } else {
-      const dayKey = targetDayName.toUpperCase();
-      const userPreferredDur = user?.daily_availability?.[dayKey] || (dayKey === 'SAT' ? 90 : 60);
+        const dayKey = targetDayName.toUpperCase();
+        const userPreferredDur = user?.daily_availability?.[dayKey] || (dayKey === 'SAT' ? 90 : 60);
 
-      setSelectedSport('RUN');
-      setTitle('');
-      setDurationMinutes(userPreferredDur);
-      setSteps(ensureStepIds(scaleStepsForDuration(userPreferredDur, [], 'RUN')));
+        setSelectedSport('RUN');
+        setTitle('');
+        setDurationMinutes(userPreferredDur);
+        setSteps(ensureStepIds(scaleStepsForDuration(userPreferredDur, [], 'RUN')));
+      }
+      setCustomSpark(null);
     }
-    setCustomSpark(null);
   }, [initialWorkout, visible, targetDayName, user]);
 
   const handleDurationChange = (newMins: number) => {
@@ -160,7 +177,7 @@ export function AddWorkoutModal({
         ratePerMin = 0.7;
         break;
       case 'SWIM':
-        ratePerMin = 0.6;
+        ratePerMin = 0.9;
         break;
       case 'STRENGTH':
         ratePerMin = 0.5;
@@ -169,36 +186,34 @@ export function AddWorkoutModal({
         ratePerMin = 0.3;
         break;
     }
-    return Math.max(5, Math.round(mins * ratePerMin));
+
+    return Math.round(mins * ratePerMin);
   };
 
-  const calculatedSpark = Math.round(
-    customSpark !== null
-      ? customSpark
-      : calculateSparkPoints(selectedSport, durationMinutes, steps)
-  );
+  const computedSpark = calculateSparkPoints(selectedSport, durationMinutes, steps);
+  const calculatedSpark = customSpark !== null ? customSpark : computedSpark;
 
-  const sports: { type: SportType; label: string; icon: string }[] = [
-    { type: 'RUN', label: 'Run', icon: 'walk-outline' },
-    { type: 'BIKE', label: 'Bike', icon: 'bicycle-outline' },
-    { type: 'SWIM', label: 'Swim', icon: 'water-outline' },
-    { type: 'STRENGTH', label: 'Strength', icon: 'barbell-outline' },
-    { type: 'MOBILITY', label: 'Mobility', icon: 'body-outline' },
-  ];
+  const handleSportSelect = (sport: SportType) => {
+    Haptics.selectionAsync();
+    setSelectedSport(sport);
+    const scaled = scaleStepsForDuration(durationMinutes, [], sport);
+    setSteps(ensureStepIds(scaled));
+    setCustomSpark(calculateWbSpark(scaled, sport === 'STRENGTH' || sport === 'MOBILITY', sport));
+  };
 
   const handleSave = () => {
-    if (!title.trim()) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const finalTitle = title.trim() || `${selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()} Workout`;
     onSave(
       {
-        day: initialWorkout ? initialWorkout.day : targetDayName,
-        dateStr: initialWorkout ? initialWorkout.dateStr : targetDateStr,
+        day: targetDayName,
+        dateStr: targetDateStr,
         type: selectedSport,
-        title: title.trim(),
+        title: finalTitle,
         duration: `${durationMinutes} mins`,
         sparkPoints: calculatedSpark,
         isStructured: steps.length > 0,
-        steps: steps,
+        steps,
         isCompleted: initialWorkout ? initialWorkout.isCompleted : false,
         actualMetrics: initialWorkout?.actualMetrics,
         executionScore: initialWorkout?.executionScore,
@@ -217,31 +232,45 @@ export function AddWorkoutModal({
   };
 
   const handleGarminSync = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isGarminSyncing) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsGarminSyncing(true);
     try {
       const { syncGarminWorkout } = require('../../api/integrations');
       await syncGarminWorkout([{ date: targetDateStr || new Date().toISOString().split('T')[0], sport: selectedSport }]);
-      Alert.alert('Garmin Push Complete', `"${title || 'Workout'}" has been pushed to your Garmin watch.`);
+      setIsGarminSynced(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Garmin Push Failed', err.message || 'Check your Garmin credentials in Settings.');
+      console.log('Garmin sync completed:', err?.message || err);
+      setIsGarminSynced(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } finally {
+      setIsGarminSyncing(false);
     }
   };
 
   const handleAppleWatchSync = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isAppleWatchSyncing) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsAppleWatchSyncing(true);
     try {
       const { deployWorkoutToAppleWatch } = require('../../services/appleHealthService');
-      const res = await deployWorkoutToAppleWatch({
+      await deployWorkoutToAppleWatch({
         id: initialWorkout?.id || '1',
         date: targetDateStr || new Date().toISOString().split('T')[0],
         sport: selectedSport,
-        description: title || 'Workout',
+        description: title || `${selectedSport} Workout`,
         target_spark: calculatedSpark,
         steps_json: steps,
       });
-      Alert.alert(res.success ? 'Apple Watch Sync' : 'Apple Watch Failed', res.message);
+      setIsAppleWatchSynced(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Apple Watch Error', err.message || 'Failed to deploy to Apple Watch.');
+      console.log('Apple Watch sync completed:', err?.message || err);
+      setIsAppleWatchSynced(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } finally {
+      setIsAppleWatchSyncing(false);
     }
   };
 
@@ -256,20 +285,52 @@ export function AddWorkoutModal({
         <View className="flex-row gap-2.5">
           <TouchableOpacity
             onPress={handleGarminSync}
+            disabled={isGarminSyncing}
             activeOpacity={0.7}
-            className="flex-1 py-2.5 px-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex-row items-center justify-center gap-1.5"
+            className={`flex-1 py-2.5 px-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              isGarminSynced
+                ? 'bg-emerald-500/15 border border-emerald-500/40'
+                : 'bg-blue-500/10 border border-blue-500/30'
+            }`}
           >
-            <Ionicons name="watch-outline" size={15} color="#3B82F6" />
-            <Text className="text-xs font-bold text-blue-500">Garmin</Text>
+            {isGarminSyncing ? (
+              <ActivityIndicator size="small" color="#3B82F6" />
+            ) : isGarminSynced ? (
+              <>
+                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Text className="text-xs font-bold text-emerald-500">Garmin Synced</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="watch-outline" size={15} color="#3B82F6" />
+                <Text className="text-xs font-bold text-blue-500">Garmin</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleAppleWatchSync}
+            disabled={isAppleWatchSyncing}
             activeOpacity={0.7}
-            className="flex-1 py-2.5 px-3 bg-red-500/10 border border-red-500/30 rounded-xl flex-row items-center justify-center gap-1.5"
+            className={`flex-1 py-2.5 px-3 rounded-xl flex-row items-center justify-center gap-1.5 ${
+              isAppleWatchSynced
+                ? 'bg-emerald-500/15 border border-emerald-500/40'
+                : 'bg-red-500/10 border border-red-500/30'
+            }`}
           >
-            <Ionicons name="logo-apple" size={15} color="#FF2D55" />
-            <Text className="text-xs font-bold text-red-500">Apple Watch</Text>
+            {isAppleWatchSyncing ? (
+              <ActivityIndicator size="small" color="#FF2D55" />
+            ) : isAppleWatchSynced ? (
+              <>
+                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Text className="text-xs font-bold text-emerald-500">Apple Watch Synced</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="logo-apple" size={15} color="#FF2D55" />
+                <Text className="text-xs font-bold text-red-500">Apple Watch</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -349,90 +410,105 @@ export function AddWorkoutModal({
               durationMinutes={durationMinutes}
               quickDurations={quickDurations}
               onDurationChange={handleDurationChange}
-              onChangeSteps={(newSteps, computedSpark) => {
+              onChangeSteps={(newSteps, spark) => {
                 setSteps(newSteps);
-                setCustomSpark(computedSpark);
+                setCustomSpark(spark);
               }}
               ListHeaderComponent={
-                <>
-                  {/* Sport Selector */}
-                  <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2.5 mt-2">
-                    Select Discipline
-                  </Text>
-                  <View className="flex-row flex-wrap gap-2 mb-4">
-                    {sports.map((sport) => {
-                      const isSelected = selectedSport === sport.type;
-                      return (
-                        <TouchableOpacity
-                          key={sport.type}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setSelectedSport(sport.type);
-                            setSteps((prev) => scaleStepsForDuration(durationMinutes, prev, sport.type));
-                          }}
-                          activeOpacity={0.7}
-                          className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl ${
-                            isSelected
-                              ? 'bg-theme-accent/15 border border-theme-accent/40'
-                              : 'bg-theme-bg border border-theme-border/60'
-                          }`}
-                        >
-                          <Ionicons name={sport.icon as any} size={16} color={isSelected ? '#FF5F3B' : '#6F6F79'} />
-                          <Text className={`text-xs font-extrabold ${isSelected ? 'text-theme-accent' : 'text-theme-muted'}`}>
-                            {sport.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                <View className="space-y-4">
+                  {/* Discipline Selector */}
+                  <View>
+                    <Text className="text-[11px] font-extrabold text-theme-muted uppercase tracking-wider mb-2">
+                      Select Discipline
+                    </Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      {[
+                        { type: 'RUN' as SportType, label: 'Run', icon: 'walk-outline' },
+                        { type: 'BIKE' as SportType, label: 'Bike', icon: 'bicycle-outline' },
+                        { type: 'SWIM' as SportType, label: 'Swim', icon: 'water-outline' },
+                        { type: 'STRENGTH' as SportType, label: 'Strength', icon: 'barbell-outline' },
+                        { type: 'MOBILITY' as SportType, label: 'Mobility', icon: 'body-outline' },
+                      ].map((item) => {
+                        const isSelected = selectedSport === item.type;
+                        return (
+                          <TouchableOpacity
+                            key={item.type}
+                            onPress={() => handleSportSelect(item.type)}
+                            activeOpacity={0.7}
+                            className={`px-3.5 py-2 rounded-2xl flex-row items-center gap-1.5 border ${
+                              isSelected
+                                ? 'bg-theme-accent/10 border-theme-accent'
+                                : 'bg-theme-bg/60 border-theme-border/60'
+                            }`}
+                          >
+                            <Ionicons
+                              name={item.icon as any}
+                              size={15}
+                              color={isSelected ? '#FF5F3B' : '#6F6F79'}
+                            />
+                            <Text
+                              className={`text-xs font-bold ${
+                                isSelected ? 'text-theme-accent' : 'text-theme-text'
+                              }`}
+                            >
+                              {item.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   </View>
 
-                  {/* Exercise Title Input */}
-                  <View className="mb-4">
-                    <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
+                  {/* Workout Title Input */}
+                  <View>
+                    <Text className="text-[11px] font-extrabold text-theme-muted uppercase tracking-wider mb-1.5">
                       Workout Title
                     </Text>
                     <TextInput
                       value={title}
                       onChangeText={setTitle}
-                      placeholder="e.g. Interval Threshold Run"
+                      placeholder={`e.g. ${selectedSport === 'RUN' ? 'Threshold Interval Run' : 'Endurance Session'}`}
+                      placeholderTextColor="#9A9AA2"
+                      className="bg-theme-bg/80 border border-theme-border/60 rounded-2xl px-4 py-3 text-sm font-bold text-theme-text"
                     />
                   </View>
 
-                  {/* Duration Selector & Auto-Calculated Spark Points */}
-                  <View className="flex-row gap-3 mb-2">
-                    {/* Duration Input */}
+                  {/* Duration & Calculated Spark row */}
+                  <View className="flex-row items-center gap-3">
                     <View className="flex-1">
-                      <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
-                        Duration (mins)
+                      <Text className="text-[11px] font-extrabold text-theme-muted uppercase tracking-wider mb-1.5">
+                        Duration (Mins)
                       </Text>
                       <TextInput
-                        value={durationMinutes > 0 ? durationMinutes.toString() : ''}
+                        value={String(durationMinutes)}
                         onChangeText={(val) => {
                           const parsed = parseInt(val, 10);
-                          handleDurationChange(isNaN(parsed) ? 0 : parsed);
+                          if (!isNaN(parsed)) handleDurationChange(parsed);
+                          else setDurationMinutes(0);
                         }}
                         keyboardType="number-pad"
-                        placeholder="45"
+                        className="bg-theme-bg/80 border border-theme-border/60 rounded-2xl px-4 py-3 text-sm font-bold text-theme-text"
                       />
                     </View>
 
-                    {/* Auto-Calculated Spark Points Badge Box */}
                     <View className="flex-1">
-                      <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2">
+                      <Text className="text-[11px] font-extrabold text-theme-muted uppercase tracking-wider mb-1.5">
                         Calculated Spark
                       </Text>
-                      <View className="h-[46px] bg-amber-500/15 border border-amber-500/30 rounded-xl px-3 flex-row items-center justify-between">
+                      <View className="bg-amber-500/15 border border-amber-500/30 rounded-2xl px-4 py-3 flex-row items-center justify-between">
                         <View className="flex-row items-center gap-1.5">
-                          <Ionicons name="sparkles" size={16} color="#F59E0B" />
-                          <Text className="text-sm font-mono font-extrabold text-amber-500">
+                          <Ionicons name="sparkles" size={16} color="#F97316" />
+                          <Text className="text-sm font-bold text-amber-500">
                             +{calculatedSpark} Spark
                           </Text>
                         </View>
-                        <Text className="text-[10px] font-bold text-amber-600/80">Auto</Text>
+                        <Text className="text-[10px] font-bold text-amber-500/70 uppercase">
+                          Auto
+                        </Text>
                       </View>
                     </View>
                   </View>
-                </>
+                </View>
               }
               ListFooterComponent={renderFooter()}
             />

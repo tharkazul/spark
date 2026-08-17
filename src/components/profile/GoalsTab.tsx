@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { useUser } from '../../context/UserStore';
 import { userApi } from '../../services/apiServices';
@@ -83,9 +84,9 @@ export const GoalsTab: React.FC = () => {
       }
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
-      Alert.alert('Success', 'Race calendar saved successfully!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save race calendar.');
+      console.error('Failed to save race calendar:', err);
     } finally {
       setSaving(false);
     }

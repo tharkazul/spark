@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
@@ -59,10 +60,10 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     setAppleSyncing(true);
     try {
       const { syncAppleHealthActivities } = require('../../services/appleHealthService');
-      const res = await syncAppleHealthActivities();
-      Alert.alert('Apple Health Sync', res.message);
+      await syncAppleHealthActivities();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Sync Error', err.message || 'Apple Health sync failed.');
+      console.error('Apple Health sync error:', err);
     } finally {
       setAppleSyncing(false);
     }
@@ -74,10 +75,10 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       const granted = await requestAppleHealthPermissions();
       if (granted) {
         setIsAppleConnected(true);
-        Alert.alert('Apple Health', 'Apple Health & WorkoutKit permissions configured!');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
-      Alert.alert('Permissions Failed', err.message || 'Could not connect Apple Health.');
+      console.error('Apple Health connect error:', err);
     }
   };
 
@@ -110,9 +111,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     setGarminSyncing(true);
     try {
       await syncGarmin();
-      Alert.alert('Garmin Sync', 'Garmin sync completed successfully!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Sync Error', err.message || 'Garmin sync failed.');
+      console.error('Garmin sync error:', err);
     } finally {
       setGarminSyncing(false);
     }
@@ -122,9 +123,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     setStravaSyncing(true);
     try {
       await syncStrava();
-      Alert.alert('Strava Sync', 'Latest Strava activities pulled successfully!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Sync Error', err.message || 'Strava sync failed.');
+      console.error('Strava sync error:', err);
     } finally {
       setStravaSyncing(false);
     }

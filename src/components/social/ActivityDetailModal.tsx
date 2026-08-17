@@ -301,7 +301,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
         setComments((prev) => [...prev, newC]);
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to post comment');
+      console.error('Failed to post comment:', err);
     }
   };
 

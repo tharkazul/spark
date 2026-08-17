@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { adminApi } from '../../services/apiServices';
 
 export function AdminTab() {
@@ -31,10 +32,10 @@ export function AdminTab() {
     setActionLoading(`tokens-${username}`);
     try {
       await adminApi.addTokens(username);
-      Alert.alert('Tokens Added', `Added 50k tokens to ${username}'s limit.`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchUsage();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to add tokens');
+      console.error('Failed to add tokens:', err);
     } finally {
       setActionLoading(null);
     }
@@ -44,10 +45,10 @@ export function AdminTab() {
     setActionLoading(`tier-${username}`);
     try {
       await adminApi.setTier(username, tier);
-      Alert.alert('Tier Updated', `Set ${username} tier to ${tier}.`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchUsage();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to update tier');
+      console.error('Failed to update tier:', err);
     } finally {
       setActionLoading(null);
     }
@@ -57,9 +58,9 @@ export function AdminTab() {
     setActionLoading('morning');
     try {
       await adminApi.triggerMorning();
-      Alert.alert('Success', 'Morning message job triggered!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to trigger morning job');
+      console.error('Failed to trigger morning job:', err);
     } finally {
       setActionLoading(null);
     }
@@ -69,9 +70,9 @@ export function AdminTab() {
     setActionLoading('24h');
     try {
       await adminApi.simulate24h();
-      Alert.alert('Success', 'Simulated 24h check-in trigger fired!');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to trigger 24h job');
+      console.error('Failed to trigger 24h job:', err);
     } finally {
       setActionLoading(null);
     }

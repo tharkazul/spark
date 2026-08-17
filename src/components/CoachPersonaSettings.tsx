@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Imag
 import { Card } from './ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { useUser } from '../context/UserStore';
 import { userApi } from '../services/apiServices';
 import { API_BASE_URL } from '../constants/api';
@@ -59,9 +60,9 @@ export const CoachPersonaSettings: React.FC = () => {
       });
       await updateUser({ gender });
       await refreshUser();
-      Alert.alert('Saved', 'Coach persona & athlete settings saved successfully.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save coach settings.');
+      console.error('Coach settings save error:', err);
     } finally {
       setSaving(false);
     }
@@ -70,7 +71,6 @@ export const CoachPersonaSettings: React.FC = () => {
   const handlePickAvatar = async (mood: string) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission Required', 'Access to photos is required to upload coach avatars.');
       return;
     }
 
@@ -95,8 +95,9 @@ export const CoachPersonaSettings: React.FC = () => {
 
         await userApi.uploadCoachAvatar(mood, fileUri);
         await refreshUser();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (err: any) {
-        Alert.alert('Error', err.message || `Failed to upload ${mood} avatar.`);
+        console.error('Avatar upload error:', err);
       } finally {
         setUploadingMood(null);
       }
@@ -136,7 +137,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   if (!isLocked) {
                     setSelectedTone(opt.value);
                   } else {
-                    Alert.alert('Premium Feature', 'Upgrade to Premium to configure your own coach persona!');
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                   }
                 }}
                 activeOpacity={isLocked ? 1 : 0.7}
