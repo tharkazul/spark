@@ -510,17 +510,20 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     }
                     \`\`\`
                     
-                    MANUAL ACTIVITY LOGGING:
-                    If the athlete manually tells you they completed a workout that hasn't synced from Strava (e.g. they say "I just ran 5k in 25 mins" or "Did a 45 min gym session"), you MUST log it by outputting an additional JSON block at the very end of your response. Format it exactly like this inside triple backticks:
+                    MANUAL ACTIVITY LOGGING (CRITICAL REQUIREMENT):
+                    If the athlete mentions completing, running, cycling, swimming, lifting, or performing ANY workout, run, or activity in their message (e.g. "I ran 10km", "Just finished 10k", "Did a 45 min run"), YOU MUST output a "log_activity" JSON block at the very end of your response.
+                    DO NOT ONLY praise them in conversational text—YOU MUST INCLUDE THE "log_activity" JSON BLOCK! If you do not include the JSON block, the workout WILL NOT be saved to their activity log ("My Log") and their active quest WILL NOT progress or complete!
+                    Always estimate reasonable values for distance_km, moving_time_min, and spark_score if not explicitly specified.
+                    Format it EXACTLY like this inside triple backticks:
                     \`\`\`json
                     {
                       "type": "log_activity",
                       "data": {
-                        "name": "Gym Workout",
-                        "sport_type": "Strength",
-                        "distance_km": 0,
-                        "moving_time_min": 30,
-                        "spark_score": 25
+                        "name": "10k Run",
+                        "sport_type": "Run",
+                        "distance_km": 10.0,
+                        "moving_time_min": 50,
+                        "spark_score": 50
                       }
                     }
                     \`\`\`
@@ -824,6 +827,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                       `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
                                                       [req.user.id, todayStr],
                                                     );
+                                                    sendSSEEvent(req.user.id, "activity_logged", { activityId: manualId });
                                                   }
                                                   resolveInsert();
                                                 },
@@ -844,6 +848,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                     sport_type: act.sport_type || "Workout",
                                                   },
                                                 );
+
+                                              sendSSEEvent(req.user.id, "quest_updated", {});
 
                                               if (
                                                 completedQuests &&

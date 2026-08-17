@@ -140,6 +140,98 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  const streamCoachMessage = (fullMessage: ChatMessage): Promise<void> => {
+    const fullText = fullMessage.content || '';
+    if (!fullText) {
+      setMessages((prev) => [...prev, fullMessage]);
+      setSending(false);
+      return Promise.resolve();
+    }
+
+    // Break text into words/tokens with trailing spaces
+    const tokens: string[] = fullText.match(/\S+\s*/g) || [fullText];
+    
+    // Group into phrase chunks of 1 to 3 words, breaking naturally on punctuation
+    const chunks: string[] = [];
+    let currentChunk = '';
+    let wordsInChunk = 0;
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      currentChunk += token;
+      wordsInChunk++;
+
+      const isPunctuationBreak = /[.,!?:;\n]/.test(token);
+      if (wordsInChunk >= 2 || isPunctuationBreak || i === tokens.length - 1) {
+        chunks.push(currentChunk);
+        currentChunk = '';
+        wordsInChunk = 0;
+      }
+    }
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+
+    return new Promise<void>((resolve) => {
+      let revealedText = chunks[0] || '';
+      const initialMsg: ChatMessage = {
+        ...fullMessage,
+        content: revealedText,
+        isStreaming: true,
+      };
+
+      setMessages((prev) => [...prev, initialMsg]);
+      setSending(false);
+
+      let chunkIdx = 1;
+
+      const step = () => {
+        if (chunkIdx >= chunks.length) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
+                ? { ...fullMessage, isStreaming: false }
+                : m
+            )
+          );
+          resolve();
+          return;
+        }
+
+        const nextChunk = chunks[chunkIdx];
+        revealedText += nextChunk;
+        chunkIdx++;
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
+              ? { ...m, content: revealedText, isStreaming: true }
+              : m
+          )
+        );
+
+        // Readable speed: brief pause on punctuation, fast flow between words
+        const hasPunctuation = /[.,!?:;\n]/.test(nextChunk);
+        const delay = hasPunctuation ? 35 : 22;
+
+        setTimeout(step, delay);
+      };
+
+      if (chunks.length > 1) {
+        setTimeout(step, 24);
+      } else {
+        setMessages((prev) =>
+          prev.map((m) =>
+            (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
+              ? { ...fullMessage, isStreaming: false }
+              : m
+          )
+        );
+        resolve();
+      }
+    });
+  };
+
   const sendMessage = async (text: string, imagesBase64?: string[]) => {
     if (!text.trim() && (!imagesBase64 || imagesBase64.length === 0)) return;
 
@@ -166,7 +258,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           mood: res.mood || 'default',
           timestamp: new Date().toISOString(),
         });
-        setMessages((prev) => [...prev, coachMsg]);
+
         if (res.tokenUsage) {
           setTokenUsage(res.tokenUsage);
         }
@@ -174,6 +266,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           refreshPlan();
         }
         refreshPhysique();
+
+        await streamCoachMessage(coachMsg);
+      } else {
+        setSending(false);
       }
     } catch (err: any) {
       console.error('Send message error:', err);
@@ -185,7 +281,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         role: 'coach',
         timestamp: new Date().toISOString(),
       });
-      setMessages((prev) => [...prev, fallbackCoachMsg]);
+      await streamCoachMessage(fallbackCoachMsg);
     } finally {
       setSending(false);
     }

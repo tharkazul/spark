@@ -1335,12 +1335,212 @@ function updateUserSparkAndCheckLevel(userId) {
                 // Level up!
                 triggerLevelUpCoachPrompt(userId, newLevelInfo.level);
               }
+
+              // Background milestone check: 300+ in day, 2000+ in week, 6000+ in month
+              checkAndAwardSparkTitles(userId);
             },
           );
         });
       });
     },
   );
+}
+
+async function checkAndAwardSparkTitles(userId) {
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT milestone_key FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
+      [userId],
+      async (err, titleRows) => {
+        if (err) return resolve();
+        const awardedKeys = new Set((titleRows || []).map((r) => r.milestone_key));
+
+        // 1. Single Day 300+ Spark Milestones
+        const dayRows = await new Promise((res) => {
+          db.all(
+            `SELECT substr(start_date, 1, 10) as act_date, SUM(spark_score) as day_spark, COUNT(id) as count
+             FROM activities
+             WHERE user_id = ?
+             GROUP BY substr(start_date, 1, 10)
+             HAVING SUM(spark_score) >= 300
+             ORDER BY act_date DESC`,
+            [userId],
+            (err2, rows) => res(rows || [])
+          );
+        });
+
+        for (const row of dayRows) {
+          const key = `day_300_${row.act_date}`;
+          if (!awardedKeys.has(key)) {
+            awardedKeys.add(key);
+            await generateAndSaveMilestoneTitle(
+              userId,
+              key,
+              `Single-Day Endurance Titan (${Math.round(row.day_spark)} Spark on ${row.act_date})`,
+              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
+              [userId, row.act_date],
+              `The athlete achieved a massive single-day milestone by earning ${Math.round(row.day_spark)} Spark points on ${row.act_date}!`
+            );
+          }
+        }
+
+        // 2. Weekly 2,000+ Spark Milestones
+        const weekRows = await new Promise((res) => {
+          db.all(
+            `SELECT strftime('%Y-W%W', start_date) as act_week, SUM(spark_score) as week_spark, COUNT(id) as count
+             FROM activities
+             WHERE user_id = ?
+             GROUP BY strftime('%Y-W%W', start_date)
+             HAVING SUM(spark_score) >= 2000
+             ORDER BY act_week DESC`,
+            [userId],
+            (err2, rows) => res(rows || [])
+          );
+        });
+
+        for (const row of weekRows) {
+          const key = `week_2000_${row.act_week}`;
+          if (!awardedKeys.has(key)) {
+            awardedKeys.add(key);
+            await generateAndSaveMilestoneTitle(
+              userId,
+              key,
+              `Weekly Volume Crusher (2,000+ Spark in Week ${row.act_week}: ${Math.round(row.week_spark)} pts)`,
+              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? AND strftime('%Y-W%W', start_date) = ?`,
+              [userId, row.act_week],
+              `The athlete completed a powerhouse training week, accumulating ${Math.round(row.week_spark)} Spark points in week ${row.act_week}!`
+            );
+          }
+        }
+
+        // 3. Monthly 6,000+ Spark Milestones
+        const monthRows = await new Promise((res) => {
+          db.all(
+            `SELECT substr(start_date, 1, 7) as act_month, SUM(spark_score) as month_spark, COUNT(id) as count
+             FROM activities
+             WHERE user_id = ?
+             GROUP BY substr(start_date, 1, 7)
+             HAVING SUM(spark_score) >= 6000
+             ORDER BY act_month DESC`,
+            [userId],
+            (err2, rows) => res(rows || [])
+          );
+        });
+
+        for (const row of monthRows) {
+          const key = `month_6000_${row.act_month}`;
+          if (!awardedKeys.has(key)) {
+            awardedKeys.add(key);
+            await generateAndSaveMilestoneTitle(
+              userId,
+              key,
+              `Monthly Legend (6,000+ Spark in ${row.act_month}: ${Math.round(row.month_spark)} pts)`,
+              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 7) = ?`,
+              [userId, row.act_month],
+              `The athlete achieved legendary monthly consistency, amassing ${Math.round(row.month_spark)} Spark points during ${row.act_month}!`
+            );
+          }
+        }
+
+        resolve();
+      }
+    );
+  });
+}
+
+async function generateAndSaveMilestoneTitle(userId, milestoneKey, milestoneName, activitiesQuery, queryParams, milestoneContext) {
+  return new Promise((resolve) => {
+    db.all(activitiesQuery, queryParams, async (err, activities) => {
+      if (err || !activities || activities.length === 0) return resolve();
+
+      const activitiesStr = activities
+        .map(
+          (a) =>
+            `- ${a.start_date}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km || 0).toFixed(1)}km | ${Math.round(a.moving_time_min || 0)}min | ${Math.round(a.spark_score || 0)} Spark`
+        )
+        .join("\n");
+
+      const prompt = `Based on the following activities contributing to an athlete milestone, invent an earned, badass, heroic, or funny custom Title/Badge (e.g. 'Century Slayer', 'Relentless Engine', 'Iron Sovereign', 'Peak Performance Protocol') and a brief description celebrating what they achieved.
+${milestoneContext}
+
+Contributing activities:
+${activitiesStr}
+
+Please respond using this JSON schema:
+{
+  "title": "The Title Name",
+  "description": "A short, earned description of why they unlocked this milestone."
+}`;
+
+      try {
+        let titleData = null;
+        try {
+          const aiReply = await generateWithFallback(
+            prompt,
+            "You are a sports gamification engine awarding earned athletic titles.",
+            null,
+            null,
+            userId,
+            "common",
+            true
+          );
+          titleData = typeof aiReply === 'string' ? JSON.parse(aiReply) : aiReply;
+        } catch (eAi) {
+          console.error("AI title generation error, using fallback title:", eAi);
+          titleData = {
+            title: milestoneName.split("(")[0].trim(),
+            description: milestoneContext
+          };
+        }
+
+        if (!titleData || !titleData.title) return resolve();
+
+        // Check if user has an active title
+        db.get(
+          `SELECT COUNT(*) as active_count FROM user_titles WHERE user_id = ? AND is_active = 1`,
+          [userId],
+          (errCount, countRow) => {
+            const shouldBeActive = !errCount && countRow && countRow.active_count === 0 ? 1 : 0;
+
+            db.run(
+              `INSERT INTO user_titles (user_id, title, description, is_active, milestone_key) VALUES (?, ?, ?, ?, ?)`,
+              [userId, titleData.title, titleData.description, shouldBeActive, milestoneKey],
+              function (errInsert) {
+                if (errInsert) {
+                  console.error("Error saving earned milestone title:", errInsert);
+                  return resolve();
+                }
+
+                // Award 50 bonus Spark points for earning a milestone title
+                db.run(
+                  `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
+                  [userId, 50, `Earned Milestone Title: ${titleData.title}`]
+                );
+
+                // Clear public profile cache so changes reflect on social profile
+                db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
+
+                // Send SSE event if user is active
+                try {
+                  const { sendSSEEvent } = require('./sse');
+                  sendSSEEvent(userId, "title_unlocked", {
+                    title: titleData.title,
+                    description: titleData.description,
+                    milestone: milestoneKey
+                  });
+                } catch (eSse) {}
+
+                resolve();
+              }
+            );
+          }
+        );
+      } catch (e) {
+        console.error("Failed to generate and save milestone title:", e);
+        resolve();
+      }
+    });
+  });
 }
 
 function triggerLevelUpCoachPrompt(userId, newLevel) {
@@ -1406,15 +1606,49 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
       `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 5`,
       [userId],
       async (err, recentActivities) => {
-        const activitiesStr =
-          recentActivities && recentActivities.length > 0
-            ? recentActivities
-                .map(
-                  (a) =>
-                    `- ${a.start_date}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min`,
-                )
-                .join("\n")
-            : "No recent activities logged.";
+        if (!recentActivities || recentActivities.length === 0) {
+          const initialQuest = {
+            description: "Log your first activity",
+            target_metric: "activity_count",
+            target_value: 1,
+            target_sport: "Any",
+            is_accumulative: false,
+            reward_points: 50,
+            time_limit_days: 7,
+          };
+          const nowIso = new Date().toISOString().replace("T", " ").substring(0, 19);
+          return db.run(
+            `INSERT INTO user_quests (user_id, description, target_metric, target_value, target_sport, is_accumulative, reward_points, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+7 days'))`,
+            [
+              userId,
+              initialQuest.description,
+              initialQuest.target_metric,
+              initialQuest.target_value,
+              initialQuest.target_sport,
+              0,
+              initialQuest.reward_points,
+              nowIso,
+            ],
+            function (errInsert) {
+              if (errInsert) return reject(errInsert);
+              resolve({
+                id: this.lastID,
+                user_id: userId,
+                status: 'active',
+                current_value: 0,
+                created_at: nowIso,
+                ...initialQuest,
+              });
+            }
+          );
+        }
+
+        const activitiesStr = recentActivities
+          .map(
+            (a) =>
+              `- ${a.start_date}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min`,
+          )
+          .join("\n");
 
         const prompt = `Based on the following recent activities of the user, generate a personalized, motivating micro-challenge (Quest) for them to complete in the next 1 to 7 days. 
             Recent activities:
@@ -1443,9 +1677,9 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
           );
           const questData = JSON.parse(aiReply);
           const daysLimit = Math.max(1, Math.min(7, parseInt(questData.time_limit_days) || 3));
-
+          const nowIso = new Date().toISOString().replace("T", " ").substring(0, 19);
           db.run(
-            `INSERT INTO user_quests (user_id, description, target_metric, target_value, target_sport, is_accumulative, reward_points, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+' || ? || ' days'))`,
+            `INSERT INTO user_quests (user_id, description, target_metric, target_value, target_sport, is_accumulative, reward_points, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+' || ? || ' days'))`,
             [
               userId,
               questData.description,
@@ -1454,6 +1688,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
               questData.target_sport || "Any",
               questData.is_accumulative ? 1 : 0,
               questData.reward_points,
+              nowIso,
               daysLimit,
             ],
             function (err) {
@@ -1463,6 +1698,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
                 user_id: userId,
                 status: 'active',
                 current_value: 0,
+                created_at: nowIso,
                 ...questData,
               });
             },
@@ -1477,8 +1713,9 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
             is_accumulative: true,
             reward_points: 50,
           };
+          const nowIso = new Date().toISOString().replace("T", " ").substring(0, 19);
           db.run(
-            `INSERT INTO user_quests (user_id, description, target_metric, target_value, target_sport, is_accumulative, reward_points, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+3 days'))`,
+            `INSERT INTO user_quests (user_id, description, target_metric, target_value, target_sport, is_accumulative, reward_points, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+3 days'))`,
             [
               userId,
               fallbackQuest.description,
@@ -1487,6 +1724,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
               fallbackQuest.target_sport,
               1,
               fallbackQuest.reward_points,
+              nowIso,
             ],
             function (errInsert) {
               if (errInsert) {
@@ -1498,6 +1736,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
                 user_id: userId,
                 status: 'active',
                 current_value: 0,
+                created_at: nowIso,
                 ...fallbackQuest,
               });
             }
@@ -1603,7 +1842,7 @@ async function evaluateAndProgressQuests(userId) {
       const createdIso =
         createdStr.replace(" ", "T") +
         (createdStr.includes("Z") || createdStr.includes("+") ? "" : "Z");
-      const createdTs = new Date(createdIso).getTime() - 60 * 60 * 1000; // 1-hour grace period for timestamps
+      const createdTs = new Date(createdIso).getTime();
 
       const matchingActivities = activities.filter((a) => {
         if (!a.start_date) return false;
@@ -1629,6 +1868,8 @@ async function evaluateAndProgressQuests(userId) {
       if (q.target_metric === "unique_sports") {
         const unique = new Set(matchingActivities.map((a) => (a.sport_type || "").toLowerCase()));
         val = unique.size;
+      } else if (q.target_metric === "activity_count") {
+        val = matchingActivities.length;
       } else {
         const metricCol = ["distance_km", "moving_time_min", "spark_score"].includes(q.target_metric)
           ? q.target_metric
@@ -1717,17 +1958,23 @@ async function calculateQuestProgress(userId, quest) {
 
     const cutoff = quest.completed_at || quest.expires_at;
     let timeCondition = "";
-    let params = [userId, quest.created_at];
+    let params = [userId, quest.created_at || '1970-01-01 00:00:00'];
 
     if (cutoff) {
-      timeCondition = ` AND start_date <= ?`;
+      timeCondition = ` AND replace(start_date, 'T', ' ') <= replace(?, 'T', ' ')`;
       params.push(cutoff);
     }
 
     if (quest.is_accumulative) {
       if (quest.target_metric === "unique_sports") {
         db.get(
-          `SELECT COUNT(DISTINCT LOWER(sport_type)) as total FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          `SELECT COUNT(DISTINCT LOWER(sport_type)) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
+          params,
+          (err, row) => resolve(row ? row.total || 0 : 0)
+        );
+      } else if (quest.target_metric === "activity_count") {
+        db.get(
+          `SELECT COUNT(id) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
           params,
           (err, row) => resolve(row ? row.total || 0 : 0)
         );
@@ -1737,15 +1984,15 @@ async function calculateQuestProgress(userId, quest) {
           ? quest.target_metric
           : "distance_km";
         db.get(
-          `SELECT SUM(${metricCol}) as total FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          `SELECT SUM(${metricCol}) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
           params,
           (err, row) => resolve(row ? (row.total ? parseFloat(row.total.toFixed(2)) : 0) : 0)
         );
       }
     } else {
-      if (quest.target_metric === "unique_sports") {
+      if (quest.target_metric === "unique_sports" || quest.target_metric === "activity_count") {
         db.get(
-          `SELECT COUNT(id) as total FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          `SELECT COUNT(id) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
           params,
           (err, row) => resolve(row && row.total > 0 ? 1 : 0)
         );
@@ -1755,7 +2002,7 @@ async function calculateQuestProgress(userId, quest) {
           ? quest.target_metric
           : "distance_km";
         db.get(
-          `SELECT MAX(${metricCol}) as max_val FROM activities WHERE user_id = ? AND start_date >= ? ${timeCondition} ${sportCondition}`,
+          `SELECT MAX(${metricCol}) as max_val FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
           params,
           (err, row) => resolve(row ? (row.max_val ? parseFloat(row.max_val.toFixed(2)) : 0) : 0)
         );
@@ -1940,6 +2187,7 @@ module.exports = {
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
   updateUserSparkAndCheckLevel,
+  checkAndAwardSparkTitles,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity,

@@ -3,128 +3,241 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy - Spark Fitness & Coaching</title>
+  <title>Privacy Policy - Spark (Spark APP)</title>
   <style>
     :root {
-      --bg: #0b0f19;
-      --card: #151c2e;
+      --bg: #090d16;
+      --card: #121826;
       --text: #f3f4f6;
+      --heading: #ffffff;
       --muted: #9ca3af;
       --accent: #ff5a1f;
-      --border: #232e47;
+      --border: #1f293d;
+      --highlight: rgba(255, 90, 31, 0.12);
     }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-    .container {
-      max-width: 780px;
-      margin: 0 auto;
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
       padding: 40px 20px 80px;
     }
-    .card {
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      margin-bottom: 24px;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--highlight);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 12px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.75px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 90, 31, 0.25);
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--heading);
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .meta {
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .content-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 32px;
-      margin-top: 24px;
-    }
-    h1 {
-      font-size: 28px;
-      font-weight: 800;
-      color: #ffffff;
-      margin-bottom: 8px;
+      padding: 32px 36px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     }
     h2 {
       font-size: 20px;
       font-weight: 700;
-      color: #ffffff;
-      margin-top: 28px;
+      color: var(--heading);
+      margin-top: 32px;
       margin-bottom: 12px;
-      border-bottom: 1px solid var(--border);
       padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
     }
-    p, li {
-      color: var(--muted);
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e5e7eb;
+      margin-top: 18px;
+      margin-bottom: 8px;
+    }
+    p {
+      margin-bottom: 14px;
+      color: #d1d5db;
       font-size: 15px;
     }
-    ul {
-      padding-left: 20px;
+    ul, ol {
+      margin-bottom: 16px;
+      padding-left: 24px;
+      color: #d1d5db;
     }
     li {
-      margin-bottom: 6px;
+      margin-bottom: 8px;
+      font-size: 15px;
     }
-    .badge {
-      display: inline-block;
-      background: rgba(255, 90, 31, 0.15);
-      color: var(--accent);
-      font-weight: 700;
-      font-size: 12px;
-      padding: 4px 10px;
-      border-radius: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 16px;
+    strong {
+      color: #f9fafb;
+      font-weight: 600;
     }
-    .updated {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 24px;
+    .alert-box {
+      background: rgba(239, 68, 68, 0.08);
+      border-left: 4px solid #ef4444;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .alert-box strong {
+      color: #f87171;
     }
     a {
       color: var(--accent);
       text-decoration: none;
+      font-weight: 500;
     }
     a:hover {
       text-decoration: underline;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 24px 0;
+    }
+    @media (max-width: 640px) {
+      .content-card {
+        padding: 24px 20px;
+      }
+      h1 {
+        font-size: 26px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="badge">Spark App Privacy Policy</div>
-    <h1>Privacy Policy</h1>
-    <div class="updated">Last updated: August 2026</div>
+    <div class="header">
+      <div class="badge">Legal Document</div>
+      <h1>Privacy Policy for Spark (Spark APP)</h1>
+      <div class="meta"><strong>Last Updated:</strong> August 6, 2026</div>
+    </div>
 
-    <div class="card">
-      <p>At <strong>Spark</strong> ("we", "our", or "us"), accessible via the Spark application and associated services, the privacy and security of our users' health and personal data is our highest priority.</p>
+    <div class="content-card">
+      <p>Spark ("we", "our", or "us") operates the Spark mobile application (the "App"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application and related services.</p>
+
+      <p>Please read this Privacy Policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access or use the App.</p>
+
+      <hr />
 
       <h2>1. Information We Collect</h2>
-      <p>We only collect data necessary to provide personalized athletic training plans, recovery diagnostics, and AI coaching:</p>
+      <p>We collect information that identifies, relates to, describes, or is capable of being associated with you ("Personal Data").</p>
+
+      <h3>A. Information You Provide Directly</h3>
       <ul>
-        <li><strong>Account Information:</strong> Name, email address, password hash, and user preferences.</li>
-        <li><strong>Health & Activity Data:</strong> Workout sessions (running, cycling, swimming, strength), heart rate, duration, distance, elevation, and training load.</li>
-        <li><strong>Integrations:</strong> With your explicit authorization, data synced from Apple HealthKit, Garmin Connect, and Strava.</li>
+        <li><strong>Account Information:</strong> Name, email address, password hash, profile picture, and account settings.</li>
+        <li><strong>Physical &amp; Health Metrics:</strong> Body weight, height, body fat percentage, target goals, workout preferences, and daily fitness logs.</li>
+        <li><strong>Physique Photos:</strong> Progress photos you explicitly choose to upload to monitor your physical transformation.</li>
+        <li><strong>AI Coach Interactions:</strong> Messages, queries, and feedback submitted to the Spark AI Coach.</li>
       </ul>
 
-      <h2>2. Apple HealthKit & WorkoutKit Data</h2>
-      <p>Spark adheres strictly to Apple's HealthKit guidelines:</p>
+      <h3>B. Information Synchronized from Third-Party Services</h3>
+      <p>If you connect third-party fitness platforms (e.g., Strava, Garmin Connect, Apple Health, Google Health Connect), we collect:</p>
       <ul>
-        <li>HealthKit data is used exclusively to provide fitness coaching and schedule structured workouts on your Apple Watch.</li>
-        <li>We <strong>never</strong> sell your HealthKit data to third parties, advertising platforms, or data brokers.</li>
-        <li>We do not use HealthKit data for marketing or advertising purposes.</li>
+        <li>Workout activities (distance, duration, pace, elevation, exercise types).</li>
+        <li>Physiological metrics (heart rate, calories burned, power metrics, recovery indicators).</li>
+        <li>API access tokens required to perform automated syncs on your behalf.</li>
       </ul>
 
-      <h2>3. How We Use Your Information</h2>
+      <h3>C. Automatically Collected Information</h3>
       <ul>
-        <li>To generate adaptive AI workouts and training volume recommendations.</li>
-        <li>To calculate Spark XP, recovery metrics, and workout readiness scores.</li>
-        <li>To sync scheduled workouts directly to your connected fitness devices.</li>
+        <li><strong>Device &amp; Usage Data:</strong> Operating system version, device model, app version, unique device identifiers, IP address, and interaction logs for crash reporting and app performance optimization.</li>
       </ul>
 
-      <h2>4. Data Storage and Security</h2>
-      <p>All sensitive credentials and authentication tokens are encrypted at rest using industry-standard AES-256 encryption. Communications between the app and our servers are encrypted via HTTPS / SSL/TLS.</p>
+      <hr />
 
-      <h2>5. Your Rights and Data Deletion</h2>
-      <p>You have full ownership of your data. You may disconnect integrations (Apple Health, Garmin, Strava) or request complete deletion of your account and all associated workout logs at any time via the Settings screen in the app.</p>
+      <h2>2. How We Use Your Information</h2>
+      <p>We process your Personal Data to provide, improve, and personalize the Spark experience, specifically to:</p>
+      <ol>
+        <li><strong>Deliver Core Features:</strong> Calculate your personalized Spark recovery scores, fitness progression, and training load.</li>
+        <li><strong>Provide AI Coaching:</strong> Process chat inputs via artificial intelligence models (Google Gemini API) to generate personalized fitness advice, workout recommendations, and nutrition summaries.</li>
+        <li><strong>Third-Party Integration:</strong> Synchronize workouts and health metrics seamlessly with Strava, Garmin Connect, and Apple Health.</li>
+        <li><strong>Community &amp; Leaderboards:</strong> Display opt-in gamification scores and public profile metrics to fellow Spark users if enabled.</li>
+        <li><strong>Security &amp; Performance:</strong> Detect, prevent, and troubleshoot technical errors or fraudulent activity.</li>
+      </ol>
 
-      <h2>6. Contact Us</h2>
-      <p>If you have any questions regarding this Privacy Policy, please contact us at:</p>
-      <p><strong>Email:</strong> <a href="mailto:rutgervandenberg@live.nl">rutgervandenberg@live.nl</a></p>
+      <hr />
+
+      <h2>3. How We Share &amp; Disclose Information</h2>
+      <p>We do <strong>not</strong> sell, rent, or trade your personal data. We disclose your information only in the following contexts:</p>
+      <ul>
+        <li><strong>AI Service Providers:</strong> Text inputs submitted to the Spark AI Coach are processed via Google Cloud / Gemini API under strict confidentiality and data protection agreements. Inputs are not used to train public foundation models without user consent.</li>
+        <li><strong>Connected Third-Party APIs:</strong> When you connect Strava, Garmin, or Apple Health, data is exchanged in accordance with their respective developer agreements and your authorization.</li>
+        <li><strong>Legal Compliance:</strong> We may disclose information if required to do so by law or in response to valid requests by public authorities (e.g., a court or government agency).</li>
+      </ul>
+
+      <hr />
+
+      <h2>4. Health &amp; Medical Disclaimer</h2>
+      <div class="alert-box">
+        <p><strong>Spark is not a medical device or a licensed medical provider.</strong></p>
+        <p>The recommendations, recovery calculations, physique estimates, and AI coach outputs generated by Spark are for informational and general fitness guidance purposes only. They are not intended to replace professional medical advice, diagnosis, or treatment. Always seek the advice of a physician or qualified health provider before starting any new fitness or nutritional program.</p>
+      </div>
+
+      <hr />
+
+      <h2>5. Data Retention &amp; Account Deletion</h2>
+      <ul>
+        <li>We retain your Personal Data for as long as your account remains active or as needed to provide you with the App services.</li>
+        <li><strong>Account Deletion:</strong> You have the right to request full deletion of your account and all associated personal data (including physical metrics, chat histories, connected tokens, and physique photos) at any time.
+          <ul>
+            <li><strong>In-App Deletion:</strong> Navigate to <strong>Settings &gt; Account &gt; Delete Account</strong>.</li>
+            <li><strong>Web Request:</strong> Contact us at <a href="mailto:privacy@sparkapp.fitness">privacy@sparkapp.fitness</a> or <a href="mailto:rutgervandenberg@live.nl">rutgervandenberg@live.nl</a>. Upon request, all personal data is permanently purged from our active databases within 30 days.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <hr />
+
+      <h2>6. Data Security</h2>
+      <p>We implement standard administrative, technical, and physical security measures to protect your personal data, including AES-256 encryption for stored OAuth tokens and HTTPS/TLS transport security for all data transfers.</p>
+
+      <hr />
+
+      <h2>7. Your Data Rights (GDPR &amp; CCPA)</h2>
+      <p>Depending on your jurisdiction, you have the following rights:</p>
+      <ul>
+        <li><strong>Access &amp; Portability:</strong> Request a copy of the personal data we hold about you.</li>
+        <li><strong>Correction:</strong> Request correction of inaccurate or incomplete data.</li>
+        <li><strong>Erasure:</strong> Request deletion of your personal data.</li>
+        <li><strong>Withdrawal of Consent:</strong> Disconnect Strava, Garmin, Apple Health, or third-party integrations at any time via App Settings.</li>
+      </ul>
+
+      <hr />
+
+      <h2>8. Contact Us</h2>
+      <p>If you have questions or concerns about this Privacy Policy or our data practices, please contact us at:</p>
+      <ul>
+        <li><strong>Email:</strong> <a href="mailto:privacy@sparkapp.fitness">privacy@sparkapp.fitness</a> / <a href="mailto:rutgervandenberg@live.nl">rutgervandenberg@live.nl</a></li>
+        <li><strong>Website:</strong> <a href="https://spark.amsterdamtriathlonassociation.uk/privacy.html">https://spark.amsterdamtriathlonassociation.uk/privacy.html</a></li>
+      </ul>
     </div>
   </div>
 </body>

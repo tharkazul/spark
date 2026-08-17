@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
+import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AnatomicalBodyMap, ActiveNiggle, BODY_PARTS_LOOKUP } from './AnatomicalBodyMap';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
 import { MuscleFatigueCard } from './MuscleFatigueCard';
@@ -189,99 +190,94 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       </Card>
 
       {/* NIGGLE LOGGING MODAL / BOTTOM SHEET */}
-      <Modal
+      <BottomSheetModal
         visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
+        onClose={() => setModalVisible(false)}
+        contentClassName="bg-theme-card rounded-t-3xl p-6 max-h-[85vh]"
       >
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-theme-card rounded-t-3xl p-6 max-h-[85vh]">
-            <View className="flex-row justify-between items-center pb-4 mb-4">
-              <View>
-                <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                  Log Issue / Soreness
-                </Text>
-                <Text className="text-lg font-extrabold text-theme-text mt-0.5">
-                  {selectedPartName}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color="#8E9BA4" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Severity Chips */}
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
-                Severity Level
-              </Text>
-              <View className="flex-row justify-between mb-4">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <TouchableOpacity
-                    key={level}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setSeverity(level);
-                    }}
-                    className={`w-12 h-12 rounded-xl items-center justify-center ${
-                      severity === level
-                        ? 'bg-theme-accent'
-                        : 'bg-theme-bg'
-                    }`}
-                  >
-                    <Text
-                      className={`text-base font-extrabold ${
-                        severity === level ? 'text-white' : 'text-theme-text'
-                      }`}
-                    >
-                      {level}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View className="flex-row justify-between text-[10px] text-theme-muted mb-5 px-1">
-                <Text className="text-xs text-theme-muted">1: Gentle Twinge</Text>
-                <Text className="text-xs text-theme-muted">3: Modifies Gait</Text>
-                <Text className="text-xs text-theme-muted">5: Cannot Bear Weight</Text>
-              </View>
-
-              {/* Notes Input */}
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
-                Context & Pain Notes
-              </Text>
-              <TextInput
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="e.g. Sharp pain when stepping off curb..."
-                multiline
-                numberOfLines={3}
-                className="bg-theme-bg text-theme-text rounded-xl p-3 text-sm mb-6"
-                style={{ textAlignVertical: 'top', minHeight: 80 }}
-              />
-
-              {/* Buttons */}
-              <View className="space-y-3 mb-4">
-                <Button label="Save Issue" onPress={handleSave} className="bg-theme-accent mb-2" />
-
-                {editingNiggleId ? (
-                  <Button
-                    label="Mark as Resolved"
-                    onPress={() => handleResolve(editingNiggleId)}
-                    variant="outline"
-                    className="border-emerald-500 text-emerald-500"
-                  />
-                ) : null}
-              </View>
-            </ScrollView>
+        <View className="flex-row justify-between items-center pb-4 mb-4">
+          <View>
+            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              Log Issue / Soreness
+            </Text>
+            <Text className="text-lg font-extrabold text-theme-text mt-0.5">
+              {selectedPartName}
+            </Text>
           </View>
+
+          <TouchableOpacity
+            onPress={() => setModalVisible(false)}
+            className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
+          >
+            <Ionicons name="close" size={18} color="#8E9BA4" />
+          </TouchableOpacity>
         </View>
-      </Modal>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Severity Chips */}
+          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+            Severity Level
+          </Text>
+          <View className="flex-row justify-between mb-4">
+            {[1, 2, 3, 4, 5].map((level) => (
+              <TouchableOpacity
+                key={level}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSeverity(level);
+                }}
+                className={`w-12 h-12 rounded-xl items-center justify-center ${
+                  severity === level
+                    ? 'bg-theme-accent'
+                    : 'bg-theme-bg'
+                }`}
+              >
+                <Text
+                  className={`text-base font-extrabold ${
+                    severity === level ? 'text-white' : 'text-theme-text'
+                  }`}
+                >
+                  {level}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View className="flex-row justify-between text-[10px] text-theme-muted mb-5 px-1">
+            <Text className="text-xs text-theme-muted">1: Gentle Twinge</Text>
+            <Text className="text-xs text-theme-muted">3: Modifies Gait</Text>
+            <Text className="text-xs text-theme-muted">5: Cannot Bear Weight</Text>
+          </View>
+
+          {/* Notes Input */}
+          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+            Context & Pain Notes
+          </Text>
+          <TextInput
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="e.g. Sharp pain when stepping off curb..."
+            multiline
+            numberOfLines={3}
+            className="bg-theme-bg text-theme-text rounded-xl p-3 text-sm mb-6"
+            style={{ textAlignVertical: 'top', minHeight: 80 }}
+          />
+
+          {/* Buttons */}
+          <View className="space-y-3 mb-4">
+            <Button label="Save Issue" onPress={handleSave} className="bg-theme-accent mb-2" />
+
+            {editingNiggleId ? (
+              <Button
+                label="Mark as Resolved"
+                onPress={() => handleResolve(editingNiggleId)}
+                variant="outline"
+                className="border-emerald-500 text-emerald-500"
+              />
+            ) : null}
+          </View>
+        </ScrollView>
+      </BottomSheetModal>
     </View>
   );
 };

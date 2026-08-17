@@ -9,8 +9,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import { FeedSubTab } from '../../components/social/FeedSubTab';
@@ -117,6 +116,8 @@ export default function SocialScreen() {
     }
   };
 
+  const bottomInsetPadding = Math.max(tabBarOccupied + 48, 120);
+
   return (
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
       {/* HEADER WITH TITLE AND SUB-TAB SWITCHER */}
@@ -124,22 +125,28 @@ export default function SocialScreen() {
         <ScreenHeaderTitleRow title="Social" />
 
         {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
-        <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden mt-1">
+        <View className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-[#E2E8F0] dark:border-slate-700">
           <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent rounded-xl"
+            className="absolute top-1 bottom-1 bg-[#EA580C] rounded-lg shadow-xs"
             style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }}
           />
 
           {/* FEED PILL */}
           <TouchableOpacity
             onPress={() => handleTabPress('feed')}
-            className="flex-1 py-2.5 items-center justify-center z-10"
+            className="flex-1 py-2 items-center justify-center z-10"
           >
             <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: feedWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
+              <Animated.Text
+                style={{ opacity: feedWhiteOpacity }}
+                className="text-xs font-semibold text-white absolute"
+              >
                 Feed
               </Animated.Text>
-              <Animated.Text style={{ opacity: feedGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">
+              <Animated.Text
+                style={{ opacity: feedGreyOpacity }}
+                className="text-xs font-medium text-[#64748B] dark:text-slate-400"
+              >
                 Feed
               </Animated.Text>
             </View>
@@ -148,13 +155,19 @@ export default function SocialScreen() {
           {/* MY LOG PILL */}
           <TouchableOpacity
             onPress={() => handleTabPress('mylog')}
-            className="flex-1 py-2.5 items-center justify-center z-10"
+            className="flex-1 py-2 items-center justify-center z-10"
           >
             <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: logWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
+              <Animated.Text
+                style={{ opacity: logWhiteOpacity }}
+                className="text-xs font-semibold text-white absolute"
+              >
                 My Log
               </Animated.Text>
-              <Animated.Text style={{ opacity: logGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">
+              <Animated.Text
+                style={{ opacity: logGreyOpacity }}
+                className="text-xs font-medium text-[#64748B] dark:text-slate-400"
+              >
                 My Log
               </Animated.Text>
             </View>
@@ -163,13 +176,19 @@ export default function SocialScreen() {
           {/* LEADERBOARD PILL */}
           <TouchableOpacity
             onPress={() => handleTabPress('leaderboard')}
-            className="flex-1 py-2.5 items-center justify-center z-10"
+            className="flex-1 py-2 items-center justify-center z-10"
           >
             <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: leaderboardWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
+              <Animated.Text
+                style={{ opacity: leaderboardWhiteOpacity }}
+                className="text-xs font-semibold text-white absolute"
+              >
                 Leaderboard
               </Animated.Text>
-              <Animated.Text style={{ opacity: leaderboardGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">
+              <Animated.Text
+                style={{ opacity: leaderboardGreyOpacity }}
+                className="text-xs font-medium text-[#64748B] dark:text-slate-400"
+              >
                 Leaderboard
               </Animated.Text>
             </View>
@@ -194,7 +213,7 @@ export default function SocialScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -206,7 +225,7 @@ export default function SocialScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
@@ -218,7 +237,7 @@ export default function SocialScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >

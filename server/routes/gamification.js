@@ -31,6 +31,7 @@ const {
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
   updateUserSparkAndCheckLevel,
+  checkAndAwardSparkTitles,
   triggerLevelUpCoachPrompt,
   evaluateAndProgressQuests,
   calculateQuestProgress,
@@ -84,8 +85,9 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
 
   try {
     await evaluateAndProgressQuests(userId);
+    await checkAndAwardSparkTitles(userId);
   } catch (e) {
-    console.error("Error evaluating quests in /api/gamification:", e);
+    console.error("Error evaluating gamification in /api/gamification:", e);
   }
 
   // Fix any quest erroneously marked completed after its expiration date

@@ -160,15 +160,33 @@ router.post("/api/admin/set-tier", authenticateToken, (req, res) => {
     // Set tier, and automatically adjust daily_token_limit so it takes effect immediately
     const limit = tier === 'spark_plus' ? 50000 : 10000;
 
-    db.run(
-        `UPDATE users SET subscription_tier = ?, daily_token_limit = ? WHERE username = ?`,
-        [tier, limit, targetUsername],
-        function (err) {
-            if (err) return res.status(500).json({ error: "Database error" });
-            if (this.changes === 0) return res.status(404).json({ error: "User not found" });
-            res.json({ success: true, message: `Set ${targetUsername} tier to ${tier}` });
-        }
-    );
+    db.get(`SELECT id, subscription_tier FROM users WHERE username = ?`, [targetUsername], (errUser, userRow) => {
+        if (errUser || !userRow) return res.status(404).json({ error: "User not found" });
+
+        const previousTier = userRow.subscription_tier || 'free';
+
+        db.run(
+            `UPDATE users SET subscription_tier = ?, daily_token_limit = ? WHERE username = ?`,
+            [tier, limit, targetUsername],
+            function (err) {
+                if (err) return res.status(500).json({ error: "Database error" });
+                if (this.changes === 0) return res.status(404).json({ error: "User not found" });
+
+                // If upgraded from free to subscriber tier, assign first quest: "Log a single activity"
+                if (previousTier === 'free' && tier !== 'free') {
+                    db.run(`UPDATE user_quests SET status = 'closed' WHERE user_id = ? AND status = 'active'`, [userRow.id], () => {
+                        const nowIso = new Date().toISOString().replace("T", " ").substring(0, 19);
+                        db.run(
+                            `INSERT INTO user_quests (user_id, description, target_metric, target_value, target_sport, is_accumulative, reward_points, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+7 days'))`,
+                            [userRow.id, "Log a single activity", "activity_count", 1, "Any", 0, 50, nowIso]
+                        );
+                    });
+                }
+
+                res.json({ success: true, message: `Set ${targetUsername} tier to ${tier}` });
+            }
+        );
+    });
 });
 
 router.post("/api/admin/trigger-weekly-onboarding", authenticateToken, async (req, res) => {

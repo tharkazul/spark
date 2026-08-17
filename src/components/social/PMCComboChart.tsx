@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Rect, Path, Circle, Line } from 'react-native-svg';
+import Svg, { Rect, Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 
 import { calculatePMC, PMCDayPoint } from '../../domain/pmc';
@@ -15,16 +15,28 @@ interface PMCComboChartProps {
   height?: number;
 }
 
+type RangeOption = '7D' | '14D' | '30D' | 'ALL';
+
+function formatDateLabel(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch (e) {
+    return dateStr;
+  }
+}
+
 export const PMCComboChart: React.FC<PMCComboChartProps> = ({
   activities = [],
   physiqueLogs = [],
   targetCtl = 75,
-  height = 220,
+  height = 210,
 }) => {
   const { width: windowWidth } = useWindowDimensions();
-  const chartWidth = Math.max(320, windowWidth - 64);
+  const chartWidth = Math.max(320, windowWidth - 48);
 
-  const [zoomLevel, setZoomLevel] = useState<number>(1); // 1 = 14 days, 2 = 30 days, 3 = 60 days
+  const [selectedRange, setSelectedRange] = useState<RangeOption>('14D');
   const [selectedPoint, setSelectedPoint] = useState<PMCDayPoint | null>(null);
 
   const goalMilestones = targetCtl
@@ -34,40 +46,55 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
   const pmcResult = calculatePMC(activities, physiqueLogs, goalMilestones);
   const fullHistory = pmcResult.history;
 
-  // Filter history based on zoom level (14, 30, or 60 days)
-  const displayDays = zoomLevel === 1 ? 14 : zoomLevel === 2 ? 30 : 60;
+  // Filter history based on selected range
+  const displayDays =
+    selectedRange === '7D'
+      ? 7
+      : selectedRange === '14D'
+      ? 14
+      : selectedRange === '30D'
+      ? 30
+      : fullHistory.length || 60;
+
   const historySlice = fullHistory.slice(-displayDays);
 
   if (historySlice.length === 0) {
     return (
-      <View className="bg-theme-card border border-theme-border rounded-2xl p-5 items-center justify-center min-h-[200px]">
-        <Ionicons name="stats-chart-outline" size={32} color="#6F6F79" />
-        <Text className="text-sm font-bold text-theme-muted mt-2">No PMC Data Available</Text>
+      <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 items-center justify-center min-h-[180px]">
+        <Ionicons name="stats-chart-outline" size={32} color="#94A3B8" />
+        <Text className="text-sm font-semibold text-[#64748B] mt-2">No Training Load Data Available</Text>
       </View>
     );
   }
 
-  // Calculate scales
+  // 1. Dynamic Y-Axis Scaling: tightly bound to data with ~15-20% headroom
   const ctlValues = historySlice.map((h) => h.ctl);
   const atlValues = historySlice.map((h) => h.atl);
   const tsbValues = historySlice.map((h) => h.tsb);
 
-  const maxVal = Math.max(10, ...ctlValues, ...atlValues, targetCtl);
-  const minVal = Math.min(-30, ...tsbValues);
+  const dataMax = Math.max(5, ...ctlValues, ...atlValues, Math.max(0, ...tsbValues));
+  const dataMin = Math.min(0, ...tsbValues);
+
+  // Apply 15-20% padding headroom above peak and below min
+  const maxVal = Math.ceil(dataMax * 1.2);
+  const minVal = Math.floor(dataMin < 0 ? dataMin * 1.2 : -5);
   const valRange = maxVal - minVal || 1;
 
-  const paddingBottom = 30;
-  const paddingTop = 20;
-  const graphHeight = height - paddingBottom - paddingTop;
+  const paddingLeft = 14;
+  const paddingRight = 36;
+  const paddingTop = 16;
+  const paddingBottom = 32;
+  const graphWidth = chartWidth - paddingLeft - paddingRight;
+  const graphHeight = height - paddingTop - paddingBottom;
 
   const getX = (index: number) => {
-    if (historySlice.length <= 1) return 20;
-    return 20 + (index / (historySlice.length - 1)) * (chartWidth - 40);
+    if (historySlice.length <= 1) return paddingLeft + graphWidth / 2;
+    return paddingLeft + (index / (historySlice.length - 1)) * graphWidth;
   };
 
   const getY = (val: number) => {
     const ratio = (val - minVal) / valRange;
-    return height - paddingBottom - ratio * graphHeight;
+    return paddingTop + (1 - ratio) * graphHeight;
   };
 
   const zeroY = getY(0);
@@ -85,55 +112,62 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
     return idx === 0 ? `M ${x} ${y}` : `${acc} L ${x} ${y}`;
   }, '');
 
-  const handleZoomToggle = () => {
-    Haptics.selectionAsync();
-    setZoomLevel((prev) => (prev % 3) + 1);
-  };
-
-  const handleResetZoom = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setZoomLevel(1);
-    setSelectedPoint(null);
-  };
+  const startDateLabel = formatDateLabel(historySlice[0]?.date);
+  const midIndex = Math.floor(historySlice.length / 2);
+  const midDateLabel = formatDateLabel(historySlice[midIndex]?.date);
+  const endDateLabel = formatDateLabel(historySlice[historySlice.length - 1]?.date);
 
   return (
-    <View className="bg-theme-card border border-theme-border rounded-2xl p-4 shadow-sm mb-5">
-      {/* Header with Title and Reset Zoom */}
+    <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 mb-4">
+      {/* Header with Title and Range Selector */}
       <View className="flex-row justify-between items-center mb-3">
-        <View className="flex-row items-center space-x-2">
-          <Ionicons name="analytics" size={18} color="#FF5F3B" />
-          <Text className="text-xs font-extrabold text-theme-text uppercase tracking-wider">
-            Training Load History (PMC)
+        <View className="flex-row items-center space-x-1.5">
+          <Ionicons name="trending-up" size={16} color="#FF5F3B" />
+          <Text className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider ml-1">
+            Training Load
           </Text>
         </View>
 
-        <View className="flex-row items-center space-x-2">
-          <TouchableOpacity
-            onPress={handleZoomToggle}
-            className="px-2.5 py-1 bg-theme-bg border border-theme-border rounded-lg"
-          >
-            <Text className="text-[10px] font-bold text-theme-muted">
-              Range: {displayDays}D
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleResetZoom}
-            className="px-2.5 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg"
-          >
-            <Text className="text-[10px] font-extrabold text-theme-accent">Reset</Text>
-          </TouchableOpacity>
+        {/* Range Segmented Control */}
+        <View className="flex-row bg-[#F1F5F9] dark:bg-slate-800/80 rounded-lg p-0.5">
+          {(['7D', '14D', '30D', 'ALL'] as const).map((rng) => (
+            <TouchableOpacity
+              key={rng}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedRange(rng);
+                setSelectedPoint(null);
+              }}
+              className={`px-2 py-0.5 rounded-md ${
+                selectedRange === rng ? 'bg-white dark:bg-slate-700 shadow-xs' : ''
+              }`}
+            >
+              <Text
+                className={`text-[10px] ${
+                  selectedRange === rng
+                    ? 'font-bold text-theme-accent'
+                    : 'font-medium text-[#64748B] dark:text-slate-400'
+                }`}
+              >
+                {rng}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
-      {/* Selected Point Banner */}
+      {/* Selected Point Tooltip Banner */}
       {selectedPoint && (
-        <View className="bg-theme-bg p-2.5 rounded-xl mb-2 flex-row justify-between items-center border border-theme-border">
-          <Text className="text-xs font-mono font-bold text-theme-muted">{selectedPoint.date}</Text>
+        <View className="bg-[#F8FAFC] dark:bg-slate-800/60 px-3 py-2 rounded-xl mb-2 flex-row justify-between items-center border border-[#E2E8F0] dark:border-slate-700">
+          <Text className="text-xs font-mono font-bold text-[#64748B]">{selectedPoint.date}</Text>
           <View className="flex-row gap-3">
-            <Text className="text-xs font-bold text-sky-400">CTL: {selectedPoint.ctl.toFixed(1)}</Text>
-            <Text className="text-xs font-bold text-rose-400">ATL: {selectedPoint.atl.toFixed(1)}</Text>
-            <Text className={`text-xs font-bold ${selectedPoint.tsb >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <Text className="text-xs font-bold text-sky-500">CTL: {selectedPoint.ctl.toFixed(1)}</Text>
+            <Text className="text-xs font-bold text-rose-500">ATL: {selectedPoint.atl.toFixed(1)}</Text>
+            <Text
+              className={`text-xs font-bold ${
+                selectedPoint.tsb >= 0 ? 'text-amber-500' : 'text-rose-400'
+              }`}
+            >
               TSB: {selectedPoint.tsb.toFixed(1)}
             </Text>
           </View>
@@ -143,27 +177,87 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
       {/* SVG Chart Surface */}
       <View style={{ height, width: '100%' }}>
         <Svg width="100%" height={height} viewBox={`0 0 ${chartWidth} ${height}`}>
-          {/* Zero baseline */}
-          <Line x1="10" y1={zeroY} x2={chartWidth - 10} y2={zeroY} stroke="#3f3f46" strokeWidth="1" strokeDasharray="4 4" />
+          {/* Faint Horizontal Dashed Gridlines */}
+          <Line
+            x1={paddingLeft}
+            y1={getY(maxVal * 0.9)}
+            x2={chartWidth - paddingRight}
+            y2={getY(maxVal * 0.9)}
+            stroke="#E2E8F0"
+            strokeWidth="1"
+            strokeDasharray="3 3"
+            strokeOpacity={0.6}
+          />
+          <Line
+            x1={paddingLeft}
+            y1={zeroY}
+            x2={chartWidth - paddingRight}
+            y2={zeroY}
+            stroke="#CBD5E1"
+            strokeWidth="1"
+            strokeDasharray="3 3"
+            strokeOpacity={0.8}
+          />
+          {minVal < -2 && (
+            <Line
+              x1={paddingLeft}
+              y1={getY(minVal * 0.8)}
+              x2={chartWidth - paddingRight}
+              y2={getY(minVal * 0.8)}
+              stroke="#E2E8F0"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+              strokeOpacity={0.6}
+            />
+          )}
 
-          {/* Target CTL line */}
-          {targetCtl > 0 && (
-            <Line x1="10" y1={getY(targetCtl)} x2={chartWidth - 10} y2={getY(targetCtl)} stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="6 4" />
+          {/* Y-Axis subtle value labels */}
+          <SvgText
+            x={chartWidth - paddingRight + 6}
+            y={getY(maxVal * 0.9) + 3}
+            fontSize="10"
+            fill="#94A3B8"
+            textAnchor="start"
+            fontWeight="500"
+          >
+            {Math.round(maxVal * 0.9)}
+          </SvgText>
+          <SvgText
+            x={chartWidth - paddingRight + 6}
+            y={zeroY + 3}
+            fontSize="10"
+            fill="#94A3B8"
+            textAnchor="start"
+            fontWeight="500"
+          >
+            0
+          </SvgText>
+          {minVal < -2 && (
+            <SvgText
+              x={chartWidth - paddingRight + 6}
+              y={getY(minVal * 0.8) + 3}
+              fontSize="10"
+              fill="#94A3B8"
+              textAnchor="start"
+              fontWeight="500"
+            >
+              {Math.round(minVal * 0.8)}
+            </SvgText>
           )}
 
           {/* Form (TSB) Bars */}
           {historySlice.map((pt, idx) => {
-            const x = getX(idx) - 3;
+            const x = getX(idx) - 2.5;
             const barY = pt.tsb >= 0 ? getY(pt.tsb) : zeroY;
             const barHeight = Math.max(2, Math.abs(getY(pt.tsb) - zeroY));
-            const barColor = pt.tsb >= 0 ? 'rgba(250, 204, 21, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+            const barColor = pt.tsb >= 0 ? 'rgba(251, 191, 36, 0.45)' : 'rgba(244, 63, 94, 0.45)';
 
             return (
               <Rect
                 key={`bar-${idx}`}
                 x={x}
                 y={barY}
-                width={6}
+                width={5}
                 height={barHeight}
                 fill={barColor}
                 rx={1.5}
@@ -179,7 +273,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
           <Path d={ctlPath} fill="none" stroke="#0ea5e9" strokeWidth="2.5" />
 
           {/* Fatigue (ATL) Line */}
-          <Path d={atlPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="4 4" />
+          <Path d={atlPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="3 3" />
 
           {/* Interactive touch points */}
           {historySlice.map((pt, idx) => {
@@ -203,24 +297,58 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
               />
             );
           })}
+
+          {/* X-Axis Date Labels */}
+          <SvgText
+            x={getX(0)}
+            y={height - 8}
+            fontSize="10"
+            fill="#94A3B8"
+            textAnchor="start"
+            fontWeight="500"
+          >
+            {startDateLabel}
+          </SvgText>
+          {historySlice.length > 3 && (
+            <SvgText
+              x={getX(midIndex)}
+              y={height - 8}
+              fontSize="10"
+              fill="#94A3B8"
+              textAnchor="middle"
+              fontWeight="500"
+            >
+              {midDateLabel}
+            </SvgText>
+          )}
+          <SvgText
+            x={getX(historySlice.length - 1)}
+            y={height - 8}
+            fontSize="10"
+            fill="#94A3B8"
+            textAnchor="end"
+            fontWeight="500"
+          >
+            {endDateLabel}
+          </SvgText>
         </Svg>
       </View>
 
       {/* Legend Footer */}
-      <View className="flex-row justify-around items-center pt-3 border-t border-theme-border/40 mt-1">
-        <View className="flex-row items-center space-x-1.5">
-          <View className="w-2.5 h-2.5 rounded-full bg-sky-500" />
-          <Text className="text-[10px] font-bold text-theme-muted">Fitness (CTL)</Text>
+      <View className="flex-row justify-around items-center pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800/80 mt-1">
+        <View className="flex-row items-center">
+          <View className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-1.5" />
+          <Text className="text-[11px] font-medium text-[#64748B]">Fitness (CTL)</Text>
         </View>
 
-        <View className="flex-row items-center space-x-1.5">
-          <View className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-          <Text className="text-[10px] font-bold text-theme-muted">Fatigue (ATL)</Text>
+        <View className="flex-row items-center">
+          <View className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5" />
+          <Text className="text-[11px] font-medium text-[#64748B]">Fatigue (ATL)</Text>
         </View>
 
-        <View className="flex-row items-center space-x-1.5">
-          <View className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-          <Text className="text-[10px] font-bold text-theme-muted">Form (TSB)</Text>
+        <View className="flex-row items-center">
+          <View className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5" />
+          <Text className="text-[11px] font-medium text-[#64748B]">Form (TSB)</Text>
         </View>
       </View>
     </View>

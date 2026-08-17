@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card } from '../ui/Card';
+import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Quest } from '../../types/gamification';
@@ -19,10 +20,10 @@ export function ActiveQuestsCard() {
     try {
       if (activeQuest) {
         await swapActiveQuest(activeQuest.id);
-        setIsModalOpen(false);
       } else {
         await generateNewQuest();
       }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Generate quest error:', err);
     } finally {
@@ -100,94 +101,80 @@ export function ActiveQuestsCard() {
       </Card>
 
       {/* Quest Detail Modal */}
-      <Modal
+      <BottomSheetModal
         visible={isModalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsModalOpen(false)}
+        onClose={() => setIsModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
       >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setIsModalOpen(false)}
-          className="flex-1 bg-black/60 justify-end"
-        >
+        {/* Header */}
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
+              <Ionicons name="trophy" size={26} color="#F97316" />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+              <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
+            </View>
+          </View>
+          <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
+            <Text className="text-sm font-mono font-extrabold text-amber-500">
+              +{Math.round(activeQuest?.reward_points || 0)} Spark
+            </Text>
+          </View>
+        </View>
+
+        {/* Quest Description */}
+        <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
+          <Text className="text-sm font-bold text-theme-text leading-relaxed">
+            {activeQuest?.description}
+          </Text>
+        </View>
+
+        {/* Progress Meter */}
+        <View className="mb-6">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
+            </Text>
+            <Text className="text-sm font-mono font-bold text-amber-500">
+              {progressPercent}%
+            </Text>
+          </View>
+          <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
+            <View
+              className="h-full bg-amber-500 rounded-full"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View className="flex-row gap-3">
           <TouchableOpacity
-            activeOpacity={1}
-            className="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+            onPress={handleGenerateQuest}
+            disabled={loading}
+            className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
-            {/* Modal Handle */}
-            <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
-
-            {/* Header */}
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center gap-3">
-                <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-                  <Ionicons name="trophy" size={26} color="#F97316" />
-                </View>
-                <View>
-                  <Text className="text-lg font-black text-theme-text">Active Quest</Text>
-                  <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
-                </View>
-              </View>
-              <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
-                <Text className="text-sm font-mono font-extrabold text-amber-500">
-                  +{Math.round(activeQuest?.reward_points || 0)} Spark
-                </Text>
-              </View>
-            </View>
-
-            {/* Quest Description */}
-            <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
-              <Text className="text-sm font-bold text-theme-text leading-relaxed">
-                {activeQuest?.description}
-              </Text>
-            </View>
-
-            {/* Progress Meter */}
-            <View className="mb-6">
-              <View className="flex-row justify-between items-center mb-2">
-                <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                  Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
-                </Text>
-                <Text className="text-sm font-mono font-bold text-amber-500">
-                  {progressPercent}%
-                </Text>
-              </View>
-              <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
-                <View
-                  className="h-full bg-amber-500 rounded-full"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={handleGenerateQuest}
-                disabled={loading}
-                className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#F97316" />
-                ) : (
-                  <>
-                    <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
-                    <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setIsModalOpen(false)}
-                className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
-              >
-                <Text className="text-xs font-black text-white">Got it</Text>
-              </TouchableOpacity>
-            </View>
+            {loading ? (
+              <ActivityIndicator size="small" color="#F97316" />
+            ) : (
+              <>
+                <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+              </>
+            )}
           </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+
+          <TouchableOpacity
+            onPress={() => setIsModalOpen(false)}
+            className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+          >
+            <Text className="text-xs font-black text-white">Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
     </>
   );
 }

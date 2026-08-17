@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Card } from '../ui/Card';
 import { userApi } from '../../services/apiServices';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserStore';
+import { useCoachChatStore } from '../../context/CoachChatStore';
 
 interface AccountTabProps {
   onLogout: () => void;
@@ -12,19 +15,29 @@ interface AccountTabProps {
 
 export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus }) => {
   const { t } = useLanguage();
+  const { user } = useUser();
+  const { tokenUsage } = useCoachChatStore();
   const [trackingUpgrade, setTrackingUpgrade] = useState(false);
+
+  const tier = user?.subscription_tier || 'free';
+  const isMember = isSparkPlus || tier === 'admin' || tier === 'premium' || tier === 'spark_plus' || tier === 'subscription';
+
+  const dailyUsage = tokenUsage?.daily_token_usage ?? (user as any)?.dailyTokenUsage ?? (user as any)?.daily_token_usage ?? 0;
+  const dailyLimit = tokenUsage?.daily_token_limit ?? (user as any)?.dailyTokenLimit ?? (user as any)?.daily_token_limit ?? (tier === 'admin' ? 500000 : isMember ? 50000 : 5000);
 
   const handleSparkPlusClick = async () => {
     setTrackingUpgrade(true);
     try {
       await userApi.trackSparkPlusClick();
       Alert.alert(
-        'Spark+ Premium',
-        'Spark+ gives you unlimited daily AI Coach tokens, priority workout generation, advanced periodization, and direct Garmin sync!'
+        isMember ? 'Spark+ Active' : 'Spark+ Premium',
+        isMember
+          ? 'Your account has full access to all premium features including high-capacity AI Coach tokens, custom coaching models, and periodization.'
+          : 'Spark+ gives you 50,000 daily AI Coach tokens, priority workout generation, advanced periodization, and direct Garmin sync!'
       );
     } catch (err) {
       Alert.alert(
-        'Spark+ Premium',
+        isMember ? 'Spark+ Active' : 'Spark+ Premium',
         'Spark+ gives you unlimited daily AI Coach tokens, priority workout generation, advanced periodization, and direct Garmin sync!'
       );
     } finally {
@@ -107,8 +120,8 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
     <View className="space-y-6">
       {/* USAGE STATISTICS */}
       <Card className="p-4 mb-6">
-        <View className="flex-row items-center gap-2 pb-3 mb-3">
-          <View className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
+          <View className="w-2.5 h-2.5 rounded-full bg-purple-500 mr-2" />
           <Text className="text-theme-text font-bold text-sm">Usage Statistics</Text>
         </View>
 
@@ -118,41 +131,61 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
               Personal Daily Token Use Rate
             </Text>
             <Text className="text-xs text-theme-muted mt-1">
-              Tokens consumed today by AI Coach interactions
+              Tokens consumed today by AI Coach interactions (Limit: {dailyLimit.toLocaleString()}/day)
             </Text>
           </View>
           <View className="px-3 py-1.5 bg-theme-accent/10 rounded-xl">
-            <Text className="text-lg font-bold text-theme-accent">1,420</Text>
+            <Text className="text-lg font-bold text-theme-accent">{dailyUsage.toLocaleString()}</Text>
           </View>
         </View>
       </Card>
 
-      {/* SPARK+ UPGRADE CARD */}
+      {/* SPARK+ UPGRADE / MEMBER CARD */}
       <TouchableOpacity
         onPress={handleSparkPlusClick}
         activeOpacity={0.9}
-        className="bg-gradient-to-r from-orange-500 to-purple-600 rounded-2xl p-6 mb-6 shadow-md"
+        className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-theme-border/30"
       >
-        <View className="flex-row items-center gap-2 mb-2">
-          <Ionicons name="flash" size={24} color="#FFF" />
-          <Text className="text-white text-xl font-extrabold tracking-tight">
-            {isSparkPlus ? 'Spark+ Active' : 'Upgrade to Spark+'}
+        <LinearGradient
+          colors={isMember ? ['#1E293B', '#0F172A'] : ['#FF5A1F', '#7C3AED']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ padding: 22, borderRadius: 16 }}
+        >
+          <View className="flex-row items-center justify-between mb-2.5">
+            <View className="flex-row items-center">
+              <Ionicons name="flash" size={24} color="#FFF" />
+              <Text className="text-white text-xl font-extrabold tracking-tight ml-2">
+                {isMember
+                  ? (tier === 'admin' ? '⚡ Spark Admin Access' : '⚡ Spark+ Active')
+                  : 'Upgrade to Spark+'}
+              </Text>
+            </View>
+            <View className="px-2.5 py-1 bg-white/20 rounded-full">
+              <Text className="text-white text-[10px] font-extrabold uppercase tracking-wider">
+                {isMember ? (tier === 'admin' ? 'ADMIN' : 'ACTIVE') : 'PRO TIER'}
+              </Text>
+            </View>
+          </View>
+
+          <Text className="text-white/90 text-xs mb-4 leading-relaxed font-medium">
+            {isMember
+              ? (tier === 'admin'
+                  ? 'Your account has full administrator access with a 500k daily token quota, advanced periodization, and direct integrations.'
+                  : 'Your account has unlocked 50,000 daily coach tokens, priority workout adaptation, custom macro periodization, and direct Garmin sync.')
+              : 'Unlock 50,000 daily coach tokens, priority workout adaptation, custom macro periodization, and deeper athletic insights.'}
           </Text>
-        </View>
 
-        <Text className="text-white/90 text-xs mb-4 leading-relaxed">
-          Unlock 50,000 daily coach tokens, priority workout adaptation, custom macro periodization, and deeper athletic insights.
-        </Text>
-
-        <View className="bg-white py-2.5 px-5 rounded-full self-start flex-row items-center shadow-sm">
-          {trackingUpgrade ? (
-            <ActivityIndicator size="small" color="#FF5A1F" />
-          ) : (
-            <Text className="text-theme-accent font-bold text-xs">
-              {isSparkPlus ? 'View Member Benefits' : 'View Premium Benefits'}
-            </Text>
-          )}
-        </View>
+          <View className="bg-white py-2.5 px-5 rounded-full self-start flex-row items-center shadow-sm">
+            {trackingUpgrade ? (
+              <ActivityIndicator size="small" color="#FF5A1F" />
+            ) : (
+              <Text className="text-theme-accent font-bold text-xs">
+                {isMember ? 'View Member Benefits' : 'View Premium Benefits'}
+              </Text>
+            )}
+          </View>
+        </LinearGradient>
       </TouchableOpacity>
 
       {/* DATA & PRIVACY */}

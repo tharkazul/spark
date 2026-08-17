@@ -11,6 +11,7 @@ import {
   Image as RNImage,
   Modal,
   Animated,
+  Keyboard,
   StyleSheet
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,13 +40,14 @@ import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownT
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { EventInviteCard } from '../../components/chat/EventInviteCard';
 import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
-import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { ChatMessage } from '../../types/chat';
 import { API_BASE_URL } from '../../constants/api';
+import { hasSubscriptionTier } from '../../utils/permissions';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { useTabBar } from '../../context/TabBarContext';
 import { ChatMacroStrip } from '../../components/chat/ChatMacroStrip';
 import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
+import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 
 interface ChatSection {
   title: string;
@@ -73,7 +75,8 @@ function formatDateHeader(dateObj: Date): string {
 
 type ChatListItem = 
   | { type: 'message'; data: ChatMessage; isFirstInRun: boolean; isLastInRun: boolean }
-  | { type: 'date'; title: string; id: string };
+  | { type: 'date'; title: string; id: string }
+  | { type: 'thinking'; id: string };
 
 function flattenMessagesChronological(messagesList: ChatMessage[]): ChatListItem[] {
   const items: ChatListItem[] = [];
@@ -139,7 +142,7 @@ const MessageRow = React.memo(({
   onDeclineInvite: any;
   onExpandImage: (source: string | number) => void;
 }) => {
-  const hasText = hasRenderableText(item.content);
+  const hasText = hasRenderableText(item.content) || !!item.isStreaming;
   const hasImages = !!item.images?.length;
   const hasProposal = !!item.proposedPlan?.length;
   const hasPayloadCard = !!item.payload_json;
@@ -245,6 +248,22 @@ export default function CoachScreen() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const BOTTOM_THRESHOLD = 80;
 
@@ -260,11 +279,14 @@ export default function CoachScreen() {
 
   const isPinnedToBottom = useRef(true);
 
-  // 1. DATA: reverse the flattened array
-  const flatItems = useMemo(
-    () => flattenMessagesChronological(messages).slice().reverse(),
-    [messages]
-  );
+  // 1. DATA: reverse the flattened array with thinking indicator at bottom if sending
+  const flatItems = useMemo(() => {
+    const items = flattenMessagesChronological(messages).slice().reverse();
+    if (sending) {
+      return [{ type: 'thinking' as const, id: 'pending-thinking' }, ...items];
+    }
+    return items;
+  }, [messages, sending]);
 
   // 2. SCROLL TO BOTTOM: offset 0 is newest message
   const scrollToBottom = useCallback((animated = true) => {
@@ -274,7 +296,7 @@ export default function CoachScreen() {
   const showFloatingDate = useCallback(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 150,
+      duration: 40,
       useNativeDriver: true,
     }).start();
 
@@ -282,10 +304,10 @@ export default function CoachScreen() {
     fadeTimer.current = setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 400,
+        duration: 350,
         useNativeDriver: true,
       }).start();
-    }, 1200);
+    }, 1000);
   }, [fadeAnim]);
 
   // 3. SCROLL HANDLER
@@ -296,6 +318,11 @@ export default function CoachScreen() {
     setShowScrollDownBtn((prev) => (prev === !atBottom ? prev : !atBottom));
     showFloatingDate();
   }, [showFloatingDate]);
+
+  const handleScrollBeginDrag = useCallback(() => {
+    notifyScroll?.();
+    showFloatingDate();
+  }, [notifyScroll, showFloatingDate]);
 
   // 4. FOCUS
   useFocusEffect(
@@ -308,7 +335,7 @@ export default function CoachScreen() {
 
   // 5. NEW MESSAGE WHILE PINNED
   const lastItemKey = flatItems[0]
-    ? (flatItems[0].type === 'date' ? flatItems[0].id : flatItems[0].data.id)
+    ? (flatItems[0].type === 'message' ? flatItems[0].data.id : flatItems[0].id)
     : null;
 
   useEffect(() => {
@@ -355,13 +382,14 @@ export default function CoachScreen() {
   });
 
   const keyExtractor = useCallback((item: any, index: number) => {
+    if (item.type === 'thinking') return 'pending-thinking';
     if (item.type === 'date') return item.id;
     const m = item.data;
     return `msg-${m.clientId ?? m.id ?? m.tempId ?? `pending-${index}`}`;
   }, []);
 
   const dailyUsage = tokenUsage?.daily_token_usage || 0;
-  const dailyLimit = tokenUsage?.daily_token_limit || (user?.subscription_tier === 'spark_plus' ? 500000 : 100000);
+  const dailyLimit = tokenUsage?.daily_token_limit || (hasSubscriptionTier(user?.subscription_tier) ? 500000 : 100000);
   const remainingTokens = Math.max(0, dailyLimit - dailyUsage);
   const remainingPercent = Math.round((remainingTokens / dailyLimit) * 100);
   const showTokenWarning = remainingPercent <= 10;
@@ -443,31 +471,6 @@ export default function CoachScreen() {
     scrollToBottom(true);
   };
 
-  const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
-    if (item.type === 'date') {
-      return (
-        <View className="py-2.5 items-center justify-center pointer-events-none">
-          <View className="bg-theme-card/95 border border-theme-border/80 px-4 py-1 rounded-full shadow-xs">
-            <Text className="text-theme-muted text-[11px] font-bold tracking-wide">{item.title}</Text>
-          </View>
-        </View>
-      );
-    }
-    return (
-      <MessageRow
-        item={item.data}
-        isFirstInRun={item.isFirstInRun}
-        isLastInRun={item.isLastInRun}
-        coachTone={user?.coach_tone}
-        onAccept={acceptProposal}
-        onReject={rejectProposal}
-        onAcceptInvite={acceptInvite}
-        onDeclineInvite={declineInvite}
-        onExpandImage={(source) => setPreviewImage(source)}
-      />
-    );
-  }, [user?.coach_tone, acceptProposal, rejectProposal, acceptInvite, declineInvite]);
-
   const getFullAvatarUrl = (path?: string) => {
     if (!path) return null;
     if (path.startsWith('http')) return path;
@@ -488,6 +491,51 @@ export default function CoachScreen() {
     ? { uri: customAvatarUri } 
     : getCoachAvatarSource(user?.coach_tone, lastMood);
 
+  const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
+    if (item.type === 'thinking') {
+      return (
+        <View className="mb-3 max-w-[86%] self-start">
+          <View className="flex-row items-center mb-1 ml-1">
+            <RNImage
+              source={avatarSource}
+              style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
+              resizeMode="cover"
+            />
+            <Text className="text-theme-accent font-extrabold text-xs mr-2">Spark</Text>
+          </View>
+          <View className="px-4 py-2.5 flex-row items-center bg-theme-card border border-theme-border rounded-2xl rounded-bl-sm shadow-xs">
+            <ActivityIndicator size="small" color="#16ACBD" />
+            <Text className="text-theme-accent text-xs font-semibold ml-2">
+              {t('chat.thinking')}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+    if (item.type === 'date') {
+      return (
+        <View className="py-2.5 items-center justify-center pointer-events-none">
+          <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full shadow-md">
+            <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">{item.title}</Text>
+          </View>
+        </View>
+      );
+    }
+    return (
+      <MessageRow
+        item={item.data}
+        isFirstInRun={item.isFirstInRun}
+        isLastInRun={item.isLastInRun}
+        coachTone={user?.coach_tone}
+        onAccept={acceptProposal}
+        onReject={rejectProposal}
+        onAcceptInvite={acceptInvite}
+        onDeclineInvite={declineInvite}
+        onExpandImage={(source) => setPreviewImage(source)}
+      />
+    );
+  }, [user?.coach_tone, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite]);
+
   const primaryWorkout = todayWorkouts[0] || null;
   const totalTodaySpark = todayWorkouts.reduce((acc, w) => acc + (w.target_spark || (w as any).sparkPoints || 0), 0);
 
@@ -502,10 +550,10 @@ export default function CoachScreen() {
     try {
       if (activeQuest) {
         await swapActiveQuest(activeQuest.id);
-        setIsQuestModalOpen(false);
       } else {
         await generateNewQuest();
       }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Generate quest error in coach:', err);
     } finally {
@@ -571,285 +619,247 @@ export default function CoachScreen() {
       </Modal>
 
       {/* Workout Detail Sheet Modal */}
-      <Modal
+      <BottomSheetModal
         visible={isWorkoutModalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsWorkoutModalOpen(false)}
+        onClose={() => setIsWorkoutModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
       >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setIsWorkoutModalOpen(false)}
-          className="flex-1 bg-black/60 justify-end"
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            className="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
-          >
-            <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center gap-3">
-                <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
-                  <Ionicons
-                    name={getSportIconConfig(primaryWorkout?.sport).icon as any}
-                    size={24}
-                    color={getSportIconConfig(primaryWorkout?.sport).color}
-                  />
-                </View>
-                <View>
-                  <Text className="text-lg font-black text-theme-text">
-                    {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
-                  </Text>
-                  <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
-                </View>
-              </View>
-              {totalTodaySpark > 0 ? (
-                <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
-                  <Text className="text-sm font-mono font-extrabold text-theme-accent">
-                    +{Math.round(totalTodaySpark)} Total Spark
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-
-            {todayWorkouts.length > 0 ? (
-              <View className="space-y-3 mb-5">
-                {todayWorkouts.map((w, idx) => {
-                  const cfg = getSportIconConfig(w.sport);
-                  return (
-                    <View key={`modal-w-${idx}`} className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60">
-                      {/* Top Sport Line */}
-                      <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
-                        <View className="flex-row items-center gap-2">
-                          <View className={`w-7 h-7 rounded-lg ${cfg.bg} items-center justify-center`}>
-                            <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
-                          </View>
-                          <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
-                        </View>
-                        {w.target_spark ? (
-                          <View className="bg-theme-accent/15 px-2.5 py-0.5 rounded-full">
-                            <Text className="text-xs font-mono font-extrabold text-theme-accent">
-                              +{Math.round(w.target_spark)}⚡
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      {/* Workout Title / Name */}
-                      {w.description ? (
-                        <Text className="text-sm font-extrabold text-theme-text mb-1.5 leading-snug">
-                          {w.description}
-                        </Text>
-                      ) : null}
-
-                      {/* Workout Focus / Instructions (Normal weight, clean wrapping) */}
-                      {w.details ? (
-                        <Text className="text-xs text-theme-muted font-normal leading-relaxed">
-                          {w.details}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
-                <Ionicons name="moon-outline" size={28} color="#6F6F79" />
-                <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
-                <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
-              </View>
-            )}
-
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={() => {
-                  setIsWorkoutModalOpen(false);
-                  router.push('/(tabs)/planning');
-                }}
-                className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
-              >
-                <Ionicons name="calendar-outline" size={16} color="#FF5F3B" />
-                <Text className="text-xs font-extrabold text-theme-accent">View Full Plan</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setIsWorkoutModalOpen(false)}
-                className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
-              >
-                <Text className="text-xs font-black text-white">Got it</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Nutrition Detail Sheet Modal (Live & Functional matching Progress Page) */}
-      <Modal
-        visible={isNutritionModalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsNutritionModalOpen(false)}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setIsNutritionModalOpen(false)}
-          className="flex-1 bg-black/60 justify-end"
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            className="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[85%]"
-          >
-            <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center gap-3">
-                <View className="w-12 h-12 rounded-2xl bg-emerald-500/15 items-center justify-center">
-                  <Ionicons name="restaurant-outline" size={24} color="#10B981" />
-                </View>
-                <View>
-                  <Text className="text-lg font-black text-theme-text">Today's Fueling Plan</Text>
-                  <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Targets</Text>
-                </View>
-              </View>
-              {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
-                <TouchableOpacity
-                  onPress={async () => {
-                    try {
-                      await clearLoggedNutrition();
-                    } catch (e) {
-                      console.error('Failed to clear nutrition:', e);
-                    }
-                  }}
-                  className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border/50"
-                >
-                  <Ionicons name="refresh-outline" size={12} color="#94A3B8" />
-                  <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Rationale Banner */}
-            <View className="p-3.5 bg-emerald-500/10 rounded-2xl mb-4 border border-emerald-500/20">
-              <Text className="text-xs font-bold text-emerald-500 mb-0.5">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
-              <Text className="text-xs text-theme-text/80 leading-relaxed font-normal">{nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}</Text>
-            </View>
-
-            {/* 3 Live Macro Rings Row */}
-            <View className="bg-theme-bg/60 p-4 rounded-2xl border border-theme-border/60 mb-4 flex-row justify-around items-center">
-              <MacroRingGauge
-                label="Carbs"
-                target={nutrition?.carbsTarget || 280}
-                logged={nutrition?.loggedCarbs || 0}
-                size={88}
-              />
-              <MacroRingGauge
-                label="Protein"
-                target={nutrition?.proteinTarget || 200}
-                logged={nutrition?.loggedProtein || 0}
-                size={88}
-              />
-              <MacroRingGauge
-                label="Fat"
-                target={nutrition?.fatTarget || 80}
-                logged={nutrition?.loggedFat || 0}
-                size={88}
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
+              <Ionicons
+                name={getSportIconConfig(primaryWorkout?.sport).icon as any}
+                size={24}
+                color={getSportIconConfig(primaryWorkout?.sport).color}
               />
             </View>
-
-
-
-            <TouchableOpacity
-              onPress={() => setIsNutritionModalOpen(false)}
-              className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center mt-2"
-            >
-              <Text className="text-xs font-black text-white">Got it</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Quest Detail Sheet Modal */}
-      <Modal
-        visible={isQuestModalOpen}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsQuestModalOpen(false)}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setIsQuestModalOpen(false)}
-          className="flex-1 bg-black/60 justify-end"
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            className="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
-          >
-            <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center gap-3">
-                <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-                  <Ionicons name="trophy" size={26} color="#F97316" />
-                </View>
-                <View>
-                  <Text className="text-lg font-black text-theme-text">Active Quest</Text>
-                  <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
-                </View>
-              </View>
-              <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
-                <Text className="text-sm font-mono font-extrabold text-amber-500">
-                  +{Math.round(activeQuest?.reward_points || 0)} Spark
-                </Text>
-              </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">
+                {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
+              </Text>
+              <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
             </View>
-
-            <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
-              <Text className="text-sm font-bold text-theme-text leading-relaxed">
-                {activeQuest?.description || 'Complete your active challenges this week to earn bonus Spark points.'}
+          </View>
+          {totalTodaySpark > 0 ? (
+            <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
+              <Text className="text-sm font-mono font-extrabold text-theme-accent">
+                +{Math.round(totalTodaySpark)} Total Spark
               </Text>
             </View>
+          ) : null}
+        </View>
 
-            <View className="mb-6">
-              <View className="flex-row justify-between items-center mb-2">
-                <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                  Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
-                </Text>
-                <Text className="text-sm font-mono font-bold text-amber-500">
-                  {questProgressPercent}%
-                </Text>
-              </View>
-              <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
-                <View
-                  className="h-full bg-amber-500 rounded-full"
-                  style={{ width: `${questProgressPercent}%` }}
-                />
-              </View>
-            </View>
+        {todayWorkouts.length > 0 ? (
+          <View className="space-y-3 mb-5">
+            {todayWorkouts.map((w, idx) => {
+              const cfg = getSportIconConfig(w.sport);
+              return (
+                <View key={`modal-w-${idx}`} className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60">
+                  {/* Top Sport Line */}
+                  <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
+                    <View className="flex-row items-center gap-2">
+                      <View className={`w-7 h-7 rounded-lg ${cfg.bg} items-center justify-center`}>
+                        <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
+                      </View>
+                      <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
+                    </View>
+                    {w.target_spark ? (
+                      <View className="bg-theme-accent/15 px-2.5 py-0.5 rounded-full">
+                        <Text className="text-xs font-mono font-extrabold text-theme-accent">
+                          +{Math.round(w.target_spark)}⚡
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
 
-            <View className="flex-row gap-3">
-              <TouchableOpacity
-                onPress={handleGenerateQuestInCoach}
-                disabled={questLoading}
-                className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
-              >
-                {questLoading ? (
-                  <ActivityIndicator size="small" color="#F97316" />
-                ) : (
-                  <>
-                    <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
-                    <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                  {/* Workout Title / Name */}
+                  {w.description ? (
+                    <Text className="text-sm font-extrabold text-theme-text mb-1.5 leading-snug">
+                      {w.description}
+                    </Text>
+                  ) : null}
 
-              <TouchableOpacity
-                onPress={() => setIsQuestModalOpen(false)}
-                className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
-              >
-                <Text className="text-xs font-black text-white">Got it</Text>
-              </TouchableOpacity>
-            </View>
+                  {/* Workout Focus / Instructions */}
+                  {w.details ? (
+                    <Text className="text-xs text-theme-muted font-normal leading-relaxed">
+                      {w.details}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
+            <Ionicons name="moon-outline" size={28} color="#6F6F79" />
+            <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
+            <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
+          </View>
+        )}
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={() => {
+              setIsWorkoutModalOpen(false);
+              router.push('/(tabs)/planning');
+            }}
+            className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
+          >
+            <Ionicons name="calendar-outline" size={16} color="#FF5F3B" />
+            <Text className="text-xs font-extrabold text-theme-accent">View Full Plan</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setIsWorkoutModalOpen(false)}
+            className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+          >
+            <Text className="text-xs font-black text-white">Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
+
+      {/* Nutrition Detail Sheet Modal (Live & Functional matching Progress Page) */}
+      <BottomSheetModal
+        visible={isNutritionModalOpen}
+        onClose={() => setIsNutritionModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[85%]"
+      >
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-emerald-500/15 items-center justify-center">
+              <Ionicons name="restaurant-outline" size={24} color="#10B981" />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">Today's Fueling Plan</Text>
+              <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Targets</Text>
+            </View>
+          </View>
+          {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  await clearLoggedNutrition();
+                } catch (e) {
+                  console.error('Failed to clear nutrition:', e);
+                }
+              }}
+              className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border/50"
+            >
+              <Ionicons name="refresh-outline" size={12} color="#94A3B8" />
+              <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Rationale Banner */}
+        <View className="p-3.5 bg-emerald-500/10 rounded-2xl mb-4 border border-emerald-500/20">
+          <Text className="text-xs font-bold text-emerald-500 mb-0.5">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
+          <Text className="text-xs text-theme-text/80 leading-relaxed font-normal">{nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}</Text>
+        </View>
+
+        {/* 3 Live Macro Rings Row */}
+        <View className="bg-theme-bg/60 p-4 rounded-2xl border border-theme-border/60 mb-4 flex-row justify-around items-center">
+          <MacroRingGauge
+            label="Carbs"
+            target={nutrition?.carbsTarget || 280}
+            logged={nutrition?.loggedCarbs || 0}
+            size={88}
+          />
+          <MacroRingGauge
+            label="Protein"
+            target={nutrition?.proteinTarget || 200}
+            logged={nutrition?.loggedProtein || 0}
+            size={88}
+          />
+          <MacroRingGauge
+            label="Fat"
+            target={nutrition?.fatTarget || 80}
+            logged={nutrition?.loggedFat || 0}
+            size={88}
+          />
+        </View>
+
+        <TouchableOpacity
+          onPress={() => setIsNutritionModalOpen(false)}
+          className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center mt-2"
+        >
+          <Text className="text-xs font-black text-white">Got it</Text>
         </TouchableOpacity>
-      </Modal>
+      </BottomSheetModal>
+
+      {/* Quest Detail Sheet Modal */}
+      <BottomSheetModal
+        visible={isQuestModalOpen}
+        onClose={() => setIsQuestModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+      >
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
+              <Ionicons name="trophy" size={26} color="#F97316" />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+              <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
+            </View>
+          </View>
+          <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
+            <Text className="text-sm font-mono font-extrabold text-amber-500">
+              +{Math.round(activeQuest?.reward_points || 0)} Spark
+            </Text>
+          </View>
+        </View>
+
+        <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
+          <Text className="text-sm font-bold text-theme-text leading-relaxed">
+            {activeQuest?.description || 'Complete your active challenges this week to earn bonus Spark points.'}
+          </Text>
+        </View>
+
+        <View className="mb-6">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
+            </Text>
+            <Text className="text-sm font-mono font-bold text-amber-500">
+              {questProgressPercent}%
+            </Text>
+          </View>
+          <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
+            <View
+              className="h-full bg-amber-500 rounded-full"
+              style={{ width: `${questProgressPercent}%` }}
+            />
+          </View>
+        </View>
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={handleGenerateQuestInCoach}
+            disabled={questLoading}
+            className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
+          >
+            {questLoading ? (
+              <ActivityIndicator size="small" color="#F97316" />
+            ) : (
+              <>
+                <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setIsQuestModalOpen(false)}
+            className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+          >
+            <Text className="text-xs font-black text-white">Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
 
       {/* Header bar with Avatar, Status, and Date */}
       <View className="px-4 pt-3 pb-1.5 bg-theme-bg z-10 flex-row items-center justify-between">
@@ -943,7 +953,7 @@ export default function CoachScreen() {
               Daily Budget Low: {remainingPercent}% remaining ({remainingTokens.toLocaleString()} tokens left)
             </Text>
           </View>
-          {user?.subscription_tier !== 'spark_plus' ? (
+          {!hasSubscriptionTier(user?.subscription_tier) ? (
             <TouchableOpacity className="bg-amber-500 px-2.5 py-1 rounded-md">
               <Text className="text-black font-bold text-[10px]">UPGRADE</Text>
             </TouchableOpacity>
@@ -960,7 +970,7 @@ export default function CoachScreen() {
             style={{ opacity: fadeAnim }}
             className="absolute top-2 self-center z-40"
           >
-            <View className="bg-theme-card/95 border border-theme-border/80 px-3.5 py-1 rounded-full shadow-md">
+            <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full shadow-lg">
               <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">
                 {floatingDate}
               </Text>
@@ -982,7 +992,7 @@ export default function CoachScreen() {
             inverted
             onScroll={handleScroll}
             scrollEventThrottle={16}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={handleScrollBeginDrag}
             initialNumToRender={15}
             maxToRenderPerBatch={10}
             windowSize={11}
@@ -995,19 +1005,6 @@ export default function CoachScreen() {
             viewabilityConfig={viewabilityConfig.current}
           />
         )}
-
-        {/* Un-inlined floating typing indicator (does not steal height or jump list) */}
-        {sending ? (
-          <View
-            pointerEvents="none"
-            className="absolute bottom-3 left-4 z-30 px-4 py-2 flex-row items-center bg-theme-card/95 rounded-full border border-theme-border shadow-md"
-          >
-            <ActivityIndicator size="small" color="#16ACBD" />
-            <Text className="text-theme-accent text-xs font-semibold ml-2">
-              {t('chat.thinking')}
-            </Text>
-          </View>
-        ) : null}
 
         {/* Floating Scroll-Down-to-Bottom Button */}
         {showScrollDownBtn ? (
@@ -1033,8 +1030,8 @@ export default function CoachScreen() {
 
       {/* Bottom Input Area */}
       <View 
-        style={{ paddingBottom: Math.max(tabBarOccupied + 12, 100) }}
-        className="p-3 bg-theme-bg"
+        style={{ paddingBottom: isKeyboardVisible ? 6 : Math.max(tabBarOccupied + 12, 100) }}
+        className="px-3 pt-2 bg-theme-bg"
       >
         {showSuggestions ? (
           <View className="mb-2">

@@ -27,7 +27,7 @@ export function formatPace(movingTimeMin: number, distanceKm: number, sportType:
 
   if (sportType === 'BIKE') {
     const kmh = (distanceKm / (movingTimeMin / 60)).toFixed(1);
-    return `${kmh} km/h`;
+    return `${kmh} km/u`;
   }
 
   if (sportType === 'SWIM') {

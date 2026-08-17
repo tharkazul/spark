@@ -103,6 +103,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
 
         const finalUser: UserProfile = profileData ? {
           ...profileData,
+          subscription_tier: (profileData as any).subscriptionTier ?? (profileData as any).subscription_tier ?? profileData.subscription_tier ?? 'free',
           athlete_context: (profileData as any).athleteContext ?? (profileData as any).athlete_context ?? profileData.athlete_context,
           coach_tone: (profileData as any).coachTone ?? profileData.coach_tone,
           coach_name: (profileData as any).coachName ?? profileData.coach_name ?? 'Spark',
@@ -110,6 +111,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           coach_avatar_neutral: (profileData as any).coachAvatarNeutral ?? profileData.coach_avatar_neutral,
           coach_avatar_hype: (profileData as any).coachAvatarHype ?? profileData.coach_avatar_hype,
           coach_avatar_disappointed: (profileData as any).coachAvatarDisappointed ?? profileData.coach_avatar_disappointed,
+          profile_picture_url: (profileData as any).profilePictureUrl ?? (profileData as any).profile_picture_url ?? profileData.profile_picture_url,
           garmin_connected: (profileData as any).hasGarmin ?? profileData.garmin_connected,
           strava_connected: (profileData as any).hasStrava ?? profileData.strava_connected,
           onboarding_completed: Boolean(
@@ -165,6 +167,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         setUser((prev) => ({
           ...prev,
           ...data,
+          subscription_tier: (data as any).subscriptionTier ?? (data as any).subscription_tier ?? data.subscription_tier ?? prev?.subscription_tier ?? 'free',
           athlete_context: (data as any).athleteContext ?? (data as any).athlete_context ?? data.athlete_context,
           coach_tone: (data as any).coachTone ?? data.coach_tone,
           coach_name: (data as any).coachName ?? data.coach_name,
@@ -172,6 +175,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           coach_avatar_neutral: (data as any).coachAvatarNeutral ?? data.coach_avatar_neutral,
           coach_avatar_hype: (data as any).coachAvatarHype ?? data.coach_avatar_hype,
           coach_avatar_disappointed: (data as any).coachAvatarDisappointed ?? data.coach_avatar_disappointed,
+          profile_picture_url: (data as any).profilePictureUrl ?? (data as any).profile_picture_url ?? data.profile_picture_url ?? prev?.profile_picture_url,
           garmin_connected: (data as any).hasGarmin ?? data.garmin_connected,
           strava_connected: (data as any).hasStrava ?? data.strava_connected,
           onboarding_completed: Boolean(
@@ -224,8 +228,10 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
 
           const finalUser: UserProfile = profile ? {
             ...profile,
+            subscription_tier: (profile as any).subscriptionTier ?? (profile as any).subscription_tier ?? profile.subscription_tier ?? 'free',
             athlete_context: (profile as any).athleteContext ?? (profile as any).athlete_context ?? profile.athlete_context,
             coach_tone: (profile as any).coachTone ?? profile.coach_tone,
+            profile_picture_url: (profile as any).profilePictureUrl ?? (profile as any).profile_picture_url ?? profile.profile_picture_url,
             garmin_connected: (profile as any).hasGarmin ?? profile.garmin_connected,
             strava_connected: (profile as any).hasStrava ?? profile.strava_connected,
             onboarding_completed: Boolean(

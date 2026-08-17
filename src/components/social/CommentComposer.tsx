@@ -24,6 +24,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
 }) => {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [connections, setConnections] = useState<MentionUser[]>([]);
   const [filteredConnections, setFilteredConnections] = useState<MentionUser[]>([]);
   const [showMentionList, setShowMentionList] = useState(false);
@@ -106,7 +107,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
     <View className="relative z-50">
       {/* MENTION AUTOCOMPLETE POPUP */}
       {showMentionList && filteredConnections.length > 0 && (
-        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-theme-accent/40 rounded-2xl p-2 shadow-lg max-h-48 z-50">
+        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-2 shadow-lg max-h-48 z-50">
           <Text className="text-[10px] font-black uppercase text-theme-accent px-2 py-1 tracking-wider">
             Mention Connection
           </Text>
@@ -136,12 +137,18 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
       )}
 
       {/* INPUT FIELD */}
-      <View className="flex-row items-center bg-theme-card border border-theme-border rounded-2xl p-1.5 shadow-sm">
+      <View
+        className={`flex-row items-center bg-[#F1F5F9] dark:bg-slate-800/70 rounded-xl p-1.5 ${
+          isFocused ? 'border-[1.5px] border-[#0F172A] dark:border-white' : 'border border-transparent'
+        }`}
+      >
         <TextInput
           value={text}
           onChangeText={handleTextChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
-          placeholderTextColor="#6F6F79"
+          placeholderTextColor="#94A3B8"
           multiline
           className="flex-1 px-3 py-2 text-sm font-semibold text-theme-text max-h-24"
         />
@@ -149,14 +156,14 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
         <TouchableOpacity
           onPress={handleSend}
           disabled={!text.trim() || sending}
-          className={`w-10 h-10 rounded-xl items-center justify-center ${
-            text.trim() && !sending ? 'bg-theme-accent' : 'bg-theme-border/40'
+          className={`w-9 h-9 rounded-lg items-center justify-center ${
+            text.trim() && !sending ? 'bg-theme-accent' : 'bg-slate-300 dark:bg-slate-700'
           }`}
         >
           {sending ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Ionicons name="send" size={16} color="#FFFFFF" />
+            <Ionicons name="send" size={15} color="#FFFFFF" />
           )}
         </TouchableOpacity>
       </View>

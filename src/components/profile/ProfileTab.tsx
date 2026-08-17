@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Card } from '../ui/Card';
 import { LanguageSelector } from '../LanguageSelector';
 import { CoachPersonaSettings } from '../CoachPersonaSettings';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserStore';
 import { useColorScheme } from 'nativewind';
-import { gamificationApi } from '../../services/apiServices';
+import { userApi, gamificationApi } from '../../services/apiServices';
+import { API_BASE_URL } from '../../constants/api';
 import { UserTitle } from '../../types/gamification';
 
 interface ProfileTabProps {
@@ -28,57 +31,70 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   renderSettingRow,
 }) => {
   const { t } = useLanguage();
+  const { user, refreshUser } = useUser();
   const { colorScheme, toggleColorScheme } = useColorScheme();
 
-  const [titles, setTitles] = useState<UserTitle[]>([
-    { id: 1, title_name: '⚡ Spark Pioneer', is_equipped: 1, unlocked_at: new Date().toISOString() },
-    { id: 2, title_name: '🚴 Hill Climber', is_equipped: 0, unlocked_at: new Date().toISOString() },
-    { id: 3, title_name: '🔥 Streak Master', is_equipped: 0, unlocked_at: new Date().toISOString() },
-  ]);
+  const [titles, setTitles] = useState<UserTitle[]>([]);
   const [loadingTitles, setLoadingTitles] = useState(false);
-  const [generatingTitle, setGeneratingTitle] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     fetchTitles();
   }, []);
 
+  const getFullPhotoUrl = (path?: string) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  };
+
+  const handlePickProfilePicture = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Access to photos is required to update your profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]?.uri) {
+        const fileUri = result.assets[0].uri;
+        setUploadingPhoto(true);
+        try {
+          await userApi.uploadProfilePicture(fileUri);
+          await refreshUser();
+          Alert.alert('Success', 'Profile picture updated successfully!');
+        } catch (err: any) {
+          Alert.alert('Error', err.message || 'Failed to upload profile picture.');
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+    } catch (err: any) {
+      console.error('Image picker error:', err);
+      Alert.alert('Error', 'Could not open image picker.');
+    }
+  };
+
   const fetchTitles = async () => {
     try {
       setLoadingTitles(true);
       const res = await gamificationApi.getGamificationData();
-      if (res && res.titles && res.titles.length > 0) {
+      if (res && Array.isArray(res.titles)) {
         setTitles(res.titles);
+      } else {
+        setTitles([]);
       }
     } catch (err) {
-      // Keep default titles as fallbacks
+      setTitles([]);
     } finally {
       setLoadingTitles(false);
-    }
-  };
-
-  const handleGenerateTitle = async () => {
-    setGeneratingTitle(true);
-    try {
-      const res = await gamificationApi.generateTitle();
-      if (res && res.title) {
-        const titleData = res.title;
-        const newTitleObj: UserTitle = {
-          id: titleData.id || Date.now(),
-          title_name: titleData.title || titleData.title_name || 'Master Athlete',
-          description: titleData.description,
-          is_equipped: (titleData as any).is_active || (titleData as any).is_equipped ? 1 : 0,
-          unlocked_at: new Date().toISOString(),
-        };
-        setTitles((prev) => [newTitleObj, ...prev]);
-        Alert.alert('New Title Generated!', `Unlocked: ${newTitleObj.title_name}`);
-      } else {
-        await fetchTitles();
-      }
-    } catch (err: any) {
-      console.error('Title generation error:', err.message || err);
-      Alert.alert('Error', 'Failed to generate new title. Please try again.');
-    } finally {
-      setGeneratingTitle(false);
     }
   };
 
@@ -94,21 +110,60 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       await fetchTitles();
     } catch (err: any) {
       console.error('Equip title error:', err.message || err);
+      await fetchTitles();
     }
   };
+
+  const profilePicUrl = getFullPhotoUrl(user?.profile_picture_url);
+
+  const tier = user?.subscription_tier;
+  let tierLabel = 'Free Member';
+  if (tier === 'admin') {
+    tierLabel = '⚡ Admin Member';
+  } else if (tier === 'premium') {
+    tierLabel = '⚡ Spark+ Premium';
+  } else if (tier === 'spark_plus' || tier === 'subscription') {
+    tierLabel = '⚡ Spark+ Member';
+  }
 
   return (
     <View className="space-y-6">
       {/* USER PROFILE HEADER */}
       <View className="items-center my-4">
-        <View className="w-24 h-24 rounded-full bg-theme-card items-center justify-center mb-3 shadow-sm">
-          <Ionicons name="person" size={40} color="#8E8E93" />
+        <View className="relative mb-3">
+          <View className="w-24 h-24 rounded-full bg-theme-card items-center justify-center shadow-sm overflow-hidden border-2 border-theme-border/60">
+            {profilePicUrl ? (
+              <Image
+                source={{ uri: profilePicUrl }}
+                className="w-full h-full"
+                resizeMode="cover"
+              />
+            ) : (
+              <Ionicons name="person" size={42} color="#8E8E93" />
+            )}
+            {uploadingPhoto && (
+              <View className="absolute inset-0 bg-black/50 items-center justify-center">
+                <ActivityIndicator size="small" color="#FF5A1F" />
+              </View>
+            )}
+          </View>
+
+          {/* Edit Camera Button Overlay */}
+          <TouchableOpacity
+            onPress={handlePickProfilePicture}
+            disabled={uploadingPhoto}
+            activeOpacity={0.8}
+            className="absolute bottom-0 right-0 bg-theme-accent w-8 h-8 rounded-full items-center justify-center border-2 border-theme-bg shadow-md"
+          >
+            <Ionicons name="camera" size={15} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
+
         <Text className="text-theme-text text-2xl font-bold">{username}</Text>
         {email ? <Text className="text-theme-muted text-sm mt-0.5">{email}</Text> : null}
         <View className="mt-2 px-3 py-1 bg-theme-accent/10 rounded-full">
           <Text className="text-theme-accent text-xs font-bold">
-            {isSparkPlus ? '⚡ Spark+ Member' : 'Free Member'}
+            {tierLabel}
           </Text>
         </View>
       </View>
@@ -118,26 +173,20 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         Personal Titles & Accolades
       </Text>
       <Card className="p-4 mb-6">
-        <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border/20">
-          <View className="flex-row items-center space-x-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
-            <Text className="text-theme-text font-bold text-sm">Active Athlete Title</Text>
-          </View>
-          <TouchableOpacity
-            onPress={handleGenerateTitle}
-            disabled={generatingTitle}
-            className="px-3 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center"
-          >
-            {generatingTitle ? (
-              <ActivityIndicator size="small" color="#FF5A1F" />
-            ) : (
-              <Text className="text-theme-accent font-bold text-xs">+ Unlock Quest Title</Text>
-            )}
-          </TouchableOpacity>
+        <View className="flex-row items-center pb-3 mb-3 border-b border-theme-border/20">
+          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
+          <Text className="text-theme-text font-bold text-sm">Personal Titles</Text>
         </View>
 
         {loadingTitles ? (
           <Text className="text-theme-muted text-xs italic text-center py-2">Loading titles...</Text>
+        ) : titles.length === 0 ? (
+          <View className="py-4 items-center justify-center">
+            <Ionicons name="ribbon-outline" size={24} color="#8E8E93" style={{ marginBottom: 6 }} />
+            <Text className="text-theme-muted text-xs italic text-center">
+              No titles earned yet
+            </Text>
+          </View>
         ) : (
           <View className="space-y-2">
             {titles.map((item) => (

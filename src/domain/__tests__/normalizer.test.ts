@@ -21,7 +21,7 @@ export function runNormalizerTests() {
   assert(formatDuration(75) === '1h 15m', '75 min formatted duration');
 
   assert(formatPace(50, 10, 'RUN') === '5:00 /km', '50m / 10km run pace should be 5:00 /km');
-  assert(formatPace(60, 30, 'BIKE') === '30.0 km/h', '60m / 30km bike pace should be 30.0 km/h');
+  assert(formatPace(60, 30, 'BIKE') === '30.0 km/u', '60m / 30km bike pace should be 30.0 km/u');
   assert(formatPace(20, 1, 'SWIM') === '2:00 /100m', '20m / 1km swim pace should be 2:00 /100m');
 
   // Test 3: Raw Strava payload normalization (meters + seconds)

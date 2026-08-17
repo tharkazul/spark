@@ -400,6 +400,10 @@ db.serialize(() => {
     `ALTER TABLE user_titles ADD COLUMN is_active INTEGER DEFAULT 0`,
     (err) => {},
   );
+  db.run(
+    `ALTER TABLE user_titles ADD COLUMN milestone_key TEXT`,
+    (err) => {},
+  );
 
   db.run(`CREATE TABLE IF NOT EXISTS system_state (
         key TEXT PRIMARY KEY,

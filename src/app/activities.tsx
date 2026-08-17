@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useActivities } from '../context/ActivityStore';
 import { useLanguage } from '../context/LanguageContext';
+import { getSportFilledIcon } from '../utils/sportIcons';
 
 export default function ActivitiesScreen() {
   const { activities, loading, refreshActivities } = useActivities();
@@ -39,7 +40,7 @@ export default function ActivitiesScreen() {
             <View className="flex-row items-center mb-4">
               <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center mr-3">
                 <Ionicons 
-                  name={item.type === 'Run' ? 'walk' : 'bicycle'} 
+                  name={getSportFilledIcon(item.type, item.title)} 
                   size={20} 
                   color="#FF5A1F" 
                 />
@@ -61,7 +62,7 @@ export default function ActivitiesScreen() {
               </View>
               <View>
                 <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Pace</Text>
-                <Text className="text-theme-text font-bold">{item.type === 'Run' ? '5:07/km' : '20 km/h'}</Text>
+                <Text className="text-theme-text font-bold">{item.type === 'Run' ? '5:07/km' : '20 km/u'}</Text>
               </View>
             </View>
           </Card>

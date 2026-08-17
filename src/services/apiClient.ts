@@ -45,8 +45,20 @@ export async function apiClient<T>(
     ...(fetchOptions.headers as Record<string, string>),
   };
 
-  if (!(fetchOptions.body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json';
+  const isFormData =
+    fetchOptions.body instanceof FormData ||
+    (typeof fetchOptions.body === 'object' &&
+      fetchOptions.body !== null &&
+      (typeof (fetchOptions.body as any).append === 'function' ||
+        Array.isArray((fetchOptions.body as any)._parts)));
+
+  if (!isFormData) {
+    if (!headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+  } else {
+    delete headers['Content-Type'];
+    delete headers['content-type'];
   }
 
   if (authToken) {

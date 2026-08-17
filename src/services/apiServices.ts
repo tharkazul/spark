@@ -38,6 +38,19 @@ export const userApi = {
       }),
       skipAuthInterceptor: true,
     }),
+  uploadProfilePicture: async (fileUri: string) => {
+    const formData = new FormData();
+    const filename = fileUri.split('/').pop() || 'profile.jpg';
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+    formData.append('photo', { uri: fileUri, name: filename, type } as any);
+
+    return apiClient<{ success: boolean; url: string }>('/api/settings/profile-picture', {
+      method: 'POST',
+      body: formData,
+    });
+  },
   uploadCoachAvatar: async (mood: string, fileUri: string) => {
     const formData = new FormData();
     const filename = fileUri.split('/').pop() || `avatar_${mood}.jpg`;

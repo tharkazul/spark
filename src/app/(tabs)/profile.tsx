@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 import { API_BASE_URL } from '../../constants/api';
 import { useActivities } from '../../context/ActivityStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -26,15 +27,15 @@ import { useUser } from '../../context/UserStore';
 import { integrationsApi } from '../../services/apiServices';
 
 import { AccountTab } from '../../components/profile/AccountTab';
-import { AdminTab } from '../../components/profile/AdminTab';
 import { ConnectionsTab } from '../../components/profile/ConnectionsTab';
 import { GoalsTab } from '../../components/profile/GoalsTab';
 import { ProfileTab } from '../../components/profile/ProfileTab';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
+import { hasSubscriptionTier } from '../../utils/permissions';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account' | 'admin';
+export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account';
 
 export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
@@ -44,10 +45,7 @@ export default function ProfileScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const userIsAdmin = user?.subscription_tier === 'admin';
-  const TABS: ProfileSubTab[] = userIsAdmin
-    ? ['profile', 'goals', 'connections', 'account', 'admin']
-    : ['profile', 'goals', 'connections', 'account'];
+  const TABS: ProfileSubTab[] = ['profile', 'goals', 'connections', 'account'];
 
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -68,7 +66,7 @@ export default function ProfileScreen() {
 
   const username = user?.username || 'Athlete';
   const email = user?.email;
-  const isSparkPlus = user?.subscription_tier === 'spark_plus';
+  const isSparkPlus = hasSubscriptionTier(user?.subscription_tier);
 
   const isGarminConnected = !!user?.garmin_connected;
   const isStravaConnected = !!user?.strava_connected;
@@ -318,7 +316,6 @@ export default function ProfileScreen() {
               goals: t('profile.tabGoals') || 'Goals',
               connections: t('profile.tabConnections') || 'Connections',
               account: t('profile.tabAccount') || 'Account',
-              admin: 'Admin',
             };
             const label = labelMap[tab];
 
@@ -414,210 +411,200 @@ export default function ProfileScreen() {
       </ScrollView>
 
       {/* GARMIN CONNECTION MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <BottomSheetModal
         visible={garminModalVisible}
-        onRequestClose={() => setGarminModalVisible(false)}
+        onClose={() => setGarminModalVisible(false)}
+        contentClassName="bg-theme-bg p-6 rounded-t-3xl"
       >
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg p-6 rounded-t-3xl">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <Ionicons name="watch-outline" size={24} color="#FF5A1F" />
-                <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
-              </View>
-              <TouchableOpacity onPress={() => setGarminModalVisible(false)} className="p-1">
-                <Ionicons name="close" size={24} color="#8E8E93" />
-              </TouchableOpacity>
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center">
+            <Ionicons name="watch-outline" size={24} color="#FF5A1F" />
+            <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
+          </View>
+          <TouchableOpacity onPress={() => setGarminModalVisible(false)} className="p-1">
+            <Ionicons name="close" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+        </View>
+
+        <Text className="text-sm text-theme-muted mb-6">
+          Connect your Garmin account to automatically push structured micro-plan workouts directly to your Garmin watch.
+        </Text>
+
+        {isGarminConnected ? (
+          <View className="space-y-4 mb-4">
+            <View className="p-4 rounded-xl bg-green-500/10 flex-row items-center mb-2">
+              <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+              <Text className="text-green-500 font-bold ml-2">Garmin is connected</Text>
             </View>
 
-            <Text className="text-sm text-theme-muted mb-6">
-              Connect your Garmin account to automatically push structured micro-plan workouts directly to your Garmin watch.
-            </Text>
+            <TouchableOpacity
+              onPress={handleSyncGarmin}
+              disabled={garminLoading}
+              className="bg-theme-accent py-3.5 rounded-xl items-center flex-row justify-center mb-3"
+            >
+              {garminLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="sync" size={18} color="#FFF" />
+                  <Text className="text-white font-bold text-base ml-2">Sync Workouts to Garmin</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
-            {isGarminConnected ? (
-              <View className="space-y-4 mb-4">
-                <View className="p-4 rounded-xl bg-green-500/10 flex-row items-center mb-2">
-                  <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-                  <Text className="text-green-500 font-bold ml-2">Garmin is connected</Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleSyncGarmin}
-                  disabled={garminLoading}
-                  className="bg-theme-accent py-3.5 rounded-xl items-center flex-row justify-center mb-3"
-                >
-                  {garminLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="sync" size={18} color="#FFF" />
-                      <Text className="text-white font-bold text-base ml-2">Sync Workouts to Garmin</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleDisconnectGarmin}
-                  disabled={garminLoading}
-                  className="bg-red-500/10 py-3.5 rounded-xl items-center"
-                >
-                  <Text className="text-red-500 font-bold text-base">Disconnect Garmin</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View className="space-y-4 mb-4">
-                <View>
-                  <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Username / Email</Text>
-                  <TextInput
-                    className="bg-theme-card rounded-xl p-3.5 text-theme-text"
-                    placeholder="email@example.com"
-                    placeholderTextColor="#8E8E93"
-                    value={garminUser}
-                    onChangeText={setGarminUser}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                </View>
-
-                <View className="mt-3">
-                  <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Password</Text>
-                  <TextInput
-                    className="bg-theme-card rounded-xl p-3.5 text-theme-text"
-                    placeholder="••••••••"
-                    placeholderTextColor="#8E8E93"
-                    value={garminPass}
-                    onChangeText={setGarminPass}
-                    secureTextEntry
-                  />
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleConnectGarmin}
-                  disabled={garminLoading}
-                  className="bg-theme-accent py-4 rounded-xl items-center mt-4"
-                >
-                  {garminLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text className="text-white font-bold text-base">Save & Connect Garmin</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
+            <TouchableOpacity
+              onPress={handleDisconnectGarmin}
+              disabled={garminLoading}
+              className="bg-red-500/10 py-3.5 rounded-xl items-center"
+            >
+              <Text className="text-red-500 font-bold text-base">Disconnect Garmin</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+        ) : (
+          <View className="space-y-4 mb-4">
+            <View>
+              <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Username / Email</Text>
+              <TextInput
+                className="bg-theme-card rounded-xl p-3.5 text-theme-text"
+                placeholder="email@example.com"
+                placeholderTextColor="#8E8E93"
+                value={garminUser}
+                onChangeText={setGarminUser}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+
+            <View className="mt-3">
+              <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Password</Text>
+              <TextInput
+                className="bg-theme-card rounded-xl p-3.5 text-theme-text"
+                placeholder="••••••••"
+                placeholderTextColor="#8E8E93"
+                value={garminPass}
+                onChangeText={setGarminPass}
+                secureTextEntry
+              />
+            </View>
+
+            <TouchableOpacity
+              onPress={handleConnectGarmin}
+              disabled={garminLoading}
+              className="bg-theme-accent py-4 rounded-xl items-center mt-4"
+            >
+              {garminLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text className="text-white font-bold text-base">Save & Connect Garmin</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </BottomSheetModal>
 
       {/* STRAVA CONNECTION MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <BottomSheetModal
         visible={stravaModalVisible}
-        onRequestClose={() => setStravaModalVisible(false)}
+        onClose={() => setStravaModalVisible(false)}
+        contentClassName="bg-theme-bg p-6 rounded-t-3xl"
       >
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg p-6 rounded-t-3xl">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <Ionicons name="fitness-outline" size={24} color="#FC4C02" />
-                <Text className="text-xl font-bold text-theme-text ml-2">Strava Integration</Text>
-              </View>
-              <TouchableOpacity onPress={() => setStravaModalVisible(false)} className="p-1">
-                <Ionicons name="close" size={24} color="#8E8E93" />
-              </TouchableOpacity>
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center">
+            <Ionicons name="fitness-outline" size={24} color="#FC4C02" />
+            <Text className="text-xl font-bold text-theme-text ml-2">Strava Integration</Text>
+          </View>
+          <TouchableOpacity onPress={() => setStravaModalVisible(false)} className="p-1">
+            <Ionicons name="close" size={24} color="#8E8E93" />
+          </TouchableOpacity>
+        </View>
+
+        <Text className="text-sm text-theme-muted mb-6">
+          Connect Strava to automatically sync your completed runs, rides, and swims into Spark to earn points and inform your AI coach.
+        </Text>
+
+        {isStravaConnected ? (
+          <View className="space-y-4 mb-4">
+            <View className="p-4 rounded-xl bg-orange-500/10 flex-row items-center mb-2">
+              <Ionicons name="checkmark-circle" size={22} color="#FC4C02" />
+              <Text className="text-orange-500 font-bold ml-2">Strava is connected</Text>
             </View>
 
-            <Text className="text-sm text-theme-muted mb-6">
-              Connect Strava to automatically sync your completed runs, rides, and swims into Spark to earn points and inform your AI coach.
-            </Text>
+            <TouchableOpacity
+              onPress={handleSyncStrava}
+              disabled={stravaLoading}
+              className="bg-[#FC4C02] py-3.5 rounded-xl items-center flex-row justify-center mb-3"
+            >
+              {stravaLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="sync" size={18} color="#FFF" />
+                  <Text className="text-white font-bold text-base ml-2">Sync Activities Now</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
-            {isStravaConnected ? (
-              <View className="space-y-4 mb-4">
-                <View className="p-4 rounded-xl bg-orange-500/10 flex-row items-center mb-2">
-                  <Ionicons name="checkmark-circle" size={22} color="#FC4C02" />
-                  <Text className="text-orange-500 font-bold ml-2">Strava is connected</Text>
-                </View>
+            <TouchableOpacity
+              onPress={handleDisconnectStrava}
+              disabled={stravaLoading}
+              className="bg-red-500/10 py-3.5 rounded-xl items-center"
+            >
+              <Text className="text-red-500 font-bold text-base">Disconnect Strava</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View className="space-y-4 mb-4">
+            <TouchableOpacity
+              onPress={handleConnectStravaOAuth}
+              disabled={stravaLoading}
+              className="bg-[#FC4C02] py-4 rounded-xl items-center flex-row justify-center mb-3"
+            >
+              {stravaLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="fitness-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text className="text-white font-bold text-base">Connect with Strava</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
+            <TouchableOpacity
+              onPress={() => setShowManualStrava(!showManualStrava)}
+              className="py-2 items-center"
+            >
+              <Text className="text-theme-muted text-xs underline">
+                {showManualStrava ? 'Hide manual refresh token input' : 'Enter Strava Refresh Token manually'}
+              </Text>
+            </TouchableOpacity>
+
+            {showManualStrava && (
+              <View className="mt-2 space-y-3">
+                <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Strava Refresh Token</Text>
+                <TextInput
+                  className="bg-theme-card rounded-xl p-3.5 text-theme-text"
+                  placeholder="Paste refresh token..."
+                  placeholderTextColor="#8E8E93"
+                  value={stravaRefreshToken}
+                  onChangeText={setStravaRefreshToken}
+                  autoCapitalize="none"
+                />
                 <TouchableOpacity
-                  onPress={handleSyncStrava}
+                  onPress={handleSaveStravaManualToken}
                   disabled={stravaLoading}
-                  className="bg-[#FC4C02] py-3.5 rounded-xl items-center flex-row justify-center mb-3"
+                  className="bg-theme-card py-3 rounded-xl items-center mt-2"
                 >
                   {stravaLoading ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <>
-                      <Ionicons name="sync" size={18} color="#FFF" />
-                      <Text className="text-white font-bold text-base ml-2">Sync Activities Now</Text>
-                    </>
+                    <Text className="text-theme-text font-bold text-sm">Save Refresh Token</Text>
                   )}
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleDisconnectStrava}
-                  disabled={stravaLoading}
-                  className="bg-red-500/10 py-3.5 rounded-xl items-center"
-                >
-                  <Text className="text-red-500 font-bold text-base">Disconnect Strava</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View className="space-y-4 mb-4">
-                <TouchableOpacity
-                  onPress={handleConnectStravaOAuth}
-                  disabled={stravaLoading}
-                  className="bg-[#FC4C02] py-4 rounded-xl items-center flex-row justify-center mb-3"
-                >
-                  {stravaLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="fitness-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text className="text-white font-bold text-base">Connect with Strava</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setShowManualStrava(!showManualStrava)}
-                  className="py-2 items-center"
-                >
-                  <Text className="text-theme-muted text-xs underline">
-                    {showManualStrava ? 'Hide manual refresh token input' : 'Enter Strava Refresh Token manually'}
-                  </Text>
-                </TouchableOpacity>
-
-                {showManualStrava && (
-                  <View className="mt-2 space-y-3">
-                    <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Strava Refresh Token</Text>
-                    <TextInput
-                      className="bg-theme-card rounded-xl p-3.5 text-theme-text"
-                      placeholder="Paste refresh token..."
-                      placeholderTextColor="#8E8E93"
-                      value={stravaRefreshToken}
-                      onChangeText={setStravaRefreshToken}
-                      autoCapitalize="none"
-                    />
-                    <TouchableOpacity
-                      onPress={handleSaveStravaManualToken}
-                      disabled={stravaLoading}
-                      className="bg-theme-card py-3 rounded-xl items-center mt-2"
-                    >
-                      {stravaLoading ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <Text className="text-theme-text font-bold text-sm">Save Refresh Token</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
             )}
           </View>
-        </View>
-      </Modal>
+        )}
+      </BottomSheetModal>
     </View>
   );
 }
