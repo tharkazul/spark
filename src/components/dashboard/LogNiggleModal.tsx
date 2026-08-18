@@ -88,7 +88,7 @@ export function LogNiggleModal({
                   </View>
                   <View>
                     <Text className="text-lg font-bold text-theme-text">Report Injury</Text>
-                    <Text className="text-xs text-theme-muted">Alert Spark AI Coach to adapt your plan</Text>
+                    <Text className="text-xs text-theme-muted">Alert Rooka AI Coach to adapt your plan</Text>
                   </View>
                 </View>
 

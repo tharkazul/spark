@@ -30,7 +30,7 @@ export interface Activity {
   average_power_w?: number;
   start_date: string;
   tss?: number;
-  spark_score?: number;
+  rooka_score?: number;
   sets_json?: string;
   polyline?: string;
   kudos_count?: number;

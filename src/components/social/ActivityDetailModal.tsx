@@ -64,11 +64,11 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
     raw?.weighted_average_watts ??
     fallback?.average_power_w;
 
-  const spark =
-    raw?.spark_score ??
+  const rooka =
+    raw?.rooka_score ??
     raw?.suffer_score ??
     raw?.tss ??
-    fallback?.spark_score ??
+    fallback?.rooka_score ??
     fallback?.tss ??
     0;
 
@@ -172,7 +172,7 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
     average_heartrate: raw?.average_heartrate ?? fallback?.average_heartrate,
     max_heartrate: raw?.max_heartrate ?? fallback?.max_heartrate,
     average_power_w: avgPower,
-    spark_score: spark,
+    rooka_score: rooka,
     polyline: polylineStr,
     start_date: startDateStr,
     kudos_count: raw?.kudos_count ?? fallback?.kudos_count ?? 0,
@@ -471,7 +471,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
   if (!visible) return null;
 
-  const sparkScore = Math.round(activity?.spark_score || activity?.tss || 0);
+  const rookaScore = Math.round(activity?.rooka_score || activity?.tss || 0);
   const distanceKmStr = activity?.distance_km ? activity.distance_km.toFixed(2) : '0.00';
   const durationMins = activity?.moving_time_min ? Math.round(activity.moving_time_min) : 0;
   const avgSpeedKmh =
@@ -545,19 +545,19 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                 Key Telemetry
               </Text>
 
-              {/* 1. Full-Width Spark Hero Banner */}
+              {/* 1. Full-Width Rooka Hero Banner */}
               <View className="flex-row items-center justify-between bg-[#FFF5EB] dark:bg-orange-950/25 px-3.5 py-2.5 rounded-xl mb-3 border border-[#FF5F3B]/20">
                 <View className="flex-row items-center space-x-1.5">
                   <Ionicons name="sparkles" size={15} color="#FF5F3B" />
                   <Text className="text-xs font-bold text-[#64748B] dark:text-slate-300 ml-1">
-                    Spark Score
+                    Rooka Score
                   </Text>
                 </View>
                 <Text
                   className="text-base font-bold text-[#FF5F3B] font-mono"
                   style={{ fontVariant: ['tabular-nums'] }}
                 >
-                  +{sparkScore} Spark
+                  +{rookaScore} Rooka
                 </Text>
               </View>
 

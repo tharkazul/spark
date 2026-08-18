@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SparkTab } from '../../components/progress/SparkTab';
+import { RookaTab } from '../../components/progress/RookaTab';
 import { NutritionTab } from '../../components/progress/NutritionTab';
 import { HealthTab } from '../../components/progress/HealthTab';
 
@@ -22,7 +22,7 @@ import { useLanguage } from '../../context/LanguageContext';
 
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
-const TABS = ['spark', 'nutrition', 'health'] as const;
+const TABS = ['rooka', 'nutrition', 'health'] as const;
 type TabType = typeof TABS[number];
 
 export default function ProgressScreen() {
@@ -33,7 +33,7 @@ export default function ProgressScreen() {
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const [activeTab, setActiveTab] = useState<TabType>('spark');
+  const [activeTab, setActiveTab] = useState<TabType>('rooka');
 
   const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 3;
 
@@ -43,12 +43,12 @@ export default function ProgressScreen() {
     extrapolate: 'clamp',
   });
 
-  const sparkWhiteOpacity = scrollX.interpolate({
+  const rookaWhiteOpacity = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
-  const sparkGreyOpacity = scrollX.interpolate({
+  const rookaGreyOpacity = scrollX.interpolate({
     inputRange: [0, SCREEN_WIDTH],
     outputRange: [0, 1],
     extrapolate: 'clamp',
@@ -112,17 +112,17 @@ export default function ProgressScreen() {
             style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }}
           />
 
-          {/* SPARK PILL */}
+          {/* ROOKA PILL */}
           <TouchableOpacity
-            onPress={() => handleTabPress('spark')}
+            onPress={() => handleTabPress('rooka')}
             className="flex-1 py-2.5 items-center justify-center z-10"
           >
             <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: sparkWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
-                Spark
+              <Animated.Text style={{ opacity: rookaWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
+                Rooka
               </Animated.Text>
-              <Animated.Text style={{ opacity: sparkGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
-                Spark
+              <Animated.Text style={{ opacity: rookaGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
+                Rooka
               </Animated.Text>
             </View>
           </TouchableOpacity>
@@ -172,7 +172,7 @@ export default function ProgressScreen() {
         scrollEventThrottle={16}
         className="flex-1"
       >
-        {/* SPARK PAGE */}
+        {/* ROOKA PAGE */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-0"
@@ -180,7 +180,7 @@ export default function ProgressScreen() {
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
-            <SparkTab />
+            <RookaTab />
           </ScrollView>
         </View>
 

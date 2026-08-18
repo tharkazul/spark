@@ -340,7 +340,7 @@ export function MicroPlanAgendaCard({
                             activeOpacity={0.75}
                             className={`p-3.5 rounded-xl border-l-4 ${cfg.borderLeft} bg-theme-card/80 flex-col gap-2 active:bg-theme-accent/5`}
                           >
-                            {/* Top Line: Discipline Tag & Spark Score */}
+                            {/* Top Line: Discipline Tag & Rooka Score */}
                             <View className="flex-row items-center justify-between">
                               <View className={`px-2.5 py-0.5 rounded-md ${cfg.bg} flex-row items-center gap-1.5`}>
                                 <Ionicons name={cfg.icon as any} size={13} color={cfg.badgeColor} />
@@ -351,7 +351,7 @@ export function MicroPlanAgendaCard({
 
                               <View className="flex-row items-center gap-2">
                                 <Text className="text-xs font-mono font-bold text-theme-accent">
-                                  +{Math.round(workout.sparkPoints || 0)} Spark
+                                  +{Math.round(workout.rookaPoints || 0)} Rooka
                                 </Text>
 
                                 {workout.isCompleted && (
@@ -371,7 +371,7 @@ export function MicroPlanAgendaCard({
                             {/* Subline: Human Duration & Chevron */}
                             <View className="flex-row items-center justify-between pt-1">
                               <Text className="text-xs text-theme-muted font-medium">
-                                {workout.duration || '45 min'} session · +{Math.round(workout.sparkPoints || 0)} Spark
+                                {workout.duration || '45 min'} session · +{Math.round(workout.rookaPoints || 0)} Rooka
                               </Text>
 
                               {workout.actualMetrics ? (

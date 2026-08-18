@@ -12,7 +12,7 @@ router.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const nowIso = new Date().toISOString();
     db.run(
-      `INSERT INTO users (username, password_hash, athlete_context, spark_start_date) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO users (username, password_hash, athlete_context, rooka_start_date) VALUES (?, ?, ?, ?)`,
       [username, hashedPassword, context || "New athlete.", nowIso],
       function (err) {
         if (err)
@@ -52,7 +52,7 @@ router.post("/login", (req, res) => {
         db.run(`UPDATE users SET login_count = login_count + 1 WHERE id = ?`, [
           user.id,
         ]);
-        res.json({ token, message: "Welcome to Spark HQ" });
+        res.json({ token, message: "Welcome to Rooka HQ" });
       } else {
         res.status(401).json({ error: "Incorrect password." });
       }

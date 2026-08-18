@@ -116,17 +116,17 @@ export default function PlanningScreen() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekRangeLabel = `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
 
-  const mainRaceName = user?.target_event || 'Park 5k';
+  const mainRaceName = user?.target_event || 'General Fitness';
   
   const calculateDaysRemaining = (eventDateStr?: string): number => {
-    if (!eventDateStr) return 181;
+    if (!eventDateStr) return 0;
     try {
       const targetDate = new Date(eventDateStr);
       const diffTime = targetDate.getTime() - now.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays > 0 ? diffDays : 0;
     } catch {
-      return 181;
+      return 0;
     }
   };
 
@@ -185,7 +185,7 @@ export default function PlanningScreen() {
           type: 'RUN',
           title: 'Controlled Aerobic Run - Injury Guardrail',
           duration: '50 mins',
-          sparkPoints: 44,
+          rookaPoints: 44,
           isStructured: true,
           isCompleted: isPast,
           actualMetrics: isPast ? '152 avg bpm · 4:52/km' : undefined,
@@ -200,9 +200,9 @@ export default function PlanningScreen() {
           day: 'TUE',
           dateStr,
           type: 'STRENGTH',
-          title: 'At-Home Core & Mobility with Spark',
+          title: 'At-Home Core & Mobility with Rooka',
           duration: '35 mins',
-          sparkPoints: 26,
+          rookaPoints: 26,
           isStructured: true,
           isCompleted: isPast,
           actualMetrics: isPast ? '35 mins · 118 avg bpm' : undefined,
@@ -219,7 +219,7 @@ export default function PlanningScreen() {
           type: 'BIKE',
           title: 'Threshold Interval Trainer Session',
           duration: '60 mins',
-          sparkPoints: 52,
+          rookaPoints: 52,
           isStructured: true,
           isCompleted: isPast,
           actualMetrics: isPast ? '248W avg · 164 bpm' : undefined,
@@ -236,7 +236,7 @@ export default function PlanningScreen() {
           type: 'BIKE',
           title: 'Lekker fietsen',
           duration: '60 mins',
-          sparkPoints: 84,
+          rookaPoints: 84,
           isStructured: true,
           isCompleted: false,
         },
@@ -251,7 +251,7 @@ export default function PlanningScreen() {
           type: 'STRENGTH',
           title: 'Upper Body & Core Focus',
           duration: '45 mins',
-          sparkPoints: 30,
+          rookaPoints: 30,
           isStructured: false,
           isCompleted: false,
         },
@@ -266,7 +266,7 @@ export default function PlanningScreen() {
           type: 'MOBILITY',
           title: 'Active Recovery Walk & Stretch',
           duration: '30 mins',
-          sparkPoints: 15,
+          rookaPoints: 15,
           isStructured: false,
           isCompleted: false,
         },
@@ -297,7 +297,7 @@ export default function PlanningScreen() {
       type: (w.sport || 'RUN').toUpperCase() as any,
       title: w.description || `${w.sport} Workout`,
       duration: w.details || '45 mins',
-      sparkPoints: w.target_spark || 30,
+      rookaPoints: w.target_rooka || 30,
       isStructured: !!w.steps_json,
       isCompleted: !!w.isCompleted,
       actualMetrics: w.actualMetrics,
@@ -307,9 +307,7 @@ export default function PlanningScreen() {
     const customWorkouts = customWorkoutsByDate[dateYYYYMMDD];
     const workouts = customWorkouts !== undefined 
       ? customWorkouts 
-      : mappedStoreWorkouts.length > 0 
-      ? mappedStoreWorkouts 
-      : getSampleWorkoutsForDay(dayName, dateStr, isPast);
+      : mappedStoreWorkouts;
 
     return {
       dayName,

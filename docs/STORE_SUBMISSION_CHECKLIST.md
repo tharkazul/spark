@@ -1,6 +1,6 @@
-# Spark Native Store Submission Checklist & Roadmap
+# Rooka Native Store Submission Checklist & Roadmap
 
-This document serves as your complete operational checklist to prepare, build, and publish **`spark-native`** to the **Apple App Store** and **Google Play Store** using Expo and EAS (Expo Application Services).
+This document serves as your complete operational checklist to prepare, build, and publish **`rooka-native`** to the **Apple App Store** and **Google Play Store** using Expo and EAS (Expo Application Services).
 
 ---
 
@@ -12,26 +12,26 @@ This document serves as your complete operational checklist to prepare, build, a
 - [ ] **Google Play Console Account:**
   - Registered at [play.google.com/console](https://play.google.com/console) ($25 one-time fee).
 - [ ] **Hosted Policy Pages (Public URLs):**
-  - Host [PRIVACY_POLICY.md](file:///Users/rutgervandenberg/Documents/spark-native/docs/PRIVACY_POLICY.md) at `https://yourdomain.com/privacy`
-  - Host [TERMS_OF_SERVICE.md](file:///Users/rutgervandenberg/Documents/spark-native/docs/TERMS_OF_SERVICE.md) at `https://yourdomain.com/terms`
+  - Host [PRIVACY_POLICY.md](file:///Users/rutgervandenberg/Documents/spark-native/docs/PRIVACY_POLICY.md) at `https://rooka.io/privacy`
+  - Host [TERMS_OF_SERVICE.md](file:///Users/rutgervandenberg/Documents/spark-native/docs/TERMS_OF_SERVICE.md) at `https://rooka.io/terms`
   - Ensure account deletion instructions are active on your website.
 
 ---
 
 ## Phase 2: App Configuration (`app.json` updates)
 
-In [app.json](file:///Users/rutgervandenberg/Documents/spark-native/app.json), update placeholders before submission:
+In [app.json](file:///Users/rutgervandenberg/Documents/rooka-native/app.json), update placeholders before submission:
 
 - [ ] Change `bundleIdentifier` (iOS):
   ```json
   "ios": {
-    "bundleIdentifier": "com.sparkapp.fitness"
+    "bundleIdentifier": "com.rookaapp.fitness"
   }
   ```
 - [ ] Add `package` (Android):
   ```json
   "android": {
-    "package": "com.sparkapp.fitness"
+    "package": "com.rookaapp.fitness"
   }
   ```
 - [ ] Check Assets & Branding:
@@ -43,7 +43,7 @@ In [app.json](file:///Users/rutgervandenberg/Documents/spark-native/app.json), u
 
 ## Phase 3: Expo EAS (Expo Application Services) Setup
 
-Run these commands inside `/Users/rutgervandenberg/Documents/spark-native`:
+Run these commands inside `/Users/rutgervandenberg/Documents/rooka-native`:
 
 ```bash
 # 1. Install EAS CLI globally if not installed
@@ -101,10 +101,10 @@ eas submit --platform android
 ## Phase 6: Store Console Setup & Submission
 
 - [ ] **App Store Connect (Apple):**
-  - Create New App -> Select Bundle ID (`com.sparkapp.fitness`).
+  - Create New App -> Select Bundle ID (`com.rookaapp.fitness`).
   - Fill in Store Information, Descriptions, Keywords, Support URL.
   - Upload Screenshots for required display sizes.
-  - Complete **App Privacy** questionnaire (refer to [APP_STORE_METADATA.md](file:///Users/rutgervandenberg/Documents/spark-native/docs/APP_STORE_METADATA.md)).
+  - Complete **App Privacy** questionnaire (refer to [APP_STORE_METADATA.md](file:///Users/rutgervandenberg/Documents/rooka-native/docs/APP_STORE_METADATA.md)).
   - Provide Demo Test Credentials in Review Notes.
   - Select Build from TestFlight and Submit for Review.
 

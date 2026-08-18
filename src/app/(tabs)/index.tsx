@@ -83,7 +83,7 @@ export default function DashboardScreen() {
           type: sportUpper as any,
           title: w.description || `${w.sport} Workout`,
           duration: w.details || '45 mins',
-          sparkPoints: isRest ? 0 : (w.target_spark ?? 0),
+          rookaPoints: isRest ? 0 : (w.target_rooka ?? 0),
           isStructured: !!w.steps_json,
           isCompleted: !!w.isCompleted,
           actualMetrics: w.actualMetrics,

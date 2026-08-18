@@ -17,16 +17,16 @@ export interface PMCMetricsData {
 }
 
 export interface ActivityForPMC {
-  spark_score?: number;
+  rooka_score?: number;
   start_date?: string;
   date?: string;
-  daily_spark?: number;
-  spark?: number;
+  daily_rooka?: number;
+  rooka?: number;
   tss?: number;
 }
 
 /**
- * Calculates PMC (Performance Management Chart) Telemetry metrics & 14-day sparklines
+ * Calculates PMC (Performance Management Chart) Telemetry metrics & 14-day ___sparkline_temp___s
  * using the domain pmc calculation module (src/domain/pmc.ts).
  */
 export function calculatePMCMetrics(

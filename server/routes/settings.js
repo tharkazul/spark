@@ -5,7 +5,7 @@ const fs = require("fs");
 const multer = require("multer");
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
-const { getSparkLevelInfo } = require("../services/utils");
+const { getRookaLevelInfo } = require("../services/utils");
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -114,7 +114,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
+    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (!row) {
@@ -122,14 +122,14 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
           id: req.user.id,
           username: req.user.username || 'athlete',
           coach_tone: 'hype',
-          coach_name: 'Spark',
+          coach_name: 'Rooka',
           coach_context: 'Empathetic athletic performance coach',
           athlete_context: 'Active athlete',
           gender: 'prefer_not_to_say',
-          total_spark: 120,
+          total_rooka: 120,
           daily_token_usage: 0,
           daily_token_limit: 50000,
-          subscription_tier: 'spark_plus',
+          subscription_tier: 'rooka_plus',
           onboarding_completed: 1,
         };
       }
@@ -139,7 +139,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
           availability = JSON.parse(row.training_availability);
         } catch (e) {}
       }
-      const sparkLevelInfo = getSparkLevelInfo(row.total_spark);
+      const rookaLevelInfo = getRookaLevelInfo(row.total_rooka);
       
       const { getEffectiveTokenLimit, getAMSDateString } = require('../services/utils');
       const currentLimit = getEffectiveTokenLimit(row);
@@ -159,7 +159,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             hasGarmin: !!row.garmin_username,
             garminUsername: row.garmin_username,
             coachTone: row.coach_tone,
-            coachName: row.coach_name || 'Spark',
+            coachName: row.coach_name || 'Rooka',
             coachContext: row.coach_context || '',
             coachAvatarNeutral: row.coach_avatar_neutral || null,
             coachAvatarHype: row.coach_avatar_hype || null,
@@ -173,9 +173,9 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             searchPrivacy: row.search_privacy === 1,
             profilePictureUrl: row.profile_picture_url,
             trainingAvailability: availability,
-            sparkLevel: sparkLevelInfo,
-            total_spark: row.total_spark || 0,
-            totalSpark: row.total_spark || 0,
+            rookaLevel: rookaLevelInfo,
+            total_rooka: row.total_rooka || 0,
+            totalRooka: row.total_rooka || 0,
             dailyTokenUsage: dailyUsage,
             dailyTokenLimit: currentLimit,
             subscriptionTier: row.subscription_tier || 'free',
@@ -220,7 +220,7 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, cycle_tracking_enabled = COALESCE(?, cycle_tracking_enabled), last_cycle_start = ?, training_availability = ?, onboarding_completed = CASE WHEN ? = 1 THEN 1 ELSE onboarding_completed END WHERE id = ?`,
     [
       coachTone,
-      coachName || "Spark",
+      coachName || "Rooka",
       coachContext || "",
       athleteContext,
       gender || "Prefer not to share",
@@ -259,9 +259,9 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
   );
 });
 
-router.post('/api/track-spark-plus-click', authenticateToken, (req, res) => {
+router.post('/api/track-rooka-plus-click', authenticateToken, (req, res) => {
     db.run(
-        `UPDATE users SET spark_plus_clicks = COALESCE(spark_plus_clicks, 0) + 1 WHERE id = ?`,
+        `UPDATE users SET rooka_plus_clicks = COALESCE(rooka_plus_clicks, 0) + 1 WHERE id = ?`,
         [req.user.id],
         function(err) {
             if (err) return res.status(500).json({ error: 'Database error' });

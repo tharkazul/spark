@@ -64,7 +64,7 @@ export function ActiveQuestsCard() {
               </View>
             </View>
 
-            {/* Right: Spark Reward & Chevron */}
+            {/* Right: Rooka Reward & Chevron */}
             <View className="flex-row items-center gap-2">
               <View className="bg-amber-500/15 px-2.5 py-1 rounded-full">
                 <Text className="text-xs font-mono font-extrabold text-amber-500">
@@ -120,7 +120,7 @@ export function ActiveQuestsCard() {
           </View>
           <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
             <Text className="text-sm font-mono font-extrabold text-amber-500">
-              +{Math.round(activeQuest?.reward_points || 0)} Spark
+              +{Math.round(activeQuest?.reward_points || 0)} Rooka
             </Text>
           </View>
         </View>

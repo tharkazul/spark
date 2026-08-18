@@ -15,7 +15,7 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
   }
 
   // Generate CSV rows
-  let csvContent = 'ID,Date,Sport,Title,Distance_km,Duration_mins,Spark_Score,Avg_HR,Max_HR,Elevation_m\n';
+  let csvContent = 'ID,Date,Sport,Title,Distance_km,Duration_mins,Rooka_Score,Avg_HR,Max_HR,Elevation_m\n';
 
   activities.forEach((act) => {
     const id = act.id || '';
@@ -24,15 +24,15 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
     const title = `"${(act.name || 'Workout').replace(/"/g, '""')}"`;
     const dist = typeof act.distance_km === 'number' ? act.distance_km.toFixed(2) : '0';
     const dur = typeof act.moving_time_min === 'number' ? act.moving_time_min.toFixed(1) : '0';
-    const spark = act.spark_score || act.tss || 0;
+    const rooka = act.rooka_score || act.tss || 0;
     const avgHr = act.average_heartrate || '';
     const maxHr = act.max_heartrate || '';
     const elev = act.elevation_m || 0;
 
-    csvContent += `${id},${date},${sport},${title},${dist},${dur},${spark},${avgHr},${maxHr},${elev}\n`;
+    csvContent += `${id},${date},${sport},${title},${dist},${dur},${rooka},${avgHr},${maxHr},${elev}\n`;
   });
 
-  const file = new File(Paths.cache, 'spark_workout_history.csv');
+  const file = new File(Paths.cache, 'rooka_workout_history.csv');
   if (file.exists) {
     file.delete();
   }
@@ -45,7 +45,7 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
     if (canShare) {
       await Sharing.shareAsync(file.uri, {
         mimeType: 'text/csv',
-        dialogTitle: 'Export Spark Workout History',
+        dialogTitle: 'Export Rooka Workout History',
         UTI: 'public.comma-separated-values-text',
       });
       return true;

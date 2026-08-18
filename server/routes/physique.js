@@ -48,15 +48,15 @@ const {
   generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
-  getSparkLevelInfo,
-  calculateSparkScore,
-  mapStravaSportToSpark,
+  getRookaLevelInfo,
+  calculateRookaScore,
+  mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
-  updateUserSparkAndCheckLevel,
+  updateUserRookaAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity
@@ -211,7 +211,7 @@ router.get("/api/fatigue/insight", authenticateToken, (req, res) => {
           if (niggleErr) return res.status(500).json({ error: "Failed to fetch niggles." });
 
           const prompt = `
-          You are Spark Coach, an AI athletic coach. Analyze the user's current muscle fatigue, development scores, and active injuries.
+          You are Rooka Coach, an AI athletic coach. Analyze the user's current muscle fatigue, development scores, and active injuries.
           Write exactly 1-2 short, encouraging sentences summarizing their current physical state and giving a brief recommendation for today's training focus.
           Keep it very concise, empathetic, and conversational.
           
@@ -336,7 +336,7 @@ router.post(
           }
 
           db.all(
-            `SELECT sport, description, target_spark FROM micro_plan WHERE user_id = ? AND date = ?`,
+            `SELECT sport, description, target_rooka FROM micro_plan WHERE user_id = ? AND date = ?`,
             [req.user.id, date],
             (err, planRows) => {
               if (planRows && planRows.length > 0) {
@@ -357,7 +357,7 @@ router.post(
                 [req.user.id],
                 async (err, row) => {
                   const tone = row ? row.coach_tone : "Friendly";
-                  const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
+                  const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
                   try {
                     const aiReply = await generateWithFallback(
                       prompt,
@@ -500,20 +500,20 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
 
               // Fetch today's completed activities with details (if any)
               db.all(
-                `SELECT name, sport_type, spark_score, distance_km, moving_time_min FROM activities WHERE user_id = ? AND date(start_date) = ?`,
+                `SELECT name, sport_type, rooka_score, distance_km, moving_time_min FROM activities WHERE user_id = ? AND date(start_date) = ?`,
                 [req.user.id, todayStr],
                 (err, actualActs) => {
-                  let actualSpark = 0;
+                  let actualRooka = 0;
                   let completedSummary = "";
 
                   if (actualActs && actualActs.length > 0) {
                     const actSummaries = actualActs.map((act) => {
-                      actualSpark += act.spark_score || 0;
+                      actualRooka += act.rooka_score || 0;
                       const nameStr = act.name || "Workout";
                       const sportStr = act.sport_type || "Exercise";
                       const distStr = act.distance_km ? `${act.distance_km.toFixed(1)}km` : "";
                       const timeStr = act.moving_time_min ? `${Math.round(act.moving_time_min)}m` : "";
-                      const detailsStr = [sportStr, distStr, timeStr, `${Math.round(act.spark_score || 0)} Spark Points`]
+                      const detailsStr = [sportStr, distStr, timeStr, `${Math.round(act.rooka_score || 0)} Rooka Points`]
                         .filter(Boolean)
                         .join(", ");
                       return `${nameStr} (${detailsStr})`;
@@ -522,7 +522,7 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
                   }
 
                   db.all(
-                    `SELECT sport, description, target_spark FROM micro_plan WHERE user_id = ? AND date = ?`,
+                    `SELECT sport, description, target_rooka FROM micro_plan WHERE user_id = ? AND date = ?`,
                     [req.user.id, todayStr],
                     async (err, plannedRows) => {
                       let plannedSummary = "";
@@ -530,17 +530,17 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
                         plannedSummary = plannedRows
                           .map((p) => {
                             const sportStr = p.sport ? `[${p.sport}] ` : "";
-                            return `${sportStr}${p.description} (${Math.round(p.target_spark || 0)} Spark Points)`;
+                            return `${sportStr}${p.description} (${Math.round(p.target_rooka || 0)} Rooka Points)`;
                           })
                           .join("; ");
                       } else {
-                        plannedSummary = "Rest day (0 Spark Points)";
+                        plannedSummary = "Rest day (0 Rooka Points)";
                       }
 
                       let trainingContextPrompt = "";
                       if (completedSummary) {
-                        trainingContextPrompt = `Completed Activities Today: ${completedSummary} (Total Spark Points: ${actualSpark.toFixed(1)})`;
-                        if (plannedSummary && plannedSummary !== "Rest day (0 Spark Points)") {
+                        trainingContextPrompt = `Completed Activities Today: ${completedSummary} (Total Rooka Points: ${actualRooka.toFixed(1)})`;
+                        if (plannedSummary && plannedSummary !== "Rest day (0 Rooka Points)") {
                           trainingContextPrompt += `\nPlanned Training for Today: ${plannedSummary}`;
                         }
                       } else {
@@ -560,8 +560,8 @@ ${longTermMemory}
 
 Based on today's completed activities (if any), planned training load, macro phase, and athlete context/goals, recommend a daily macro nutrition target.
 - Explicitly reference the actual completed exercise names and sport types (e.g. Run, Swim, Bike, Strength) in your rationale if a workout was completed.
-- For high Spark Points / intense days, prescribe higher carbohydrates.
-- For rest / low Spark Points days, prescribe lower carbohydrates and higher protein/fat.
+- For high Rooka Points / intense days, prescribe higher carbohydrates.
+- For rest / low Rooka Points days, prescribe lower carbohydrates and higher protein/fat.
 - Protein should always be kept very high (1.8g - 2.2g per kg of bodyweight, which is roughly ${Math.round(weight * 1.8)}g - ${Math.round(weight * 2.2)}g for this athlete) to preserve and build muscle mass.
 - Ensure total calories make sense for an endurance athlete of their weight and align with any weight loss/gain goals mentioned in their notes.
 

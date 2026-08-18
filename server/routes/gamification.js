@@ -22,16 +22,16 @@ const {
   generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
-  getSparkLevelInfo,
-  calculateSparkScore,
-  mapStravaSportToSpark,
+  getRookaLevelInfo,
+  calculateRookaScore,
+  mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
-  updateUserSparkAndCheckLevel,
-  checkAndAwardSparkTitles,
+  updateUserRookaAndCheckLevel,
+  checkAndAwardRookaTitles,
   triggerLevelUpCoachPrompt,
   evaluateAndProgressQuests,
   calculateQuestProgress,
@@ -85,7 +85,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
 
   try {
     await evaluateAndProgressQuests(userId);
-    await checkAndAwardSparkTitles(userId);
+    await checkAndAwardRookaTitles(userId);
   } catch (e) {
     console.error("Error evaluating gamification in /api/gamification:", e);
   }
@@ -128,7 +128,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
                 // Unit string
                 if (qObj.target_metric === "distance_km") qObj.unit = "km";
                 else if (qObj.target_metric === "moving_time_min") qObj.unit = "min";
-                else if (qObj.target_metric === "spark_score") qObj.unit = "pts";
+                else if (qObj.target_metric === "rooka_score") qObj.unit = "pts";
                 else qObj.unit = "";
 
                 return qObj;
@@ -279,7 +279,7 @@ router.post(
     const userId = req.user.id;
 
     db.all(
-      `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 10`,
+      `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 10`,
       [userId],
       async (err, recentActivities) => {
         const activitiesStr =

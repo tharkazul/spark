@@ -66,7 +66,7 @@ export default function ProfileScreen() {
 
   const username = user?.username || 'Athlete';
   const email = user?.email;
-  const isSparkPlus = hasSubscriptionTier(user?.subscription_tier);
+  const isRookaPlus = hasSubscriptionTier(user?.subscription_tier);
 
   const isGarminConnected = !!user?.garmin_connected;
   const isStravaConnected = !!user?.strava_connected;
@@ -334,7 +334,7 @@ export default function ProfileScreen() {
             <ProfileTab
               username={username}
               email={email}
-              isSparkPlus={isSparkPlus}
+              isRookaPlus={isRookaPlus}
               renderSettingRow={renderSettingRow}
             />
           </ScrollView>
@@ -375,7 +375,7 @@ export default function ProfileScreen() {
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
-            <AccountTab onLogout={logout} isSparkPlus={isSparkPlus} />
+            <AccountTab onLogout={logout} isRookaPlus={isRookaPlus} />
           </ScrollView>
         </View>
       </ScrollView>
@@ -489,7 +489,7 @@ export default function ProfileScreen() {
         </View>
 
         <Text className="text-sm text-theme-muted mb-6">
-          Connect Strava to automatically sync your completed runs, rides, and swims into Spark to earn points and inform your AI coach.
+          Connect Strava to automatically sync your completed runs, rides, and swims into Rooka to earn points and inform your AI coach.
         </Text>
 
         {isStravaConnected ? (

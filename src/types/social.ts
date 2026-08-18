@@ -4,12 +4,12 @@ export interface SocialFeedActivity {
   username: string;
   athlete_name?: string;
   profile_picture_url?: string;
-  spark_level: number;
+  rooka_level: number;
   title: string;
   sport_type: string;
   distance_km?: number;
   moving_time_min?: number;
-  spark_score: number;
+  rooka_score: number;
   kudos_count: number;
   comments_count: number;
   has_kudosed: boolean;
@@ -42,8 +42,8 @@ export interface SocialConnection {
 export interface LeaderboardEntry {
   user_id: number;
   username: string;
-  spark_level: number;
-  total_spark_score: number;
+  rooka_level: number;
+  total_rooka_score: number;
   quests_completed_7d: number;
   total_activities?: number;
   total_minutes?: number;

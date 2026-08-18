@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const TOKEN_KEY = 'spark_auth_token';
+const TOKEN_KEY = 'rooka_auth_token';
 
 export const tokenStorage = {
   async getToken(): Promise<string | null> {
@@ -49,7 +49,7 @@ export const tokenStorage = {
   },
 };
 
-const LANG_KEY = 'spark_app_language';
+const LANG_KEY = 'rooka_app_language';
 
 export const languageStorage = {
   async getLanguage(): Promise<string | null> {
@@ -79,7 +79,7 @@ export const languageStorage = {
   },
 };
 
-const CHAT_KEY = 'spark_chat_history';
+const CHAT_KEY = 'rooka_chat_history';
 
 export const chatStorage = {
   async getChatHistory(): Promise<any[] | null> {
@@ -134,7 +134,7 @@ export const chatStorage = {
   },
 };
 
-const BRIEFING_KEY = 'spark_daily_briefing';
+const BRIEFING_KEY = 'rooka_daily_briefing';
 
 export const briefingStorage = {
   async getDailyBriefing(dateStr: string): Promise<string | null> {
@@ -173,7 +173,7 @@ export const briefingStorage = {
   },
 };
 
-const CHAT_READ_KEY = 'spark_chat_last_read_timestamp';
+const CHAT_READ_KEY = 'rooka_chat_last_read_timestamp';
 
 export const chatReadStorage = {
   async getLastReadTimestamp(): Promise<number> {

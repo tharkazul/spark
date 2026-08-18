@@ -42,7 +42,7 @@ export const Sparkline: React.FC<SparklineProps> = ({
 
   const areaD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
 
-  const gradId = `sparkline-grad-${color.replace('#', '')}`;
+  const gradId = `___sparkline_temp___-grad-${color.replace('#', '')}`;
 
   return (
     <Svg height={height} width={width} viewBox={`0 0 ${width} ${height}`}>

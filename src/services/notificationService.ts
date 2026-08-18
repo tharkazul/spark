@@ -24,7 +24,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   // Set up Android channel if applicable
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'Spark Notifications',
+      name: 'Rooka Notifications',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF5F3B',
@@ -57,7 +57,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
     const token = pushTokenData?.data;
     if (token) {
-      // Register token on Spark backend
+      // Register token on Rooka backend
       await notificationsApi.registerToken(token, Platform.OS);
       return token;
     }

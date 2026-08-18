@@ -17,7 +17,7 @@ import { UserTitle } from '../../types/gamification';
 interface ProfileTabProps {
   username: string;
   email?: string;
-  isSparkPlus: boolean;
+  isRookaPlus: boolean;
   renderSettingRow: (
     icon: keyof typeof Ionicons.glyphMap,
     title: string,
@@ -29,7 +29,7 @@ interface ProfileTabProps {
 export const ProfileTab: React.FC<ProfileTabProps> = ({
   username,
   email,
-  isSparkPlus,
+  isRookaPlus,
   renderSettingRow,
 }) => {
   const { t } = useLanguage();
@@ -127,9 +127,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   if (tier === 'admin') {
     tierLabel = '⚡ Admin Member';
   } else if (tier === 'premium') {
-    tierLabel = '⚡ Spark+ Premium';
-  } else if (tier === 'spark_plus' || tier === 'subscription') {
-    tierLabel = '⚡ Spark+ Member';
+    tierLabel = '⚡ Rooka+ Premium';
+  } else if (tier === 'rooka_plus' || tier === 'subscription') {
+    tierLabel = '⚡ Rooka+ Member';
   }
 
   return (

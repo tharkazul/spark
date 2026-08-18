@@ -1,11 +1,11 @@
-export type SubscriptionTier = 'free' | 'subscription' | 'spark_plus' | 'premium' | 'admin';
+export type SubscriptionTier = 'free' | 'subscription' | 'rooka_plus' | 'premium' | 'admin';
 
 export interface UserProfile {
   id: number;
   username: string;
   email?: string;
   subscription_tier: SubscriptionTier;
-  total_spark: number;
+  total_rooka: number;
   level: number;
   gender?: string;
   last_cycle_start?: string;

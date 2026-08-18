@@ -48,15 +48,15 @@ const {
   generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
-  getSparkLevelInfo,
-  calculateSparkScore,
-  mapStravaSportToSpark,
+  getRookaLevelInfo,
+  calculateRookaScore,
+  mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
-  updateUserSparkAndCheckLevel,
+  updateUserRookaAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity,
@@ -158,7 +158,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
       if (!user) {
         user = {
           coach_tone: 'hype',
-          coach_name: 'Spark',
+          coach_name: 'Rooka',
           coach_context: 'Empathetic athletic performance coach',
           athlete_context: 'Active athlete',
           gender: 'prefer_not_to_say',
@@ -167,7 +167,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           common_token_usage: 0,
           last_token_reset_date: new Date().toISOString().split("T")[0],
           daily_token_limit: 50000,
-          subscription_tier: 'spark_plus'
+          subscription_tier: 'rooka_plus'
         };
       }
 
@@ -179,7 +179,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
       if (user.last_token_reset_date !== todayStr) {
         currentDailyUsage = 0;
         // Reset to their tier default limit on a new day
-        currentDailyLimit = user.subscription_tier === 'spark_plus' ? 50000 : 10000;
+        currentDailyLimit = user.subscription_tier === 'rooka_plus' ? 50000 : 10000;
         db.run(
           `UPDATE users SET daily_token_usage = 0, common_token_usage = 0, daily_token_limit = ?, last_token_reset_date = ? WHERE id = ?`,
           [currentDailyLimit, todayStr, req.user.id],
@@ -206,7 +206,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           const phase = await getUserMacroPhase(req.user.id);
           try {
             db.all(
-              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
+              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
               [req.user.id],
               async (err, recentActivities) => {
                 const recentActivitiesText =
@@ -233,7 +233,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                 }
                               } catch (e) {}
                             }
-                            return `- ${getAMSDateString(a.start_date)} at ${new Date(a.start_date).toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.spark_score || 0)} Spark${lapStr}`;
+                            return `- ${getAMSDateString(a.start_date)} at ${new Date(a.start_date).toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.rooka_score || 0)} Rooka${lapStr}`;
                           }
                         )
                         .join("\n                    ")
@@ -263,7 +263,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                             ? planRows
                                 .map(
                                   (p) =>
-                                    `- ${p.date}: ${p.sport} - ${p.description} (${p.target_spark || p.target_tss || 0} Spark)`,
+                                    `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} Rooka)`,
                                 )
                                 .join("\n                    ")
                             : "No upcoming workouts scheduled.";
@@ -376,7 +376,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                           req.user.id,
                                         );
 
-                                      const coachName = user.coach_name || 'Spark';
+                                      const coachName = user.coach_name || 'Rooka';
                                       let coachToneText = user.coach_tone;
                                       if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
                                           coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
@@ -463,7 +463,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     10. PREDICTIVE LOGISTICS: If the WEATHER ALERT is active and the user agrees to move an outdoor workout (Bike/Run) indoors, use the JSON block to update their microplan (e.g. changing 'Bike' to 'Zwift' or 'Run' to 'Treadmill').
                     11. GAMIFICATION (CRITICAL):
                         - The athlete's current activity streak is: ${gamification.streak} days.
-                        - The athlete has earned a total of ${gamification.bonusPoints} bonus spark points.
+                        - The athlete has earned a total of ${gamification.bonusPoints} bonus rooka points.
                         - The athlete's latest earned title/badge is: "${gamification.latestTitle}".
                         - Mention their streak or title occasionally to motivate them, especially if their streak is high (e.g., "You're on a ${gamification.streak} day streak, keep the momentum going!"). Do NOT mention it every single time.
 
@@ -477,7 +477,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "date": "YYYY-MM-DD",
                         "sport": "Run", 
                         "description": "5k Speed Intervals",
-                        "target_spark": 80,
+                        "target_rooka": 80,
                         "details": "Push hard on the intervals, recover fully on the rests.",
                         "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 15, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}, {\\"type\\": \\"repeat\\", \\"iterations\\": 8, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 3, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 4}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 1, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]"
                       },
@@ -485,7 +485,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "date": "YYYY-MM-DD",
                         "sport": "Rest", 
                         "description": "Active Recovery",
-                        "target_spark": 0,
+                        "target_rooka": 0,
                         "details": "Take the day off.",
                         "steps_json": "[]"
                       }
@@ -513,7 +513,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     MANUAL ACTIVITY LOGGING (CRITICAL REQUIREMENT):
                     If the athlete mentions completing, running, cycling, swimming, lifting, or performing ANY workout, run, or activity in their message (e.g. "I ran 10km", "Just finished 10k", "Did a 45 min run"), YOU MUST output a "log_activity" JSON block at the very end of your response.
                     DO NOT ONLY praise them in conversational text—YOU MUST INCLUDE THE "log_activity" JSON BLOCK! If you do not include the JSON block, the workout WILL NOT be saved to their activity log ("My Log") and their active quest WILL NOT progress or complete!
-                    Always estimate reasonable values for distance_km, moving_time_min, and spark_score if not explicitly specified.
+                    Always estimate reasonable values for distance_km, moving_time_min, and rooka_score if not explicitly specified.
                     Format it EXACTLY like this inside triple backticks:
                     \`\`\`json
                     {
@@ -523,7 +523,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "sport_type": "Run",
                         "distance_km": 10.0,
                         "moving_time_min": 50,
-                        "spark_score": 50
+                        "rooka_score": 50
                       }
                     }
                     \`\`\`
@@ -620,7 +620,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                     );
 
                                                   const stmt = db.prepare(`
-                                        INSERT INTO micro_plan (user_id, date, sport, description, target_spark, details, steps_json) 
+                                        INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) 
                                         VALUES (?, ?, ?, ?, ?, ?, ?)
                                     `);
 
@@ -630,7 +630,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                       day.date,
                                                       day.sport,
                                                       day.description,
-                                                      day.target_spark,
+                                                      day.target_rooka,
                                                       day.details,
                                                       day.steps_json || "[]",
                                                     );
@@ -789,16 +789,16 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             const manualId = -Date.now();
                                             const startDate =
                                               new Date().toISOString();
-                                            const sparkScore =
-                                              act.spark_score ||
-                                              calculateSparkScore(
+                                            const rookaScore =
+                                              act.rooka_score ||
+                                              calculateRookaScore(
                                                 act.moving_time_min,
                                                 act.average_heartrate,
                                               );
 
                                             await new Promise((resolveInsert) => {
                                               db.run(
-                                                `INSERT INTO activities (id, user_id, name, sport_type, distance_km, moving_time_min, start_date, spark_score, sets_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                                `INSERT INTO activities (id, user_id, name, sport_type, distance_km, moving_time_min, start_date, rooka_score, sets_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                                                 [
                                                   manualId,
                                                   req.user.id,
@@ -807,7 +807,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                   act.distance_km || 0,
                                                   act.moving_time_min || 0,
                                                   startDate,
-                                                  sparkScore,
+                                                  rookaScore,
                                                   JSON.stringify(act.sets || []),
                                                 ],
                                                 (err) => {
@@ -817,7 +817,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                       err,
                                                     );
                                                   else {
-                                                    updateUserSparkAndCheckLevel(
+                                                    updateUserRookaAndCheckLevel(
                                                       req.user.id,
                                                     );
                                                     // Invalidate today's nutrition cache so it incorporates the new workout
@@ -844,7 +844,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                       act.distance_km || 0,
                                                     moving_time_min:
                                                       act.moving_time_min || 0,
-                                                    spark_score: sparkScore,
+                                                    rooka_score: rookaScore,
                                                     sport_type: act.sport_type || "Workout",
                                                   },
                                                 );
@@ -855,7 +855,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                 completedQuests &&
                                                 completedQuests.length > 0
                                               ) {
-                                                let appendPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} Spark points! Give a short 1-2 sentence highly motivating response celebrating their completed quest!`;
+                                                let appendPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} Rooka points! Give a short 1-2 sentence highly motivating response celebrating their completed quest!`;
                                                 const coachAddendum =
                                                   await generateWithFallback(
                                                     appendPrompt,
@@ -950,7 +950,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         mood = "disappointed";
                                       }
 
-                                      const simulatedUserMessage = `Can you build my plan for next week, Spark?`;
+                                      const simulatedUserMessage = `Can you build my plan for next week, Rooka?`;
                                       const coachAcknowledgement = `I've just crunched your latest numbers and pushed a fresh ${phase} phase plan to your dashboard. Go check it out—you're going to crush it!`;
 
                                       const imagePathValue = imagePathsDB.length > 0 ? JSON.stringify(imagePathsDB) : null;
@@ -1040,7 +1040,7 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
       if (!user) {
         user = {
           coach_tone: 'hype',
-          coach_name: 'Spark',
+          coach_name: 'Rooka',
           coach_context: 'Empathetic athletic performance coach',
           athlete_context: 'Active athlete',
           gender: 'prefer_not_to_say',
@@ -1048,7 +1048,7 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
       }
 
       db.all(
-        `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
+        `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
         [req.user.id],
         async (err, recentActivities) => {
           const recentActivitiesText =
@@ -1075,7 +1075,7 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
                           }
                         } catch (e) {}
                       }
-                      return `- ${getAMSDateString(a.start_date)}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.spark_score || 0)} Spark${lapStr}`;
+                      return `- ${getAMSDateString(a.start_date)}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.rooka_score || 0)} Rooka${lapStr}`;
                     }
                   )
                   .join("\n")
@@ -1109,7 +1109,7 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
                   const gamification = await getUserGamificationContext(
                     req.user.id,
                   );
-                  const coachName = user.coach_name || "Spark";
+                  const coachName = user.coach_name || "Rooka";
                   let coachToneText = user.coach_tone;
                   if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
                     coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";

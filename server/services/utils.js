@@ -116,13 +116,13 @@ function getUserLeaderboardString(userId) {
     db.all(
       `
             SELECT u.username, 
-                   (COALESCE(SUM(a.spark_score), 0) + 
-                    COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND created_at >= datetime('now', '-7 days')), 0)) as total_spark_score
+                   (COALESCE(SUM(a.rooka_score), 0) + 
+                    COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND created_at >= datetime('now', '-7 days')), 0)) as total_rooka_score
             FROM users u
-            LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days') AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10))
+            LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days') AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10))
             WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
             GROUP BY u.id
-            ORDER BY total_spark_score DESC
+            ORDER BY total_rooka_score DESC
         `,
       [userId, userId],
       (err, rows) => {
@@ -130,7 +130,7 @@ function getUserLeaderboardString(userId) {
         const lb = rows
           .map(
             (r, i) =>
-              `${i + 1}. ${r.username} (${Math.round(r.total_spark_score)} Points)`,
+              `${i + 1}. ${r.username} (${Math.round(r.total_rooka_score)} Points)`,
           )
           .join(", ");
         resolve(`\n\nCurrent Leaderboard: ${lb}`);
@@ -200,7 +200,7 @@ function generatePublicProfile(targetUserId, globalMaxStats) {
         if (err || !user) return resolve(null);
 
         db.all(
-          `SELECT id, name, distance_km, moving_time_min, start_date, sport_type, COALESCE(spark_score, tss, 0) as spark_score FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
+          `SELECT id, name, distance_km, moving_time_min, start_date, sport_type, COALESCE(rooka_score, tss, 0) as rooka_score FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
           [targetUserId],
           async (err, activities) => {
             db.all(
@@ -597,16 +597,16 @@ async function getStravaTokenForUser(userIdOrStravaId) {
   });
 }
 
-function getSparkLevelInfo(total_spark) {
-  const spark = total_spark || 0;
-  const level = Math.floor(8.5 * Math.log10(spark / 250 + 1)) + 1;
+function getRookaLevelInfo(total_rooka) {
+  const rooka = total_rooka || 0;
+  const level = Math.floor(8.5 * Math.log10(rooka / 250 + 1)) + 1;
   const currentLevelThreshold = 250 * (Math.pow(10, (level - 1) / 8.5) - 1);
   const nextLevelThreshold = 250 * (Math.pow(10, level / 8.5) - 1);
 
   let progressPercent = 0;
   if (nextLevelThreshold > currentLevelThreshold) {
     progressPercent =
-      ((spark - currentLevelThreshold) /
+      ((rooka - currentLevelThreshold) /
         (nextLevelThreshold - currentLevelThreshold)) *
       100;
   }
@@ -616,11 +616,11 @@ function getSparkLevelInfo(total_spark) {
     currentLevelThreshold,
     nextLevelThreshold,
     progressPercent: Math.min(Math.max(progressPercent, 0), 100),
-    totalSpark: spark,
+    totalRooka: rooka,
   };
 }
 
-function calculateSparkScore(movingTimeMin, avgHr, fallbackScore = 0) {
+function calculateRookaScore(movingTimeMin, avgHr, fallbackScore = 0) {
   if (!movingTimeMin || movingTimeMin <= 0) return fallbackScore || 0;
   let baseScore = movingTimeMin;
   let bonus = 0;
@@ -638,7 +638,7 @@ function calculateSparkScore(movingTimeMin, avgHr, fallbackScore = 0) {
   return baseScore + baseScore * bonus;
 }
 
-function mapStravaSportToSpark(stravaSport) {
+function mapStravaSportToRooka(stravaSport) {
   if (!stravaSport) return "Other";
   if (stravaSport.includes("Run")) return "Run";
   if (stravaSport.includes("Ride") || stravaSport.includes("VirtualRide"))
@@ -754,7 +754,7 @@ function getStravaShareSettings(userId, sportType) {
   });
 }
 
-function buildStravaUpdatePayload(existingDescription, plan, actualSpark, shareSettings) {
+function buildStravaUpdatePayload(existingDescription, plan, actualRooka, shareSettings) {
   const { shareName, shareScore, shareStructure, shareLink } = shareSettings;
   if (!shareName && !shareScore && !shareStructure && !shareLink) {
     return null;
@@ -768,10 +768,10 @@ function buildStravaUpdatePayload(existingDescription, plan, actualSpark, shareS
 
   const descBlocks = [];
   if (shareScore) {
-    if (plan && plan.target_spark != null) {
-      descBlocks.push(`Spark Target: ${plan.target_spark} Spark\nActual: ${Math.round(actualSpark)} Spark`);
+    if (plan && plan.target_rooka != null) {
+      descBlocks.push(`Rooka Target: ${plan.target_rooka} Rooka\nActual: ${Math.round(actualRooka)} Rooka`);
     } else {
-      descBlocks.push(`Actual: ${Math.round(actualSpark)} Spark`);
+      descBlocks.push(`Actual: ${Math.round(actualRooka)} Rooka`);
     }
   }
 
@@ -788,13 +788,13 @@ function buildStravaUpdatePayload(existingDescription, plan, actualSpark, shareS
   }
 
   if (shareLink) {
-    descBlocks.push(`Generated by Spark:\nspark.amsterdamtriathlonassociation.uk`);
+    descBlocks.push(`Generated by Rooka:\nrooka.amsterdamtriathlonassociation.uk`);
   }
 
   if (descBlocks.length > 0) {
     const newDescriptionPart = descBlocks.join("\n\n");
     if (existingDescription && existingDescription.trim().length > 0) {
-      if (!existingDescription.includes("Generated by Spark:") && !existingDescription.includes("Spark Target:")) {
+      if (!existingDescription.includes("Generated by Rooka:") && !existingDescription.includes("Rooka Target:")) {
         payload.description = `${existingDescription.trim()}\n\n---\n${newDescriptionPart}`;
       }
     } else {
@@ -809,7 +809,7 @@ function buildStravaUpdatePayload(existingDescription, plan, actualSpark, shareS
 }
 
 async function tagStravaActivity(userId, activity, token) {
-  if (activity.description && activity.description.includes("Spark Target"))
+  if (activity.description && activity.description.includes("Rooka Target"))
     return;
 
   const activityType = activity.sport_type || activity.type;
@@ -824,11 +824,11 @@ async function tagStravaActivity(userId, activity, token) {
   const activityDate = activity.start_date_local
     ? activity.start_date_local.split("T")[0]
     : activity.start_date.split("T")[0];
-  const sparkSport = mapStravaSportToSpark(activityType);
+  const rookaSport = mapStravaSportToRooka(activityType);
 
   db.get(
-    "SELECT description, target_spark, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND LOWER(sport) = LOWER(?)",
-    [userId, activityDate, sparkSport],
+    "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND LOWER(sport) = LOWER(?)",
+    [userId, activityDate, rookaSport],
     async (err, plan) => {
       if (err || !plan) return;
 
@@ -849,7 +849,7 @@ async function tagStravaActivity(userId, activity, token) {
         );
         if (updateRes.ok)
           console.log(
-            `✅ Strava activity updated for ${sparkSport} on ${activityDate}`,
+            `✅ Strava activity updated for ${rookaSport} on ${activityDate}`,
           );
       } catch (e) {
         console.error("Failed to tag Strava activity:", e);
@@ -897,15 +897,15 @@ async function getStravaActivity(stravaAthleteId, activityId) {
     const tss = data.suffer_score || Math.round((data.moving_time / 3600) * 50);
 
     db.get(
-      `SELECT spark_start_date FROM users WHERE id = ?`,
+      `SELECT rooka_start_date FROM users WHERE id = ?`,
       [internalUserId],
       (err, uRow) => {
-        const userStartDateDay = uRow && uRow.spark_start_date ? uRow.spark_start_date.substring(0, 10) : null;
+        const userStartDateDay = uRow && uRow.rooka_start_date ? uRow.rooka_start_date.substring(0, 10) : null;
         const actStartDateDay = data.start_date ? data.start_date.substring(0, 10) : null;
 
-        let sparkScore = 0;
+        let rookaScore = 0;
         if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
-          sparkScore = calculateSparkScore(
+          rookaScore = calculateRookaScore(
             data.moving_time / 60,
             data.average_heartrate,
             tss,
@@ -926,9 +926,9 @@ async function getStravaActivity(stravaAthleteId, activityId) {
         }
 
         db.run(
-          `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score, laps_json) 
+          `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, laps_json) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json`,
+                    ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json`,
           [
             data.id,
             internalUserId,
@@ -940,12 +940,12 @@ async function getStravaActivity(stravaAthleteId, activityId) {
             data.average_heartrate || null,
             data.start_date,
             tss,
-            sparkScore,
+            rookaScore,
             lapsJson,
           ],
           async (err) => {
             if (!err) {
-              updateUserSparkAndCheckLevel(internalUserId);
+              updateUserRookaAndCheckLevel(internalUserId);
               sendSSEEvent(internalUserId, "sync_complete", {
                 provider: "strava",
                 activityId: data.id,
@@ -966,12 +966,12 @@ async function getStravaActivity(stravaAthleteId, activityId) {
               const activityDate = data.start_date_local
                 ? data.start_date_local.split("T")[0]
                 : data.start_date.split("T")[0];
-              const sparkSport = mapStravaSportToSpark(data.sport_type);
+              const rookaSport = mapStravaSportToRooka(data.sport_type);
               const shareSettings = await getStravaShareSettings(internalUserId, data.sport_type);
 
               db.get(
-                "SELECT description, target_spark, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
-                [internalUserId, activityDate, sparkSport, sparkSport.slice(0, 5)],
+                "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
+                [internalUserId, activityDate, rookaSport, rookaSport.slice(0, 5)],
                 async (err, plan) => {
                   // Fetch the coach tone
                   db.get(
@@ -982,8 +982,8 @@ async function getStravaActivity(stravaAthleteId, activityId) {
                         ? userRow.coach_tone
                         : "Friendly and motivating";
 
-                      let prompt = `The user just completed a ${sparkSport} activity: ${data.name}. They covered ${(data.distance / 1000).toFixed(1)}km in ${Math.round(data.moving_time / 60)} minutes, generating ${Math.round(sparkScore)} Spark. `;
-                      const updatePayload = buildStravaUpdatePayload(data.description, plan, sparkScore, shareSettings);
+                      let prompt = `The user just completed a ${rookaSport} activity: ${data.name}. They covered ${(data.distance / 1000).toFixed(1)}km in ${Math.round(data.moving_time / 60)} minutes, generating ${Math.round(rookaScore)} Rooka. `;
+                      const updatePayload = buildStravaUpdatePayload(data.description, plan, rookaScore, shareSettings);
 
                       if (plan) {
                         let stepsContent = formatStepsForStrava(plan.steps_json);
@@ -992,10 +992,10 @@ async function getStravaActivity(stravaAthleteId, activityId) {
                           : plan.details && plan.details.trim().length > 0
                             ? plan.details
                             : plan.description;
-                        prompt += `The planned workout for today was: "${workoutContent}" with a target of ${plan.target_spark} Spark. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}). Praise them if they hit the target or give constructive advice if they missed it.`;
+                        prompt += `The planned workout for today was: "${workoutContent}" with a target of ${plan.target_rooka} Rooka. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}). Praise them if they hit the target or give constructive advice if they missed it.`;
                       } else {
                         console.log(
-                          `⚠️ No matching ${sparkSport} plan found on ${activityDate}. Generating unplanned reaction.`,
+                          `⚠️ No matching ${rookaSport} plan found on ${activityDate}. Generating unplanned reaction.`,
                         );
                         prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).`;
                       }
@@ -1007,17 +1007,17 @@ async function getStravaActivity(stravaAthleteId, activityId) {
                           {
                             distance_km: data.distance / 1000,
                             moving_time_min: data.moving_time / 60,
-                            spark_score: sparkScore,
+                            rooka_score: rookaScore,
                           },
                         );
 
                         if (completedQuests && completedQuests.length > 0) {
                           const newQuest = await generateQuestForUser(internalUserId);
 
-                          prompt += `\n\nCRITICAL INFO: The user ALSO just completed their active quest: "${completedQuests[0].description}" and earned ${completedQuests[0].reward_points} Spark points! `;
+                          prompt += `\n\nCRITICAL INFO: The user ALSO just completed their active quest: "${completedQuests[0].description}" and earned ${completedQuests[0].reward_points} Rooka points! `;
 
                           if (newQuest) {
-                            prompt += `I (the system) have automatically assigned them a NEW quest: "${newQuest.description}" (Target: ${newQuest.target_value} ${newQuest.target_metric}, Reward: ${newQuest.reward_points} Spark). You MUST enthusiastically celebrate their completed quest AND announce their brand new quest to keep them motivated!`;
+                            prompt += `I (the system) have automatically assigned them a NEW quest: "${newQuest.description}" (Target: ${newQuest.target_value} ${newQuest.target_metric}, Reward: ${newQuest.reward_points} Rooka). You MUST enthusiastically celebrate their completed quest AND announce their brand new quest to keep them motivated!`;
                           } else {
                             prompt += `You MUST enthusiastically celebrate their completed quest!`;
                           }
@@ -1031,14 +1031,14 @@ async function getStravaActivity(stravaAthleteId, activityId) {
 
                       // AI MUSCLE IMPACT ANALYSIS
                       try {
-                         analyzeMuscleImpact(internalUserId, data, sparkSport, activityDate);
+                         analyzeMuscleImpact(internalUserId, data, rookaSport, activityDate);
                       } catch(e) {
                          console.error("AI Muscle Impact Analysis failed:", e);
                       }
 
                       // 1. Generate AI Coach Response
                       try {
-                        const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
+                        const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
                         const aiReply = await generateWithFallback(
                           prompt,
                           systemPrompt,
@@ -1131,7 +1131,7 @@ async function syncAllStravaUsersOnStartup() {
 
       console.log("🔄 Running initial Strava sync for all connected users...");
       db.all(
-        "SELECT id, spark_start_date FROM users WHERE strava_refresh_token IS NOT NULL",
+        "SELECT id, rooka_start_date FROM users WHERE strava_refresh_token IS NOT NULL",
         [],
         async (err, users) => {
           if (err || !users) return;
@@ -1158,24 +1158,24 @@ async function syncAllStravaUsersOnStartup() {
               const activities = await actRes.json();
 
               if (Array.isArray(activities)) {
-                const userStartDateDay = user.spark_start_date ? user.spark_start_date.substring(0, 10) : null;
+                const userStartDateDay = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;
                 activities.forEach((act) => {
                   const tss =
                     act.suffer_score ||
                     Math.round((act.moving_time / 3600) * 50);
                   const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
-                  let sparkScore = 0;
+                  let rookaScore = 0;
                   if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
-                    sparkScore = calculateSparkScore(
+                    rookaScore = calculateRookaScore(
                       act.moving_time / 60,
                       act.average_heartrate,
                       tss,
                     );
                   }
                   db.run(
-                    `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score) 
+                    `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                             ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
+                             ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
                     [
                       act.id,
                       user.id,
@@ -1187,11 +1187,11 @@ async function syncAllStravaUsersOnStartup() {
                       act.average_heartrate || 0,
                       act.start_date,
                       tss,
-                      sparkScore,
+                      rookaScore,
                     ],
                   );
                 });
-                updateUserSparkAndCheckLevel(user.id);
+                updateUserRookaAndCheckLevel(user.id);
                 console.log(`✅ Startup sync complete for user ${user.id}`);
               } else {
                 console.error(
@@ -1297,48 +1297,48 @@ INSTRUCTIONS & CRITICAL RULES FOR INJURIES:
   );
 }
 
-function updateUserSparkAndCheckLevel(userId) {
+function updateUserRookaAndCheckLevel(userId) {
   db.get(
-    `SELECT total_spark, spark_start_date FROM users WHERE id = ?`,
+    `SELECT total_rooka, rooka_start_date FROM users WHERE id = ?`,
     [userId],
     (err, userRow) => {
       if (err || !userRow) return;
-      const oldSpark = userRow.total_spark || 0;
-      const oldLevelInfo = getSparkLevelInfo(oldSpark);
-      const sparkStartDateDay = userRow.spark_start_date ? userRow.spark_start_date.substring(0, 10) : null;
+      const oldRooka = userRow.total_rooka || 0;
+      const oldLevelInfo = getRookaLevelInfo(oldRooka);
+      const rookaStartDateDay = userRow.rooka_start_date ? userRow.rooka_start_date.substring(0, 10) : null;
 
-      const actQuery = sparkStartDateDay
-        ? `SELECT COALESCE(SUM(spark_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`
-        : `SELECT COALESCE(SUM(spark_score), 0) as act_total FROM activities WHERE user_id = ?`;
-      const queryParams = sparkStartDateDay ? [userId, sparkStartDateDay] : [userId];
+      const actQuery = rookaStartDateDay
+        ? `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`
+        : `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ?`;
+      const queryParams = rookaStartDateDay ? [userId, rookaStartDateDay] : [userId];
 
       db.get(actQuery, queryParams, (err, actRow) => {
         if (err) return;
         const actTotal = actRow ? (actRow.act_total || 0) : 0;
 
-        const bonusQuery = sparkStartDateDay
+        const bonusQuery = rookaStartDateDay
           ? `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`
           : `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ?`;
 
         db.get(bonusQuery, queryParams, (err, bonusRow) => {
           if (err) return;
           const bonusTotal = bonusRow ? (bonusRow.bonus_total || 0) : 0;
-          const newSpark = Math.round((actTotal + bonusTotal) * 10) / 10;
+          const newRooka = Math.round((actTotal + bonusTotal) * 10) / 10;
 
           db.run(
-            `UPDATE users SET total_spark = ? WHERE id = ?`,
-            [newSpark, userId],
+            `UPDATE users SET total_rooka = ? WHERE id = ?`,
+            [newRooka, userId],
             (err) => {
               if (err) return;
 
-              const newLevelInfo = getSparkLevelInfo(newSpark);
+              const newLevelInfo = getRookaLevelInfo(newRooka);
               if (newLevelInfo.level > oldLevelInfo.level) {
                 // Level up!
                 triggerLevelUpCoachPrompt(userId, newLevelInfo.level);
               }
 
               // Background milestone check: 300+ in day, 2000+ in week, 6000+ in month
-              checkAndAwardSparkTitles(userId);
+              checkAndAwardRookaTitles(userId);
             },
           );
         });
@@ -1347,7 +1347,7 @@ function updateUserSparkAndCheckLevel(userId) {
   );
 }
 
-async function checkAndAwardSparkTitles(userId) {
+async function checkAndAwardRookaTitles(userId) {
   return new Promise((resolve) => {
     db.all(
       `SELECT milestone_key FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
@@ -1356,14 +1356,14 @@ async function checkAndAwardSparkTitles(userId) {
         if (err) return resolve();
         const awardedKeys = new Set((titleRows || []).map((r) => r.milestone_key));
 
-        // 1. Single Day 300+ Spark Milestones
+        // 1. Single Day 300+ Rooka Milestones
         const dayRows = await new Promise((res) => {
           db.all(
-            `SELECT substr(start_date, 1, 10) as act_date, SUM(spark_score) as day_spark, COUNT(id) as count
+            `SELECT substr(start_date, 1, 10) as act_date, SUM(rooka_score) as day_rooka, COUNT(id) as count
              FROM activities
              WHERE user_id = ?
              GROUP BY substr(start_date, 1, 10)
-             HAVING SUM(spark_score) >= 300
+             HAVING SUM(rooka_score) >= 300
              ORDER BY act_date DESC`,
             [userId],
             (err2, rows) => res(rows || [])
@@ -1377,22 +1377,22 @@ async function checkAndAwardSparkTitles(userId) {
             await generateAndSaveMilestoneTitle(
               userId,
               key,
-              `Single-Day Endurance Titan (${Math.round(row.day_spark)} Spark on ${row.act_date})`,
-              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
+              `Single-Day Endurance Titan (${Math.round(row.day_rooka)} Rooka on ${row.act_date})`,
+              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
               [userId, row.act_date],
-              `The athlete achieved a massive single-day milestone by earning ${Math.round(row.day_spark)} Spark points on ${row.act_date}!`
+              `The athlete achieved a massive single-day milestone by earning ${Math.round(row.day_rooka)} Rooka points on ${row.act_date}!`
             );
           }
         }
 
-        // 2. Weekly 2,000+ Spark Milestones
+        // 2. Weekly 2,000+ Rooka Milestones
         const weekRows = await new Promise((res) => {
           db.all(
-            `SELECT strftime('%Y-W%W', start_date) as act_week, SUM(spark_score) as week_spark, COUNT(id) as count
+            `SELECT strftime('%Y-W%W', start_date) as act_week, SUM(rooka_score) as week_rooka, COUNT(id) as count
              FROM activities
              WHERE user_id = ?
              GROUP BY strftime('%Y-W%W', start_date)
-             HAVING SUM(spark_score) >= 2000
+             HAVING SUM(rooka_score) >= 2000
              ORDER BY act_week DESC`,
             [userId],
             (err2, rows) => res(rows || [])
@@ -1406,22 +1406,22 @@ async function checkAndAwardSparkTitles(userId) {
             await generateAndSaveMilestoneTitle(
               userId,
               key,
-              `Weekly Volume Crusher (2,000+ Spark in Week ${row.act_week}: ${Math.round(row.week_spark)} pts)`,
-              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? AND strftime('%Y-W%W', start_date) = ?`,
+              `Weekly Volume Crusher (2,000+ Rooka in Week ${row.act_week}: ${Math.round(row.week_rooka)} pts)`,
+              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND strftime('%Y-W%W', start_date) = ?`,
               [userId, row.act_week],
-              `The athlete completed a powerhouse training week, accumulating ${Math.round(row.week_spark)} Spark points in week ${row.act_week}!`
+              `The athlete completed a powerhouse training week, accumulating ${Math.round(row.week_rooka)} Rooka points in week ${row.act_week}!`
             );
           }
         }
 
-        // 3. Monthly 6,000+ Spark Milestones
+        // 3. Monthly 6,000+ Rooka Milestones
         const monthRows = await new Promise((res) => {
           db.all(
-            `SELECT substr(start_date, 1, 7) as act_month, SUM(spark_score) as month_spark, COUNT(id) as count
+            `SELECT substr(start_date, 1, 7) as act_month, SUM(rooka_score) as month_rooka, COUNT(id) as count
              FROM activities
              WHERE user_id = ?
              GROUP BY substr(start_date, 1, 7)
-             HAVING SUM(spark_score) >= 6000
+             HAVING SUM(rooka_score) >= 6000
              ORDER BY act_month DESC`,
             [userId],
             (err2, rows) => res(rows || [])
@@ -1435,10 +1435,10 @@ async function checkAndAwardSparkTitles(userId) {
             await generateAndSaveMilestoneTitle(
               userId,
               key,
-              `Monthly Legend (6,000+ Spark in ${row.act_month}: ${Math.round(row.month_spark)} pts)`,
-              `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 7) = ?`,
+              `Monthly Legend (6,000+ Rooka in ${row.act_month}: ${Math.round(row.month_rooka)} pts)`,
+              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 7) = ?`,
               [userId, row.act_month],
-              `The athlete achieved legendary monthly consistency, amassing ${Math.round(row.month_spark)} Spark points during ${row.act_month}!`
+              `The athlete achieved legendary monthly consistency, amassing ${Math.round(row.month_rooka)} Rooka points during ${row.act_month}!`
             );
           }
         }
@@ -1457,7 +1457,7 @@ async function generateAndSaveMilestoneTitle(userId, milestoneKey, milestoneName
       const activitiesStr = activities
         .map(
           (a) =>
-            `- ${a.start_date}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km || 0).toFixed(1)}km | ${Math.round(a.moving_time_min || 0)}min | ${Math.round(a.spark_score || 0)} Spark`
+            `- ${a.start_date}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km || 0).toFixed(1)}km | ${Math.round(a.moving_time_min || 0)}min | ${Math.round(a.rooka_score || 0)} Rooka`
         )
         .join("\n");
 
@@ -1512,7 +1512,7 @@ Please respond using this JSON schema:
                   return resolve();
                 }
 
-                // Award 50 bonus Spark points for earning a milestone title
+                // Award 50 bonus Rooka points for earning a milestone title
                 db.run(
                   `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
                   [userId, 50, `Earned Milestone Title: ${titleData.title}`]
@@ -1565,13 +1565,13 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
         async (err, user) => {
           if (err || !user) return;
 
-          const coachName = user.coach_name || "Spark";
+          const coachName = user.coach_name || "Rooka";
           let toneText = user.coach_tone || "Empathetic but demanding";
           if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
             toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
           }
           const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
-          const prompt = `The athlete just leveled up to Spark Level ${newLevel}! Here are their all-time stats so far: ${statsStr}. Write a short, highly motivating congratulatory message (1-3 sentences). Acknowledge their hard work.`;
+          const prompt = `The athlete just leveled up to Rooka Level ${newLevel}! Here are their all-time stats so far: ${statsStr}. Write a short, highly motivating congratulatory message (1-3 sentences). Acknowledge their hard work.`;
 
           try {
             const aiReply = await generateWithFallback(
@@ -1604,7 +1604,7 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
 async function generateQuestForUser(userId, poolType = "personal", previousQuest = null) {
   return new Promise((resolve, reject) => {
     db.all(
-      `SELECT name, sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 5`,
+      `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 5`,
       [userId],
       async (err, recentActivities) => {
         if (!recentActivities || recentActivities.length === 0) {
@@ -1658,7 +1658,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
             Please respond using this JSON schema:
             {
             "description": "Short description of the quest (e.g. Run 5k this weekend, or Complete 15km total biking and running over 3 days)",
-            "target_metric": "distance_km", // OR "moving_time_min", "spark_score", or "unique_sports"
+            "target_metric": "distance_km", // OR "moving_time_min", "rooka_score", or "unique_sports"
             "target_value": 5,
             "target_sport": "Run, Ride", // Comma-separated list of required sports (e.g. Run, Ride, Swim) or 'Any'
             "is_accumulative": false, // Set to true if the goal should sum across multiple activities, false if it must be done in one activity
@@ -1777,7 +1777,7 @@ async function evaluateAndProgressQuests(userId) {
 
   const activities = await new Promise((resolve) => {
     db.all(
-      `SELECT sport_type, distance_km, moving_time_min, spark_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC`,
+      `SELECT sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC`,
       [userId],
       (err, rows) => resolve(rows || []),
     );
@@ -1872,7 +1872,7 @@ async function evaluateAndProgressQuests(userId) {
       } else if (q.target_metric === "activity_count") {
         val = matchingActivities.length;
       } else {
-        const metricCol = ["distance_km", "moving_time_min", "spark_score"].includes(q.target_metric)
+        const metricCol = ["distance_km", "moving_time_min", "rooka_score"].includes(q.target_metric)
           ? q.target_metric
           : "distance_km";
         if (q.is_accumulative) {
@@ -1980,7 +1980,7 @@ async function calculateQuestProgress(userId, quest) {
           (err, row) => resolve(row ? row.total || 0 : 0)
         );
       } else {
-        const allowedMetrics = ["distance_km", "moving_time_min", "spark_score"];
+        const allowedMetrics = ["distance_km", "moving_time_min", "rooka_score"];
         const metricCol = allowedMetrics.includes(quest.target_metric)
           ? quest.target_metric
           : "distance_km";
@@ -1998,7 +1998,7 @@ async function calculateQuestProgress(userId, quest) {
           (err, row) => resolve(row && row.total > 0 ? 1 : 0)
         );
       } else {
-        const allowedMetrics = ["distance_km", "moving_time_min", "spark_score"];
+        const allowedMetrics = ["distance_km", "moving_time_min", "rooka_score"];
         const metricCol = allowedMetrics.includes(quest.target_metric)
           ? quest.target_metric
           : "distance_km";
@@ -2012,8 +2012,8 @@ async function calculateQuestProgress(userId, quest) {
   });
 }
 
-async function analyzeMuscleImpact(userId, activityData, sparkSport, activityDate) {
-  const prompt = `The athlete completed a ${sparkSport} activity: ${activityData.name}. 
+async function analyzeMuscleImpact(userId, activityData, rookaSport, activityDate) {
+  const prompt = `The athlete completed a ${rookaSport} activity: ${activityData.name}. 
   Distance: ${(activityData.distance / 1000).toFixed(1)}km
   Time: ${Math.round(activityData.moving_time / 60)} min.
   Sets: ${activityData.sets_json ? JSON.stringify(activityData.sets_json) : "None"}
@@ -2093,7 +2093,7 @@ async function runDailyRecoveryJob() {
                   db.get(`SELECT coach_tone FROM users WHERE id = ?`, [niggle.user_id], async (err, user) => {
                       const tone = user ? user.coach_tone : "Friendly";
                       const prompt = `The athlete's ${niggle.body_part} injury has automatically fully healed and been marked as resolved after ${diffDays} days. Send a proactive, encouraging message (1-2 sentences) letting them know their ${niggle.body_part} is now cleared for full activity, but they should still listen to their body. DO NOT use JSON.`;
-                      const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
+                      const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
                       
                       try {
                           const aiReply = await generateWithFallback(prompt, systemPrompt);
@@ -2128,7 +2128,7 @@ function resetDailyTokensForAllUsers() {
        daily_token_usage = 0, 
        common_token_usage = 0, 
        last_token_reset_date = ?, 
-       daily_token_limit = CASE WHEN subscription_tier = 'spark_plus' THEN 50000 ELSE 5000 END
+       daily_token_limit = CASE WHEN subscription_tier = 'rooka_plus' THEN 50000 ELSE 5000 END
      WHERE last_token_reset_date != ? OR last_token_reset_date IS NULL`,
     [todayStr, todayStr],
     function (err) {
@@ -2148,7 +2148,7 @@ function resetDailyNutritionForAllUsers() {
 
 function getEffectiveTokenLimit(user) {
   let expectedLimit = 5000;
-  if (user.subscription_tier === 'subscription' || user.subscription_tier === 'spark_plus') expectedLimit = 50000;
+  if (user.subscription_tier === 'subscription' || user.subscription_tier === 'rooka_plus') expectedLimit = 50000;
   else if (user.subscription_tier === 'premium') expectedLimit = 100000;
   else if (user.subscription_tier === 'admin') expectedLimit = 500000;
 
@@ -2179,16 +2179,16 @@ module.exports = {
   generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
-  getSparkLevelInfo,
-  calculateSparkScore,
-  mapStravaSportToSpark,
+  getRookaLevelInfo,
+  calculateRookaScore,
+  mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
-  updateUserSparkAndCheckLevel,
-  checkAndAwardSparkTitles,
+  updateUserRookaAndCheckLevel,
+  checkAndAwardRookaTitles,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity,
@@ -2240,7 +2240,7 @@ module.exports = {
             }
             prompt += `Keep it under 3 sentences. DO NOT wrap it in JSON.`;
             
-            const coachName = user.coach_name || "Spark";
+            const coachName = user.coach_name || "Rooka";
             let toneText = user.coach_tone || "Friendly";
             if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
               toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
@@ -2262,7 +2262,7 @@ module.exports = {
                    mood: "hype"
                  });
                  sendPushToUser(user.id, {
-                   title: `Good morning from ${user.coach_name || 'Spark'}! 🌅`,
+                   title: `Good morning from ${user.coach_name || 'Rooka'}! 🌅`,
                    body: aiReply,
                    data: { url: "/(tabs)/coach", type: "coach" },
                  });

@@ -23,15 +23,15 @@ const {
   generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
-  getSparkLevelInfo,
-  calculateSparkScore,
-  mapStravaSportToSpark,
+  getRookaLevelInfo,
+  calculateRookaScore,
+  mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
-  updateUserSparkAndCheckLevel,
+  updateUserRookaAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity
@@ -238,26 +238,26 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
         const activities = await actRes.json();
 
         const userRow = await new Promise((resolve) =>
-          db.get(`SELECT spark_start_date FROM users WHERE id = ?`, [req.user.id], (err, row) => resolve(row))
+          db.get(`SELECT rooka_start_date FROM users WHERE id = ?`, [req.user.id], (err, row) => resolve(row))
         );
-        const userStartDateDay = userRow && userRow.spark_start_date ? userRow.spark_start_date.substring(0, 10) : null;
+        const userStartDateDay = userRow && userRow.rooka_start_date ? userRow.rooka_start_date.substring(0, 10) : null;
 
         activities.forEach((act) => {
           const tss =
             act.suffer_score || Math.round((act.moving_time / 3600) * 50);
           const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
-          let sparkScore = 0;
+          let rookaScore = 0;
           if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
-            sparkScore = calculateSparkScore(
+            rookaScore = calculateRookaScore(
               act.moving_time / 60,
               act.average_heartrate,
               tss,
             );
           }
           db.run(
-            `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, spark_score) 
+            `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, spark_score=excluded.spark_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
+                     ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
             [
               act.id,
               req.user.id,
@@ -269,13 +269,13 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
               act.average_heartrate || 0,
               act.start_date,
               tss,
-              sparkScore,
+              rookaScore,
             ],
           );
           tagStravaActivity(req.user.id, act, tokenData.access_token);
         });
 
-        updateUserSparkAndCheckLevel(req.user.id);
+        updateUserRookaAndCheckLevel(req.user.id);
 
         res.json({
           message: `Successfully synced ${activities.length} activities!`,
@@ -296,7 +296,7 @@ router.get("/oauthredirect", (req, res) => {
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Strava Connected - Spark</title>
+        <title>Strava Connected - Rooka</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0d1117; color: #f0f6fc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
           .card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 32px; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
@@ -305,16 +305,16 @@ router.get("/oauthredirect", (req, res) => {
         </style>
         <script>
           const search = window.location.search;
-          window.location.href = "sparknative://oauthredirect" + search;
+          window.location.href = "rookanative://oauthredirect" + search;
           setTimeout(function() {
-            window.location.href = "spark://oauthredirect" + search;
+            window.location.href = "rooka://oauthredirect" + search;
           }, 300);
         </script>
       </head>
       <body>
         <div class="card">
           <h2>⚡️ Strava Authorization</h2>
-          <p>Redirecting back to Spark...</p>
+          <p>Redirecting back to Rooka...</p>
         </div>
       </body>
     </html>
@@ -461,7 +461,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     const todayStr = getAMSDateString();
     const workouts = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT date, sport, description, target_spark, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
+        `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
         [req.user.id, todayStr],
         (err, rows) => {
           if (err) reject(err);
@@ -495,7 +495,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       if (stepsArray.length === 0) {
         let durationMins = Math.max(
           5,
-          Math.round((workout.target_spark / 55) * 60),
+          Math.round((workout.target_rooka / 55) * 60),
         );
         stepsArray = [
           {
@@ -686,7 +686,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       });
 
       const wkt = {
-        workoutName: `Spark: ${workout.sport}`,
+        workoutName: `Rooka: ${workout.sport}`,
         description: workout.description,
         sportType: sportDef,
         workoutSegments: [

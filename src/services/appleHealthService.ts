@@ -1,4 +1,5 @@
 import { Platform, Alert } from 'react-native';
+import { WorkoutScheduler } from 'react-native-workouts';
 import { PlannedWorkout, WorkoutStep } from '../types/plan';
 import { apiClient } from './apiClient';
 
@@ -20,7 +21,7 @@ export interface HealthKitSyncResult {
  * Checks if Apple Health / WorkoutKit is supported on the current device.
  */
 export function isHealthKitSupported(): boolean {
-  return Platform.OS === 'ios';
+  return Platform.OS === 'ios' && parseInt(Platform.Version as string, 10) >= 17;
 }
 
 /**
@@ -28,13 +29,14 @@ export function isHealthKitSupported(): boolean {
  */
 export async function requestAppleHealthPermissions(): Promise<boolean> {
   if (!isHealthKitSupported()) {
+    Alert.alert('Unsupported', 'WorkoutKit requires iOS 17 or newer.');
     return false;
   }
 
   try {
-    // Standard iOS HealthKit authorization prompt trigger
-    // When native HealthKit module is initialized on iOS, this requests Health read/write authorization.
-    return true;
+    // Triggers the native Apple Health permission sheet
+    const authStatus = await WorkoutScheduler.requestAuthorization();
+    return authStatus === 'authorized';
   } catch (err) {
     console.error('[AppleHealthService] Authorization error:', err);
     return false;
@@ -42,7 +44,7 @@ export async function requestAppleHealthPermissions(): Promise<boolean> {
 }
 
 /**
- * Converts Spark PlannedWorkout steps into Apple WorkoutKit native structured steps
+ * Converts Rooka PlannedWorkout steps into Apple WorkoutKit native structured steps
  * (Warmup, Interval/Work, Recovery, Cooldown) with targets (Distance, Duration, HR Zone, Pace).
  */
 export function convertWorkoutToWorkoutKitStructure(workout: PlannedWorkout) {
@@ -91,7 +93,7 @@ export function convertWorkoutToWorkoutKitStructure(workout: PlannedWorkout) {
     activityType: workoutActivityType,
     title: workout.description || `${workout.sport} Workout`,
     date: workout.date,
-    targetSparkPoints: workout.target_spark,
+    targetRookaPoints: workout.target_rooka,
     steps: mappedSteps,
   };
 }
@@ -110,7 +112,12 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
   try {
     const structuredWorkout = convertWorkoutToWorkoutKitStructure(workout);
 
-    // Call server/native sync endpoint to register Apple Watch scheduled workout payload
+    // Call the native WorkoutKit API to schedule the workout!
+    // We convert the date string to a Date object.
+    const dateObj = new Date(structuredWorkout.date);
+    await WorkoutScheduler.schedule(structuredWorkout as any, dateObj);
+
+    // Also tell the backend so it knows we pushed it
     const response = await apiClient<{ success: boolean; message?: string }>('/api/sync-apple-workout', {
       method: 'POST',
       body: JSON.stringify({
@@ -135,7 +142,7 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
 }
 
 /**
- * Syncs completed workouts from Apple Health / Watch back to Spark.
+ * Syncs completed workouts from Apple Health / Watch back to Rooka.
  */
 export async function syncAppleHealthActivities(): Promise<HealthKitSyncResult> {
   if (!isHealthKitSupported()) {

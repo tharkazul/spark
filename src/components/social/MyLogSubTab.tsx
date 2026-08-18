@@ -139,7 +139,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             const idStr = String(act.id);
             const visuals = getSportVisuals(act.sport_type, act.name);
             const dateStr = formatHumanizedDate(act.start_date);
-            const sparkScore = Math.round(act.spark_score || act.tss || 0);
+            const rookaScore = Math.round(act.rooka_score || act.tss || 0);
 
             // Construct metric subtitle
             const metrics: string[] = [dateStr];
@@ -176,11 +176,11 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                   </View>
                 </View>
 
-                {/* Right-side Spark Score Pill & Chevron */}
+                {/* Right-side Rooka Score Pill & Chevron */}
                 <View className="flex-row items-center">
                   <View className="bg-[#FFF7ED] dark:bg-orange-950/40 px-2.5 py-1 rounded-full mr-2 border border-[#FF5F3B]/15">
                     <Text className="text-xs font-bold text-[#EA580C] dark:text-orange-400 font-mono">
-                      +{sparkScore} Spark
+                      +{rookaScore} Rooka
                     </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />

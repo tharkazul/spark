@@ -26,7 +26,7 @@ export const CoachPersonaSettings: React.FC = () => {
   const { user, refreshUser, updateUser } = useUser();
 
   const [selectedTone, setSelectedTone] = useState<string>('Empathetic but demanding elite endurance coach.');
-  const [coachName, setCoachName] = useState<string>('Spark');
+  const [coachName, setCoachName] = useState<string>('Rooka');
   const [coachContext, setCoachContext] = useState<string>('');
   const [athleteContext, setAthleteContext] = useState<string>('');
   const [gender, setGender] = useState<string>(user?.gender || 'Prefer not to share');
@@ -41,7 +41,7 @@ export const CoachPersonaSettings: React.FC = () => {
       const toneVal = user.coach_tone || 'Empathetic but demanding elite endurance coach.';
       const isCustom = toneVal === 'custom' || toneVal === 'Configure own coach' || !TONE_OPTIONS.some(o => o.value === toneVal);
       setSelectedTone(isCustom ? 'custom' : toneVal);
-      setCoachName(user.coach_name || 'Spark');
+      setCoachName(user.coach_name || 'Rooka');
       setCoachContext(user.coach_context || '');
       setAthleteContext(user.athlete_context || '');
       setGender(user.gender || 'Prefer not to share');
@@ -110,7 +110,8 @@ export const CoachPersonaSettings: React.FC = () => {
     return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
   };
 
-  const isCustomSelected = selectedTone === 'custom';
+  const hasPremium = canConfigureCoach(user?.subscription_tier);
+  const isCustomSelected = selectedTone === 'custom' && hasPremium;
 
   return (
     <Card className="p-4 mb-6 space-y-4">
@@ -127,20 +128,15 @@ export const CoachPersonaSettings: React.FC = () => {
         <View className="space-y-2">
           {TONE_OPTIONS.map((opt) => {
             const isPremiumOption = (opt as any).premium;
-            const hasPremium = canConfigureCoach(user?.subscription_tier);
-            const isLocked = isPremiumOption && !hasPremium;
+            if (isPremiumOption && !hasPremium) {
+              return null;
+            }
 
             return (
               <TouchableOpacity
                 key={opt.value}
-                onPress={() => {
-                  if (!isLocked) {
-                    setSelectedTone(opt.value);
-                  } else {
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                  }
-                }}
-                activeOpacity={isLocked ? 1 : 0.7}
+                onPress={() => setSelectedTone(opt.value)}
+                activeOpacity={0.7}
                 className={`p-3 rounded-xl flex-row items-center justify-between mb-2 ${
                   selectedTone === opt.value
                     ? 'bg-theme-accent/10'
@@ -148,12 +144,11 @@ export const CoachPersonaSettings: React.FC = () => {
                 }`}
               >
                 <View className="flex-row items-center flex-1">
-                  <Text className={`text-sm ${selectedTone === opt.value ? 'font-bold text-theme-accent' : 'text-theme-text'} ${isLocked ? 'text-theme-muted' : ''}`}>
+                  <Text className={`text-sm ${selectedTone === opt.value ? 'font-bold text-theme-accent' : 'text-theme-text'}`}>
                     {opt.label}
                   </Text>
-                  {isLocked && <Ionicons name="lock-closed" size={14} color="#8E8E93" className="ml-2" />}
                 </View>
-                {selectedTone === opt.value && !isLocked && (
+                {selectedTone === opt.value && (
                   <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
                 )}
               </TouchableOpacity>

@@ -23,15 +23,15 @@ const {
   generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
-  getSparkLevelInfo,
-  calculateSparkScore,
-  mapStravaSportToSpark,
+  getRookaLevelInfo,
+  calculateRookaScore,
+  mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
-  updateUserSparkAndCheckLevel,
+  updateUserRookaAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity
@@ -174,8 +174,8 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
           total_elevation_gain: row.elevation_m || 0,
           average_heartrate: row.average_heartrate || 0,
           has_heartrate: row.average_heartrate > 0,
-          suffer_score: Math.round(row.spark_score || row.tss || 0),
-          spark_score: Math.round(row.spark_score || row.tss || 0),
+          suffer_score: Math.round(row.rooka_score || row.tss || 0),
+          rooka_score: Math.round(row.rooka_score || row.tss || 0),
           start_date: row.start_date,
           start_date_local: row.start_date,
           sets_json: sets,
@@ -262,21 +262,21 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
 
 router.get("/api/dashboard-data", authenticateToken, (req, res) => {
   db.all(
-    `SELECT substr(start_date, 1, 10) as date, sport_type, SUM(spark_score) as daily_spark FROM activities WHERE user_id = ? GROUP BY date, sport_type ORDER BY date ASC`,
+    `SELECT substr(start_date, 1, 10) as date, sport_type, SUM(rooka_score) as daily_rooka FROM activities WHERE user_id = ? GROUP BY date, sport_type ORDER BY date ASC`,
     [req.user.id],
     (err, rows) => {
       if (!rows) return res.json([]);
       const aggregated = {};
       rows.forEach((r) => {
-        const mappedSport = mapStravaSportToSpark(r.sport_type);
+        const mappedSport = mapStravaSportToRooka(r.sport_type);
         const key = `${r.date}_${mappedSport}`;
         if (!aggregated[key])
           aggregated[key] = {
             date: r.date,
             sport_type: mappedSport,
-            daily_spark: 0,
+            daily_rooka: 0,
           };
-        aggregated[key].daily_spark += r.daily_spark;
+        aggregated[key].daily_rooka += r.daily_rooka;
       });
       res.json(Object.values(aggregated));
     },
@@ -285,7 +285,7 @@ router.get("/api/dashboard-data", authenticateToken, (req, res) => {
 
 router.get("/api/history", authenticateToken, (req, res) => {
   db.all(
-    `SELECT id, name, sport_type, start_date, spark_score, distance_km, moving_time_min, average_heartrate FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 50`,
+    `SELECT id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 50`,
     [req.user.id],
     (err, rows) => {
       res.json(rows || []);
@@ -294,16 +294,16 @@ router.get("/api/history", authenticateToken, (req, res) => {
 });
 
 router.post("/api/micro-plan", authenticateToken, (req, res) => {
-  const { date, sport, description, target_spark, details, steps_json } =
+  const { date, sport, description, target_rooka, details, steps_json } =
     req.body;
   db.run(
-    `INSERT INTO micro_plan (user_id, date, sport, description, target_spark, details, steps_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       req.user.id,
       date,
       sport,
       description,
-      target_spark,
+      target_rooka,
       details,
       steps_json || "[]",
     ],
@@ -359,7 +359,7 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
       if (workouts.length === 0) return res.json({ success: true });
 
       const stmt = db.prepare(
-        `INSERT INTO micro_plan (user_id, date, sport, description, target_spark, details, steps_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       );
       workouts.forEach((w) => {
         stmt.run(
@@ -367,7 +367,7 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
           date,
           w.sport,
           w.description,
-          w.target_spark,
+          w.target_rooka,
           w.details,
           w.steps_json || "[]",
         );
@@ -379,15 +379,15 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
 });
 
 router.put("/api/micro-plan/:id", authenticateToken, (req, res) => {
-  const { date, sport, description, target_spark, details, steps_json } =
+  const { date, sport, description, target_rooka, details, steps_json } =
     req.body;
   db.run(
-    `UPDATE micro_plan SET date = ?, sport = ?, description = ?, target_spark = ?, details = ?, steps_json = ? WHERE id = ? AND user_id = ?`,
+    `UPDATE micro_plan SET date = ?, sport = ?, description = ?, target_rooka = ?, details = ?, steps_json = ? WHERE id = ? AND user_id = ?`,
     [
       date,
       sport,
       description,
-      target_spark,
+      target_rooka,
       details,
       steps_json,
       req.params.id,
@@ -435,7 +435,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
       if (!user) {
         user = {
           coach_tone: 'hype',
-          coach_name: 'Spark',
+          coach_name: 'Rooka',
           coach_context: 'Empathetic athletic performance coach',
           athlete_context: 'Active athlete',
           gender: 'prefer_not_to_say',
@@ -486,7 +486,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     nigglesText = JSON.stringify(niggleRows);
                   }
 
-                  const systemPrompt = `You are Coach Spark, an elite Ironman Triathlon and endurance coach.
+                  const systemPrompt = `You are Coach Rooka, an elite Ironman Triathlon and endurance coach.
                 Tone: ${user.coach_tone || "empathetic"}
                 Athlete Context: ${user.athlete_context || "General endurance athlete"}
                 Gender: ${user.gender || "Prefer not to share"}
@@ -518,7 +518,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                - For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
                - For HR Zones: set "target_type": "heart.rate.zone" and "zone": <1-5>.
                - For open targets: set "target_type": "no.target".
-            9. SPARK TARGETS: Calculate "target_spark" for your plan. 1 minute of endurance activity = 1.2 Spark. For high intensity (Zone 3/4+), use 1.3 or 1.4 Spark per min. For Zone 1/Rest, use 1.0 Spark per min. For Strength Training, allocate exactly 0.5 Spark per set (ignore rest time).
+            9. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
 
         WORKOUT PLANNING (CRITICAL):
         If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 
@@ -529,7 +529,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             "date": "YYYY-MM-DD",
             "sport": "Run", 
             "description": "5k Speed Intervals",
-            "target_spark": 80,
+            "target_rooka": 80,
             "details": "Push hard on the intervals, recover fully on the rests.",
             "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 15, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}, {\\"type\\": \\"repeat\\", \\"iterations\\": 8, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 3, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 4}, {\\"type\\": \\"recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 1, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]"
           },
@@ -537,7 +537,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             "date": "YYYY-MM-DD",
             "sport": "Strength", 
             "description": "Leg Day Burner",
-            "target_spark": 40,
+            "target_rooka": 40,
             "details": "Focus on depth and explosion.",
             "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 10, \\"weight\\": 80, \\"exerciseName\\": \\"Barbell Squat\\", \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 2, \\"target_type\\": \\"no.target\\"}]}]"
           }
@@ -591,7 +591,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                                 );
 
                               const stmt = db.prepare(`
-                                INSERT INTO micro_plan (user_id, date, sport, description, target_spark, details, steps_json) 
+                                INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) 
                                 VALUES (?, ?, ?, ?, ?, ?, ?)
                             `);
 
@@ -601,7 +601,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                                   day.date,
                                   day.sport,
                                   day.description,
-                                  day.target_spark,
+                                  day.target_rooka,
                                   day.details,
                                   day.steps_json || "[]",
                                 );
@@ -633,7 +633,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     )
                       mood = "disappointed";
 
-                    const simulatedUserMessage = `Can you build my plan for next week, Spark?`;
+                    const simulatedUserMessage = `Can you build my plan for next week, Rooka?`;
                     const coachAcknowledgement = `I've just crunched your latest numbers and pushed a fresh ${phase} phase plan to your dashboard. Go check it out—you're going to crush it!`;
 
                     db.run(

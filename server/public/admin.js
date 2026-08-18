@@ -58,12 +58,12 @@ function renderTable(users) {
         const tierSelect = `
             <select onchange="setTier('${u.username}', this.value)" class="text-xs bg-gray-50 border border-gray-200 rounded p-1">
                 <option value="free" ${tier === 'free' ? 'selected' : ''}>Free</option>
-                <option value="spark_plus" ${tier === 'spark_plus' ? 'selected' : ''}>Spark+</option>
+                <option value="rooka_plus" ${tier === 'rooka_plus' ? 'selected' : ''}>Rooka+</option>
                 <option value="admin" ${tier === 'admin' ? 'selected' : ''}>Admin</option>
             </select>
         `;
 
-        const clicks = u.spark_plus_clicks || 0;
+        const clicks = u.rooka_plus_clicks || 0;
         const clicksDisplay = clicks > 0 ? `<span class="text-green-600 font-bold">${clicks} <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>` : '<span class="text-gray-400">0</span>';
 
         const dataReq = u.data_request_clicks || 0;

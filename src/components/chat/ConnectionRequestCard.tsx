@@ -54,7 +54,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
             />
           </View>
           <View>
-            <Text className="text-sm font-extrabold text-theme-text">{payload.username || 'Spark Athlete'}</Text>
+            <Text className="text-sm font-extrabold text-theme-text">{payload.username || 'Rooka Athlete'}</Text>
             <Text className="text-[11px] text-theme-muted font-medium">
               {accepted ? 'Connected Athlete' : 'Sent you a connection request'}
             </Text>

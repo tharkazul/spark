@@ -5,12 +5,12 @@
 @layer base {
   :root {
     /* Brand */
-    --brand-primary: #FF5F3B;
-    --brand-deep: #E8481F;
-    --accent: #FF5F3B;
-    --accent-hover: #E8481F;
-    --accent-soft: rgba(255, 95, 59, 0.12);
-    --accent-border: rgba(255, 95, 59, 0.3);
+    --brand-primary: #2563EB;
+    --brand-deep: #1D4ED8;
+    --accent: #FF5733;
+    --accent-hover: #E84D2B;
+    --accent-soft: rgba(255, 87, 51, 0.12);
+    --accent-border: rgba(255, 87, 51, 0.3);
 
     /* Typography */
     --font-sans: 'PlusJakartaSans-Medium';
@@ -18,65 +18,65 @@
     --font-numeric: 'Rajdhani-Bold';
 
     /* Neutrals & Surfaces */
-    --gray-50: #F7F7F9;
-    --gray-100: #EAEAED;
-    --gray-200: #DEDEE3;
-    --gray-400: #B4B4BD;
-    --gray-600: #6F6F79;
-    --gray-800: #3A3A40;
-    --bg-main: #F7F7F9;
+    --gray-50: #F8FAFC;
+    --gray-100: #F1F5F9;
+    --gray-200: #E2E8F0;
+    --gray-400: #94A3B8;
+    --gray-600: #475569;
+    --gray-800: #1E293B;
+    --bg-main: #F8FAFC; /* Pure Chalk */
     --bg-card: #FFFFFF;
-    --border-color: #DEDEE3;
-    --text-main: #1B1B1F;
-    --text-muted: #6F6F79;
+    --border-color: #E2E8F0;
+    --text-main: #0F172A; /* Obsidian Slate */
+    --text-muted: #64748B;
 
     /* Semantic Status */
-    --color-success: #2FB673;
-    --color-success-bg: #E9F7EF;
-    --color-success-text: #0F5C34;
+    --color-success: #10B981; /* Aero Mint */
+    --color-success-bg: #D1FAE5;
+    --color-success-text: #065F46;
     --color-warning: #F5A623;
     --color-warning-bg: #FDF2E3;
     --color-warning-text: #7A4A0A;
     --color-error: #E5484D;
     --color-error-bg: #FCEAEA;
     --color-error-text: #7A1F1F;
-    --color-info: #3B82F6;
-    --color-info-bg: #E8F0FE;
-    --color-info-text: #123E80;
-    --color-focus: #3B82F6;
-    --color-metric: #FF5F3B;
+    --color-info: #2563EB; /* Kinetiq Cobalt */
+    --color-info-bg: #DBEAFE;
+    --color-info-text: #1E3A8A;
+    --color-focus: #2563EB;
+    --color-metric: #FF5733; /* Volt Coral */
 
     /* Sport Indicators (Light Mode) */
     --sport-swim: #2E8FE0;
     --sport-ride: #4CAF6D;
     --sport-run: #D9A62E;
-    --sport-cardio: #E0625A;
+    --sport-cardio: #FF5733;
     --sport-strength: #B36AE0;
-    --sport-yoga: #2EBFAF;
+    --sport-yoga: #10B981;
     --sport-walk: #8FA82E;
   }
 
   .dark {
     /* Brand & Base */
-    --brand-primary: #FF6B45;
-    --brand-deep: #E8481F;
-    --accent: #FF6B45;
-    --accent-hover: #FF5F3B;
-    --accent-soft: rgba(255, 107, 69, 0.15);
-    --accent-border: rgba(255, 107, 69, 0.35);
+    --brand-primary: #3B82F6;
+    --brand-deep: #2563EB;
+    --accent: #FF5733; /* Volt Coral */
+    --accent-hover: #FF6A4A;
+    --accent-soft: rgba(255, 87, 51, 0.15);
+    --accent-border: rgba(255, 87, 51, 0.35);
 
     /* Dark Surfaces & Text */
-    --bg-main: #121214;
-    --bg-card: #1E1F24;
-    --border-color: #2D2E35;
-    --text-main: #FFFFFF;
-    --text-muted: #A1A1AA;
-    --color-focus: #5BA8E8;
-    --color-metric: #FF6B45;
+    --bg-main: #0F172A; /* Obsidian Slate */
+    --bg-card: #1E293B;
+    --border-color: #334155;
+    --text-main: #F8FAFC; /* Pure Chalk */
+    --text-muted: #94A3B8;
+    --color-focus: #3B82F6;
+    --color-metric: #FF5733;
 
     /* Semantic Status (Dark Mode - High Contrast) */
-    --color-success: #34D399;
-    --color-success-bg: rgba(52, 211, 153, 0.15);
+    --color-success: #10B981; /* Aero Mint */
+    --color-success-bg: rgba(16, 185, 129, 0.15);
     --color-success-text: #6EE7B7;
     --color-warning: #FBBF24;
     --color-warning-bg: rgba(251, 191, 36, 0.15);
@@ -92,34 +92,34 @@
     --sport-swim: #5BA8E8;
     --sport-ride: #6FC48A;
     --sport-run: #E0B94F;
-    --sport-cardio: #E8837C;
+    --sport-cardio: #FF5733;
     --sport-strength: #C48AEA;
-    --sport-yoga: #4FD1C0;
+    --sport-yoga: #10B981;
     --sport-walk: #A8C24F;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
       /* Brand & Base */
-      --brand-primary: #FF6B45;
-      --brand-deep: #E8481F;
-      --accent: #FF6B45;
-      --accent-hover: #FF5F3B;
-      --accent-soft: rgba(255, 107, 69, 0.15);
-      --accent-border: rgba(255, 107, 69, 0.35);
+      --brand-primary: #3B82F6;
+      --brand-deep: #2563EB;
+      --accent: #FF5733; /* Volt Coral */
+      --accent-hover: #FF6A4A;
+      --accent-soft: rgba(255, 87, 51, 0.15);
+      --accent-border: rgba(255, 87, 51, 0.35);
 
       /* Dark Surfaces & Text */
-      --bg-main: #121214;
-      --bg-card: #1E1F24;
-      --border-color: #2D2E35;
-      --text-main: #FFFFFF;
-      --text-muted: #A1A1AA;
-      --color-focus: #5BA8E8;
-      --color-metric: #FF6B45;
+      --bg-main: #0F172A; /* Obsidian Slate */
+      --bg-card: #1E293B;
+      --border-color: #334155;
+      --text-main: #F8FAFC; /* Pure Chalk */
+      --text-muted: #94A3B8;
+      --color-focus: #3B82F6;
+      --color-metric: #FF5733;
 
       /* Semantic Status (Dark Mode - High Contrast) */
-      --color-success: #34D399;
-      --color-success-bg: rgba(52, 211, 153, 0.15);
+      --color-success: #10B981; /* Aero Mint */
+      --color-success-bg: rgba(16, 185, 129, 0.15);
       --color-success-text: #6EE7B7;
       --color-warning: #FBBF24;
       --color-warning-bg: rgba(251, 191, 36, 0.15);
@@ -135,9 +135,9 @@
       --sport-swim: #5BA8E8;
       --sport-ride: #6FC48A;
       --sport-run: #E0B94F;
-      --sport-cardio: #E8837C;
+      --sport-cardio: #FF5733;
       --sport-strength: #C48AEA;
-      --sport-yoga: #4FD1C0;
+      --sport-yoga: #10B981;
       --sport-walk: #A8C24F;
     }
   }

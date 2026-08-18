@@ -267,7 +267,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                                 {item.username}
                               </Text>
                               <Text className="text-[11px] text-theme-muted font-medium">
-                                Spark Athlete
+                                Rooka Athlete
                               </Text>
                             </View>
                           </View>

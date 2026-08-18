@@ -15,19 +15,19 @@ interface ConnectionsTabProps {
 export type SportType = 'running' | 'cycling' | 'swimming' | 'strength';
 
 export interface StravaSportToggles {
-  captionSparkScore: boolean;
+  captionRookaScore: boolean;
   titleSummary: boolean;
   includeMuscleStrain: boolean;
   includeFueling: boolean;
 }
 
-const STORAGE_KEY_AUTOMATIONS = 'spark_strava_automations_by_sport';
+const STORAGE_KEY_AUTOMATIONS = 'rooka_strava_automations_by_sport';
 
 const DEFAULT_TOGGLES: Record<SportType, StravaSportToggles> = {
-  running: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
-  cycling: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
-  swimming: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: false, includeFueling: false },
-  strength: { captionSparkScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: false },
+  running: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
+  cycling: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
+  swimming: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: false, includeFueling: false },
+  strength: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: false },
 };
 
 const SPORT_OPTIONS: { id: SportType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -315,7 +315,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </View>
 
         <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
-          Customize what details Spark AI Coach posts to your Strava captions for each individual sport type.
+          Customize what details Rooka AI Coach posts to your Strava captions for each individual sport type.
         </Text>
 
         {/* SPORT TYPE SELECTOR TABS */}
@@ -351,12 +351,12 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         <View className="space-y-3">
           <View className="flex-row items-center justify-between py-2 border-b border-theme-bg/60">
             <View className="flex-1 pr-3">
-              <Text className="text-theme-text font-bold text-xs">Include Spark Score in Caption</Text>
+              <Text className="text-theme-text font-bold text-xs">Include Rooka Score in Caption</Text>
               <Text className="text-theme-muted text-[10px]">Add calculated XP and TSS to caption</Text>
             </View>
             <Switch
-              value={currentToggles.captionSparkScore}
-              onValueChange={(val) => handleToggleChange('captionSparkScore', val)}
+              value={currentToggles.captionRookaScore}
+              onValueChange={(val) => handleToggleChange('captionRookaScore', val)}
               trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
             />
           </View>

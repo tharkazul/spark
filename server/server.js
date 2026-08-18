@@ -10,7 +10,7 @@ const app = express();
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "15mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"));
 
 // Route modules
 const authRoutes = require("./routes/auth");
@@ -22,7 +22,6 @@ const physiqueRoutes = require("./routes/physique");
 const activitiesRoutes = require("./routes/activities");
 const settingsRoutes = require("./routes/settings");
 const adminRoutes = require("./routes/admin");
-const notificationsRoutes = require("./routes/notifications");
 
 app.use("/api/auth", authRoutes);
 app.use("/", chatRoutes);
@@ -33,7 +32,6 @@ app.use("/", physiqueRoutes);
 app.use("/", activitiesRoutes);
 app.use("/", settingsRoutes);
 app.use("/", adminRoutes);
-app.use("/", notificationsRoutes);
 
 // Utilities and cron jobs
 const {
@@ -50,10 +48,10 @@ const cron = require('node-cron');
 // Startup setup
 db.serialize(() => {
   console.log("Database initialized (schema from services/db.js).");
-  
+
   // Sync all Strava users on boot
   syncAllStravaUsersOnStartup();
-  
+
   // Create global leaderboard stats
   calculateGlobalMaxStats();
 });
@@ -107,25 +105,7 @@ process.on("SIGINT", () => {
   });
 });
 
-const http = require("http");
-const { WebSocketServer } = require("ws");
-
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-wss.on("connection", (ws) => {
-  ws.on("message", (message) => {
-    try {
-      const data = JSON.parse(message);
-      if (data.type === "auth") {
-        ws.token = data.token;
-      }
-    } catch (_) {}
-  });
-});
-
-const PORT = process.env.PORT || 3009;
-const HOST = process.env.HOST || "0.0.0.0";
-server.listen(PORT, HOST, () => {
-  console.log(`Server is running on http://${HOST}:${PORT} (HTTP & WebSocket)`);
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

@@ -1,4 +1,4 @@
-# Spark — Backend API Contract (as-is, extracted from source)
+# Rooka — Backend API Contract (as-is, extracted from source)
 
 > Source of truth: `server.js`, `routes/{auth,chat,activities,integrations,physique,social,gamification,settings,admin}.js`
 > Everything here is what the server **actually does today**, not what it should do. Where behaviour is buggy it is marked `⚠️ BUG`.
@@ -56,13 +56,13 @@ res  201 { message, userId, token }
      400 { error: "Username might already exist." }
      500 { error: "Registration failed." }
 ```
-Side effects: bcrypt hash (10 rounds), `athlete_context` defaults to `"New athlete."`, `spark_start_date = new Date().toISOString()`.
-`spark_start_date` matters: **activities dated before it earn 0 Spark** (see `POST /api/sync-strava`).
+Side effects: bcrypt hash (10 rounds), `athlete_context` defaults to `"New athlete."`, `rooka_start_date = new Date().toISOString()`.
+`rooka_start_date` matters: **activities dated before it earn 0 Rooka** (see `POST /api/sync-strava`).
 
 ### `POST /api/auth/login`
 ```
 req  { username, password }
-res  200 { token, message: "Welcome to Spark HQ" }
+res  200 { token, message: "Welcome to Rooka HQ" }
      400 { error: "Athlete not found." }
      401 { error: "Incorrect password." }
 ```
@@ -120,7 +120,7 @@ res  200 { reply: string, mood: string, planUpdated: boolean }
 **Everything this endpoint does, in order** (all of it must be understood, none of it is client-side):
 1. `chat_count += 1`.
 2. Saves each image to `routes/secure_uploads/chat_images/img_<userId>_<uuid>.<ext>`, records `/api/images/chat/<file>` paths.
-3. Token gate: reads `daily_token_usage`, `getEffectiveTokenLimit(user)`. If `last_token_reset_date !== todayUTC`, resets usage to 0 and limit to `spark_plus ? 50000 : 10000`. Rejects with 429 only if `usage > limit` (strictly greater — see BUG-05).
+3. Token gate: reads `daily_token_usage`, `getEffectiveTokenLimit(user)`. If `last_token_reset_date !== todayUTC`, resets usage to 0 and limit to `rooka_plus ? 50000 : 10000`. Rejects with 429 only if `usage > limit` (strictly greater — see BUG-05).
 4. Builds a very large system prompt from: coach name/tone/context, macro phase, language directive, AMS date + next-7-day weekday map, weather context, athlete context, gender (+ menstrual-cycle directive if Female), `long_term_memory`, athlete metrics, next 3 milestones, next 14 micro_plan rows, last 3 activities (with per-lap pace/HR breakdown), last 5 `sets_json` rows, muscle fatigue/development rows, active + resolved niggles, gamification (streak, bonus points, latest title).
 5. History: last 6 `chat_history` rows, `coach`→`model`, adjacent same-role rows merged, leading non-user and trailing user rows trimmed (Gemini requires strict alternation starting with `user`).
 6. Calls `generateWithFallback(message, systemPrompt, cleanHistory, base64DataArray, userId)`.
@@ -155,19 +155,19 @@ Authorised by filename prefix: rejects unless `filename.startsWith("img_<req.use
 
 ### `GET /api/micro-plan`
 ```
-res 200 [ { id, user_id, date, sport, description, target_spark, details, steps_json, accepted_invites } ]
+res 200 [ { id, user_id, date, sport, description, target_rooka, details, steps_json, accepted_invites } ]
 ```
 Ordered by `date ASC`. `accepted_invites` is a correlated count from `event_invitations`.
 
 ### `POST /api/micro-plan`
 ```
-req  { date, sport, description, target_spark, details, steps_json? }   // steps_json defaults "[]"
+req  { date, sport, description, target_rooka, details, steps_json? }   // steps_json defaults "[]"
 res  200 { success: true } | 500 { error, details }
 ```
 
 ### `PUT /api/micro-plan/:id`
 ```
-req  { date, sport, description, target_spark, details, steps_json }
+req  { date, sport, description, target_rooka, details, steps_json }
 res  200 { success: true }
 ```
 Scoped by `AND user_id = ?`.
@@ -179,7 +179,7 @@ res 200 { success: true }
 
 ### `POST /api/micro-plan/day` — replace a whole day
 ```
-req  { date, workouts: [ { sport, description, target_spark, details, steps_json } ] }
+req  { date, workouts: [ { sport, description, target_rooka, details, steps_json } ] }
 res  200 { success: true } | 400 { error: "Invalid data format" }
 ```
 Deletes all rows for that date first. `workouts: []` clears the day.
@@ -194,13 +194,13 @@ Also inserts a `chat_history` row with **`role='assistant'`** and `mood='empathe
 
 ### `GET /api/dashboard-data`
 ```
-res 200 [ { date: 'YYYY-MM-DD', sport_type, daily_spark } ]
+res 200 [ { date: 'YYYY-MM-DD', sport_type, daily_rooka } ]
 ```
-Grouped by day+sport, then re-aggregated in JS through `mapStravaSportToSpark()` (Strava's `Ride`/`VirtualRide`/etc. → Spark's `Bike`/`Run`/`Swim`/`Strength`). Drives the PMC chart and the "actual vs planned" badges.
+Grouped by day+sport, then re-aggregated in JS through `mapStravaSportToRooka()` (Strava's `Ride`/`VirtualRide`/etc. → Rooka's `Bike`/`Run`/`Swim`/`Strength`). Drives the PMC chart and the "actual vs planned" badges.
 
 ### `GET /api/history`
 ```
-res 200 [ { id, name, sport_type, start_date, spark_score, distance_km, moving_time_min, average_heartrate } ]  // LIMIT 50
+res 200 [ { id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate } ]  // LIMIT 50
 ```
 
 ### `GET /api/activity/:id` — **dual-shape response, read carefully**
@@ -209,7 +209,7 @@ On any failure falls back to local DB and returns a **normalised object**:
 ```json
 { "id","name","type","sport_type","distance","moving_time","elapsed_time",
   "total_elevation_gain","average_heartrate","has_heartrate","suffer_score",
-  "spark_score","start_date","start_date_local","sets_json","kudos_count" }
+  "rooka_score","start_date","start_date_local","sets_json","kudos_count" }
 ```
 Note the unit change: `distance` is **metres**, `moving_time` **seconds**, while the DB stores km and minutes. Visibility scope includes accepted friends' activities.
 **RN action:** write one adapter (`normalizeActivityDetail(raw): ActivityDetail`) at the API-client boundary. Do not let two shapes leak into components — and note the unit switch, since the Strava shape is metres/seconds while every other endpoint gives km/minutes.
@@ -219,7 +219,7 @@ Note the unit change: `distance` is **metres**, `moving_time` **seconds**, while
 req  { targetDate: 'YYYY-MM-DD' }
 res  200 { reply, mood, planUpdated }
 ```
-Builds a 7-day plan prompt (schedule boundaries, active niggles, metrics, recent sets, CTL/ATL/TSB, phase). Parses the trailing ```json array, **deletes every micro_plan row on the affected dates**, reinserts. Then writes a *fabricated* user message (`"Can you build my plan for next week, Spark?"`) plus a canned coach acknowledgement into `chat_history`. The `reply` returned to the client is the prose part with the json stripped.
+Builds a 7-day plan prompt (schedule boundaries, active niggles, metrics, recent sets, CTL/ATL/TSB, phase). Parses the trailing ```json array, **deletes every micro_plan row on the affected dates**, reinserts. Then writes a *fabricated* user message (`"Can you build my plan for next week, Rooka?"`) plus a canned coach acknowledgement into `chat_history`. The `reply` returned to the client is the prose part with the json stripped.
 
 ### Metrics
 ```
@@ -270,7 +270,7 @@ req  { code }
 res  200 { message: "Strava connected successfully!" } | 400 | 500
 ```
 Stores `users.strava_refresh_token` and upserts `strava_tokens {user_id, access_token, refresh_token, expires_at, strava_id}`.
-**React Native:** the web flow is a full-page redirect to `https://www.strava.com/oauth/authorize` and a `?code=` query read on return (`checkStravaCallback()`). In RN use `expo-auth-session` + `expo-web-browser` with a custom scheme redirect (`spark://strava-callback`), registered both in `app.json` (`scheme: "spark"`) and in the Strava API application's Authorization Callback Domain. Strava only accepts a bare domain there, so if a custom scheme is rejected you need a small https redirect page on your own domain that bounces to `spark://`.
+**React Native:** the web flow is a full-page redirect to `https://www.strava.com/oauth/authorize` and a `?code=` query read on return (`checkStravaCallback()`). In RN use `expo-auth-session` + `expo-web-browser` with a custom scheme redirect (`rooka://strava-callback`), registered both in `app.json` (`scheme: "rooka"`) and in the Strava API application's Authorization Callback Domain. Strava only accepts a bare domain there, so if a custom scheme is rejected you need a small https redirect page on your own domain that bounces to `rooka://`.
 
 ### `POST /api/user/settings/strava`
 ```
@@ -282,9 +282,9 @@ Manual token paste path. Probably drop in native.
 ```
 res 200 { message: "Successfully synced N activities!" } | 400 missing token | 500
 ```
-Pulls `athlete/activities?per_page=200`, upserts into `activities` (ON CONFLICT id → updates tss, spark_score, moving_time_min, average_heartrate), calls `tagStravaActivity()` per activity (this is what writes the Spark description back to Strava, gated by the share settings above), then `updateUserSparkAndCheckLevel()`.
+Pulls `athlete/activities?per_page=200`, upserts into `activities` (ON CONFLICT id → updates tss, rooka_score, moving_time_min, average_heartrate), calls `tagStravaActivity()` per activity (this is what writes the Rooka description back to Strava, gated by the share settings above), then `updateUserRookaAndCheckLevel()`.
 `tss = act.suffer_score || round(moving_time/3600*50)`.
-**Spark is zeroed for activities dated before `users.spark_start_date`.**
+**Rooka is zeroed for activities dated before `users.rooka_start_date`.**
 
 ### `POST /api/user/disconnect/strava`
 Calls Strava `/oauth/deauthorize` with the stored access token, nulls `strava_refresh_token`, deletes `strava_tokens`. → `{ message }`
@@ -309,7 +309,7 @@ Logic worth preserving verbatim:
 - `STEP_TYPE_MAP`: warmup 1, cooldown 2, interval 3, recovery 4, rest 5. `drill` is normalised to `interval`.
 - `TARGET_TYPE_MAP`: no.target 1, power.zone 2, heart.rate.zone 4, speed.zone 5, pace.zone 6.
 - `CONDITION_TYPE_MAP`: time 2, time_sec 2, distance 3, lap.button 1, reps 10.
-- If `steps_json` is empty, it fabricates one interval of `max(5, round(target_spark/55*60))` minutes.
+- If `steps_json` is empty, it fabricates one interval of `max(5, round(target_rooka/55*60))` minutes.
 - `condition_type === 'time'` ⇒ `endConditionValue = value * 60` (the plan stores **minutes**, Garmin wants **seconds**). `time_sec` maps to the same Garmin id but is *not* multiplied — the AI is told to use `time_sec` for rest between strength sets.
 - `target_value` containing `min/km` → converts to `pace.zone` with ±5 % window (`speed = 1000/(m*60+s)`); containing `w` → `power.zone` with ±10 %.
 - `distance` conditions get `preferredEndConditionUnit {unitId:1, unitKey:"meter", factor:100}`.
@@ -414,7 +414,7 @@ Accept additionally generates an AI welcome message to the *friend* and pushes `
 
 ### Feed
 ```
-GET /api/social/feed -> { activities: [ activity + { username, profile_picture_url, total_spark, kudos_count, has_kudosed, comment_count, spark_level } ] }  // LIMIT 20
+GET /api/social/feed -> { activities: [ activity + { username, profile_picture_url, total_rooka, kudos_count, has_kudosed, comment_count, rooka_level } ] }  // LIMIT 20
 ```
 Self + accepted friends, `start_date DESC`. `has_kudosed` is a count (0/1), not a boolean.
 
@@ -428,9 +428,9 @@ On add (and not self): SSE `kudos_received` to the owner + an AI hype message in
 ```
 GET /api/social/leaderboard -> { leaderboard: [...], questLeaderboard: [...], topActivities: [...] }
 ```
-- `leaderboard`: 7-day window. `total_spark_score = SUM(activities.spark_score last 7d) + SUM(bonus_points last 7d)`, plus `total_minutes`, `total_activities`, `quests_completed_7d`, `quest_spark_7d`, `spark_level`.
-- `questLeaderboard`: re-sorted by completed count, then quest spark, then username.
-- `topActivities`: top 3 by `spark_score` in the last 7 days across self+friends.
+- `leaderboard`: 7-day window. `total_rooka_score = SUM(activities.rooka_score last 7d) + SUM(bonus_points last 7d)`, plus `total_minutes`, `total_activities`, `quests_completed_7d`, `quest_rooka_7d`, `rooka_level`.
+- `questLeaderboard`: re-sorted by completed count, then quest rooka, then username.
+- `topActivities`: top 3 by `rooka_score` in the last 7 days across self+friends.
 - ⚠️ **BUG-04:** the route calls `evaluateAndProgressQuests(id)` but that symbol is **not in social.js's import list**. It throws a `ReferenceError` swallowed by the surrounding `try/catch`, so quest progress is silently never refreshed here. Add it to the destructured require from `../services/utils`.
 
 ### Event invitations ("train together")
@@ -460,7 +460,7 @@ POST /api/milestones  req { milestones: [ {name, date, target_ctl, is_main} ] } 
 ```
 res 200 { quests: [...], titles: [...], bonus_points: [...] }
 ```
-Before responding it: runs `evaluateAndProgressQuests`, marks quests `expired` if `completed_at > expires_at`, force-closes all but the newest `active` quest (**hard invariant: max 1 active quest per user**), then per quest computes `current_value` (`calculateQuestProgress`), `progress_percent`, `time_remaining_str`, and `unit` (`distance_km`→km, `moving_time_min`→min, `spark_score`→pts).
+Before responding it: runs `evaluateAndProgressQuests`, marks quests `expired` if `completed_at > expires_at`, force-closes all but the newest `active` quest (**hard invariant: max 1 active quest per user**), then per quest computes `current_value` (`calculateQuestProgress`), `progress_percent`, `time_remaining_str`, and `unit` (`distance_km`→km, `moving_time_min`→min, `rooka_score`→pts).
 
 Quest object as the client sees it:
 ```
@@ -504,7 +504,7 @@ Generating a title also awards **50 bonus points** and clears `public_profile_ca
   "coachAvatarNeutral","coachAvatarHype","coachAvatarDisappointed","coachAvatarHorny",
   "athleteContext","gender","lastCycleStart","averageCycleLength",
   "searchPrivacy","profilePictureUrl","trainingAvailability",
-  "sparkLevel": { /* getSparkLevelInfo(total_spark) */ },
+  "rookaLevel": { /* getRookaLevelInfo(total_rooka) */ },
   "dailyTokenUsage","dailyTokenLimit","subscriptionTier","subscription_tier" }
 ```
 `dailyTokenUsage` is zeroed client-visibly if `last_token_reset_date !== today(AMS)`. Note `subscriptionTier` **and** `subscription_tier` are both returned (snake_case was added later; the client reads both in places). Pick one in the native model.
@@ -515,7 +515,7 @@ Generating a title also awards **50 bonus points** and clears `public_profile_ca
 req { coachTone, coachName, coachContext, athleteContext, gender, lastCycleStart, trainingAvailability }
 res { message: "Coach updated successfully!" }
 ```
-⚠️ **Entitlement check:** if `subscription_tier !== 'admin'` and the user tries a custom tone / a `coachName !== 'Spark'` / any `coachContext`, the server **silently reverts** all three to defaults and returns success. The client shows no error. This is a UX trap — the native app should read the tier and disable the fields instead.
+⚠️ **Entitlement check:** if `subscription_tier !== 'admin'` and the user tries a custom tone / a `coachName !== 'Rooka'` / any `coachContext`, the server **silently reverts** all three to defaults and returns success. The client shows no error. This is a UX trap — the native app should read the tier and disable the fields instead.
 
 ### Other settings
 ```
@@ -525,7 +525,7 @@ POST   /api/settings/profile-picture             multipart photo -> { success, u
 POST   /api/settings/coach-avatar                multipart photo + { mood } -> { success, mood, url }
 POST   /api/user/settings/coach-avatar           (alias of the above)
 POST   /api/notifications/register-push-token    req { pushToken, platform? } -> { success }
-POST   /api/track-spark-plus-click               -> { success }        // fake paywall counter
+POST   /api/track-rooka-plus-click               -> { success }        // fake paywall counter
 POST   /api/request-account-data                 -> { success, message } // GDPR counter only, no export
 DELETE /api/user/account                         -> { success, message } | 403 for admin usernames
 ```
@@ -546,7 +546,7 @@ POST   /api/admin/trigger-morning             -> runs sendMorningMessage() for e
 POST   /api/admin/trigger-weekly-onboarding   -> runs runWeeklyFeatureOnboardingJob()
 GET    /api/admin/usage                       -> per-user usage table
 POST   /api/admin/add-tokens                  req { targetUsername } -> +50 000 to daily_token_limit
-POST   /api/admin/set-tier                    req { targetUsername, tier } -> sets tier + limit (spark_plus 50k / else 10k)
+POST   /api/admin/set-tier                    req { targetUsername, tier } -> sets tier + limit (rooka_plus 50k / else 10k)
 DELETE /api/admin/delete-user/:targetUsername
 GET    /api/admin/onboarding-status/:userId   -> { userId, features: [ {key,name,description,status,introduced_at,first_used_at} ] }
 ```

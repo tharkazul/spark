@@ -56,7 +56,7 @@ export function runPMCTests() {
     {
       id: '1',
       start_date: todayStr,
-      spark_score: 50,
+      rooka_score: 50,
       name: 'Run',
       sport_type: 'RUN',
       distance_km: 10,

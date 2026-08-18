@@ -26,7 +26,7 @@ export interface UserTitle {
 export interface LeaderboardEntry {
   user_id: number;
   username: string;
-  total_spark: number;
+  total_rooka: number;
   level: number;
   profile_picture_url?: string;
   rank: number;

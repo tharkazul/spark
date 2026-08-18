@@ -1,7 +1,7 @@
-# Spark PWA → React Native (Expo): Migration Notes
+# Rooka PWA → React Native (Expo): Migration Notes
 
 **Prepared from:** `server.js`, `routes/{auth,chat,activities,integrations,physique,social,gamification,settings,admin}.js`, `public/index.html`, `public/script.js`.
-**Audience:** the developer rebuilding Spark as a **React Native (Expo)** app.
+**Audience:** the developer rebuilding Rooka as a **React Native (Expo)** app.
 **Goal:** nothing that exists today gets silently dropped.
 
 ## Read in this order
@@ -27,14 +27,14 @@ The web→native mapping used throughout doc 02:
 | other `localStorage` keys | `@react-native-async-storage/async-storage` |
 | ad-hoc `fetch` + `getAuthHeaders()` | one axios/fetch client + interceptors, `@tanstack/react-query` for caching/invalidation |
 | `EventSource` (`/api/events`) | `expo-notifications` for background + `react-native-sse` or websocket for foreground (see doc 02 §A.3) |
-| Chart.js (PMC, sparklines, radar) | `victory-native` + `react-native-svg` (or `react-native-gifted-charts`) |
+| Chart.js (PMC, ___sparkline_temp___s, radar) | `victory-native` + `react-native-svg` (or `react-native-gifted-charts`) |
 | Leaflet + `decodePolyline` | `react-native-maps` / `expo-maps` (keep the polyline decoder as-is) |
 | `<input type="file">` + FileReader base64 | `expo-image-picker` + `expo-image-manipulator` (compress **before** base64) |
 | `speechSynthesis` | `expo-speech` |
 | Web Speech API recognition | `@react-native-voice/voice` (+ `expo-av` for recording) |
 | `navigator.vibrate(50)` | `expo-haptics` |
 | `<a download>` CSV export | `expo-file-system` + `expo-sharing` |
-| Strava OAuth redirect + `?code=` query | `expo-auth-session` / `expo-web-browser` with a `spark://` scheme |
+| Strava OAuth redirect + `?code=` query | `expo-auth-session` / `expo-web-browser` with a `rooka://` scheme |
 | `innerHTML` + `**bold**` regex | `react-native-markdown-display` |
 | DOM-walking typewriter | Reanimated reveal, or switch `/api/chat` to streaming |
 | `updateAppHeight`, `inert`, `openChatInput` (iOS Safari viewport hacks) | **delete** — `KeyboardAvoidingView` + safe-area insets |
@@ -85,7 +85,7 @@ The AI is not a chat feature bolted on the side — it is the app's **primary wr
 |---|---|
 | bare JSON **array** | replaces `micro_plan` rows for every date in the array (`sport:"Rest"` = clear the day) |
 | `{"type":"metrics"}` | upserts `athlete_metrics` (FTP, 5K pace, max HR…) |
-| `{"type":"log_activity"}` | inserts an `activities` row with a **negative id** (`-Date.now()`) to avoid Strava id collisions, recalculates Spark, invalidates today's nutrition cache, evaluates quests, and may append a second AI-generated celebration to the reply |
+| `{"type":"log_activity"}` | inserts an `activities` row with a **negative id** (`-Date.now()`) to avoid Strava id collisions, recalculates Rooka, invalidates today's nutrition cache, evaluates quests, and may append a second AI-generated celebration to the reply |
 | `{"type":"log_cycle"}` | sets `users.last_cycle_start` |
 | `{"type":"log_weight"}` | upserts `weight_log` |
 | `{"type":"log_diet"}` / `log_nutrition` | adds macros to `nutrition_intake` + `daily_diet_logs`, with a substring dedupe guard on `items_summary` |
@@ -100,7 +100,7 @@ I have all nine route files and both client files. To finish the spec to the sam
 
 **Blocking — I cannot fully specify data shapes without these:**
 - `services/db.js` — **the schema**. I've inferred ~30 tables from queries (`users, activities, micro_plan, chat_history, athlete_metrics, athlete_niggles, athlete_muscle_status, milestones, biometrics, weight_log, physique_logs, nutrition_protocols, nutrition_intake, daily_diet_logs, connections, kudos, activity_comments, event_invitations, user_quests, completed_quests, bonus_points, user_titles, user_xp, public_profile_cache, strava_tokens, push_tokens, push_subscriptions, garmin_health_data, user_daily_metrics, completed_micro_steps, user_feature_onboarding`) but not their columns, types, indexes or constraints.
-- `services/utils.js` — the largest unknown. Contains `calculateSparkScore`, `getSparkLevelInfo`, `generatePublicProfile` (the exact shape the profile/radar/trends UI consumes), `generateQuestForUser`, `calculateQuestProgress`, `evaluateAndProgressQuests`, `evaluateQuestsAgainstActivity`, `getUserGamificationContext`, `getUserMacroPhase`, `getWeatherContext`, `tagStravaActivity`, `matchGarminExercise`, `updateUserSparkAndCheckLevel`, `triggerLevelUpCoachPrompt`, `sendMorningMessage`, `runDailyRecoveryJob`, `getEffectiveTokenLimit`, `getAMSDateString`. Level thresholds, quest generation rules and the Spark formula all live here.
+- `services/utils.js` — the largest unknown. Contains `calculateRookaScore`, `getRookaLevelInfo`, `generatePublicProfile` (the exact shape the profile/radar/trends UI consumes), `generateQuestForUser`, `calculateQuestProgress`, `evaluateAndProgressQuests`, `evaluateQuestsAgainstActivity`, `getUserGamificationContext`, `getUserMacroPhase`, `getWeatherContext`, `tagStravaActivity`, `matchGarminExercise`, `updateUserRookaAndCheckLevel`, `triggerLevelUpCoachPrompt`, `sendMorningMessage`, `runDailyRecoveryJob`, `getEffectiveTokenLimit`, `getAMSDateString`. Level thresholds, quest generation rules and the Rooka formula all live here.
 
 **Important:**
 - `services/ai.js` — `generateWithFallback` signature/fallback chain and how token usage is metered.
@@ -129,7 +129,7 @@ app/                          # expo-router
   (auth)/onboarding/[step].tsx
   (tabs)/_layout.tsx          # 5 tabs, centre Coach FAB
   (tabs)/dashboard/index.tsx  # Dash | Planning top tabs
-  (tabs)/progress/index.tsx   # Spark | Nutrition | Health | Daily Log
+  (tabs)/progress/index.tsx   # Rooka | Nutrition | Health | Daily Log
   (tabs)/coach/index.tsx
   (tabs)/social/index.tsx     # Feed | My Log | Leaderboard
   (tabs)/profile/index.tsx    # Profile | Goals | Connections | Account
@@ -143,7 +143,7 @@ src/
     normalizers/activityDetail.ts
   domain/                     # PURE, UNIT-TESTED — no React, no fetch
     pmc.ts                    # ctl/atl/tsb replay, readiness, trends, projection  (§A.4)
-    spark.ts                  # workout Spark estimate                            (§A.4)
+    rooka.ts                  # workout Rooka estimate                            (§A.4)
     steps.ts                  # steps_json parse / serialise / stable ids          (Part D)
     quests.ts                 # progress %, countdown, status labels
   realtime/                   # SSE or push provider + event→invalidation map      (§A.3)

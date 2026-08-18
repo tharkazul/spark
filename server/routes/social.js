@@ -23,15 +23,15 @@ const {
   generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
-  getSparkLevelInfo,
-  calculateSparkScore,
-  mapStravaSportToSpark,
+  getRookaLevelInfo,
+  calculateRookaScore,
+  mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
-  updateUserSparkAndCheckLevel,
+  updateUserRookaAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity,
@@ -141,7 +141,7 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
             status: "pending",
           };
           const payloadJson = JSON.stringify(payloadObj);
-          const chatMsg = `${req.user.username} wants to connect with you on Spark! Do you want to accept their connection request?`;
+          const chatMsg = `${req.user.username} wants to connect with you on Rooka! Do you want to accept their connection request?`;
 
           db.run(
             `INSERT INTO chat_history (user_id, role, content, mood, payload_json) VALUES (?, 'coach', ?, 'support', ?)`,
@@ -154,7 +154,7 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
               });
               sendPushToUser(friendId, {
                 title: "New Connection Request! 🏃",
-                body: `${req.user.username} sent you a connection request on Spark.`,
+                body: `${req.user.username} sent you a connection request on Rooka.`,
                 data: { url: "/(tabs)/coach", type: "connection" },
               });
             }
@@ -220,7 +220,7 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
                 username: req.user.username,
               };
               const confirmPayload = JSON.stringify(confirmPayloadObj);
-              let confirmMsg = `${req.user.username} accepted your connection request! You are now connected on Spark!`;
+              let confirmMsg = `${req.user.username} accepted your connection request! You are now connected on Rooka!`;
 
               if (friendUser) {
                 const prompt = `The athlete just connected with their friend ${req.user.username} on the app. Send a short 1-2 sentence message to the athlete welcoming the new connection and telling them to use the friendly competition as motivation!`;
@@ -272,7 +272,7 @@ router.get("/api/social/connections", authenticateToken, (req, res) => {
 router.get("/api/social/feed", authenticateToken, (req, res) => {
   db.all(
     `
-        SELECT a.*, u.username, u.profile_picture_url, u.total_spark,
+        SELECT a.*, u.username, u.profile_picture_url, u.total_rooka,
                (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id) as kudos_count,
                (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id AND k.user_id = ?) as has_kudosed,
                (SELECT COUNT(*) FROM activity_comments c WHERE c.activity_id = a.id) as comment_count
@@ -286,9 +286,9 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
     (err, rows) => {
       if (rows) {
         rows.forEach((r) => {
-          r.spark_level = getSparkLevelInfo(r.total_spark).level;
-          if (typeof r.spark_score === "number") {
-            r.spark_score = Math.round(r.spark_score);
+          r.rooka_level = getRookaLevelInfo(r.total_rooka).level;
+          if (typeof r.rooka_score === "number") {
+            r.rooka_score = Math.round(r.rooka_score);
           }
         });
       }
@@ -319,25 +319,25 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
     const mainLeaderboard = await new Promise((resolve, reject) => {
       db.all(
         `
-        SELECT u.id, u.username, u.profile_picture_url, u.total_spark, 
-               (COALESCE(SUM(a.spark_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND created_at >= datetime('now', '-7 days')), 0)) as total_spark_score, 
+        SELECT u.id, u.username, u.profile_picture_url, u.total_rooka, 
+               (COALESCE(SUM(a.rooka_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND created_at >= datetime('now', '-7 days')), 0)) as total_rooka_score, 
                SUM(a.moving_time_min) as total_minutes, COUNT(a.id) as total_activities,
                COALESCE((SELECT COUNT(*) FROM user_quests WHERE user_id = u.id AND status = 'completed' AND (completed_at >= datetime('now', '-7 days') OR (completed_at IS NULL AND created_at >= datetime('now', '-7 days')))), 0) as quests_completed_7d,
-               COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND reason LIKE 'Quest Completed%' AND created_at >= datetime('now', '-7 days')), (SELECT SUM(reward_points) FROM user_quests WHERE user_id = u.id AND status = 'completed' AND (completed_at >= datetime('now', '-7 days') OR (completed_at IS NULL AND created_at >= datetime('now', '-7 days')))), 0) as quest_spark_7d
+               COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND reason LIKE 'Quest Completed%' AND created_at >= datetime('now', '-7 days')), (SELECT SUM(reward_points) FROM user_quests WHERE user_id = u.id AND status = 'completed' AND (completed_at >= datetime('now', '-7 days') OR (completed_at IS NULL AND created_at >= datetime('now', '-7 days')))), 0) as quest_rooka_7d
         FROM users u
-        LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days') AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10))
+        LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days') AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10))
         WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
         GROUP BY u.id
-        ORDER BY total_spark_score DESC
+        ORDER BY total_rooka_score DESC
     `,
         [userId, userId],
         (err, rows) => {
           if (err) return reject(err);
           if (rows) {
             rows.forEach((r) => {
-              r.spark_level = getSparkLevelInfo(r.total_spark).level;
-              if (typeof r.total_spark_score === "number") {
-                r.total_spark_score = Math.round(r.total_spark_score);
+              r.rooka_level = getRookaLevelInfo(r.total_rooka).level;
+              if (typeof r.total_rooka_score === "number") {
+                r.total_rooka_score = Math.round(r.total_rooka_score);
               }
             });
           }
@@ -365,15 +365,15 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
 
     const questLeaderboard = mainLeaderboard.map((user) => {
       const userQuests = completedQuests.filter((q) => q.user_id === user.id);
-      const total_quest_spark = userQuests.reduce((sum, q) => sum + (q.reward_points || 0), 0);
+      const total_quest_rooka = userQuests.reduce((sum, q) => sum + (q.reward_points || 0), 0);
       return {
         id: user.id,
         username: user.username,
         profile_picture_url: user.profile_picture_url,
-        spark_level: user.spark_level,
+        rooka_level: user.rooka_level,
         quests_completed_7d: userQuests.length,
         completed_quests_count: userQuests.length,
-        total_quest_spark: Math.round(total_quest_spark),
+        total_quest_rooka: Math.round(total_quest_rooka),
         quests: userQuests.map((q) => ({ description: q.description, points: Math.round(q.reward_points || 0) })),
       };
     });
@@ -382,8 +382,8 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
       if (b.completed_quests_count !== a.completed_quests_count) {
         return b.completed_quests_count - a.completed_quests_count;
       }
-      if (b.total_quest_spark !== a.total_quest_spark) {
-        return b.total_quest_spark - a.total_quest_spark;
+      if (b.total_quest_rooka !== a.total_quest_rooka) {
+        return b.total_quest_rooka - a.total_quest_rooka;
       }
       return a.username.localeCompare(b.username);
     });
@@ -391,13 +391,13 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
     const topActivities = await new Promise((resolve) => {
       db.all(
         `
-            SELECT a.id, a.user_id, a.name, a.sport_type, a.distance_km, a.moving_time_min, a.spark_score, a.start_date,
-                   u.username, u.profile_picture_url, u.total_spark
+            SELECT a.id, a.user_id, a.name, a.sport_type, a.distance_km, a.moving_time_min, a.rooka_score, a.start_date,
+                   u.username, u.profile_picture_url, u.total_rooka
             FROM activities a
             JOIN users u ON a.user_id = u.id
             WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
-              AND a.start_date >= datetime('now', '-7 days') AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10))
-            ORDER BY a.spark_score DESC, a.start_date DESC
+              AND a.start_date >= datetime('now', '-7 days') AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10))
+            ORDER BY a.rooka_score DESC, a.start_date DESC
             LIMIT 3
         `,
         [userId, userId],
@@ -405,9 +405,9 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
           if (err) return resolve([]);
           if (rows) {
             rows.forEach((r) => {
-              r.spark_level = getSparkLevelInfo(r.total_spark).level;
-              if (typeof r.spark_score === "number") {
-                r.spark_score = Math.round(r.spark_score);
+              r.rooka_level = getRookaLevelInfo(r.total_rooka).level;
+              if (typeof r.rooka_score === "number") {
+                r.rooka_score = Math.round(r.rooka_score);
               }
             });
           }

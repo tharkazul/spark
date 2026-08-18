@@ -7,7 +7,7 @@ export interface WorkoutItem {
   type: SportType;
   title: string;
   duration?: string;
-  sparkPoints: number;
+  rookaPoints: number;
   isStructured?: boolean;
   isCompleted?: boolean;
   actualDuration?: string;

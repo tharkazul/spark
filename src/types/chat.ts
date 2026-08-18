@@ -8,7 +8,7 @@ export interface ProposedWorkoutItem {
   date: string;
   sport: string;
   description: string;
-  target_spark?: number;
+  target_rooka?: number;
   details?: string;
   steps_json?: string | any[];
 }

@@ -32,7 +32,7 @@ router.post("/api/notifications/register-token", authenticateToken, (req, res) =
 // Test Push Notification endpoint
 router.post("/api/notifications/test", authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  const { title = "Spark Coach", body = "Your workout is ready for today! ⚡" } = req.body;
+  const { title = "Rooka Coach", body = "Your workout is ready for today! ⚡" } = req.body;
 
   try {
     const result = await sendPushToUser(userId, {

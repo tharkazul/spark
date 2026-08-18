@@ -164,7 +164,7 @@ const MessageRow = React.memo(({
               resizeMode="cover"
             />
           </TouchableOpacity>
-          <Text className="text-theme-accent font-extrabold text-xs mr-2">Spark</Text>
+          <Text className="text-theme-accent font-extrabold text-xs mr-2">Rooka</Text>
         </View>
       )}
 
@@ -506,7 +506,7 @@ export default function CoachScreen() {
               style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
               resizeMode="cover"
             />
-            <Text className="text-theme-accent font-extrabold text-xs mr-2">Spark</Text>
+            <Text className="text-theme-accent font-extrabold text-xs mr-2">Rooka</Text>
           </View>
           <View className="px-4 py-2.5 flex-row items-center bg-theme-card border border-theme-border rounded-2xl rounded-bl-sm shadow-xs">
             <ActivityIndicator size="small" color="#16ACBD" />
@@ -542,7 +542,7 @@ export default function CoachScreen() {
   }, [user?.coach_tone, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite]);
 
   const primaryWorkout = todayWorkouts[0] || null;
-  const totalTodaySpark = todayWorkouts.reduce((acc, w) => acc + (w.target_spark || (w as any).sparkPoints || 0), 0);
+  const totalTodayRooka = todayWorkouts.reduce((acc, w) => acc + (w.target_rooka || (w as any).rookaPoints || 0), 0);
 
   const activeQuest = quests?.find((q) => q.status === 'active') || quests?.[0] || null;
   const questProgressPercent = activeQuest
@@ -646,10 +646,10 @@ export default function CoachScreen() {
               <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
             </View>
           </View>
-          {totalTodaySpark > 0 ? (
+          {totalTodayRooka > 0 ? (
             <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
               <Text className="text-sm font-mono font-extrabold text-theme-accent">
-                +{Math.round(totalTodaySpark)} Total Spark
+                +{Math.round(totalTodayRooka)} Total Rooka
               </Text>
             </View>
           ) : null}
@@ -669,10 +669,10 @@ export default function CoachScreen() {
                       </View>
                       <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
                     </View>
-                    {w.target_spark ? (
+                    {w.target_rooka ? (
                       <View className="bg-theme-accent/15 px-2.5 py-0.5 rounded-full">
                         <Text className="text-xs font-mono font-extrabold text-theme-accent">
-                          +{Math.round(w.target_spark)}⚡
+                          +{Math.round(w.target_rooka)}⚡
                         </Text>
                       </View>
                     ) : null}
@@ -813,14 +813,14 @@ export default function CoachScreen() {
           </View>
           <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
             <Text className="text-sm font-mono font-extrabold text-amber-500">
-              +{Math.round(activeQuest?.reward_points || 0)} Spark
+              +{Math.round(activeQuest?.reward_points || 0)} Rooka
             </Text>
           </View>
         </View>
 
         <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
           <Text className="text-sm font-bold text-theme-text leading-relaxed">
-            {activeQuest?.description || 'Complete your active challenges this week to earn bonus Spark points.'}
+            {activeQuest?.description || 'Complete your active challenges this week to earn bonus Rooka points.'}
           </Text>
         </View>
 
@@ -878,7 +878,7 @@ export default function CoachScreen() {
           </TouchableOpacity>
           <View className="flex-row items-center space-x-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-1.5" />
-            <Text className="text-theme-text text-base font-black">Spark</Text>
+            <Text className="text-theme-text text-base font-black">Rooka</Text>
           </View>
         </View>
 
@@ -890,7 +890,7 @@ export default function CoachScreen() {
       </View>
 
       {/* Option A Docked Glanceable Telemetry Micro-Pill Strip (Equal Width flex-1) */}
-      <View className="px-4 pb-2.5 pt-0.5 bg-theme-bg border-b border-theme-border/40 flex-row items-center gap-2">
+      <View className="px-4 pb-2.5 pt-0.5 bg-theme-bg flex-row items-center gap-2">
         {/* 1. Workout Micro-Pill */}
         <TouchableOpacity
           onPress={() => {
@@ -908,9 +908,9 @@ export default function CoachScreen() {
           <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
             {primaryWorkout?.sport || 'Rest'}
           </Text>
-          {primaryWorkout?.target_spark ? (
+          {primaryWorkout?.target_rooka ? (
             <Text className="text-[11px] font-mono font-extrabold text-theme-accent">
-              +{Math.round(primaryWorkout.target_spark)}⚡
+              +{Math.round(primaryWorkout.target_rooka)}⚡
             </Text>
           ) : null}
         </TouchableOpacity>
@@ -986,7 +986,7 @@ export default function CoachScreen() {
         {loading && messages.length === 0 ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color="#16ACBD" />
-            <Text className="text-theme-muted text-xs mt-2">Connecting with Spark...</Text>
+            <Text className="text-theme-muted text-xs mt-2">Connecting with Rooka...</Text>
           </View>
         ) : (
           <FlatList
@@ -1086,7 +1086,7 @@ export default function CoachScreen() {
             />
           </View>
 
-          <View className="flex-row items-center justify-between pt-2 mt-1 border-t border-theme-border/30">
+          <View className="flex-row items-center justify-between pt-2 mt-1">
             <View className="flex-row items-center space-x-2">
               <TouchableOpacity onPress={handlePickImage} className="w-8 h-8 rounded-full bg-theme-bg/60 border border-theme-border items-center justify-center active:opacity-70">
                 <Ionicons name="attach-outline" size={18} color="#16ACBD" />

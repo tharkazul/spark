@@ -12,9 +12,9 @@ export const LeaderboardSubTab: React.FC = () => {
   const { user } = useUser();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'spark' | 'quests'>('spark');
+  const [activeTab, setActiveTab] = useState<'rooka' | 'quests'>('rooka');
   const [loading, setLoading] = useState<boolean>(true);
-  const [sparkLeaderboard, setSparkLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [rookaLeaderboard, setRookaLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [questLeaderboard, setQuestLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   const hasAccess = canAccessLeaderboard(user?.subscription_tier);
@@ -31,7 +31,7 @@ export const LeaderboardSubTab: React.FC = () => {
       .then((res) => {
         if (!isMounted) return;
         if (res?.leaderboard && Array.isArray(res.leaderboard)) {
-          setSparkLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
+          setRookaLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
         }
         if (res?.questLeaderboard && Array.isArray(res.questLeaderboard)) {
           setQuestLeaderboard(res.questLeaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
@@ -47,7 +47,7 @@ export const LeaderboardSubTab: React.FC = () => {
     };
   }, [hasAccess]);
 
-  const activeList = activeTab === 'spark' ? sparkLeaderboard : questLeaderboard;
+  const activeList = activeTab === 'rooka' ? rookaLeaderboard : questLeaderboard;
 
   if (!hasAccess) {
     return (
@@ -55,13 +55,13 @@ export const LeaderboardSubTab: React.FC = () => {
         <Ionicons name="lock-closed-outline" size={48} color="#FF5F3B" />
         <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Leaderboard Locked</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed">
-          Upgrade to the Spark Plus subscription to unlock global leaderboards and rank against your friends.
+          Upgrade to the Rooka Plus subscription to unlock global leaderboards and rank against your friends.
         </Text>
         <TouchableOpacity
           onPress={() => router.navigate('/profile')}
           className="mt-6 bg-theme-accent px-6 py-3 rounded-full shadow-md"
         >
-          <Text className="text-white font-black text-center">Upgrade to Spark Plus</Text>
+          <Text className="text-white font-black text-center">Upgrade to Rooka Plus</Text>
         </TouchableOpacity>
       </View>
     );
@@ -69,23 +69,23 @@ export const LeaderboardSubTab: React.FC = () => {
 
   return (
     <View className="space-y-4 mb-8">
-      {/* Dual Tab Switcher for Spark Score vs 7-Day Quests */}
+      {/* Dual Tab Switcher for Rooka Score vs 7-Day Quests */}
       <View className="flex-row bg-theme-card border border-theme-border rounded-2xl p-1 mb-4 shadow-sm">
         <TouchableOpacity
           onPress={() => {
             Haptics.selectionAsync();
-            setActiveTab('spark');
+            setActiveTab('rooka');
           }}
           className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-            activeTab === 'spark' ? 'bg-theme-accent' : 'bg-transparent'
+            activeTab === 'rooka' ? 'bg-theme-accent' : 'bg-transparent'
           }`}
         >
           <Text
             className={`text-xs font-black ${
-              activeTab === 'spark' ? 'text-white' : 'text-theme-muted'
+              activeTab === 'rooka' ? 'text-white' : 'text-theme-muted'
             }`}
           >
-            ⚡️ Spark Score
+            ⚡️ Rooka Score
           </Text>
         </TouchableOpacity>
 
@@ -157,17 +157,17 @@ export const LeaderboardSubTab: React.FC = () => {
                     )}
                   </View>
                   <Text className="text-[11px] text-theme-muted font-medium">
-                    Lvl {item.spark_level || 1} · {questsCount} Quests Completed
+                    Lvl {item.rooka_level || 1} · {questsCount} Quests Completed
                   </Text>
                 </View>
               </View>
 
               <View className="items-end">
                 <Text className="text-base font-black text-theme-accent font-mono">
-                  {activeTab === 'spark' ? Math.round(item.total_spark_score || 0) : questsCount}
+                  {activeTab === 'rooka' ? Math.round(item.total_rooka_score || 0) : questsCount}
                 </Text>
                 <Text className="text-[10px] text-theme-muted uppercase font-bold">
-                  {activeTab === 'spark' ? 'Points' : 'Quests'}
+                  {activeTab === 'rooka' ? 'Points' : 'Quests'}
                 </Text>
               </View>
             </View>

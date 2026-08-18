@@ -165,7 +165,7 @@ async function generateWithFallback(
 
   console.error("❌ CRITICAL: All Gemini fallback models failed.");
   throw new Error(
-    "Spark is currently catching their breath. Please try again in a moment.",
+    "Rooka is currently catching their breath. Please try again in a moment.",
   );
 }
 

@@ -62,7 +62,7 @@ export function AdaptPlanModal({
             </Text>
 
             <Text className="text-xs text-theme-muted text-center mb-5 leading-relaxed">
-              Your recent fatigue score is <Text className="font-bold text-theme-accent">88 ATL</Text>. Would you like Spark AI to optimize today's schedule for maximum adaptation?
+              Your recent fatigue score is <Text className="font-bold text-theme-accent">88 ATL</Text>. Would you like Rooka AI to optimize today's schedule for maximum adaptation?
             </Text>
 
             {/* Adaptation Suggestions */}

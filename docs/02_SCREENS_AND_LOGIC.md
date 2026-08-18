@@ -1,4 +1,4 @@
-# Spark — Screen-by-Screen & Function-by-Function Port Spec
+# Rooka — Screen-by-Screen & Function-by-Function Port Spec
 
 > Source: `public/index.html` (≈2 400 lines of markup, 331 element ids) and `public/script.js` (≈6 650 lines, 190 top-level functions).
 > **Target: React Native + Expo, TypeScript.** Library swaps are summarised in the web→native table in `00_README_START_HERE.md` §1 and repeated inline where they matter.
@@ -23,16 +23,16 @@ Per-tab side effects on entry (must become `useFocusEffect` / screen-mount effec
 
 | tab | fires |
 |---|---|
-| dashboard | `switchDashboardTab(last)` → resizes sparklines |
+| dashboard | `switchDashboardTab(last)` → resizes ___sparkline_temp___s |
 | coach | `chatHistoryLoaded=false`, `loadChatHistory()`, scroll to bottom, clear unread badge, write `localStorage['lastChatViewTimestamp']` |
-| physique | `loadPhysiqueLogs()`, `loadNutritionProtocol()`, `loadActiveNiggles()`, `switchProgressTab(last)`, resize radar + 4 sparklines |
+| physique | `loadPhysiqueLogs()`, `loadNutritionProtocol()`, `loadActiveNiggles()`, `switchProgressTab(last)`, resize radar + 4 ___sparkline_temp___s |
 | social | `loadSocialFeed()` |
 | profile | `loadSettings()`, `switchProfileTab(last)` |
 
 Sub-tab systems (4 of them, all with an animated underline indicator positioned via `offsetLeft`/`offsetWidth`):
 - Dashboard: `dash | planning`
-- Progress: `spark | nutrition | health | dailylog`
-- Social: `feed | mylog | leaderboard` (+ nested leaderboard tabs `spark | quests`)
+- Progress: `rooka | nutrition | health | dailylog`
+- Social: `feed | mylog | leaderboard` (+ nested leaderboard tabs `rooka | quests`)
 - Profile: `profile | goals | connections | account`
 
 → In RN use a `MaterialTopTabNavigator` or a `<SegmentedControl>` + `Animated` indicator. Preserve the *last selected* sub-tab across tab switches (the web app sniffs the DOM for the active class to do this — use state).
@@ -75,11 +75,11 @@ Add an `AppState` listener: on `background` close the stream, on `active` reopen
 
 **PMC / training load, in `buildDashboard()`.** Rebuilt from scratch on every dashboard load by replaying the entire activity history day by day:
 ```js
-ctl += (dailySpark - ctl) / 42;   // Fitness,  42-day EMA
-atl += (dailySpark - atl) / 7;    // Fatigue,   7-day EMA
+ctl += (dailyRooka - ctl) / 42;   // Fitness,  42-day EMA
+atl += (dailyRooka - atl) / 7;    // Fatigue,   7-day EMA
 tsb  = ctl - atl;                 // Form
 ```
-Seeded at 0 from the earliest date across `/api/dashboard-data` and `/api/weight`. Days with no activity contribute `spark = 0` (this is what makes it decay).
+Seeded at 0 from the earliest date across `/api/dashboard-data` and `/api/weight`. Days with no activity contribute `rooka = 0` (this is what makes it decay).
 
 **Readiness score:**
 ```js
@@ -109,7 +109,7 @@ If `rampRateWeekly <= 0.1` → "You are not currently building fitness" (amber).
 
 **Weight trend:** vs the most recent entry ≤ 7 days ago; `|Δ| < 0.2 kg` → `~`; gain is red, loss is green (note: hard-coded assumption that losing weight is good — worth revisiting for a general audience).
 
-**Spark score for a planned workout** (`calculateWbSpark()` in the workout builder) — mirrors the AI prompt's rule: 1.2 Spark/min endurance, 1.3–1.4 for Z3/4+, 1.0 for Z1/rest, **0.5 per strength set** ignoring rest.
+**Rooka score for a planned workout** (`calculateWbRooka()` in the workout builder) — mirrors the AI prompt's rule: 1.2 Rooka/min endurance, 1.3–1.4 for Z3/4+, 1.0 for Z1/rest, **0.5 per strength set** ignoring rest.
 
 ### A.5 Coach mood → avatar
 `getCoachAvatar(mood)` resolves a user-uploaded avatar per mood with a fallback chain. Moods produced by the backend: `default`, `hype`, `disappointed`, `support`, `curious`, `empathetic`, `proud`, `horny`.
@@ -179,7 +179,7 @@ React Native additions needed: `KeyboardAvoidingView`, `autoComplete` + `textCon
 
 1. **Choose Coach Persona** — `selectTone(el, tone)`; `toggleCustomCoachFields()` reveals custom name/context (admin-gated server-side, see contract §8).
 2. **Tell us about yourself** — free-text athlete context + optional **Key Physiological Metrics** repeater (`renderOnboardMetricsEditor`, `addOnboardMetricRow`, `removeOnboardMetricRow`) + **Main Target Event** (`handleOnboardRaceNameInput` → debounced CTL estimate via `ctlEstimateTimeout`).
-3. **Spark & Leveling** — static explainer ("What is Spark?", "Leveling Up").
+3. **Rooka & Leveling** — static explainer ("What is Rooka?", "Leveling Up").
 4. **Schedule Boundaries** — `renderScheduleBoundaries()`, `cycleAvailability(day)` cycles `available → time_capped → blocked`, `updateAvailabilityMinutes(day, mins)`. Shape: `{ monday:{status, max_minutes}, … }`.
 5. **Connect Devices** — Garmin fields (`onboard-garmin-fields`), Strava OAuth button (`saveAndConnectStrava` persists `onboardTone`/`onboardContext`/`resumeOnboardingStep` first, because the browser navigates away).
 
@@ -193,12 +193,12 @@ React Native additions needed: `KeyboardAvoidingView`, `autoComplete` + `textCon
 - **Today's Plan** (`#dash-today-plan-container`) — the *same HTML string* generated for today inside `loadMicroPlan()`, re-injected here. In RN: one `<DayCard />` component rendered in two places, not a string copy.
 - **Daily AI Nutrition Protocol** — `#dash-nutrition-content` + `#dash-macro-rings-container` (`renderMacroRings`), "Reset Today's Diet" → `POST /api/physique/nutrition/reset`.
 - **Active Quests** — `#active-quests-container`/`#quests-list` via `fetchGamificationData()`; `renderQuestCard(q)` with `getQuestProgressHtml`, `getQuestCountdownHtml`, `getQuestRefreshButtonHtml`. Statuses render as: Active (red pulsing dot), Completed 🏆 (emerald), Replaced 🔄, Closed 🛑, Expired ⏳. Countdown parses `expires_at` as UTC (`replace(" ","T") + "Z"`).
-- **4 metric cards**: Fitness / Fatigue / Readiness / Weight — big number + trend arrow + subtitle + 30-day Chart.js sparkline (`sparkline_fitness|fatigue|readiness|weight`).
+- **4 metric cards**: Fitness / Fatigue / Readiness / Weight — big number + trend arrow + subtitle + 30-day Chart.js ___sparkline_temp___ (`___sparkline_temp____fitness|fatigue|readiness|weight`).
 - Readiness + fatigue **slider markers** positioned by percentage.
 - **"Fitness toward race day"** goal widget (`#goal-progress-widget`) — days out, now/target CTL, progress bar, projection sentence.
 - **PMC chart** (`#pmcChart`) — Chart.js combo: Form as bars (yellow >0 / red <0), Fitness line `#0ea5e9`, Fatigue dashed `#f43f5e`, Target dashed `#f59e0b`, Milestone star points; default x-window = last 14 days → today; pan/zoom enabled (ctrl-drag, wheel, pinch) with a "Reset Zoom" control.
-- **Quick Actions** row (`renderQuickActions(planMap, sparkMap)`) — context-dependent chips that jump to Coach with a canned message:
-  - if today's actual Spark > 0 → "🔥 Debrief Workout", "📉 Felt Terrible"
+- **Quick Actions** row (`renderQuickActions(planMap, rookaMap)`) — context-dependent chips that jump to Coach with a canned message:
+  - if today's actual Rooka > 0 → "🔥 Debrief Workout", "📉 Felt Terrible"
   - else if a non-Rest workout is planned → "⏱️ Time Crunch", "🛑 Skip Today", "🏃‍♂️ Warmup Routine"
   - else (rest day) → "🧘‍♂️ Stretching Routine", "🥗 Nutrition Focus"
   (exact prompt strings are in `script.js:3998-4035` — copy them verbatim, they are tuned)
@@ -206,7 +206,7 @@ React Native additions needed: `KeyboardAvoidingView`, `autoComplete` + `textCon
 **Sub-tab "Planning" (`dashboard-subtab-planning`)**
 - **Macro Periodization** — `renderMacroPlan()`, phase chips `#phase-base|build|peak|taper`, `#macro-block`, `#macro-progress`, `#macro-fueling`, `#today-marker`.
 - **Micro Plan** — `loadMicroPlan()`, week nav `changeWeek(±1)` + `#week-range-label`, 7-column grid (`md:grid-cols-7`, stacks to 1 column on mobile).
-  Per day card: weekday + date, weather chip (emoji + max temp), **⚡️ ADAPT** button (only for `date >= today`) → Life Happens sheet; then one card per workout showing sport, "Done" badge when `actualSpark>0 && targetSpark>0`, description (2-line clamp), `actual/target Spark`, `Structured|Basic`, and a per-workout **push-to-Garmin** icon; finally a dashed **+ Add** button.
+  Per day card: weekday + date, weather chip (emoji + max temp), **⚡️ ADAPT** button (only for `date >= today`) → Life Happens sheet; then one card per workout showing sport, "Done" badge when `actualRooka>0 && targetRooka>0`, description (2-line clamp), `actual/target Rooka`, `Structured|Basic`, and a per-workout **push-to-Garmin** icon; finally a dashed **+ Add** button.
   Tapping a workout → Edit Workout modal; tapping + → same modal in create mode.
 - **Auto-Generate Week** → `generateTemplate()` → `POST /api/generate-plan`.
 - ⚠️ Weather is fetched client-side from **open-meteo hard-coded to Amsterdam** (52.3676, 4.9041). In RN, use `expo-location` (needs `NSLocationWhenInUseUsageDescription`) with a manual-city fallback in settings, and cache the response — this is currently an unauthenticated third-party call on every plan load.
@@ -223,8 +223,8 @@ React Native additions needed: `KeyboardAvoidingView`, `autoComplete` + `textCon
 **React Native swaps:** Web Speech API → `expo-speech` (TTS) + `expo-av`/`@react-native-voice/voice` (STT, needs `NSMicrophoneUsageDescription` + `NSSpeechRecognitionUsageDescription`). Image picker → `expo-image-picker` + `expo-image-manipulator` to compress **before** base64 (15 MB body cap, and base64 inflates by ~33 %).
 
 ### B.5 Progress — `#view-physique` (title "Progress")
-Sub-tabs: **Spark | Nutrition | Health | Daily Log**.
-- **Spark** — `#spark-level-bar` (level + progress from `settings.sparkLevel`), **Athlete Archetype** radar (`progress_radar`, 4 axes: Endurance / Strength / Versatility / Explosiveness, 0–100), **30-Day Trends** (4 sparklines from `profile.trends`), **Personal Titles** (`#personal-titles-list`, `generateTitle`, `equipTitle`, `deleteTitle`), quests log (`#quests-log-container`).
+Sub-tabs: **Rooka | Nutrition | Health | Daily Log**.
+- **Rooka** — `#rooka-level-bar` (level + progress from `settings.rookaLevel`), **Athlete Archetype** radar (`progress_radar`, 4 axes: Endurance / Strength / Versatility / Explosiveness, 0–100), **30-Day Trends** (4 ___sparkline_temp___s from `profile.trends`), **Personal Titles** (`#personal-titles-list`, `generateTitle`, `equipTitle`, `deleteTitle`), quests log (`#quests-log-container`).
 - **Nutrition** — protocol card (title, rationale, macro targets), macro rings (`#physique-macro-rings-container`), "Reset Today's Diet".
 - **Health** — **Cycle & Readiness** widget (`updateCycleWidget(gender, lastCycleStart, avgCycleLength)`, `#cycle-widget-container`, `#cycle-phase-title`, `#set-cycle-container`, `logCycleStart`), body-map **niggle tracker** (`loadActiveNiggles`, `openNiggleModal(bodyPartId)`, `#niggle-severity-display` 1–5, `saveNiggle`, `resolveNiggle`), muscle fatigue heatmap from `/api/fatigue`, AI insight from `/api/fatigue/insight`.
 - **Daily Log** — form: Date, Weight (kg), Sleep Quality 1–5, Fatigue 1–5, Notes/Soreness, Progress Photo → `submitPhysiqueLog` (multipart) → **"Save Log"**; history list `#physique-history` with delete (`deletePhysiqueLog`). Also `submitManualWeight()` → `POST /api/weight`.
@@ -233,18 +233,18 @@ Sub-tabs: **Spark | Nutrition | Health | Daily Log**.
 
 ### B.6 Social — `#view-social` ("Activities & Community")
 Sub-tabs **Feed | My Log | Leaderboard**, `toggleSocialTab` / `updateSocialTabUI`.
-- **Feed** — `loadSocialFeed()` → `#social-feed-container`; per card: avatar, username, spark level, activity name/sport/distance/time/Spark, kudos toggle (`toggleKudos`, optimistic), comment count, tap → Activity modal.
+- **Feed** — `loadSocialFeed()` → `#social-feed-container`; per card: avatar, username, rooka level, activity name/sport/distance/time/Rooka, kudos toggle (`toggleKudos`, optimistic), comment count, tap → Activity modal.
 - **My Log** — `loadHistory()` → `#history-list-container`, **Training Load History (PMC)** chart + "Reset Zoom", multi-select checkboxes (`toggleAllLog`) + **CSV export** (`downloadSelectedCSV`). CSV export in native needs `expo-file-system` + `expo-sharing`, not an `<a download>`.
-- **Leaderboard** — `loadLeaderboard()`, nested tabs **⚡ Spark Score** / **⚔️ Quest Champions (7d)** (`switchLeaderboardTab`), `#social-leaderboard-list`.
+- **Leaderboard** — `loadLeaderboard()`, nested tabs **⚡ Rooka Score** / **⚔️ Quest Champions (7d)** (`switchLeaderboardTab`), `#social-leaderboard-list`.
 - **Add person** modal — `openAddPersonModal`, `searchPerson` (exact username), `sendConnectionRequest`; **pending requests** section `#pending-requests-section`/`#pending-requests-list` with `acceptConnection`.
-- `openPublicProfile(userId)` → `#public-profile-modal` with avatar, highlight, 4 sparklines (`renderPublicSparkline`), recent activities.
+- `openPublicProfile(userId)` → `#public-profile-modal` with avatar, highlight, 4 ___sparkline_temp___s (`renderPublicSparkline`), recent activities.
 
 ### B.7 Profile — `#view-profile`
 Sub-tabs **Profile | Goals | Connections | Account**.
 - **Profile**: profile photo upload (`uploadProfilePicture`), **+ Generate Title**, language select (`changeAppLanguage`, en/nl/de/es/fr), Coach Tone & Style, Coach Name, Coach Context, **Coach Avatars (4 moods)** with per-mood upload (`uploadCoachAvatar(mood)`, previews `#preview-avatar-neutral|hype|disappointed|horny`), Gender, Last Cycle Start, My Background (AI context), Schedule Boundaries editor, **Save Persona** (`saveSettings('coach')`).
 - **Goals**: metrics repeater (**+ Add Metric** / **Save Metrics** → `saveMetrics`), milestones repeater (**+ Add Race** / **Save Calendar** → `saveMilestones`, fields: name, date, target CTL, is_main).
-- **Connections**: Garmin (email + password + Connect/Disconnect), Strava (**Authorize Spark** → `connectStravaOAuth`, Disconnect, **Pull Latest Activities** → `forceStravaSync`), per-sport **Strava automation toggles** (`loadStravaAutomations`/`saveStravaAutomations`): *Workout Title Renaming*, *Spark Score & Goal*, *Workout Structure*, *Spark Backlink* — 4 booleans per sport type, defaults all true, saved to the two magic `athlete_metrics` keys. Also search privacy toggle (`toggleSearchPrivacy`).
-- **Account**: **View Premium Benefits** → `trackSparkPlusClick()` (fake paywall — counts intent only), **Request Account Data** → `requestAccountData()` (counter only ⚠️), **Delete Account** → `confirmDeleteAccount()`, **Log out**.
+- **Connections**: Garmin (email + password + Connect/Disconnect), Strava (**Authorize Rooka** → `connectStravaOAuth`, Disconnect, **Pull Latest Activities** → `forceStravaSync`), per-sport **Strava automation toggles** (`loadStravaAutomations`/`saveStravaAutomations`): *Workout Title Renaming*, *Rooka Score & Goal*, *Workout Structure*, *Rooka Backlink* — 4 booleans per sport type, defaults all true, saved to the two magic `athlete_metrics` keys. Also search privacy toggle (`toggleSearchPrivacy`).
+- **Account**: **View Premium Benefits** → `trackRookaPlusClick()` (fake paywall — counts intent only), **Request Account Data** → `requestAccountData()` (counter only ⚠️), **Delete Account** → `confirmDeleteAccount()`, **Log out**.
 
 ⚠️ App Store: an in-app "Premium" affordance that leads nowhere is fine, but the moment it becomes a real purchase it must be **StoreKit IAP**, not Stripe/web checkout, for digital content. Plan the entitlement flow server-side (receipt validation → `subscription_tier`) rather than trusting the client.
 
@@ -260,7 +260,7 @@ Sub-tabs **Profile | Goals | Connections | Account**.
 | `#niggle-modal` | `openNiggleModal(bodyPartId)` | severity 1–5, notes, save/resolve |
 | `#invite-event-modal` | `openInviteModal(microPlanId)` | connections list `#invite-connections-list`, location, time → `submitEventInvite` |
 | `#add-person-modal` | `openAddPersonModal()` | username search → `#add-person-results` |
-| `#public-profile-modal` | `openPublicProfile(userId)` | avatar, highlight, sparklines, activities |
+| `#public-profile-modal` | `openPublicProfile(userId)` | avatar, highlight, ___sparkline_temp___s, activities |
 | `#image-modal` | `enlargeAvatar(src)` | full-screen image |
 | `#theme-picker-overlay` | `toggleThemePicker()` | dev tool — drop |
 
@@ -271,7 +271,7 @@ Sub-tabs **Profile | Goals | Connections | Account**.
 ## PART D — The Workout Builder (highest-complexity component)
 
 State: `wbCurrentWorkoutId`, `wbCurrentDateStr`, `wbSteps[]`.
-Functions: `openEditWorkoutModal`, `closeEditWorkoutModal`, `calculateWbSpark`, `wbAddStep(type)`, `wbAddRepeat()`, `wbRemoveStep(idx, subIdx?)`, `wbMoveStep(idx, dir, subIdx?)`, `wbUpdateStep(idx, subIdx, field, val)`, `renderWbSteps()`, `renderWbBlock(s, idx, parentIdx, isStrength)`, `syncSingleToGarmin(id, date, sport)`.
+Functions: `openEditWorkoutModal`, `closeEditWorkoutModal`, `calculateWbRooka`, `wbAddStep(type)`, `wbAddRepeat()`, `wbRemoveStep(idx, subIdx?)`, `wbMoveStep(idx, dir, subIdx?)`, `wbUpdateStep(idx, subIdx, field, val)`, `renderWbSteps()`, `renderWbBlock(s, idx, parentIdx, isStrength)`, `syncSingleToGarmin(id, date, sport)`.
 
 **`steps_json` schema — the single most important data structure in the app.** Stored as a *stringified* JSON array inside `micro_plan.steps_json`. Two node kinds:
 
@@ -308,7 +308,7 @@ Rules the whole system depends on:
 | action | behaviour |
 |---|---|
 | `push` | direct `POST /api/micro-plan/push-forward {date}` → toast "Schedule shifted +1 day successfully!" → `loadMicroPlan()` + `loadChatHistory()`. **The only one that does not go through the AI.** |
-| `time_crunch` | sends to coach: *"I only have 30 minutes to train on {date}. Strip down the scheduled workout on {date} to the essentials, keeping the intensity high to maintain my Spark target."* |
+| `time_crunch` | sends to coach: *"I only have 30 minutes to train on {date}. Strip down the scheduled workout on {date} to the essentials, keeping the intensity high to maintain my Rooka target."* |
 | `skip` | *"I cannot train on {date}. Cancel the session scheduled for {date} and safely redistribute the necessary training load across the rest of the week."* |
 | `indoors` | *"I need to train indoors on {date}. Swap the scheduled outdoor workout on {date} for an equivalent indoor session (e.g., trainer ride, treadmill, or bodyweight strength)."* |
 | anything else | the string is sent verbatim as a chat message |

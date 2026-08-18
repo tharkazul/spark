@@ -41,7 +41,7 @@ export function AdminTab() {
     }
   };
 
-  const handleSetTier = async (username: string, tier: 'free' | 'spark_plus' | 'admin') => {
+  const handleSetTier = async (username: string, tier: 'free' | 'rooka_plus' | 'admin') => {
     setActionLoading(`tier-${username}`);
     try {
       await adminApi.setTier(username, tier);
@@ -163,12 +163,12 @@ export function AdminTab() {
                     <Text className="text-[11px] font-bold text-amber-500">+50k</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => handleSetTier(u.username, u.subscription_tier === 'spark_plus' ? 'free' : 'spark_plus')}
+                    onPress={() => handleSetTier(u.username, u.subscription_tier === 'rooka_plus' ? 'free' : 'rooka_plus')}
                     disabled={actionLoading !== null}
                     className="bg-theme-accent/20 px-2.5 py-1 rounded-lg"
                   >
                     <Text className="text-[11px] font-bold text-theme-accent">
-                      {u.subscription_tier === 'spark_plus' ? 'Downgrade' : 'Upgrade'}
+                      {u.subscription_tier === 'rooka_plus' ? 'Downgrade' : 'Upgrade'}
                     </Text>
                   </TouchableOpacity>
                 </View>

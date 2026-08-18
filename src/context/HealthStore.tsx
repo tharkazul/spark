@@ -12,15 +12,7 @@ interface HealthContextType {
   resolveNiggle: (id: number | string) => Promise<void>;
 }
 
-const defaultNiggles: Niggle[] = [
-  {
-    id: 1,
-    body_part: 'left_ankle_foot',
-    severity: 1,
-    notes: 'Mild tightness in left plantar arch after long Sunday run.',
-    status: 'active',
-  },
-];
+const defaultNiggles: Niggle[] = [];
 
 const HealthContext = createContext<HealthContextType | undefined>(undefined);
 

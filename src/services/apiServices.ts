@@ -65,8 +65,8 @@ export const userApi = {
       body: formData,
     });
   },
-  trackSparkPlusClick: () =>
-    apiClient<{ success: boolean }>('/api/track-spark-plus-click', { method: 'POST' }),
+  trackRookaPlusClick: () =>
+    apiClient<{ success: boolean }>('/api/track-rooka-plus-click', { method: 'POST' }),
   requestAccountData: () =>
     apiClient<{ success: boolean; message: string }>('/api/request-account-data', { method: 'POST' }),
   deleteAccount: () =>
@@ -198,7 +198,7 @@ export const physiqueApi = {
 };
 
 export const gamificationApi = {
-  getGamificationData: () => apiClient<{ quests: Quest[]; titles: UserTitle[]; total_spark: number }>('/api/gamification'),
+  getGamificationData: () => apiClient<{ quests: Quest[]; titles: UserTitle[]; total_rooka: number }>('/api/gamification'),
   generateQuest: () => apiClient<{ success: boolean; quest: Quest }>('/api/gamification/generate_quest', { method: 'POST' }),
   refreshQuest: (quest_id: number | string) =>
     apiClient<{ success: boolean; quest: Quest }>('/api/gamification/refresh_quest', {

@@ -81,7 +81,7 @@ export default function LoginScreen() {
             <View className="w-16 h-16 rounded-2xl bg-theme-accent items-center justify-center mb-3 shadow-lg shadow-blue-500/30">
               <Ionicons name="flash" size={32} color="#FFFFFF" />
             </View>
-            <Text className="text-3xl font-extrabold text-theme-text tracking-tight">SPARK</Text>
+            <Text className="text-3xl font-extrabold text-theme-text tracking-tight">ROOKA</Text>
             <Text className="text-sm font-medium text-theme-muted mt-1">
               {t('auth.subtitle')}
             </Text>
@@ -163,7 +163,7 @@ export default function LoginScreen() {
               <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
                 <Ionicons name="mail-outline" size={20} color="#8E8E93" />
                 <TextInput
-                  placeholder="athlete@spark.com"
+                  placeholder="athlete@rooka.com"
                   placeholderTextColor="#8E8E93"
                   value={email}
                   onChangeText={setEmail}

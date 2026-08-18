@@ -1,7 +1,7 @@
 import { SubscriptionTier } from '../types/user';
 
 export const hasSubscriptionTier = (tier?: SubscriptionTier): boolean => {
-  return tier === 'subscription' || tier === 'spark_plus' || tier === 'premium' || tier === 'admin';
+  return tier === 'subscription' || tier === 'rooka_plus' || tier === 'premium' || tier === 'admin';
 };
 
 export const hasPremiumTier = (tier?: SubscriptionTier): boolean => {

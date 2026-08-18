@@ -11,26 +11,26 @@ import { useCoachChatStore } from '../../context/CoachChatStore';
 
 interface AccountTabProps {
   onLogout: () => void;
-  isSparkPlus: boolean;
+  isRookaPlus: boolean;
 }
 
-export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus }) => {
+export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus }) => {
   const { t } = useLanguage();
   const { user } = useUser();
   const { tokenUsage } = useCoachChatStore();
   const [trackingUpgrade, setTrackingUpgrade] = useState(false);
 
   const tier = user?.subscription_tier || 'free';
-  const isMember = isSparkPlus || tier === 'admin' || tier === 'premium' || tier === 'spark_plus' || tier === 'subscription';
+  const isMember = isRookaPlus || tier === 'admin' || tier === 'premium' || tier === 'rooka_plus' || tier === 'subscription';
 
   const dailyUsage = tokenUsage?.daily_token_usage ?? (user as any)?.dailyTokenUsage ?? (user as any)?.daily_token_usage ?? 0;
   const dailyLimit = tokenUsage?.daily_token_limit ?? (user as any)?.dailyTokenLimit ?? (user as any)?.daily_token_limit ?? (tier === 'admin' ? 500000 : isMember ? 50000 : 5000);
 
-  const handleSparkPlusClick = async () => {
+  const handleRookaPlusClick = async () => {
     setTrackingUpgrade(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await userApi.trackSparkPlusClick();
+      await userApi.trackRookaPlusClick();
     } catch (err) {
       // silent catch
     } finally {
@@ -91,9 +91,9 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
         </View>
       </Card>
 
-      {/* SPARK+ UPGRADE / MEMBER CARD */}
+      {/* ROOKA+ UPGRADE / MEMBER CARD */}
       <TouchableOpacity
-        onPress={handleSparkPlusClick}
+        onPress={handleRookaPlusClick}
         activeOpacity={0.9}
         className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-theme-border/30"
       >
@@ -108,8 +108,8 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isSparkPlus })
               <Ionicons name="flash" size={24} color="#FFF" />
               <Text className="text-white text-xl font-extrabold tracking-tight ml-2">
                 {isMember
-                  ? (tier === 'admin' ? '⚡ Spark Admin Access' : '⚡ Spark+ Active')
-                  : 'Upgrade to Spark+'}
+                  ? (tier === 'admin' ? '⚡ Rooka Admin Access' : '⚡ Rooka+ Active')
+                  : 'Upgrade to Rooka+'}
               </Text>
             </View>
             <View className="px-2.5 py-1 bg-white/20 rounded-full">

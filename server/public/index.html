@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rooka - AI Endurance & Recovery Coach | rooka.io</title>
+  <meta name="description" content="Rooka is the elite AI endurance coach. Get daily recovery readiness scores, PMC fitness tracking, Garmin & Strava sync, and 24/7 personalized coaching powered by Google Gemini.">
+  <meta name="keywords" content="Rooka, AI Coach, Triathlon Coach, Running Coach, Strava Sync, Garmin Connect, Recovery Score, PMC Chart, Fitness Fatigue, TestFlight Beta">
+  <meta property="og:title" content="Rooka - AI Endurance & Recovery Coach">
+  <meta property="og:description" content="Your personal AI endurance coach. Daily recovery readiness, adaptive training plans, and Strava/Garmin sync.">
+  <meta property="og:url" content="https://rooka.io">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/png" href="rooka-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Ambient Lighting Effects -->
+  <div class="ambient-glow glow-top-left"></div>
+  <div class="ambient-glow glow-center-right"></div>
+  <div class="ambient-glow glow-bottom-left"></div>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="brand-logo">
+        <img src="rooka-icon.png" class="logo-symbol" style="object-fit: cover; background: none; box-shadow: none; border-radius: 8px;" alt="Rooka Logo">
+        <div class="logo-text">ROOKA<span class="logo-domain">.io</span></div>
+      </a>
+
+      <ul class="nav-menu">
+        <li><a href="#features" class="nav-link">Features</a></li>
+        <li><a href="#coach-demo" class="nav-link">AI Coach</a></li>
+        <li><a href="#telemetry" class="nav-link">Recovery & PMC</a></li>
+        <li><a href="#comparison" class="nav-link">Why Rooka</a></li>
+        <li><a href="#faq" class="nav-link">FAQ</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="#testflight" class="btn btn-primary btn-sm">Join TestFlight Beta</a>
+        <button class="mobile-toggle" aria-label="Toggle navigation menu">☰</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        
+        <!-- Left Hero Content -->
+        <div class="hero-content">
+          <div class="badge badge-pulse">
+            <span>🔥 TestFlight Beta Now Live</span>
+          </div>
+
+          <h1 class="hero-title">
+            Your Personal <br>
+            <span class="gradient-fire">AI Endurance Coach.</span><br>
+            Always In Your Corner.
+          </h1>
+
+          <p class="hero-subtitle">
+            Rooka unites pro-grade exercise physiology with Google Gemini AI intelligence. Track daily recovery readiness, adaptive training loads, and seamless Strava &amp; Garmin syncing in one unified dashboard.
+          </p>
+
+          <div class="hero-cta-group">
+            <a href="#testflight" class="btn btn-primary btn-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              Get TestFlight Access
+            </a>
+            <a href="#features" class="btn btn-secondary btn-lg">Explore Features</a>
+          </div>
+
+          <div class="hero-stats-row">
+            <div class="stat-item">
+              <div class="stat-value">24/7</div>
+              <div class="stat-label">Real-time Coaching</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">&lt; 1s</div>
+              <div class="stat-label">Garmin &amp; Strava Sync</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">100%</div>
+              <div class="stat-label">Privacy First (AES-256)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Hero Interactive Phone Mockup -->
+        <div class="hero-mockup-wrapper">
+          <div class="floating-chip chip-1">
+            <span style="color: #FF5A1F;">⚡</span>
+            <span>Garmin &amp; Strava Synced</span>
+          </div>
+          
+          <div class="floating-chip chip-2">
+            <span style="color: #00D8F6;">🧠</span>
+            <span>Gemini AI Intelligence</span>
+          </div>
+
+          <div class="phone-card">
+            <div class="phone-notch"></div>
+
+            <div class="app-screen-header">
+              <div class="app-user-pill">
+                <div class="app-avatar">R</div>
+                <div>
+                  <div class="app-user-name">Alex M.</div>
+                  <div class="app-user-streak">🔥 18-Day Streak • Level 14</div>
+                </div>
+              </div>
+              <span class="badge" style="font-size: 10px; padding: 3px 8px;">ROOKA+</span>
+            </div>
+
+            <!-- Recovery Gauge Card -->
+            <div class="recovery-gauge-card">
+              <div>
+                <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">Daily Readiness</div>
+                <div class="recovery-score-display">
+                  <span class="score-number">92</span>
+                  <span class="score-max">/ 100</span>
+                </div>
+              </div>
+              <div class="recovery-tag">Optimal Recovery</div>
+            </div>
+
+            <!-- AI Coach Bubble -->
+            <div class="coach-chat-bubble">
+              <div class="coach-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z"/></svg>
+                Coach Rooka
+              </div>
+              "Your heart rate decoupling was only 2.1% on yesterday's 24km long run. Readiness is high at 92! Today is ideal for your scheduled 5x1km threshold intervals."
+            </div>
+
+            <!-- PMC Telemetry Mini Strip -->
+            <div class="pmc-mini-strip">
+              <div class="pmc-mini-item">
+                <div class="pmc-label">Fitness (CTL)</div>
+                <div class="pmc-val" style="color: #38BDF8;">84.2</div>
+              </div>
+              <div class="pmc-mini-item">
+                <div class="pmc-label">Fatigue (ATL)</div>
+                <div class="pmc-val" style="color: #F87171;">41.8</div>
+              </div>
+              <div class="pmc-mini-item">
+                <div class="pmc-label">Form (TSB)</div>
+                <div class="pmc-val" style="color: #34D399;">+14.0</div>
+              </div>
+            </div>
+
+            <div style="margin-top: 14px; background: rgba(255, 90, 31, 0.1); border: 1px dashed rgba(255, 90, 31, 0.3); border-radius: 10px; padding: 10px; text-align: center;">
+              <span style="font-size: 11px; font-weight: 700; color: #FF5A1F;">🎯 Today's Goal: 5x1km at 3:45/km • 85 Rooka XP</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Integrations Strip -->
+  <section class="integrations-bar">
+    <div class="container integrations-wrapper">
+      <div class="integrations-label">Integrated Ecosystem</div>
+      <div class="integrations-list">
+        <div class="integration-badge">
+          <span style="color: #FC4C02; font-weight: 800;">STRAVA</span>
+          <span>Auto-Sync</span>
+        </div>
+        <div class="integration-badge">
+          <span style="color: #007CC3; font-weight: 800;">GARMIN CONNECT</span>
+          <span>Bi-Directional</span>
+        </div>
+        <div class="integration-badge">
+          <span style="color: #FF2D55; font-weight: 800;">APPLE HEALTH</span>
+          <span>HealthKit</span>
+        </div>
+        <div class="integration-badge">
+          <span style="color: #8B5CF6; font-weight: 800;">GOOGLE GEMINI</span>
+          <span>2.5 Intelligence</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid Section -->
+  <section id="features" class="section">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Engineered for Peak Performance</div>
+        <h2>Everything an Athlete Needs.<br>None of the Noise.</h2>
+        <p>Whether you are training for a Sub-3 Marathon, an Ironman 70.3, or building a powerful physique, Rooka turns raw telemetry into daily tactical decisions.</p>
+      </div>
+
+      <div class="features-grid">
+        
+        <!-- Feature 1 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">🧠</div>
+          <h3>Conversational AI Coach</h3>
+          <p>Chat directly with your coach 24/7. Switch between Empathetic, Strict, or Cheerful coach personas to get feedback, pacing targets, and race tactics tuned to your mindset.</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">⚡</div>
+          <h3>Daily Rooka Recovery Score</h3>
+          <p>Know exactly when to attack and when to back off. Algorithmic recovery scores derived from workout stress, volume density, cardiac drift, and rest metrics.</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">📊</div>
+          <h3>PMC Telemetry &amp; Form</h3>
+          <p>Scientific Performance Management Charting: Track your Chronic Training Load (Fitness), Acute Load (Fatigue), and Training Stress Balance (Form) to perfectly time race-day peaks.</p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">🔄</div>
+          <h3>Garmin &amp; Strava Auto-Sync</h3>
+          <p>Automated background syncing imports your runs, bike rides, swims, and strength sessions the second you hit save on your watch.</p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">📸</div>
+          <h3>Physique &amp; Body Fat Vault</h3>
+          <p>Track your physical transformation alongside your endurance gains. Side-by-side photo comparison slider and encrypted body composition logs.</p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">🏆</div>
+          <h3>Gamified Quests &amp; Levels</h3>
+          <p>Every minute of training generates Rooka XP. Complete weekly quests, unlock athletic badges, level up your profile, and climb the global community leaderboard.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive AI Coach Demo Section -->
+  <section id="coach-demo" class="section coach-sim-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Live Simulator</div>
+        <h2>Experience the Intelligence of Rooka</h2>
+        <p>See how Rooka translates complex endurance science and athlete context into clear, actionable advice.</p>
+      </div>
+
+      <div class="sim-container">
+        <div class="sim-tabs-label">Select Athlete Scenario:</div>
+        <div class="sim-tabs">
+          <button class="sim-tab-btn active" data-tab="recovery">⚠️ HRV Drop &amp; Heavy Legs</button>
+          <button class="sim-tab-btn" data-tab="taper">🎯 70.3 Ironman Taper Strategy</button>
+          <button class="sim-tab-btn" data-tab="nutrition">🍌 140km Mountain Fueling</button>
+          <button class="sim-tab-btn" data-tab="physique">📸 Physique &amp; Body Fat Audit</button>
+        </div>
+
+        <div class="sim-chat-box">
+          <div class="sim-bubble sim-bubble-user" id="sim-user-query">
+            "My legs feel heavy and my HRV dropped 15ms. Should I still do my 5x1km threshold intervals today?"
+          </div>
+
+          <div class="sim-bubble sim-bubble-coach">
+            <div class="coach-header-small">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z"/></svg>
+              Coach Rooka Response
+            </div>
+            <div id="sim-coach-response">
+              Based on your 15ms HRV drop and yesterday's 90-min tempo run, your recovery readiness is at 62 (Caution). Pushing threshold intervals today will increase fatigue without proportional adaptation. Let's pivot: swap today to a 45-min Zone 1 flush run (Heart Rate &lt; 135 bpm) or 30-min easy spin, and push your 5x1km threshold session to tomorrow.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Telemetry & PMC Section -->
+  <section id="telemetry" class="section">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Exercise Physiology</div>
+        <h2>Data-Driven Periodization</h2>
+        <p>No more guessing whether you're overtraining or under-recovering. Rooka calculates your physiological metrics automatically.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card" style="border-top: 2px solid #38BDF8;">
+          <div style="color: #38BDF8; font-family: var(--font-display); font-size: 32px; font-weight: 800;">CTL</div>
+          <h3>Chronic Training Load (Fitness)</h3>
+          <p>A rolling 42-day exponentially weighted moving average of your training stress. As your CTL rises steadily without sharp spikes, your endurance base solidifies.</p>
+        </div>
+
+        <div class="feature-card" style="border-top: 2px solid #F87171;">
+          <div style="color: #F87171; font-family: var(--font-display); font-size: 32px; font-weight: 800;">ATL</div>
+          <h3>Acute Training Load (Fatigue)</h3>
+          <p>A short-term 7-day weighted average representing fatigue. Rooka monitors ATL spikes to alert you before injury or overreaching sets in.</p>
+        </div>
+
+        <div class="feature-card" style="border-top: 2px solid #34D399;">
+          <div style="color: #34D399; font-family: var(--font-display); font-size: 32px; font-weight: 800;">TSB</div>
+          <h3>Training Stress Balance (Form)</h3>
+          <p>Fitness minus Fatigue (CTL - ATL). Target positive values (+10 to +25) on race morning to arrive fresh, explosive, and fully recovered.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Section -->
+  <section id="comparison" class="section" style="background: rgba(14, 22, 38, 0.4);">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Unrivaled Value</div>
+        <h2>Why Athletes Choose Rooka</h2>
+        <p>Compare Rooka against standard fitness apps, generic ChatGPT, and traditional coaching.</p>
+      </div>
+
+      <div class="table-container">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th class="highlight-col">Rooka (rooka.io)</th>
+              <th>Standard Tracker</th>
+              <th>Generic ChatGPT</th>
+              <th>Human Coach</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Daily Recovery &amp; Readiness Score</strong></td>
+              <td class="highlight-col check-yes">✓ Algorithmic &amp; Adaptive</td>
+              <td class="check-yes">✓ Generic Rest Score</td>
+              <td class="check-no">✕ No Sensor Data</td>
+              <td class="check-yes">✓ Manual Check-in</td>
+            </tr>
+            <tr>
+              <td><strong>Garmin &amp; Strava Live Sync</strong></td>
+              <td class="highlight-col check-yes">✓ Instant Auto-Sync</td>
+              <td class="check-yes">✓ Standard Sync</td>
+              <td class="check-no">✕ No Integration</td>
+              <td class="check-no">✕ Manual Review</td>
+            </tr>
+            <tr>
+              <td><strong>24/7 Context-Aware AI Chat</strong></td>
+              <td class="highlight-col check-yes">✓ Full Athlete Context</td>
+              <td class="check-no">✕ Static Tips Only</td>
+              <td class="check-yes">✓ Generic Answers</td>
+              <td class="check-no">✕ Limited Hours</td>
+            </tr>
+            <tr>
+              <td><strong>PMC Charting (CTL/ATL/TSB)</strong></td>
+              <td class="highlight-col check-yes">✓ Built-in Telemetry</td>
+              <td class="check-no">✕ Paid Add-on</td>
+              <td class="check-no">✕ None</td>
+              <td class="check-yes">✓ Requires TrainingPeaks</td>
+            </tr>
+            <tr>
+              <td><strong>Physique Vault &amp; Body Fat</strong></td>
+              <td class="highlight-col check-yes">✓ Encrypted &amp; Slider</td>
+              <td class="check-no">✕ Weight only</td>
+              <td class="check-no">✕ None</td>
+              <td class="check-no">✕ Awkward Email Photos</td>
+            </tr>
+            <tr>
+              <td><strong>Monthly Cost</strong></td>
+              <td class="highlight-col" style="color: #FF5A1F; font-size: 18px; font-weight: 800;">Free Beta / €9.99</td>
+              <td>€12.99 / mo</td>
+              <td>€20.00 / mo</td>
+              <td>€150 - €300 / mo</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- TestFlight Beta Download CTA Section -->
+  <section id="testflight" class="section">
+    <div class="container">
+      <div class="cta-box">
+        <div class="badge" style="margin-bottom: 20px;">Limited Beta Cohort</div>
+        <h2>Join the Rooka TestFlight Beta</h2>
+        <p>Experience the future of AI endurance coaching before public release on the App Store. Available now for iOS on Apple TestFlight.</p>
+
+        <div class="cta-action-row">
+          <a href="https://testflight.apple.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.64-.78 1.08-1.86.96-2.95-1 .04-2.13.66-2.79 1.44-.59.68-1.1 1.77-.96 2.83 1.11.09 2.18-.54 2.79-1.32z"/></svg>
+            Open in TestFlight
+          </a>
+          <a href="support.html" class="btn btn-secondary btn-lg">Get Setup Instructions</a>
+        </div>
+
+        <form id="beta-signup-form" style="max-width: 480px; margin: 32px auto 0; display: flex; gap: 10px;">
+          <input type="email" placeholder="Enter your Apple ID email for beta invite" required style="flex: 1; padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border); background: rgba(8, 12, 20, 0.8); color: white; font-size: 14px;">
+          <button type="submit" class="btn btn-primary btn-sm" style="padding: 0 20px;">Request Invite</button>
+        </form>
+        <div id="beta-success-msg" style="display: none; color: #10B981; font-weight: 700; margin-top: 18px;">
+          ✓ Request received! We'll send your TestFlight invitation link shortly.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section id="faq" class="section">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Got Questions?</div>
+        <h2>Frequently Asked Questions</h2>
+        <p>Everything you need to know about Rooka, your data privacy, and TestFlight deployment.</p>
+      </div>
+
+      <div class="faq-list">
+        
+        <div class="faq-item open">
+          <button class="faq-question">
+            <span>What makes Rooka different from ChatGPT or other fitness apps?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            Rooka isn't just a generic chatbot. It connects directly to your live Garmin Connect and Strava telemetry, calculating your physiological recovery scores, PMC fitness (CTL), fatigue (ATL), and form (TSB). Rooka understands your athletic history, workout intensities, and lifestyle context to provide customized periodization and daily workout adjustments.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>How do I install Rooka via Apple TestFlight?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            Install the free Apple TestFlight app from the iOS App Store. Then click our "Open in TestFlight" button to redeem your beta invitation. TestFlight will install Rooka on your iPhone, and you'll receive instant beta updates as new features roll out.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Is my health and workout data kept private?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            Yes, 100%. We never sell, trade, or monetize your health data. API tokens are secured with AES-256 encryption. Chat queries processed via the Google Gemini API are protected under enterprise confidentiality terms and are never used to train public AI models.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Which devices and wearables are supported?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            Rooka supports all Garmin watches and bike computers (via Garmin Connect OAuth), all Strava-connected devices (Wahoo, Polar, Coros, Suunto, Zwift, Rouvy), and Apple Watch via Apple HealthKit.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>How can I delete my account and data?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            You maintain complete ownership of your data. You can delete your entire account and all associated workout histories, physique photos, and tokens at any time directly inside the app under <strong>Settings &gt; Account &gt; Delete Account</strong>, or by emailing <a href="mailto:privacy@rooka.io" style="color: var(--primary);">privacy@rooka.io</a>.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        
+        <div class="footer-col">
+          <div class="brand-logo" style="margin-bottom: 16px;">
+            <img src="rooka-icon.png" class="logo-symbol" style="object-fit: cover; background: none; box-shadow: none; border-radius: 8px;" alt="Rooka Logo">
+            <div class="logo-text">ROOKA<span class="logo-domain">.io</span></div>
+          </div>
+          <p style="color: var(--text-muted); font-size: 14px; max-width: 340px; margin-bottom: 16px;">
+            The intelligent AI endurance and recovery coaching companion built for runners, cyclists, triathletes, and hybrid athletes.
+          </p>
+          <div class="badge" style="font-size: 11px;">App Store &amp; TestFlight Ready</div>
+        </div>
+
+        <div class="footer-col">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#coach-demo">AI Coach</a></li>
+            <li><a href="#telemetry">Recovery &amp; PMC</a></li>
+            <li><a href="#testflight">TestFlight Beta</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Legal &amp; Trust</h4>
+          <ul>
+            <li><a href="privacy.html">Privacy Policy</a></li>
+            <li><a href="terms.html">Terms of Service</a></li>
+            <li><a href="support.html">Help &amp; Support</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Contact &amp; Support</h4>
+          <ul>
+            <li>Email: <a href="mailto:support@rooka.io">support@rooka.io</a></li>
+            <li>Privacy: <a href="mailto:privacy@rooka.io">privacy@rooka.io</a></li>
+            <li>Developer: <a href="mailto:rutgervandenberg@live.nl">rutgervandenberg@live.nl</a></li>
+            <li style="margin-top: 8px;"><a href="support.html" class="btn btn-secondary btn-sm" style="display: inline-block;">Support Portal</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="footer-bottom">
+        <div>© 2026 Rooka (rooka.io). All rights reserved.</div>
+        <div style="font-size: 12px; color: var(--text-subtle);">
+          Rooka is for fitness and wellness guidance only and does not provide medical diagnoses.
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

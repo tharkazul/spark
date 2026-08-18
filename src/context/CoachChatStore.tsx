@@ -27,7 +27,7 @@ interface CoachChatContextType {
 
 const defaultWelcomeMessage: ChatMessage = {
   id: 'welcome-msg',
-  content: "Hi, I'm Spark! Your 21km long run yesterday showed great cardiac drift control. How are your legs feeling today?",
+  content: "Welcome to Rooka! ⚡️ I'm your AI endurance coach. I've locked in your profile, goals, and training availability. Let's make a plan together—what would you like to focus on first?",
   role: 'coach',
   timestamp: new Date().toISOString(),
   mood: 'default',

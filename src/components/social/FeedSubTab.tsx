@@ -162,9 +162,9 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
               <View>
                 <View className="flex-row items-center space-x-1.5">
                   <Text className="text-sm font-extrabold text-theme-text">{item.username}</Text>
-                  {item.spark_level ? (
+                  {item.rooka_level ? (
                     <View className="px-1.5 py-0.5 bg-theme-accent/15 rounded">
-                      <Text className="text-[9px] font-black text-theme-accent">Lvl {item.spark_level}</Text>
+                      <Text className="text-[9px] font-black text-theme-accent">Lvl {item.rooka_level}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -176,7 +176,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
 
             <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
               <Ionicons name="flash" size={12} color="#FF5F3B" />
-              <Text className="text-xs font-black font-rajdhani text-theme-accent ml-1">+{Math.round(item.spark_score || 0)} Spark</Text>
+              <Text className="text-xs font-black font-rajdhani text-theme-accent ml-1">+{Math.round(item.rooka_score || 0)} Rooka</Text>
             </View>
           </View>
 

@@ -63,7 +63,7 @@ export function normalizeActivityDetail(raw: any): NormalizedActivity {
       distance_km: 0,
       moving_time_min: 0,
       start_date: new Date().toISOString(),
-      spark_score: 0,
+      rooka_score: 0,
       formatted_duration: '0m',
       formatted_distance: '0.0 km',
       formatted_pace: '--',
@@ -98,16 +98,16 @@ export function normalizeActivityDetail(raw: any): NormalizedActivity {
   // Handle start date
   const start_date = raw.start_date || raw.start_date_local || raw.date || new Date().toISOString();
 
-  // Handle spark score / TSS
-  const rawSpark =
-    typeof raw.spark_score === 'number'
-      ? raw.spark_score
+  // Handle rooka score / TSS
+  const rawRooka =
+    typeof raw.rooka_score === 'number'
+      ? raw.rooka_score
       : typeof raw.tss === 'number'
       ? raw.tss
-      : typeof raw.daily_spark === 'number'
-      ? raw.daily_spark
+      : typeof raw.daily_rooka === 'number'
+      ? raw.daily_rooka
       : 0;
-  const spark_score = Math.round(rawSpark);
+  const rooka_score = Math.round(rawRooka);
 
   const formatted_duration = formatDuration(movingTimeMin);
   const formatted_distance = `${distanceKm.toFixed(1)} km`;
@@ -125,8 +125,8 @@ export function normalizeActivityDetail(raw: any): NormalizedActivity {
     max_heartrate: typeof raw.max_heartrate === 'number' ? Math.round(raw.max_heartrate) : undefined,
     average_power_w: typeof raw.average_watts === 'number' ? Math.round(raw.average_watts) : raw.average_power_w,
     start_date,
-    tss: spark_score,
-    spark_score,
+    tss: rooka_score,
+    rooka_score,
     sets_json: raw.sets_json || (raw.steps_json ? JSON.stringify(raw.steps_json) : undefined),
     kudos_count: typeof raw.kudos_count === 'number' ? raw.kudos_count : 0,
     formatted_duration,

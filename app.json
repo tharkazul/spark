@@ -1,22 +1,23 @@
 {
   "expo": {
-    "name": "spark-native",
+    "name": "Rooka",
     "slug": "spark-native",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "sparknative",
+    "scheme": "rooka",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "com.sparkapp.fitness",
+      "bundleIdentifier": "com.rookaapp.fitness",
       "infoPlist": {
-        "NSCameraUsageDescription": "Spark requires camera access to capture physique check-in photos and coach avatars.",
-        "NSMicrophoneUsageDescription": "Spark requires microphone access for voice coaching notes and audio logs.",
-        "NSPhotoLibraryUsageDescription": "Spark requires photo library access to choose workout and progress photos.",
-        "NSLocationWhenInUseUsageDescription": "Spark requires location access to track outdoor running, cycling, and GPS activity routes.",
-        "NSHealthShareUsageDescription": "Spark needs access to read your workouts, heart rate, and activity metrics.",
-        "NSHealthUpdateUsageDescription": "Spark needs permission to save scheduled workouts to your Apple Watch and Apple Health.",
+        "CFBundleDisplayName": "Rooka",
+        "NSCameraUsageDescription": "Rooka requires camera access to capture physique check-in photos and coach avatars.",
+        "NSMicrophoneUsageDescription": "Rooka requires microphone access for voice coaching notes and audio logs.",
+        "NSPhotoLibraryUsageDescription": "Rooka requires photo library access to choose workout and progress photos.",
+        "NSLocationWhenInUseUsageDescription": "Rooka requires location access to track outdoor running, cycling, and GPS activity routes.",
+        "NSHealthShareUsageDescription": "Rooka needs access to read your workouts, heart rate, and activity metrics.",
+        "NSHealthUpdateUsageDescription": "Rooka needs permission to save scheduled workouts to your Apple Watch and Apple Health.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
@@ -25,7 +26,7 @@
       }
     },
     "android": {
-      "package": "com.sparkapp.fitness",
+      "package": "com.rookaapp.fitness",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

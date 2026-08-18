@@ -153,7 +153,7 @@ export default function OnboardingWizard() {
 
   // Welcome Message Typewriter Effect
   const WELCOME_MESSAGE =
-    "Hi! Welcome to Spark. 👋 I'm your AI endurance coach. I'm here to build your personalized training experience around your life, your goals, and your schedule. Let's build something awesome together!";
+    "Hi! Welcome to Rooka. 👋 I'm your AI endurance coach. I'm here to build your personalized training experience around your life, your goals, and your schedule. Let's build something awesome together!";
   const [typedText, setTypedText] = useState('');
 
   useEffect(() => {
@@ -712,7 +712,7 @@ export default function OnboardingWizard() {
   const handleConnectStravaOAuth = async () => {
     try {
       const clientId = '208765';
-      const stravaRedirectUri = 'https://spark.amsterdamtriathlonassociation.uk/oauthredirect';
+      const stravaRedirectUri = 'https://rooka.amsterdamtriathlonassociation.uk/oauthredirect';
       const appDeepLink = Linking.createURL('oauthredirect');
       const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
         stravaRedirectUri
@@ -868,7 +868,7 @@ export default function OnboardingWizard() {
             <Ionicons name="flash" size={22} color="#FFFFFF" />
           </View>
           <View>
-            <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">SPARK</Text>
+            <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">ROOKA</Text>
             <Text className="text-theme-muted text-[11px]">
               {currentStep === 0 ? 'AI Endurance Coach' : `Step ${currentStep} of ${totalSteps}`}
             </Text>
@@ -961,7 +961,7 @@ export default function OnboardingWizard() {
                   </View>
                   <View className="flex-1 mt-1">
                     <View className="flex-row items-center gap-1.5 mb-1">
-                      <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Spark</Text>
+                      <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Rooka</Text>
                     </View>
                     <MarkdownText content={node.text || ''} isUser={false} />
                   </View>
@@ -1045,7 +1045,7 @@ export default function OnboardingWizard() {
                   className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
                   style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
-                  <Text className="text-theme-text font-bold text-sm">Choose Spark's Coaching Tone</Text>
+                  <Text className="text-theme-text font-bold text-sm">Choose Rooka's Coaching Tone</Text>
 
                   <Pressable
                     disabled={isStreamingMessage}
@@ -1284,7 +1284,7 @@ export default function OnboardingWizard() {
                         {isEstimatingCtl ? (
                           <View className="flex-row items-center gap-1">
                             <ActivityIndicator size="small" color="#FF5A1F" />
-                            <Text className="text-[10px] text-[#FF5A1F] font-bold">Spark...</Text>
+                            <Text className="text-[10px] text-[#FF5A1F] font-bold">Rooka...</Text>
                           </View>
                         ) : (
                           <>
@@ -1302,7 +1302,7 @@ export default function OnboardingWizard() {
                             />
                             {isAiFilled && (
                               <View className="absolute -top-2 -right-1 bg-[#FF5A1F] px-1.5 py-0.5 rounded-full">
-                                <Text className="text-[8px] text-white font-bold">⚡️ Spark</Text>
+                                <Text className="text-[8px] text-white font-bold">⚡️ Rooka</Text>
                               </View>
                             )}
                           </>
@@ -1480,9 +1480,9 @@ export default function OnboardingWizard() {
                     <View className="w-12 h-12 rounded-2xl bg-[#FF5A1F] items-center justify-center mb-2 shadow-lg">
                       <Ionicons name="flash" size={24} color="#FFFFFF" />
                     </View>
-                    <Text className="text-theme-text font-extrabold text-lg text-center">Unlock Spark Plus</Text>
+                    <Text className="text-theme-text font-extrabold text-lg text-center">Unlock Rooka Plus</Text>
                     <Text className="text-theme-muted text-xs text-center mt-1">
-                      Upgrade to unlock unlimited Spark chat, custom periodization, and automated sync.
+                      Upgrade to unlock unlimited Rooka chat, custom periodization, and automated sync.
                     </Text>
                   </View>
 
@@ -1527,7 +1527,7 @@ export default function OnboardingWizard() {
                   {/* Feature Checklist */}
                   <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
                     {[
-                      'Increased Spark chat tokens',
+                      'Increased Rooka chat tokens',
                       'Personalized daily macro periodization & fueling protocols',
                       'Strava auto-tagging controls',
                       'Social leaderboard',

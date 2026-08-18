@@ -1,4 +1,4 @@
-# Spark — Feature Parity Checklist
+# Rooka — Feature Parity Checklist
 
 **Target: React Native + Expo, TypeScript.** Tick every row before calling the app "at parity". Grouped by surface. `→` marks where the RN implementation must differ from the web one.
 
@@ -14,7 +14,7 @@
 ## Onboarding (5 steps)
 - [ ] Step 1 coach persona select + custom fields (tier-gated)
 - [ ] Step 2 athlete context + metrics repeater + target event with CTL estimate
-- [ ] Step 3 Spark/leveling explainer
+- [ ] Step 3 Rooka/leveling explainer
 - [ ] Step 4 schedule boundaries (available / time_capped / blocked + max minutes per weekday)
 - [ ] Step 5 Garmin credentials + Strava OAuth
 - [ ] Resume state survives the OAuth round trip
@@ -26,7 +26,7 @@
 - [ ] Daily AI Nutrition Protocol + macro rings + reset
 - [ ] Active Quests (5 statuses, progress bar, countdown, refresh button)
 - [ ] 4 metric cards: Fitness / Fatigue / Readiness / Weight + trend arrows + subtitles
-- [ ] 30-day sparklines ×4
+- [ ] 30-day ___sparkline_temp___s ×4
 - [ ] Readiness & fatigue slider markers
 - [ ] Goal progress widget (days out, now/target CTL, ramp-rate projection)
 - [ ] PMC chart: Form bars, Fitness, Fatigue, Target, Milestone stars, 14-day default window, pan/zoom + reset
@@ -39,7 +39,7 @@
 - [ ] 7-day grid → responsive stack
 - [ ] Weather chip per day (→ device location, not hard-coded Amsterdam)
 - [ ] ⚡️ ADAPT button on today+future days
-- [ ] Workout card: sport, Done badge, description, actual/target Spark, Structured|Basic, per-workout Garmin push
+- [ ] Workout card: sport, Done badge, description, actual/target Rooka, Structured|Basic, per-workout Garmin push
 - [ ] Add workout (+) per day
 - [ ] Auto-Generate Week (`POST /api/generate-plan`)
 
@@ -50,7 +50,7 @@
 - [ ] Condition types: time (min), time_sec (s), distance, reps, lap.button
 - [ ] Targets: HR zone, power zone, pace zone, speed zone, no target, exact `target_value`
 - [ ] Strength fields: weight (kg) + exerciseName
-- [ ] Live Spark estimate (1.2/min endurance, 1.3–1.4 high intensity, 1.0 Z1, 0.5/set strength)
+- [ ] Live Rooka estimate (1.2/min endurance, 1.3–1.4 high intensity, 1.0 Z1, 0.5/set strength)
 - [ ] Reorder → **stable ids**, not array indices
 - [ ] Push single workout to Garmin
 - [ ] `steps_json` round-trips byte-compatibly with the web app and the AI
@@ -74,7 +74,7 @@
 - [ ] Unread badge driven by realtime + `lastChatViewTimestamp`
 
 ## Progress
-- [ ] Spark: level bar, Athlete Archetype radar (4 axes), 30-day trends, titles (generate/equip/delete), quest log
+- [ ] Rooka: level bar, Athlete Archetype radar (4 axes), 30-day trends, titles (generate/equip/delete), quest log
 - [ ] Nutrition: protocol card, macro rings, reset
 - [ ] Health: cycle widget, niggle body-map (add/severity/resolve), muscle fatigue heatmap, AI insight
 - [ ] Daily Log: date, weight, sleep 1–5, fatigue 1–5, notes, **progress photo** (fix BUG-03 first), history + delete
@@ -85,10 +85,10 @@
 - [ ] Activity detail: stats, laps, strength sets, **map** (polyline decode), kudos, comments
 - [ ] Comments: post, delete, @mention autocomplete
 - [ ] My Log: history list, PMC chart + reset zoom, multi-select, **CSV export via expo-file-system + expo-sharing**
-- [ ] Leaderboard: Spark Score tab + Quest Champions (7d) tab
+- [ ] Leaderboard: Rooka Score tab + Quest Champions (7d) tab
 - [ ] Add person (exact username search) + send request
 - [ ] Pending requests + accept
-- [ ] Public profile modal (avatar, highlight, 4 sparklines, activities)
+- [ ] Public profile modal (avatar, highlight, 4 ___sparkline_temp___s, activities)
 - [ ] Event invites: create (connections, location, time), accept, decline
 
 ## Profile
@@ -106,7 +106,7 @@
 - [ ] Strava OAuth connect/disconnect/force-sync
 - [ ] Strava automation toggles ×4 per sport type
 - [ ] Search privacy toggle
-- [ ] Spark+ interest tracking
+- [ ] Rooka+ interest tracking
 - [ ] Request account data (**make it real or remove it**)
 
 ## Realtime
@@ -127,7 +127,7 @@
 - [ ] Charts: Chart.js → `victory-native` + `react-native-svg` (or `react-native-gifted-charts`); PMC needs pan/zoom, so budget time — `react-native-gesture-handler` pinch/pan over a chart is not free
 - [ ] Maps: Leaflet → `react-native-maps` / `expo-maps`
 - [ ] Design tokens: accent, sport colours, chart colours consolidated (no literals)
-- [ ] `app.json`: `scheme: "spark"`, bundle id, permission strings, `expo-notifications` config plugin
+- [ ] `app.json`: `scheme: "rooka"`, bundle id, permission strings, `expo-notifications` config plugin
 - [ ] EAS build profiles (dev/preview/production), EAS Update channel, app icon + splash, versioning/`runtimeVersion`
 - [ ] `expo-dev-client` for anything needing native modules (voice, maps)
 
@@ -137,5 +137,5 @@
 - [ ] Mood set decided; `horny` avatar/keyword path removed (§A.5)
 - [ ] Garmin credential storage decision documented + consented (BUG-08)
 - [ ] `request-account-data` real or removed (BUG-09)
-- [ ] IAP path defined if Spark+ becomes purchasable (StoreKit, not web checkout)
+- [ ] IAP path defined if Rooka+ becomes purchasable (StoreKit, not web checkout)
 - [ ] Privacy policy + App Privacy labels covering health data, photos, third-party (Strava, Garmin, Gemini, Pollinations, open-meteo)

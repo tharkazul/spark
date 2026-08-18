@@ -57,10 +57,10 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             Performance Management (PMC)
           </Text>
         </View>
-        {tier === 'spark_plus' && (
+        {tier === 'rooka_plus' && (
           <View className="bg-amber-500/15 px-2 py-0.5 rounded-full flex-row items-center">
             <Ionicons name="flash" size={10} color="#f59e0b" className="mr-1" />
-            <Text className="text-[10px] text-amber-500 font-bold">Spark Plus AI</Text>
+            <Text className="text-[10px] text-amber-500 font-bold">Rooka Plus AI</Text>
           </View>
         )}
       </View>

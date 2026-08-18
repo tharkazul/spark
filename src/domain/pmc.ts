@@ -6,7 +6,7 @@ export type ReadinessCategory = 'Need Recovery' | 'Adequate' | 'Prime Condition'
 
 export interface PMCDayPoint {
   date: string;
-  spark: number;
+  rooka: number;
   ctl: number;
   atl: number;
   tsb: number;
@@ -107,24 +107,24 @@ export function calculateReadiness(tsb: number, latestPhysique?: PhysiqueEntry |
 }
 
 export function calculatePMC(
-  activities: (Activity & { date?: string; daily_spark?: number; spark?: number })[] = [],
+  activities: (Activity & { date?: string; daily_rooka?: number; rooka?: number })[] = [],
   physiqueLogs: PhysiqueEntry[] = [],
   goalMilestones: GoalMilestone[] = []
 ): PMCComputationResult {
-  const sparkDict: Record<string, number> = {};
+  const rookaDict: Record<string, number> = {};
   activities.forEach((act) => {
     const rawDate = act.start_date || act.date;
     if (rawDate) {
       const dateStr = rawDate.split('T')[0];
-      const sparkVal =
-        typeof act.spark_score === 'number'
-          ? act.spark_score
-          : typeof act.daily_spark === 'number'
-          ? act.daily_spark
+      const rookaVal =
+        typeof act.rooka_score === 'number'
+          ? act.rooka_score
+          : typeof act.daily_rooka === 'number'
+          ? act.daily_rooka
           : typeof act.tss === 'number'
           ? act.tss
-          : act.spark || 0;
-      sparkDict[dateStr] = (sparkDict[dateStr] || 0) + sparkVal;
+          : act.rooka || 0;
+      rookaDict[dateStr] = (rookaDict[dateStr] || 0) + rookaVal;
     }
   });
 
@@ -157,15 +157,15 @@ export function calculatePMC(
 
   while (curDate <= todayDate) {
     const str = curDate.toISOString().split('T')[0];
-    const spark = sparkDict[str] || 0;
+    const rooka = rookaDict[str] || 0;
 
-    ctl += (spark - ctl) / 42;
-    atl += (spark - atl) / 7;
+    ctl += (rooka - ctl) / 42;
+    atl += (rooka - atl) / 7;
     const tsb = ctl - atl;
 
     history.push({
       date: str,
-      spark,
+      rooka,
       ctl,
       atl,
       tsb,
@@ -276,7 +276,7 @@ export function calculatePMC(
 
       futureProjection.push({
         date: dateStr,
-        spark: 0,
+        rooka: 0,
         ctl: 0,
         atl: 0,
         tsb: 0,

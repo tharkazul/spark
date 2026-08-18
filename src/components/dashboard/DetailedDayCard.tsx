@@ -189,7 +189,7 @@ export function DetailedDayCard({
 
                   <View className="flex-row items-center gap-2">
                     <Text className="text-xs font-mono font-bold text-theme-accent">
-                      +{Math.round(workout.sparkPoints || 0)} Spark
+                      +{Math.round(workout.rookaPoints || 0)} Rooka
                     </Text>
 
                     {workout.isStructured && (
@@ -215,7 +215,7 @@ export function DetailedDayCard({
                 {/* Clean Subline & Quick Actions Bar */}
                 <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/50">
                   <Text className="text-xs text-theme-muted font-bold">
-                    {humanDuration} · +{Math.round(workout.sparkPoints || 0)} Spark
+                    {humanDuration} · +{Math.round(workout.rookaPoints || 0)} Rooka
                   </Text>
 
                   <View className="flex-row items-center gap-2">

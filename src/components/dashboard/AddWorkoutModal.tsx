@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 
 import { useUser } from '../../context/UserStore';
 import { Button } from '../ui/Button';
-import { WorkoutStepBuilder, calculateWbSpark } from './WorkoutStepBuilder';
+import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
 
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { WorkoutStep } from '../../types/plan';
@@ -104,7 +104,7 @@ export function AddWorkoutModal({
   const [title, setTitle] = useState('');
   const [durationMinutes, setDurationMinutes] = useState<number>(45);
   const [steps, setSteps] = useState<WorkoutStep[]>([]);
-  const [customSpark, setCustomSpark] = useState<number | null>(null);
+  const [customRooka, setCustomRooka] = useState<number | null>(null);
 
   const [isGarminSynced, setIsGarminSynced] = useState(false);
   const [isGarminSyncing, setIsGarminSyncing] = useState(false);
@@ -150,7 +150,7 @@ export function AddWorkoutModal({
         setDurationMinutes(userPreferredDur);
         setSteps(ensureStepIds(scaleStepsForDuration(userPreferredDur, [], 'RUN')));
       }
-      setCustomSpark(null);
+      setCustomRooka(null);
     }
   }, [initialWorkout, visible, targetDayName, user]);
 
@@ -159,13 +159,13 @@ export function AddWorkoutModal({
     if (newMins > 0) {
       const rebalancedSteps = scaleStepsForDuration(newMins, steps, selectedSport);
       setSteps(rebalancedSteps);
-      setCustomSpark(calculateWbSpark(rebalancedSteps, selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY', selectedSport));
+      setCustomRooka(calculateWbRooka(rebalancedSteps, selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY', selectedSport));
     }
   };
 
-  const calculateSparkPoints = (type: SportType, mins: number, currentSteps: WorkoutStep[]): number => {
+  const calculateRookaPoints = (type: SportType, mins: number, currentSteps: WorkoutStep[]): number => {
     if (currentSteps && currentSteps.length > 0) {
-      return calculateWbSpark(currentSteps, type === 'STRENGTH', type);
+      return calculateWbRooka(currentSteps, type === 'STRENGTH', type);
     }
 
     let ratePerMin = 0.8;
@@ -190,15 +190,15 @@ export function AddWorkoutModal({
     return Math.round(mins * ratePerMin);
   };
 
-  const computedSpark = calculateSparkPoints(selectedSport, durationMinutes, steps);
-  const calculatedSpark = customSpark !== null ? customSpark : computedSpark;
+  const computedRooka = calculateRookaPoints(selectedSport, durationMinutes, steps);
+  const calculatedRooka = customRooka !== null ? customRooka : computedRooka;
 
   const handleSportSelect = (sport: SportType) => {
     Haptics.selectionAsync();
     setSelectedSport(sport);
     const scaled = scaleStepsForDuration(durationMinutes, [], sport);
     setSteps(ensureStepIds(scaled));
-    setCustomSpark(calculateWbSpark(scaled, sport === 'STRENGTH' || sport === 'MOBILITY', sport));
+    setCustomRooka(calculateWbRooka(scaled, sport === 'STRENGTH' || sport === 'MOBILITY', sport));
   };
 
   const handleSave = () => {
@@ -211,7 +211,7 @@ export function AddWorkoutModal({
         type: selectedSport,
         title: finalTitle,
         duration: `${durationMinutes} mins`,
-        sparkPoints: calculatedSpark,
+        rookaPoints: calculatedRooka,
         isStructured: steps.length > 0,
         steps,
         isCompleted: initialWorkout ? initialWorkout.isCompleted : false,
@@ -260,7 +260,7 @@ export function AddWorkoutModal({
         date: targetDateStr || new Date().toISOString().split('T')[0],
         sport: selectedSport,
         description: title || `${selectedSport} Workout`,
-        target_spark: calculatedSpark,
+        target_rooka: calculatedRooka,
         steps_json: steps,
       });
       setIsAppleWatchSynced(true);
@@ -410,9 +410,9 @@ export function AddWorkoutModal({
               durationMinutes={durationMinutes}
               quickDurations={quickDurations}
               onDurationChange={handleDurationChange}
-              onChangeSteps={(newSteps, spark) => {
+              onChangeSteps={(newSteps, rooka) => {
                 setSteps(newSteps);
-                setCustomSpark(spark);
+                setCustomRooka(rooka);
               }}
               ListHeaderComponent={
                 <View className="space-y-4">
@@ -473,7 +473,7 @@ export function AddWorkoutModal({
                     />
                   </View>
 
-                  {/* Duration & Calculated Spark row */}
+                  {/* Duration & Calculated Rooka row */}
                   <View className="flex-row items-center gap-3">
                     <View className="flex-1">
                       <Text className="text-[11px] font-extrabold text-theme-muted uppercase tracking-wider mb-1.5">
@@ -493,13 +493,13 @@ export function AddWorkoutModal({
 
                     <View className="flex-1">
                       <Text className="text-[11px] font-extrabold text-theme-muted uppercase tracking-wider mb-1.5">
-                        Calculated Spark
+                        Calculated Rooka
                       </Text>
                       <View className="bg-amber-500/15 border border-amber-500/30 rounded-2xl px-4 py-3 flex-row items-center justify-between">
                         <View className="flex-row items-center gap-1.5">
                           <Ionicons name="sparkles" size={16} color="#F97316" />
                           <Text className="text-sm font-bold text-amber-500">
-                            +{calculatedSpark} Spark
+                            +{calculatedRooka} Rooka
                           </Text>
                         </View>
                         <Text className="text-[10px] font-bold text-amber-500/70 uppercase">

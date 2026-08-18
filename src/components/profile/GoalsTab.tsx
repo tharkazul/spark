@@ -21,30 +21,46 @@ export const GoalsTab: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const [milestones, setMilestones] = useState<MilestoneRow[]>([
-    {
-      id: '1',
-      isARace: true,
-      eventName: user?.target_event || 'Amsterdam Marathon',
-      eventDate: user?.event_date || '2026-10-18',
-      targetCtl: user?.target_ctl ? String(user.target_ctl) : '85',
-    },
-    {
-      id: '2',
-      isARace: false,
-      eventName: 'Zandvoort 10K Warmup',
-      eventDate: '2026-09-06',
-      targetCtl: '60',
-    },
-  ]);
+  const [milestones, setMilestones] = useState<MilestoneRow[]>(() => {
+    if (user?.target_event) {
+      return [
+        {
+          id: '1',
+          isARace: true,
+          eventName: user.target_event,
+          eventDate: user.event_date || '',
+          targetCtl: user.target_ctl ? String(user.target_ctl) : '70',
+        },
+      ];
+    }
+    return [];
+  });
+
+  const isInitialized = React.useRef(false);
+  React.useEffect(() => {
+    if (user && !isInitialized.current) {
+      isInitialized.current = true;
+      if (user.target_event) {
+        setMilestones([
+          {
+            id: '1',
+            isARace: true,
+            eventName: user.target_event,
+            eventDate: user.event_date || '',
+            targetCtl: user.target_ctl ? String(user.target_ctl) : '70',
+          },
+        ]);
+      }
+    }
+  }, [user]);
 
   const handleAddMilestone = () => {
     const newRow: MilestoneRow = {
       id: Date.now().toString(),
-      isARace: false,
+      isARace: milestones.length === 0,
       eventName: '',
       eventDate: '',
-      targetCtl: '50',
+      targetCtl: '70',
     };
     setMilestones((prev) => [...prev, newRow]);
   };
@@ -80,8 +96,14 @@ export const GoalsTab: React.FC = () => {
           event_date: mainARace.eventDate,
           target_ctl: parseInt(mainARace.targetCtl, 10) || 70,
         });
-        await refreshUser();
+      } else {
+        await userApi.updateSettings({
+          target_event: '',
+          event_date: '',
+          target_ctl: 70,
+        });
       }
+      await refreshUser();
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -158,96 +180,108 @@ export const GoalsTab: React.FC = () => {
               </View>
             </View>
             <Text className="text-[10px] text-theme-muted italic mt-1 leading-relaxed">
-              *CTL (Fitness) is a rolling 42-day average of daily Spark Training Stress. Higher targets require more weekly training volume.
+              *CTL (Fitness) is a rolling 42-day average of daily Rooka Training Stress. Higher targets require more weekly training volume.
             </Text>
           </View>
         )}
 
         {/* TABLE HEADERS & ROWS */}
-        <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider mb-3">
-          A-Race | Event Name | Date | Target CTL
-        </Text>
+        {milestones.length > 0 ? (
+          <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider mb-3">
+            A-Race | Event Name | Date | Target CTL
+          </Text>
+        ) : null}
 
-        <View className="space-y-3">
-          {milestones.map((row) => (
-            <View
-              key={row.id}
-              className="p-3 bg-theme-bg rounded-xl space-y-2"
-            >
-              <View className="flex-row items-center justify-between">
-                <TouchableOpacity
-                  onPress={() => handleToggleARace(row.id)}
-                  className={`px-2.5 py-1 rounded-full flex-row items-center ${
-                    row.isARace
-                      ? 'bg-yellow-500/20'
-                      : 'bg-theme-card'
-                  }`}
-                >
-                  <Ionicons
-                    name={row.isARace ? 'trophy' : 'trophy-outline'}
-                    size={12}
-                    color={row.isARace ? '#EAB308' : '#8E8E93'}
-                  />
-                  <Text
-                    className={`text-[10px] font-bold ml-1 ${
-                      row.isARace ? 'text-yellow-500' : 'text-theme-muted'
+        {milestones.length === 0 ? (
+          <View className="p-4 bg-theme-bg/60 rounded-xl items-center justify-center my-2">
+            <Ionicons name="flag-outline" size={24} color="#8E8E93" />
+            <Text className="text-theme-text font-bold text-xs mt-2 text-center">
+              No upcoming races or milestones set
+            </Text>
+            <Text className="text-theme-muted text-[11px] mt-1 text-center">
+              Tap "+ Add Race" above to add your target event and structure your fitness progression.
+            </Text>
+          </View>
+        ) : (
+          <View className="space-y-3">
+            {milestones.map((row) => (
+              <View
+                key={row.id}
+                className="p-3 bg-theme-bg rounded-xl space-y-2"
+              >
+                <View className="flex-row items-center justify-between">
+                  <TouchableOpacity
+                    onPress={() => handleToggleARace(row.id)}
+                    className={`px-2.5 py-1 rounded-full flex-row items-center ${
+                      row.isARace
+                        ? 'bg-yellow-500/20'
+                        : 'bg-theme-card'
                     }`}
                   >
-                    {row.isARace ? 'A-RACE (MAIN)' : 'B/C RACE'}
-                  </Text>
-                </TouchableOpacity>
+                    <Ionicons
+                      name={row.isARace ? 'trophy' : 'trophy-outline'}
+                      size={12}
+                      color={row.isARace ? '#EAB308' : '#8E8E93'}
+                    />
+                    <Text
+                      className={`text-[10px] font-bold ml-1 ${
+                        row.isARace ? 'text-yellow-500' : 'text-theme-muted'
+                      }`}
+                    >
+                      {row.isARace ? 'A-RACE (MAIN)' : 'B/C RACE'}
+                    </Text>
+                  </TouchableOpacity>
 
-                {milestones.length > 1 && (
                   <TouchableOpacity
                     onPress={() => handleRemoveMilestone(row.id)}
                     className="p-1"
                   >
                     <Ionicons name="trash-outline" size={16} color="#EF4444" />
                   </TouchableOpacity>
-                )}
-              </View>
+                </View>
 
-              <View className="space-y-2 mt-1">
-                <TextInput
-                  value={row.eventName}
-                  onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
-                  placeholder="Event Name (e.g. Berlin Marathon)"
-                  placeholderTextColor="#8E8E93"
-                  className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text font-bold"
-                />
+                <View className="space-y-2 mt-1">
+                  <TextInput
+                    value={row.eventName}
+                    onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
+                    placeholder="Event Name (e.g. Berlin Marathon)"
+                    placeholderTextColor="#8E8E93"
+                    className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text font-bold"
+                  />
 
-                <View className="flex-row gap-2">
-                  <View className="flex-1">
-                    <Text className="text-[9px] font-bold text-theme-muted uppercase mb-1">
-                      Event Date (YYYY-MM-DD)
-                    </Text>
-                    <TextInput
-                      value={row.eventDate}
-                      onChangeText={(val) => handleUpdateMilestone(row.id, 'eventDate', val)}
-                      placeholder="2026-10-18"
-                      placeholderTextColor="#8E8E93"
-                      className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text"
-                    />
-                  </View>
+                  <View className="flex-row gap-2">
+                    <View className="flex-1">
+                      <Text className="text-[9px] font-bold text-theme-muted uppercase mb-1">
+                        Event Date (YYYY-MM-DD)
+                      </Text>
+                      <TextInput
+                        value={row.eventDate}
+                        onChangeText={(val) => handleUpdateMilestone(row.id, 'eventDate', val)}
+                        placeholder="2026-10-18"
+                        placeholderTextColor="#8E8E93"
+                        className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text"
+                      />
+                    </View>
 
-                  <View className="w-28">
-                    <Text className="text-[9px] font-bold text-theme-muted uppercase mb-1">
-                      Target CTL
-                    </Text>
-                    <TextInput
-                      value={row.targetCtl}
-                      onChangeText={(val) => handleUpdateMilestone(row.id, 'targetCtl', val)}
-                      keyboardType="numeric"
-                      placeholder="85"
-                      placeholderTextColor="#8E8E93"
-                      className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text font-bold"
-                    />
+                    <View className="w-28">
+                      <Text className="text-[9px] font-bold text-theme-muted uppercase mb-1">
+                        Target CTL
+                      </Text>
+                      <TextInput
+                        value={row.targetCtl}
+                        onChangeText={(val) => handleUpdateMilestone(row.id, 'targetCtl', val)}
+                        keyboardType="numeric"
+                        placeholder="85"
+                        placeholderTextColor="#8E8E93"
+                        className="bg-theme-card rounded-lg p-2.5 text-xs text-theme-text font-bold"
+                      />
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
 
         {/* SAVE BUTTON */}
         <TouchableOpacity

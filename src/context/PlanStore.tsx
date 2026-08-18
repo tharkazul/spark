@@ -16,28 +16,7 @@ interface PlanContextType {
   pushForward: (dateStr: string) => Promise<void>;
 }
 
-const defaultPlan: PlannedWorkout[] = [
-  {
-    id: 'w-today-1',
-    day: 'FRI',
-    date: '2026-07-24',
-    sport: 'SWIM',
-    description: 'Sharpening CSS Swim Session',
-    target_spark: 24,
-    isCompleted: false,
-  },
-  {
-    id: 'w-today-2',
-    day: 'FRI',
-    date: '2026-07-24',
-    sport: 'RUN',
-    description: 'Morning Aerobic Maintenance Run',
-    target_spark: 32,
-    isCompleted: true,
-    actualMetrics: '154 avg bpm · 4:48/km pace',
-    executionScore: 98,
-  },
-];
+const defaultPlan: PlannedWorkout[] = [];
 
 const PlanContext = createContext<PlanContextType | undefined>(undefined);
 

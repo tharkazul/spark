@@ -36,7 +36,7 @@ router.post("/api/admin/simulate-24h", authenticateToken, async (req, res) => {
       const lbString = await getUserLeaderboardString(user.id);
       const prompt = `The user has not logged any activities or sent any messages in over 24 hours. Write a short, proactive message checking in on them and asking how their training is going. Use the tone: ${row ? row.coach_tone : "Friendly and motivating"}. Keep it under 2 sentences. If applicable, playfully use their standing on the leaderboard to motivate them: ${lbString}`;
       try {
-        const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${row ? row.coach_tone : "Friendly and motivating"}. Act like a real human in a continuous text message thread.`;
+        const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${row ? row.coach_tone : "Friendly and motivating"}. Act like a real human in a continuous text message thread.`;
         const aiReply = await generateWithFallback(prompt, systemPrompt);
         db.run(
           `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'curious')`,
@@ -81,7 +81,7 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
             u.daily_token_limit,
             u.subscription_tier,
             u.last_token_reset_date,
-            u.spark_plus_clicks,
+            u.rooka_plus_clicks,
             u.data_request_clicks,
             CASE WHEN u.strava_refresh_token IS NOT NULL AND u.strava_refresh_token != '' THEN 1 ELSE 0 END as strava_connected,
             CASE WHEN u.garmin_username IS NOT NULL AND u.garmin_username != '' THEN 1 ELSE 0 END as garmin_connected,
@@ -158,7 +158,7 @@ router.post("/api/admin/set-tier", authenticateToken, (req, res) => {
     if (!targetUsername || !tier) return res.status(400).json({ error: "Missing parameters" });
 
     // Set tier, and automatically adjust daily_token_limit so it takes effect immediately
-    const limit = tier === 'spark_plus' ? 50000 : 10000;
+    const limit = tier === 'rooka_plus' ? 50000 : 10000;
 
     db.get(`SELECT id, subscription_tier FROM users WHERE username = ?`, [targetUsername], (errUser, userRow) => {
         if (errUser || !userRow) return res.status(404).json({ error: "User not found" });

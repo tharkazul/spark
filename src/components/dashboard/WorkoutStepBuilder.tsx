@@ -22,13 +22,13 @@ interface WorkoutStepBuilderProps {
   durationMinutes?: number;
   quickDurations?: number[];
   onDurationChange?: (mins: number) => void;
-  onChangeSteps: (newSteps: WorkoutStep[], computedSpark: number) => void;
+  onChangeSteps: (newSteps: WorkoutStep[], computedRooka: number) => void;
   ListHeaderComponent?: React.ReactNode;
   ListFooterComponent?: React.ReactNode;
 }
 
-export function calculateWbSpark(steps: WorkoutStep[], isStrength: boolean, sport?: SportType | string): number {
-  let totalSpark = 0;
+export function calculateWbRooka(steps: WorkoutStep[], isStrength: boolean, sport?: SportType | string): number {
+  let totalRooka = 0;
 
   const getStepEquivalentMinutes = (step: WorkoutStep): number => {
     const val = Number(step.condition_value) || 0;
@@ -62,7 +62,7 @@ export function calculateWbSpark(steps: WorkoutStep[], isStrength: boolean, spor
         }
         repeatMins += mins * multiplier;
       });
-      totalSpark += repeatMins * iterations;
+      totalRooka += repeatMins * iterations;
     } else {
       let mins = getStepEquivalentMinutes(step);
       let multiplier = 1.2;
@@ -74,11 +74,11 @@ export function calculateWbSpark(steps: WorkoutStep[], isStrength: boolean, spor
       } else if (step.target_type === 'pace.exact' || step.target_type === 'power.exact') {
         multiplier = 1.4;
       }
-      totalSpark += mins * multiplier;
+      totalRooka += mins * multiplier;
     }
   });
 
-  return Math.ceil(totalSpark);
+  return Math.ceil(totalRooka);
 }
 
 export function WorkoutStepBuilder({
@@ -94,8 +94,8 @@ export function WorkoutStepBuilder({
   const isStrength = sport === 'STRENGTH' || sport === 'MOBILITY';
 
   const updateStepsAndNotify = useCallback((newSteps: WorkoutStep[]) => {
-    const computedSpark = calculateWbSpark(newSteps, isStrength, sport);
-    onChangeSteps(newSteps, computedSpark);
+    const computedRooka = calculateWbRooka(newSteps, isStrength, sport);
+    onChangeSteps(newSteps, computedRooka);
   }, [isStrength, sport, onChangeSteps]);
 
   const handleAddStep = (type: WorkoutStep['type']) => {

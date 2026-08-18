@@ -1,5 +1,5 @@
 {
-  "name": "spark-native",
+  "name": "rooka-native",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
@@ -47,6 +47,7 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
+    "react-native-workouts": "^0.2.3",
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {

@@ -202,7 +202,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
       <View className="flex-row items-center bg-emerald-500/10 p-2.5 rounded-xl">
         <Ionicons name="analytics-outline" size={16} color="#10B981" style={{ marginRight: 6 }} />
         <Text className="text-[11px] font-semibold text-emerald-400 flex-1 ml-1">
-          Synced to Coach Knowledge: Spark AI automatically adjusts training volume and intensity for optimal recovery.
+          Synced to Coach Knowledge: Rooka AI automatically adjusts training volume and intensity for optimal recovery.
         </Text>
       </View>
     </Card>

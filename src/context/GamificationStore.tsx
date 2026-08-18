@@ -15,28 +15,7 @@ interface GamificationContextType {
   claimQuest: (id: number | string) => void;
 }
 
-const defaultQuests: Quest[] = [
-  {
-    id: 1,
-    description: 'Complete 3 Threshold Runs this week',
-    target_metric: 'runs',
-    target_value: 3,
-    reward_points: 150,
-    status: 'active',
-    target_sport: 'RUN',
-    progress: 2,
-  },
-  {
-    id: 2,
-    description: 'Log 50km total cycling distance',
-    target_metric: 'distance_km',
-    target_value: 50,
-    reward_points: 200,
-    status: 'completed',
-    target_sport: 'BIKE',
-    progress: 50,
-  },
-];
+const defaultQuests: Quest[] = [];
 
 const GamificationContext = createContext<GamificationContextType | undefined>(undefined);
 

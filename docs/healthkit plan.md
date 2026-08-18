@@ -1,4 +1,4 @@
-# Integrating Apple WorkoutKit (HealthKit) into `spark-native`
+# Integrating Apple WorkoutKit (HealthKit) into `rooka-native`
 
 This plan outlines the steps to integrate Apple's WorkoutKit framework into your React Native (Expo) app, allowing users to send structured workouts directly to the native Apple Watch Workout app. 
 
@@ -35,8 +35,8 @@ We need to install the library and configure Expo to request HealthKit permissio
   "expo": {
     "ios": {
       "infoPlist": {
-        "NSHealthShareUsageDescription": "Spark needs access to your health data to sync workouts to your Apple Watch.",
-        "NSHealthUpdateUsageDescription": "Spark needs permission to save scheduled workouts to your Apple Watch."
+        "NSHealthShareUsageDescription": "Rooka needs access to your health data to sync workouts to your Apple Watch.",
+        "NSHealthUpdateUsageDescription": "Rooka needs permission to save scheduled workouts to your Apple Watch."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,

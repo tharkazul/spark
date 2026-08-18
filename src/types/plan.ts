@@ -26,7 +26,7 @@ export interface PlannedWorkout {
   day?: string; // 'MON', 'TUE'
   sport: SportType | string;
   description: string;
-  target_spark: number;
+  target_rooka: number;
   details?: string;
   steps_json?: string | WorkoutStep[];
   isCompleted?: boolean;

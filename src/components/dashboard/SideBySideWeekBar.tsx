@@ -38,7 +38,7 @@ export function SideBySideWeekBar({
       {agenda.map((day, idx) => {
         const isSelected = selectedDayIndex === idx;
         const isToday = day.isToday;
-        const totalSpark = Math.round(day.workouts.reduce((acc, w) => acc + (w.sparkPoints || 0), 0));
+        const totalRooka = Math.round(day.workouts.reduce((acc, w) => acc + (w.rookaPoints || 0), 0));
         const hasWorkouts = day.workouts.length > 0;
 
         return (
@@ -65,7 +65,7 @@ export function SideBySideWeekBar({
               </Text>
             </View>
 
-            {/* Content Body: SVG Discipline Icons & Spark Score (No border outlines on icons!) */}
+            {/* Content Body: SVG Discipline Icons & Rooka Score (No border outlines on icons!) */}
             <View className="p-1 items-center justify-between min-h-[66px] bg-theme-bg">
               {/* SVG Vector Icons */}
               <View className="items-center justify-center gap-1 my-1 flex-1">
@@ -88,13 +88,13 @@ export function SideBySideWeekBar({
                 )}
               </View>
 
-              {/* Spark points or Completion Check */}
+              {/* Rooka points or Completion Check */}
               <View className="items-center justify-center pt-0.5 border-t border-theme-border/40 w-full">
                 {hasWorkouts && day.workouts.every((w) => w.isCompleted) ? (
                   <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                 ) : (
                   <Text className="text-[8.5px] font-mono font-extrabold text-theme-accent">
-                    {totalSpark > 0 ? `${totalSpark} Spark` : 'Rest'}
+                    {totalRooka > 0 ? `${totalRooka} Rooka` : 'Rest'}
                   </Text>
                 )}
               </View>

@@ -2,7 +2,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
 const dbPath = process.env.DB_PATH 
   ? path.resolve(__dirname, "..", process.env.DB_PATH) 
-  : path.join(__dirname, "..", "spark_native.db");
+  : path.join(__dirname, "..", "rooka_native.db");
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
@@ -23,7 +23,7 @@ db.serialize(() => {
         common_token_usage INTEGER DEFAULT 0,
         daily_token_limit INTEGER DEFAULT 5000,
         subscription_tier TEXT DEFAULT 'free',
-        spark_plus_clicks INTEGER DEFAULT 0,
+        rooka_plus_clicks INTEGER DEFAULT 0,
         data_request_clicks INTEGER DEFAULT 0
     )`);
   // Add columns if they don't exist (fails silently if they do)
@@ -56,7 +56,7 @@ db.serialize(() => {
     (err) => {},
   );
   db.run(
-    `ALTER TABLE users ADD COLUMN spark_plus_clicks INTEGER DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN rooka_plus_clicks INTEGER DEFAULT 0`,
     (err) => {},
   );
   db.run(
@@ -97,9 +97,9 @@ db.serialize(() => {
     `ALTER TABLE users ADD COLUMN cycle_tracking_enabled INTEGER DEFAULT 1`,
     (err) => {},
   );
-  db.run(`ALTER TABLE users ADD COLUMN total_spark REAL DEFAULT 0`, (err) => {});
-  db.run(`ALTER TABLE users ADD COLUMN spark_start_date TEXT`, (err) => {});
-  db.run(`ALTER TABLE users ADD COLUMN coach_name TEXT DEFAULT 'Spark'`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN total_rooka REAL DEFAULT 0`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN rooka_start_date TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN coach_name TEXT DEFAULT 'Rooka'`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_context TEXT DEFAULT ''`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_neutral TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_hype TEXT`, (err) => {});
@@ -136,25 +136,25 @@ db.serialize(() => {
   db.run(
     `CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, sport_type TEXT, distance_km REAL, elevation_m INTEGER, moving_time_min REAL, average_heartrate REAL, start_date TEXT, tss REAL)`,
   );
-  db.run(`ALTER TABLE activities ADD COLUMN spark_score REAL`, (err) => {
-    // Automatically backfill any activities that have a NULL spark_score, then sync total_spark
+  db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {
+    // Automatically backfill any activities that have a NULL rooka_score, then sync total_rooka
     db.all(
-      `SELECT a.id, a.user_id, a.start_date, a.moving_time_min, a.average_heartrate, a.tss, u.spark_start_date FROM activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.spark_score IS NULL`,
+      `SELECT a.id, a.user_id, a.start_date, a.moving_time_min, a.average_heartrate, a.tss, u.rooka_start_date FROM activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.rooka_score IS NULL`,
       (err, rows) => {
-        const syncUserSpark = () => {
+        const syncUserRooka = () => {
           db.all(
-            `SELECT u.id as user_id, COALESCE(SUM(a.spark_score), 0) as total 
+            `SELECT u.id as user_id, COALESCE(SUM(a.rooka_score), 0) as total 
              FROM users u 
-             LEFT JOIN activities a ON a.user_id = u.id AND (u.spark_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.spark_start_date, 1, 10)) 
+             LEFT JOIN activities a ON a.user_id = u.id AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10)) 
              GROUP BY u.id`,
             (err, userRows) => {
               if (!err && userRows) {
                 const uStmt = db.prepare(
-                  `UPDATE users SET total_spark = ? WHERE id = ?`,
+                  `UPDATE users SET total_rooka = ? WHERE id = ?`,
                 );
                 userRows.forEach((r) => uStmt.run(r.total || 0, r.user_id));
                 uStmt.finalize(() =>
-                  console.log("total_spark synchronization complete."),
+                  console.log("total_rooka synchronization complete."),
                 );
               }
             },
@@ -163,13 +163,13 @@ db.serialize(() => {
 
         if (!err && rows && rows.length > 0) {
           console.log(
-            `Backfilling spark_score for ${rows.length} activities...`,
+            `Backfilling rooka_score for ${rows.length} activities...`,
           );
           const stmt = db.prepare(
-            `UPDATE activities SET spark_score = ? WHERE id = ?`,
+            `UPDATE activities SET rooka_score = ? WHERE id = ?`,
           );
           rows.forEach((row) => {
-            const userStartDateDay = row.spark_start_date ? row.spark_start_date.substring(0, 10) : null;
+            const userStartDateDay = row.rooka_start_date ? row.rooka_start_date.substring(0, 10) : null;
             const actStartDateDay = row.start_date ? row.start_date.substring(0, 10) : null;
             let score = 0;
             if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
@@ -189,11 +189,11 @@ db.serialize(() => {
             stmt.run(score, row.id);
           });
           stmt.finalize(() => {
-            console.log("Spark Score backfill complete.");
-            syncUserSpark();
+            console.log("Rooka Score backfill complete.");
+            syncUserRooka();
           });
         } else {
-          syncUserSpark();
+          syncUserRooka();
         }
       },
     );
@@ -205,10 +205,10 @@ db.serialize(() => {
     if (!err) console.log("Added laps_json column to activities table.");
   });
   db.run(
-    `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_spark REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
+    `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
   );
   db.run(
-    `ALTER TABLE micro_plan RENAME COLUMN target_tss TO target_spark`,
+    `ALTER TABLE micro_plan RENAME COLUMN target_tss TO target_rooka`,
     (err) => {},
   );
 
@@ -233,10 +233,10 @@ db.serialize(() => {
         );
         db.serialize(() => {
           db.run(
-            `CREATE TABLE IF NOT EXISTS micro_plan_new (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_spark REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
+            `CREATE TABLE IF NOT EXISTS micro_plan_new (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
           );
           db.run(
-            `INSERT INTO micro_plan_new (user_id, date, sport, description, target_spark, details, steps_json) SELECT user_id, date, sport, description, target_tss as target_spark, details, steps_json FROM micro_plan`,
+            `INSERT INTO micro_plan_new (user_id, date, sport, description, target_rooka, details, steps_json) SELECT user_id, date, sport, description, target_tss as target_rooka, details, steps_json FROM micro_plan`,
           );
           db.run(`DROP TABLE micro_plan`);
           db.run(`ALTER TABLE micro_plan_new RENAME TO micro_plan`);

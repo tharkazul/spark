@@ -3,7 +3,7 @@ const { generateWithFallback } = require("./ai");
 const { sendSSEEvent } = require("./sse");
 
 /**
- * Feature Registry: List of trackable Spark features.
+ * Feature Registry: List of trackable Rooka features.
  * Easily extensible by adding new items to this array in the future.
  */
 const FEATURES_REGISTRY = [
@@ -114,9 +114,9 @@ const FEATURES_REGISTRY = [
   },
   {
     key: "quests_gamification",
-    name: "Quests & Spark Points",
-    description: "Complete active weekly training quests, earn bonus Spark points, and unlock unique athlete titles.",
-    coachPrompt: "Stay motivated with weekly Quests! Check your active quests to earn extra Spark points, track your streak, and unlock special titles as you crush your training milestones.",
+    name: "Quests & Rooka Points",
+    description: "Complete active weekly training quests, earn bonus Rooka points, and unlock unique athlete titles.",
+    coachPrompt: "Stay motivated with weekly Quests! Check your active quests to earn extra Rooka points, track your streak, and unlock special titles as you crush your training milestones.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -130,8 +130,8 @@ const FEATURES_REGISTRY = [
   {
     key: "activity_sync",
     name: "Garmin & Strava Activity Sync",
-    description: "Connect your Garmin Connect or Strava account for automatic activity import and Spark scoring.",
-    coachPrompt: "Did you know you can connect your Garmin or Strava account? Once connected, your runs and rides automatically sync to Spark, giving you instant Spark points and training stress analysis.",
+    description: "Connect your Garmin Connect or Strava account for automatic activity import and Rooka scoring.",
+    coachPrompt: "Did you know you can connect your Garmin or Strava account? Once connected, your runs and rides automatically sync to Rooka, giving you instant Rooka points and training stress analysis.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -145,8 +145,8 @@ const FEATURES_REGISTRY = [
   {
     key: "social_kudos",
     name: "Social Connections & Kudos",
-    description: "Connect with friends on Spark, view the community leaderboard, and give kudos on activities.",
-    coachPrompt: "Training is better together! Connect with training partners on Spark, check out the weekly leaderboard, and send kudos to motivate each other on recent activities.",
+    description: "Connect with friends on Rooka, view the community leaderboard, and give kudos on activities.",
+    coachPrompt: "Training is better together! Connect with training partners on Rooka, check out the weekly leaderboard, and send kudos to motivate each other on recent activities.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -230,7 +230,7 @@ async function runWeeklyFeatureOnboardingJob() {
 
         console.log(`[Onboarding Job] Introducing "${nextFeature.name}" (${nextFeature.key}) to ${user.username} (ID: ${user.id})`);
 
-        const prompt = `You are the athlete's personal endurance coach. Write a natural, friendly, non-overwhelming chat message introducing a useful feature in Spark that they haven't tried yet.
+        const prompt = `You are the athlete's personal endurance coach. Write a natural, friendly, non-overwhelming chat message introducing a useful feature in Rooka that they haven't tried yet.
 Feature: ${nextFeature.name}
 Core Message Guidance: ${nextFeature.coachPrompt}
 Instructions:
@@ -239,7 +239,7 @@ Instructions:
 - Sound enthusiastic, encouraging, and natural (NOT robotic or marketing-heavy).
 - DO NOT wrap in JSON.`;
 
-        const systemPrompt = `You are Spark, an elite endurance coach. Your tone is: ${user.coach_tone || "Empathetic but demanding elite endurance coach."}. Act like a real human coach in a text thread.`;
+        const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${user.coach_tone || "Empathetic but demanding elite endurance coach."}. Act like a real human coach in a text thread.`;
 
         let aiReply;
         try {
