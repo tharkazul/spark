@@ -121,7 +121,7 @@ export default function ProgressScreen() {
               <Animated.Text style={{ opacity: sparkWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
                 Spark
               </Animated.Text>
-              <Animated.Text style={{ opacity: sparkGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">
+              <Animated.Text style={{ opacity: sparkGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
                 Spark
               </Animated.Text>
             </View>
@@ -136,7 +136,7 @@ export default function ProgressScreen() {
               <Animated.Text style={{ opacity: nutritionWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
                 Nutrition
               </Animated.Text>
-              <Animated.Text style={{ opacity: nutritionGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">
+              <Animated.Text style={{ opacity: nutritionGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
                 Nutrition
               </Animated.Text>
             </View>
@@ -151,7 +151,7 @@ export default function ProgressScreen() {
               <Animated.Text style={{ opacity: healthWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
                 Health
               </Animated.Text>
-              <Animated.Text style={{ opacity: healthGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">
+              <Animated.Text style={{ opacity: healthGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
                 Health
               </Animated.Text>
             </View>

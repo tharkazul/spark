@@ -12,10 +12,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
+import { Ionicons } from '@expo/vector-icons';
 import { FeedSubTab } from '../../components/social/FeedSubTab';
 import { MyLogSubTab } from '../../components/social/MyLogSubTab';
 import { LeaderboardSubTab } from '../../components/social/LeaderboardSubTab';
 import { ActivityDetailModal } from '../../components/social/ActivityDetailModal';
+import { AddFriendsModal } from '../../components/social/AddFriendsModal';
 import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Activity } from '../../types/activity';
@@ -38,6 +40,8 @@ export default function SocialScreen() {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [selectedActivityId, setSelectedActivityId] = useState<string | number | null>(null);
   const [selectedInitialActivity, setSelectedInitialActivity] = useState<Partial<Activity> | undefined>(undefined);
+
+  const [addFriendsModalVisible, setAddFriendsModalVisible] = useState<boolean>(false);
 
   const handleOpenActivityModal = (id: string | number, initialAct?: Partial<Activity>) => {
     Haptics.selectionAsync();
@@ -122,7 +126,21 @@ export default function SocialScreen() {
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
       {/* HEADER WITH TITLE AND SUB-TAB SWITCHER */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
-        <ScreenHeaderTitleRow title="Social" />
+        <ScreenHeaderTitleRow
+          title="Social"
+          rightElement={
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync();
+                setAddFriendsModalVisible(true);
+              }}
+              activeOpacity={0.7}
+              className="w-8 h-8 rounded-full bg-theme-accent/15 border border-theme-accent/30 items-center justify-center"
+            >
+              <Ionicons name="person-add-outline" size={16} color="#FF5F3B" />
+            </TouchableOpacity>
+          }
+        />
 
         {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
         <View className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-[#E2E8F0] dark:border-slate-700">
@@ -252,6 +270,12 @@ export default function SocialScreen() {
         activityId={selectedActivityId}
         initialActivity={selectedInitialActivity}
         onClose={handleCloseActivityModal}
+      />
+
+      {/* ADD / SEARCH FRIENDS MODAL */}
+      <AddFriendsModal
+        visible={addFriendsModalVisible}
+        onClose={() => setAddFriendsModalVisible(false)}
       />
     </View>
   );

@@ -9,6 +9,7 @@ const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
+const { sendPushToUser } = require('../services/pushNotificationService');
 const {
   matchGarminExercise,
   getAMSDateString,
@@ -725,6 +726,12 @@ router.post("/api/activities/:id/comments", authenticateToken, (req, res) => {
                   activityName: activityName,
                   fromUsername: commenterName,
                   comment: comment.trim(),
+                });
+
+                sendPushToUser(act.user_id, {
+                  title: "New Comment on Your Workout! 💬",
+                  body: `${commenterName} commented on "${activityName}": "${comment.trim()}"`,
+                  data: { url: "/(tabs)/social", type: "comment" },
                 });
               }
             }

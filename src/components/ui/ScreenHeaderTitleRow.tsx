@@ -6,9 +6,10 @@ interface ScreenHeaderTitleRowProps {
   title?: string;
   children?: React.ReactNode;
   dateLabel?: string;
+  rightElement?: React.ReactNode;
 }
 
-export function ScreenHeaderTitleRow({ title, children, dateLabel }: ScreenHeaderTitleRowProps) {
+export function ScreenHeaderTitleRow({ title, children, dateLabel, rightElement }: ScreenHeaderTitleRowProps) {
   const now = new Date();
   const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
   const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
@@ -17,14 +18,17 @@ export function ScreenHeaderTitleRow({ title, children, dateLabel }: ScreenHeade
 
   return (
     <View className="flex-row justify-between items-center mb-3">
-      <View className="flex-1 mr-4">
+      <View className="flex-1 mr-2">
         {children || (
           <Text className="text-2xl font-extrabold text-theme-text tracking-tight">{title}</Text>
         )}
       </View>
-      <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full">
-        <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
-        <Text className="text-xs font-bold font-mono text-theme-muted">{formattedDate}</Text>
+      <View className="flex-row items-center space-x-2">
+        {rightElement}
+        <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full border border-theme-border/40">
+          <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
+          <Text className="text-xs font-bold font-mono text-theme-muted">{formattedDate}</Text>
+        </View>
       </View>
     </View>
   );

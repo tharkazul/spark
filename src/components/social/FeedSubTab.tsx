@@ -11,46 +11,28 @@ interface FeedSubTabProps {
 
 export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) => {
   const [loading, setLoading] = useState<boolean>(true);
-  const [feedItems, setFeedItems] = useState<SocialFeedActivity[]>([
-    {
-      id: 'feed-1',
-      user_id: 101,
-      username: 'Felix Son',
-      spark_level: 14,
-      start_date: new Date().toISOString(),
-      title: 'Morning Threshold Bike Intervals',
-      sport_type: 'BIKE',
-      distance_km: 32.4,
-      moving_time_min: 65,
-      spark_score: 88,
-      kudos_count: 14,
-      comments_count: 3,
-      has_kudosed: false,
-    },
-    {
-      id: 'feed-2',
-      user_id: 102,
-      username: 'Rutger Van der Berg',
-      spark_level: 12,
-      start_date: new Date(Date.now() - 86400000).toISOString(),
-      title: 'Easy Aerobic Recovery Run',
-      sport_type: 'RUN',
-      distance_km: 8.2,
-      moving_time_min: 42,
-      spark_score: 48,
-      kudos_count: 21,
-      comments_count: 5,
-      has_kudosed: true,
-    },
-  ]);
+  const [feedItems, setFeedItems] = useState<SocialFeedActivity[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+
+  const fetchPending = async () => {
+    try {
+      const res = await socialApi.getConnections();
+      if (res && res.connections) {
+        const pending = res.connections.filter((c: any) => c.status === 'pending_received');
+        setPendingRequests(pending);
+      }
+    } catch (e) {}
+  };
 
   useEffect(() => {
     let isMounted = true;
+    fetchPending();
+
     socialApi
       .getFeed()
       .then((res) => {
         if (!isMounted) return;
-        if (res && Array.isArray(res.activities) && res.activities.length > 0) {
+        if (res && Array.isArray(res.activities)) {
           setFeedItems(res.activities);
         }
       })
@@ -63,6 +45,22 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
       isMounted = false;
     };
   }, []);
+
+  const handleAcceptRequest = async (friendId: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const res = await socialApi.acceptUser(friendId);
+      if (res && res.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setPendingRequests((prev) => prev.filter((r) => r.friend_id !== friendId && r.user_id !== friendId));
+        socialApi.getFeed().then((feedRes) => {
+          if (feedRes && Array.isArray(feedRes.activities)) {
+            setFeedItems(feedRes.activities);
+          }
+        });
+      }
+    } catch (e) {}
+  };
 
   const handleToggleKudos = async (item: SocialFeedActivity) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -89,7 +87,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
     }
   };
 
-  if (loading && feedItems.length === 0) {
+  if (loading && feedItems.length === 0 && pendingRequests.length === 0) {
     return (
       <View className="items-center justify-center p-8">
         <ActivityIndicator size="large" color="#FF5F3B" />
@@ -99,8 +97,50 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
   }
 
   return (
-    <View className="space-y-4">
-      {feedItems.map((item) => (
+    <View className="space-y-4 pb-4">
+      {/* PENDING FRIEND REQUESTS BANNER */}
+      {pendingRequests.length > 0 && (
+        <View className="bg-theme-accent/10 border border-theme-accent/30 rounded-2xl p-4 mb-4">
+          <View className="flex-row items-center space-x-2 mb-3">
+            <Ionicons name="person-add" size={16} color="#FF5F3B" />
+            <Text className="text-xs font-extrabold text-theme-accent uppercase tracking-wider">
+              Friend Requests ({pendingRequests.length})
+            </Text>
+          </View>
+          {pendingRequests.map((req) => (
+            <View
+              key={`feed-req-${req.friend_id || req.user_id}`}
+              className="flex-row items-center justify-between bg-theme-card p-3 rounded-xl border border-theme-border/50 mb-1.5"
+            >
+              <View className="flex-row items-center space-x-3">
+                <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
+                  <Text className="text-xs font-black text-theme-accent">
+                    {(req.username || 'A').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <Text className="text-sm font-extrabold text-theme-text">{req.username}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleAcceptRequest(req.friend_id || req.user_id)}
+                className="bg-emerald-500 px-3.5 py-1.5 rounded-lg"
+              >
+                <Text className="text-xs font-extrabold text-white">Accept</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {feedItems.length === 0 ? (
+        <View className="items-center justify-center p-8 bg-theme-card border border-theme-border/60 rounded-2xl my-2">
+          <Ionicons name="people-outline" size={36} color="#8E8E93" style={{ marginBottom: 8 }} />
+          <Text className="text-sm font-bold text-theme-text text-center">No Recent Activity</Text>
+          <Text className="text-xs text-theme-muted text-center mt-1 px-4 leading-relaxed">
+            No activity from your connections yet. Tap the + icon at the top right to find and add athlete friends!
+          </Text>
+        </View>
+      ) : (
+        feedItems.map((item) => (
         <TouchableOpacity
           key={`feed-${item.id}`}
           activeOpacity={0.9}
@@ -185,7 +225,8 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-      ))}
+        ))
+      )}
     </View>
   );
 };

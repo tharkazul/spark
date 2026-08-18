@@ -56,6 +56,48 @@
     --sport-walk: #8FA82E;
   }
 
+  .dark {
+    /* Brand & Base */
+    --brand-primary: #FF6B45;
+    --brand-deep: #E8481F;
+    --accent: #FF6B45;
+    --accent-hover: #FF5F3B;
+    --accent-soft: rgba(255, 107, 69, 0.15);
+    --accent-border: rgba(255, 107, 69, 0.35);
+
+    /* Dark Surfaces & Text */
+    --bg-main: #121214;
+    --bg-card: #1E1F24;
+    --border-color: #2D2E35;
+    --text-main: #FFFFFF;
+    --text-muted: #A1A1AA;
+    --color-focus: #5BA8E8;
+    --color-metric: #FF6B45;
+
+    /* Semantic Status (Dark Mode - High Contrast) */
+    --color-success: #34D399;
+    --color-success-bg: rgba(52, 211, 153, 0.15);
+    --color-success-text: #6EE7B7;
+    --color-warning: #FBBF24;
+    --color-warning-bg: rgba(251, 191, 36, 0.15);
+    --color-warning-text: #FDE68A;
+    --color-error: #F87171;
+    --color-error-bg: rgba(248, 113, 113, 0.15);
+    --color-error-text: #FECACA;
+    --color-info: #60A5FA;
+    --color-info-bg: rgba(96, 165, 250, 0.15);
+    --color-info-text: #BFDBFE;
+
+    /* Sport Indicators (Dark Mode) */
+    --sport-swim: #5BA8E8;
+    --sport-ride: #6FC48A;
+    --sport-run: #E0B94F;
+    --sport-cardio: #E8837C;
+    --sport-strength: #C48AEA;
+    --sport-yoga: #4FD1C0;
+    --sport-walk: #A8C24F;
+  }
+
   @media (prefers-color-scheme: dark) {
     :root {
       /* Brand & Base */
@@ -67,13 +109,27 @@
       --accent-border: rgba(255, 107, 69, 0.35);
 
       /* Dark Surfaces & Text */
-      --bg-main: #17171A;
-      --bg-card: #212226;
-      --border-color: #2D2E33;
-      --text-main: #F5F5F7;
-      --text-muted: #9A9AA2;
+      --bg-main: #121214;
+      --bg-card: #1E1F24;
+      --border-color: #2D2E35;
+      --text-main: #FFFFFF;
+      --text-muted: #A1A1AA;
       --color-focus: #5BA8E8;
       --color-metric: #FF6B45;
+
+      /* Semantic Status (Dark Mode - High Contrast) */
+      --color-success: #34D399;
+      --color-success-bg: rgba(52, 211, 153, 0.15);
+      --color-success-text: #6EE7B7;
+      --color-warning: #FBBF24;
+      --color-warning-bg: rgba(251, 191, 36, 0.15);
+      --color-warning-text: #FDE68A;
+      --color-error: #F87171;
+      --color-error-bg: rgba(248, 113, 113, 0.15);
+      --color-error-text: #FECACA;
+      --color-info: #60A5FA;
+      --color-info-bg: rgba(96, 165, 250, 0.15);
+      --color-info-text: #BFDBFE;
 
       /* Sport Indicators (Dark Mode) */
       --sport-swim: #5BA8E8;

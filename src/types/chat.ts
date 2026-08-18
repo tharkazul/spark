@@ -40,7 +40,15 @@ export interface WorkoutProposalPayload {
   status: 'pending' | 'accepted' | 'rejected';
 }
 
-export type ChatPayload = EventInvitePayload | SocialMentionPayload | WorkoutProposalPayload;
+export interface ConnectionRequestPayload {
+  type: 'connection_request' | 'connection_accepted';
+  friend_id?: number;
+  fromUserId?: number;
+  username?: string;
+  status?: string;
+}
+
+export type ChatPayload = EventInvitePayload | SocialMentionPayload | WorkoutProposalPayload | ConnectionRequestPayload;
 
 export interface ChatMessage {
   id: string | number;

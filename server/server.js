@@ -22,6 +22,7 @@ const physiqueRoutes = require("./routes/physique");
 const activitiesRoutes = require("./routes/activities");
 const settingsRoutes = require("./routes/settings");
 const adminRoutes = require("./routes/admin");
+const notificationsRoutes = require("./routes/notifications");
 
 app.use("/api/auth", authRoutes);
 app.use("/", chatRoutes);
@@ -32,6 +33,7 @@ app.use("/", physiqueRoutes);
 app.use("/", activitiesRoutes);
 app.use("/", settingsRoutes);
 app.use("/", adminRoutes);
+app.use("/", notificationsRoutes);
 
 // Utilities and cron jobs
 const {

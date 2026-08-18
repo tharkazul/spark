@@ -172,3 +172,37 @@ export const briefingStorage = {
     } catch (e) {}
   },
 };
+
+const CHAT_READ_KEY = 'spark_chat_last_read_timestamp';
+
+export const chatReadStorage = {
+  async getLastReadTimestamp(): Promise<number> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = window.localStorage.getItem(CHAT_READ_KEY);
+          return raw ? parseInt(raw, 10) : 0;
+        }
+        return 0;
+      }
+      const raw = await AsyncStorage.getItem(CHAT_READ_KEY);
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  },
+
+  async setLastReadTimestamp(timestamp: number): Promise<void> {
+    try {
+      const val = timestamp.toString();
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(CHAT_READ_KEY, val);
+        }
+        return;
+      }
+      await AsyncStorage.setItem(CHAT_READ_KEY, val);
+    } catch {}
+  },
+};
+

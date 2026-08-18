@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -32,12 +33,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   renderSettingRow,
 }) => {
   const { t } = useLanguage();
-  const { user, refreshUser } = useUser();
+  const { user, updateUser, refreshUser } = useUser();
   const { colorScheme, toggleColorScheme } = useColorScheme();
 
   const [titles, setTitles] = useState<UserTitle[]>([]);
   const [loadingTitles, setLoadingTitles] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTitles();
@@ -45,7 +47,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   const getFullPhotoUrl = (path?: string) => {
     if (!path) return null;
-    if (path.startsWith('http')) return path;
+    if (path.startsWith('http') || path.startsWith('file://')) return path;
     return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
   };
 
@@ -65,13 +67,18 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
         const fileUri = result.assets[0].uri;
+        setLocalPhotoUri(fileUri);
         setUploadingPhoto(true);
         try {
-          await userApi.uploadProfilePicture(fileUri);
+          const res = await userApi.uploadProfilePicture(fileUri);
+          if (res && res.url) {
+            updateUser({ profile_picture_url: res.url });
+          }
           await refreshUser();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
           console.error('Failed to upload profile picture:', err);
+          setLocalPhotoUri(null);
         } finally {
           setUploadingPhoto(false);
         }
@@ -113,7 +120,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     }
   };
 
-  const profilePicUrl = getFullPhotoUrl(user?.profile_picture_url);
+  const profilePicUrl = localPhotoUri || getFullPhotoUrl(user?.profile_picture_url || (user as any)?.profilePictureUrl);
 
   const tier = user?.subscription_tier;
   let tierLabel = 'Free Member';
@@ -134,8 +141,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             {profilePicUrl ? (
               <Image
                 source={{ uri: profilePicUrl }}
-                className="w-full h-full"
-                resizeMode="cover"
+                style={{ width: '100%', height: '100%' }}
+                contentFit="cover"
+                transition={200}
               />
             ) : (
               <Ionicons name="person" size={42} color="#8E8E93" />

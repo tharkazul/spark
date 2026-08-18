@@ -26,26 +26,25 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
   const hasLoggedFood = (nutrition.loggedCarbs || 0) > 0 || (nutrition.loggedProtein || 0) > 0 || (nutrition.loggedFat || 0) > 0;
 
   return (
-    <View className="mb-4 rounded-3xl bg-theme-card shadow-sm">
-      <View className="p-0 overflow-hidden rounded-3xl">
+    <View className="mb-4 rounded-3xl bg-theme-card border border-theme-border shadow-sm overflow-hidden">
       {/* Header Bar matching Quest Card header design */}
-      <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/40">
-        <View className="flex-row items-center gap-2">
-          <View className="w-7 h-7 rounded-lg bg-emerald-500/15 items-center justify-center">
-            <Ionicons name="restaurant-outline" size={14} color="#10B981" />
+      <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/50 border-b border-theme-border/30">
+        <View className="flex-row items-center gap-2.5">
+          <View className="w-8 h-8 rounded-xl bg-emerald-500/15 items-center justify-center">
+            <Ionicons name="restaurant-outline" size={16} color="#10B981" />
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Today's Fueling Plan</Text>
-            <Text className="text-[9px] text-theme-muted font-medium">Macro Fueling & Meal Targets</Text>
+            <Text className="text-[10px] text-theme-muted font-bold">Macro Fueling & Meal Targets</Text>
           </View>
         </View>
 
         {hasLoggedFood && (
           <TouchableOpacity
             onPress={handleClearLoggedFood}
-            className="flex-row items-center gap-1 bg-theme-bg/60 px-3 py-1.5 rounded-full"
+            className="flex-row items-center gap-1 bg-theme-card px-3 py-1.5 rounded-full border border-theme-border"
           >
-            <Ionicons name="refresh-outline" size={12} color="#94A3B8" />
+            <Ionicons name="refresh-outline" size={12} color="#A1A1AA" />
             <Text className="text-[10px] font-bold text-theme-muted">Reset Today</Text>
           </TouchableOpacity>
         )}
@@ -53,11 +52,11 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
 
       {/* Main Content Area matching Quest Card inner box styling */}
       <View className="p-3.5">
-        <View className="p-4 bg-theme-bg/50 rounded-2xl">
+        <View className="p-4 bg-theme-bg/60 rounded-2xl border border-theme-border/40">
           {/* Rationale Banner */}
-          <View className="p-3 bg-emerald-500/10 rounded-xl mb-4">
-            <Text className="text-xs font-bold text-emerald-500 mb-0.5">{nutrition.focusTitle}</Text>
-            <Text className="text-xs text-theme-text/80 leading-relaxed">{nutrition.rationale}</Text>
+          <View className="p-3.5 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-xl mb-4 border border-emerald-500/20">
+            <Text className="text-xs font-extrabold text-emerald-500 dark:text-emerald-400 mb-1">{nutrition.focusTitle}</Text>
+            <Text className="text-xs text-theme-text font-medium leading-relaxed">{nutrition.rationale}</Text>
           </View>
 
           {/* 3 Macro Rings Row (Carbs, Protein, Fat) */}
@@ -86,13 +85,13 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
 
           {/* Logged Meal Items List */}
           {loggedItems.length > 0 && (
-            <View className="mt-4 pt-3 border-t border-theme-border/20">
+            <View className="mt-4 pt-3 border-t border-theme-border/30">
               <Text className="text-xs font-extrabold text-theme-text mb-2">Logged Foods Today</Text>
               <View className="space-y-1.5">
                 {loggedItems.map((item: any, idx: number) => (
                   <View
                     key={`${item.name || item}-${idx}`}
-                    className="flex-row items-center justify-between p-2.5 bg-theme-card/80 rounded-xl"
+                    className="flex-row items-center justify-between p-2.5 bg-theme-card rounded-xl border border-theme-border/40"
                   >
                     <Text className="text-xs font-bold text-theme-text">{typeof item === 'string' ? item : item.name}</Text>
                     {typeof item !== 'string' && item.calories && (
@@ -103,7 +102,6 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
               </View>
             </View>
           )}
-        </View>
         </View>
       </View>
     </View>

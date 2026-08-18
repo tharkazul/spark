@@ -40,6 +40,7 @@ import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownT
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { EventInviteCard } from '../../components/chat/EventInviteCard';
 import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
+import { ConnectionRequestCard } from '../../components/chat/ConnectionRequestCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { ChatMessage } from '../../types/chat';
 import { API_BASE_URL } from '../../constants/api';
@@ -204,6 +205,10 @@ const MessageRow = React.memo(({
           <SocialMentionCard
             payload={item.payload_json}
           />
+        ) : (item.payload_json as any)?.type === 'connection_request' || (item.payload_json as any)?.type === 'connection_accepted' ? (
+          <ConnectionRequestCard
+            payload={item.payload_json as any}
+          />
         ) : null}
 
         {item.proposedPlan && item.proposedPlan.length > 0 ? (
@@ -231,7 +236,7 @@ const MessageRow = React.memo(({
 
 export default function CoachScreen() {
   const { t } = useLanguage();
-  const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error } = useCoachChat();
+  const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error, markAsRead } = useCoachChat();
   const { user, isChatMacroStripVisible, toggleChatMacroStrip } = useUser();
   const { plan } = usePlan();
   const { nutrition, clearLoggedNutrition } = usePhysique();
@@ -331,7 +336,8 @@ export default function CoachScreen() {
       isPinnedToBottom.current = true;
       setShowScrollDownBtn(false);
       scrollToBottom(false);
-    }, [scrollToBottom])
+      markAsRead();
+    }, [scrollToBottom, markAsRead])
   );
 
   // 5. NEW MESSAGE WHILE PINNED
@@ -562,11 +568,11 @@ export default function CoachScreen() {
 
   const getSportIconConfig = (sport?: string) => {
     const s = (sport || '').toUpperCase();
-    if (s.includes('RUN')) return { icon: 'walk-outline', color: '#D9A62E', bg: 'bg-[#D9A62E]/15' };
-    if (s.includes('BIKE') || s.includes('CYCL')) return { icon: 'bicycle-outline', color: '#4CAF6D', bg: 'bg-[#4CAF6D]/15' };
-    if (s.includes('SWIM')) return { icon: 'water-outline', color: '#2E8FE0', bg: 'bg-[#2E8FE0]/15' };
-    if (s.includes('STRENGTH')) return { icon: 'barbell-outline', color: '#B36AE0', bg: 'bg-[#B36AE0]/15' };
-    if (s.includes('MOBILITY')) return { icon: 'body-outline', color: '#2EBFAF', bg: 'bg-[#2EBFAF]/15' };
+    if (s.includes('RUN')) return { icon: 'walk-outline', color: '#F59E0B', bg: 'bg-amber-500/15' };
+    if (s.includes('BIKE') || s.includes('CYCL')) return { icon: 'bicycle-outline', color: '#34D399', bg: 'bg-emerald-500/15' };
+    if (s.includes('SWIM')) return { icon: 'water-outline', color: '#38BDF8', bg: 'bg-sky-500/15' };
+    if (s.includes('STRENGTH')) return { icon: 'barbell-outline', color: '#C084FC', bg: 'bg-purple-500/15' };
+    if (s.includes('MOBILITY')) return { icon: 'body-outline', color: '#2DD4BF', bg: 'bg-teal-500/15' };
     return { icon: 'flash-outline', color: '#FF5F3B', bg: 'bg-theme-accent/15' };
   };
 
@@ -744,18 +750,18 @@ export default function CoachScreen() {
                   console.error('Failed to clear nutrition:', e);
                 }
               }}
-              className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border/50"
+              className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border"
             >
-              <Ionicons name="refresh-outline" size={12} color="#94A3B8" />
+              <Ionicons name="refresh-outline" size={12} color="#A1A1AA" />
               <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Rationale Banner */}
-        <View className="p-3.5 bg-emerald-500/10 rounded-2xl mb-4 border border-emerald-500/20">
-          <Text className="text-xs font-bold text-emerald-500 mb-0.5">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
-          <Text className="text-xs text-theme-text/80 leading-relaxed font-normal">{nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}</Text>
+        <View className="p-3.5 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-2xl mb-4 border border-emerald-500/20">
+          <Text className="text-xs font-extrabold text-emerald-500 dark:text-emerald-400 mb-1">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
+          <Text className="text-xs text-theme-text leading-relaxed font-medium">{nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}</Text>
         </View>
 
         {/* 3 Live Macro Rings Row */}

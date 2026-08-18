@@ -28,53 +28,53 @@ export function TodaysPlanCard({
     switch (type) {
       case 'SWIM':
         return {
-          bg: 'bg-[#2E8FE0]/15',
-          text: 'text-[#2E8FE0]',
-          borderLeft: 'border-l-[#2E8FE0]',
-          borderColor: 'border-[#2E8FE0]/40',
+          bg: 'bg-sky-500/15',
+          text: 'text-sky-400',
+          borderLeft: 'border-l-sky-400',
+          borderColor: 'border-sky-500/40',
           label: 'SWIM',
           icon: 'water-outline',
-          badgeColor: '#2E8FE0',
+          badgeColor: '#38BDF8',
         };
       case 'RUN':
         return {
-          bg: 'bg-[#D9A62E]/15',
-          text: 'text-[#D9A62E]',
-          borderLeft: 'border-l-[#D9A62E]',
-          borderColor: 'border-[#D9A62E]/40',
+          bg: 'bg-amber-500/15',
+          text: 'text-amber-400',
+          borderLeft: 'border-l-amber-400',
+          borderColor: 'border-amber-500/40',
           label: 'RUN',
           icon: 'walk-outline',
-          badgeColor: '#D9A62E',
+          badgeColor: '#F59E0B',
         };
       case 'BIKE':
         return {
-          bg: 'bg-[#4CAF6D]/15',
-          text: 'text-[#4CAF6D]',
-          borderLeft: 'border-l-[#4CAF6D]',
-          borderColor: 'border-[#4CAF6D]/40',
+          bg: 'bg-emerald-500/15',
+          text: 'text-emerald-400',
+          borderLeft: 'border-l-emerald-400',
+          borderColor: 'border-emerald-500/40',
           label: 'BIKE',
           icon: 'bicycle-outline',
-          badgeColor: '#4CAF6D',
+          badgeColor: '#34D399',
         };
       case 'STRENGTH':
         return {
-          bg: 'bg-[#B36AE0]/15',
-          text: 'text-[#B36AE0]',
-          borderLeft: 'border-l-[#B36AE0]',
-          borderColor: 'border-[#B36AE0]/40',
+          bg: 'bg-purple-500/15',
+          text: 'text-purple-400',
+          borderLeft: 'border-l-purple-400',
+          borderColor: 'border-purple-500/40',
           label: 'STRENGTH',
           icon: 'barbell-outline',
-          badgeColor: '#B36AE0',
+          badgeColor: '#C084FC',
         };
       case 'MOBILITY':
         return {
-          bg: 'bg-[#2EBFAF]/15',
-          text: 'text-[#2EBFAF]',
-          borderLeft: 'border-l-[#2EBFAF]',
-          borderColor: 'border-[#2EBFAF]/40',
+          bg: 'bg-teal-500/15',
+          text: 'text-teal-400',
+          borderLeft: 'border-l-teal-400',
+          borderColor: 'border-teal-500/40',
           label: 'MOBILITY',
           icon: 'body-outline',
-          badgeColor: '#2EBFAF',
+          badgeColor: '#2DD4BF',
         };
       default:
         return {
@@ -84,7 +84,7 @@ export function TodaysPlanCard({
           borderColor: 'border-gray-500/40',
           label: 'REST',
           icon: 'moon-outline',
-          badgeColor: '#6F6F79',
+          badgeColor: '#A1A1AA',
         };
     }
   };

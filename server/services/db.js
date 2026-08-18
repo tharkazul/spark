@@ -108,6 +108,15 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN deleted_at TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'en'`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {});
+  db.run(`CREATE TABLE IF NOT EXISTS push_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        device_type TEXT DEFAULT 'ios',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`);
   db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         admin_username TEXT, 
@@ -326,6 +335,9 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id),
         FOREIGN KEY(friend_id) REFERENCES users(id)
     )`);
+  db.run(
+    `DELETE FROM connections WHERE user_id IN (SELECT id FROM users WHERE username = 'rutger' OR username LIKE '%rutger%') OR friend_id IN (SELECT id FROM users WHERE username = 'rutger' OR username LIKE '%rutger%')`
+  );
   db.run(`CREATE TABLE IF NOT EXISTS kudos (
         activity_id INTEGER,
         user_id INTEGER,

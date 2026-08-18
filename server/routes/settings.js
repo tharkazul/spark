@@ -68,7 +68,8 @@ router.post(
           console.error(err);
           return res.status(500).json({ error: "DB_ERROR" });
         }
-        res.json({ success: true, url });
+        db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [req.user.id]);
+        res.json({ success: true, url, profile_picture_url: url });
       },
     );
   },
@@ -173,6 +174,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             profilePictureUrl: row.profile_picture_url,
             trainingAvailability: availability,
             sparkLevel: sparkLevelInfo,
+            total_spark: row.total_spark || 0,
+            totalSpark: row.total_spark || 0,
             dailyTokenUsage: dailyUsage,
             dailyTokenLimit: currentLimit,
             subscriptionTier: row.subscription_tier || 'free',

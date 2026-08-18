@@ -103,6 +103,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
 
         const finalUser: UserProfile = profileData ? {
           ...profileData,
+          total_spark: (profileData as any).total_spark ?? (profileData as any).totalSpark ?? profileData.total_spark ?? 0,
           subscription_tier: (profileData as any).subscriptionTier ?? (profileData as any).subscription_tier ?? profileData.subscription_tier ?? 'free',
           athlete_context: (profileData as any).athleteContext ?? (profileData as any).athlete_context ?? profileData.athlete_context,
           coach_tone: (profileData as any).coachTone ?? profileData.coach_tone,
@@ -167,6 +168,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         setUser((prev) => ({
           ...prev,
           ...data,
+          total_spark: (data as any).total_spark ?? (data as any).totalSpark ?? data.total_spark ?? prev?.total_spark ?? 0,
           subscription_tier: (data as any).subscriptionTier ?? (data as any).subscription_tier ?? data.subscription_tier ?? prev?.subscription_tier ?? 'free',
           athlete_context: (data as any).athleteContext ?? (data as any).athlete_context ?? data.athlete_context,
           coach_tone: (data as any).coachTone ?? data.coach_tone,
@@ -228,6 +230,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
 
           const finalUser: UserProfile = profile ? {
             ...profile,
+            total_spark: (profile as any).total_spark ?? (profile as any).totalSpark ?? profile.total_spark ?? 0,
             subscription_tier: (profile as any).subscriptionTier ?? (profile as any).subscription_tier ?? profile.subscription_tier ?? 'free',
             athlete_context: (profile as any).athleteContext ?? (profile as any).athlete_context ?? profile.athlete_context,
             coach_tone: (profile as any).coachTone ?? profile.coach_tone,

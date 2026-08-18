@@ -9,6 +9,7 @@ import { AppProviders } from '../context/AppProviders';
 import { useUser } from '../context/UserStore';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { KeyboardMotionProvider } from '../context/KeyboardMotionContext';
+import { registerForPushNotificationsAsync, setupNotificationListeners } from '../services/notificationService';
 
 import { useFonts } from 'expo-font';
 import {
@@ -53,6 +54,14 @@ function RootNavigation() {
       }
     }
   }, [isAuthenticated, loading, segments, user]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      registerForPushNotificationsAsync();
+      const cleanup = setupNotificationListeners();
+      return cleanup;
+    }
+  }, [isAuthenticated]);
 
   if (loading) {
     return (

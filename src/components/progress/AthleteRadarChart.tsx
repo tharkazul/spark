@@ -75,9 +75,9 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
     const y = center + offset * Math.sin(angle);
 
     return {
-      left: x - 45,
-      top: y - 10,
-      width: 90,
+      left: x - 55,
+      top: y - 12,
+      width: 110,
     };
   };
 
@@ -93,7 +93,10 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
               className="absolute items-center justify-center"
               style={style}
             >
-              <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider text-center">
+              <Text
+                numberOfLines={1}
+                className="text-[10px] font-bold text-theme-muted uppercase tracking-normal text-center"
+              >
                 {m.label}
               </Text>
               <Text className="text-xs font-extrabold text-theme-accent text-center">

@@ -9,6 +9,7 @@ const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
+const { sendPushToUser } = require('../services/pushNotificationService');
 const {
   matchGarminExercise,
   getAMSDateString,
@@ -86,26 +87,33 @@ router.get("/api/social/profile/:id", authenticateToken, (req, res) => {
 });
 
 router.post("/api/social/search", authenticateToken, (req, res) => {
-  const { username } = req.body;
-  db.get(
-    `SELECT id, username FROM users WHERE username = ? COLLATE NOCASE AND id != ? AND search_privacy = 0`,
-    [username, req.user.id],
-    (err, user) => {
-      if (err || !user) return res.json({ found: false });
-      db.get(
-        `SELECT status FROM connections WHERE user_id = ? AND friend_id = ?`,
-        [req.user.id, user.id],
-        (err, conn) => {
-          res.json({
-            found: true,
-            user: {
-              id: user.id,
-              username: user.username,
-              status: conn ? conn.status : null,
-            },
-          });
-        },
-      );
+  const { username, query } = req.body;
+  const searchTerm = (username || query || "").trim();
+  if (!searchTerm) return res.json({ found: false, users: [] });
+
+  db.all(
+    `SELECT u.id, u.username, u.profile_picture_url,
+            (SELECT status FROM connections WHERE user_id = ? AND friend_id = u.id) as status
+     FROM users u
+     WHERE LOWER(u.username) LIKE LOWER(?) AND (u.search_privacy = 0 OR u.search_privacy IS NULL)
+     ORDER BY u.username ASC
+     LIMIT 10`,
+    [req.user.id, `%${searchTerm}%`],
+    (err, rows) => {
+      if (err || !rows || rows.length === 0) {
+        return res.json({ found: false, users: [], user: null });
+      }
+      const mapped = rows.map((u) => ({
+        id: u.id,
+        username: u.username,
+        profile_picture_url: u.profile_picture_url,
+        status: u.id === req.user.id ? 'self' : (u.status || null),
+      }));
+      res.json({
+        found: true,
+        users: mapped,
+        user: mapped[0],
+      });
     },
   );
 });
@@ -124,6 +132,34 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
             fromUserId: req.user.id,
             username: req.user.username,
           });
+
+          // Insert chat notification message for recipient (friendId) with interactive payload
+          const payloadObj = {
+            type: "connection_request",
+            friend_id: req.user.id,
+            username: req.user.username,
+            status: "pending",
+          };
+          const payloadJson = JSON.stringify(payloadObj);
+          const chatMsg = `${req.user.username} wants to connect with you on Spark! Do you want to accept their connection request?`;
+
+          db.run(
+            `INSERT INTO chat_history (user_id, role, content, mood, payload_json) VALUES (?, 'coach', ?, 'support', ?)`,
+            [friendId, chatMsg, payloadJson],
+            (chatErr) => {
+              sendSSEEvent(friendId, "unread_message", {
+                message: chatMsg,
+                mood: "support",
+                payload_json: payloadObj,
+              });
+              sendPushToUser(friendId, {
+                title: "New Connection Request! 🏃",
+                body: `${req.user.username} sent you a connection request on Spark.`,
+                data: { url: "/(tabs)/coach", type: "connection" },
+              });
+            }
+          );
+
           res.json({ success: true });
         },
       );
@@ -145,28 +181,69 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
             fromUserId: req.user.id,
             username: req.user.username,
           });
+          sendPushToUser(friendId, {
+            title: "Connection Accepted! 🤝",
+            body: `${req.user.username} accepted your connection request!`,
+            data: { url: "/(tabs)/social", type: "connection" },
+          });
 
+          // Update recipient's existing chat history payload for this friend request to 'accepted'
+          db.all(
+            `SELECT id, payload_json FROM chat_history WHERE user_id = ? AND role = 'coach' AND payload_json LIKE '%connection_request%'`,
+            [req.user.id],
+            (err, rows) => {
+              if (rows) {
+                rows.forEach((row) => {
+                  try {
+                    const parsed = JSON.parse(row.payload_json);
+                    if (parsed && (parsed.friend_id == friendId || parsed.fromUserId == friendId)) {
+                      parsed.status = "accepted";
+                      db.run(
+                        `UPDATE chat_history SET payload_json = ? WHERE id = ?`,
+                        [JSON.stringify(parsed), row.id]
+                      );
+                    }
+                  } catch (e) {}
+                });
+              }
+            }
+          );
+
+          // Send Coach confirmation message to the original requester (friendId)
           db.get(
             `SELECT coach_tone FROM users WHERE id = ?`,
             [friendId],
             async (err, friendUser) => {
+              const confirmPayloadObj = {
+                type: "connection_accepted",
+                friend_id: req.user.id,
+                username: req.user.username,
+              };
+              const confirmPayload = JSON.stringify(confirmPayloadObj);
+              let confirmMsg = `${req.user.username} accepted your connection request! You are now connected on Spark!`;
+
               if (friendUser) {
-                const prompt = `The athlete just connected with their friend ${req.user.username} on the app. Send a very short 1-sentence message to the athlete welcoming the new connection and telling them to use the competition as motivation.`;
+                const prompt = `The athlete just connected with their friend ${req.user.username} on the app. Send a short 1-2 sentence message to the athlete welcoming the new connection and telling them to use the friendly competition as motivation!`;
                 const sysPrompt = `You are an elite endurance coach. Your tone is: ${friendUser.coach_tone || "Friendly and motivating"}.`;
                 try {
-                  const msg = await generateWithFallback(prompt, sysPrompt);
-                  db.run(
-                    `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'support')`,
-                    [friendId, msg],
-                  );
-                  sendSSEEvent(friendId, "unread_message", {
-                    message: msg,
-                    mood: "support",
-                  });
+                  const aiMsg = await generateWithFallback(prompt, sysPrompt);
+                  if (aiMsg) confirmMsg = aiMsg;
                 } catch (e) {
                   console.error(e);
                 }
               }
+
+              db.run(
+                `INSERT INTO chat_history (user_id, role, content, mood, payload_json) VALUES (?, 'coach', ?, 'hype', ?)`,
+                [friendId, confirmMsg, confirmPayload],
+                (err) => {
+                  sendSSEEvent(friendId, "unread_message", {
+                    message: confirmMsg,
+                    mood: "hype",
+                    payload_json: confirmPayloadObj,
+                  });
+                }
+              );
             },
           );
 
@@ -294,6 +371,7 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
         username: user.username,
         profile_picture_url: user.profile_picture_url,
         spark_level: user.spark_level,
+        quests_completed_7d: userQuests.length,
         completed_quests_count: userQuests.length,
         total_quest_spark: Math.round(total_quest_spark),
         quests: userQuests.map((q) => ({ description: q.description, points: Math.round(q.reward_points || 0) })),
@@ -396,6 +474,11 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
                                 sendSSEEvent(act.user_id, "unread_message", {
                                   message: msg,
                                   mood: "hype",
+                                });
+                                sendPushToUser(act.user_id, {
+                                  title: "New Kudos! ⚡",
+                                  body: `${req.user.username || "A friend"} gave you kudos on ${act.name}!`,
+                                  data: { url: "/(tabs)/social", type: "kudos" },
                                 });
                               }
                             }

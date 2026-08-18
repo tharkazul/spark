@@ -106,13 +106,13 @@ export function DashboardSharedHeader({ position }: { position: Animated.Animate
           <TouchableOpacity onPress={() => router.navigate('/(tabs)')} className="flex-1 py-2.5 items-center justify-center z-10">
             <View className="relative items-center justify-center">
               <Animated.Text style={{ opacity: dashboardWhiteOpacity }} className="text-sm font-extrabold text-white absolute">Dashboard</Animated.Text>
-              <Animated.Text style={{ opacity: dashboardGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">Dashboard</Animated.Text>
+              <Animated.Text style={{ opacity: dashboardGreyOpacity }} className="text-sm font-extrabold text-theme-muted">Dashboard</Animated.Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.navigate('/(tabs)/planning')} className="flex-1 py-2.5 items-center justify-center z-10">
             <View className="relative items-center justify-center">
               <Animated.Text style={{ opacity: planningWhiteOpacity }} className="text-sm font-extrabold text-white absolute">Planning</Animated.Text>
-              <Animated.Text style={{ opacity: planningGreyOpacity }} className="text-sm font-extrabold text-[#6F6F79]">Planning</Animated.Text>
+              <Animated.Text style={{ opacity: planningGreyOpacity }} className="text-sm font-extrabold text-theme-muted">Planning</Animated.Text>
             </View>
           </TouchableOpacity>
         </View>

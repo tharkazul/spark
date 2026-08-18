@@ -12,21 +12,21 @@ interface MacroRingGaugeProps {
 const CONFIG = {
   Protein: {
     trackColor: 'rgba(56, 189, 248, 0.20)',
-    progressColor: '#0284C7',
-    textColor: '#0284C7',
-    bgSoft: '#F0F6FE',
+    progressColor: '#38BDF8',
+    textColor: '#38BDF8',
+    bgSoft: 'rgba(56, 189, 248, 0.12)',
   },
   Carbs: {
-    trackColor: 'rgba(16, 185, 129, 0.20)',
-    progressColor: '#10B981',
-    textColor: '#059669',
-    bgSoft: '#F2FBF0',
+    trackColor: 'rgba(52, 211, 153, 0.20)',
+    progressColor: '#34D399',
+    textColor: '#34D399',
+    bgSoft: 'rgba(52, 211, 153, 0.12)',
   },
   Fat: {
-    trackColor: 'rgba(239, 68, 68, 0.20)',
-    progressColor: '#EF4444',
-    textColor: '#DC2626',
-    bgSoft: '#FEF2F2',
+    trackColor: 'rgba(248, 113, 113, 0.20)',
+    progressColor: '#F87171',
+    textColor: '#F87171',
+    bgSoft: 'rgba(248, 113, 113, 0.12)',
   },
 };
 
@@ -45,9 +45,9 @@ export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGa
   // Percentage color styling for high/overflow intake
   let pctColor = cfg.textColor;
   if (actualPct >= 120) {
-    pctColor = '#DC2626'; // red-600
+    pctColor = '#F87171'; // rose-400
   } else if (actualPct > 100) {
-    pctColor = '#D97706'; // amber-600
+    pctColor = '#FBBF24'; // amber-400
   }
 
   const isSmall = size < 80;
@@ -86,7 +86,7 @@ export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGa
 
         {/* Center Content */}
         <View className="absolute inset-0 items-center justify-center p-1">
-          <Text className={`${isSmall ? 'text-[11px]' : 'text-xs'} font-medium text-theme-text text-center`}>
+          <Text className={`${isSmall ? 'text-[11px]' : 'text-xs'} font-bold text-theme-text text-center`}>
             {label}
           </Text>
 
@@ -94,17 +94,17 @@ export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGa
             <>
               <Text
                 style={{ color: pctColor }}
-                className={`${isSmall ? 'text-xs my-0.5' : 'text-sm my-0.5'} font-medium text-center`}
+                className={`${isSmall ? 'text-xs my-0.5' : 'text-sm my-0.5'} font-extrabold font-mono text-center`}
                 numberOfLines={1}
               >
                 {actualPct}%
               </Text>
-              <Text className={`${isSmall ? 'text-[9px]' : 'text-[10px]'} font-normal text-theme-muted text-center`}>
+              <Text className={`${isSmall ? 'text-[9px]' : 'text-[10px]'} font-semibold font-mono text-theme-muted text-center`}>
                 {logged}g / {target}g
               </Text>
             </>
           ) : (
-            <Text className={`${isSmall ? 'text-[9px] mt-0.5' : 'text-[10px] mt-0.5'} font-normal text-theme-muted text-center`}>
+            <Text className={`${isSmall ? 'text-[9px] mt-0.5' : 'text-[10px] mt-0.5'} font-semibold font-mono text-theme-muted text-center`}>
               {target}g
             </Text>
           )}

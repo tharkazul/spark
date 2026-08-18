@@ -300,7 +300,7 @@ export default function ProfileScreen() {
                   <Animated.Text style={{ opacity: opacityWhite }} className="text-[11px] font-extrabold text-white absolute" numberOfLines={1}>
                     {label}
                   </Animated.Text>
-                  <Animated.Text style={{ opacity: opacityGrey }} className="text-[11px] font-extrabold text-[#6F6F79]" numberOfLines={1}>
+                  <Animated.Text style={{ opacity: opacityGrey }} className="text-[11px] font-extrabold text-theme-muted" numberOfLines={1}>
                     {label}
                   </Animated.Text>
                 </View>

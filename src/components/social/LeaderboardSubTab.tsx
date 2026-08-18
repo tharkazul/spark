@@ -14,21 +14,8 @@ export const LeaderboardSubTab: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'spark' | 'quests'>('spark');
   const [loading, setLoading] = useState<boolean>(true);
-  const [sparkLeaderboard, setSparkLeaderboard] = useState<LeaderboardEntry[]>([
-    { rank: 1, user_id: 101, username: 'Felix Son', total_spark_score: 2840, spark_level: 14, quests_completed_7d: 12 },
-    { rank: 2, user_id: user?.id || 102, username: user?.username || 'Rutger Van der Berg', total_spark_score: 2410, spark_level: 12, quests_completed_7d: 9 },
-    { rank: 3, user_id: 103, username: 'Alex Rivera', total_spark_score: 1980, spark_level: 10, quests_completed_7d: 7 },
-    { rank: 4, user_id: 104, username: 'Sarah Chen', total_spark_score: 1650, spark_level: 9, quests_completed_7d: 6 },
-    { rank: 5, user_id: 105, username: 'Marco Silva', total_spark_score: 1420, spark_level: 8, quests_completed_7d: 4 },
-  ]);
-
-  const [questLeaderboard, setQuestLeaderboard] = useState<LeaderboardEntry[]>([
-    { rank: 1, user_id: 101, username: 'Felix Son', total_spark_score: 2840, spark_level: 14, quests_completed_7d: 12 },
-    { rank: 2, user_id: 104, username: 'Sarah Chen', total_spark_score: 1650, spark_level: 9, quests_completed_7d: 10 },
-    { rank: 3, user_id: user?.id || 102, username: user?.username || 'Rutger Van der Berg', total_spark_score: 2410, spark_level: 12, quests_completed_7d: 9 },
-    { rank: 4, user_id: 103, username: 'Alex Rivera', total_spark_score: 1980, spark_level: 10, quests_completed_7d: 7 },
-    { rank: 5, user_id: 105, username: 'Marco Silva', total_spark_score: 1420, spark_level: 8, quests_completed_7d: 4 },
-  ]);
+  const [sparkLeaderboard, setSparkLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [questLeaderboard, setQuestLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   const hasAccess = canAccessLeaderboard(user?.subscription_tier);
 
@@ -43,10 +30,10 @@ export const LeaderboardSubTab: React.FC = () => {
       .getLeaderboard()
       .then((res) => {
         if (!isMounted) return;
-        if (res?.leaderboard && Array.isArray(res.leaderboard) && res.leaderboard.length > 0) {
+        if (res?.leaderboard && Array.isArray(res.leaderboard)) {
           setSparkLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
         }
-        if (res?.questLeaderboard && Array.isArray(res.questLeaderboard) && res.questLeaderboard.length > 0) {
+        if (res?.questLeaderboard && Array.isArray(res.questLeaderboard)) {
           setQuestLeaderboard(res.questLeaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
         }
       })
@@ -128,8 +115,9 @@ export const LeaderboardSubTab: React.FC = () => {
           <Text className="text-xs font-bold text-theme-muted mt-3">Fetching leaderboard rankings...</Text>
         </View>
       ) : (
-        activeList.map((item) => {
+        activeList.map((item, index) => {
           const isCurrentUser = user?.id ? item.user_id === user.id : item.username === user?.username;
+          const questsCount = (item as any).completed_quests_count ?? item.quests_completed_7d ?? 0;
 
           return (
             <View
@@ -169,14 +157,14 @@ export const LeaderboardSubTab: React.FC = () => {
                     )}
                   </View>
                   <Text className="text-[11px] text-theme-muted font-medium">
-                    Lvl {item.spark_level || 1} · {item.quests_completed_7d || 0} Quests Completed
+                    Lvl {item.spark_level || 1} · {questsCount} Quests Completed
                   </Text>
                 </View>
               </View>
 
               <View className="items-end">
                 <Text className="text-base font-black text-theme-accent font-mono">
-                  {activeTab === 'spark' ? Math.round(item.total_spark_score || 0) : item.quests_completed_7d || 0}
+                  {activeTab === 'spark' ? Math.round(item.total_spark_score || 0) : questsCount}
                 </Text>
                 <Text className="text-[10px] text-theme-muted uppercase font-bold">
                   {activeTab === 'spark' ? 'Points' : 'Quests'}

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const fuzzysort = require('fuzzysort');
 const { sendSSEEvent } = require('./sse');
 const { generateWithFallback } = require('./ai');
+const { sendPushToUser } = require('./pushNotificationService');
 
 
 let garminExercises = [];
@@ -2259,6 +2260,11 @@ module.exports = {
                  sendSSEEvent(user.id, "unread_message", {
                    message: aiReply,
                    mood: "hype"
+                 });
+                 sendPushToUser(user.id, {
+                   title: `Good morning from ${user.coach_name || 'Spark'}! 🌅`,
+                   body: aiReply,
+                   data: { url: "/(tabs)/coach", type: "coach" },
                  });
                  console.log(`Sent morning message to user ${user.id}`);
               }

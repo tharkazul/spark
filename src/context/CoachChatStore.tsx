@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ChatMessage, TokenUsage, ProposedWorkoutItem } from '../types/chat';
 import { chatApi, planApi } from '../services/apiServices';
-import { chatStorage } from '../services/storage';
+import { chatStorage, chatReadStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
 import { usePlan } from './PlanStore';
 import { useUser } from './UserStore';
@@ -13,6 +13,8 @@ interface CoachChatContextType {
   loading: boolean;
   error: string | null;
   tokenUsage: TokenUsage | null;
+  unreadCount: number;
+  markAsRead: () => Promise<void>;
   refreshMessages: () => Promise<void>;
   sendMessage: (text: string, imagesBase64?: string[]) => Promise<void>;
   clearHistory: () => Promise<void>;
@@ -66,6 +68,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const [sending, setSending] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>({
     daily_token_usage: 1200,
     daily_token_limit: 100000,
@@ -75,6 +79,34 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const { refreshPlan } = usePlan();
   const { refreshPhysique } = usePhysique();
   const { user, isAuthenticated } = useUser();
+
+  // Load last read timestamp from persistent storage
+  useEffect(() => {
+    chatReadStorage.getLastReadTimestamp().then((ts) => {
+      setLastReadTimestamp(ts || 0);
+    });
+  }, []);
+
+  // Compute unread count whenever messages or lastReadTimestamp change
+  useEffect(() => {
+    if (!messages || messages.length === 0) {
+      setUnreadCount(0);
+      return;
+    }
+    const unread = messages.filter((m) => {
+      if (m.role !== 'coach' && m.role !== 'assistant') return false;
+      const msgTime = new Date(m.timestamp || 0).getTime();
+      return msgTime > lastReadTimestamp;
+    }).length;
+    setUnreadCount(unread);
+  }, [messages, lastReadTimestamp]);
+
+  const markAsRead = useCallback(async () => {
+    const now = Date.now();
+    setLastReadTimestamp(now);
+    setUnreadCount(0);
+    await chatReadStorage.setLastReadTimestamp(now);
+  }, []);
 
   const setMessages = (action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     setMessagesState((prev) => {
@@ -472,6 +504,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         loading,
         error,
         tokenUsage,
+        unreadCount,
+        markAsRead,
         refreshMessages,
         sendMessage,
         clearHistory,

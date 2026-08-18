@@ -272,7 +272,11 @@ export const socialApi = {
   getLeaderboard: () => apiClient<LeaderboardResponse>('/api/social/leaderboard'),
   getConnections: () => apiClient<{ connections: SocialConnection[] }>('/api/social/connections'),
   searchUser: (username: string) =>
-    apiClient<{ found: boolean; user?: { id: number; username: string; status?: string } }>('/api/social/search', {
+    apiClient<{
+      found: boolean;
+      user?: { id: number; username: string; profile_picture_url?: string; status?: string };
+      users?: Array<{ id: number; username: string; profile_picture_url?: string; status?: string }>;
+    }>('/api/social/search', {
       method: 'POST',
       body: JSON.stringify({ username }),
     }),
@@ -296,5 +300,19 @@ export const socialApi = {
       method: 'POST',
     }),
 };
+
+export const notificationsApi = {
+  registerToken: (token: string, deviceType: string = 'ios') =>
+    apiClient<{ success: boolean; message: string }>('/api/notifications/register-token', {
+      method: 'POST',
+      body: JSON.stringify({ token, deviceType }),
+    }),
+  sendTestNotification: (title?: string, body?: string) =>
+    apiClient<{ success: boolean; result?: any }>('/api/notifications/test', {
+      method: 'POST',
+      body: JSON.stringify({ title, body }),
+    }),
+};
+
 
 

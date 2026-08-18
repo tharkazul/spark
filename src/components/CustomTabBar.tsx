@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Platform } from 'react-native';
 import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBar } from '../context/TabBarContext';
+import { useCoachChat } from '../context/CoachChatStore';
 import { useKeyboardMotionContext } from '../context/KeyboardMotionContext';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 
@@ -14,6 +15,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { registerScrollListener, setTabBarOccupied } = useTabBar();
+  const { unreadCount } = useCoachChat();
   const { progress } = useKeyboardMotionContext();
   
   const [barInteractive, setBarInteractive] = useState(true);
@@ -159,6 +161,40 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                     }}
                   >
                     {(options.tabBarIcon as any) && (options.tabBarIcon as any)({ focused: isFocused, color: '#FFFFFF', size: 26 })}
+                    {unreadCount > 0 && !isFocused && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: -3,
+                          right: -3,
+                          minWidth: 20,
+                          height: 20,
+                          paddingHorizontal: 4,
+                          borderRadius: 10,
+                          backgroundColor: '#EF4444',
+                          borderWidth: 2,
+                          borderColor: bgColor,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.25,
+                          shadowRadius: 3,
+                          elevation: 6,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 10,
+                            fontWeight: '900',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
