@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { Card } from './ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -150,7 +151,11 @@ export const CoachPersonaSettings: React.FC = () => {
                 <View className="flex-row items-center flex-1">
                   {avatarSrc ? (
                     <View className={`w-8 h-8 rounded-full overflow-hidden mr-3 bg-theme-bg ${isSelected ? 'border border-white/40' : 'border border-theme-border'}`}>
-                      <Image source={avatarSrc} className="w-full h-full" resizeMode="cover" />
+                      <Image
+                        source={avatarSrc}
+                        style={{ width: '100%', height: '100%' }}
+                        contentFit="cover"
+                      />
                     </View>
                   ) : (
                     <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isSelected ? 'bg-white/20' : 'bg-theme-accent/20'}`}>
@@ -215,7 +220,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   className="w-16 h-16 rounded-full bg-theme-card items-center justify-center overflow-hidden mb-1"
                 >
                   {user?.coach_avatar_neutral ? (
-                    <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_neutral)! }} className="w-full h-full" />
+                    <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_neutral)! }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   ) : (
                     <Ionicons name="camera-outline" size={20} color="#8E8E93" />
                   )}
@@ -239,7 +244,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   className="w-16 h-16 rounded-full bg-theme-card items-center justify-center overflow-hidden mb-1"
                 >
                   {user?.coach_avatar_hype ? (
-                    <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_hype)! }} className="w-full h-full" />
+                    <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_hype)! }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   ) : (
                     <Ionicons name="flame-outline" size={20} color="#8E8E93" />
                   )}
@@ -263,7 +268,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   className="w-16 h-16 rounded-full bg-theme-card items-center justify-center overflow-hidden mb-1"
                 >
                   {user?.coach_avatar_disappointed ? (
-                    <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_disappointed)! }} className="w-full h-full" />
+                    <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_disappointed)! }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   ) : (
                     <Ionicons name="sad-outline" size={20} color="#8E8E93" />
                   )}

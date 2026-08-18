@@ -27,34 +27,8 @@ import {
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function RootNavigation() {
-  const { user, isAuthenticated, loading } = useUser();
-  const segments = useSegments();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (loading) return;
-
-    const inAuthGroup = segments[0] === 'login';
-    const inOnboarding = segments[0] === 'onboarding';
-
-    const isNewAthlete = !user?.onboarding_completed;
-
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/login');
-    } else if (isAuthenticated) {
-      if (isNewAthlete && !inOnboarding) {
-        router.replace('/onboarding');
-      } else if (!isNewAthlete) {
-        if (inAuthGroup || inOnboarding) {
-          router.replace('/(tabs)/coach');
-        } else if ((segments as string[]).length === 0 || (segments[0] === '(tabs)' && (segments as string[]).length === 1)) {
-          router.replace('/(tabs)/coach');
-        }
-      }
-    }
-  }, [isAuthenticated, loading, segments, user]);
-
+function PushNotificationListener() {
+  const { isAuthenticated } = useUser();
   useEffect(() => {
     if (isAuthenticated) {
       registerForPushNotificationsAsync();
@@ -62,22 +36,7 @@ function RootNavigation() {
       return cleanup;
     }
   }, [isAuthenticated]);
-
-  if (loading) {
-    return (
-      <View className="flex-1 bg-theme-bg items-center justify-center">
-        <ActivityIndicator size="large" color="#FF5F3B" />
-      </View>
-    );
-  }
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-    </Stack>
-  );
+  return null;
 }
 
 export default function RootLayout() {
@@ -122,7 +81,12 @@ export default function RootLayout() {
         <AppProviders>
           <KeyboardProvider>
             <KeyboardMotionProvider>
-              <RootNavigation />
+              <PushNotificationListener />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              </Stack>
             </KeyboardMotionProvider>
           </KeyboardProvider>
         </AppProviders>

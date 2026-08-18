@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Animated } from 'react-native';
-import { withLayoutContext } from 'expo-router';
+import { withLayoutContext, useRouter } from 'expo-router';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { CustomTabBar } from '../../components/CustomTabBar';
 import { DashboardSharedHeader } from '../../components/dashboard/DashboardSharedHeader';
 import { Ionicons } from '@expo/vector-icons';
+import { useUser } from '../../context/UserStore';
 
 import { HeaderLayoutProvider } from '../../context/HeaderLayoutContext';
 
@@ -21,8 +22,21 @@ function TabBarWrapper({ props, onPosition }: { props: any, onPosition: (pos: an
 }
 
 export default function TabLayout() {
+  const { isAuthenticated, loading, user } = useUser();
+  const router = useRouter();
+
   const defaultPosition = useRef(new Animated.Value(0)).current;
   const [pagerPosition, setPagerPosition] = useState<Animated.AnimatedInterpolation<number> | null>(null);
+
+  useEffect(() => {
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.replace('/login');
+      } else if (user && !user.onboarding_completed) {
+        router.replace('/onboarding');
+      }
+    }
+  }, [isAuthenticated, loading, user?.onboarding_completed]);
 
   const onPosition = useCallback((pos: any) => {
     setPagerPosition((prev) => prev || pos);
