@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,15 +16,34 @@ interface AccountTabProps {
 
 export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus }) => {
   const { t } = useLanguage();
-  const { user } = useUser();
+  const { user, refreshUser } = useUser();
   const { tokenUsage } = useCoachChatStore();
   const [trackingUpgrade, setTrackingUpgrade] = useState(false);
+
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   const tier = user?.subscription_tier || 'free';
   const isMember = isRookaPlus || tier === 'admin' || tier === 'premium' || tier === 'rooka_plus' || tier === 'subscription';
 
-  const dailyUsage = tokenUsage?.daily_token_usage ?? (user as any)?.dailyTokenUsage ?? (user as any)?.daily_token_usage ?? 0;
-  const dailyLimit = tokenUsage?.daily_token_limit ?? (user as any)?.dailyTokenLimit ?? (user as any)?.daily_token_limit ?? (tier === 'admin' ? 500000 : isMember ? 50000 : 5000);
+  const dailyUsage =
+    typeof tokenUsage?.daily_token_usage === 'number'
+      ? tokenUsage.daily_token_usage
+      : (typeof user?.daily_token_usage === 'number'
+          ? user.daily_token_usage
+          : (typeof (user as any)?.dailyTokenUsage === 'number'
+              ? (user as any).dailyTokenUsage
+              : 0));
+
+  const dailyLimit =
+    typeof tokenUsage?.daily_token_limit === 'number'
+      ? tokenUsage.daily_token_limit
+      : (typeof user?.daily_token_limit === 'number'
+          ? user.daily_token_limit
+          : (typeof (user as any)?.dailyTokenLimit === 'number'
+              ? (user as any).dailyTokenLimit
+              : (tier === 'admin' ? 500000 : isMember ? 50000 : 5000)));
 
   const handleRookaPlusClick = async () => {
     setTrackingUpgrade(true);

@@ -42,405 +42,377 @@ import { EventInviteCard } from '../../components/chat/EventInviteCard';
 import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
 import { ConnectionRequestCard } from '../../components/chat/ConnectionRequestCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
-import { QuickActionsRow } from '../../components/dashboard/QuickActionsRow';
-import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
-import { LogWeightModal } from '../../components/dashboard/LogWeightModal';
-import { LogNiggleModal } from '../../components/dashboard/LogNiggleModal';
-import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
-import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
 import { ChatMessage } from '../../types/chat';
-import { WorkoutItem } from '../../types/dashboard';
 import { API_BASE_URL } from '../../constants/api';
+import { hasSubscriptionTier } from '../../utils/permissions';
+import { getCoachAvatarSource } from '../../utils/avatarUtils';
+import { useTabBar } from '../../context/TabBarContext';
+import { ChatMacroStrip } from '../../components/chat/ChatMacroStrip';
+import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
+import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 
-// Date Helpers
-function getSafeDate(dateVal?: string | number | null): Date {
-  if (!dateVal) return new Date();
-  const d = new Date(dateVal);
-  return isNaN(d.getTime()) ? new Date() : d;
+interface ChatSection {
+  title: string;
+  dateKey: string;
+  data: ChatMessage[];
 }
 
-function getSafeDateStr(dateVal?: string | number | null): string {
-  const d = getSafeDate(dateVal);
-  try {
-    return d.toISOString().split('T')[0];
-  } catch (_) {
-    return new Date().toISOString().split('T')[0];
-  }
-}
-
-function formatDateLabel(dateStr?: string | number | null): string {
-  const d = getSafeDate(dateStr);
+function formatDateHeader(dateObj: Date): string {
+  if (!dateObj || isNaN(dateObj.getTime())) return '';
   const now = new Date();
+  const dDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+  const nDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((nDate.getTime() - dDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays > 1 && diffDays < 7) {
+    return dateObj.toLocaleDateString([], { weekday: 'long' });
+  }
+  if (dateObj.getFullYear() === now.getFullYear()) {
+    return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+type ChatListItem = 
+  | { type: 'message'; data: ChatMessage; isFirstInRun: boolean; isLastInRun: boolean }
+  | { type: 'date'; title: string; id: string }
+  | { type: 'thinking'; id: string };
+
+function flattenMessagesChronological(messagesList: ChatMessage[]): ChatListItem[] {
+  const items: ChatListItem[] = [];
+  let currentDateKey = '';
   
-  const dYear = d.getFullYear();
-  const dMonth = d.getMonth();
-  const dDate = d.getDate();
+  const TIME_GAP_MS = 20 * 60 * 1000; // 20 minutes
 
-  const nowYear = now.getFullYear();
-  const nowMonth = now.getMonth();
-  const nowDate = now.getDate();
+  for (let i = 0; i < messagesList.length; i++) {
+    const msg = messagesList[i];
+    const prevMsg = i > 0 ? messagesList[i - 1] : null;
+    const nextMsg = i < messagesList.length - 1 ? messagesList[i + 1] : null;
 
-  if (dYear === nowYear && dMonth === nowMonth && dDate === nowDate) {
-    return 'Today';
-  }
+    const d = new Date(msg.timestamp || Date.now());
+    const dateKey = isNaN(d.getTime()) ? 'today' : `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 
-  const yesterday = new Date(now);
-  yesterday.setDate(nowDate - 1);
-  if (dYear === yesterday.getFullYear() && dMonth === yesterday.getMonth() && dDate === yesterday.getDate()) {
-    return 'Yesterday';
-  }
-
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function groupMessagesByDate(messages: ChatMessage[]) {
-  if (!messages || messages.length === 0) return [];
-
-  const sorted = [...messages].sort((a, b) => {
-    const timeA = getSafeDate(a.timestamp || (a as any).created_at).getTime();
-    const timeB = getSafeDate(b.timestamp || (b as any).created_at).getTime();
-    return timeA - timeB;
-  });
-  const grouped: { dateLabel: string; dateStr: string; messages: ChatMessage[] }[] = [];
-
-  let currentDateStr = '';
-
-  sorted.forEach((msg) => {
-    const rawDate = msg.timestamp || (msg as any).created_at;
-    const msgDateStr = getSafeDateStr(rawDate);
-    if (msgDateStr !== currentDateStr) {
-      currentDateStr = msgDateStr;
-      grouped.push({
-        dateLabel: formatDateLabel(rawDate),
-        dateStr: msgDateStr,
-        messages: [msg],
-      });
-    } else {
-      grouped[grouped.length - 1].messages.push(msg);
+    if (dateKey !== currentDateKey) {
+      currentDateKey = dateKey;
+      items.push({ type: 'date', title: isNaN(d.getTime()) ? 'Today' : formatDateHeader(d), id: `date-${dateKey}` });
     }
-  });
 
-  return grouped;
+    let isFirstInRun = true;
+    if (prevMsg && prevMsg.role === msg.role) {
+      const prevDate = new Date(prevMsg.timestamp || Date.now());
+      const diffPrev = Math.abs(d.getTime() - prevDate.getTime());
+      if (diffPrev < TIME_GAP_MS) {
+        isFirstInRun = false;
+      }
+    }
+
+    let isLastInRun = true;
+    if (nextMsg && nextMsg.role === msg.role) {
+      const nextDate = new Date(nextMsg.timestamp || Date.now());
+      const diffNext = Math.abs(nextDate.getTime() - d.getTime());
+      if (diffNext < TIME_GAP_MS) {
+        isLastInRun = false;
+      }
+    }
+
+    items.push({ type: 'message', data: msg, isFirstInRun, isLastInRun });
+  }
+
+  return items;
 }
 
-const MessageRow = React.memo(
-  ({
-    item,
-    isFirstInRun,
-    isLastInRun,
-    coachTone,
-    onAccept,
-    onReject,
-    onAcceptInvite,
-    onDeclineInvite,
-    onExpandImage,
-  }: {
-    item: ChatMessage;
-    isFirstInRun: boolean;
-    isLastInRun: boolean;
-    coachTone?: string;
-    onAccept: (id: string | number, plan: any) => void;
-    onReject: (id: string | number) => void;
-    onAcceptInvite: (id: string | number) => Promise<void>;
-    onDeclineInvite: (id: string | number) => Promise<void>;
-    onExpandImage: (source: { uri: string }) => void;
-  }) => {
-    const isUser = item.role === 'user' || (item as any).sender === 'user';
-    const isSystem = (item as any).role === 'system' || (item as any).sender === 'system';
-    const contentText = item.content || (item as any).text || '';
-    const safeDate = getSafeDate(item.timestamp || (item as any).created_at);
+const MessageRow = React.memo(({
+  item,
+  isFirstInRun,
+  isLastInRun,
+  user,
+  coachTone,
+  onAccept,
+  onReject,
+  onAcceptInvite,
+  onDeclineInvite,
+  onExpandImage,
+}: {
+  item: ChatMessage;
+  isFirstInRun: boolean;
+  isLastInRun: boolean;
+  user?: any;
+  coachTone?: string;
+  onAccept: any;
+  onReject: any;
+  onAcceptInvite: any;
+  onDeclineInvite: any;
+  onExpandImage: (source: any) => void;
+}) => {
+  const hasText = hasRenderableText(item.content) || !!item.isStreaming;
+  const hasImages = !!item.images?.length;
+  const hasProposal = !!item.proposedPlan?.length;
+  const hasPayloadCard = !!item.payload_json;
+  if (!hasText && !hasImages && !hasProposal && !hasPayloadCard) return null;
+  
+  const isUser = item.role === 'user';
+  const avatarSrc = getCoachAvatarSource(coachTone, item.mood, user);
 
-    const getFullImageUrl = (path?: string) => {
-      if (!path) return null;
-      if (path.startsWith('http') || path.startsWith('data:')) return path;
-      return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-    };
-
-    if (isSystem) {
-      return (
-        <View className="py-2 items-center justify-center my-1">
-          <View className="bg-theme-card border border-theme-border px-3 py-1.5 rounded-full">
-            <Text className="text-[11px] font-semibold text-theme-muted">{contentText}</Text>
-          </View>
+  return (
+    <View className={`mb-3 max-w-[86%] ${isUser ? 'self-end' : 'self-start'}`}>
+      {!isUser && isFirstInRun && (
+        <View className="flex-row items-center mb-1 ml-1">
+          <TouchableOpacity activeOpacity={0.8} onPress={() => onExpandImage(avatarSrc)}>
+            <RNImage
+              source={avatarSrc}
+              style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
+              resizeMode="cover"
+            />
+          </TouchableOpacity>
+          <Text className="text-theme-accent font-extrabold text-xs mr-2">Rooka</Text>
         </View>
-      );
-    }
+      )}
 
-    const hasContent = hasRenderableText(contentText);
-    const hasImages = item.images && item.images.length > 0;
-
-    const showAvatar = !isUser && isLastInRun;
-    const avatarSource = { uri: `${API_BASE_URL}/avatars/coach-${coachTone || 'default'}.png` };
-
-    return (
       <View
-        className={`flex-row my-0.5 px-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+        className={`px-4 py-3 rounded-2xl ${
+          isUser
+            ? 'bg-theme-accent rounded-br-sm shadow-sm'
+            : 'bg-theme-card border border-theme-border rounded-bl-sm shadow-sm'
+        }`}
       >
-        {!isUser && (
-          <View className="w-8 mr-2 justify-end pb-0.5">
-            {showAvatar ? (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => onExpandImage(avatarSource)}>
-                <RNImage source={avatarSource} className="w-7 h-7 rounded-full border border-theme-accent/40" resizeMode="cover" />
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        )}
-
-        <View className={`max-w-[82%] ${isUser ? 'items-end' : 'items-start'}`}>
-          {item.proposedPlan && item.proposedPlan.length > 0 ? (
-            <ProposalCard
-              plan={item.proposedPlan}
-              status={item.proposalStatus || ((item as any).isAccepted ? 'accepted' : (item as any).isRejected ? 'rejected' : 'pending')}
-              onAccept={() => onAccept(item.id, item.proposedPlan!)}
-              onReject={() => onReject(item.id)}
-            />
-          ) : (item.payload_json as any)?.type === 'event_invite' ? (
-            <EventInviteCard
-              payload={item.payload_json as any}
-              onAccept={onAcceptInvite}
-              onDecline={onDeclineInvite}
-            />
-          ) : (item.payload_json as any)?.type === 'social_mention' ? (
-            <SocialMentionCard
-              payload={item.payload_json as any}
-            />
-          ) : (item.payload_json as any)?.type === 'connection_request' || (item.payload_json as any)?.type === 'connection_accepted' ? (
-            <ConnectionRequestCard
-              payload={item.payload_json as any}
-            />
-          ) : null}
-
-          {(hasContent || hasImages) && (
-            <View
-              className={`px-4 py-2.5 rounded-2xl ${
-                isUser
-                  ? 'bg-theme-accent rounded-br-xs'
-                  : 'bg-theme-card border border-theme-border rounded-bl-xs shadow-xs'
-              }`}
-            >
-              {hasImages && (
-                <View className="flex-row flex-wrap gap-1.5 mb-2">
-                  {item.images!.map((imgPath, imgIdx) => {
-                    const fullUrl = getFullImageUrl(imgPath);
-                    if (!fullUrl) return null;
-                    return (
-                      <TouchableOpacity
-                        key={`msg-img-${item.id}-${imgIdx}`}
-                        activeOpacity={0.85}
-                        onPress={() => onExpandImage({ uri: fullUrl })}
-                      >
-                        <Image
-                          source={{ uri: fullUrl }}
-                          style={{ width: 140, height: 140, borderRadius: 12 }}
-                          contentFit="cover"
-                          transition={200}
-                        />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-
-              {hasContent && (
-                <MarkdownText
-                  content={contentText}
-                  isUser={isUser}
+        {item.images && item.images.length > 0 ? (
+          <View className="mb-2 flex-row flex-wrap gap-2">
+            {item.images.map((imgUri, imgIdx) => (
+              <TouchableOpacity
+                key={`msg-img-${imgIdx}`}
+                activeOpacity={0.85}
+                onPress={() => onExpandImage(imgUri)}
+              >
+                <Image
+                  source={{ uri: imgUri }}
+                  style={{ width: 140, height: 140, borderRadius: 10 }}
+                  contentFit="cover"
                 />
-              )}
-            </View>
-          )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
 
-          {isLastInRun && (
-            <Text className="text-[10px] text-theme-muted font-bold px-1.5 mt-0.5">
-              {safeDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Text>
-          )}
-        </View>
+        <MarkdownText content={item.content} isUser={isUser} onImagePress={onExpandImage} />
+
+        {item.payload_json?.type === 'event_invite' ? (
+          <EventInviteCard
+            payload={item.payload_json}
+            onAccept={onAcceptInvite}
+            onDecline={onDeclineInvite}
+          />
+        ) : item.payload_json?.type === 'social_mention' ? (
+          <SocialMentionCard
+            payload={item.payload_json}
+          />
+        ) : (item.payload_json as any)?.type === 'connection_request' || (item.payload_json as any)?.type === 'connection_accepted' ? (
+          <ConnectionRequestCard
+            payload={item.payload_json as any}
+          />
+        ) : null}
+
+        {item.proposedPlan && item.proposedPlan.length > 0 ? (
+          <ProposalCard
+            plan={item.proposedPlan}
+            status={item.proposalStatus}
+            onAccept={() => onAccept(item.id, item.proposedPlan!)}
+            onReject={() => onReject(item.id)}
+          />
+        ) : null}
+
+        {isLastInRun && (
+          <Text
+            className={`text-[10px] mt-1.5 self-end ${
+              isUser ? 'text-white/70' : 'text-theme-muted'
+            }`}
+          >
+            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        )}
       </View>
-    );
-  }
-);
+    </View>
+  );
+});
 
 export default function CoachScreen() {
   const { t } = useLanguage();
-  const router = useRouter();
   const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error, markAsRead } = useCoachChat();
-  const { user } = useUser();
+  const { user, isChatMacroStripVisible, toggleChatMacroStrip } = useUser();
   const { plan } = usePlan();
   const { nutrition, clearLoggedNutrition } = usePhysique();
+  const insets = useSafeAreaInsets();
+  const { tabBarOccupied, notifyScroll } = useTabBar();
+  const router = useRouter();
   const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
-
-  const [inputText, setInputText] = useState('');
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [previewImage, setPreviewImage] = useState<{ uri: string } | null>(null);
 
   const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
   const [isNutritionModalOpen, setIsNutritionModalOpen] = useState(false);
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [questLoading, setQuestLoading] = useState(false);
 
-  // Quick Action Modal states
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
-  const [isNiggleModalOpen, setIsNiggleModalOpen] = useState(false);
-  const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 0);
-
-  const flatListRef = useRef<FlatList>(null);
-  const inputRef = useRef<RNTextInput>(null);
-
+  const [inputText, setInputText] = useState('');
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [floatingDate, setFloatingDate] = useState<string>('');
-  const [showScrollDownBtn, setShowScrollDownBtn] = useState(false);
-
-  const isPinnedToBottom = useRef(true);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const hideDateTimer = useRef<any>(null);
-
-  const { tabBarOccupied } = usePhysique() as any || { tabBarOccupied: 100 };
 
   useEffect(() => {
-    const showSub = KeyboardEvents.addListener('keyboardWillShow', () => setIsKeyboardVisible(true));
-    const hideSub = KeyboardEvents.addListener('keyboardWillHide', () => setIsKeyboardVisible(false));
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
     return () => {
       showSub.remove();
       hideSub.remove();
     };
   }, []);
 
-  const avatarSource = { uri: `${API_BASE_URL}/avatars/coach-${user?.coach_tone || 'default'}.png` };
+  const BOTTOM_THRESHOLD = 80;
 
-  const grouped = useMemo(() => groupMessagesByDate(messages), [messages]);
+  const [previewImage, setPreviewImage] = useState<string | number | null>(null);
+  const [showScrollDownBtn, setShowScrollDownBtn] = useState(false);
 
+  const [floatingDate, setFloatingDate] = useState<string>('');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flatListRef = useRef<FlatList>(null);
+  const inputRef = useRef<RNTextInput>(null);
+
+  const isPinnedToBottom = useRef(true);
+
+  // 1. DATA: reverse the flattened array with thinking indicator at bottom if sending
   const flatItems = useMemo(() => {
-    const items: Array<{
-      id: string;
-      type: 'message' | 'date' | 'typing';
-      title?: string;
-      data?: any;
-      isFirstInRun?: boolean;
-      isLastInRun?: boolean;
-      dateStr?: string;
-    }> = [];
-
+    const items = flattenMessagesChronological(messages).slice().reverse();
     if (sending) {
-      items.push({ id: 'typing-indicator', type: 'typing' });
+      return [{ type: 'thinking' as const, id: 'pending-thinking' }, ...items];
     }
-
-    const reversedGroups = [...grouped].reverse();
-
-    reversedGroups.forEach((group) => {
-      const reversedMsgs = [...group.messages].reverse();
-      reversedMsgs.forEach((msg, idx) => {
-        const msgRole = msg.role || (msg as any).sender;
-        const nextRole = reversedMsgs[idx + 1] ? (reversedMsgs[idx + 1].role || (reversedMsgs[idx + 1] as any).sender) : undefined;
-        const prevRole = reversedMsgs[idx - 1] ? (reversedMsgs[idx - 1].role || (reversedMsgs[idx - 1] as any).sender) : undefined;
-        const isFirstInRun = idx === reversedMsgs.length - 1 || nextRole !== msgRole;
-        const isLastInRun = idx === 0 || prevRole !== msgRole;
-
-        items.push({
-          id: `msg-${msg.id}`,
-          type: 'message',
-          data: msg,
-          isFirstInRun,
-          isLastInRun,
-          dateStr: group.dateLabel,
-        });
-      });
-
-      items.push({
-        id: `date-${group.dateStr}`,
-        type: 'date',
-        title: group.dateLabel,
-      });
-    });
-
     return items;
-  }, [grouped, sending]);
+  }, [messages, sending]);
 
+  // 2. SCROLL TO BOTTOM: offset 0 is newest message
   const scrollToBottom = useCallback((animated = true) => {
-    if (flatListRef.current) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated });
-    }
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
   }, []);
 
+  const showFloatingDate = useCallback(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 40,
+      useNativeDriver: true,
+    }).start();
+
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    fadeTimer.current = setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 350,
+        useNativeDriver: true,
+      }).start();
+    }, 1000);
+  }, [fadeAnim]);
+
+  // 3. SCROLL HANDLER
+  const handleScroll = useCallback((event: any) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const atBottom = y <= BOTTOM_THRESHOLD;
+    isPinnedToBottom.current = atBottom;
+    setShowScrollDownBtn((prev) => (prev === !atBottom ? prev : !atBottom));
+    showFloatingDate();
+  }, [showFloatingDate]);
+
+  const handleScrollBeginDrag = useCallback(() => {
+    notifyScroll?.();
+    showFloatingDate();
+  }, [notifyScroll, showFloatingDate]);
+
+  // 4. FOCUS
   useFocusEffect(
     useCallback(() => {
       isPinnedToBottom.current = true;
       setShowScrollDownBtn(false);
       scrollToBottom(false);
       markAsRead();
+
+      return () => {
+        markAsRead();
+      };
     }, [scrollToBottom, markAsRead])
   );
 
+  // 5. NEW MESSAGE WHILE PINNED
+  const lastItemKey = flatItems[0]
+    ? (flatItems[0].type === 'message' ? flatItems[0].data.id : flatItems[0].id)
+    : null;
+
   useEffect(() => {
-    if (sending && isPinnedToBottom.current) {
+    if (lastItemKey && isPinnedToBottom.current) {
       scrollToBottom(true);
     }
-  }, [sending, scrollToBottom]);
+  }, [lastItemKey, scrollToBottom]);
 
-  const prevFlatLength = useRef(flatItems.length);
-  useEffect(() => {
-    if (flatItems.length > prevFlatLength.current && isPinnedToBottom.current) {
-      scrollToBottom(true);
-    }
-    prevFlatLength.current = flatItems.length;
-  }, [flatItems, scrollToBottom]);
+  // 6. CONTENT PADDING — top and bottom swap for scaleY(-1)
+  const listContentStyle = useMemo(
+    () => ({
+      paddingHorizontal: 16,
+      paddingTop: 20,     // renders at visual bottom in inverted list
+      paddingBottom: 16,  // renders at visual top in inverted list
+    }),
+    []
+  );
 
-  const handleScroll = (event: any) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    if (offsetY > 150) {
-      if (isPinnedToBottom.current) {
-        isPinnedToBottom.current = false;
-        setShowScrollDownBtn(true);
-      }
-    } else {
-      if (!isPinnedToBottom.current) {
-        isPinnedToBottom.current = true;
-        setShowScrollDownBtn(false);
-      }
-    }
-  };
-
-  const handleScrollBeginDrag = () => {
-    if (isKeyboardVisible) {
-      Keyboard.dismiss();
-    }
-  };
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 10,
+  });
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: any[] }) => {
-    if (viewableItems && viewableItems.length > 0) {
-      const topVisible = viewableItems.find(
-        (v) => v.item && (v.item.type === 'message' || v.item.type === 'date') && (v.item.dateStr || v.item.title)
-      );
+    if (!viewableItems || viewableItems.length === 0) return;
+    // In an inverted list, highest index is at the visual top of the viewport
+    let topItem = viewableItems[0];
+    for (let i = 1; i < viewableItems.length; i++) {
+      if ((viewableItems[i].index ?? 0) > (topItem.index ?? 0)) {
+        topItem = viewableItems[i];
+      }
+    }
 
-      if (topVisible) {
-        const label = topVisible.item.dateStr || topVisible.item.title;
-        if (label) {
-          setFloatingDate(label);
-          fadeAnim.setValue(1);
-
-          if (hideDateTimer.current) clearTimeout(hideDateTimer.current);
-          hideDateTimer.current = setTimeout(() => {
-            Animated.timing(fadeAnim, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-            }).start(() => setFloatingDate(''));
-          }, 1500);
+    if (topItem && topItem.item) {
+      const it = topItem.item as ChatListItem;
+      if (it.type === 'date') {
+        setFloatingDate(it.title);
+      } else if (it.type === 'message' && it.data.timestamp) {
+        const d = new Date(it.data.timestamp);
+        if (!isNaN(d.getTime())) {
+          setFloatingDate(formatDateHeader(d));
         }
       }
     }
   });
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 40,
-  });
+  const keyExtractor = useCallback((item: any, index: number) => {
+    if (item.type === 'thinking') return 'pending-thinking';
+    if (item.type === 'date') return item.id;
+    const m = item.data;
+    return `msg-${m.clientId ?? m.id ?? m.tempId ?? `pending-${index}`}`;
+  }, []);
+
+  const dailyUsage = tokenUsage?.daily_token_usage || 0;
+  const dailyLimit = tokenUsage?.daily_token_limit || (hasSubscriptionTier(user?.subscription_tier) ? 500000 : 100000);
+  const remainingTokens = Math.max(0, dailyLimit - dailyUsage);
+  const remainingPercent = Math.round((remainingTokens / dailyLimit) * 100);
+  const showTokenWarning = remainingPercent <= 10;
+  const isOutOfTokens = remainingTokens <= 0;
+
+  const todayWorkouts = useMemo(() => {
+    if (!plan || !Array.isArray(plan)) return [];
+    const todayStr = new Date().toISOString().split('T')[0];
+    return plan.filter((w) => w.date === todayStr || w.day === 'TODAY');
+  }, [plan]);
 
   const handlePickImage = async () => {
     try {
@@ -497,45 +469,37 @@ export default function CoachScreen() {
     const textToSend = rawText.trim();
     if ((!textToSend && selectedImages.length === 0) || sending) return;
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const imgs = [...selectedImages];
+    const imagesToSend = [...selectedImages];
+
     setInputText('');
     setSelectedImages([]);
+    setIsRecording(false);
     setShowSuggestions(false);
 
-    isPinnedToBottom.current = true;
-    setShowScrollDownBtn(false);
-    scrollToBottom(true);
+    sendMessage(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined);
 
-    sendMessage(textToSend, imgs);
+    isPinnedToBottom.current = true;
+    scrollToBottom(true);
   };
 
-  const keyExtractor = useCallback((item: any) => item.id, []);
+  const lastCoachMessage = useMemo(
+    () => [...messages].reverse().find((m) => m.role === 'coach' || m.role === 'assistant'),
+    [messages]
+  );
+  const rawMood = (lastCoachMessage?.role === 'coach' && lastCoachMessage?.mood) ? lastCoachMessage.mood.toLowerCase() : 'default';
+  const lastMood = ['hype', 'disappointed'].includes(rawMood) ? rawMood : 'default';
+  const avatarSource = useMemo(() => {
+    return getCoachAvatarSource(user?.coach_tone, lastMood, user);
+  }, [user, lastMood]);
 
-  const handleAcceptProposal = useCallback((id: string | number, planData: any) => {
-    acceptProposal(id, planData);
-  }, [acceptProposal]);
-
-  const handleRejectProposal = useCallback((id: string | number) => {
-    rejectProposal(id);
-  }, [rejectProposal]);
-
-  const handleAcceptInvite = useCallback(async (id: string | number) => {
-    await acceptInvite(String(id));
-  }, [acceptInvite]);
-
-  const handleDeclineInvite = useCallback(async (id: string | number) => {
-    await declineInvite(String(id));
-  }, [declineInvite]);
-
-  const renderItem = useCallback(({ item }: { item: any }) => {
-    if (item.type === 'typing') {
+  const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
+    if (item.type === 'thinking') {
       return (
-        <View className="flex-row items-center my-1.5 px-3">
-          <View className="w-8 mr-2 justify-end pb-0.5">
+        <View className="mb-3 max-w-[86%] self-start">
+          <View className="flex-row items-center mb-1 ml-1">
             <RNImage
               source={avatarSource}
-              className="w-7 h-7 rounded-full border border-theme-accent/40"
+              style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
               resizeMode="cover"
             />
             <Text className="text-theme-accent font-extrabold text-xs mr-2">Rooka</Text>
@@ -549,40 +513,33 @@ export default function CoachScreen() {
         </View>
       );
     }
-
     if (item.type === 'date') {
       return (
-        <View className="items-center my-3">
-          <View className="bg-theme-card/80 border border-theme-border/60 px-3 py-1 rounded-full">
-            <Text className="text-[11px] font-semibold text-theme-muted">{item.title}</Text>
+        <View className="py-2.5 items-center justify-center pointer-events-none">
+          <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full shadow-md">
+            <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">{item.title}</Text>
           </View>
         </View>
       );
     }
-
     return (
       <MessageRow
         item={item.data}
         isFirstInRun={item.isFirstInRun}
         isLastInRun={item.isLastInRun}
+        user={user}
         coachTone={user?.coach_tone}
-        onAccept={handleAcceptProposal}
-        onReject={handleRejectProposal}
-        onAcceptInvite={handleAcceptInvite}
-        onDeclineInvite={handleDeclineInvite}
+        onAccept={acceptProposal}
+        onReject={rejectProposal}
+        onAcceptInvite={acceptInvite}
+        onDeclineInvite={declineInvite}
         onExpandImage={(source) => setPreviewImage(source)}
       />
     );
-  }, [user?.coach_tone, avatarSource, handleAcceptProposal, handleRejectProposal, handleAcceptInvite, handleDeclineInvite]);
-
-  const todayWorkouts = useMemo(() => {
-    if (!plan || !Array.isArray(plan)) return [];
-    const todayStr = new Date().toISOString().split('T')[0];
-    return plan.filter((w) => w.date === todayStr || w.day === 'TODAY');
-  }, [plan]);
+  }, [user, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite]);
 
   const primaryWorkout = todayWorkouts[0] || null;
-  const totalTodayRooka = todayWorkouts.reduce((acc, w) => acc + (w.target_rooka || (w as any).target_spark || (w as any).sparkPoints || 0), 0);
+  const totalTodayRooka = todayWorkouts.reduce((acc, w) => acc + (w.target_rooka || (w as any).rookaPoints || 0), 0);
 
   const activeQuest = quests?.find((q) => q.status === 'active') || quests?.[0] || null;
   const questProgressPercent = activeQuest
@@ -616,19 +573,6 @@ export default function CoachScreen() {
     return { icon: 'flash-outline', color: '#FF5F3B', bg: 'bg-theme-accent/15' };
   };
 
-  const handleSaveWorkoutInCoach = (workoutData: Omit<WorkoutItem, 'id'>) => {
-    sendMessage(`Logged a ${workoutData.type} session: "${workoutData.title}" (${workoutData.duration}).`);
-  };
-
-  const handleSaveWeightInCoach = (newWeight: number) => {
-    setRecordedWeight(newWeight);
-    sendMessage(`Logged current body weight: ${newWeight} kg.`);
-  };
-
-  const handleSendInjuryInCoach = (description: string, severity: number) => {
-    sendMessage(`Logged injury details: ${description} (Severity ${severity}/10). Please adapt my training load accordingly.`);
-  };
-
   const now = new Date();
   const dateBadgeStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -649,23 +593,281 @@ export default function CoachScreen() {
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => setPreviewImage(null)}
-          className="flex-1 bg-black/90 items-center justify-center p-4"
+          className="flex-1 bg-black/95 items-center justify-center p-4 relative z-50"
         >
-          {previewImage && (
-            <Image
-              source={previewImage}
-              style={{ width: '100%', height: '80%' }}
-              contentFit="contain"
-            />
-          )}
           <TouchableOpacity
             onPress={() => setPreviewImage(null)}
-            className="absolute top-12 right-6 bg-white/20 p-2 rounded-full"
+            className="absolute top-12 right-6 z-50 bg-white/20 p-2.5 rounded-full items-center justify-center"
           >
             <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
+
+          {previewImage ? (
+            typeof previewImage === 'number' ? (
+              <RNImage
+                source={previewImage}
+                style={{ width: '100%', height: '80%' }}
+                resizeMode="contain"
+              />
+            ) : typeof previewImage === 'object' && previewImage !== null && 'uri' in previewImage ? (
+              <Image
+                source={previewImage}
+                style={{ width: '100%', height: '80%' }}
+                contentFit="contain"
+              />
+            ) : (
+              <Image
+                source={{ uri: previewImage as string }}
+                style={{ width: '100%', height: '80%' }}
+                contentFit="contain"
+              />
+            )
+          ) : null}
         </TouchableOpacity>
       </Modal>
+
+      {/* Workout Detail Sheet Modal */}
+      <BottomSheetModal
+        visible={isWorkoutModalOpen}
+        onClose={() => setIsWorkoutModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+      >
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
+              <Ionicons
+                name={getSportIconConfig(primaryWorkout?.sport).icon as any}
+                size={24}
+                color={getSportIconConfig(primaryWorkout?.sport).color}
+              />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">
+                {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
+              </Text>
+              <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
+            </View>
+          </View>
+          {totalTodayRooka > 0 ? (
+            <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
+              <Text className="text-sm font-mono font-extrabold text-theme-accent">
+                +{Math.round(totalTodayRooka)} Total Rooka
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {todayWorkouts.length > 0 ? (
+          <View className="space-y-3 mb-5">
+            {todayWorkouts.map((w, idx) => {
+              const cfg = getSportIconConfig(w.sport);
+              return (
+                <View key={`modal-w-${idx}`} className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60">
+                  {/* Top Sport Line */}
+                  <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
+                    <View className="flex-row items-center gap-2">
+                      <View className={`w-7 h-7 rounded-lg ${cfg.bg} items-center justify-center`}>
+                        <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
+                      </View>
+                      <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
+                    </View>
+                    {w.target_rooka ? (
+                      <View className="bg-theme-accent/15 px-2.5 py-0.5 rounded-full">
+                        <Text className="text-xs font-mono font-extrabold text-theme-accent">
+                          +{Math.round(w.target_rooka)}⚡
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Workout Title / Name */}
+                  {w.description ? (
+                    <Text className="text-sm font-extrabold text-theme-text mb-1.5 leading-snug">
+                      {w.description}
+                    </Text>
+                  ) : null}
+
+                  {/* Workout Focus / Instructions */}
+                  {w.details ? (
+                    <Text className="text-xs text-theme-muted font-normal leading-relaxed">
+                      {w.details}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
+            <Ionicons name="moon-outline" size={28} color="#6F6F79" />
+            <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
+            <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
+          </View>
+        )}
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={() => {
+              setIsWorkoutModalOpen(false);
+              router.push('/(tabs)/planning');
+            }}
+            className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
+          >
+            <Ionicons name="calendar-outline" size={16} color="#FF5F3B" />
+            <Text className="text-xs font-extrabold text-theme-accent">View Full Plan</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setIsWorkoutModalOpen(false)}
+            className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+          >
+            <Text className="text-xs font-black text-white">Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
+
+      {/* Nutrition Detail Sheet Modal (Live & Functional matching Progress Page) */}
+      <BottomSheetModal
+        visible={isNutritionModalOpen}
+        onClose={() => setIsNutritionModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[85%]"
+      >
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-emerald-500/15 items-center justify-center">
+              <Ionicons name="restaurant-outline" size={24} color="#10B981" />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">Today's Fueling Plan</Text>
+              <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Targets</Text>
+            </View>
+          </View>
+          {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  await clearLoggedNutrition();
+                } catch (e) {
+                  console.error('Failed to clear nutrition:', e);
+                }
+              }}
+              className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border"
+            >
+              <Ionicons name="refresh-outline" size={12} color="#A1A1AA" />
+              <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Rationale Banner */}
+        <View className="p-3.5 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-2xl mb-4 border border-emerald-500/20">
+          <Text className="text-xs font-extrabold text-emerald-500 dark:text-emerald-400 mb-1">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
+          <Text className="text-xs text-theme-text leading-relaxed font-medium">{nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}</Text>
+        </View>
+
+        {/* 3 Live Macro Rings Row */}
+        <View className="bg-theme-bg/60 p-4 rounded-2xl border border-theme-border/60 mb-4 flex-row justify-around items-center">
+          <MacroRingGauge
+            label="Carbs"
+            target={nutrition?.carbsTarget || 280}
+            logged={nutrition?.loggedCarbs || 0}
+            size={88}
+          />
+          <MacroRingGauge
+            label="Protein"
+            target={nutrition?.proteinTarget || 200}
+            logged={nutrition?.loggedProtein || 0}
+            size={88}
+          />
+          <MacroRingGauge
+            label="Fat"
+            target={nutrition?.fatTarget || 80}
+            logged={nutrition?.loggedFat || 0}
+            size={88}
+          />
+        </View>
+
+        <TouchableOpacity
+          onPress={() => setIsNutritionModalOpen(false)}
+          className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center mt-2"
+        >
+          <Text className="text-xs font-black text-white">Got it</Text>
+        </TouchableOpacity>
+      </BottomSheetModal>
+
+      {/* Quest Detail Sheet Modal */}
+      <BottomSheetModal
+        visible={isQuestModalOpen}
+        onClose={() => setIsQuestModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+      >
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
+              <Ionicons name="trophy" size={26} color="#F97316" />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+              <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
+            </View>
+          </View>
+          <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
+            <Text className="text-sm font-mono font-extrabold text-amber-500">
+              +{Math.round(activeQuest?.reward_points || 0)} Rooka
+            </Text>
+          </View>
+        </View>
+
+        <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
+          <Text className="text-sm font-bold text-theme-text leading-relaxed">
+            {activeQuest?.description || 'Complete your active challenges this week to earn bonus Rooka points.'}
+          </Text>
+        </View>
+
+        <View className="mb-6">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
+            </Text>
+            <Text className="text-sm font-mono font-bold text-amber-500">
+              {questProgressPercent}%
+            </Text>
+          </View>
+          <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
+            <View
+              className="h-full bg-amber-500 rounded-full"
+              style={{ width: `${questProgressPercent}%` }}
+            />
+          </View>
+        </View>
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={handleGenerateQuestInCoach}
+            disabled={questLoading}
+            className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
+          >
+            {questLoading ? (
+              <ActivityIndicator size="small" color="#F97316" />
+            ) : (
+              <>
+                <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setIsQuestModalOpen(false)}
+            className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+          >
+            <Text className="text-xs font-black text-white">Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
 
       {/* Header bar with Avatar, Status, and Date */}
       <View className="px-4 pt-3 pb-1.5 bg-theme-bg z-10 flex-row items-center justify-between">
@@ -683,15 +885,16 @@ export default function CoachScreen() {
           </View>
         </View>
 
-        {/* Header Right: Date Pill */}
-        <View className="bg-theme-card px-3 py-1.5 rounded-full border border-theme-border flex-row items-center gap-1.5">
-          <Ionicons name="calendar-outline" size={12} color="#FF5F3B" />
-          <Text className="text-xs font-bold text-theme-text">{dateBadgeStr}</Text>
+        {/* Header Right: Date */}
+        <View className="flex-row items-center gap-1.5 py-1.5">
+          <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
+          <Text className="text-xs font-bold font-mono text-theme-muted">{dateBadgeStr}</Text>
         </View>
       </View>
 
-      {/* Telemetry Micro-Pill Strip */}
+      {/* Option A Docked Glanceable Telemetry Micro-Pill Strip (Equal Width flex-1) */}
       <View className="px-4 pb-2.5 pt-0.5 bg-theme-bg flex-row items-center gap-2">
+        {/* 1. Workout Micro-Pill */}
         <TouchableOpacity
           onPress={() => {
             Haptics.selectionAsync();
@@ -700,12 +903,22 @@ export default function CoachScreen() {
           activeOpacity={0.75}
           className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
         >
-          <Ionicons name={getSportIconConfig(primaryWorkout?.sport).icon as any} size={14} color={getSportIconConfig(primaryWorkout?.sport).color} />
+          <Ionicons
+            name={getSportIconConfig(primaryWorkout?.sport).icon as any}
+            size={14}
+            color={getSportIconConfig(primaryWorkout?.sport).color}
+          />
           <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
-            {primaryWorkout?.sport || 'Workout'}
+            {primaryWorkout?.sport || 'Rest'}
           </Text>
+          {primaryWorkout?.target_rooka ? (
+            <Text className="text-[11px] font-mono font-extrabold text-theme-accent">
+              +{Math.round(primaryWorkout.target_rooka)}⚡
+            </Text>
+          ) : null}
         </TouchableOpacity>
 
+        {/* 2. Nutrition Micro-Pill */}
         <TouchableOpacity
           onPress={() => {
             Haptics.selectionAsync();
@@ -720,6 +933,7 @@ export default function CoachScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* 3. Quest Micro-Pill */}
         <TouchableOpacity
           onPress={() => {
             Haptics.selectionAsync();
@@ -732,20 +946,32 @@ export default function CoachScreen() {
           <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
             Quest
           </Text>
+          <Text className="text-[11px] font-mono font-extrabold text-amber-500">
+            {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* ATHLETE QUICK ACTION CARDS (Prominent in Chat) */}
-      <View className="px-4 pb-2">
-        <QuickActionsRow
-          onAddActivity={() => setIsAddModalOpen(true)}
-          onLogWeight={() => setIsWeightModalOpen(true)}
-          onReportInjury={() => setIsNiggleModalOpen(true)}
-        />
-      </View>
+      {/* Low Token Budget Warning Banner */}
+      {showTokenWarning ? (
+        <View className="bg-amber-500/15 px-4 py-2 border-b border-amber-500/30 flex-row items-center justify-between">
+          <View className="flex-row items-center flex-1 mr-2">
+            <Ionicons name="warning-outline" size={16} color="#F59E0B" />
+            <Text className="text-amber-300 text-xs font-semibold ml-2">
+              Daily Budget Low: {remainingPercent}% remaining ({remainingTokens.toLocaleString()} tokens left)
+            </Text>
+          </View>
+          {!hasSubscriptionTier(user?.subscription_tier) ? (
+            <TouchableOpacity className="bg-amber-500 px-2.5 py-1 rounded-md">
+              <Text className="text-black font-bold text-[10px]">UPGRADE</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* CHAT MESSAGES STREAM */}
       <View className="flex-1 relative">
+        {/* Floating Date Pill (Telegram/WhatsApp style) */}
         {floatingDate ? (
           <Animated.View
             pointerEvents="none"
@@ -781,13 +1007,14 @@ export default function CoachScreen() {
             removeClippedSubviews={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-            contentContainerStyle={{ paddingVertical: 12 }}
+            contentContainerStyle={listContentStyle}
             className="flex-1"
             onViewableItemsChanged={onViewableItemsChanged.current}
             viewabilityConfig={viewabilityConfig.current}
           />
         )}
 
+        {/* Floating Scroll-Down-to-Bottom Button */}
         {showScrollDownBtn ? (
           <TouchableOpacity
             activeOpacity={0.85}
@@ -796,6 +1023,13 @@ export default function CoachScreen() {
               scrollToBottom(true);
             }}
             className="absolute bottom-3 right-4 z-40 bg-theme-accent w-10 h-10 rounded-full shadow-lg items-center justify-center"
+            style={{
+              elevation: 8,
+              shadowColor: '#FF5F3B',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 6,
+            }}
           >
             <Ionicons name="chevron-down" size={22} color="white" />
           </TouchableOpacity>
@@ -824,7 +1058,7 @@ export default function CoachScreen() {
             <View className="mb-2 flex-row gap-2 px-1">
               {selectedImages.map((imgUri, idx) => (
                 <View key={`thumb-${idx}`} className="relative">
-                  <TouchableOpacity activeOpacity={0.85} onPress={() => setPreviewImage({ uri: imgUri })}>
+                  <TouchableOpacity activeOpacity={0.85} onPress={() => setPreviewImage(imgUri)}>
                     <Image source={{ uri: imgUri }} style={{ width: 48, height: 48, borderRadius: 8 }} contentFit="cover" />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -900,23 +1134,6 @@ export default function CoachScreen() {
           </View>
         </View>
       </View>
-
-      <AddWorkoutModal
-        visible={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSave={handleSaveWorkoutInCoach}
-      />
-      <LogWeightModal
-        visible={isWeightModalOpen}
-        previousWeight={recordedWeight}
-        onClose={() => setIsWeightModalOpen(false)}
-        onSaveWeight={handleSaveWeightInCoach}
-      />
-      <LogNiggleModal
-        visible={isNiggleModalOpen}
-        onClose={() => setIsNiggleModalOpen(false)}
-        onSendToCoach={handleSendInjuryInCoach}
-      />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

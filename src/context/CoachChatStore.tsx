@@ -70,11 +70,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const [error, setError] = useState<string | null>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>({
-    daily_token_usage: 1200,
-    daily_token_limit: 100000,
-    subscription_tier: 'free',
-  });
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null);
 
   const { refreshPlan } = usePlan();
   const { refreshPhysique } = usePhysique();
@@ -421,8 +417,12 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   useEffect(() => {
-    if (user?.subscription_tier) {
-      setTokenUsage((prev) => (prev ? { ...prev, subscription_tier: user.subscription_tier } : null));
+    if (user) {
+      setTokenUsage((prev) => ({
+        daily_token_usage: prev?.daily_token_usage ?? user.daily_token_usage ?? (user as any).dailyTokenUsage ?? 0,
+        daily_token_limit: prev?.daily_token_limit ?? user.daily_token_limit ?? (user as any).dailyTokenLimit ?? (user.subscription_tier === 'admin' ? 500000 : user.subscription_tier === 'rooka_plus' ? 50000 : 5000),
+        subscription_tier: user.subscription_tier || 'free',
+      }));
     }
   }, [user]);
 

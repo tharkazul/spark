@@ -93,12 +93,14 @@ db.serialize(() => {
     `ALTER TABLE users ADD COLUMN average_cycle_length INTEGER DEFAULT 28`,
     (err) => {},
   );
-  db.run(
-    `ALTER TABLE users ADD COLUMN cycle_tracking_enabled INTEGER DEFAULT 1`,
-    (err) => {},
-  );
+  db.run(`ALTER TABLE users RENAME COLUMN total_spark TO total_rooka`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN total_rooka REAL DEFAULT 0`, (err) => {});
+  db.run(`ALTER TABLE users RENAME COLUMN spark_start_date TO rooka_start_date`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN rooka_start_date TEXT`, (err) => {});
+  db.run(`ALTER TABLE users RENAME COLUMN spark_plus_clicks TO rooka_plus_clicks`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN rooka_plus_clicks INTEGER DEFAULT 0`, (err) => {});
+  db.run(`ALTER TABLE activities RENAME COLUMN spark_score TO rooka_score`, (err) => {});
+  db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_name TEXT DEFAULT 'Rooka'`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_context TEXT DEFAULT ''`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_neutral TEXT`, (err) => {});
@@ -208,7 +210,15 @@ db.serialize(() => {
     `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
   );
   db.run(
+    `ALTER TABLE micro_plan RENAME COLUMN target_spark TO target_rooka`,
+    (err) => {},
+  );
+  db.run(
     `ALTER TABLE micro_plan RENAME COLUMN target_tss TO target_rooka`,
+    (err) => {},
+  );
+  db.run(
+    `ALTER TABLE micro_plan ADD COLUMN target_rooka REAL`,
     (err) => {},
   );
 

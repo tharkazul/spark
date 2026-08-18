@@ -53,16 +53,16 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
           <Pressable
             key={opt.id}
             onPress={() => setLanguage(opt.id)}
-            className={`py-2.5 px-3 rounded-xl border flex-row items-center space-x-2 ${
+            className={`py-2.5 px-3 rounded-xl flex-row items-center space-x-2 ${
               active
-                ? 'bg-orange-500/10 border-orange-500 dark:bg-orange-500/20'
-                : 'bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800'
+                ? 'bg-theme-accent shadow-sm'
+                : 'bg-theme-bg/60 dark:bg-theme-bg/40 border border-theme-border/40'
             }`}
           >
             <Text className="text-sm">{opt.flag}</Text>
             <Text
               className={`text-xs font-bold ${
-                active ? 'text-orange-500 dark:text-orange-400' : 'text-gray-700 dark:text-zinc-300'
+                active ? 'text-white' : 'text-theme-text font-medium'
               }`}
             >
               {opt.label}

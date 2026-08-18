@@ -32,6 +32,10 @@ export interface UserProfile {
     ftp?: number;
     weight_kg?: number;
   };
+  daily_token_usage?: number;
+  dailyTokenUsage?: number;
+  daily_token_limit?: number;
+  dailyTokenLimit?: number;
   onboarding_completed?: boolean;
 }
 

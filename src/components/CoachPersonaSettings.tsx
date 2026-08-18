@@ -8,6 +8,7 @@ import { useUser } from '../context/UserStore';
 import { userApi } from '../services/apiServices';
 import { API_BASE_URL } from '../constants/api';
 import { canConfigureCoach } from '../utils/permissions';
+import { getCoachAvatarSource } from '../utils/avatarUtils';
 
 const TONE_OPTIONS = [
   { label: 'Empathetic & Demanding (Default)', value: 'Empathetic but demanding elite endurance coach.' },
@@ -132,24 +133,36 @@ export const CoachPersonaSettings: React.FC = () => {
               return null;
             }
 
+            const isSelected = selectedTone === opt.value;
+            const avatarSrc = opt.value === 'custom' ? null : getCoachAvatarSource(opt.value, 'default');
+
             return (
               <TouchableOpacity
                 key={opt.value}
                 onPress={() => setSelectedTone(opt.value)}
                 activeOpacity={0.7}
                 className={`p-3 rounded-xl flex-row items-center justify-between mb-2 ${
-                  selectedTone === opt.value
-                    ? 'bg-theme-accent/10'
-                    : 'bg-theme-bg/50'
+                  isSelected
+                    ? 'bg-theme-accent shadow-sm'
+                    : 'bg-theme-bg/60 dark:bg-theme-bg/40 border border-theme-border/40'
                 }`}
               >
                 <View className="flex-row items-center flex-1">
-                  <Text className={`text-sm ${selectedTone === opt.value ? 'font-bold text-theme-accent' : 'text-theme-text'}`}>
+                  {avatarSrc ? (
+                    <View className={`w-8 h-8 rounded-full overflow-hidden mr-3 bg-theme-bg ${isSelected ? 'border border-white/40' : 'border border-theme-border'}`}>
+                      <Image source={avatarSrc} className="w-full h-full" resizeMode="cover" />
+                    </View>
+                  ) : (
+                    <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isSelected ? 'bg-white/20' : 'bg-theme-accent/20'}`}>
+                      <Ionicons name="sparkles" size={16} color={isSelected ? '#FFFFFF' : '#FF5A1F'} />
+                    </View>
+                  )}
+                  <Text className={`text-sm flex-1 ${isSelected ? 'font-bold text-white' : 'text-theme-text font-medium'}`}>
                     {opt.label}
                   </Text>
                 </View>
-                {selectedTone === opt.value && (
-                  <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
+                {isSelected && (
+                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
             );
@@ -281,21 +294,22 @@ export const CoachPersonaSettings: React.FC = () => {
               <TouchableOpacity
                 key={opt.value}
                 onPress={() => setGender(opt.value)}
-                className={`flex-1 p-3 rounded-xl border flex-row items-center justify-center space-x-1.5 ${
+                activeOpacity={0.7}
+                className={`flex-1 p-3 rounded-xl flex-row items-center justify-center space-x-1.5 ${
                   isSelected
-                    ? 'bg-theme-accent/15 border-theme-accent'
-                    : 'bg-theme-card border-theme-border/40'
+                    ? 'bg-theme-accent shadow-sm'
+                    : 'bg-theme-bg/60 dark:bg-theme-bg/40 border border-theme-border/40'
                 }`}
               >
                 <Ionicons
                   name={opt.icon as any}
                   size={15}
-                  color={isSelected ? '#FF5A1F' : '#8E9BA4'}
+                  color={isSelected ? '#FFFFFF' : '#8E9BA4'}
                   style={{ marginRight: 4 }}
                 />
                 <Text
                   className={`text-xs font-bold ${
-                    isSelected ? 'text-theme-accent' : 'text-theme-text'
+                    isSelected ? 'text-white' : 'text-theme-text'
                   }`}
                   numberOfLines={1}
                 >
