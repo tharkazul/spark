@@ -4,6 +4,7 @@ import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { WorkoutItem, SportType } from '../../types/dashboard';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface TodaysPlanCardProps {
   dateLabel: string; // e.g. 'FRI Jul 24'
@@ -24,6 +25,8 @@ export function TodaysPlanCard({
   onAddWorkout,
   onSelectWorkout,
 }: TodaysPlanCardProps) {
+  const { t } = useLanguage();
+
   const getDisciplineConfig = (type: SportType) => {
     switch (type) {
       case 'SWIM':
@@ -111,7 +114,7 @@ export function TodaysPlanCard({
       {/* Header Bar */}
       <View className="flex-row items-center justify-between mb-3 px-1">
         <View className="flex-row items-center gap-2">
-          <Text className="text-base font-extrabold text-theme-text">Today's Plan</Text>
+          <Text className="text-base font-extrabold text-theme-text">{t('dashboard.todaysPlan')}</Text>
           <Text className="text-xs text-theme-muted font-bold">· {tempLabel}</Text>
         </View>
 
@@ -122,7 +125,7 @@ export function TodaysPlanCard({
           className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
           <Ionicons name="flash-outline" size={13} color="#FF5F3B" />
-          <Text className="text-xs font-bold text-theme-accent">ADAPT</Text>
+          <Text className="text-xs font-bold text-theme-accent">{t('dashboard.adapt')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -134,8 +137,8 @@ export function TodaysPlanCard({
               <Ionicons name="moon-outline" size={20} color="#6F6F79" />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-extrabold text-theme-text">Rest & Recovery Day</Text>
-              <Text className="text-xs text-theme-muted font-medium">Stretch, hydrate and absorb recent training</Text>
+              <Text className="text-sm font-extrabold text-theme-text">{t('dashboard.restRecoveryDay')}</Text>
+              <Text className="text-xs text-theme-muted font-medium">{t('dashboard.stretchHydrateAbsorb')}</Text>
             </View>
           </View>
           <View className="items-end gap-1">
@@ -181,7 +184,7 @@ export function TodaysPlanCard({
                         {workout.title}
                       </Text>
                       <Text className="text-xs text-theme-muted font-bold mt-0.5">
-                        {isRest ? 'Rest & Absorb Training' : humanDuration} {workout.actualMetrics ? `· ${workout.actualMetrics}` : ''}
+                        {isRest ? t('dashboard.restAbsorbTraining') : humanDuration} {workout.actualMetrics ? `· ${workout.actualMetrics}` : ''}
                       </Text>
                     </View>
                   </View>
@@ -197,7 +200,7 @@ export function TodaysPlanCard({
                         <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
                       </View>
                     ) : (
-                      <Text className="text-[10px] text-theme-muted font-bold">Tap to edit</Text>
+                      <Text className="text-[10px] text-theme-muted font-bold">{t('dashboard.tapToEdit')}</Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -212,7 +215,7 @@ export function TodaysPlanCard({
             className="w-full py-2.5 bg-theme-card/60 rounded-xl flex-row items-center justify-center gap-1.5"
           >
             <Ionicons name="add-circle-outline" size={15} color="#FF5F3B" />
-            <Text className="text-xs font-extrabold text-theme-accent">+ Add Exercise</Text>
+            <Text className="text-xs font-extrabold text-theme-accent">+ {t('dashboard.addExercise')}</Text>
           </TouchableOpacity>
         </View>
       )}

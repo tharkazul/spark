@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface QuickActionsRowProps {
   onAddActivity: () => void;
@@ -14,6 +15,7 @@ export function QuickActionsRow({
   onLogWeight,
   onReportInjury,
 }: QuickActionsRowProps) {
+  const { t } = useLanguage();
 
   const handlePress = (action: () => void) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -23,7 +25,7 @@ export function QuickActionsRow({
   return (
     <View className="mb-6">
       <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2.5 px-1">
-        Quick Actions
+        {t('dashboard.quickActions')}
       </Text>
 
       <View className="flex-row gap-2.5">
@@ -36,7 +38,7 @@ export function QuickActionsRow({
           <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
             <Ionicons name="add" size={16} color="#FF5F3B" />
           </View>
-          <Text className="text-xs font-bold text-theme-text">Activity</Text>
+          <Text className="text-xs font-bold text-theme-text">{t('dashboard.addActivity')}</Text>
         </TouchableOpacity>
 
         {/* Weight Log */}
@@ -48,7 +50,7 @@ export function QuickActionsRow({
           <View className="w-7 h-7 rounded-lg bg-amber-500/15 items-center justify-center">
             <Ionicons name="scale-outline" size={15} color="#F59E0B" />
           </View>
-          <Text className="text-xs font-bold text-theme-text">Weight</Text>
+          <Text className="text-xs font-bold text-theme-text">{t('dashboard.logWeight')}</Text>
         </TouchableOpacity>
 
         {/* Injury / Niggle */}
@@ -60,7 +62,7 @@ export function QuickActionsRow({
           <View className="w-7 h-7 rounded-lg bg-rose-500/15 items-center justify-center">
             <Ionicons name="bandage-outline" size={15} color="#F43F5E" />
           </View>
-          <Text className="text-xs font-bold text-theme-text">Injury</Text>
+          <Text className="text-xs font-bold text-theme-text">{t('dashboard.injury')}</Text>
         </TouchableOpacity>
       </View>
     </View>

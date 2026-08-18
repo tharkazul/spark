@@ -13,6 +13,7 @@ import { canAccessQuests } from '../../utils/permissions';
 import { getRookaLevelInfo } from '../../utils/gamification';
 import { calculateAthleteArchetype, ArchetypeData } from '../../utils/archetypeUtils';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface RookaTabProps {
   levelInfo?: {
@@ -28,6 +29,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   levelInfo: customLevelInfo,
   archetypeData: customArchetypeData,
 }) => {
+  const { t } = useLanguage();
   const { user } = useUser();
   const { activities } = useActivities();
   const { physiqueLogs } = usePhysique();
@@ -57,28 +59,9 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         Math.round((activeLevelInfo.currentXp / (activeLevelInfo.nextLevelXp || 1)) * 100)
       );
 
-  // Mock 30-Day trend datasets matching PWA ___sparkline_temp___s
-  const fitnessData = [
-    { value: 42 }, { value: 45 }, { value: 48 }, { value: 50 },
-    { value: 54 }, { value: 52 }, { value: 58 }, { value: 61 },
-    { value: 65 }, { value: 63 }, { value: 68 }, { value: 72 },
-  ];
-
-  const fatigueData = [
-    { value: 58 }, { value: 65 }, { value: 60 }, { value: 72 },
-    { value: 68 }, { value: 55 }, { value: 50 }, { value: 48 },
-    { value: 42 }, { value: 38 }, { value: 35 }, { value: 32 },
-  ];
-
-  const readinessData = [
-    { value: -16 }, { value: -20 }, { value: -12 }, { value: -22 },
-    { value: -14 }, { value: -3 }, { value: 8 }, { value: 13 },
-    { value: 23 }, { value: 25 }, { value: 33 }, { value: 40 },
-  ];
-
   return (
     <View className="space-y-4">
-      {/* ROOKA LEVEL CARD */}
+      {/* SPARK LEVEL CARD */}
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
@@ -87,7 +70,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             </View>
             <View className="flex-row items-baseline space-x-1.5">
               <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                ROOKA LEVEL
+                {t('dashboard.sparkLevel')}
               </Text>
               <Text className="text-theme-accent text-xl font-black font-rajdhani leading-tight">
                 {Math.round(activeLevelInfo.level)}
@@ -108,7 +91,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         </View>
 
         <View className="flex-row justify-between items-center mt-1">
-          <Text className="text-[11px] text-theme-muted">Progress to next level</Text>
+          <Text className="text-[11px] text-theme-muted">{t('dashboard.progressNextLevel')}</Text>
           <Text className="text-[11px] font-bold text-theme-accent">{xpPercent}%</Text>
         </View>
       </Card>
@@ -117,7 +100,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-            Athlete Archetype
+            {t('dashboard.athleteArchetype')}
           </Text>
           <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full">
             <Text className="text-[10px] font-bold text-theme-accent uppercase">{activeArchetypeTitle}</Text>
@@ -127,7 +110,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         <AthleteRadarChart data={activeArchetypeData} size={260} />
       </Card>
 
-      {/* PMC TELEMETRY METRICS CARDS WITH ROOKALINES */}
+      {/* PMC TELEMETRY METRICS CARDS WITH SPARKLINES */}
       <PMCMetricsCard
         ctl={pmcMetrics.ctl}
         atl={pmcMetrics.atl}
@@ -150,10 +133,10 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             <View className="flex-row items-center space-x-2">
               <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
               <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                Quests Log
+                {t('dashboard.questsLog')}
               </Text>
             </View>
-            <Text className="text-[11px] text-theme-muted">1 Active</Text>
+            <Text className="text-[11px] text-theme-muted">1 {t('dashboard.active')}</Text>
           </View>
 
           <View className="bg-theme-bg/70 rounded-xl p-4">
@@ -167,14 +150,14 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             <View className="flex-row justify-between items-center pt-2">
               <View className="flex-row items-center space-x-1">
                 <Ionicons name="trophy-outline" size={14} color="#FF5A1F" />
-                <Text className="text-xs font-bold text-theme-accent">Reward: 75 Rooka</Text>
+                <Text className="text-xs font-bold text-theme-accent">{t('dashboard.reward')}: 75 Spark</Text>
               </View>
 
               <TouchableOpacity
                 onPress={() => Haptics.selectionAsync()}
                 className="px-3 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg"
               >
-                <Text className="text-xs font-bold text-theme-accent">Status: Active</Text>
+                <Text className="text-xs font-bold text-theme-accent">{t('dashboard.active')}</Text>
               </TouchableOpacity>
             </View>
           </View>

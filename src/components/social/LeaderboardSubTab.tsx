@@ -55,13 +55,13 @@ export const LeaderboardSubTab: React.FC = () => {
         <Ionicons name="lock-closed-outline" size={48} color="#FF5F3B" />
         <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Leaderboard Locked</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed">
-          Upgrade to the Rooka Plus subscription to unlock global leaderboards and rank against your friends.
+          Upgrade to the Rooka+ subscription to unlock global leaderboards and rank against your friends.
         </Text>
         <TouchableOpacity
           onPress={() => router.navigate('/profile')}
           className="mt-6 bg-theme-accent px-6 py-3 rounded-full shadow-md"
         >
-          <Text className="text-white font-black text-center">Upgrade to Rooka Plus</Text>
+          <Text className="text-white font-black text-center">Upgrade to Rooka+</Text>
         </TouchableOpacity>
       </View>
     );

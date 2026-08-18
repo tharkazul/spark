@@ -21,6 +21,7 @@ import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { WorkoutStep } from '../../types/plan';
 import { makeStepId } from '../../utils/stepId';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface AddWorkoutModalProps {
   visible: boolean;
@@ -97,6 +98,7 @@ export function AddWorkoutModal({
   onSave,
   onDelete,
 }: AddWorkoutModalProps) {
+  const { t } = useLanguage();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
 
@@ -338,11 +340,11 @@ export function AddWorkoutModal({
       {/* Primary Action Buttons */}
       <View className="flex-row gap-3 mb-2">
         <View className="flex-1">
-          <Button label="Cancel" variant="outline" onPress={onClose} />
+          <Button label={t('common.cancel')} variant="outline" onPress={onClose} />
         </View>
         <View className="flex-1">
           <Button
-            label={initialWorkout ? 'Update Exercise' : 'Save Exercise'}
+            label={initialWorkout ? (t('common.edit') || 'Update') : (t('common.save') || 'Save')}
             variant="primary"
             onPress={handleSave}
           />
@@ -355,7 +357,7 @@ export function AddWorkoutModal({
           onPress={handleDelete}
           className="py-2.5 items-center justify-center bg-rose-500/10 rounded-xl mt-1"
         >
-          <Text className="text-xs font-extrabold text-rose-500">Delete Exercise</Text>
+          <Text className="text-xs font-extrabold text-rose-500">{t('common.delete')}</Text>
         </TouchableOpacity>
       )}
     </View>

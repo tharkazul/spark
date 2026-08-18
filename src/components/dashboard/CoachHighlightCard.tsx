@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface CoachHighlightCardProps {
   message: string;
@@ -12,6 +13,8 @@ export function CoachHighlightCard({
   message,
   onDiscussPlan,
 }: CoachHighlightCardProps) {
+  const { t } = useLanguage();
+
   const handleDiscussPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onDiscussPlan();
@@ -26,8 +29,8 @@ export function CoachHighlightCard({
             <Ionicons name="chatbubble-ellipses-outline" size={14} color="#38BDF8" />
           </View>
           <View>
-            <Text className="text-sm font-extrabold text-theme-text">Coach Briefing</Text>
-            <Text className="text-[9px] text-theme-muted">Daily Insight & Advice</Text>
+            <Text className="text-sm font-extrabold text-theme-text">{t('dashboard.coachBriefing')}</Text>
+            <Text className="text-[9px] text-theme-muted">{t('dashboard.dailyInsightAdvice')}</Text>
           </View>
         </View>
       </View>
@@ -63,7 +66,7 @@ export function CoachHighlightCard({
           className="w-full bg-theme-accent py-2.5 px-4 rounded-xl shadow-md flex-row items-center justify-center gap-2"
         >
           <Ionicons name="chatbubbles" size={16} color="#FFFFFF" />
-          <Text className="text-white text-xs font-extrabold">Discuss Today's Plan</Text>
+          <Text className="text-white text-xs font-extrabold">{t('dashboard.discussTodaysPlan')}</Text>
         </TouchableOpacity>
       </View>
     </View>

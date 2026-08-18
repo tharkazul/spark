@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SubscriptionTier } from '../../types/user';
 import { Sparkline } from '../common/Sparkline';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface PMCMetricsProps {
   ctl?: number;
@@ -33,18 +34,20 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
   weightHistory = [],
   tier = 'free',
 }) => {
+  const { t } = useLanguage();
+
   // Calculate Readiness score if not provided directly
   const computedReadiness = readinessScore !== undefined 
     ? readinessScore 
     : Math.max(0, Math.min(100, Math.round(50 + Math.max(-20, Math.min(20, tsb * 0.5)))));
 
-  let readinessBadge = { text: 'Optimal Building', color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: '' };
+  let readinessBadge = { text: t('dashboard.optimalBuilding'), color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: '' };
   if (computedReadiness < 40 || tsb < -30) {
-    readinessBadge = { text: 'High Fatigue / Rest Needed', color: 'text-red-500', bg: 'bg-red-500/10', border: '' };
+    readinessBadge = { text: t('dashboard.highFatigueRest'), color: 'text-red-500', bg: 'bg-red-500/10', border: '' };
   } else if (computedReadiness < 65 || tsb < -10) {
-    readinessBadge = { text: 'Productive Build', color: 'text-theme-accent', bg: 'bg-theme-accent/10', border: '' };
+    readinessBadge = { text: t('dashboard.productiveBuild'), color: 'text-theme-accent', bg: 'bg-theme-accent/10', border: '' };
   } else if (tsb > 10) {
-    readinessBadge = { text: 'Race Ready / Fresh', color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: '' };
+    readinessBadge = { text: t('dashboard.raceReadyFresh'), color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: '' };
   }
 
   return (
@@ -54,13 +57,13 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         <View className="flex-row items-center space-x-2">
           <Ionicons name="pulse-outline" size={18} color="#FF5A1F" />
           <Text className="text-xs font-bold text-theme-text uppercase tracking-wider">
-            Performance Management (PMC)
+            {t('dashboard.performanceManagement')}
           </Text>
         </View>
         {tier === 'rooka_plus' && (
           <View className="bg-amber-500/15 px-2 py-0.5 rounded-full flex-row items-center">
             <Ionicons name="flash" size={10} color="#f59e0b" className="mr-1" />
-            <Text className="text-[10px] text-amber-500 font-bold">Rooka Plus AI</Text>
+            <Text className="text-[10px] text-amber-500 font-bold">Spark+ AI</Text>
           </View>
         )}
       </View>
@@ -71,7 +74,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-              Fitness (CTL)
+              {t('dashboard.fitness')}
             </Text>
             <View className="flex-row items-center bg-emerald-500/10 px-1.5 py-0.5 rounded-md">
               <Ionicons name="arrow-up" size={10} color="#10b981" />
@@ -93,14 +96,14 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             height={32}
             width={120}
           />
-          <Text className="text-[9px] text-theme-muted mt-1">42-day Chronic Load</Text>
+          <Text className="text-[9px] text-theme-muted mt-1">{t('dashboard.chronicLoad')}</Text>
         </View>
 
         {/* ATL Card */}
         <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-              Fatigue (ATL)
+              {t('dashboard.fatigue')}
             </Text>
             <View className="flex-row items-center bg-amber-500/10 px-1.5 py-0.5 rounded-md">
               <Ionicons name="arrow-up" size={10} color="#f59e0b" />
@@ -122,14 +125,14 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             height={32}
             width={120}
           />
-          <Text className="text-[9px] text-theme-muted mt-1">7-day Acute Load</Text>
+          <Text className="text-[9px] text-theme-muted mt-1">{t('dashboard.acuteLoad')}</Text>
         </View>
 
         {/* Readiness (TSB) Card */}
         <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-              Readiness (TSB)
+              {t('dashboard.readiness')} (TSB)
             </Text>
             <Text className={`text-[10px] font-bold ${tsb >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
               TSB {tsb > 0 ? `+${tsb.toFixed(1)}` : tsb.toFixed(1)}
@@ -159,7 +162,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-              Body Weight
+              {t('physique.weightInput')}
             </Text>
             <Ionicons name="scale-outline" size={12} color="#FF5A1F" />
           </View>
@@ -177,7 +180,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             height={32}
             width={120}
           />
-          <Text className="text-[9px] text-theme-muted mt-1">7-day EMA Trendline</Text>
+          <Text className="text-[9px] text-theme-muted mt-1">{t('dashboard.emaTrendline')}</Text>
         </View>
       </View>
     </View>

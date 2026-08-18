@@ -1480,7 +1480,7 @@ export default function OnboardingWizard() {
                     <View className="w-12 h-12 rounded-2xl bg-[#FF5A1F] items-center justify-center mb-2 shadow-lg">
                       <Ionicons name="flash" size={24} color="#FFFFFF" />
                     </View>
-                    <Text className="text-theme-text font-extrabold text-lg text-center">Unlock Rooka Plus</Text>
+                    <Text className="text-theme-text font-extrabold text-lg text-center">Unlock Rooka+</Text>
                     <Text className="text-theme-muted text-xs text-center mt-1">
                       Upgrade to unlock unlimited Rooka chat, custom periodization, and automated sync.
                     </Text>

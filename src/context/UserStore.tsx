@@ -204,7 +204,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       await userApi.trackRookaPlusClick();
     } catch (err) {
-      console.log('Track Rooka Plus error:', err);
+      console.log('Track Rooka+ error:', err);
     }
   };
 
