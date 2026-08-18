@@ -5,8 +5,8 @@ import Constants from 'expo-constants';
 export const USE_LOCAL_BACKEND = true;
 
 // Production URLs (Termux Cloudflare Tunnel)
-const PROD_API_BASE_URL = 'https://api.amsterdamtriathlonassociation.uk';
-const PROD_WS_URL = 'wss://api.amsterdamtriathlonassociation.uk';
+const PROD_API_BASE_URL = 'https://api.rooka.io';
+const PROD_WS_URL = 'wss://api.rooka.io';
 
 // Local Development URLs
 const LOCAL_IP: string | null = null;

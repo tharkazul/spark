@@ -712,7 +712,7 @@ export default function OnboardingWizard() {
   const handleConnectStravaOAuth = async () => {
     try {
       const clientId = '208765';
-      const stravaRedirectUri = 'https://rooka.amsterdamtriathlonassociation.uk/oauthredirect';
+      const stravaRedirectUri = `${API_BASE_URL}/oauthredirect`;
       const appDeepLink = Linking.createURL('oauthredirect');
       const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
         stravaRedirectUri

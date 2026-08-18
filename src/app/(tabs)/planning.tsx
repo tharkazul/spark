@@ -132,10 +132,15 @@ export default function PlanningScreen() {
 
   const daysRemaining = calculateDaysRemaining(user?.event_date);
 
+  let currentPhaseIndex = 0;
+  if (daysRemaining <= 14) currentPhaseIndex = 3;
+  else if (daysRemaining <= 28) currentPhaseIndex = 2;
+  else if (daysRemaining <= 70) currentPhaseIndex = 1;
+
   const seasonInfo: MacroPeriodInfo = {
     raceTargetName: mainRaceName,
     daysRemaining: daysRemaining,
-    currentPhaseIndex: 1, 
+    currentPhaseIndex: currentPhaseIndex, 
     targetCTL: user?.target_ctl || 35,
     currentCTL: user?.current_ctl || 68,
     phases: [
@@ -144,7 +149,7 @@ export default function PlanningScreen() {
         weeks: 'Weeks 1-6',
         focus: 'Aerobic Volume & Technic',
         description: 'Building mitochondrial density & base aerobic capacity with low HR long rides and CSS swim threshold sets.',
-        status: 'completed',
+        status: currentPhaseIndex > 0 ? 'completed' : currentPhaseIndex === 0 ? 'active' : 'upcoming',
         achievementLabel: 'Done at 94% Target CTL',
         targetCTL: 52,
         achievedCTL: 49,
@@ -154,7 +159,7 @@ export default function PlanningScreen() {
         weeks: 'Weeks 7-12',
         focus: 'Threshold Velocity & Power',
         description: 'High aerobic intervals, threshold swim pace, VO2 max bike intervals, and Saturday brick runs.',
-        status: 'active',
+        status: currentPhaseIndex > 1 ? 'completed' : currentPhaseIndex === 1 ? 'active' : 'upcoming',
         progressPercent: 55,
       },
       {
@@ -162,14 +167,14 @@ export default function PlanningScreen() {
         weeks: 'Weeks 13-14',
         focus: 'Race Pace Intervals',
         description: 'Race-specific pacing simulation, sharp interval efforts, and high-intensity micro efforts.',
-        status: 'upcoming',
+        status: currentPhaseIndex > 2 ? 'completed' : currentPhaseIndex === 2 ? 'active' : 'upcoming',
       },
       {
         name: 'TAPER PHASE',
         weeks: 'Weeks 15-16',
         focus: 'Glycogen Supercompensation',
         description: 'Volume reduction by 50% while maintaining sharp stride frequency to arrive fresh on race day.',
-        status: 'upcoming',
+        status: currentPhaseIndex === 3 ? 'active' : 'upcoming',
       },
     ],
   };

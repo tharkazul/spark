@@ -12,6 +12,12 @@ app.use(cors());
 app.use(bodyParser.json({ limit: "15mb" }));
 app.use(express.static("public"));
 
+// Admin & Legal static routing
+app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
+app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "public", "privacy.html")));
+app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "public", "terms.html")));
+app.get("/support", (req, res) => res.sendFile(path.join(__dirname, "public", "support.html")));
+
 // Route modules
 const authRoutes = require("./routes/auth");
 const chatRoutes = require("./routes/chat");
