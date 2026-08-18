@@ -25,7 +25,7 @@ export function ScreenHeaderTitleRow({ title, children, dateLabel, rightElement 
       </View>
       <View className="flex-row items-center space-x-2">
         {rightElement}
-        <View className="flex-row items-center gap-1.5 bg-theme-card px-3 py-1.5 rounded-full border border-theme-border/40">
+        <View className="flex-row items-center gap-1.5 py-1.5">
           <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
           <Text className="text-xs font-bold font-mono text-theme-muted">{formattedDate}</Text>
         </View>

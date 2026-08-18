@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "fc84da76-ea24-4c5b-8a33-4f17957d0b40"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.tharkazul.rookaserver",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

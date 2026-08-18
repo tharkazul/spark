@@ -181,8 +181,8 @@ async function getUserMacroPhase(userId) {
               (new Date(nextRace.date) - today) / (1000 * 60 * 60 * 24),
             );
             if (daysUntil <= 14) phase = "TAPER";
-            else if (daysUntil <= 56) phase = "PEAK";
-            else if (daysUntil <= 112) phase = "BUILD";
+            else if (daysUntil <= 28) phase = "PEAK";
+            else if (daysUntil <= 70) phase = "BUILD";
           }
         }
         resolve(phase);

@@ -175,7 +175,7 @@ export const en = {
     subtitle: 'Personalized training & recovery advice',
     inputPlaceholder: 'Ask about your training, nutrition, or recovery...',
     send: 'Send',
-    thinking: 'Coach Nana is thinking...',
+    thinking: 'Rooka is typing...',
     suggestedQuestions: 'SUGGESTIONS:',
     suggested1: 'How should I structure my workouts this week?',
     suggested2: 'What is my current readiness & recovery?',

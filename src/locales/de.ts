@@ -177,7 +177,7 @@ export const de: TranslationKeys = {
     subtitle: 'Personalisiertes Trainings- & Erholungs-Coaching',
     inputPlaceholder: 'Frage nach deinem Training, deiner Ernährung oder Erholung...',
     send: 'Senden',
-    thinking: 'Coach Nana denkt nach...',
+    thinking: 'Rooka is typing...',
     suggestedQuestions: 'VORSCHLÄGE:',
     suggested1: 'Wie sollte ich meine Workouts diese Woche strukturieren?',
     suggested2: 'Wie ist meine aktuelle Bereitschaft zur Erholung?',

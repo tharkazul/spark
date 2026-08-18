@@ -177,7 +177,7 @@ export const nl: TranslationKeys = {
     subtitle: 'Gepersonaliseerd training- & hersteladvies',
     inputPlaceholder: 'Stel een vraag over je training, voeding of herstel...',
     send: 'Versturen',
-    thinking: 'Coach Nana denkt na...',
+    thinking: 'Rooka is typing...',
     suggestedQuestions: 'SUGGESTIES:',
     suggested1: 'Hoe moet ik mijn workouts deze week indelen?',
     suggested2: 'Wat is mijn huidige herstel en paraatheid?',

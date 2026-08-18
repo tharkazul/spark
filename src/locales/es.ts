@@ -177,7 +177,7 @@ export const es: TranslationKeys = {
     subtitle: 'Consejos personalizados de entrenamiento y recuperación',
     inputPlaceholder: 'Pregunta sobre tu entrenamiento, nutrición o recuperación...',
     send: 'Enviar',
-    thinking: 'Coach Nana está pensando...',
+    thinking: 'Rooka is typing...',
     suggestedQuestions: 'SUGERENCIAS:',
     suggested1: '¿Cómo debo estructurar mis entrenamientos esta semana?',
     suggested2: '¿Cuál es mi estado actual de recuperación?',

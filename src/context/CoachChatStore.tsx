@@ -244,13 +244,13 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
         // Readable speed: brief pause on punctuation, fast flow between words
         const hasPunctuation = /[.,!?:;\n]/.test(nextChunk);
-        const delay = hasPunctuation ? 35 : 22;
+        const delay = hasPunctuation ? 50 : 30;
 
         setTimeout(step, delay);
       };
 
       if (chunks.length > 1) {
-        setTimeout(step, 24);
+        setTimeout(step, 30);
       } else {
         setMessages((prev) =>
           prev.map((m) =>

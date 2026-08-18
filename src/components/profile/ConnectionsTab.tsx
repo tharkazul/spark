@@ -50,11 +50,20 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
   const [appleSyncing, setAppleSyncing] = useState(false);
-  const [isAppleConnected, setIsAppleConnected] = useState(true);
+  const [isAppleConnected, setIsAppleConnected] = useState(false);
 
   // Strava Automation Toggles per sport type
   const [selectedSport, setSelectedSport] = useState<SportType>('running');
   const [sportToggles, setSportToggles] = useState<Record<SportType, StravaSportToggles>>(DEFAULT_TOGGLES);
+
+  // Load Apple Health connection state on mount
+  useEffect(() => {
+    AsyncStorage.getItem('apple_health_connected').then((val) => {
+      if (val === 'true') {
+        setIsAppleConnected(true);
+      }
+    });
+  }, []);
 
   const handleSyncAppleHealth = async () => {
     setAppleSyncing(true);
@@ -75,6 +84,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       const granted = await requestAppleHealthPermissions();
       if (granted) {
         setIsAppleConnected(true);
+        await AsyncStorage.setItem('apple_health_connected', 'true');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err: any) {
@@ -140,7 +150,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="logo-apple" size={20} color="#FF2D55" />
-            <Text className="text-theme-text font-bold text-sm">Apple Health & Watch (WorkoutKit)</Text>
+            <Text className="text-theme-text font-bold text-sm">Apple Health & Watch</Text>
           </View>
           <View
             className={`px-2 py-0.5 rounded ${

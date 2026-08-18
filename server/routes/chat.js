@@ -187,11 +187,20 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
       }
 
       if (currentDailyUsage > currentDailyLimit) {
-        return res
-          .status(429)
-          .json({
-            error: "Daily token limit reached. Please try again tomorrow!",
-          });
+        const replyText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]";
+        return db.run(
+          `INSERT INTO chat_history (user_id, role, content) VALUES (?, 'user', ?)`,
+          [req.user.id, message],
+          (err) => {
+            db.run(
+              `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'default')`,
+              [req.user.id, replyText],
+              (err) => {
+                return res.json({ reply: replyText, mood: "default" });
+              }
+            );
+          }
+        );
       }
 
       db.all(

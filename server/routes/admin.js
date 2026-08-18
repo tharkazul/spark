@@ -158,7 +158,10 @@ router.post("/api/admin/set-tier", authenticateToken, (req, res) => {
     if (!targetUsername || !tier) return res.status(400).json({ error: "Missing parameters" });
 
     // Set tier, and automatically adjust daily_token_limit so it takes effect immediately
-    const limit = tier === 'rooka_plus' ? 50000 : 10000;
+    let limit = 10000; // Free
+    if (tier === 'rooka_plus') limit = 50000;
+    else if (tier === 'premium') limit = 100000;
+    else if (tier === 'admin') limit = 500000;
 
     db.get(`SELECT id, subscription_tier FROM users WHERE username = ?`, [targetUsername], (errUser, userRow) => {
         if (errUser || !userRow) return res.status(404).json({ error: "User not found" });

@@ -59,6 +59,7 @@ function renderTable(users) {
             <select onchange="setTier('${u.username}', this.value)" class="text-xs bg-gray-50 border border-gray-200 rounded p-1">
                 <option value="free" ${tier === 'free' ? 'selected' : ''}>Free</option>
                 <option value="rooka_plus" ${tier === 'rooka_plus' ? 'selected' : ''}>Rooka+</option>
+                <option value="premium" ${tier === 'premium' ? 'selected' : ''}>Premium</option>
                 <option value="admin" ${tier === 'admin' ? 'selected' : ''}>Admin</option>
             </select>
         `;
