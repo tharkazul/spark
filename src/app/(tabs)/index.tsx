@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,16 +11,14 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useUser } from '../../context/UserStore';
-import { usePlan } from '../../context/PlanStore';
-import { usePhysique } from '../../context/PhysiqueStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
-import { canAccessQuests } from '../../utils/permissions';
+import { Card } from '../../components/ui/Card';
 
-import { TodaysPlanCard } from '../../components/dashboard/TodaysPlanCard';
-import { NutritionProtocolCard } from '../../components/dashboard/NutritionProtocolCard';
-import { ActiveQuestsCard } from '../../components/dashboard/ActiveQuestsCard';
+import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
+import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
+import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 import { QuickActionsRow } from '../../components/dashboard/QuickActionsRow';
 
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
@@ -30,17 +28,39 @@ import { LogNiggleModal } from '../../components/dashboard/LogNiggleModal';
 
 import {
   WorkoutItem,
+  MacroPeriodInfo,
+  DayAgenda,
 } from '../../types/dashboard';
 
-export default function DashboardScreen() {
+// Date Helpers (Fixed to use local timezone date components instead of UTC ISO string)
+function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setHours(0, 0, 0, 0);
+  return new Date(d.setDate(diff));
+}
+
+function formatDateToYYYYMMDD(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatShortDate(d: Date): string {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+export default function PlanningHomeScreen() {
   const router = useRouter();
   const { user } = useUser();
-  const { plan } = usePlan();
-  const { nutrition } = usePhysique();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
-  const { notifyScroll, tabBarOccupied } = useTabBar();
-  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const { tabBarOccupied, notifyScroll } = useTabBar();
+
+  const part3ScrollViewRef = useRef<ScrollView>(null);
+  const hasScrolledToTodayRef = useRef(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
@@ -49,57 +69,257 @@ export default function DashboardScreen() {
 
   const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 0);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
-  const [customWorkouts, setCustomWorkouts] = useState<WorkoutItem[]>([]);
+  const [customWorkoutsByDate, setCustomWorkoutsByDate] = useState<Record<string, WorkoutItem[]>>({});
+
+  // Selected week start date (defaults to Monday of current week)
+  const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const [dayYPositions, setDayYPositions] = useState<Record<number, number>>({});
 
   const now = new Date();
-  const todayYYYYMMDD = now.toISOString().split('T')[0];
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayYYYYMMDD = formatDateToYYYYMMDD(now);
+
   const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
   const dayOfWeekUpper = dayOfWeekShort.toUpperCase();
   const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
   const dayNum = now.getDate();
 
-  const todaysCardDateLabel = `${dayOfWeekUpper} ${monthShort} ${dayNum}`;
   const todayDateStr = `${monthShort} ${dayNum}`;
 
-  const [targetAddDay, setTargetAddDay] = useState<{ dayName: string; dateStr: string }>({
+  const [targetAddDay, setTargetAddDay] = useState<{ dayName: string; dateStr: string; fullDate?: string }>({
     dayName: dayOfWeekUpper,
     dateStr: todayDateStr,
+    fullDate: todayYYYYMMDD,
   });
 
-  const todaysWorkouts = useMemo(() => {
-    const list: WorkoutItem[] = [];
-
-    if (plan && Array.isArray(plan)) {
-      const filtered = plan.filter(
-        (w) => w.date === todayYYYYMMDD || w.day === 'TODAY' || w.day === dayOfWeekUpper
-      );
-      filtered.forEach((w) => {
-        const sportUpper = (w.sport || 'RUN').toUpperCase();
-        const isRest = sportUpper === 'REST' || (w.description || '').toLowerCase().includes('rest');
-        list.push({
-          id: String(w.id),
-          day: w.day || dayOfWeekUpper,
-          dateStr: todayDateStr,
-          type: sportUpper as any,
-          title: w.description || `${w.sport} Workout`,
-          duration: w.details || '45 mins',
-          rookaPoints: isRest ? 0 : (w.target_rooka ?? 0),
-          isStructured: !!w.steps_json,
-          isCompleted: !!w.isCompleted,
-          actualMetrics: w.actualMetrics,
-          executionScore: w.executionScore,
-        });
-      });
-    }
-
-    customWorkouts.forEach((w) => {
-      if (!list.some((existing) => existing.id === w.id)) {
-        list.push(w);
-      }
+  const handlePrevWeek = () => {
+    Haptics.selectionAsync();
+    setWeekStart((prev) => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() - 7);
+      return d;
     });
+  };
 
-    return list;
-  }, [plan, todayYYYYMMDD, dayOfWeekUpper, todayDateStr, customWorkouts]);
+  const handleNextWeek = () => {
+    Haptics.selectionAsync();
+    setWeekStart((prev) => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + 7);
+      return d;
+    });
+  };
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekRangeLabel = `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
+
+  const mainRaceName = user?.target_event || 'Park 5k';
+
+  const calculateDaysRemaining = (eventDateStr?: string): number => {
+    if (!eventDateStr) return 181;
+    try {
+      const targetDate = new Date(eventDateStr);
+      const diffTime = targetDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays > 0 ? diffDays : 0;
+    } catch {
+      return 181;
+    }
+  };
+
+  const daysRemaining = calculateDaysRemaining(user?.event_date);
+
+  const seasonInfo: MacroPeriodInfo = {
+    raceTargetName: mainRaceName,
+    daysRemaining: daysRemaining,
+    currentPhaseIndex: 1,
+    targetCTL: user?.target_ctl || 35,
+    currentCTL: user?.current_ctl || 68,
+    phases: [
+      {
+        name: 'BASE PHASE',
+        weeks: 'Weeks 1-6',
+        focus: 'Aerobic Volume & Technic',
+        description: 'Building mitochondrial density & base aerobic capacity with low HR long rides and CSS swim threshold sets.',
+        status: 'completed',
+        achievementLabel: 'Done at 94% Target CTL',
+        targetCTL: 52,
+        achievedCTL: 49,
+      },
+      {
+        name: 'BUILD PHASE',
+        weeks: 'Weeks 7-12',
+        focus: 'Threshold Velocity & Power',
+        description: 'High aerobic intervals, threshold swim pace, VO2 max bike intervals, and Saturday brick runs.',
+        status: 'active',
+        progressPercent: 55,
+      },
+      {
+        name: 'PEAK PHASE',
+        weeks: 'Weeks 13-14',
+        focus: 'Race Pace Intervals',
+        description: 'Race-specific pacing simulation, sharp interval efforts, and high-intensity micro efforts.',
+        status: 'upcoming',
+      },
+      {
+        name: 'TAPER PHASE',
+        weeks: 'Weeks 15-16',
+        focus: 'Glycogen Supercompensation',
+        description: 'Volume reduction by 50% while maintaining sharp stride frequency to arrive fresh on race day.',
+        status: 'upcoming',
+      },
+    ],
+  };
+
+  // Sample Workout Generator per day
+  const getSampleWorkoutsForDay = (dayName: string, dateStr: string, isPast: boolean): WorkoutItem[] => {
+    if (dayName === 'MON') {
+      return [
+        {
+          id: `w-mon-${dateStr}`,
+          day: 'MON',
+          dateStr,
+          type: 'RUN',
+          title: 'Controlled Aerobic Run - Injury Guardrail',
+          duration: '50 mins',
+          sparkPoints: 44,
+          isStructured: true,
+          isCompleted: isPast,
+          actualMetrics: isPast ? '152 avg bpm · 4:52/km' : undefined,
+          executionScore: isPast ? 100 : undefined,
+        },
+      ];
+    }
+    if (dayName === 'TUE') {
+      return [
+        {
+          id: `w-tue-${dateStr}`,
+          day: 'TUE',
+          dateStr,
+          type: 'STRENGTH',
+          title: 'At-Home Core & Mobility with Spark',
+          duration: '35 mins',
+          sparkPoints: 26,
+          isStructured: true,
+          isCompleted: isPast,
+          actualMetrics: isPast ? '35 mins · 118 avg bpm' : undefined,
+          executionScore: isPast ? 96 : undefined,
+        },
+      ];
+    }
+    if (dayName === 'WED') {
+      return [
+        {
+          id: `w-wed-${dateStr}`,
+          day: 'WED',
+          dateStr,
+          type: 'BIKE',
+          title: 'Threshold Interval Trainer Session',
+          duration: '60 mins',
+          sparkPoints: 52,
+          isStructured: true,
+          isCompleted: isPast,
+          actualMetrics: isPast ? '248W avg · 164 bpm' : undefined,
+          executionScore: isPast ? 102 : undefined,
+        },
+      ];
+    }
+    if (dayName === 'FRI') {
+      return [
+        {
+          id: `w-fri-${dateStr}`,
+          day: 'FRI',
+          dateStr,
+          type: 'BIKE',
+          title: 'Lekker fietsen',
+          duration: '60 mins',
+          sparkPoints: 84,
+          isStructured: true,
+          isCompleted: false,
+        },
+      ];
+    }
+    if (dayName === 'SAT') {
+      return [
+        {
+          id: `w-sat-${dateStr}`,
+          day: 'SAT',
+          dateStr,
+          type: 'STRENGTH',
+          title: 'Upper Body & Core Focus',
+          duration: '45 mins',
+          sparkPoints: 30,
+          isStructured: false,
+          isCompleted: false,
+        },
+      ];
+    }
+    if (dayName === 'SUN') {
+      return [
+        {
+          id: `w-sun-${dateStr}`,
+          day: 'SUN',
+          dateStr,
+          type: 'MOBILITY',
+          title: 'Active Recovery Walk & Stretch',
+          duration: '30 mins',
+          sparkPoints: 15,
+          isStructured: false,
+          isCompleted: false,
+        },
+      ];
+    }
+    return [];
+  };
+
+  // Compute 7-Day Agenda Dynamically from weekStart
+  const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const weeklyAgenda: DayAgenda[] = DAYS_HEADER.map((dayName, idx) => {
+    const dayDate = new Date(weekStart);
+    dayDate.setDate(dayDate.getDate() + idx);
+    dayDate.setHours(0, 0, 0, 0);
+
+    const dateYYYYMMDD = formatDateToYYYYMMDD(dayDate);
+    const dateStr = formatShortDate(dayDate);
+    const isToday = dateYYYYMMDD === todayYYYYMMDD;
+    const isPast = dayDate < todayMidnight;
+
+    const customWorkouts = customWorkoutsByDate[dateYYYYMMDD];
+    const workouts = customWorkouts !== undefined ? customWorkouts : getSampleWorkoutsForDay(dayName, dateStr, isPast);
+
+    return {
+      dayName,
+      dateStr,
+      isToday,
+      isPast,
+      workouts,
+    };
+  });
+
+  useEffect(() => {
+    hasScrolledToTodayRef.current = false;
+    const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
+    setSelectedDayIndex(todayIdx >= 0 ? todayIdx : 0);
+  }, [weekStart]);
+
+  // Automatically scroll to Today's card when opening planning subtab or layout measures
+  useEffect(() => {
+    const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
+    const targetIdx = todayIdx >= 0 ? todayIdx : 0;
+
+    if (!hasScrolledToTodayRef.current && dayYPositions[targetIdx] !== undefined) {
+      hasScrolledToTodayRef.current = true;
+      setTimeout(() => {
+        part3ScrollViewRef.current?.scrollTo({
+          y: dayYPositions[targetIdx],
+          animated: true,
+        });
+      }, 100);
+    }
+  }, [dayYPositions, weeklyAgenda]);
 
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
     setSelectedWorkoutForEdit(null);
@@ -113,29 +333,51 @@ export default function DashboardScreen() {
   };
 
   const handleSaveWorkout = (workoutData: Omit<WorkoutItem, 'id'>, existingId?: string) => {
-    if (existingId) {
-      setCustomWorkouts((prev) =>
-        prev.map((w) => (w.id === existingId ? { ...w, ...workoutData } : w))
-      );
-    } else {
-      const newWorkout: WorkoutItem = { ...workoutData, id: `w-${Date.now()}` };
-      if (newWorkout.day === dayOfWeekUpper || newWorkout.dateStr === todayDateStr) {
-        setCustomWorkouts((prev) => [...prev, newWorkout]);
+    const matchedDay = weeklyAgenda.find(
+      (d) => d.dayName === workoutData.day || d.dateStr === workoutData.dateStr
+    );
+    const targetDateStr = matchedDay ? matchedDay.dateStr : targetAddDay.dateStr;
+
+    const dayIdx = weeklyAgenda.findIndex((d) => d.dateStr === targetDateStr);
+    const targetDate = new Date(weekStart);
+    if (dayIdx >= 0) targetDate.setDate(targetDate.getDate() + dayIdx);
+    const targetYYYYMMDD = formatDateToYYYYMMDD(targetDate);
+
+    setCustomWorkoutsByDate((prev) => {
+      const existing = prev[targetYYYYMMDD] || getSampleWorkoutsForDay(workoutData.day, targetDateStr, false);
+      let updated: WorkoutItem[];
+
+      if (existingId) {
+        updated = existing.map((w) => (w.id === existingId ? { ...w, ...workoutData } : w));
+      } else {
+        const newWorkout: WorkoutItem = { ...workoutData, id: `w-${Date.now()}` };
+        updated = [...existing, newWorkout];
       }
-    }
+
+      return {
+        ...prev,
+        [targetYYYYMMDD]: updated,
+      };
+    });
   };
 
   const handleDeleteWorkout = (workoutId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    setCustomWorkouts((prev) => prev.filter((w) => w.id !== workoutId));
+    setCustomWorkoutsByDate((prev) => {
+      const nextState = { ...prev };
+      Object.keys(nextState).forEach((key) => {
+        nextState[key] = nextState[key].filter((w) => w.id !== workoutId);
+      });
+      return nextState;
+    });
+  };
+
+  const handleInvitePartner = (workout: WorkoutItem) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const handleConfirmAdaptation = (type: string) => {
-    setCustomWorkouts((prev) =>
-      prev.map((w) =>
-        w.isCompleted ? w : { ...w, title: `${w.title} (Adapted - ${type})`, duration: '30 mins' }
-      )
-    );
+    // Adaptation logic
   };
 
   const handleSaveWeight = (newWeight: number) => {
@@ -151,40 +393,74 @@ export default function DashboardScreen() {
       {/* Header Spacer dynamically measured from DashboardSharedHeader onLayout */}
       <View style={{ height: headerHeight }} />
 
-      <ScrollView 
-        className="flex-1 px-5 pt-2" 
-        contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }} 
-        showsVerticalScrollIndicator={false} 
-        contentInsetAdjustmentBehavior="never"
-        onScrollBeginDrag={notifyScroll}
-      >
-        {/* Today's Workout & Plan */}
-        <TodaysPlanCard
-          dateLabel={todaysCardDateLabel}
-          tempLabel="24°C"
-          workouts={todaysWorkouts}
-          onAdaptPress={() => setIsAdaptModalOpen(true)}
-          onAddWorkout={() => handleOpenAddModal(dayOfWeekUpper, todayDateStr)}
-          onSelectWorkout={handleSelectWorkoutForEdit}
-        />
+      <View className="flex-1 px-5 pt-2">
+        {/* Pinned plan context — Card matching TodaysPlanCard styling */}
+        <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
+          <SeasonRoadmapCard info={seasonInfo} />
 
-        {/* Today's Fueling & Nutrition Protocol */}
-        {nutrition && (
-          <NutritionProtocolCard nutrition={nutrition} />
-        )}
+          <View className="h-px bg-theme-border/50 my-3.5" />
 
-        {/* Weekly Active Quests */}
-        {canAccessQuests(user?.subscription_tier) && (
-          <ActiveQuestsCard />
-        )}
+          {/* Week Selector Bar with Interactive Chevrons */}
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-[11px] uppercase tracking-wider font-extrabold text-theme-muted">
+              Week plan
+            </Text>
+            <View className="flex-row items-center bg-theme-card border border-theme-border px-2.5 py-1 rounded-full shadow-sm">
+              <TouchableOpacity onPress={handlePrevWeek} activeOpacity={0.6} className="px-1.5 py-0.5">
+                <Ionicons name="chevron-back" size={13} color="#FF5F3B" />
+              </TouchableOpacity>
+              <Text className="text-xs font-mono font-extrabold text-theme-text px-1">{weekRangeLabel}</Text>
+              <TouchableOpacity onPress={handleNextWeek} activeOpacity={0.6} className="px-1.5 py-0.5">
+                <Ionicons name="chevron-forward" size={13} color="#FF5F3B" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        {/* Athlete Quick Actions */}
-        <QuickActionsRow
-          onAddActivity={() => handleOpenAddModal(dayOfWeekUpper, todayDateStr)}
-          onLogWeight={() => setIsWeightModalOpen(true)}
-          onReportInjury={() => setIsNiggleModalOpen(true)}
-        />
-      </ScrollView>
+          <SideBySideWeekBar
+            agenda={weeklyAgenda}
+            selectedDayIndex={selectedDayIndex}
+            onSelectDay={(idx) => {
+              setSelectedDayIndex(idx);
+              if (dayYPositions[idx] !== undefined) {
+                part3ScrollViewRef.current?.scrollTo({ y: dayYPositions[idx], animated: true });
+              }
+            }}
+          />
+        </Card>
+
+        <ScrollView
+          ref={part3ScrollViewRef}
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: tabBarOccupied + 20, gap: 12 }}
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={notifyScroll}
+        >
+          {weeklyAgenda.map((day, idx) => (
+            <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {
+              const y = e.nativeEvent.layout.y;
+              setDayYPositions((prev) => ({ ...prev, [idx]: y }));
+            }}>
+              <DetailedDayCard
+                day={day}
+                onAdaptPress={() => setIsAdaptModalOpen(true)}
+                onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
+                onSelectWorkout={handleSelectWorkoutForEdit}
+                onDeleteWorkout={handleDeleteWorkout}
+                onInvitePartner={handleInvitePartner}
+              />
+            </View>
+          ))}
+
+          {/* Quick Actions Row */}
+          <View className="mt-3">
+            <QuickActionsRow
+              onAddActivity={() => handleOpenAddModal(dayOfWeekUpper, todayDateStr)}
+              onLogWeight={() => setIsWeightModalOpen(true)}
+              onReportInjury={() => setIsNiggleModalOpen(true)}
+            />
+          </View>
+        </ScrollView>
+      </View>
 
       <AddWorkoutModal
         visible={isAddModalOpen}

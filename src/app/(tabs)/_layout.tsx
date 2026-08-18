@@ -37,7 +37,7 @@ export default function TabLayout() {
     <HeaderLayoutProvider>
       <View className="flex-1 bg-theme-bg">
         <MaterialTopTabs
-          initialRouteName="coach"
+          initialRouteName="index"
           tabBarPosition="bottom"
           tabBar={renderTabBar}
           screenOptions={{
@@ -47,15 +47,8 @@ export default function TabLayout() {
           <MaterialTopTabs.Screen
             name="index"
             options={{
-              title: 'Dashboard',
-              tabBarIcon: ({ color, size }: { color: string; size: number }) => <Ionicons name="home-outline" size={size} color={color} />,
-            }}
-          />
-          <MaterialTopTabs.Screen
-            name="planning"
-            options={{
               title: 'Planning',
-              tabBarIcon: ({ color, size }: { color: string; size: number }) => <Ionicons name="home-outline" size={size} color={color} />,
+              tabBarIcon: ({ color, size }: { color: string; size: number }) => <Ionicons name="calendar-outline" size={size} color={color} />,
             }}
           />
           <MaterialTopTabs.Screen

@@ -1,5 +1,5 @@
 import { Platform, Alert } from 'react-native';
-import { WorkoutScheduler } from 'react-native-workouts';
+import WorkoutScheduler from 'react-native-workouts';
 import { PlannedWorkout, WorkoutStep } from '../types/plan';
 import { apiClient } from './apiClient';
 

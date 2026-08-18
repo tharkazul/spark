@@ -1,5 +1,6 @@
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
+const http = require("http");
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -7,6 +8,7 @@ const fs = require("fs");
 const db = require("./services/db");
 
 const app = express();
+const server = http.createServer(app);
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "15mb" }));
@@ -28,6 +30,7 @@ const physiqueRoutes = require("./routes/physique");
 const activitiesRoutes = require("./routes/activities");
 const settingsRoutes = require("./routes/settings");
 const adminRoutes = require("./routes/admin");
+const notificationsRoutes = require("./routes/notifications");
 
 app.use("/api/auth", authRoutes);
 app.use("/", chatRoutes);
@@ -38,6 +41,7 @@ app.use("/", physiqueRoutes);
 app.use("/", activitiesRoutes);
 app.use("/", settingsRoutes);
 app.use("/", adminRoutes);
+app.use("/", notificationsRoutes);
 
 // Utilities and cron jobs
 const {
@@ -48,8 +52,11 @@ const {
   runDailyRecoveryJob,
 } = require("./services/utils");
 
-const { sseClients } = require("./services/sse");
+const { sseClients, initWebSocketServer } = require("./services/sse");
 const cron = require('node-cron');
+
+// Initialize WebSocket server attached to HTTP server
+initWebSocketServer(server);
 
 // Startup setup
 db.serialize(() => {
@@ -105,13 +112,15 @@ setInterval(() => {
 // Graceful Shutdown
 process.on("SIGINT", () => {
   console.log("Closing database connection...");
-  db.close(() => {
-    console.log("Database connection closed.");
-    process.exit(0);
+  server.close(() => {
+    db.close(() => {
+      console.log("Database and server closed.");
+      process.exit(0);
+    });
   });
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
