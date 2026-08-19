@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Animated, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { canAccessLeaderboard } from '../../utils/permissions';
@@ -8,20 +8,45 @@ import { useRouter } from 'expo-router';
 import { socialApi } from '../../services/apiServices';
 import { LeaderboardEntry } from '../../types/social';
 
-export const LeaderboardSubTab: React.FC = () => {
+export interface LeaderboardSubTabProps {
+  type?: 'rooka' | 'quests';
+  onSwitchType?: (type: 'rooka' | 'quests') => void;
+  scrollX?: Animated.Value;
+  loading?: boolean;
+  rookaLeaderboard?: LeaderboardEntry[];
+  questLeaderboard?: LeaderboardEntry[];
+  hasAccess?: boolean;
+}
+
+export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
+  type,
+  onSwitchType,
+  scrollX,
+  loading: controlledLoading,
+  rookaLeaderboard: controlledRooka,
+  questLeaderboard: controlledQuests,
+  hasAccess: controlledHasAccess,
+}) => {
   const { user } = useUser();
   const router = useRouter();
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
 
-  const [activeTab, setActiveTab] = useState<'rooka' | 'quests'>('rooka');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [rookaLeaderboard, setRookaLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [questLeaderboard, setQuestLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [internalActiveTab, setInternalActiveTab] = useState<'rooka' | 'quests'>('rooka');
+  const [internalLoading, setInternalLoading] = useState<boolean>(true);
+  const [internalRookaLeaderboard, setInternalRookaLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [internalQuestLeaderboard, setInternalQuestLeaderboard] = useState<LeaderboardEntry[]>([]);
 
-  const hasAccess = canAccessLeaderboard(user?.subscription_tier);
+  const isControlled = type !== undefined;
+  const currentType = type ?? internalActiveTab;
+  const hasAccess = controlledHasAccess !== undefined ? controlledHasAccess : canAccessLeaderboard(user?.subscription_tier);
+  const loading = controlledLoading !== undefined ? controlledLoading : internalLoading;
+  const rookaLeaderboard = controlledRooka ?? internalRookaLeaderboard;
+  const questLeaderboard = controlledQuests ?? internalQuestLeaderboard;
 
   useEffect(() => {
+    if (isControlled) return;
     if (!hasAccess) {
-      setLoading(false);
+      setInternalLoading(false);
       return;
     }
 
@@ -31,23 +56,84 @@ export const LeaderboardSubTab: React.FC = () => {
       .then((res) => {
         if (!isMounted) return;
         if (res?.leaderboard && Array.isArray(res.leaderboard)) {
-          setRookaLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
+          setInternalRookaLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
         }
         if (res?.questLeaderboard && Array.isArray(res.questLeaderboard)) {
-          setQuestLeaderboard(res.questLeaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
+          setInternalQuestLeaderboard(res.questLeaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
         }
       })
       .catch((err) => console.log('Leaderboard fetch error:', err))
       .finally(() => {
-        if (isMounted) setLoading(false);
+        if (isMounted) setInternalLoading(false);
       });
 
     return () => {
       isMounted = false;
     };
-  }, [hasAccess]);
+  }, [hasAccess, isControlled]);
 
-  const activeList = activeTab === 'rooka' ? rookaLeaderboard : questLeaderboard;
+  const activeList = currentType === 'rooka' ? rookaLeaderboard : questLeaderboard;
+
+  const handleTabSwitch = (newType: 'rooka' | 'quests') => {
+    Haptics.selectionAsync();
+    if (onSwitchType) {
+      onSwitchType(newType);
+    } else {
+      setInternalActiveTab(newType);
+    }
+  };
+
+  const subSegmentWidth = (SCREEN_WIDTH - 40 - 8) / 2;
+
+  const subIndicatorTranslateX = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [0, subSegmentWidth],
+        extrapolate: 'clamp',
+      })
+    : currentType === 'quests'
+    ? subSegmentWidth
+    : 0;
+
+  const rookaWhiteOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [1, 0],
+        extrapolate: 'clamp',
+      })
+    : currentType === 'rooka'
+    ? 1
+    : 0;
+
+  const rookaGreyOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+      })
+    : currentType === 'rooka'
+    ? 0
+    : 1;
+
+  const questsWhiteOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+      })
+    : currentType === 'quests'
+    ? 1
+    : 0;
+
+  const questsGreyOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [1, 0],
+        extrapolate: 'clamp',
+      })
+    : currentType === 'quests'
+    ? 0
+    : 1;
 
   if (!hasAccess) {
     return (
@@ -70,41 +156,54 @@ export const LeaderboardSubTab: React.FC = () => {
   return (
     <View className="space-y-4 mb-8">
       {/* Dual Tab Switcher for Rooka Score vs 7-Day Quests */}
-      <View className="flex-row bg-theme-card border border-theme-border rounded-2xl p-1 mb-4 shadow-sm">
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.selectionAsync();
-            setActiveTab('rooka');
+      <View className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden mb-4 border border-[#E2E8F0] dark:border-slate-700">
+        <Animated.View
+          className="absolute top-1 bottom-1 bg-[#EA580C] rounded-lg shadow-xs"
+          style={{
+            left: 4,
+            width: subSegmentWidth,
+            transform: [{ translateX: subIndicatorTranslateX }],
           }}
-          className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-            activeTab === 'rooka' ? 'bg-theme-accent' : 'bg-transparent'
-          }`}
+        />
+
+        <TouchableOpacity
+          onPress={() => handleTabSwitch('rooka')}
+          className="flex-1 py-2.5 items-center justify-center z-10"
         >
-          <Text
-            className={`text-xs font-black ${
-              activeTab === 'rooka' ? 'text-white' : 'text-theme-muted'
-            }`}
-          >
-            ⚡️ Rooka Score
-          </Text>
+          <View className="relative items-center justify-center">
+            <Animated.Text
+              style={{ opacity: rookaWhiteOpacity }}
+              className="text-xs font-black text-white absolute"
+            >
+              ⚡️ Rooka Score
+            </Animated.Text>
+            <Animated.Text
+              style={{ opacity: rookaGreyOpacity }}
+              className="text-xs font-black text-[#64748B] dark:text-slate-400"
+            >
+              ⚡️ Rooka Score
+            </Animated.Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => {
-            Haptics.selectionAsync();
-            setActiveTab('quests');
-          }}
-          className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-            activeTab === 'quests' ? 'bg-theme-accent' : 'bg-transparent'
-          }`}
+          onPress={() => handleTabSwitch('quests')}
+          className="flex-1 py-2.5 items-center justify-center z-10"
         >
-          <Text
-            className={`text-xs font-black ${
-              activeTab === 'quests' ? 'text-white' : 'text-theme-muted'
-            }`}
-          >
-            🏆 7-Day Quests
-          </Text>
+          <View className="relative items-center justify-center">
+            <Animated.Text
+              style={{ opacity: questsWhiteOpacity }}
+              className="text-xs font-black text-white absolute"
+            >
+              🏆 7-Day Quests
+            </Animated.Text>
+            <Animated.Text
+              style={{ opacity: questsGreyOpacity }}
+              className="text-xs font-black text-[#64748B] dark:text-slate-400"
+            >
+              🏆 7-Day Quests
+            </Animated.Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -115,13 +214,13 @@ export const LeaderboardSubTab: React.FC = () => {
           <Text className="text-xs font-bold text-theme-muted mt-3">Fetching leaderboard rankings...</Text>
         </View>
       ) : (
-        activeList.map((item, index) => {
+        activeList.map((item) => {
           const isCurrentUser = user?.id ? item.user_id === user.id : item.username === user?.username;
           const questsCount = (item as any).completed_quests_count ?? item.quests_completed_7d ?? 0;
 
           return (
             <View
-              key={`rank-${item.user_id || item.rank}`}
+              key={`rank-${item.user_id || item.rank}-${currentType}`}
               className={`bg-theme-card border rounded-2xl p-4 mb-2.5 flex-row justify-between items-center shadow-sm ${
                 isCurrentUser ? 'border-theme-accent bg-theme-accent/5' : 'border-theme-border'
               }`}
@@ -164,10 +263,10 @@ export const LeaderboardSubTab: React.FC = () => {
 
               <View className="items-end">
                 <Text className="text-base font-black text-theme-accent font-mono">
-                  {activeTab === 'rooka' ? Math.round(item.total_rooka_score || 0) : questsCount}
+                  {currentType === 'rooka' ? Math.round(item.total_rooka_score || 0) : questsCount}
                 </Text>
                 <Text className="text-[10px] text-theme-muted uppercase font-bold">
-                  {activeTab === 'rooka' ? 'Points' : 'Quests'}
+                  {currentType === 'rooka' ? 'Points' : 'Quests'}
                 </Text>
               </View>
             </View>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import { ActivityDetailModal } from '../../components/social/ActivityDetailModal
 import { AddFriendsModal } from '../../components/social/AddFriendsModal';
 import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserStore';
+import { canAccessLeaderboard } from '../../utils/permissions';
+import { socialApi } from '../../services/apiServices';
+import { LeaderboardEntry } from '../../types/social';
 import { Activity } from '../../types/activity';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
@@ -30,11 +34,47 @@ export default function SocialScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { notifyScroll, tabBarOccupied } = useTabBar();
   const { t } = useLanguage();
+  const { user } = useUser();
   const insets = useSafeAreaInsets();
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<TabType>('feed');
+  const lastLeaderboardPageIndex = useRef<number>(2);
+
+  // Leaderboard data
+  const hasLeaderboardAccess = canAccessLeaderboard(user?.subscription_tier);
+  const [leaderboardLoading, setLeaderboardLoading] = useState<boolean>(true);
+  const [rookaLeaderboard, setRookaLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [questLeaderboard, setQuestLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  useEffect(() => {
+    if (!hasLeaderboardAccess) {
+      setLeaderboardLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    socialApi
+      .getLeaderboard()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res?.leaderboard && Array.isArray(res.leaderboard)) {
+          setRookaLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
+        }
+        if (res?.questLeaderboard && Array.isArray(res.questLeaderboard)) {
+          setQuestLeaderboard(res.questLeaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
+        }
+      })
+      .catch((err) => console.log('Leaderboard fetch error:', err))
+      .finally(() => {
+        if (isMounted) setLeaderboardLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasLeaderboardAccess]);
 
   // Modal State
   const [modalVisible, setModalVisible] = useState<boolean>(false);
@@ -59,8 +99,8 @@ export default function SocialScreen() {
   const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 3;
 
   const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, segmentWidth, 2 * segmentWidth],
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [0, segmentWidth, 2 * segmentWidth, 2 * segmentWidth],
     extrapolate: 'clamp',
   });
 
@@ -87,13 +127,13 @@ export default function SocialScreen() {
   });
 
   const leaderboardWhiteOpacity = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, 1],
+    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [0, 1, 1],
     extrapolate: 'clamp',
   });
   const leaderboardGreyOpacity = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [1, 0],
+    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [1, 0, 0],
     extrapolate: 'clamp',
   });
 
@@ -101,10 +141,30 @@ export default function SocialScreen() {
     Haptics.selectionAsync();
     setActiveTab(tabId);
 
-    const index = TABS.indexOf(tabId);
-    if (index !== -1 && horizontalScrollViewRef.current) {
+    let targetIndex = 0;
+    if (tabId === 'feed') {
+      targetIndex = 0;
+    } else if (tabId === 'mylog') {
+      targetIndex = 1;
+    } else if (tabId === 'leaderboard') {
+      targetIndex = lastLeaderboardPageIndex.current;
+    }
+
+    if (horizontalScrollViewRef.current) {
       horizontalScrollViewRef.current.scrollTo({
-        x: index * SCREEN_WIDTH,
+        x: targetIndex * SCREEN_WIDTH,
+        animated: true,
+      });
+    }
+  };
+
+  const handleLeaderboardSubTabPress = (type: 'rooka' | 'quests') => {
+    Haptics.selectionAsync();
+    const targetIndex = type === 'rooka' ? 2 : 3;
+    lastLeaderboardPageIndex.current = targetIndex;
+    if (horizontalScrollViewRef.current) {
+      horizontalScrollViewRef.current.scrollTo({
+        x: targetIndex * SCREEN_WIDTH,
         animated: true,
       });
     }
@@ -113,7 +173,10 @@ export default function SocialScreen() {
   const handleHorizontalScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const pageIndex = Math.round(offsetX / SCREEN_WIDTH);
-    const newTab = TABS[pageIndex];
+    if (pageIndex === 2 || pageIndex === 3) {
+      lastLeaderboardPageIndex.current = pageIndex;
+    }
+    const newTab = pageIndex >= 2 ? 'leaderboard' : TABS[pageIndex];
 
     if (newTab && newTab !== activeTab) {
       setActiveTab(newTab);
@@ -251,7 +314,7 @@ export default function SocialScreen() {
           </ScrollView>
         </View>
 
-        {/* LEADERBOARD PAGE */}
+        {/* LEADERBOARD - ROOKA SCORE PAGE */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
@@ -259,7 +322,35 @@ export default function SocialScreen() {
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
-            <LeaderboardSubTab />
+            <LeaderboardSubTab
+              type="rooka"
+              scrollX={scrollX}
+              onSwitchType={handleLeaderboardSubTabPress}
+              loading={leaderboardLoading}
+              rookaLeaderboard={rookaLeaderboard}
+              questLeaderboard={questLeaderboard}
+              hasAccess={hasLeaderboardAccess}
+            />
+          </ScrollView>
+        </View>
+
+        {/* LEADERBOARD - 7-DAY QUESTS PAGE */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <ScrollView
+            className="flex-1 px-5 pt-2"
+            contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
+          >
+            <LeaderboardSubTab
+              type="quests"
+              scrollX={scrollX}
+              onSwitchType={handleLeaderboardSubTabPress}
+              loading={leaderboardLoading}
+              rookaLeaderboard={rookaLeaderboard}
+              questLeaderboard={questLeaderboard}
+              hasAccess={hasLeaderboardAccess}
+            />
           </ScrollView>
         </View>
       </Animated.ScrollView>
@@ -280,3 +371,4 @@ export default function SocialScreen() {
     </View>
   );
 }
+

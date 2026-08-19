@@ -15,7 +15,9 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
 import { usePlan } from '../../context/PlanStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '../../components/ui/Card';
+import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
 import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
@@ -441,10 +443,14 @@ export default function PlanningHomeScreen() {
     router.push('/coach');
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <View className="flex-1 bg-theme-bg" style={{ flex: 1, width: '100%', height: '100%' }}>
-      {/* Header Spacer dynamically measured from DashboardSharedHeader onLayout */}
-      <View style={{ height: headerHeight }} />
+    <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
+      {/* HEADER WITH TITLE */}
+      <View className="px-5 pt-3 pb-2 bg-theme-bg">
+        <ScreenHeaderTitleRow title="Planning" />
+      </View>
 
       <View className="flex-1 px-5 pt-2">
         {/* Pinned plan context — Card matching TodaysPlanCard styling */}

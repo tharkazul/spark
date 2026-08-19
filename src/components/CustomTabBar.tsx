@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Alert } from 'react-native';
 import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useTabBar } from '../context/TabBarContext';
 import { useCoachChat } from '../context/CoachChatStore';
 import { useKeyboardMotionContext } from '../context/KeyboardMotionContext';
+import { BottomSheetModal } from './ui/BottomSheetModal';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 
 const TAB_ORDER = ['index', 'physique', 'coach', 'social', 'profile'];
@@ -15,10 +18,11 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { registerScrollListener, setTabBarOccupied } = useTabBar();
-  const { unreadCount } = useCoachChat();
+  const { unreadCount, sendMessage, clearHistory } = useCoachChat();
   const { progress } = useKeyboardMotionContext();
   
   const [barInteractive, setBarInteractive] = useState(true);
+  const [isQuickCoachModalOpen, setIsQuickCoachModalOpen] = useState(false);
 
   useAnimatedReaction(
     () => progress.value < 0.5,
@@ -126,6 +130,19 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
               }
             };
 
+            const onLongPress = () => {
+              expandBar();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              navigation.emit({
+                type: 'tabLongPress',
+                target: route.key,
+              });
+
+              if (isCenterButton) {
+                setIsQuickCoachModalOpen(true);
+              }
+            };
+
             if (isCenterButton) {
               return (
                 <TouchableOpacity
@@ -135,6 +152,8 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   accessibilityLabel={options.tabBarAccessibilityLabel}
                   testID={(options as any).tabBarTestID}
                   onPress={onPress}
+                  onLongPress={onLongPress}
+                  delayLongPress={280}
                   style={{
                     flex: 1,
                     height: '100%',
@@ -208,6 +227,8 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                 accessibilityLabel={options.tabBarAccessibilityLabel}
                 testID={(options as any).tabBarTestID}
                 onPress={onPress}
+                onLongPress={onLongPress}
+                delayLongPress={280}
                 style={{
                   flex: 1,
                   height: '100%',
@@ -236,6 +257,124 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
           })}
         </Animated.View>
       </TouchableWithoutFeedback>
+
+      {/* Quick Coach Actions Bottom Sheet on Long Press */}
+      <BottomSheetModal
+        visible={isQuickCoachModalOpen}
+        onClose={() => setIsQuickCoachModalOpen(false)}
+        showHandle={true}
+        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50"
+      >
+        <View className="mb-4">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-3">
+              <View className="w-10 h-10 rounded-full bg-theme-accent items-center justify-center shadow-sm">
+                <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+              </View>
+              <View>
+                <Text className="text-base font-extrabold text-theme-text">Spark AI Coach</Text>
+                <Text className="text-xs text-theme-muted">Quick Actions</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => setIsQuickCoachModalOpen(false)}
+              className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
+            >
+              <Ionicons name="close" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            </TouchableOpacity>
+          </View>
+          
+          <View className="gap-2.5 mt-2">
+            <TouchableOpacity
+              onPress={() => {
+                setIsQuickCoachModalOpen(false);
+                navigation.navigate('coach');
+              }}
+              activeOpacity={0.75}
+              className="flex-row items-center p-3.5 rounded-2xl bg-theme-bg border border-theme-border/60 gap-3"
+            >
+              <View className="w-9 h-9 rounded-xl bg-theme-accent/15 items-center justify-center">
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={isDark ? '#FF6B35' : '#FF5A1F'} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-theme-text">Open Conversation</Text>
+                <Text className="text-xs text-theme-muted">Chat directly with your AI coach</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setIsQuickCoachModalOpen(false);
+                navigation.navigate('coach');
+                sendMessage("I'd like to adapt my workout plan for today. How should we adjust it?");
+              }}
+              activeOpacity={0.75}
+              className="flex-row items-center p-3.5 rounded-2xl bg-theme-bg border border-theme-border/60 gap-3"
+            >
+              <View className="w-9 h-9 rounded-xl bg-amber-500/15 items-center justify-center">
+                <Ionicons name="flash-outline" size={20} color="#F59E0B" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-theme-text">Adapt Today's Plan</Text>
+                <Text className="text-xs text-theme-muted">Adjust workout volume or intensity</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setIsQuickCoachModalOpen(false);
+                navigation.navigate('coach');
+                sendMessage("I have a niggle / pain to report. Can you provide recovery advice?");
+              }}
+              activeOpacity={0.75}
+              className="flex-row items-center p-3.5 rounded-2xl bg-theme-bg border border-theme-border/60 gap-3"
+            >
+              <View className="w-9 h-9 rounded-xl bg-red-500/15 items-center justify-center">
+                <Ionicons name="medkit-outline" size={20} color="#EF4444" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-theme-text">Report Niggle or Injury</Text>
+                <Text className="text-xs text-theme-muted">Get recovery and load guidance</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Start Fresh Session',
+                  'Are you sure you want to clear the active conversation history with your coach?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Clear Chat',
+                      style: 'destructive',
+                      onPress: () => {
+                        setIsQuickCoachModalOpen(false);
+                        clearHistory();
+                        navigation.navigate('coach');
+                      },
+                    },
+                  ]
+                );
+              }}
+              activeOpacity={0.75}
+              className="flex-row items-center p-3.5 rounded-2xl bg-theme-bg border border-theme-border/60 gap-3"
+            >
+              <View className="w-9 h-9 rounded-xl bg-slate-500/15 items-center justify-center">
+                <Ionicons name="refresh-outline" size={20} color={isDark ? '#94A3B8' : '#64748B'} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-theme-text">New Session</Text>
+                <Text className="text-xs text-theme-muted">Clear context and start clean</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={isDark ? '#94A3B8' : '#64748B'} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }
