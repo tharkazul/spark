@@ -50,9 +50,12 @@ const {
   generateAllPublicProfiles,
   sendMorningMessage,
   runDailyRecoveryJob,
+  resetDailyTokensForAllUsers,
+  resetDailyNutritionForAllUsers,
 } = require("./services/utils");
 
 const { sseClients, initWebSocketServer } = require("./services/sse");
+const { runWeeklyFeatureOnboardingJob } = require("./services/onboarding");
 const cron = require('node-cron');
 
 // Initialize WebSocket server attached to HTTP server
@@ -67,9 +70,22 @@ db.serialize(() => {
 
   // Create global leaderboard stats
   calculateGlobalMaxStats();
+
+  // Reset tokens & nutrition for any overdue accounts on startup
+  resetDailyTokensForAllUsers();
+  resetDailyNutritionForAllUsers();
 });
 
 // Periodic Jobs
+// Schedule daily token & nutrition reset at midnight (Europe/Amsterdam timezone)
+cron.schedule('0 0 * * *', () => {
+  resetDailyTokensForAllUsers();
+  resetDailyNutritionForAllUsers();
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
 // Schedule morning message to run every day at 08:00 AM (Europe/Amsterdam timezone)
 cron.schedule('0 8 * * *', () => {
   sendMorningMessage();
@@ -81,6 +97,14 @@ cron.schedule('0 8 * * *', () => {
 // Schedule daily recovery & degradation job to run every day at 00:05 AM (Europe/Amsterdam timezone)
 cron.schedule('5 0 * * *', () => {
   runDailyRecoveryJob();
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Schedule weekly feature onboarding check on Sundays at 10:00 AM (Europe/Amsterdam timezone)
+cron.schedule('0 10 * * 0', () => {
+  runWeeklyFeatureOnboardingJob();
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"

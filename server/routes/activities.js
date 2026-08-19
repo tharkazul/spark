@@ -47,6 +47,46 @@ router.get("/api/micro-plan", authenticateToken, (req, res) => {
   );
 });
 
+// --- BENCHMARK ASSESSMENTS ENDPOINTS ---
+router.get("/api/benchmarks", authenticateToken, (req, res) => {
+  db.all(
+    `SELECT * FROM benchmark_tests WHERE user_id = ? ORDER BY created_at DESC`,
+    [req.user.id],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to fetch benchmark tests" });
+      }
+      res.json(rows || []);
+    }
+  );
+});
+
+router.post("/api/benchmarks", authenticateToken, (req, res) => {
+  const { sport_type, test_name, metrics_json, coach_notes, completed_at } = req.body;
+  if (!sport_type || !test_name) {
+    return res.status(400).json({ error: "sport_type and test_name are required" });
+  }
+
+  const completedDate = completed_at || new Date().toISOString();
+  db.run(
+    `INSERT INTO benchmark_tests (user_id, sport_type, test_name, metrics_json, coach_notes, completed_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      req.user.id,
+      sport_type,
+      test_name,
+      typeof metrics_json === 'object' ? JSON.stringify(metrics_json) : (metrics_json || '{}'),
+      coach_notes || '',
+      completedDate
+    ],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ error: "Failed to record benchmark test" });
+      }
+      res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
 router.get("/api/user/metrics", authenticateToken, (req, res) => {
   db.all(
     `SELECT id, metric, value FROM athlete_metrics WHERE user_id = ? ORDER BY metric ASC`,
@@ -519,6 +559,12 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                - For HR Zones: set "target_type": "heart.rate.zone" and "zone": <1-5>.
                - For open targets: set "target_type": "no.target".
             9. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
+            10. BENCHMARK ASSESSMENT: If the athlete is new or setting up an onboarding plan, Day 1 or Day 2 MUST contain exactly ONE sport-tailored Benchmark Assessment workout to establish baseline capabilities:
+                 - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run (`sport`: "Run", `description`: "🎯 Benchmark Assessment: 5k Pace & HR Test").
+                 - For CYCLING focus: Schedule a 20-min FTP Baseline Test (`sport`: "Bike", `description`: "🎯 Benchmark Assessment: 20-Min FTP Baseline Test").
+                 - For SWIMMING focus: Schedule a 400m CSS Swim Test (`sport`: "Swim", `description`: "🎯 Benchmark Assessment: 400m CSS Swim Test").
+                 - For HYROX / FUNCTIONAL FITNESS focus: Schedule a Hyrox Benchmark Test (`sport`: "Strength", `description`: "🎯 Benchmark Assessment: Hyrox Functional Fitness Test").
+                 - NEVER assign a running test to pure swimmers/cyclists or a cycling test to Hyrox athletes. Respect their specific sport/goal context strictly.
 
         WORKOUT PLANNING (CRITICAL):
         If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 

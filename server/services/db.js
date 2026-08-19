@@ -119,6 +119,12 @@ db.serialize(() => {
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
+  db.run(`CREATE TABLE IF NOT EXISTS waitlist (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        email TEXT UNIQUE, 
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP, 
+        notes TEXT
+    )`);
   db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         admin_username TEXT, 
@@ -491,6 +497,18 @@ db.serialize(() => {
         first_used_at DATETIME,
         status TEXT DEFAULT 'introduced',
         UNIQUE(user_id, feature_key),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS benchmark_tests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        sport_type TEXT NOT NULL,
+        test_name TEXT NOT NULL,
+        metrics_json TEXT,
+        coach_notes TEXT,
+        completed_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 });

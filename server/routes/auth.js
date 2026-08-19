@@ -60,4 +60,26 @@ router.post("/login", (req, res) => {
   );
 });
 
+// Waitlist / Beta Signup endpoint
+router.post("/waitlist", (req, res) => {
+  const { email, notes } = req.body;
+  if (!email || !email.includes("@")) {
+    return res.status(400).json({ error: "A valid email address is required." });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  db.run(
+    `INSERT INTO waitlist (email, notes) VALUES (?, ?) ON CONFLICT(email) DO UPDATE SET notes = excluded.notes`,
+    [cleanEmail, notes || "Web TestFlight signup"],
+    function (err) {
+      if (err) {
+        console.error("Waitlist DB error:", err);
+        return res.status(500).json({ error: "Failed to record waitlist entry." });
+      }
+      console.log(`✉️ New TestFlight waitlist signup: ${cleanEmail}`);
+      res.json({ success: true, message: "Added to TestFlight waitlist successfully." });
+    }
+  );
+});
+
 module.exports = router;

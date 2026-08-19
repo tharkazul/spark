@@ -35,6 +35,7 @@ export const userApi = {
         eventDate: data.event_date,
         targetCtl: data.target_ctl,
         onboardingCompleted: data.onboarding_completed,
+        gender: data.gender,
       }),
       skipAuthInterceptor: true,
     }),

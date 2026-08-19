@@ -14,6 +14,7 @@ import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
+import { usePlan } from '../../context/PlanStore';
 import { Card } from '../../components/ui/Card';
 
 import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
@@ -57,6 +58,11 @@ export default function PlanningHomeScreen() {
   const { user } = useUser();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
+  const { plan, refreshPlan } = usePlan();
+
+  useEffect(() => {
+    refreshPlan();
+  }, []);
   const { tabBarOccupied, notifyScroll } = useTabBar();
 
   const part3ScrollViewRef = useRef<ScrollView>(null);
@@ -288,7 +294,54 @@ export default function PlanningHomeScreen() {
     const isPast = dayDate < todayMidnight;
 
     const customWorkouts = customWorkoutsByDate[dateYYYYMMDD];
-    const workouts = customWorkouts !== undefined ? customWorkouts : getSampleWorkoutsForDay(dayName, dateStr, isPast);
+    let workouts = customWorkouts !== undefined ? customWorkouts : getSampleWorkoutsForDay(dayName, dateStr, isPast);
+
+    if (plan && plan.length > 0) {
+      const dbWorkouts = plan.filter((w) => w.date === dateYYYYMMDD);
+      workouts = dbWorkouts.map((w) => {
+        
+        // calculate duration from steps_json if possible
+        let durStr = '45 mins';
+        if (w.steps_json && typeof w.steps_json === 'string' && w.steps_json !== '[]') {
+          try {
+            const steps = JSON.parse(w.steps_json);
+            let totalMins = 0;
+            const parseSteps = (sArr: any[]) => {
+               for (const s of sArr) {
+                 if (s.condition_type === 'time' && s.condition_value) totalMins += s.condition_value;
+                 if (s.condition_type === 'time_sec' && s.condition_value) totalMins += s.condition_value / 60;
+                 if (s.type === 'repeat' && s.iterations && s.steps) {
+                    let iterMins = 0;
+                    for (const rs of s.steps) {
+                       if (rs.condition_type === 'time' && rs.condition_value) iterMins += rs.condition_value;
+                       if (rs.condition_type === 'time_sec' && rs.condition_value) iterMins += rs.condition_value / 60;
+                    }
+                    totalMins += (iterMins * s.iterations);
+                 }
+               }
+            }
+            parseSteps(steps);
+            if (totalMins > 0) durStr = `${Math.round(totalMins)} mins`;
+          } catch (e) {}
+        }
+        
+        return {
+          id: String(w.id),
+          day: dayName,
+          dateStr: dateStr,
+          type: (w.sport || 'RUN').toUpperCase() as any,
+          title: w.description || 'Workout',
+          duration: durStr,
+          rookaPoints: w.target_rooka,
+          sparkPoints: w.target_rooka,
+          isStructured: !!w.steps_json && w.steps_json !== '[]',
+          isCompleted: w.isCompleted || false,
+          actualMetrics: w.actualMetrics,
+          executionScore: w.executionScore,
+          notes: w.details,
+        };
+      });
+    }
 
     return {
       dayName,

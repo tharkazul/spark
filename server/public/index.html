@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rooka - AI Endurance & Recovery Coach | rooka.io</title>
-  <meta name="description" content="Rooka is the elite AI endurance coach. Get daily recovery readiness scores, PMC fitness tracking, Garmin & Strava sync, and 24/7 personalized coaching powered by Google Gemini.">
-  <meta name="keywords" content="Rooka, AI Coach, Triathlon Coach, Running Coach, Strava Sync, Garmin Connect, Recovery Score, PMC Chart, Fitness Fatigue, TestFlight Beta">
-  <meta property="og:title" content="Rooka - AI Endurance & Recovery Coach">
-  <meta property="og:description" content="Your personal AI endurance coach. Daily recovery readiness, adaptive training plans, and Strava/Garmin sync.">
+  <title>Rooka - AI Endurance & Hybrid Coach | rooka.io</title>
+  <meta name="description" content="Rooka is the elite AI coach for endurance, Hyrox, and hybrid athletes. Get daily recovery readiness scores, PMC fitness tracking, Garmin & Strava sync, and 24/7 personalized coaching powered by Google Gemini.">
+  <meta name="keywords" content="Rooka, AI Coach, Hyrox Coach, Hybrid Training, Triathlon Coach, Running Coach, Strava Sync, Garmin Connect, Recovery Score, PMC Chart, Fitness Fatigue, TestFlight Beta">
+  <meta property="og:title" content="Rooka - AI Endurance & Hybrid Coach">
+  <meta property="og:description" content="Your personal AI endurance and hybrid coach. Daily recovery readiness, adaptive training plans, and Strava/Garmin sync.">
   <meta property="og:url" content="https://rooka.io">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/png" href="rooka-icon.png">
@@ -29,6 +29,7 @@
       </a>
 
       <ul class="nav-menu">
+        <li><a href="#app-tour" class="nav-link">App Tour</a></li>
         <li><a href="#features" class="nav-link">Features</a></li>
         <li><a href="#coach-demo" class="nav-link">AI Coach</a></li>
         <li><a href="#telemetry" class="nav-link">Recovery & PMC</a></li>
@@ -56,12 +57,12 @@
 
           <h1 class="hero-title">
             Your Personal <br>
-            <span class="gradient-fire">AI Endurance Coach.</span><br>
+            <span class="gradient-fire">AI Endurance &amp; Hybrid Coach.</span><br>
             Always In Your Corner.
           </h1>
 
           <p class="hero-subtitle">
-            Rooka unites pro-grade exercise physiology with Google Gemini AI intelligence. Track daily recovery readiness, adaptive training loads, and seamless Strava &amp; Garmin syncing in one unified dashboard.
+            Rooka unites pro-grade exercise physiology with Google Gemini AI intelligence. Engineered for runners, Hyrox &amp; hybrid athletes, cyclists, and triathletes—featuring daily recovery readiness, adaptive phase periodization, and seamless Strava &amp; Garmin syncing in one unified app.
           </p>
 
           <div class="hero-cta-group">
@@ -69,7 +70,7 @@
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
               Get TestFlight Access
             </a>
-            <a href="#features" class="btn btn-secondary btn-lg">Explore Features</a>
+            <a href="#app-tour" class="btn btn-secondary btn-lg">Explore App Tour</a>
           </div>
 
           <div class="hero-stats-row">
@@ -88,7 +89,7 @@
           </div>
         </div>
 
-        <!-- Right Hero Interactive Phone Mockup -->
+        <!-- Right Hero Interactive Phone Mockup with Real App Screenshots -->
         <div class="hero-mockup-wrapper">
           <div class="floating-chip chip-1">
             <span style="color: #FF5A1F;">⚡</span>
@@ -100,60 +101,17 @@
             <span>Gemini AI Intelligence</span>
           </div>
 
-          <div class="phone-card">
-            <div class="phone-notch"></div>
-
-            <div class="app-screen-header">
-              <div class="app-user-pill">
-                <div class="app-avatar">R</div>
-                <div>
-                  <div class="app-user-name">Alex M.</div>
-                  <div class="app-user-streak">🔥 18-Day Streak • Level 14</div>
-                </div>
-              </div>
-              <span class="badge" style="font-size: 10px; padding: 3px 8px;">ROOKA+</span>
+          <div class="real-phone-frame">
+            <div class="phone-screen-viewport">
+              <img id="hero-mockup-img" src="images/screenshot-chat.png" alt="Rooka Native iOS App Screenshot">
             </div>
+          </div>
 
-            <!-- Recovery Gauge Card -->
-            <div class="recovery-gauge-card">
-              <div>
-                <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">Daily Readiness</div>
-                <div class="recovery-score-display">
-                  <span class="score-number">92</span>
-                  <span class="score-max">/ 100</span>
-                </div>
-              </div>
-              <div class="recovery-tag">Optimal Recovery</div>
-            </div>
-
-            <!-- AI Coach Bubble -->
-            <div class="coach-chat-bubble">
-              <div class="coach-tag">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-2h2zm0-4h-2V7h2z"/></svg>
-                Coach Rooka
-              </div>
-              "Your heart rate decoupling was only 2.1% on yesterday's 24km long run. Readiness is high at 92! Today is ideal for your scheduled 5x1km threshold intervals."
-            </div>
-
-            <!-- PMC Telemetry Mini Strip -->
-            <div class="pmc-mini-strip">
-              <div class="pmc-mini-item">
-                <div class="pmc-label">Fitness (CTL)</div>
-                <div class="pmc-val" style="color: #38BDF8;">84.2</div>
-              </div>
-              <div class="pmc-mini-item">
-                <div class="pmc-label">Fatigue (ATL)</div>
-                <div class="pmc-val" style="color: #F87171;">41.8</div>
-              </div>
-              <div class="pmc-mini-item">
-                <div class="pmc-label">Form (TSB)</div>
-                <div class="pmc-val" style="color: #34D399;">+14.0</div>
-              </div>
-            </div>
-
-            <div style="margin-top: 14px; background: rgba(255, 90, 31, 0.1); border: 1px dashed rgba(255, 90, 31, 0.3); border-radius: 10px; padding: 10px; text-align: center;">
-              <span style="font-size: 11px; font-weight: 700; color: #FF5A1F;">🎯 Today's Goal: 5x1km at 3:45/km • 85 Rooka XP</span>
-            </div>
+          <div class="hero-screen-pills">
+            <button class="hero-screen-pill active" data-screen="images/screenshot-chat.png">💬 AI Coach</button>
+            <button class="hero-screen-pill" data-screen="images/screenshot-planning.png">📅 Periodization</button>
+            <button class="hero-screen-pill" data-screen="images/screenshot-progress.png">📊 PMC &amp; Radar</button>
+            <button class="hero-screen-pill" data-screen="images/screenshot-nutrition.png">🥗 Fueling</button>
           </div>
         </div>
 
@@ -180,7 +138,7 @@
         </div>
         <div class="integration-badge">
           <span style="color: #8B5CF6; font-weight: 800;">GOOGLE GEMINI</span>
-          <span>2.5 Intelligence</span>
+          <span>AI Intelligence</span>
         </div>
       </div>
     </div>
@@ -192,7 +150,7 @@
       <div class="section-header">
         <div class="badge">Engineered for Peak Performance</div>
         <h2>Everything an Athlete Needs.<br>None of the Noise.</h2>
-        <p>Whether you are training for a Sub-3 Marathon, an Ironman 70.3, or building a powerful physique, Rooka turns raw telemetry into daily tactical decisions.</p>
+        <p>Whether you are training for Hyrox &amp; hybrid fitness, a Sub-3 Marathon, an Ironman 70.3, or building a powerful physique, Rooka turns raw telemetry into daily tactical decisions.</p>
       </div>
 
       <div class="features-grid">
@@ -229,16 +187,60 @@
         <div class="feature-card">
           <div class="feature-icon-wrapper">📸</div>
           <h3>Physique &amp; Body Fat Vault</h3>
-          <p>Track your physical transformation alongside your endurance gains. Side-by-side photo comparison slider and encrypted body composition logs.</p>
+        <!-- Feature 5 -->
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">🥗</div>
+          <h3>Targeted Macro Fueling &amp; Timing</h3>
+          <p>Know exactly how many carbs, proteins, and electrolytes to consume pre, intra, and post workout. Rooka scales fueling to match high-intensity threshold vs. easy flush days.</p>
         </div>
 
         <!-- Feature 6 -->
         <div class="feature-card">
-          <div class="feature-icon-wrapper">🏆</div>
-          <h3>Gamified Quests &amp; Levels</h3>
-          <p>Every minute of training generates Rooka XP. Complete weekly quests, unlock athletic badges, level up your profile, and climb the global community leaderboard.</p>
+          <div class="feature-icon-wrapper">⚡</div>
+          <h3>7-Day Muscle Fatigue &amp; Injury Radar</h3>
+          <p>Track biomechanical load across Quads, Calves, Hamstrings, Glutes, Core, and Upper Body. Rooka prevents overuse injuries and balances running with functional strength.</p>
         </div>
 
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive App Screenshot Showcase & Tour Section -->
+  <section id="app-tour" class="app-tour-section">
+    <div class="container">
+      <div class="section-header">
+        <div class="badge">Native iOS Experience</div>
+        <h2>Inside Rooka: The Athlete's Command Center</h2>
+        <p>Explore the real in-app screens designed for athletes who demand scientific precision, clean telemetry, and fast usability.</p>
+      </div>
+
+      <div class="tour-tabs">
+        <button class="tour-tab-btn active" data-tour="chat">💬 24/7 AI Coach</button>
+        <button class="tour-tab-btn" data-tour="planning">📅 Adaptive Periodization</button>
+        <button class="tour-tab-btn" data-tour="progress">📊 PMC &amp; Archetype Radar</button>
+        <button class="tour-tab-btn" data-tour="nutrition">🥗 Targeted Fueling</button>
+        <button class="tour-tab-btn" data-tour="fatigue">⚡ Muscle Fatigue Model</button>
+        <button class="tour-tab-btn" data-tour="profile">🎭 Coach Personas</button>
+      </div>
+
+      <div class="tour-showcase-grid">
+        <div class="real-phone-frame">
+          <div class="phone-screen-viewport">
+            <img id="tour-screenshot-img" src="images/screenshot-chat.png" alt="Rooka 24/7 AI Coach Chat Interface">
+          </div>
+        </div>
+
+        <div class="tour-info-card">
+          <div class="badge" style="width: fit-content;">Native Feature Spotlight</div>
+          <h3 id="tour-feature-title" class="tour-feature-title">24/7 Conversational AI Coach</h3>
+          <p id="tour-feature-desc" class="tour-feature-desc">Real-time workout debriefs, physiological insights, weather-informed pacing adjustments, and race-day tactics tuned to your customized coach persona.</p>
+          <div id="tour-feature-tags" class="tour-tags-row">
+            <span class="tour-badge">Google Gemini AI</span>
+            <span class="tour-badge">Segment PR Analysis</span>
+            <span class="tour-badge">Adaptive Weather Shifts</span>
+            <span class="tour-badge">Voice &amp; Text Support</span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -256,6 +258,7 @@
         <div class="sim-tabs-label">Select Athlete Scenario:</div>
         <div class="sim-tabs">
           <button class="sim-tab-btn active" data-tab="recovery">⚠️ HRV Drop &amp; Heavy Legs</button>
+          <button class="sim-tab-btn" data-tab="hyrox">🏋️ Hyrox &amp; Hybrid Prep</button>
           <button class="sim-tab-btn" data-tab="taper">🎯 70.3 Ironman Taper Strategy</button>
           <button class="sim-tab-btn" data-tab="nutrition">🍌 140km Mountain Fueling</button>
           <button class="sim-tab-btn" data-tab="physique">📸 Physique &amp; Body Fat Audit</button>
@@ -361,11 +364,11 @@
               <td class="check-yes">✓ Requires TrainingPeaks</td>
             </tr>
             <tr>
-              <td><strong>Physique Vault &amp; Body Fat</strong></td>
-              <td class="highlight-col check-yes">✓ Encrypted &amp; Slider</td>
-              <td class="check-no">✕ Weight only</td>
+              <td><strong>7-Day Muscle Fatigue &amp; Radar</strong></td>
+              <td class="highlight-col check-yes">✓ 6-Zone Workload Model</td>
+              <td class="check-no">✕ Basic Steps</td>
               <td class="check-no">✕ None</td>
-              <td class="check-no">✕ Awkward Email Photos</td>
+              <td class="check-no">✕ Subjective Guesswork</td>
             </tr>
             <tr>
               <td><strong>Monthly Cost</strong></td>
@@ -386,7 +389,7 @@
       <div class="cta-box">
         <div class="badge" style="margin-bottom: 20px;">Limited Beta Cohort</div>
         <h2>Join the Rooka TestFlight Beta</h2>
-        <p>Experience the future of AI endurance coaching before public release on the App Store. Available now for iOS on Apple TestFlight.</p>
+        <p>Experience the future of AI endurance and hybrid coaching before public release on the App Store. Available now for iOS on Apple TestFlight.</p>
 
         <div class="cta-action-row">
           <a href="https://testflight.apple.com" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">
@@ -396,11 +399,11 @@
           <a href="support.html" class="btn btn-secondary btn-lg">Get Setup Instructions</a>
         </div>
 
-        <form id="beta-signup-form" style="max-width: 480px; margin: 32px auto 0; display: flex; gap: 10px;">
+        <form id="beta-signup-form" style="max-width: 520px; margin: 32px auto 0; display: flex; gap: 10px;">
           <input type="email" placeholder="Enter your Apple ID email for beta invite" required style="flex: 1; padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border); background: rgba(8, 12, 20, 0.8); color: white; font-size: 14px;">
           <button type="submit" class="btn btn-primary btn-sm" style="padding: 0 20px;">Request Invite</button>
         </form>
-        <div id="beta-success-msg" style="display: none; color: #10B981; font-weight: 700; margin-top: 18px;">
+        <div id="beta-success-msg" style="display: none; color: #10B981; font-weight: 700; margin-top: 18px; line-height: 1.5;">
           ✓ Request received! We'll send your TestFlight invitation link shortly.
         </div>
       </div>
@@ -425,6 +428,16 @@
           </button>
           <div class="faq-answer">
             Rooka isn't just a generic chatbot. It connects directly to your live Garmin Connect and Strava telemetry, calculating your physiological recovery scores, PMC fitness (CTL), fatigue (ATL), and form (TSB). Rooka understands your athletic history, workout intensities, and lifestyle context to provide customized periodization and daily workout adjustments.
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Does Rooka support Hyrox, CrossFit, and hybrid strength-endurance athletes?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            Yes! Rooka is engineered specifically for athletes who combine heavy strength training with endurance. Whether you are prepping for Hyrox, doing compromised running intervals, or pairing barbell lifting with marathon volume, Rooka calculates muscular fatigue across 6 key anatomical zones to ensure your strength work doesn't compromise your cardio engine.
           </div>
         </div>
 
@@ -483,7 +496,7 @@
             <div class="logo-text">ROOKA<span class="logo-domain">.io</span></div>
           </div>
           <p style="color: var(--text-muted); font-size: 14px; max-width: 340px; margin-bottom: 16px;">
-            The intelligent AI endurance and recovery coaching companion built for runners, cyclists, triathletes, and hybrid athletes.
+            The intelligent AI endurance, hybrid training, and recovery coaching companion built for runners, cyclists, triathletes, and hybrid athletes.
           </p>
           <div class="badge" style="font-size: 11px;">App Store &amp; TestFlight Ready</div>
         </div>
@@ -491,6 +504,7 @@
         <div class="footer-col">
           <h4>Product</h4>
           <ul>
+            <li><a href="#app-tour">App Tour</a></li>
             <li><a href="#features">Features</a></li>
             <li><a href="#coach-demo">AI Coach</a></li>
             <li><a href="#telemetry">Recovery &amp; PMC</a></li>

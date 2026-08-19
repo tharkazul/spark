@@ -577,7 +577,7 @@ export default function CoachScreen() {
   const dateBadgeStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
-    <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
+    <SafeAreaView className="flex-1 dark:bg-dark-canvas bg-neutral-50" edges={['top']}>
       <KeyboardAvoidingView
         behavior="padding"
         keyboardVerticalOffset={0}

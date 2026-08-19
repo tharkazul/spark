@@ -53,14 +53,13 @@ export const CoachPersonaSettings: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await userApi.updateSettings({
+      await updateUser({
         coach_tone: selectedTone,
         coach_name: coachName,
         coach_context: coachContext,
         athlete_context: athleteContext,
         gender: gender,
       });
-      await updateUser({ gender });
       await refreshUser();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
@@ -140,12 +139,15 @@ export const CoachPersonaSettings: React.FC = () => {
             return (
               <TouchableOpacity
                 key={opt.value}
-                onPress={() => setSelectedTone(opt.value)}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedTone(opt.value);
+                }}
                 activeOpacity={0.7}
                 className={`p-3 rounded-xl flex-row items-center justify-between mb-2 ${
                   isSelected
-                    ? 'bg-theme-accent shadow-sm'
-                    : 'bg-theme-bg/60 dark:bg-theme-bg/40 border border-theme-border/40'
+                    ? 'bg-theme-accent'
+                    : 'bg-theme-bg opacity-60'
                 }`}
               >
                 <View className="flex-row items-center flex-1">
@@ -177,7 +179,7 @@ export const CoachPersonaSettings: React.FC = () => {
 
       {/* Custom Coach Fields */}
       {isCustomSelected && (
-        <View className="p-3 bg-theme-bg/60 rounded-xl space-y-3 mb-3">
+        <View className="p-3 bg-theme-bg opacity-60 rounded-xl space-y-3 mb-3">
           <View>
             <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Coach Name</Text>
             <TextInput
@@ -298,12 +300,16 @@ export const CoachPersonaSettings: React.FC = () => {
             return (
               <TouchableOpacity
                 key={opt.value}
-                onPress={() => setGender(opt.value)}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setGender(opt.value);
+                  updateUser({ gender: opt.value }).catch(() => {});
+                }}
                 activeOpacity={0.7}
                 className={`flex-1 p-3 rounded-xl flex-row items-center justify-center space-x-1.5 ${
                   isSelected
-                    ? 'bg-theme-accent shadow-sm'
-                    : 'bg-theme-bg/60 dark:bg-theme-bg/40 border border-theme-border/40'
+                    ? 'bg-theme-accent'
+                    : 'bg-theme-bg opacity-60'
                 }`}
               >
                 <Ionicons

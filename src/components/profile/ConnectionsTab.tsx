@@ -9,7 +9,9 @@ import { useActivities } from '../../context/ActivityStore';
 
 interface ConnectionsTabProps {
   onOpenGarminModal: () => void;
-  onOpenStravaModal: () => void;
+  onConnectStrava: () => void;
+  onDisconnectStrava: () => void;
+  stravaLoading?: boolean;
 }
 
 export type SportType = 'running' | 'cycling' | 'swimming' | 'strength';
@@ -39,7 +41,9 @@ const SPORT_OPTIONS: { id: SportType; label: string; icon: keyof typeof Ionicons
 
 export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   onOpenGarminModal,
-  onOpenStravaModal,
+  onConnectStrava,
+  onDisconnectStrava,
+  stravaLoading = false,
 }) => {
   const { user } = useUser();
   const { syncGarmin, syncStrava } = useActivities();
@@ -288,56 +292,71 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </Text>
 
         <View className="flex-row flex-wrap gap-2">
-          <TouchableOpacity
-            onPress={onOpenStravaModal}
-            className="bg-orange-500 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
-          >
-            <Ionicons name="logo-octocat" size={16} color="#FFF" />
-            <Text className="text-white font-bold text-xs ml-2">
-              {isStravaConnected ? 'Manage Strava' : 'Connect with Strava'}
-            </Text>
-          </TouchableOpacity>
-
-          {isStravaConnected && (
+          {!isStravaConnected ? (
             <TouchableOpacity
-              onPress={handleSyncStrava}
-              disabled={stravaSyncing}
-              className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+              onPress={onConnectStrava}
+              disabled={stravaLoading}
+              className="bg-orange-500 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
             >
-              {stravaSyncing ? (
-                <ActivityIndicator size="small" color="#FF5A1F" />
+              {stravaLoading ? (
+                <ActivityIndicator size="small" color="#FFF" />
               ) : (
                 <>
-                  <Ionicons name="cloud-download-outline" size={16} color="#8E8E93" />
-                  <Text className="text-theme-text font-bold text-xs ml-2">Pull Latest Activities</Text>
+                  <Ionicons name="fitness-outline" size={16} color="#FFF" />
+                  <Text className="text-white font-bold text-xs ml-2">Connect with Strava</Text>
                 </>
               )}
             </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={handleSyncStrava}
+                disabled={stravaSyncing}
+                className="bg-orange-500 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+              >
+                {stravaSyncing ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="sync-outline" size={16} color="#FFF" />
+                    <Text className="text-white font-bold text-xs ml-2">Sync Activities</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={onDisconnectStrava}
+                disabled={stravaLoading}
+                className="bg-red-500/10 border border-red-500/30 px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+              >
+                <Text className="text-red-500 font-bold text-xs">Disconnect</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </Card>
 
       {/* STRAVA AUTOMATIONS PER SPORT TYPE */}
       <Card className="p-4 mb-6">
-        <View className="flex-row items-center gap-2 pb-3 mb-3">
+        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
           <View className="w-2.5 h-2.5 rounded-full bg-[#ff6b6b]" />
-          <Text className="text-theme-text font-bold text-sm">Strava Automations (Per Sport)</Text>
+          <Text className="text-theme-text font-bold text-sm">Strava Automations</Text>
         </View>
 
-        <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
+        <Text className="text-theme-muted text-xs mb-3 leading-relaxed">
           Customize what details Rooka AI Coach posts to your Strava captions for each individual sport type.
         </Text>
 
-        {/* SPORT TYPE SELECTOR TABS */}
-        <View className="flex-row bg-theme-bg p-1 rounded-xl mb-4">
+        {/* SPORT SELECTOR TABS */}
+        <View className="flex-row bg-theme-bg p-1 rounded-xl mb-4 border border-theme-border">
           {SPORT_OPTIONS.map((sport) => {
             const isSelected = selectedSport === sport.id;
             return (
               <TouchableOpacity
                 key={sport.id}
                 onPress={() => setSelectedSport(sport.id)}
-                className={`flex-1 py-2 rounded-lg flex-row items-center justify-center gap-1 ${
-                  isSelected ? 'bg-orange-500 shadow-sm' : ''
+                className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1 ${
+                  isSelected ? 'bg-theme-accent' : 'bg-transparent'
                 }`}
               >
                 <Ionicons
@@ -357,9 +376,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           })}
         </View>
 
-        {/* 4 STRAVA AUTOMATION TOGGLES FOR SELECTED SPORT */}
+        {/* TOGGLES FOR SELECTED SPORT */}
         <View className="space-y-3">
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-bg/60">
+          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Rooka Score in Caption</Text>
               <Text className="text-theme-muted text-[10px]">Add calculated XP and TSS to caption</Text>
@@ -371,7 +390,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-bg/60">
+          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Post AI Workout Summary Title</Text>
               <Text className="text-theme-muted text-[10px]">Auto-generate catchy workout title</Text>
@@ -383,7 +402,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             />
           </View>
 
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-bg/60">
+          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Muscle Strain Metrics</Text>
               <Text className="text-theme-muted text-[10px]">Share affected muscle group load</Text>
@@ -411,4 +430,3 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     </View>
   );
 };
-

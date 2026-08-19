@@ -316,20 +316,28 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       .map((n) => `- ${n.body_part}: FULLY HEALED / RESOLVED`)
                                       .join("\n                    ");
                                 }
-
-                                db.all(
-                                  `SELECT body_part, fatigue_score, development_score FROM athlete_muscle_status WHERE user_id = ? AND (fatigue_score > 10 OR development_score > 10)`,
-                                  [req.user.id],
-                                  async (err, muscleRows) => {
-                                    let muscleStatusText = "No significant muscle fatigue or peak development.";
-                                    if (muscleRows && muscleRows.length > 0) {
-                                      muscleStatusText = muscleRows.map(m => `- ${m.body_part}: Fatigue ${Math.round(m.fatigue_score)}, Peak Development ${Math.round(m.development_score)}`).join("\n                    ");
-                                    }
-
                                     db.all(
-                                      `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 6) ORDER BY id ASC`,
+                                      `SELECT body_part, fatigue_score, development_score FROM athlete_muscle_status WHERE user_id = ? AND (fatigue_score > 10 OR development_score > 10)`,
                                       [req.user.id],
-                                      async (err, historyRows) => {
+                                      async (err, muscleRows) => {
+                                        let muscleStatusText = "No significant muscle fatigue or peak development.";
+                                        if (muscleRows && muscleRows.length > 0) {
+                                          muscleStatusText = muscleRows.map(m => `- ${m.body_part}: Fatigue ${Math.round(m.fatigue_score)}, Peak Development ${Math.round(m.development_score)}`).join("\n                    ");
+                                        }
+
+                                        db.all(
+                                          `SELECT sport_type, test_name, metrics_json, coach_notes, completed_at FROM benchmark_tests WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+                                          [req.user.id],
+                                          async (err, benchmarkRows) => {
+                                            let benchmarkText = "No completed benchmark test yet. Encourage athlete to complete their initial onboarding benchmark assessment.";
+                                            if (benchmarkRows && benchmarkRows.length > 0) {
+                                              benchmarkText = benchmarkRows.map(b => `- ${b.sport_type} [${b.test_name}]: ${b.metrics_json} (${b.coach_notes || 'Completed'})`).join("\n                    ");
+                                            }
+
+                                            db.all(
+                                              `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 6) ORDER BY id ASC`,
+                                              [req.user.id],
+                                              async (err, historyRows) => {
                                     try {
                                       let cleanHistory = [];
 
@@ -430,6 +438,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     
                     MUSCLE STATUS (Fatigue vs Peak Development):
                     ${muscleStatusText}
+
+                    BENCHMARK ASSESSMENTS & PERFORMANCE BASELINES:
+                    ${benchmarkText}
                     
                     ACTIVE INJURIES / NIGGLES (REAL-TIME SINGLE SOURCE OF TRUTH):
                     ${nigglesText}${resolvedNigglesText}

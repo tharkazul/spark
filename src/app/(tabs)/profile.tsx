@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { API_BASE_URL } from '../../constants/api';
 import { useActivities } from '../../context/ActivityStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTabBar } from '../../context/TabBarContext';
@@ -55,11 +56,8 @@ export default function ProfileScreen() {
   const [garminPass, setGarminPass] = useState('');
   const [garminLoading, setGarminLoading] = useState(false);
 
-  // Strava Form State
-  const [stravaModalVisible, setStravaModalVisible] = useState(false);
-  const [stravaRefreshToken, setStravaRefreshToken] = useState('');
+  // Strava State
   const [stravaLoading, setStravaLoading] = useState(false);
-  const [showManualStrava, setShowManualStrava] = useState(false);
 
   const username = user?.username || 'Athlete';
   const email = user?.email;
@@ -163,68 +161,37 @@ export default function ProfileScreen() {
     }
   };
 
-  // Strava handlers
+  // Strava handlers (Direct OAuth flow without modal)
   const handleConnectStravaOAuth = async () => {
     setStravaLoading(true);
     try {
       const clientId = '208765';
-      const redirectUri = 'http://localhost:8081';
-      const authUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
-        redirectUri
+      const stravaRedirectUri = `${API_BASE_URL}/oauthredirect`;
+      const appDeepLink = Linking.createURL('oauthredirect');
+      const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
+        stravaRedirectUri
       )}&scope=activity:read_all,activity:write&approval_prompt=force`;
 
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, appDeepLink);
       if (result.type === 'success' && result.url) {
-        const parsed = Linking.parse(result.url);
-        const code = (parsed.queryParams?.code as string) || (new URL(result.url).searchParams.get('code') as string);
+        let code: string | undefined;
+        try {
+          code = new URL(result.url).searchParams.get('code') || undefined;
+        } catch (_) {
+          const match = result.url.match(/[?&]code=([^&]+)/);
+          if (match) code = match[1];
+        }
         if (code) {
           const res = await integrationsApi.exchangeStravaCode(code);
           await refreshUser();
           await refreshActivities();
           Alert.alert('Strava Connected', res.message || 'Strava connected successfully!');
-          setStravaModalVisible(false);
         } else {
           Alert.alert('Strava Error', 'No authorization code returned from Strava.');
         }
       }
     } catch (err: any) {
       Alert.alert('Strava Error', err.message || 'Failed to complete Strava OAuth.');
-    } finally {
-      setStravaLoading(false);
-    }
-  };
-
-  const handleConnectDefaultStravaToken = async () => {
-    setStravaLoading(true);
-    try {
-      const defaultToken = '760f27089e849721cf66a5a6557a6c66bca3597e';
-      const res = await integrationsApi.saveStravaRefreshToken(defaultToken);
-      await refreshUser();
-      await refreshActivities();
-      Alert.alert('Strava Connected', res.message || 'Strava token saved successfully!');
-      setStravaModalVisible(false);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save Strava token.');
-    } finally {
-      setStravaLoading(false);
-    }
-  };
-
-  const handleSaveStravaManualToken = async () => {
-    if (!stravaRefreshToken.trim()) {
-      Alert.alert('Error', 'Please enter a valid Strava refresh token.');
-      return;
-    }
-    setStravaLoading(true);
-    try {
-      const res = await integrationsApi.saveStravaRefreshToken(stravaRefreshToken.trim());
-      await refreshUser();
-      await refreshActivities();
-      setStravaRefreshToken('');
-      Alert.alert('Strava Connected', res.message || 'Strava token saved successfully!');
-      setStravaModalVisible(false);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save Strava token.');
     } finally {
       setStravaLoading(false);
     }
@@ -245,7 +212,6 @@ export default function ProfileScreen() {
               await integrationsApi.disconnectStrava();
               await refreshUser();
               Alert.alert('Disconnected', 'Strava disconnected successfully.');
-              setStravaModalVisible(false);
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to disconnect Strava.');
             } finally {
@@ -398,7 +364,9 @@ export default function ProfileScreen() {
           >
             <ConnectionsTab
               onOpenGarminModal={() => setGarminModalVisible(true)}
-              onOpenStravaModal={() => setStravaModalVisible(true)}
+              onConnectStrava={handleConnectStravaOAuth}
+              onDisconnectStrava={handleDisconnectStrava}
+              stravaLoading={stravaLoading}
             />
           </ScrollView>
         </View>
@@ -507,124 +475,6 @@ export default function ProfileScreen() {
                     <Text className="text-white font-bold text-base">Save & Connect Garmin</Text>
                   )}
                 </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* STRAVA CONNECTION MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={stravaModalVisible}
-        onRequestClose={() => setStravaModalVisible(false)}
-      >
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg p-6 rounded-t-3xl border-t border-theme-border">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <Ionicons name="fitness-outline" size={24} color="#FC4C02" />
-                <Text className="text-xl font-bold text-theme-text ml-2">Strava Integration</Text>
-              </View>
-              <TouchableOpacity onPress={() => setStravaModalVisible(false)} className="p-1">
-                <Ionicons name="close" size={24} color="#8E8E93" />
-              </TouchableOpacity>
-            </View>
-
-            <Text className="text-sm text-theme-muted mb-6">
-              Connect Strava to automatically sync your completed runs, rides, and swims into Spark to earn points and inform your AI coach.
-            </Text>
-
-            {isStravaConnected ? (
-              <View className="space-y-4 mb-4">
-                <View className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/30 flex-row items-center mb-2">
-                  <Ionicons name="checkmark-circle" size={22} color="#FC4C02" />
-                  <Text className="text-orange-500 font-bold ml-2">Strava is connected</Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleSyncStrava}
-                  disabled={stravaLoading}
-                  className="bg-[#FC4C02] py-3.5 rounded-xl items-center flex-row justify-center mb-3"
-                >
-                  {stravaLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="sync" size={18} color="#FFF" />
-                      <Text className="text-white font-bold text-base ml-2">Sync Activities Now</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleDisconnectStrava}
-                  disabled={stravaLoading}
-                  className="border border-red-500/40 bg-red-500/10 py-3.5 rounded-xl items-center"
-                >
-                  <Text className="text-red-500 font-bold text-base">Disconnect Strava</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View className="space-y-4 mb-4">
-                <TouchableOpacity
-                  onPress={handleConnectStravaOAuth}
-                  disabled={stravaLoading}
-                  className="bg-[#FC4C02] py-4 rounded-xl items-center flex-row justify-center mb-2"
-                >
-                  {stravaLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="fitness-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text className="text-white font-bold text-base">Connect with Strava (OAuth)</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleConnectDefaultStravaToken}
-                  disabled={stravaLoading}
-                  className="bg-theme-card border border-theme-accent/40 py-3 rounded-xl items-center flex-row justify-center mb-3"
-                >
-                  <Ionicons name="key-outline" size={18} color="#FF5A1F" style={{ marginRight: 6 }} />
-                  <Text className="text-theme-accent font-bold text-sm">Quick Connect (Saved Token)</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => setShowManualStrava(!showManualStrava)}
-                  className="py-2 items-center"
-                >
-                  <Text className="text-theme-muted text-xs underline">
-                    {showManualStrava ? 'Hide manual refresh token input' : 'Enter Strava Refresh Token manually'}
-                  </Text>
-                </TouchableOpacity>
-
-                {showManualStrava && (
-                  <View className="mt-2 space-y-3">
-                    <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Strava Refresh Token</Text>
-                    <TextInput
-                      className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
-                      placeholder="Paste refresh token..."
-                      placeholderTextColor="#8E8E93"
-                      value={stravaRefreshToken}
-                      onChangeText={setStravaRefreshToken}
-                      autoCapitalize="none"
-                    />
-                    <TouchableOpacity
-                      onPress={handleSaveStravaManualToken}
-                      disabled={stravaLoading}
-                      className="bg-theme-card border border-theme-border py-3 rounded-xl items-center mt-2"
-                    >
-                      {stravaLoading ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <Text className="text-theme-text font-bold text-sm">Save Refresh Token</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
             )}
           </View>

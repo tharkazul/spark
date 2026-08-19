@@ -943,8 +943,19 @@ export default function OnboardingWizard() {
 
             if (node.type === 'coach_typing') {
               return (
-                <View key={node.id} className="mb-7">
-                  <TypingDots />
+                <View key={node.id} className="flex-row items-start gap-3 mb-4 pr-4">
+                  <View className="relative">
+                    <Image
+                      source={getCoachAvatarSource(coachTone)}
+                      className="w-10 h-10 rounded-full"
+                    />
+                  </View>
+                  <View className="flex-1 mt-1 justify-center min-h-[40px]">
+                    <View className="flex-row items-center gap-1.5 mb-1">
+                      <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Rooka</Text>
+                    </View>
+                    <TypingDots />
+                  </View>
                 </View>
               );
             }
