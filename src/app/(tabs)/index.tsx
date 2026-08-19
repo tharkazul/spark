@@ -19,7 +19,7 @@ import { Card } from '../../components/ui/Card';
 import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
 import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
-import { QuickActionsRow } from '../../components/dashboard/QuickActionsRow';
+
 
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
@@ -451,14 +451,7 @@ export default function PlanningHomeScreen() {
             </View>
           ))}
 
-          {/* Quick Actions Row */}
-          <View className="mt-3">
-            <QuickActionsRow
-              onAddActivity={() => handleOpenAddModal(dayOfWeekUpper, todayDateStr)}
-              onLogWeight={() => setIsWeightModalOpen(true)}
-              onReportInjury={() => setIsNiggleModalOpen(true)}
-            />
-          </View>
+
         </ScrollView>
       </View>
 

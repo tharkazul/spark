@@ -205,90 +205,47 @@ export function WorkoutStepBuilder({
           </View>
         </View>
 
-        {/* Quick Duration Presets */}
-        {onDurationChange && (
-          <View>
-            <Text className="text-[11px] font-bold text-theme-muted mb-2">
-              Quick Duration Presets:
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {quickDurations.map((mins) => {
-                const isSelected = durationMinutes === mins;
-                return (
-                  <TouchableOpacity
-                    key={mins}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      onDurationChange(mins);
-                    }}
-                    activeOpacity={0.7}
-                    className={`px-3 py-1.5 rounded-xl border ${
-                      isSelected
-                        ? 'bg-theme-accent border-theme-accent'
-                        : 'bg-theme-card border-theme-border'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-mono font-extrabold ${
-                        isSelected ? 'text-white' : 'text-theme-text'
-                      }`}
-                    >
-                      {mins}m
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        <View className="h-px bg-theme-border/60 my-0.5" />
-
         {/* Add Interval Blocks */}
         <View>
-          <Text className="text-[11px] font-bold text-theme-muted mb-2">
+          <Text className="text-[11px] font-bold text-slate-500 mb-2">
             Add Interval Blocks:
           </Text>
 
-          <View className="flex-row flex-wrap gap-1.5 mb-1">
+          <View className="flex-row flex-wrap gap-2 mb-1">
             <TouchableOpacity
               onPress={() => handleAddStep('warmup')}
-              className="px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex-row items-center gap-1"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
             >
-              <Ionicons name="add" size={13} color="#10B981" />
-              <Text className="text-xs font-extrabold text-emerald-500">+ Warmup</Text>
+              <Text className="text-[13px] font-medium text-slate-700">+ Warmup</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('interval')}
-              className="px-2.5 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-xl flex-row items-center gap-1"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
             >
-              <Ionicons name="add" size={13} color="#38BDF8" />
-              <Text className="text-xs font-extrabold text-blue-500">+ Interval</Text>
+              <Text className="text-[13px] font-medium text-slate-700">+ Interval</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('recovery')}
-              className="px-2.5 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex-row items-center gap-1"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
             >
-              <Ionicons name="add" size={13} color="#F97316" />
-              <Text className="text-xs font-extrabold text-amber-500">+ Recovery</Text>
+              <Text className="text-[13px] font-medium text-slate-700">+ Recovery</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('cooldown')}
-              className="px-2.5 py-1.5 bg-purple-500/10 border border-purple-500/30 rounded-xl flex-row items-center gap-1"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
             >
-              <Ionicons name="add" size={13} color="#A855F7" />
-              <Text className="text-xs font-extrabold text-purple-500">+ Cooldown</Text>
+              <Text className="text-[13px] font-medium text-slate-700">+ Cooldown</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleAddRepeat}
-              className="px-2.5 py-1.5 bg-theme-card border border-theme-border rounded-xl flex-row items-center gap-1"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
             >
-              <Ionicons name="repeat" size={13} color="#FF5F3B" />
-              <Text className="text-xs font-extrabold text-theme-accent">+ Repeat Block</Text>
+              <Ionicons name="repeat" size={12} color="#334155" />
+              <Text className="text-[13px] font-medium text-slate-700">Repeat</Text>
             </TouchableOpacity>
           </View>
 

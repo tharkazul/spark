@@ -59,6 +59,8 @@ const StepCardComponent = ({
   onUpdateSub,
   onRemoveSub,
 }: StepCardProps) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
   const condType = step.condition_type || 'time';
   const isTime = condType === 'time' || condType === 'time_sec';
   const isDistance = condType === 'distance' || condType === 'distance_km';
@@ -78,7 +80,6 @@ const StepCardComponent = ({
 
   const colorConfig = CARD_COLORS[step.type as keyof typeof CARD_COLORS] || CARD_COLORS.default;
 
-  // React Native Reanimated hook - shadow ONLY active during drag to prevent text shadows
   const animatedStyles = useAnimatedStyle(() => {
     return {
       transform: [
@@ -99,357 +100,186 @@ const StepCardComponent = ({
     };
   }, [isActive]);
 
+  const targetDisplay = useMemo(() => {
+    if (isStrengthOrMobility) {
+      if (targetType === 'weight') return `Weight: ${step.weight || 0} kg`;
+      return 'Open';
+    }
+    if (targetType === 'heart.rate.zone') return `HR Zone ${step.zone || 2}`;
+    if (targetType === 'power.zone') return `Pwr Zone ${step.zone || 2}`;
+    if (targetType === 'pace.exact') return `Pace: ${step.target_value || '-'}`;
+    if (targetType === 'power.exact') return `Pwr: ${step.target_value || '-'}W`;
+    return 'Open';
+  }, [isStrengthOrMobility, targetType, step]);
+
+  const unitDisplay = condType === 'time' ? 'min' : condType === 'time_sec' ? 'sec' : condType === 'distance' ? 'm' : condType === 'distance_km' ? 'km' : 'reps';
+
   return (
     <Animated.View
       style={[
         styles.shadowHost,
         animatedStyles,
-        {
-          marginLeft: isSubStep ? 32 : 0,
-        },
+        { marginLeft: isSubStep ? 32 : 0, marginBottom: 8 },
       ]}
     >
-      <View
-        style={[
-          styles.clip,
-          {
-            backgroundColor: colorConfig.bg,
-            borderColor: colorConfig.border,
-            borderLeftWidth: isSubStep ? 2 : 1,
-            borderLeftColor: isSubStep ? '#CBD5E1' : colorConfig.border,
-          },
-        ]}
-      >
-        {/* Drag Handle Column - Only on Root Steps */}
-        {!isSubStep && (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onLongPress={drag}
-            delayLongPress={200}
-            style={styles.handleColumn}
-          >
-            <Ionicons name="reorder-three-outline" size={20} color={isActive ? '#FF5F3B' : '#94A3B8'} />
-          </TouchableOpacity>
-        )}
+      <View className="bg-white rounded-xl border border-slate-200 overflow-hidden flex-row">
+        {/* Left Border Accent & Drag Handle */}
+        <View className="flex-row items-center w-8 bg-slate-50 border-r border-slate-100 justify-center">
+          <View className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: colorConfig.border }} />
+          {!isSubStep && (
+            <TouchableOpacity activeOpacity={0.7} onLongPress={drag} delayLongPress={200} className="w-full h-full items-center justify-center py-4">
+              <Ionicons name="reorder-three-outline" size={20} color={isActive ? colorConfig.border : '#94A3B8'} />
+            </TouchableOpacity>
+          )}
+        </View>
 
-        {/* Card Content Column */}
-        <View style={styles.content} className="space-y-2.5">
-          {/* Header Row: Type and Delete Button */}
-          <View className="flex-row items-center justify-between mb-1">
-            <Text className="text-[11px] font-extrabold uppercase tracking-widest text-theme-text">
+        {/* Content */}
+        <View className="flex-1 p-3">
+          {/* Header */}
+          <View className="flex-row items-center justify-between mb-2">
+            <Text className="text-[11px] font-extrabold uppercase tracking-widest text-slate-800">
               {step.type}
             </Text>
-
             <TouchableOpacity onPress={() => (isSubStep && onRemoveSub ? onRemoveSub(step.id, step.id) : onRemove(step.id))}>
-              <View
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: '#F1F5F9',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="close" size={14} color="#64748B" />
-              </View>
+              <Ionicons name="close" size={16} color="#94A3B8" />
             </TouchableOpacity>
           </View>
 
-          {/* Repeat Block Controls */}
+          {/* Config Row */}
           {step.type === 'repeat' ? (
-            <View className="flex-row items-center gap-2">
-              <Text className="text-xs font-bold text-theme-text">Repeat Block:</Text>
-              <TextInput
-                value={step.iterations !== undefined ? String(step.iterations) : ''}
-                onChangeText={(text) => {
-                  if (text === '') onUpdate(step.id, 'iterations', undefined);
-                  else {
-                    const val = parseInt(text, 10);
-                    if (!isNaN(val)) onUpdate(step.id, 'iterations', val);
-                  }
-                }}
-                keyboardType="number-pad"
-                className="w-12 bg-theme-card border border-slate-200 rounded-xl px-2 py-1 text-xs text-center font-bold text-theme-text"
-              />
-              <Text className="text-xs text-theme-muted font-bold">times</Text>
-            </View>
+             <View className="flex-row items-center gap-2">
+               <TextInput
+                 value={step.iterations !== undefined ? String(step.iterations) : ''}
+                 onChangeText={(text) => {
+                   if (text === '') onUpdate(step.id, 'iterations', undefined);
+                   else {
+                     const val = parseInt(text, 10);
+                     if (!isNaN(val)) onUpdate(step.id, 'iterations', val);
+                   }
+                 }}
+                 keyboardType="number-pad"
+                 className="w-14 h-9 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center font-bold text-slate-800"
+               />
+               <Text className="text-sm font-medium text-slate-500">times</Text>
+             </View>
           ) : (
-            <>
-              <View className="flex-row flex-wrap items-center gap-2">
-                <TextInput
-                  value={step.condition_value !== undefined ? String(step.condition_value) : ''}
-                  onChangeText={(text) => {
-                    if (text === '') onUpdate(step.id, 'condition_value', undefined);
-                    else if (text.endsWith('.') || text.endsWith(',')) {
-                      onUpdate(step.id, 'condition_value', text.replace(',', '.') as any);
-                    } else {
-                      const val = parseFloat(text.replace(',', '.'));
-                      if (!isNaN(val)) onUpdate(step.id, 'condition_value', val);
-                    }
-                  }}
-                  keyboardType={isStrengthOrMobility && condType === 'reps' ? 'number-pad' : 'decimal-pad'}
-                  className="w-14 bg-theme-card border border-slate-200 rounded-xl px-2 py-1 text-xs text-center font-bold text-theme-text"
-                />
+             <View className="flex-col gap-2">
+               {isStrengthOrMobility && (
+                 <TextInput
+                   value={step.exerciseName || ''}
+                   onChangeText={(text) => onUpdate(step.id, 'exerciseName', text)}
+                   placeholder="Exercise name (e.g. Bench Press)"
+                   className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm font-bold text-slate-800"
+                 />
+               )}
+               
+               <View className="flex-row flex-wrap items-center gap-2">
+                 {/* Duration/Distance Box */}
+                 <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-lg h-9 overflow-hidden">
+                   <TextInput
+                     value={step.condition_value !== undefined ? String(step.condition_value) : ''}
+                     onChangeText={(text) => {
+                       if (text === '') onUpdate(step.id, 'condition_value', undefined);
+                       else if (text.endsWith('.') || text.endsWith(',')) {
+                         onUpdate(step.id, 'condition_value', text.replace(',', '.') as any);
+                       } else {
+                         const val = parseFloat(text.replace(',', '.'));
+                         if (!isNaN(val)) onUpdate(step.id, 'condition_value', val);
+                       }
+                     }}
+                     keyboardType={isStrengthOrMobility && condType === 'reps' ? 'number-pad' : 'decimal-pad'}
+                     className="w-12 h-full text-sm text-center font-bold text-slate-800"
+                   />
+                   <TouchableOpacity
+                     onPress={() => {
+                       Haptics.selectionAsync();
+                       if (isStrengthOrMobility) {
+                         onUpdate(step.id, 'condition_type', condType === 'reps' ? 'time' : 'reps');
+                       } else {
+                         // simple toggle for now between min/km
+                         if (condType === 'time') onUpdate(step.id, 'condition_type', 'distance_km');
+                         else if (condType === 'distance_km') onUpdate(step.id, 'condition_type', 'time_sec');
+                         else onUpdate(step.id, 'condition_type', 'time');
+                       }
+                     }}
+                     className="h-full px-2 items-center justify-center bg-slate-100 border-l border-slate-200"
+                   >
+                     <Text className="text-[11px] font-bold text-slate-600 uppercase">{unitDisplay}</Text>
+                   </TouchableOpacity>
+                 </View>
 
-                <View className="flex-row bg-theme-card border border-slate-200 rounded-xl p-0.5">
-                  {isStrengthOrMobility ? (
-                    ['reps', 'min'].map((unit) => {
-                      const isSelected =
-                        (unit === 'reps' && step.condition_type === 'reps') ||
-                        (unit === 'min' && step.condition_type === 'time');
-                      return (
-                        <TouchableOpacity
-                          key={unit}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            onUpdate(step.id, 'condition_type', unit === 'reps' ? 'reps' : 'time');
-                          }}
-                          className={`px-2 py-0.5 rounded-lg ${isSelected ? 'bg-theme-accent' : ''}`}
-                        >
-                          <Text
-                            className={`text-[10px] font-bold ${
-                              isSelected ? 'text-white' : 'text-theme-muted'
-                            }`}
-                          >
-                            {unit}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  ) : isTime ? (
-                    ['min', 'sec'].map((unit) => {
-                      const isSelected =
-                        (unit === 'min' && step.condition_type === 'time') ||
-                        (unit === 'sec' && step.condition_type === 'time_sec');
-                      return (
-                        <TouchableOpacity
-                          key={unit}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            onUpdate(step.id, 'condition_type', unit === 'min' ? 'time' : 'time_sec');
-                          }}
-                          className={`px-2 py-0.5 rounded-lg ${isSelected ? 'bg-theme-accent' : ''}`}
-                        >
-                          <Text
-                            className={`text-[10px] font-bold ${
-                              isSelected ? 'text-white' : 'text-theme-muted'
-                            }`}
-                          >
-                            {unit}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  ) : (
-                    ['m', 'km'].map((unit) => {
-                      const isSelected =
-                        (unit === 'm' && step.condition_type === 'distance') ||
-                        (unit === 'km' && step.condition_type === 'distance_km');
-                      return (
-                        <TouchableOpacity
-                          key={unit}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            onUpdate(
-                              step.id,
-                              'condition_type',
-                              unit === 'm' ? 'distance' : 'distance_km'
-                            );
-                          }}
-                          className={`px-2 py-0.5 rounded-lg ${isSelected ? 'bg-theme-accent' : ''}`}
-                        >
-                          <Text
-                            className={`text-[10px] font-bold ${
-                              isSelected ? 'text-white' : 'text-theme-muted'
-                            }`}
-                          >
-                            {unit}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  )}
-                </View>
+                 {/* Target Dropdown Button */}
+                 <TouchableOpacity
+                   onPress={() => { Haptics.selectionAsync(); setIsExpanded(!isExpanded); }}
+                   className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+                 >
+                   <Text className="text-xs font-bold text-slate-600">
+                     Target: <Text className="text-slate-800">{targetDisplay}</Text>
+                   </Text>
+                   <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={12} color="#64748B" />
+                 </TouchableOpacity>
+               </View>
 
-                {!isStrengthOrMobility && (
-                  <View className="flex-row bg-theme-card border border-slate-200 rounded-xl p-0.5">
-                    {['time', 'distance'].map((category) => {
-                      const isSelected = (category === 'time' && isTime) || (category === 'distance' && isDistance);
+               {/* Expanded Target Picker */}
+               {isExpanded && (
+                 <View className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                   <View className="flex-row flex-wrap gap-1.5 mb-2">
+                     {(isStrengthOrMobility
+                       ? [{ key: 'no.target', label: 'Open' }, { key: 'weight', label: 'Weight' }]
+                       : [
+                           { key: 'no.target', label: 'Open' },
+                           { key: 'heart.rate.zone', label: 'HR Z' },
+                           { key: 'power.zone', label: 'Pwr Z' },
+                           { key: 'power.exact', label: 'Pwr W' },
+                           { key: 'pace.exact', label: 'Pace' },
+                         ]
+                     ).map((t) => (
+                       <TouchableOpacity
+                         key={t.key}
+                         onPress={() => onUpdate(step.id, 'target_type', t.key)}
+                         className={`px-2 py-1 rounded-md border ${targetType === t.key ? 'bg-slate-800 border-slate-800' : 'bg-white border-slate-300'}`}
+                       >
+                         <Text className={`text-[10px] font-bold ${targetType === t.key ? 'text-white' : 'text-slate-600'}`}>{t.label}</Text>
+                       </TouchableOpacity>
+                     ))}
+                   </View>
 
-                      return (
-                        <TouchableOpacity
-                          key={category}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            let newType = 'time';
-                            if (category === 'time') newType = 'time';
-                            else if (category === 'distance')
-                              newType = sport === 'SWIM' ? 'distance' : 'distance_km';
+                   {isZoneTarget && !isStrengthOrMobility && (
+                     <View className="flex-row gap-1.5">
+                       {Array.from({ length: targetType === 'power.zone' ? 7 : 5 }, (_, i) => i + 1).map((z) => (
+                         <TouchableOpacity
+                           key={z}
+                           onPress={() => onUpdate(step.id, 'zone', z)}
+                           className={`w-7 h-7 rounded-md items-center justify-center border ${step.zone === z ? 'bg-orange-500 border-orange-500' : 'bg-white border-slate-300'}`}
+                         >
+                           <Text className={`text-[10px] font-bold ${step.zone === z ? 'text-white' : 'text-slate-600'}`}>Z{z}</Text>
+                         </TouchableOpacity>
+                       ))}
+                     </View>
+                   )}
 
-                            onUpdate(step.id, 'condition_type', newType);
-                          }}
-                          className={`px-2.5 py-0.5 rounded-lg ${isSelected ? 'bg-theme-accent' : ''}`}
-                        >
-                          <Text
-                            className={`text-[10px] font-extrabold capitalize ${
-                              isSelected ? 'text-white' : 'text-theme-muted'
-                            }`}
-                          >
-                            {category}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-
-              <View className="flex-row items-center gap-2 pt-1 border-t border-slate-200/60 mt-1">
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-1">
-                  <View className="flex-row bg-theme-card border border-slate-200 rounded-xl p-0.5 gap-0.5">
-                    {(isStrengthOrMobility
-                      ? [
-                          { key: 'no.target', label: 'Open' },
-                          { key: 'weight', label: 'Weight' },
-                        ]
-                      : [
-                          { key: 'no.target', label: 'Open' },
-                          { key: 'heart.rate.zone', label: 'HR Z' },
-                          { key: 'power.zone', label: 'Pwr Z' },
-                          { key: 'power.exact', label: 'Pwr W' },
-                          { key: 'pace.exact', label: 'Pace' },
-                        ]
-                    ).map((target) => {
-                      const isSelected = targetType === target.key;
-                      return (
-                        <TouchableOpacity
-                          key={target.key}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            onUpdate(step.id, 'target_type', target.key);
-                          }}
-                          className={`px-3 py-1 rounded-lg ${isSelected ? 'bg-theme-accent' : ''}`}
-                        >
-                          <Text
-                            className={`text-[10px] font-extrabold ${
-                              isSelected ? 'text-white' : 'text-theme-muted'
-                            }`}
-                          >
-                            {target.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-              </View>
-
-              {isZoneTarget && !isStrengthOrMobility && (
-                <View className="pt-0.5">
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="w-full">
-                    <View className="flex-row items-center gap-1.5 py-0.5">
-                      {Array.from(
-                        { length: step.target_type === 'power.zone' ? 7 : 5 },
-                        (_, zIdx) => zIdx + 1
-                      ).map((zoneNum) => {
-                        const isSelected = (step.zone || 2) === zoneNum;
-                        return (
-                          <TouchableOpacity
-                            key={zoneNum}
-                            onPress={() => {
-                              Haptics.selectionAsync();
-                              onUpdate(step.id, 'zone', zoneNum);
-                            }}
-                            activeOpacity={0.7}
-                            className={`px-3 py-1 rounded-xl border ${
-                              isSelected
-                                ? 'bg-theme-accent border-theme-accent'
-                                : 'bg-theme-card border-slate-200'
-                            }`}
-                          >
-                            <Text
-                              className={`text-xs font-mono font-extrabold ${
-                                isSelected ? 'text-white' : 'text-theme-muted'
-                              }`}
-                            >
-                              Z{zoneNum}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </ScrollView>
-                </View>
-              )}
-
-              {isPaceTarget && !isStrengthOrMobility && (
-                <View className="flex-row items-center gap-2 pt-0.5">
-                  <TextInput
-                    value={stripTargetUnits(step.target_value)}
-                    onChangeText={(text) => onUpdate(step.id, 'target_value', text)}
-                    keyboardType={sport === 'BIKE' ? 'decimal-pad' : 'numbers-and-punctuation'}
-                    placeholder={getPacePlaceholder(sport)}
-                    className="w-24 bg-theme-card border border-slate-200 rounded-xl px-3 py-1 text-xs font-mono font-bold text-theme-text text-center"
-                  />
-                  <Text className="text-xs font-extrabold text-theme-accent">
-                    {getPaceUnitLabel(sport)}
-                  </Text>
-                </View>
-              )}
-
-              {isExactPowerTarget && !isStrengthOrMobility && (
-                <View className="flex-row items-center gap-2 pt-0.5">
-                  <TextInput
-                    value={stripTargetUnits(step.target_value)}
-                    onChangeText={(text) => onUpdate(step.id, 'target_value', text)}
-                    keyboardType="number-pad"
-                    placeholder="250"
-                    className="w-24 bg-theme-card border border-slate-200 rounded-xl px-3 py-1 text-xs font-mono font-bold text-theme-text text-center"
-                  />
-                  <Text className="text-xs font-extrabold text-theme-accent">W</Text>
-                </View>
-              )}
-
-              {step.target_type === 'weight' && isStrengthOrMobility && (
-                <View className="flex-row items-center gap-2 pt-0.5 mt-1">
-                  <View className="flex-row items-center gap-2 bg-theme-card border border-slate-200 rounded-xl px-2 py-1">
-                    <TextInput
-                      value={step.weight !== undefined ? String(step.weight) : ''}
-                      onChangeText={(text) => {
-                        if (text === '') onUpdate(step.id, 'weight', undefined);
-                        else if (text.endsWith('.') || text.endsWith(',')) {
-                          onUpdate(step.id, 'weight', text.replace(',', '.') as any);
-                        } else {
-                          const val = parseFloat(text.replace(',', '.'));
-                          if (!isNaN(val)) onUpdate(step.id, 'weight', val);
-                        }
-                      }}
-                      placeholder="—"
-                      keyboardType="decimal-pad"
-                      className="w-14 text-xs text-center font-bold text-theme-text"
-                    />
-                    <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider pr-1">KG</Text>
-                  </View>
-                </View>
-              )}
-
-              {isStrengthOrMobility && (
-                <View className="pt-2">
-                  <TextInput
-                    value={step.exerciseName || ''}
-                    onChangeText={(text) => onUpdate(step.id, 'exerciseName', text)}
-                    placeholder="Exercise name (e.g. Bench Press)"
-                    className="w-full bg-theme-card border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-theme-text"
-                  />
-                </View>
-              )}
-            </>
+                   {(isPaceTarget || isExactPowerTarget || (isStrengthOrMobility && targetType === 'weight')) && (
+                     <View className="flex-row items-center gap-2">
+                       <TextInput
+                         value={isStrengthOrMobility ? String(step.weight || '') : stripTargetUnits(step.target_value)}
+                         onChangeText={(text) => isStrengthOrMobility ? onUpdate(step.id, 'weight', parseFloat(text)) : onUpdate(step.id, 'target_value', text)}
+                         keyboardType={isPaceTarget ? 'numbers-and-punctuation' : 'decimal-pad'}
+                         placeholder={isPaceTarget ? getPacePlaceholder(sport) : 'Value'}
+                         className="flex-1 bg-white border border-slate-300 rounded-md px-2 py-1 text-xs font-bold text-slate-800"
+                       />
+                       <Text className="text-xs font-bold text-slate-500">
+                         {isStrengthOrMobility ? 'kg' : isExactPowerTarget ? 'W' : getPaceUnitLabel(sport)}
+                       </Text>
+                     </View>
+                   )}
+                 </View>
+               )}
+             </View>
           )}
 
-          {/* Render SubSteps for repeat blocks recursively */}
+          {/* Repeat Substeps */}
           {step.type === 'repeat' && step.steps && (
-            <View className="mt-2">
+            <View className="mt-3">
               {step.steps.map((subStep) => (
                 <StepCardComponent
                   key={subStep.id}
@@ -459,16 +289,8 @@ const StepCardComponent = ({
                   isActive={false}
                   drag={() => {}}
                   isSubStep={true}
-                  onUpdate={(id, field, val) => {
-                    if (onUpdateSub) {
-                      onUpdateSub(step.id, id, field, val);
-                    }
-                  }}
-                  onRemove={(id) => {
-                    if (onRemoveSub) {
-                      onRemoveSub(step.id, id);
-                    }
-                  }}
+                  onUpdate={(id, field, val) => { if (onUpdateSub) onUpdateSub(step.id, id, field, val); }}
+                  onRemove={(id) => { if (onRemoveSub) onRemoveSub(step.id, id); }}
                 />
               ))}
             </View>
