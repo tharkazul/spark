@@ -131,12 +131,10 @@ router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req,
   const { targetUsername } = req.params;
   if (!targetUsername) return res.status(400).json({ error: "Missing username" });
   
-  if (targetUsername.toLowerCase().includes("rutger") || targetUsername.toLowerCase().includes("felixson")) {
-      return res.status(403).json({ error: "Cannot delete admin accounts" });
-  }
+  // Removed hardcoded admin deletion block to allow resetting accounts
 
   db.run(
-    `UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE username = ? AND deleted_at IS NULL`,
+    `UPDATE users SET deleted_at = CURRENT_TIMESTAMP, username = username || '_deleted_' || id WHERE username = ? AND deleted_at IS NULL`,
     [targetUsername],
     function (err) {
       if (err) return res.status(500).json({ error: "Database error" });

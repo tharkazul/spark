@@ -41,3 +41,11 @@ example
 # generated native folders
 /ios
 /android
+
+cd rooka && node server.js
+npx expo start -c
+ssh -p 8022 u0_a76@ssh.amsterdamtriathlonassociation.uk
+eas build --platform ios --profile production --auto-submit 
+git add .                        
+git commit -m "translations"        
+git push origin main

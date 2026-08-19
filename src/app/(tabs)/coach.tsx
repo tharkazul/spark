@@ -1072,26 +1072,26 @@ export default function CoachScreen() {
             </View>
           ) : null}
 
-          <View className="px-2 py-1.5 min-h-[40px] max-h-[100px]">
+          <View className="px-3 py-2 min-h-[44px] max-h-[120px]">
             <RNTextInput
               ref={inputRef}
               placeholder="Ask about your training, nutrition, or recovery..."
               placeholderTextColor="#8E8E93"
               value={inputText}
               onChangeText={(text) => {
-                if (text.includes('\n')) {
-                  handleSend(text.replace(/\n/g, ''));
+                if (text.endsWith('\n')) {
+                  handleSend(text.trim());
                 } else {
                   setInputText(text);
                 }
               }}
               multiline={true}
-              blurOnSubmit={false}
+              blurOnSubmit={true}
               returnKeyType="send"
               enterKeyHint="send"
               onSubmitEditing={() => handleSend()}
-              className="text-theme-text text-sm"
-              style={{ maxHeight: 90, textAlignVertical: 'top', paddingTop: 8, paddingBottom: 8 }}
+              className="text-theme-text text-[16px]"
+              style={{ maxHeight: 110, textAlignVertical: 'top', paddingTop: 10, paddingBottom: 10, lineHeight: 22 }}
             />
           </View>
 

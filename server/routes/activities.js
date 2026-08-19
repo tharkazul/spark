@@ -560,10 +560,10 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                - For open targets: set "target_type": "no.target".
             9. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
             10. BENCHMARK ASSESSMENT: If the athlete is new or setting up an onboarding plan, Day 1 or Day 2 MUST contain exactly ONE sport-tailored Benchmark Assessment workout to establish baseline capabilities:
-                 - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run (`sport`: "Run", `description`: "🎯 Benchmark Assessment: 5k Pace & HR Test").
-                 - For CYCLING focus: Schedule a 20-min FTP Baseline Test (`sport`: "Bike", `description`: "🎯 Benchmark Assessment: 20-Min FTP Baseline Test").
-                 - For SWIMMING focus: Schedule a 400m CSS Swim Test (`sport`: "Swim", `description`: "🎯 Benchmark Assessment: 400m CSS Swim Test").
-                 - For HYROX / FUNCTIONAL FITNESS focus: Schedule a Hyrox Benchmark Test (`sport`: "Strength", `description`: "🎯 Benchmark Assessment: Hyrox Functional Fitness Test").
+                 - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run ("sport": "Run", "description": "🎯 Benchmark Assessment: 5k Pace & HR Test").
+                 - For CYCLING focus: Schedule a 20-min FTP Baseline Test ("sport": "Bike", "description": "🎯 Benchmark Assessment: 20-Min FTP Baseline Test").
+                 - For SWIMMING focus: Schedule a 400m CSS Swim Test ("sport": "Swim", "description": "🎯 Benchmark Assessment: 400m CSS Swim Test").
+                 - For HYROX / FUNCTIONAL FITNESS focus: Schedule a Hyrox Benchmark Test ("sport": "Strength", "description": "🎯 Benchmark Assessment: Hyrox Functional Fitness Test").
                  - NEVER assign a running test to pure swimmers/cyclists or a cycling test to Hyrox athletes. Respect their specific sport/goal context strictly.
 
         WORKOUT PLANNING (CRITICAL):

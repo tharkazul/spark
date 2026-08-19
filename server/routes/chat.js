@@ -1014,22 +1014,24 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                     }
                                   },
                                 ); // End chat history
-                                  },
-                                ); // End muscle status
-                              },
-                            ); // End niggles fetch
-                          },
-                        ); // End milestones
-                      },
-                    ); // End microplan
-                  },
-                ); // End recent sets
-              },
-            ); // End recent activities
-          } catch (err) {
-            console.error("Error building context:", err);
-            res.status(500).json({ error: "Context building failed." });
-          }
+                                        },
+                                      ); // End benchmark tests
+                                    },
+                                  ); // End muscle status
+                                },
+                              ); // End niggles fetch
+                            },
+                          ); // End milestones
+                        },
+                      ); // End microplan
+                    },
+                  ); // End recent sets
+                },
+              ); // End recent activities
+            } catch (err) {
+              console.error("Error building context:", err);
+              res.status(500).json({ error: "Context building failed." });
+            }
         },
       ); // End metrics
     },
