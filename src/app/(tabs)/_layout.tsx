@@ -39,7 +39,7 @@ export default function TabLayout() {
   }, [isAuthenticated, loading, user?.onboarding_completed]);
 
   const onPosition = useCallback((pos: any) => {
-    setPagerPosition((prev) => prev || pos);
+    setPagerPosition(pos);
   }, []);
 
   const renderTabBar = useCallback(
