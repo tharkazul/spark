@@ -156,7 +156,7 @@ export const en = {
     stretchHydrateAbsorb: 'Stretch, hydrate and absorb recent training',
     restAbsorbTraining: 'Rest & Absorb Training',
     tapToEdit: 'Tap to edit',
-    sparkLevel: 'SPARK LEVEL',
+    sparkLevel: 'ROOKA LEVEL',
     progressNextLevel: 'Progress to next level',
     athleteArchetype: 'Athlete Archetype',
     balancedHybrid: 'Balanced Hybrid',

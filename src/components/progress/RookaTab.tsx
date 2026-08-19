@@ -61,7 +61,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
 
   return (
     <View className="space-y-4">
-      {/* SPARK LEVEL CARD */}
+      {/* ROOKA LEVEL CARD */}
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">

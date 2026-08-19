@@ -171,6 +171,18 @@ export const briefingStorage = {
       }
     } catch (e) {}
   },
+
+  async clearBriefing(): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(BRIEFING_KEY);
+        }
+      } else {
+        await AsyncStorage.removeItem(BRIEFING_KEY);
+      }
+    } catch (e) {}
+  },
 };
 
 const CHAT_READ_KEY = 'rooka_chat_last_read_timestamp';

@@ -38,9 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
       question: "What should my fueling strategy be for tomorrow's 140km weekend ride with 1,800m elevation?",
       response: "Target 75g - 90g of carbohydrates per hour (mix of maltodextrin/fructose in a 1:0.8 ratio) paired with 650ml fluid + 700mg sodium per hour. Start sipping carbs from minute 20, don't wait until you're hungry. Take a gel 10 minutes before the two main climbs to ensure steady blood glucose without GI distress."
     },
-    physique: {
-      question: "Can you analyze my 4-week physique check-ins? I'm down 1.8kg while maintaining 450 TSS/week.",
-      response: "Great trend! Your waist-to-chest delta shows lean abdominal reduction while your 5-min and 20-min power numbers remained constant. This confirms you are dropping visceral and subcutaneous body fat without sacrificing lean muscle or mitochondrial density. Continue holding your current 300 kcal moderate deficit."
+    fatigue: {
+      question: "My quad fatigue is elevated after yesterday's heavy squat session and hill intervals. Can I still do today's tempo run?",
+      response: "Your 7-day muscle workload model flags Quadriceps at 75% acute strain with elevated tissue breakdown risk. Let's protect your joints: pivot today to a low-impact Zone 2 spin on the bike (high cadence 90+ RPM) or an upper-body core session. We'll resume tempo running once quad readiness rebounds to green."
     }
   };
 

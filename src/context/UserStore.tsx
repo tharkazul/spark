@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { UserProfile } from '../types/user';
 import { userApi, authApi } from '../services/apiServices';
 import { setAuthToken, setOnUnauthorizedHandler, setOnRateLimitHandler } from '../services/apiClient';
-import { tokenStorage } from '../services/storage';
+import { tokenStorage, chatStorage, briefingStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
 import { realtimeEngine } from '../realtime/realtimeEngine';
 
@@ -66,6 +66,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     wsService.disconnect();
     setAuthToken(null);
     await tokenStorage.removeToken();
+    if (chatStorage.clearChatHistory) await chatStorage.clearChatHistory();
+    if (briefingStorage.clearBriefing) await briefingStorage.clearBriefing();
     setUser(null);
     setIsAuthenticated(false);
     setError(null);

@@ -158,7 +158,7 @@ export const nl: TranslationKeys = {
     stretchHydrateAbsorb: 'Rekken, hydrateren en herstellen van trainingen',
     restAbsorbTraining: 'Rust & Herstel',
     tapToEdit: 'Tik om te bewerken',
-    sparkLevel: 'SPARK NIVEAU',
+    sparkLevel: 'ROOKA NIVEAU',
     progressNextLevel: 'Voortgang naar volgend niveau',
     athleteArchetype: 'Atleet Archetype',
     balancedHybrid: 'Gebalanceerde Hybride',

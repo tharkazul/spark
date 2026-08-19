@@ -22,7 +22,14 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
   };
 
   const rawItems = nutrition.loggedItems;
-  const loggedItems: any[] = Array.isArray(rawItems) ? rawItems : (typeof rawItems === 'string' ? rawItems.split(',').filter(Boolean) : []);
+  const loggedItems: any[] = Array.isArray(rawItems)
+    ? rawItems
+    : typeof rawItems === 'string'
+      ? rawItems
+          .split(',')
+          .map((s) => s.trim().replace(/^(and\s+a\s+|and\s+|also\s+had\s+|besides\s+that\s+)/i, '').trim())
+          .filter(Boolean)
+      : [];
   const hasLoggedFood = (nutrition.loggedCarbs || 0) > 0 || (nutrition.loggedProtein || 0) > 0 || (nutrition.loggedFat || 0) > 0;
 
   return (

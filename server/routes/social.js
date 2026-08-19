@@ -95,7 +95,9 @@ router.post("/api/social/search", authenticateToken, (req, res) => {
     `SELECT u.id, u.username, u.profile_picture_url,
             (SELECT status FROM connections WHERE user_id = ? AND friend_id = u.id) as status
      FROM users u
-     WHERE LOWER(u.username) LIKE LOWER(?) AND (u.search_privacy = 0 OR u.search_privacy IS NULL)
+     WHERE LOWER(u.username) LIKE LOWER(?) 
+       AND (u.search_privacy = 0 OR u.search_privacy IS NULL)
+       AND u.deleted_at IS NULL
      ORDER BY u.username ASC
      LIMIT 10`,
     [req.user.id, `%${searchTerm}%`],
@@ -327,6 +329,7 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
         FROM users u
         LEFT JOIN activities a ON a.user_id = u.id AND a.start_date >= datetime('now', '-7 days') AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10))
         WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
+          AND u.deleted_at IS NULL
         GROUP BY u.id
         ORDER BY total_rooka_score DESC
     `,

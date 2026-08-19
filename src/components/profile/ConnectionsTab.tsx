@@ -90,9 +90,15 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         setIsAppleConnected(true);
         await AsyncStorage.setItem('apple_health_connected', 'true');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert(
+          'Permission Required',
+          'Apple Health access could not be granted. Please open the Apple Settings or Health app on your iPhone to manually allow Rooka to access WorkoutKit.'
+        );
       }
     } catch (err: any) {
       console.error('Apple Health connect error:', err);
+      Alert.alert('Error', 'Failed to request Apple Health permissions.');
     }
   };
 
@@ -184,7 +190,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           >
             <Ionicons name="shield-checkmark-outline" size={16} color="#FFF" />
             <Text className="text-white font-bold text-xs ml-2">
-              Permissions
+              Connect
             </Text>
           </TouchableOpacity>
 

@@ -983,8 +983,8 @@ export default function OnboardingWizard() {
             if (node.type === 'user_text') {
               return (
                 <View key={node.id} className="flex-row justify-end mb-7 pl-12">
-                  <View className="bg-theme-card rounded-3xl px-4 py-2.5 max-w-[80%]">
-                    <Text className="text-theme-text text-[16px] leading-[24px]">{node.text}</Text>
+                  <View className="bg-theme-accent rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] shadow-sm">
+                    <Text className="text-white font-medium text-[16px] leading-[24px]">{node.text}</Text>
                   </View>
                 </View>
               );

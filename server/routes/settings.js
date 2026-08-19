@@ -219,16 +219,26 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
   const cycleTrackingValNum = cycleTrackingVal === false || cycleTrackingVal === 0 ? 0 : cycleTrackingVal === true || cycleTrackingVal === 1 ? 1 : null;
 
   db.run(
-    `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, cycle_tracking_enabled = COALESCE(?, cycle_tracking_enabled), last_cycle_start = ?, training_availability = ?, onboarding_completed = CASE WHEN ? = 1 THEN 1 ELSE onboarding_completed END WHERE id = ?`,
+    `UPDATE users SET 
+      coach_tone = COALESCE(?, coach_tone), 
+      coach_name = COALESCE(?, coach_name), 
+      coach_context = COALESCE(?, coach_context), 
+      athlete_context = COALESCE(?, athlete_context), 
+      gender = COALESCE(?, gender), 
+      cycle_tracking_enabled = COALESCE(?, cycle_tracking_enabled), 
+      last_cycle_start = COALESCE(?, last_cycle_start), 
+      training_availability = COALESCE(?, training_availability), 
+      onboarding_completed = CASE WHEN ? = 1 THEN 1 ELSE onboarding_completed END 
+    WHERE id = ?`,
     [
-      coachTone,
-      coachName || "Rooka",
-      coachContext || "",
-      athleteContext,
-      gender || "Prefer not to share",
-      cycleTrackingValNum,
-      lastCycleStart || null,
-      availabilityStr,
+      coachTone !== undefined ? coachTone : null,
+      coachName !== undefined ? coachName : null,
+      coachContext !== undefined ? coachContext : null,
+      athleteContext !== undefined ? athleteContext : null,
+      gender !== undefined ? gender : null,
+      cycleTrackingValNum !== undefined ? cycleTrackingValNum : null,
+      lastCycleStart !== undefined ? lastCycleStart : null,
+      trainingAvailability !== undefined ? availabilityStr : null,
       markCompleted,
       req.user.id,
     ],

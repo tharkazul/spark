@@ -98,7 +98,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [messages, lastReadTimestamp]);
 
   const markAsRead = useCallback(async () => {
-    const now = Date.now();
+    let maxMsgTime = 0;
+    setMessagesState(prev => {
+      prev.forEach(m => {
+        const t = new Date(m.timestamp || 0).getTime();
+        if (t > maxMsgTime) maxMsgTime = t;
+      });
+      return prev;
+    });
+    const now = Math.max(Date.now(), maxMsgTime + 1000);
     setLastReadTimestamp(now);
     setUnreadCount(0);
     await chatReadStorage.setLastReadTimestamp(now);
@@ -126,8 +134,16 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     }
     const proposedPlan = parseWorkoutProposals(msg.content);
     const payload = parsePayloadJson(msg);
+    
+    // Ensure SQLite timestamp is parsed as UTC
+    let safeTimestamp = msg.timestamp || new Date().toISOString();
+    if (safeTimestamp && typeof safeTimestamp === 'string' && !safeTimestamp.includes('Z') && !safeTimestamp.includes('T')) {
+      safeTimestamp = safeTimestamp.replace(' ', 'T') + 'Z';
+    }
+
     return {
       ...msg,
+      timestamp: safeTimestamp,
       images: msg.images || images,
       proposedPlan: msg.proposedPlan || proposedPlan,
       proposalStatus: msg.proposalStatus || (proposedPlan ? 'pending' : undefined),
@@ -150,10 +166,18 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       const response = await chatApi.getHistory();
       if (response) {
         if (Array.isArray(response) && response.length > 0) {
-          const processed = response.map(processMessageItem);
+          const processed = response.map(m => processMessageItem({
+            ...m,
+            id: m.id?.toString(),
+            timestamp: m.timestamp || m.created_at
+          }));
           setMessages(processed);
         } else if ('history' in response && response.history && Array.isArray(response.history) && response.history.length > 0) {
-          const processed = response.history.map(processMessageItem);
+          const processed = response.history.map(m => processMessageItem({
+            ...m,
+            id: m.id?.toString(),
+            timestamp: m.timestamp || m.created_at
+          }));
           setMessages(processed);
           if (response.tokenUsage) {
             setTokenUsage(response.tokenUsage);
@@ -190,7 +214,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       wordsInChunk++;
 
       const isPunctuationBreak = /[.,!?:;\n]/.test(token);
-      if (wordsInChunk >= 2 || isPunctuationBreak || i === tokens.length - 1) {
+      if (wordsInChunk >= 1 || isPunctuationBreak || i === tokens.length - 1) {
         chunks.push(currentChunk);
         currentChunk = '';
         wordsInChunk = 0;

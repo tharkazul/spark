@@ -270,8 +270,10 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
         if (activityData.best_efforts && activityData.best_efforts.length > 0) {
           extractedSets = activityData.best_efforts.map((be) => ({
             name: be.name,
-            time: be.moving_time,
+            time: be.moving_time || be.elapsed_time,
+            elapsed_time: be.elapsed_time,
             distance: be.distance,
+            pr_rank: be.pr_rank,
           }));
         }
         // Strava strength training structure (defensive parsing)

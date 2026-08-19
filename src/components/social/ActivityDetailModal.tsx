@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -27,6 +27,116 @@ interface ActivityDetailModalProps {
   activityId: string | number | null;
   initialActivity?: Partial<Activity>;
   onClose: () => void;
+}
+
+function getBoundingRegion(points: Coordinate[]) {
+  if (!points || points.length === 0) return null;
+
+  let minLat = points[0].latitude;
+  let maxLat = points[0].latitude;
+  let minLng = points[0].longitude;
+  let maxLng = points[0].longitude;
+
+  for (let i = 1; i < points.length; i++) {
+    const pt = points[i];
+    if (typeof pt.latitude !== 'number' || typeof pt.longitude !== 'number') continue;
+    if (pt.latitude < minLat) minLat = pt.latitude;
+    if (pt.latitude > maxLat) maxLat = pt.latitude;
+    if (pt.longitude < minLng) minLng = pt.longitude;
+    if (pt.longitude > maxLng) maxLng = pt.longitude;
+  }
+
+  const midLat = (minLat + maxLat) / 2;
+  const midLng = (minLng + maxLng) / 2;
+
+  const rawLatDelta = maxLat - minLat;
+  const rawLngDelta = maxLng - minLng;
+
+  const latDelta = Math.max(rawLatDelta * 1.35, 0.0035);
+  const lngDelta = Math.max(rawLngDelta * 1.35, 0.0035);
+
+  return {
+    latitude: midLat,
+    longitude: midLng,
+    latitudeDelta: latDelta,
+    longitudeDelta: lngDelta,
+  };
+}
+
+export interface ActivitySetOrEffort {
+  name: string;
+  weight?: number;
+  reps?: number;
+  timeSec?: number;
+  distanceMeters?: number;
+  paceOrSpeed?: string;
+  prRank?: number;
+  isMilestone: boolean;
+  completed?: boolean;
+}
+
+function getMilestoneDistanceFromName(name?: string): number | undefined {
+  if (!name) return undefined;
+  const n = name.trim().toLowerCase();
+  if (n === '400m') return 400;
+  if (n === '1/2 mile' || n === '1/2 mi' || n === '0.5 mile' || n === '800m') return 804.67;
+  if (n === '1k' || n === '1 km') return 1000;
+  if (n === '1 mile' || n === '1 mi') return 1609.34;
+  if (n === '2 mile' || n === '2 mi') return 3218.68;
+  if (n === '5k' || n === '5 km') return 5000;
+  if (n === '10k' || n === '10 km') return 10000;
+  if (n === '15k' || n === '15 km') return 15000;
+  if (n === '10 mile' || n === '10 mi') return 16093.4;
+  if (n === '20k' || n === '20 km') return 20000;
+  if (n === 'half-marathon' || n === 'half marathon') return 21097.5;
+  if (n === 'marathon') return 42195;
+
+  const mMatch = n.match(/^(\d+(?:\.\d+)?)\s*m$/);
+  if (mMatch) return parseFloat(mMatch[1]);
+  const kMatch = n.match(/^(\d+(?:\.\d+)?)\s*k(?:m)?$/);
+  if (kMatch) return parseFloat(kMatch[1]) * 1000;
+  const miMatch = n.match(/^(\d+(?:\.\d+)?)\s*mi(?:le)?s?$/);
+  if (miMatch) return parseFloat(miMatch[1]) * 1609.34;
+
+  return undefined;
+}
+
+function formatEffortDuration(sec?: number): string {
+  if (!sec || isNaN(sec) || sec <= 0) return '--:--';
+  const totalSeconds = Math.round(sec);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function calculateEffortPaceOrSpeed(
+  sec: number,
+  distanceMeters: number | undefined,
+  isCycling: boolean,
+  isSwim: boolean
+): string {
+  if (!sec || !distanceMeters || distanceMeters <= 0 || sec <= 0) return '';
+  const distKm = distanceMeters / 1000;
+
+  if (isCycling) {
+    const speedKmh = (distKm / (sec / 3600)).toFixed(1);
+    return `${speedKmh} km/u`;
+  } else if (isSwim) {
+    const sec100m = sec / (distanceMeters / 100);
+    const m = Math.floor(sec100m / 60);
+    const s = Math.round(sec100m % 60);
+    return `${m}:${s.toString().padStart(2, '0')} /100m`;
+  } else {
+    // Run, Walk, Hike
+    const paceSec = sec / distKm;
+    const m = Math.floor(paceSec / 60);
+    const s = Math.round(paceSec % 60);
+    return `${m}:${s.toString().padStart(2, '0')} /km`;
+  }
 }
 
 // Normalizer to unify Strava API responses, Local SQLite responses, and partial feed objects
@@ -196,6 +306,25 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
   const [kudosCount, setKudosCount] = useState<number>(0);
   const [coordinates, setCoordinates] = useState<Coordinate[]>([]);
   const [isLapsExpanded, setIsLapsExpanded] = useState<boolean>(false);
+  const mapRef = useRef<MapView>(null);
+
+  const fitMapToRoute = (animated = false) => {
+    if (mapRef.current && coordinates && coordinates.length > 0) {
+      mapRef.current.fitToCoordinates(coordinates, {
+        edgePadding: { top: 32, right: 32, bottom: 32, left: 32 },
+        animated,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (coordinates && coordinates.length > 0 && visible) {
+      const timer = setTimeout(() => {
+        fitMapToRoute(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [coordinates, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -316,41 +445,16 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
     }
   };
 
-  // Parse strength sets
-  const parseStrengthSets = (): StrengthSetItem[] => {
-    if (!activity?.sets_json) return [];
-    try {
-      const parsed = typeof activity.sets_json === 'string' ? JSON.parse(activity.sets_json) : activity.sets_json;
-      if (Array.isArray(parsed)) {
-        return parsed.flatMap((item: any) => {
-          if (item.type === 'repeat' && Array.isArray(item.steps)) {
-            return item.steps.map((st: any) => ({
-              exerciseName: st.exerciseName || st.name || st.type || 'Exercise',
-              weight: st.weight,
-              reps: st.condition_value || st.reps,
-              completed: true,
-            }));
-          }
-          return [
-            {
-              exerciseName: item.exerciseName || item.name || item.type || 'Exercise',
-              weight: item.weight,
-              reps: item.condition_value || item.reps,
-              completed: true,
-            },
-          ];
-        });
-      }
-    } catch (e) {
-      // ignore
-    }
-    return [];
-  };
-
-  const strengthSets = parseStrengthSets();
-
   const sportUpper = (activity?.sport_type || '').toUpperCase();
   const nameUpper = (activity?.name || '').toUpperCase();
+  const isStrength =
+    sportUpper.includes('STRENGTH') ||
+    sportUpper.includes('WEIGHT') ||
+    sportUpper.includes('GYM') ||
+    sportUpper.includes('CROSSFIT') ||
+    nameUpper.includes('STRENGTH') ||
+    nameUpper.includes('GYM') ||
+    nameUpper.includes('WEIGHT');
   const isCycling =
     sportUpper.includes('BIKE') ||
     sportUpper.includes('RIDE') ||
@@ -359,6 +463,70 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
     nameUpper.includes('BIKE') ||
     nameUpper.includes('CYCLING');
   const isSwim = sportUpper.includes('SWIM') || nameUpper.includes('SWIM');
+
+  // Parse strength sets or best efforts / milestones
+  const parseSetsOrEfforts = (): ActivitySetOrEffort[] => {
+    if (!activity?.sets_json) return [];
+    try {
+      const parsed = typeof activity.sets_json === 'string' ? JSON.parse(activity.sets_json) : activity.sets_json;
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed.flatMap((item: any) => {
+        if (item.type === 'repeat' && Array.isArray(item.steps)) {
+          return item.steps.map((st: any) => ({
+            name: st.exerciseName || st.name || st.type || 'Exercise',
+            weight: st.weight,
+            reps: st.condition_value || st.reps,
+            timeSec: st.time || st.moving_time || st.elapsed_time || st.durationSec,
+            distanceMeters: st.distance,
+            isMilestone: false,
+            completed: true,
+          }));
+        }
+
+        const name = item.exerciseName || item.name || item.type || 'Effort';
+        const timeSec = item.time || item.moving_time || item.elapsed_time || item.durationSec;
+        let distanceMeters = item.distance;
+        if (!distanceMeters) {
+          distanceMeters = getMilestoneDistanceFromName(name);
+        }
+        const weight = item.weight;
+        const reps = item.condition_value || item.reps;
+        const prRank = item.pr_rank || item.prRank;
+
+        const isMilestone =
+          !isStrength &&
+          (distanceMeters !== undefined ||
+            (timeSec !== undefined && !weight && !reps) ||
+            /(\d+m|\d+k|mile|marathon|effort)/i.test(name));
+
+        const paceOrSpeed =
+          isMilestone && timeSec && distanceMeters
+            ? calculateEffortPaceOrSpeed(timeSec, distanceMeters, isCycling, isSwim)
+            : undefined;
+
+        return [
+          {
+            name,
+            weight,
+            reps,
+            timeSec,
+            distanceMeters,
+            paceOrSpeed,
+            prRank,
+            isMilestone,
+            completed: true,
+          },
+        ];
+      });
+    } catch (e) {
+      // ignore
+    }
+    return [];
+  };
+
+  const setsOrEfforts = parseSetsOrEfforts();
+  const hasMilestones = setsOrEfforts.some((s) => s.isMilestone);
 
   // Generate synthetic lap splits if distance > 0 and no native laps
   const getLapSplits = (): ActivityLap[] => {
@@ -443,6 +611,13 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
     const end = coordinates[coordinates.length - 1];
     if (!start || typeof start.latitude !== 'number' || isNaN(start.latitude)) return null;
 
+    const initialRegion = getBoundingRegion(coordinates) || {
+      latitude: start.latitude,
+      longitude: start.longitude,
+      latitudeDelta: 0.005,
+      longitudeDelta: 0.005,
+    };
+
     return (
       <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 mb-4">
         <Text className="text-[11px] uppercase font-bold tracking-wider text-[#64748B] mb-3">
@@ -450,13 +625,10 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
         </Text>
         <View className="h-56 rounded-xl overflow-hidden border border-[#E2E8F0] dark:border-slate-800">
           <MapView
+            ref={mapRef}
             style={{ width: '100%', height: '100%' }}
-            initialRegion={{
-              latitude: start.latitude,
-              longitude: start.longitude,
-              latitudeDelta: 0.03,
-              longitudeDelta: 0.03,
-            }}
+            initialRegion={initialRegion}
+            onMapReady={() => fitMapToRoute(false)}
             scrollEnabled
             zoomEnabled
           >
@@ -682,32 +854,78 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
             {/* GPS ROUTE MAP */}
             {renderMap()}
 
-            {/* STRENGTH SETS BREAKDOWN */}
-            {strengthSets.length > 0 && (
+            {/* SETS OR MILESTONES BREAKDOWN */}
+            {setsOrEfforts.length > 0 && (
               <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 mb-4">
                 <Text className="text-[11px] uppercase font-bold tracking-wider text-[#64748B] mb-3">
-                  Strength Sets Breakdown ({strengthSets.length})
+                  {hasMilestones ? 'Best Efforts & Milestones' : 'Strength Sets Breakdown'} ({setsOrEfforts.length})
                 </Text>
 
-                {strengthSets.map((set, idx) => (
+                {setsOrEfforts.map((item, idx) => (
                   <View
-                    key={`set-${idx}`}
+                    key={`effort-${idx}`}
                     className="flex-row justify-between items-center bg-[#F8FAFC] dark:bg-slate-800/40 p-3 rounded-xl mb-2 border border-[#F1F5F9] dark:border-slate-800/60"
                   >
-                    <View className="flex-row items-center space-x-2.5">
-                      <View className="w-6 h-6 rounded-full bg-theme-accent/20 items-center justify-center mr-2">
-                        <Text className="text-xs font-bold text-theme-accent">{idx + 1}</Text>
+                    <View className="flex-row items-center space-x-2.5 flex-1 pr-2">
+                      <View
+                        className={`w-6 h-6 rounded-full items-center justify-center mr-2 ${
+                          item.prRank === 1 ? 'bg-amber-500/20' : 'bg-theme-accent/20'
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs font-bold ${
+                            item.prRank === 1 ? 'text-amber-600 dark:text-amber-400' : 'text-theme-accent'
+                          }`}
+                        >
+                          {idx + 1}
+                        </Text>
                       </View>
-                      <Text className="text-sm font-bold text-theme-text">{set.exerciseName}</Text>
+                      <View className="flex-row items-center flex-wrap">
+                        <Text className="text-sm font-bold text-theme-text">{item.name}</Text>
+                        {item.prRank === 1 && (
+                          <View className="bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-2">
+                            <Text className="text-[10px] font-bold text-amber-600 dark:text-amber-300">PR</Text>
+                          </View>
+                        )}
+                        {item.prRank === 2 && (
+                          <View className="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded ml-2">
+                            <Text className="text-[10px] font-bold text-slate-600 dark:text-slate-300">2nd Best</Text>
+                          </View>
+                        )}
+                        {item.prRank === 3 && (
+                          <View className="bg-amber-900/20 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-2">
+                            <Text className="text-[10px] font-bold text-amber-700 dark:text-amber-400">3rd Best</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
 
-                    <Text
-                      className="text-xs font-bold font-mono text-theme-accent"
-                      style={{ fontVariant: ['tabular-nums'] }}
-                    >
-                      {set.weight ? `${set.weight} kg × ` : ''}
-                      {set.reps ? `${set.reps} reps` : 'Complete'}
-                    </Text>
+                    {item.isMilestone ? (
+                      <View className="items-end">
+                        <Text
+                          className="text-sm font-bold font-mono text-theme-text"
+                          style={{ fontVariant: ['tabular-nums'] }}
+                        >
+                          {formatEffortDuration(item.timeSec)}
+                        </Text>
+                        {item.paceOrSpeed ? (
+                          <Text
+                            className="text-[11px] font-medium font-mono text-[#64748B] dark:text-slate-400"
+                            style={{ fontVariant: ['tabular-nums'] }}
+                          >
+                            {item.paceOrSpeed}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Text
+                        className="text-xs font-bold font-mono text-theme-accent"
+                        style={{ fontVariant: ['tabular-nums'] }}
+                      >
+                        {item.weight ? `${item.weight} kg × ` : ''}
+                        {item.reps ? `${item.reps} reps` : 'Complete'}
+                      </Text>
+                    )}
                   </View>
                 ))}
               </View>

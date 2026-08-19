@@ -158,7 +158,7 @@ export const fr: TranslationKeys = {
     stretchHydrateAbsorb: 'S\'étirer, s\'hydrater et assimiler l\'entraînement',
     restAbsorbTraining: 'Repos et récupération',
     tapToEdit: 'Appuyez pour modifier',
-    sparkLevel: 'NIVEAU SPARK',
+    sparkLevel: 'NIVEAU ROOKA',
     progressNextLevel: 'Progression vers le niveau suivant',
     athleteArchetype: 'Archétype d\'athlète',
     balancedHybrid: 'Hybride équilibré',

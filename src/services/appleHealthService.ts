@@ -37,8 +37,9 @@ export async function requestAppleHealthPermissions(): Promise<boolean> {
     // Triggers the native Apple Health permission sheet
     const authStatus = await WorkoutScheduler.requestAuthorization();
     return authStatus === 'authorized';
-  } catch (err) {
+  } catch (err: any) {
     console.error('[AppleHealthService] Authorization error:', err);
+    Alert.alert('HealthKit Error', err?.message || JSON.stringify(err) || 'Unknown error occurred.');
     return false;
   }
 }

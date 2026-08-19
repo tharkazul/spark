@@ -2160,7 +2160,65 @@ function getEffectiveTokenLimit(user) {
   return dbLimit;
 }
 
+function extractAndCleanFoodItems(data) {
+  if (!data) return [];
+  let rawList = [];
+  if (Array.isArray(data.items)) {
+    rawList = data.items.map((item) =>
+      typeof item === 'object' && item ? item.name || item.item || item.summary || '' : String(item || '')
+    );
+  } else if (typeof data.items === 'string' && data.items.trim()) {
+    rawList = [data.items];
+  } else if (typeof data.summary === 'string' && data.summary.trim()) {
+    rawList = [data.summary];
+  } else if (typeof data.description === 'string' && data.description.trim()) {
+    rawList = [data.description];
+  } else if (typeof data.food === 'string' && data.food.trim()) {
+    rawList = [data.food];
+  } else if (typeof data.item === 'string' && data.item.trim()) {
+    rawList = [data.item];
+  }
+
+  const splitItems = [];
+  for (const raw of rawList) {
+    if (!raw || typeof raw !== 'string') continue;
+    // Split by comma
+    const commaParts = raw.split(/,\s*/);
+    for (const part of commaParts) {
+      // Split by " and " / " plus " if it separates distinct items (e.g. "pizza and a shake")
+      const andParts = part.split(/\s+(?:and|plus)\s+(?:a\s+|an\s+|the\s+|another\s+)?/i);
+      for (const p of andParts) {
+        splitItems.push(p);
+      }
+    }
+  }
+
+  const cleanedItems = [];
+  for (let str of splitItems) {
+    str = (str || '').trim();
+    if (!str) continue;
+
+    // Strip leading conversational prefixes
+    str = str
+      .replace(
+        /^(and\s+besides\s+that\s+|besides\s+that\s+|and\s+also\s+had\s+|also\s+had\s+|and\s+also\s+|and\s+a\s+|and\s+an\s+|and\s+|also\s+a\s+|also\s+|just\s+had\s+a\s+|just\s+had\s+|ate\s+a\s+|ate\s+|had\s+a\s+|had\s+|plus\s+a\s+|plus\s+)/i,
+        ''
+      )
+      .trim();
+    str = str.replace(/[.,;!]+$/, '').trim();
+
+    if (str.length > 0) {
+      // Capitalize first letter
+      str = str.charAt(0).toUpperCase() + str.slice(1);
+      cleanedItems.push(str);
+    }
+  }
+
+  return cleanedItems;
+}
+
 module.exports = {
+  extractAndCleanFoodItems,
   resetDailyTokensForAllUsers,
   resetDailyNutritionForAllUsers,
   getStravaShareSettings,

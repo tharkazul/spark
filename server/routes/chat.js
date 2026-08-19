@@ -36,6 +36,7 @@ const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const {
+  extractAndCleanFoodItems,
   matchGarminExercise,
   getAMSDateString,
   getAMSWeekday,
@@ -338,6 +339,24 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                               `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 6) ORDER BY id ASC`,
                                               [req.user.id],
                                               async (err, historyRows) => {
+                                                const todayStr = getAMSDateString();
+                                                db.get(
+                                                  `SELECT logged_carbs, logged_protein, logged_fat, items_summary FROM daily_diet_logs WHERE user_id = ? AND date = ?`,
+                                                  [req.user.id, todayStr],
+                                                  async (err, todayDietRow) => {
+                                                    const loggedCarbs = Math.round((todayDietRow && todayDietRow.logged_carbs) || 0);
+                                                    const loggedProtein = Math.round((todayDietRow && todayDietRow.logged_protein) || 0);
+                                                    const loggedFat = Math.round((todayDietRow && todayDietRow.logged_fat) || 0);
+                                                    const itemsSummary = todayDietRow && todayDietRow.items_summary ? todayDietRow.items_summary.trim() : "";
+
+                                                    let nutritionContextText = "TODAY'S LOGGED NUTRITION (SINGLE SOURCE OF TRUTH FOR DIET):\n";
+                                                    if (itemsSummary || loggedCarbs > 0 || loggedProtein > 0 || loggedFat > 0) {
+                                                      nutritionContextText += `- Current Logged Intake: ${loggedCarbs}g Carbs, ${loggedProtein}g Protein, ${loggedFat}g Fat\n`;
+                                                      nutritionContextText += `- Items Already Logged Today: ${itemsSummary || "None explicitly named"}`;
+                                                    } else {
+                                                      nutritionContextText += "No food or drinks have been logged yet today. (0g Carbs, 0g Protein, 0g Fat)";
+                                                    }
+
                                     try {
                                       let cleanHistory = [];
 
@@ -415,6 +434,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     ATHLETE CONTEXT:
                     Gender: ${user.gender || "Prefer not to share"}
                     ${user.athlete_context}
+                    
+                    ${nutritionContextText}
                     
                     ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT FOR FEMALE & ATHLETES TRACKING CYCLES: Proactively ask when her/their menstrual cycle starts to optimize training. Track these dates in your long term memory. Suggest and distribute exercises carefully, reducing physical demand during the strenuous days of the cycle." : ""}
 
@@ -560,20 +581,27 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     \`\`\`
 ` : ""}
 
-                    DIET & MEAL LOGGING (CRITICAL):
-                    ONLY output a "log_diet" JSON block if the athlete explicitly mentions NEW food/drink items in their LATEST text message. NEVER re-emit a "log_diet" JSON block for meals or items mentioned in earlier conversation history or past turns! If the athlete is asking a general question, do NOT output a "log_diet" block.
-                    Format it exactly like this inside triple backticks:
+                    DIET & MEAL LOGGING DIRECTIVES (CRITICAL - DELTA ONLY):
+                    When the athlete tells you about food or drink they consumed (e.g. "I just had a pepperoni pizza", "protein shake with 24g protein", "ate 2 bananas", "had a cookie"):
+                    1. ONLY output a "log_diet" JSON block if the athlete mentions NEW food/drink items in their LATEST text message.
+                    2. DELTA ONLY (CRITICAL): You MUST estimate the macro nutritional values (carbs, protein, fat) for ONLY the specific NEW item(s) in this single message. NEVER calculate cumulative daily totals, and NEVER sum up previous meals.
+                    3. DO NOT RE-LOG PAST FOODS: NEVER include or re-emit foods already listed under "TODAY'S LOGGED NUTRITION" or mentioned in previous turns. Even if the user says "and besides that...", they are only adding the new item!
+                    4. CLEAN ITEM NAMES: Provide concise, clean food descriptions in an "items" array without conversational filler.
+                       - NEVER include phrases like "and besides that", "also had", "and a", "had a", "ate a".
+                       - NEVER join multiple distinct foods into one string with 'and' (e.g. DO NOT do ["Pizza and a shake"]). Put them into separate array elements: ["Pepperoni pizza", "Protein shake (24g protein)"].
+                    5. Format EXACTLY like this inside triple backticks:
                     \`\`\`json
                     {
                       "type": "log_diet",
                       "data": {
-                        "carbs": 120,
-                        "protein": 95,
-                        "fat": 40,
-                        "summary": "Pizza, 2x protein shakes, chicken sandwich, banana"
+                        "items": ["Protein shake (24g protein)"],
+                        "carbs": 5,
+                        "protein": 24,
+                        "fat": 2
                       }
                     }
                     \`\`\`
+                    *(If multiple new items are mentioned in one message, e.g. "had a banana and an apple", list both in "items": ["1 Banana", "1 Apple"] with their combined delta macros).*
 
                     WEIGHT LOGGING:
                     If the athlete mentions their current weight, you MUST log it by outputting an additional JSON block. Format it exactly like this inside triple backticks:
@@ -629,35 +657,38 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                 .map(() => "?")
                                                 .join(",");
 
-                                              db.run(
-                                                `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
-                                                [req.user.id, ...affectedDates],
-                                                (err) => {
-                                                  if (err)
-                                                    console.error(
-                                                      "Failed to clear old plan data:",
-                                                      err,
-                                                    );
+                                              await new Promise((resolvePlan) => {
+                                                db.run(
+                                                  `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
+                                                  [req.user.id, ...affectedDates],
+                                                  (err) => {
+                                                    if (err)
+                                                      console.error(
+                                                        "Failed to clear old plan data:",
+                                                        err,
+                                                      );
 
-                                                  const stmt = db.prepare(`
+                                                    const stmt = db.prepare(`
                                         INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) 
                                         VALUES (?, ?, ?, ?, ?, ?, ?)
                                     `);
 
-                                                  planData.forEach((day) => {
-                                                    stmt.run(
-                                                      req.user.id,
-                                                      day.date,
-                                                      day.sport,
-                                                      day.description,
-                                                      day.target_rooka,
-                                                      day.details,
-                                                      day.steps_json || "[]",
-                                                    );
-                                                  });
-                                                  stmt.finalize();
-                                                },
-                                              );
+                                                    planData.forEach((day) => {
+                                                      stmt.run(
+                                                        req.user.id,
+                                                        day.date,
+                                                        day.sport,
+                                                        day.description,
+                                                        day.target_rooka,
+                                                        day.details,
+                                                        day.steps_json || "[]",
+                                                      );
+                                                    });
+                                                    stmt.finalize();
+                                                    resolvePlan();
+                                                  },
+                                                );
+                                              });
                                             }
                                             planUpdated = true;
                                           } else if (
@@ -665,22 +696,26 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             parsedData.type === "metrics" &&
                                             parsedData.data
                                           ) {
-                                            const stmt = db.prepare(
-                                              `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, ?, ?) ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
-                                            );
-                                            for (const [
-                                              key,
-                                              val,
-                                            ] of Object.entries(
-                                              parsedData.data,
-                                            )) {
-                                              stmt.run(
-                                                req.user.id,
-                                                key,
-                                                String(val),
-                                              );
-                                            }
-                                            stmt.finalize();
+                                            await new Promise((resolveMetrics) => {
+                                              db.serialize(() => {
+                                                const stmt = db.prepare(
+                                                  `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, ?, ?) ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
+                                                );
+                                                for (const [
+                                                  key,
+                                                  val,
+                                                ] of Object.entries(
+                                                  parsedData.data,
+                                                )) {
+                                                  stmt.run(
+                                                    req.user.id,
+                                                    key,
+                                                    String(val),
+                                                  );
+                                                }
+                                                stmt.finalize(() => resolveMetrics());
+                                              });
+                                            });
                                           } else if (
                                             parsedData &&
                                             parsedData.type === "log_cycle" &&
@@ -689,17 +724,20 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                           ) {
                                             const startDate =
                                               parsedData.data.start_date;
-                                            db.run(
-                                              `UPDATE users SET last_cycle_start = ? WHERE id = ?`,
-                                              [startDate, req.user.id],
-                                              (err) => {
-                                                if (err)
-                                                  console.error(
-                                                    "Failed to update cycle start date from chat:",
-                                                    err,
-                                                  );
-                                              },
-                                            );
+                                            await new Promise((resolveCycle) => {
+                                              db.run(
+                                                `UPDATE users SET last_cycle_start = ? WHERE id = ?`,
+                                                [startDate, req.user.id],
+                                                (err) => {
+                                                  if (err)
+                                                    console.error(
+                                                      "Failed to update cycle start date from chat:",
+                                                      err,
+                                                    );
+                                                  resolveCycle();
+                                                },
+                                              );
+                                            });
                                             planUpdated = true;
                                           } else if (
                                              parsedData &&
@@ -711,93 +749,119 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                              const bodyFat = parsedData.data.body_fat_percent !== undefined ? parseFloat(parsedData.data.body_fat_percent) : null;
                                              const todayStr = getAMSDateString();
 
-                                             // 1. Log to physique_logs table
-                                             db.run(
-                                               `INSERT INTO physique_logs (user_id, date, weight_kg, notes) VALUES (?, ?, ?, ?)`,
-                                               [req.user.id, todayStr, weightKg, "Caught via AI Coach chat"],
-                                               (err) => {
-                                                 if (err) console.error("Failed to log physique weight from chat:", err);
-                                               }
-                                             );
+                                             // Wait for both inserts to complete before continuing
+                                             await new Promise((resolveWeight) => {
+                                               let completed = 0;
+                                               const checkDone = () => {
+                                                 completed++;
+                                                 if (completed === 2) resolveWeight();
+                                               };
 
-                                             // 2. Log to biometrics table
-                                             db.run(
-                                               `INSERT INTO biometrics (user_id, date, weight_kg, body_fat_percent) VALUES (?, ?, ?, ?)
-                                                ON CONFLICT(user_id, date) DO UPDATE SET weight_kg=excluded.weight_kg, body_fat_percent=COALESCE(excluded.body_fat_percent, biometrics.body_fat_percent)`,
-                                               [req.user.id, todayStr, weightKg, bodyFat],
-                                               (err) => {
-                                                 if (err) console.error("Failed to log biometrics from chat:", err);
-                                               }
-                                             );
-                                          } else if (
-                                             parsedData &&
-                                             (parsedData.type === "log_nutrition" || parsedData.type === "log_diet") &&
-                                             parsedData.data
-                                           ) {
-                                             const diet = parsedData.data;
-                                             const todayStr = getAMSDateString();
-                                             const carbs = Number(diet.carbs || 0);
-                                             const protein = Number(diet.protein || 0);
-                                             const fat = Number(diet.fat || 0);
-                                             const summary = String(diet.summary || "").trim();
+                                               db.run(
+                                                 `INSERT INTO physique_logs (user_id, date, weight_kg, notes) VALUES (?, ?, ?, ?)`,
+                                                 [req.user.id, todayStr, weightKg, "Caught via AI Coach chat"],
+                                                 (err) => {
+                                                   if (err) console.error("Failed to log physique weight from chat:", err);
+                                                   checkDone();
+                                                 }
+                                               );
 
-                                             // Sync daily_diet_logs & nutrition_intake with deduplication check
-                                             await new Promise((resolveDiet) => {
-                                               db.get(
-                                                 `SELECT logged_carbs, logged_protein, logged_fat, items_summary FROM daily_diet_logs WHERE user_id = ? AND date = ?`,
-                                                 [req.user.id, todayStr],
-                                                 (err, existingRow) => {
-                                                   const existingSummary = existingRow ? (existingRow.items_summary || "") : "";
-
-                                                   // Guard: Skip if exact summary item has already been logged today
-                                                   if (summary && existingSummary && existingSummary.includes(summary)) {
-                                                     console.log(`[Diet] Skipping duplicate diet log: "${summary}"`);
-                                                     return resolveDiet();
-                                                   }
-
-                                                   const newCarbs = (existingRow ? (existingRow.logged_carbs || 0) : 0) + carbs;
-                                                   const newProtein = (existingRow ? (existingRow.logged_protein || 0) : 0) + protein;
-                                                   const newFat = (existingRow ? (existingRow.logged_fat || 0) : 0) + fat;
-
-                                                   let newSummary = existingSummary;
-                                                   if (summary) {
-                                                     newSummary = newSummary ? `${newSummary}, ${summary}` : summary;
-                                                   }
-
-                                                   // 1. Sync nutrition_intake
-                                                   db.run(
-                                                     `INSERT INTO nutrition_intake (user_id, date, carbs, protein, fat)
-                                                      VALUES (?, ?, ?, ?, ?)
-                                                      ON CONFLICT(user_id, date) DO UPDATE SET
-                                                        carbs = excluded.carbs,
-                                                        protein = excluded.protein,
-                                                        fat = excluded.fat`,
-                                                     [req.user.id, todayStr, newCarbs, newProtein, newFat],
-                                                     (err) => {
-                                                       if (err) console.error("Failed to insert nutrition intake:", err);
-                                                     }
-                                                   );
-
-                                                   // 2. Sync daily_diet_logs
-                                                   db.run(
-                                                     `INSERT INTO daily_diet_logs (user_id, date, logged_carbs, logged_protein, logged_fat, items_summary, updated_at)
-                                                      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                                                      ON CONFLICT(user_id, date) DO UPDATE SET
-                                                        logged_carbs = excluded.logged_carbs,
-                                                        logged_protein = excluded.logged_protein,
-                                                        logged_fat = excluded.logged_fat,
-                                                        items_summary = excluded.items_summary,
-                                                        updated_at = CURRENT_TIMESTAMP`,
-                                                     [req.user.id, todayStr, newCarbs, newProtein, newFat, newSummary],
-                                                     (err) => {
-                                                       if (err) console.error("Failed to upsert daily_diet_logs:", err);
-                                                       resolveDiet();
-                                                     }
-                                                   );
+                                               db.run(
+                                                 `INSERT INTO biometrics (user_id, date, weight_kg, body_fat_percent) VALUES (?, ?, ?, ?)
+                                                  ON CONFLICT(user_id, date) DO UPDATE SET weight_kg=excluded.weight_kg, body_fat_percent=COALESCE(excluded.body_fat_percent, biometrics.body_fat_percent)`,
+                                                 [req.user.id, todayStr, weightKg, bodyFat],
+                                                 (err) => {
+                                                   if (err) console.error("Failed to log biometrics from chat:", err);
+                                                   checkDone();
                                                  }
                                                );
                                              });
-                                             planUpdated = true;
+                                          } else if (
+                                            parsedData &&
+                                            (parsedData.type === "log_nutrition" || parsedData.type === "log_diet") &&
+                                            parsedData.data
+                                          ) {
+                                            const diet = parsedData.data;
+                                            const todayStr = getAMSDateString();
+                                            const carbs = Number(diet.carbs || 0);
+                                            const protein = Number(diet.protein || 0);
+                                            const fat = Number(diet.fat || 0);
+
+                                            // Sync daily_diet_logs & nutrition_intake with smart item extraction and deduplication
+                                            await new Promise((resolveDiet) => {
+                                              db.get(
+                                                `SELECT logged_carbs, logged_protein, logged_fat, items_summary FROM daily_diet_logs WHERE user_id = ? AND date = ?`,
+                                                [req.user.id, todayStr],
+                                                (err, existingRow) => {
+                                                  const existingSummary = existingRow ? (existingRow.items_summary || "") : "";
+                                                  const existingItems = existingSummary
+                                                    ? existingSummary.split(',').map((s) => s.trim()).filter(Boolean)
+                                                    : [];
+                                                  const existingNormalized = existingItems.map((s) => s.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+                                                  const candidateItems = extractAndCleanFoodItems(diet);
+
+                                                  // Filter out items that already exist in today's log
+                                                  const newItems = candidateItems.filter((item) => {
+                                                    const norm = item.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                                    if (!norm) return false;
+                                                    const isDuplicate = existingNormalized.some(
+                                                      (exNorm) =>
+                                                        exNorm === norm ||
+                                                        (exNorm.length > 5 && norm.length > 5 && (exNorm.includes(norm) || norm.includes(exNorm)))
+                                                    );
+                                                    return !isDuplicate;
+                                                  });
+
+                                                  // Guard: If all candidate items were already logged today, skip adding duplicate calories/macros
+                                                  if (newItems.length === 0 && candidateItems.length > 0) {
+                                                    console.log(`[Diet] Skipping duplicate diet log. All items already logged: "${candidateItems.join(', ')}"`);
+                                                    return resolveDiet();
+                                                  }
+
+                                                  const itemsToAdd = newItems.length > 0 ? newItems : candidateItems;
+
+                                                  const newCarbs = Math.max(0, (existingRow ? (existingRow.logged_carbs || 0) : 0) + carbs);
+                                                  const newProtein = Math.max(0, (existingRow ? (existingRow.logged_protein || 0) : 0) + protein);
+                                                  const newFat = Math.max(0, (existingRow ? (existingRow.logged_fat || 0) : 0) + fat);
+
+                                                  const updatedItemsList = [...existingItems, ...itemsToAdd];
+                                                  const newSummary = updatedItemsList.join(', ');
+
+                                                  // 1. Sync nutrition_intake
+                                                  db.run(
+                                                    `INSERT INTO nutrition_intake (user_id, date, carbs, protein, fat)
+                                                     VALUES (?, ?, ?, ?, ?)
+                                                     ON CONFLICT(user_id, date) DO UPDATE SET
+                                                       carbs = excluded.carbs,
+                                                       protein = excluded.protein,
+                                                       fat = excluded.fat`,
+                                                    [req.user.id, todayStr, newCarbs, newProtein, newFat],
+                                                    (err) => {
+                                                      if (err) console.error("Failed to insert nutrition intake:", err);
+                                                    }
+                                                  );
+
+                                                  // 2. Sync daily_diet_logs
+                                                  db.run(
+                                                    `INSERT INTO daily_diet_logs (user_id, date, logged_carbs, logged_protein, logged_fat, items_summary, updated_at)
+                                                     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                                                     ON CONFLICT(user_id, date) DO UPDATE SET
+                                                       logged_carbs = excluded.logged_carbs,
+                                                       logged_protein = excluded.logged_protein,
+                                                       logged_fat = excluded.logged_fat,
+                                                       items_summary = excluded.items_summary,
+                                                       updated_at = CURRENT_TIMESTAMP`,
+                                                    [req.user.id, todayStr, newCarbs, newProtein, newFat, newSummary],
+                                                    (err) => {
+                                                      if (err) console.error("Failed to upsert daily_diet_logs:", err);
+                                                      resolveDiet();
+                                                    }
+                                                  );
+                                                }
+                                              );
+                                            });
+                                            planUpdated = true;
                                           } else if (
                                             parsedData &&
                                             parsedData.type ===
@@ -1013,7 +1077,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         });
                                     }
                                   },
-                                ); // End chat history
+                                ); // End daily diet logs
+                                        },
+                                      ); // End chat history
                                         },
                                       ); // End benchmark tests
                                     },

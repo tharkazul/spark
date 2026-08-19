@@ -61,7 +61,12 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
         const loggedFat = Number(p.loggedFat ?? intake.fat ?? 0);
         const loggedItems = Array.isArray(p.loggedItems)
           ? p.loggedItems
-          : (p.items_summary ? p.items_summary.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+          : (p.items_summary
+              ? p.items_summary
+                  .split(',')
+                  .map((s: string) => s.trim().replace(/^(and\s+a\s+|and\s+|also\s+had\s+|besides\s+that\s+)/i, '').trim())
+                  .filter(Boolean)
+              : []);
 
         setNutrition({
           focusTitle: suggested.title || p.title || p.focusTitle || 'Daily Endurance Protocol',
