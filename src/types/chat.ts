@@ -65,5 +65,8 @@ export interface ChatMessage {
   payload_json?: ChatPayload;
   isStreaming?: boolean;
   isError?: boolean;
+  created_at?: string;
+  text?: string;
+  sender?: string;
 }
 

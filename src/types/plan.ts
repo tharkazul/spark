@@ -32,6 +32,13 @@ export interface PlannedWorkout {
   isCompleted?: boolean;
   actualMetrics?: string;
   executionScore?: number;
+  title?: string;
+  type?: SportType | string;
+  dateStr?: string;
+  duration?: string;
+  rookaPoints?: number;
+  target_spark?: number;
+  steps?: WorkoutStep[];
   is_benchmark?: boolean;
   benchmark_type?: string;
 }

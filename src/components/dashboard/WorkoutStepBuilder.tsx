@@ -18,9 +18,6 @@ try {
     ScaleDecorator = mod.ScaleDecorator;
   }
 } catch (e) {
-  // Falling back to a plain FlatList silently disables drag-reorder entirely
-  // (no `drag`/`isActive` passed to renderItem), so surface it instead of
-  // failing silently.
   console.warn('[WorkoutStepBuilder] react-native-draggable-flatlist failed to load, falling back to FlatList:', e);
   DraggableFlatListComponent = FlatList;
 }
@@ -46,7 +43,7 @@ const MemoizedHeader = React.memo(({
     <>
       {ListHeaderComponent}
 
-      {/* UNIFIED WORKOUT STRUCTURE BUILDER CARD CONTAINER */}
+      {/* UNIFIED WORKOUT STRUCTURE BUILDER CARD CONTAINER MATCHING IMAGE 1 */}
       <View className="p-4 rounded-[24px] bg-theme-bg/60 border border-theme-border my-3 flex-col gap-3.5">
         {/* Section Header */}
         <View className="flex-row items-center justify-between pb-2.5 border-b border-theme-border/60">
@@ -67,45 +64,50 @@ const MemoizedHeader = React.memo(({
 
         {/* Add Interval Blocks */}
         <View>
-          <Text className="text-[11px] font-bold text-slate-500 mb-2">
+          <Text className="text-[11px] font-bold text-slate-500 dark:text-theme-muted mb-2">
             Add Interval Blocks:
           </Text>
 
           <View className="flex-row flex-wrap gap-2 mb-1">
             <TouchableOpacity
               onPress={() => handleAddStep('warmup')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+              activeOpacity={0.7}
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
             >
-              <Text className="text-[13px] font-medium text-slate-700">+ Warmup</Text>
+              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400">+ Warmup</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('interval')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+              activeOpacity={0.7}
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
             >
-              <Text className="text-[13px] font-medium text-slate-700">+ Interval</Text>
+              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">+ Interval</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('recovery')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+              activeOpacity={0.7}
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
             >
-              <Text className="text-[13px] font-medium text-slate-700">+ Recovery</Text>
+              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400">+ Recovery</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('cooldown')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+              activeOpacity={0.7}
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
             >
-              <Text className="text-[13px] font-medium text-slate-700">+ Cooldown</Text>
+              <Text className="text-xs font-bold text-purple-600 dark:text-purple-400">+ Cooldown</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleAddRepeat}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+              activeOpacity={0.7}
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1.5 shadow-xs"
             >
-              <Ionicons name="repeat" size={12} color="#334155" />
-              <Text className="text-[13px] font-medium text-slate-700">Repeat</Text>
+              <Ionicons name="repeat" size={13} color="#FF5F3B" />
+              <Text className="text-xs font-bold text-theme-accent">Repeat</Text>
             </TouchableOpacity>
           </View>
 
@@ -230,6 +232,24 @@ export function WorkoutStepBuilder({
     updateStepsAndNotify([...steps, repeatStep]);
   }, [isStrength, sport, steps, updateStepsAndNotify]);
 
+  const handleAddSubStep = useCallback((parentId: string | undefined, type: WorkoutStep['type']) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newSubStep: WorkoutStep = isStrength
+      ? { id: makeStepId(), type, condition_type: 'reps', condition_value: 10, target_type: 'no.target', weight: 0, exerciseName: '' }
+      : { id: makeStepId(), type, condition_type: 'time', condition_value: 3, target_type: 'no.target' };
+
+    updateStepsAndNotify(
+      steps.map((s) =>
+        s.id !== parentId
+          ? s
+          : {
+              ...s,
+              steps: [...(s.steps || []), newSubStep],
+            }
+      )
+    );
+  }, [isStrength, steps, updateStepsAndNotify]);
+
   const handleUpdateStep = useCallback((id: string | undefined, field: keyof WorkoutStep, val: any) => {
     updateStepsAndNotify(steps.map((s) => (s.id === id ? { ...s, [field]: val } : s)));
   }, [steps, updateStepsAndNotify]);
@@ -268,7 +288,7 @@ export function WorkoutStepBuilder({
 
   const renderItem = useCallback(({ item, drag, isActive }: { item: WorkoutStep; drag?: () => void; isActive?: boolean }) => {
     return (
-      <View>
+      <ScaleDecorator>
         <StepCard
           step={item}
           isStrength={isStrength}
@@ -279,10 +299,11 @@ export function WorkoutStepBuilder({
           onRemove={handleRemoveStep}
           onUpdateSub={handleUpdateSubStep}
           onRemoveSub={handleRemoveSubStep}
+          onAddSubStep={handleAddSubStep}
         />
-      </View>
+      </ScaleDecorator>
     );
-  }, [isStrength, sport, handleUpdateStep, handleRemoveStep, handleUpdateSubStep, handleRemoveSubStep]);
+  }, [isStrength, sport, handleUpdateStep, handleRemoveStep, handleUpdateSubStep, handleRemoveSubStep, handleAddSubStep]);
 
   // Shown as a dashed drop-zone in the slot the dragged step will land in if released.
   const renderPlaceholder = useCallback(({ item }: { item: WorkoutStep }) => {

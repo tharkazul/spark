@@ -4,15 +4,16 @@ import { Ionicons } from '@expo/vector-icons';
 export type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
 export interface SportIconConfig {
-  name: IoniconsName;
-  outlineName: IoniconsName;
+  name: string;
+  outlineName: string;
+  family?: 'Ionicons' | 'FontAwesome5';
   color: string;
   bgColor: string;
   label: string;
 }
 
 /**
- * Returns the appropriate Ionicons icon name and color config based on sport_type and activity name.
+ * Returns the appropriate icon config based on sport_type and activity name.
  */
 export function getSportIconConfig(sportType?: string, activityName?: string): SportIconConfig {
   const sport = (sportType || '').toLowerCase().trim();
@@ -54,8 +55,9 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     name.includes('swimming')
   ) {
     return {
-      name: 'water',
-      outlineName: 'water-outline',
+      name: 'swimmer',
+      outlineName: 'swimmer',
+      family: 'FontAwesome5',
       color: '#2E8FE0',
       bgColor: 'bg-[#2E8FE0]/15',
       label: 'SWIM',
@@ -317,12 +319,12 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
  * Returns the outline icon name for a given sport type and activity name.
  */
 export function getSportOutlineIcon(sportType?: string, activityName?: string): IoniconsName {
-  return getSportIconConfig(sportType, activityName).outlineName;
+  return getSportIconConfig(sportType, activityName).outlineName as IoniconsName;
 }
 
 /**
  * Returns the filled icon name for a given sport type and activity name.
  */
 export function getSportFilledIcon(sportType?: string, activityName?: string): IoniconsName {
-  return getSportIconConfig(sportType, activityName).name;
+  return getSportIconConfig(sportType, activityName).name as IoniconsName;
 }

@@ -10,7 +10,7 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -402,13 +402,14 @@ export function AddWorkoutModal({
                     <View>
                       <View className="flex-row items-center justify-between">
                       {[
-                        { type: 'RUN' as SportType, label: 'Run', icon: 'walk' },
-                        { type: 'BIKE' as SportType, label: 'Bike', icon: 'bicycle' },
-                        { type: 'SWIM' as SportType, label: 'Swim', icon: 'water' },
-                        { type: 'STRENGTH' as SportType, label: 'Strength', icon: 'barbell' },
-                        { type: 'MOBILITY' as SportType, label: 'Mobility', icon: 'body' },
+                        { type: 'RUN' as SportType, label: 'Run', icon: 'walk', isFa: false },
+                        { type: 'BIKE' as SportType, label: 'Bike', icon: 'bicycle', isFa: false },
+                        { type: 'SWIM' as SportType, label: 'Swim', icon: 'swimmer', isFa: true },
+                        { type: 'STRENGTH' as SportType, label: 'Strength', icon: 'barbell', isFa: false },
+                        { type: 'MOBILITY' as SportType, label: 'Mobility', icon: 'body', isFa: false },
                       ].map((item) => {
                         const isSelected = selectedSport === item.type;
+                        const iconColor = isSelected ? '#EA580C' : '#64748B';
                         return (
                           <TouchableOpacity
                             key={item.type}
@@ -421,14 +422,22 @@ export function AddWorkoutModal({
                             }`}
                             style={{ marginHorizontal: 2 }}
                           >
-                            <Ionicons
-                              name={item.icon as any}
-                              size={20}
-                              color={isSelected ? '#EA580C' : '#64748B'}
-                            />
+                            {item.isFa ? (
+                              <FontAwesome5
+                                name={item.icon as any}
+                                size={17}
+                                color={iconColor}
+                              />
+                            ) : (
+                              <Ionicons
+                                name={item.icon as any}
+                                size={20}
+                                color={iconColor}
+                              />
+                            )}
                             <Text
                               className={`text-[11px] font-bold mt-1 ${
-                                isSelected ? 'text-[#EA580C]' : 'text-[#64748B]'
+                                isSelected ? 'text-[#EA580C]' : 'text-slate-500'
                               }`}
                             >
                               {item.label}

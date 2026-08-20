@@ -172,14 +172,14 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           const processed = response.map(m => processMessageItem({
             ...m,
             id: m.id?.toString(),
-            timestamp: m.timestamp || m.created_at
+            timestamp: m.timestamp || (m as any).created_at || new Date().toISOString()
           }));
           setMessages(processed);
         } else if ('history' in response && response.history && Array.isArray(response.history) && response.history.length > 0) {
           const processed = response.history.map(m => processMessageItem({
             ...m,
             id: m.id?.toString(),
-            timestamp: m.timestamp || m.created_at
+            timestamp: m.timestamp || (m as any).created_at || new Date().toISOString()
           }));
           setMessages(processed);
           if (response.tokenUsage) {
