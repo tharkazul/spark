@@ -26,13 +26,13 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     (async () => {
       const savedLang = await languageStorage.getLanguage();
-      if (savedLang && (savedLang === 'en' || savedLang === 'nl')) {
+      if (savedLang && (['en', 'nl', 'de', 'es', 'fr'] as Language[]).includes(savedLang as Language)) {
         setLanguageState(savedLang as Language);
       }
     })();
   }, []);
 
-  const setLanguage = async (lang: Language) => {
+  const setLanguage = React.useCallback(async (lang: Language) => {
     setLanguageState(lang);
     await languageStorage.setLanguage(lang);
     if (getAuthToken()) {
@@ -42,48 +42,56 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
         // Ignore network errors or unauthenticated state
       }
     }
-  };
+  }, []);
 
-  const t = (path: string, params?: Record<string, string | number>): string => {
-    const dict = dictionaries[language] || dictionaries.en;
-    const fallbackDict = dictionaries.en;
+  const t = React.useCallback(
+    (path: string, params?: Record<string, string | number>): string => {
+      const dict = dictionaries[language] || dictionaries.en;
+      const fallbackDict = dictionaries.en;
 
-    const keys = path.split('.');
-    let val: any = dict;
-    let fallbackVal: any = fallbackDict;
+      const keys = path.split('.');
+      let val: any = dict;
+      let fallbackVal: any = fallbackDict;
 
-    for (const k of keys) {
-      if (val && typeof val === 'object') {
-        val = val[k];
-      } else {
-        val = undefined;
+      for (const k of keys) {
+        if (val && typeof val === 'object') {
+          val = val[k];
+        } else {
+          val = undefined;
+        }
+
+        if (fallbackVal && typeof fallbackVal === 'object') {
+          fallbackVal = fallbackVal[k];
+        } else {
+          fallbackVal = undefined;
+        }
       }
 
-      if (fallbackVal && typeof fallbackVal === 'object') {
-        fallbackVal = fallbackVal[k];
-      } else {
-        fallbackVal = undefined;
+      let result = val !== undefined ? val : fallbackVal !== undefined ? fallbackVal : path;
+
+      if (typeof result !== 'string') {
+        return path;
       }
-    }
 
-    let result = val !== undefined ? val : (fallbackVal !== undefined ? fallbackVal : path);
+      if (params) {
+        Object.keys(params).forEach((paramKey) => {
+          const regex = new RegExp(`\\{${paramKey}\\}`, 'g');
+          result = result.replace(regex, String(params[paramKey]));
+        });
+      }
 
-    if (typeof result !== 'string') {
-      return path;
-    }
+      return result;
+    },
+    [language]
+  );
 
-    if (params) {
-      Object.keys(params).forEach((paramKey) => {
-        const regex = new RegExp(`\\{${paramKey}\\}`, 'g');
-        result = result.replace(regex, String(params[paramKey]));
-      });
-    }
-
-    return result;
-  };
+  const contextValue = React.useMemo(
+    () => ({ language, setLanguage, t }),
+    [language, setLanguage, t]
+  );
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={contextValue}>
       {children}
     </LanguageContext.Provider>
   );

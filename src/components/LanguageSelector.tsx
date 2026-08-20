@@ -1,44 +1,55 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLanguage, Language } from '../context/LanguageContext';
+import { useColorScheme } from 'nativewind';
 
 interface LanguageSelectorProps {
   compact?: boolean;
 }
 
+const OPTIONS: { id: Language; label: string; flag: string }[] = [
+  { id: 'en', label: 'English', flag: '🇬🇧' },
+  { id: 'nl', label: 'Nederlands', flag: '🇳🇱' },
+  { id: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { id: 'es', label: 'Español', flag: '🇪🇸' },
+  { id: 'fr', label: 'Français', flag: '🇫🇷' },
+];
+
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = false }) => {
   const { language, setLanguage } = useLanguage();
-
-  const options: { id: Language; label: string; flag: string }[] = [
-    { id: 'en', label: 'English', flag: '🇬🇧' },
-    { id: 'nl', label: 'Nederlands', flag: '🇳🇱' },
-    { id: 'de', label: 'Deutsch', flag: '🇩🇪' },
-    { id: 'es', label: 'Español', flag: '🇪🇸' },
-    { id: 'fr', label: 'Français', flag: '🇫🇷' },
-  ];
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   if (compact) {
     return (
-      <View className="flex-row items-center bg-gray-100 dark:bg-zinc-800/80 p-1 rounded-full flex-wrap">
-        {options.map((opt) => {
+      <View
+        style={[
+          styles.compactContainer,
+          { backgroundColor: isDark ? 'rgba(39, 39, 42, 0.8)' : '#F3F4F6' },
+        ]}
+      >
+        {OPTIONS.map((opt) => {
           const active = language === opt.id;
           return (
-            <Pressable
+            <TouchableOpacity
               key={opt.id}
               onPress={() => setLanguage(opt.id)}
-              className={`px-2 py-0.5 rounded-full flex-row items-center space-x-1 ${
-                active ? 'bg-orange-500 shadow-sm' : 'bg-transparent'
-              }`}
+              activeOpacity={0.7}
+              style={[
+                styles.compactButton,
+                active && styles.activeButton,
+              ]}
             >
-              <Text className="text-[10px]">{opt.flag}</Text>
+              <Text style={styles.compactFlag}>{opt.flag}</Text>
               <Text
-                className={`text-[10px] font-bold ${
-                  active ? 'text-white' : 'text-gray-600 dark:text-zinc-400'
-                }`}
+                style={[
+                  styles.compactText,
+                  { color: active ? '#FFFFFF' : isDark ? '#A1A1AA' : '#4B5563' },
+                ]}
               >
                 {opt.id.toUpperCase()}
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -46,30 +57,98 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
   }
 
   return (
-    <View className="flex-row flex-wrap gap-2 w-full">
-      {options.map((opt) => {
+    <View style={styles.fullContainer}>
+      {OPTIONS.map((opt) => {
         const active = language === opt.id;
         return (
-          <Pressable
+          <TouchableOpacity
             key={opt.id}
             onPress={() => setLanguage(opt.id)}
-            className={`py-2.5 px-3 rounded-xl flex-row items-center space-x-2 ${
-              active
-                ? 'bg-theme-accent shadow-sm'
-                : 'bg-theme-bg/60 dark:bg-theme-bg/40 border border-theme-border/40'
-            }`}
+            activeOpacity={0.7}
+            style={[
+              styles.optionButton,
+              {
+                backgroundColor: active
+                  ? '#FF5733'
+                  : isDark
+                  ? 'rgba(30, 41, 59, 0.7)'
+                  : '#F1F5F9',
+                borderColor: active
+                  ? '#FF5733'
+                  : isDark
+                  ? 'rgba(51, 65, 85, 0.6)'
+                  : 'rgba(226, 232, 240, 0.8)',
+              },
+            ]}
           >
-            <Text className="text-sm">{opt.flag}</Text>
+            <Text style={styles.optionFlag}>{opt.flag}</Text>
             <Text
-              className={`text-xs font-bold ${
-                active ? 'text-white' : 'text-theme-text font-medium'
-              }`}
+              style={[
+                styles.optionLabel,
+                { color: active ? '#FFFFFF' : isDark ? '#F8FAFC' : '#0F172A' },
+              ]}
             >
               {opt.label}
             </Text>
-          </Pressable>
+          </TouchableOpacity>
         );
       })}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  compactContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 4,
+    borderRadius: 9999,
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  compactButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  activeButton: {
+    backgroundColor: '#FF5733',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  compactFlag: {
+    fontSize: 10,
+  },
+  compactText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  fullContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    width: '100%',
+  },
+  optionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+  },
+  optionFlag: {
+    fontSize: 14,
+  },
+  optionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+});

@@ -190,25 +190,10 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   shadowOpacity: 0.16,
                   shadowRadius: 10,
                   elevation: 8,
-                  position: 'relative',
                 }}
               >
                 <Ionicons name="scale-outline" size={14} color="#F59E0B" />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Weight</Text>
-                <View
-                  style={{
-                    width: 9,
-                    height: 9,
-                    backgroundColor: bubbleBg,
-                    borderColor: bubbleBorder,
-                    borderRightWidth: 1,
-                    borderBottomWidth: 1,
-                    transform: [{ rotate: '45deg' }],
-                    position: 'absolute',
-                    bottom: -4.5,
-                    right: 14,
-                  }}
-                />
               </TouchableOpacity>
 
               {/* Bubble 2: Add Workout */}
@@ -232,25 +217,10 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   shadowOpacity: 0.16,
                   shadowRadius: 10,
                   elevation: 8,
-                  position: 'relative',
                 }}
               >
                 <Ionicons name="add-circle-outline" size={14} color={isDark ? '#FF6B35' : '#FF5A1F'} />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Workout</Text>
-                <View
-                  style={{
-                    width: 9,
-                    height: 9,
-                    backgroundColor: bubbleBg,
-                    borderColor: bubbleBorder,
-                    borderRightWidth: 1,
-                    borderBottomWidth: 1,
-                    transform: [{ rotate: '45deg' }],
-                    position: 'absolute',
-                    bottom: -4.5,
-                    right: 12,
-                  }}
-                />
               </TouchableOpacity>
 
               {/* Bubble 3: Log Activity */}
@@ -274,25 +244,10 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   shadowOpacity: 0.16,
                   shadowRadius: 10,
                   elevation: 8,
-                  position: 'relative',
                 }}
               >
                 <Ionicons name="fitness-outline" size={14} color="#10B981" />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Activity</Text>
-                <View
-                  style={{
-                    width: 9,
-                    height: 9,
-                    backgroundColor: bubbleBg,
-                    borderColor: bubbleBorder,
-                    borderRightWidth: 1,
-                    borderBottomWidth: 1,
-                    transform: [{ rotate: '45deg' }],
-                    position: 'absolute',
-                    bottom: -4.5,
-                    left: 12,
-                  }}
-                />
               </TouchableOpacity>
 
               {/* Bubble 4: Log Injury */}
@@ -316,25 +271,10 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   shadowOpacity: 0.16,
                   shadowRadius: 10,
                   elevation: 8,
-                  position: 'relative',
                 }}
               >
                 <Ionicons name="bandage-outline" size={14} color="#EF4444" />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Injury</Text>
-                <View
-                  style={{
-                    width: 9,
-                    height: 9,
-                    backgroundColor: bubbleBg,
-                    borderColor: bubbleBorder,
-                    borderRightWidth: 1,
-                    borderBottomWidth: 1,
-                    transform: [{ rotate: '45deg' }],
-                    position: 'absolute',
-                    bottom: -4.5,
-                    left: 14,
-                  }}
-                />
               </TouchableOpacity>
             </Animated.View>
           </View>
