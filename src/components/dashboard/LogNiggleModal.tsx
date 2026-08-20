@@ -1,52 +1,196 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { TextInput } from '../ui/TextInput';
-import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useHealth } from '../../context/HealthStore';
+import { BODY_PARTS_LOOKUP } from '../progress/AnatomicalBodyMap';
+import { Button } from '../ui/Button';
+import { TextInput } from '../ui/TextInput';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface LogNiggleModalProps {
   visible: boolean;
   onClose: () => void;
-  onSendToCoach: (description: string, severity: number) => void;
+  onSendToCoach: (description: string, severity: number, bodyPartId?: string, bodyPartName?: string) => void;
 }
+
+interface BodyRegion {
+  key: string;
+  name: string;
+  isBilateral: boolean;
+}
+
+const BODY_REGIONS: BodyRegion[] = [
+  { key: 'ankle_foot', name: 'Ankle & Foot / Heel', isBilateral: true },
+  { key: 'calf', name: 'Calf & Shin', isBilateral: true },
+  { key: 'knee', name: 'Knee', isBilateral: true },
+  { key: 'hamstring', name: 'Hamstring', isBilateral: true },
+  { key: 'quad', name: 'Quadricep', isBilateral: true },
+  { key: 'glute', name: 'Glute & Hip', isBilateral: true },
+  { key: 'lower_back', name: 'Lower Back', isBilateral: false },
+  { key: 'upper_back', name: 'Upper Back', isBilateral: false },
+  { key: 'shoulder', name: 'Shoulder', isBilateral: true },
+  { key: 'arm', name: 'Arm & Elbow', isBilateral: true },
+  { key: 'core', name: 'Core & Groin', isBilateral: false },
+  { key: 'head_neck', name: 'Head & Neck', isBilateral: false },
+];
+
+const inferBodyPartFromText = (text: string): { baseKey: string; side: 'left' | 'right' } => {
+  const lower = text.toLowerCase();
+  const isRight = lower.includes('right') || lower.includes('rechts');
+  const side: 'left' | 'right' = isRight ? 'right' : 'left';
+
+  if (/heel|achilles|plantar|foot|feet|ankle|toe|voet|enkel|hiel/i.test(lower)) {
+    return { baseKey: 'ankle_foot', side };
+  }
+  if (/calf|calves|shin|shins|soleus|kuit|scheen/i.test(lower)) {
+    return { baseKey: 'calf', side };
+  }
+  if (/knee|kneecap|patella|meniscus|itb|it band|knie/i.test(lower)) {
+    return { baseKey: 'knee', side };
+  }
+  if (/hamstring|hamstrings/i.test(lower)) {
+    return { baseKey: 'hamstring', side };
+  }
+  if (/quad|quads|quadricep|thigh|bovenbeen/i.test(lower)) {
+    return { baseKey: 'quad', side };
+  }
+  if (/glute|glutes|hip|hips|piriformis|butt|bil|heup/i.test(lower)) {
+    return { baseKey: 'glute', side };
+  }
+  if (/lower back|lumbar|spine|onderrug/i.test(lower)) {
+    return { baseKey: 'lower_back', side: 'left' };
+  }
+  if (/upper back|trap|traps|rhomboid|bovenrug/i.test(lower)) {
+    return { baseKey: 'upper_back', side: 'left' };
+  }
+  if (/shoulder|rotator|deltoid|schouder/i.test(lower)) {
+    return { baseKey: 'shoulder', side };
+  }
+  if (/arm|bicep|tricep|elbow|wrist|forearm|elleboog|pols/i.test(lower)) {
+    return { baseKey: 'arm', side };
+  }
+  if (/chest|pec|borst/i.test(lower)) {
+    return { baseKey: 'chest', side: 'left' };
+  }
+  if (/core|abs|abdominal|groin|lies|buik/i.test(lower)) {
+    return { baseKey: 'core', side: 'left' };
+  }
+  if (/neck|cervical|head|nek|hoofd/i.test(lower)) {
+    return { baseKey: 'head_neck', side: 'left' };
+  }
+  return { baseKey: 'ankle_foot', side };
+};
 
 export function LogNiggleModal({
   visible,
   onClose,
   onSendToCoach,
 }: LogNiggleModalProps) {
+  const insets = useSafeAreaInsets();
+  const { saveNiggle } = useHealth();
   const [description, setDescription] = useState('');
   const [severity, setSeverity] = useState<number>(3); // 1-10
+  const [selectedBaseKey, setSelectedBaseKey] = useState<string>('ankle_foot');
+  const [selectedSide, setSelectedSide] = useState<'left' | 'right'>('left');
+  const [isManuallySelected, setIsManuallySelected] = useState<boolean>(false);
 
-  const slideAnim = useRef(new Animated.Value(400)).current;
+  const [showModal, setShowModal] = useState(visible);
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      slideAnim.setValue(400);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 70,
-      }).start();
-    }
-  }, [visible, slideAnim]);
+      setShowModal(true);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      backdropOpacity.setValue(0);
+      setIsManuallySelected(false);
 
-  const handleSend = () => {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 25,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowModal(false);
+      });
+    }
+  }, [visible, slideAnim, backdropOpacity]);
+
+  const handleDescriptionChange = (text: string) => {
+    setDescription(text);
+    if (!isManuallySelected && text.trim().length > 2) {
+      const inferred = inferBodyPartFromText(text);
+      setSelectedBaseKey(inferred.baseKey);
+      setSelectedSide(inferred.side);
+    }
+  };
+
+  const getFullBodyPartId = (baseKey: string, side: 'left' | 'right'): string => {
+    const region = BODY_REGIONS.find((r) => r.key === baseKey);
+    if (region?.isBilateral) {
+      return `${side}_${baseKey}`;
+    }
+    return baseKey;
+  };
+
+  const currentBodyPartId = getFullBodyPartId(selectedBaseKey, selectedSide);
+  const currentDisplayName = BODY_PARTS_LOOKUP[currentBodyPartId] || currentBodyPartId;
+  const currentRegion = BODY_REGIONS.find((r) => r.key === selectedBaseKey);
+
+  const handleSend = async () => {
     if (!description.trim()) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onSendToCoach(description.trim(), severity);
+
+    // Map 1-10 severity to 1-5 scale for health store & anatomical mannequin
+    const healthSeverity = Math.max(1, Math.min(5, Math.ceil(severity / 2)));
+
+    // 1. Immediately save to HealthStore so the Health Tracker / Heatmap is updated
+    await saveNiggle({
+      body_part: currentBodyPartId,
+      severity: healthSeverity,
+      notes: description.trim(),
+    });
+
+    // 2. Notify Coach
+    onSendToCoach(description.trim(), severity, currentBodyPartId, currentDisplayName);
+
     setDescription('');
+    setIsManuallySelected(false);
     onClose();
   };
 
@@ -58,132 +202,214 @@ export function LogNiggleModal({
 
   const badge = getSeverityBadge(severity);
 
+  if (!showModal) return null;
+
   return (
     <Modal
-      visible={visible}
+      visible={showModal}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        {/* Full-screen Dark Backdrop */}
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={onClose}
-          className="flex-1 justify-end bg-black/60"
-        >
-          <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
-            <Animated.View
-              style={{ transform: [{ translateY: slideAnim }] }}
-              className="bg-theme-card rounded-t-[32px] p-6 shadow-2xl flex-col max-h-[92%]"
-            >
-              {/* Pinned Header */}
-              <View className="flex-row items-center justify-between pb-3.5 mb-4">
-                <View className="flex-row items-center gap-2.5">
-                  <View className="w-9 h-9 rounded-xl bg-rose-500/15 items-center justify-center">
-                    <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
-                  </View>
-                  <View>
-                    <Text className="text-lg font-bold text-theme-text">Report Injury</Text>
-                    <Text className="text-xs text-theme-muted">Alert Rooka AI Coach to adapt your plan</Text>
-                  </View>
-                </View>
+        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+          {/* Static Fullscreen Backdrop: Fades In Simultaneously */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={onClose}
+              style={{ flex: 1 }}
+            />
+          </Animated.View>
 
-                <TouchableOpacity
-                  onPress={onClose}
-                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-                >
-                  <Ionicons name="close" size={18} color="#8E9BA4" />
-                </TouchableOpacity>
+          {/* Bottom Sheet Modal Container */}
+          <Animated.View
+            style={[
+              {
+                transform: [{ translateY: slideAnim }],
+                paddingBottom: Math.max(insets.bottom, 20),
+              },
+            ]}
+            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl flex-col max-h-[85%]"
+          >
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View className="items-center pb-3">
+              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+            </View>
+
+            {/* Header */}
+            <View className="flex-row items-center justify-between pb-3 mb-2 border-b border-theme-border/50">
+              <View className="flex-row items-center gap-2.5">
+                <View className="w-9 h-9 rounded-xl bg-rose-500/15 items-center justify-center">
+                  <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
+                </View>
+                <View>
+                  <Text className="text-lg font-bold text-theme-text">Report Injury / Niggle</Text>
+                  <Text className="text-xs text-theme-muted">Records to Health Tracker & alerts Rooka Coach</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={onClose}
+                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
+              >
+                <Ionicons name="close" size={18} color="#8E9BA4" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Form Content */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 10 }}
+            >
+              {/* Description Text Input */}
+              <View className="mb-3.5">
+                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
+                  What hurts or feels tight?
+                </Text>
+                <TextInput
+                  value={description}
+                  onChangeText={handleDescriptionChange}
+                  placeholder="e.g. My heel hurts, achilles tightness after run..."
+                  multiline
+                  numberOfLines={2}
+                  style={{ height: 60, textAlignVertical: 'top' }}
+                />
               </View>
 
-              {/* Scrollable Content */}
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                className="flex-shrink"
-              >
-                {/* Description Text Input */}
-                <View className="mb-4">
-                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
-                    What hurts or feels tight?
+              {/* Body Part Selection */}
+              <View className="mb-3.5">
+                <View className="flex-row justify-between items-center mb-1.5">
+                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted">
+                    Affected Area: <Text className="text-theme-accent font-extrabold">{currentDisplayName}</Text>
                   </Text>
-                  <TextInput
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="e.g. Left Achilles tightness during interval run..."
-                    multiline
-                    numberOfLines={3}
-                    style={{ height: 75, textAlignVertical: 'top' }}
-                  />
+                  {currentRegion?.isBilateral && (
+                    <View className="flex-row bg-theme-bg rounded-lg p-0.5 border border-theme-border/60">
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSelectedSide('left');
+                          setIsManuallySelected(true);
+                        }}
+                        className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'left' ? 'bg-theme-accent' : ''}`}
+                      >
+                        <Text className={`text-[10px] font-bold ${selectedSide === 'left' ? 'text-white' : 'text-theme-muted'}`}>Left</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSelectedSide('right');
+                          setIsManuallySelected(true);
+                        }}
+                        className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'right' ? 'bg-theme-accent' : ''}`}
+                      >
+                        <Text className={`text-[10px] font-bold ${selectedSide === 'right' ? 'text-white' : 'text-theme-muted'}`}>Right</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
 
-                {/* 1-10 Severity Rating Row */}
-                <View className="mb-4">
-                  <View className="flex-row justify-between items-center mb-2.5">
-                    <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted">
-                      Severity Rating ({severity}/10)
-                    </Text>
-                    <View className={`px-2.5 py-0.5 rounded-full ${badge.bg}`}>
-                      <Text className={`text-[10px] font-extrabold ${badge.color}`}>{badge.label}</Text>
-                    </View>
-                  </View>
+                {/* Horizontal Scroll of Body Regions */}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 6, paddingVertical: 2 }}
+                >
+                  {BODY_REGIONS.map((region) => {
+                    const isSelected = selectedBaseKey === region.key;
+                    return (
+                      <TouchableOpacity
+                        key={region.key}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSelectedBaseKey(region.key);
+                          setIsManuallySelected(true);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl border ${isSelected
+                            ? 'bg-rose-500/15 border-rose-500'
+                            : 'bg-theme-bg border-theme-border/60'
+                          }`}
+                      >
+                        <Text
+                          className={`text-xs font-semibold ${isSelected ? 'text-rose-500 font-bold' : 'text-theme-text'
+                            }`}
+                        >
+                          {region.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
 
-                  {/* 1-10 Rating Buttons Row */}
-                  <View className="flex-row justify-between gap-1">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                      const isSelected = severity === num;
-                      return (
-                        <TouchableOpacity
-                          key={num}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setSeverity(num);
-                          }}
-                          className={`flex-1 py-2.5 rounded-xl items-center justify-center ${
-                            isSelected
-                              ? num <= 3
-                                ? 'bg-emerald-500'
-                                : num <= 6
+              {/* 1-10 Severity Rating Row */}
+              <View className="mb-2">
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted">
+                    Severity Rating ({severity}/10)
+                  </Text>
+                  <View className={`px-2.5 py-0.5 rounded-full ${badge.bg}`}>
+                    <Text className={`text-[10px] font-extrabold ${badge.color}`}>{badge.label}</Text>
+                  </View>
+                </View>
+
+                {/* 1-10 Rating Buttons Row */}
+                <View className="flex-row justify-between gap-1">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                    const isSelected = severity === num;
+                    return (
+                      <TouchableOpacity
+                        key={num}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setSeverity(num);
+                        }}
+                        className={`flex-1 py-2 rounded-xl items-center justify-center ${isSelected
+                            ? num <= 3
+                              ? 'bg-emerald-500'
+                              : num <= 6
                                 ? 'bg-amber-500'
                                 : 'bg-rose-500'
-                              : 'bg-theme-bg'
+                            : 'bg-theme-bg'
                           }`}
-                        >
-                          <Text
-                            className={`text-xs font-mono font-extrabold ${
-                              isSelected ? 'text-white' : 'text-theme-text'
+                      >
+                        <Text
+                          className={`text-xs font-mono font-extrabold ${isSelected ? 'text-white' : 'text-theme-text'
                             }`}
-                          >
-                            {num}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              </ScrollView>
-
-              {/* Pinned Action Buttons */}
-              <View className="flex-row gap-3 pt-3 mt-2">
-                <View className="flex-1">
-                  <Button label="Cancel" variant="outline" onPress={onClose} />
-                </View>
-                <View className="flex-1">
-                  <Button
-                    label="Send to AI Coach"
-                    variant="primary"
-                    onPress={handleSend}
-                    disabled={!description.trim()}
-                  />
+                        >
+                          {num}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
-            </Animated.View>
-          </TouchableOpacity>
-        </TouchableOpacity>
+            </ScrollView>
+
+            {/* Pinned Action Buttons at Bottom */}
+            <View className="flex-row gap-3 pt-3 border-t border-theme-border/30">
+              <View className="flex-1">
+                <Button label="Cancel" variant="outline" onPress={onClose} />
+              </View>
+              <View className="flex-1">
+                <Button
+                  label="Save"
+                  variant="primary"
+                  onPress={handleSend}
+                  disabled={!description.trim()}
+                />
+              </View>
+            </View>
+          </Animated.View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );

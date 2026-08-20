@@ -1,5 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, ScrollView } from 'react-native';
+// Using gesture-handler's TouchableOpacity (not react-native's) for anything that
+// coexists with the drag gesture: mixing the legacy Pressability responder with
+// react-native-gesture-handler's Pan gesture is what made the drag handle's
+// onLongPress fire inconsistently ("hit or miss").
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
@@ -127,7 +132,7 @@ const StepCardComponent = ({
         <View className="flex-row items-center w-8 bg-slate-50 border-r border-slate-100 justify-center">
           <View className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: colorConfig.border }} />
           {!isSubStep && (
-            <TouchableOpacity activeOpacity={0.7} onLongPress={drag} delayLongPress={200} className="w-full h-full items-center justify-center py-4">
+            <TouchableOpacity activeOpacity={0.7} onLongPress={drag} delayLongPress={200} className="absolute inset-0 items-center justify-center">
               <Ionicons name="reorder-three-outline" size={20} color={isActive ? colorConfig.border : '#94A3B8'} />
             </TouchableOpacity>
           )}
@@ -172,7 +177,7 @@ const StepCardComponent = ({
                    className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-3 text-sm font-bold text-slate-800"
                  />
                )}
-               
+
                <View className="flex-row flex-wrap items-center gap-2">
                  {/* Duration/Distance Box */}
                  <View className="flex-row items-center bg-slate-50 border border-slate-200 rounded-lg h-9 overflow-hidden">

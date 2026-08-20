@@ -1,10 +1,10 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { SportType, WorkoutItem } from '../../types/dashboard';
+import { Card } from '../ui/Card';
 import { DayAgenda } from './MicroPlanAgendaCard';
-import { WorkoutItem, SportType } from '../../types/dashboard';
 
 interface DetailedDayCardProps {
   day: DayAgenda;
@@ -101,11 +101,10 @@ export function DetailedDayCard({
 
   return (
     <Card
-      className={`p-4 md:p-5 mb-5 border ${
-        day.isToday
+      className={`p-4 md:p-5 mb-5 border ${day.isToday
           ? 'border-theme-accent border-[1.5px] bg-theme-card'
           : 'border-theme-border bg-theme-card'
-      }`}
+        }`}
     >
       {/* Day Header Row matching TodaysPlanCard header format */}
       <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
@@ -159,7 +158,7 @@ export function DetailedDayCard({
             className="mt-2 flex-row items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-accent"
           >
             <Ionicons name="add" size={16} color="#FFFFFF" />
-            <Text className="text-xs font-extrabold text-white">Log Extra Activity</Text>
+            <Text className="text-xs font-extrabold text-white">Add workout</Text>
           </TouchableOpacity>
         </View>
       ) : (

@@ -520,7 +520,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "description": "5k Speed Intervals",
                         "target_rooka": 80,
                         "details": "Push hard on the intervals, recover fully on the rests.",
-                        "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 15, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}, {\\"type\\": \\"repeat\\", \\"iterations\\": 8, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 3, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 4}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 1, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]"
+                        "steps": [{"type": "warmup", "condition_type": "time", "condition_value": 15, "target_type": "heart.rate.zone", "zone": 1}, {"type": "repeat", "iterations": 8, "steps": [{"type": "interval", "condition_type": "time", "condition_value": 3, "target_type": "heart.rate.zone", "zone": 4}, {"type": "rest", "condition_type": "time", "condition_value": 1, "target_type": "heart.rate.zone", "zone": 1}]}, {"type": "cooldown", "condition_type": "time", "condition_value": 10, "target_type": "heart.rate.zone", "zone": 1}]
                       },
                       {
                         "date": "YYYY-MM-DD",
@@ -528,11 +528,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "description": "Active Recovery",
                         "target_rooka": 0,
                         "details": "Take the day off.",
-                        "steps_json": "[]"
+                        "steps": []
                       }
                     ]
                     \`\`\`
-                    *Note: Ensure "steps_json" is formatted as a stringified JSON array as shown in the examples. Exercises MUST go in steps_json, NOT details!*
+                    *Note: Exercises MUST go in the "steps" JSON array, NOT details!*
                     
                     IMAGE GENERATION (NEW):
                     If the athlete asks for an illustration, visualization, diagram, or picture of an exercise, route, pose, or anything else, you can seamlessly generate an image by outputting a Markdown image tag with the following URL format:
@@ -604,16 +604,41 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     *(If multiple new items are mentioned in one message, e.g. "had a banana and an apple", list both in "items": ["1 Banana", "1 Apple"] with their combined delta macros).*
 
                     WEIGHT LOGGING:
-                    If the athlete mentions their current weight, you MUST log it by outputting an additional JSON block. Format it exactly like this inside triple backticks:
-                    \`\`\`json
-                    {
-                      "type": "log_weight",
-                      "data": {
-                        "weight_kg": 75.5,
-                        "body_fat_percent": 15.0
-                      }
-                    }
-                    \`\`\``;
+                     If the athlete mentions their current weight, you MUST log it by outputting an additional JSON block. Format it exactly like this inside triple backticks:
+                     \`\`\`json
+                     {
+                       "type": "log_weight",
+                       "data": {
+                         "weight_kg": 75.5,
+                         "body_fat_percent": 15.0
+                       }
+                     }
+                     \`\`\`
+
+                     INJURY & NIGGLE TRACKING DIRECTIVES:
+                     When the athlete reports pain, injury, tightness, soreness, discomfort, or a niggle in any body part (e.g. "My heel hurts", "Left Achilles tightness", "knee pain", "sore quads"):
+                     You MUST log it by outputting a JSON block:
+                     \`\`\`json
+                     {
+                       "type": "log_niggle",
+                       "data": {
+                         "body_part": "left_ankle_foot",
+                         "severity": 3,
+                         "notes": "Heel pain"
+                       }
+                     }
+                     \`\`\`
+                     - Valid body_parts: head_neck, left_shoulder, right_shoulder, chest, upper_back, lower_back, core, left_arm, right_arm, left_glute, right_glute, left_quad, right_quad, left_hamstring, right_hamstring, left_knee, right_knee, left_calf, right_calf, left_ankle_foot, right_ankle_foot.
+                     - Severity: integer from 1 (mild/twinge) to 5 (severe/cannot train). If the athlete mentions a 1-10 rating, convert to 1-5 (e.g. 3/10 -> 2 or 3, 6/10 -> 3, 10/10 -> 5).
+                     - If the athlete reports that an injury/niggle has healed, resolved, or is pain-free (e.g. "my heel is completely recovered", "knee feels 100% now"):
+                     \`\`\`json
+                     {
+                       "type": "resolve_niggle",
+                       "data": {
+                         "body_part": "left_ankle_foot"
+                       }
+                     }
+                     \`\`\``;
 
                                       let aiReply = await generateWithFallback(
                                         message,
@@ -632,7 +657,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                       // Fallback: if no fenced code block was found, check if a raw JSON object exists in the reply
                                       if (jsonMatches.length === 0) {
-                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|metrics)"[\s\S]*?\}/);
+                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics)"[\s\S]*?\}/);
                                         if (rawJsonMatch) {
                                           jsonMatches.push([rawJsonMatch[0], rawJsonMatch[0]]);
                                         }
@@ -681,7 +706,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                         day.description,
                                                         day.target_rooka,
                                                         day.details,
-                                                        day.steps_json || "[]",
+                                                        day.steps ? JSON.stringify(day.steps) : (day.steps_json || "[]"),
                                                       );
                                                     });
                                                     stmt.finalize();
@@ -957,6 +982,65 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                               );
                                             }
                                             planUpdated = true; // Signal frontend to reload data/charts
+                                          } else if (
+                                            parsedData &&
+                                            parsedData.type === "log_niggle" &&
+                                            parsedData.data &&
+                                            parsedData.data.body_part
+                                          ) {
+                                            const { body_part, severity, notes } = parsedData.data;
+                                            const sev = Math.max(1, Math.min(5, Math.round(Number(severity) || 2)));
+                                            await new Promise((resolveNiggle) => {
+                                              db.get(
+                                                `SELECT id FROM athlete_niggles WHERE user_id = ? AND body_part = ? AND status = 'active'`,
+                                                [req.user.id, body_part],
+                                                (err, row) => {
+                                                  if (err) {
+                                                    console.error("DB error checking niggle:", err);
+                                                    return resolveNiggle();
+                                                  }
+                                                  if (row) {
+                                                    db.run(
+                                                      `UPDATE athlete_niggles SET severity = ?, notes = ? WHERE id = ?`,
+                                                      [sev, notes || "", row.id],
+                                                      () => {
+                                                        triggerBackgroundSummary(req.user.id);
+                                                        resolveNiggle();
+                                                      }
+                                                    );
+                                                  } else {
+                                                    db.run(
+                                                      `INSERT INTO athlete_niggles (user_id, body_part, severity, notes, status) VALUES (?, ?, ?, ?, 'active')`,
+                                                      [req.user.id, body_part, sev, notes || ""],
+                                                      () => {
+                                                        triggerBackgroundSummary(req.user.id);
+                                                        resolveNiggle();
+                                                      }
+                                                    );
+                                                  }
+                                                }
+                                              );
+                                            });
+                                            planUpdated = true;
+                                          } else if (
+                                            parsedData &&
+                                            parsedData.type === "resolve_niggle" &&
+                                            parsedData.data &&
+                                            parsedData.data.body_part
+                                          ) {
+                                            const { body_part } = parsedData.data;
+                                            await new Promise((resolveNiggle) => {
+                                              db.run(
+                                                `UPDATE athlete_niggles SET status = 'resolved', resolved_date = CURRENT_TIMESTAMP WHERE user_id = ? AND body_part = ? AND status = 'active'`,
+                                                [req.user.id, body_part],
+                                                (err) => {
+                                                  if (err) console.error("Failed to resolve niggle via chat:", err);
+                                                  triggerBackgroundSummary(req.user.id);
+                                                  resolveNiggle();
+                                                }
+                                              );
+                                            });
+                                            planUpdated = true;
                                           }
                                         } catch (e) {
                                           console.error(
@@ -968,7 +1052,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                       aiReply = aiReply
                                         .replace(/```(?:json)?[\s\S]*?```/gi, "")
-                                        .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|metrics)"[\s\S]*?\}/gi, "")
+                                        .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics)"[\s\S]*?\}/gi, "")
                                         .trim();
 
                                       let mood = "default";
@@ -1073,7 +1157,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       res
                                         .status(500)
                                         .json({
-                                          error: "Failed to generate response.",
+                                          error: err.message || "Failed to generate response.",
                                         });
                                     }
                                   },

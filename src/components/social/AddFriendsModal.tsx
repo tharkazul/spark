@@ -176,7 +176,12 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1 justify-end bg-black/60"
       >
-        <View className="bg-theme-card border-t border-theme-border rounded-t-3xl p-5 max-h-[85%] min-h-[460px]">
+        <View className="bg-theme-card border-t border-theme-border rounded-t-3xl px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]">
+          {/* TOP PULL HANDLE INDICATOR */}
+          <View className="items-center pb-4">
+            <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+          </View>
+
           {/* Header */}
           <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/50">
             <View className="flex-row items-center space-x-2">
@@ -185,12 +190,6 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
               </View>
               <Text className="text-lg font-extrabold text-theme-text">Find & Add Friends</Text>
             </View>
-            <TouchableOpacity
-              onPress={onClose}
-              className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border/60"
-            >
-              <Ionicons name="close" size={18} color="#8E8E93" />
-            </TouchableOpacity>
           </View>
 
           <ScrollView className="flex-1 pt-4" showsVerticalScrollIndicator={false}>

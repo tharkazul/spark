@@ -193,7 +193,8 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       <BottomSheetModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        contentClassName="bg-theme-card rounded-t-3xl p-6 max-h-[85vh]"
+        showHandle={true}
+        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 max-h-[85vh]"
       >
         <View className="flex-row justify-between items-center pb-4 mb-4">
           <View>
@@ -204,13 +205,6 @@ export const HealthTab: React.FC<HealthTabProps> = ({
               {selectedPartName}
             </Text>
           </View>
-
-          <TouchableOpacity
-            onPress={() => setModalVisible(false)}
-            className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-          >
-            <Ionicons name="close" size={18} color="#8E9BA4" />
-          </TouchableOpacity>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>

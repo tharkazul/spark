@@ -25,7 +25,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   visible,
   onClose,
   children,
-  contentClassName = 'bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[85%]',
+  contentClassName = 'bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]',
   style,
   showHandle = false,
 }) => {
@@ -108,7 +108,9 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
             className={contentClassName}
           >
             {showHandle && (
-              <View className="w-12 h-1 bg-theme-border rounded-full self-center mb-5" />
+              <View className="items-center pb-4 pt-1 -mt-3">
+                <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+              </View>
             )}
             {children}
           </Animated.View>

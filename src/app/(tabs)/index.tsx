@@ -5,12 +5,14 @@ import {
   TouchableOpacity,
   ScrollView,
   useWindowDimensions,
+  DeviceEventEmitter,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useUser } from '../../context/UserStore';
+import { useCoachChat } from '../../context/CoachChatStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
@@ -28,6 +30,7 @@ import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
 import { LogWeightModal } from '../../components/dashboard/LogWeightModal';
 import { LogNiggleModal } from '../../components/dashboard/LogNiggleModal';
+import { LogActivityModal } from '../../components/dashboard/LogActivityModal';
 
 import {
   WorkoutItem,
@@ -58,22 +61,36 @@ function formatShortDate(d: Date): string {
 export default function PlanningHomeScreen() {
   const router = useRouter();
   const { user } = useUser();
+  const { sendMessage } = useCoachChat();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
   const { plan, refreshPlan } = usePlan();
-
-  useEffect(() => {
-    refreshPlan();
-  }, []);
-  const { tabBarOccupied, notifyScroll } = useTabBar();
-
-  const part3ScrollViewRef = useRef<ScrollView>(null);
-  const hasScrolledToTodayRef = useRef(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [isNiggleModalOpen, setIsNiggleModalOpen] = useState(false);
+  const [isLogActivityOpen, setIsLogActivityOpen] = useState(false);
+
+  useEffect(() => {
+    refreshPlan();
+    const sub = DeviceEventEmitter.addListener('openQuickActionModal', (action: string) => {
+      if (action === 'weight') {
+        setIsWeightModalOpen(true);
+      } else if (action === 'workout') {
+        setIsAddModalOpen(true);
+      } else if (action === 'injury') {
+        setIsNiggleModalOpen(true);
+      } else if (action === 'activity') {
+        setIsLogActivityOpen(true);
+      }
+    });
+    return () => sub.remove();
+  }, []);
+  const { tabBarOccupied, notifyScroll } = useTabBar();
+
+  const part3ScrollViewRef = useRef<ScrollView>(null);
+  const hasScrolledToTodayRef = useRef(false);
 
   const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 0);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
@@ -439,7 +456,9 @@ export default function PlanningHomeScreen() {
     setRecordedWeight(newWeight);
   };
 
-  const handleSendInjuryToCoach = (description: string, severity: number) => {
+  const handleSendInjuryToCoach = (description: string, severity: number, bodyPartId?: string, bodyPartName?: string) => {
+    const areaPrefix = bodyPartName ? `[${bodyPartName}] ` : '';
+    sendMessage(`I have a niggle / injury to report: ${areaPrefix}${description} (Severity: ${severity}/10). Can you provide recovery advice?`);
     router.push('/coach');
   };
 
@@ -526,6 +545,7 @@ export default function PlanningHomeScreen() {
       <AdaptPlanModal visible={isAdaptModalOpen} onClose={() => setIsAdaptModalOpen(false)} onConfirmAdapt={handleConfirmAdaptation} />
       <LogWeightModal visible={isWeightModalOpen} previousWeight={recordedWeight} onClose={() => setIsWeightModalOpen(false)} onSaveWeight={handleSaveWeight} />
       <LogNiggleModal visible={isNiggleModalOpen} onClose={() => setIsNiggleModalOpen(false)} onSendToCoach={handleSendInjuryToCoach} />
+      <LogActivityModal visible={isLogActivityOpen} onClose={() => setIsLogActivityOpen(false)} />
     </View>
   );
 }

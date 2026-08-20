@@ -425,16 +425,18 @@ export const GoalsTab: React.FC = () => {
         onRequestClose={() => setDateModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg p-5 rounded-t-3xl border-t border-theme-border">
+          <View className="bg-theme-bg px-5 pt-3 pb-5 rounded-t-3xl border-t border-theme-border">
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View className="items-center pb-4">
+              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+            </View>
+
             {/* Modal Header */}
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
               <View className="flex-row items-center gap-2">
                 <Ionicons name="calendar-outline" size={20} color="#FF5A1F" />
                 <Text className="text-lg font-extrabold text-theme-text">Select Event Date</Text>
               </View>
-              <TouchableOpacity onPress={() => setDateModalVisible(false)} className="p-1">
-                <Ionicons name="close" size={22} color="#8E8E93" />
-              </TouchableOpacity>
             </View>
 
             {/* Formatted Date Preview */}

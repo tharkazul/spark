@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -8,7 +9,7 @@ interface LogWeightModalProps {
   visible: boolean;
   previousWeight?: number; // e.g. 74.5
   onClose: () => void;
-  onSaveWeight: (weight: number) => void;
+  onSaveWeight?: (weight: number) => void;
 }
 
 export function LogWeightModal({
@@ -17,6 +18,7 @@ export function LogWeightModal({
   onClose,
   onSaveWeight,
 }: LogWeightModalProps) {
+  const insets = useSafeAreaInsets();
   const [weight, setWeight] = useState<number>(previousWeight || 70.0);
   const slideAnim = useRef(new Animated.Value(400)).current;
 
@@ -39,7 +41,9 @@ export function LogWeightModal({
 
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onSaveWeight(weight);
+    if (onSaveWeight) {
+      onSaveWeight(weight);
+    }
     onClose();
   };
 
@@ -56,13 +60,21 @@ export function LogWeightModal({
       <TouchableOpacity
         activeOpacity={1}
         onPress={onClose}
-        className="flex-1 justify-end bg-black/60"
+        style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}
       >
         <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
           <Animated.View
-            style={{ transform: [{ translateY: slideAnim }] }}
-            className="bg-theme-card rounded-t-[32px] p-6 shadow-2xl"
+            style={{
+              transform: [{ translateY: slideAnim }],
+              paddingBottom: Math.max(insets.bottom, 24),
+            }}
+            className="bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl"
           >
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View className="items-center pb-4">
+              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+            </View>
+
             {/* Header */}
             <View className="flex-row items-center justify-between pb-4 mb-5">
               <View className="flex-row items-center gap-2.5">
@@ -74,13 +86,6 @@ export function LogWeightModal({
                   <Text className="text-xs text-theme-muted">Track body mass for AI recovery load</Text>
                 </View>
               </View>
-
-              <TouchableOpacity
-                onPress={onClose}
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color="#8E9BA4" />
-              </TouchableOpacity>
             </View>
 
             {/* Roller / Stepper Unit Display */}
@@ -110,16 +115,16 @@ export function LogWeightModal({
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(-0.1)}
-                  className="w-12 h-12 rounded-xl bg-theme-accent-soft items-center justify-center"
+                  className="w-10 h-10 rounded-xl bg-rose-500/15 items-center justify-center"
                 >
-                  <Ionicons name="remove" size={22} color="#16ACBD" />
+                  <Ionicons name="remove" size={20} color="#F43F5E" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(0.1)}
-                  className="w-12 h-12 rounded-xl bg-theme-accent-soft items-center justify-center"
+                  className="w-10 h-10 rounded-xl bg-emerald-500/15 items-center justify-center"
                 >
-                  <Ionicons name="add" size={22} color="#16ACBD" />
+                  <Ionicons name="add" size={20} color="#10B981" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -131,8 +136,8 @@ export function LogWeightModal({
               </View>
             </View>
 
-            {/* Pinned Buttons */}
-            <View className="flex-row gap-3 pt-3">
+            {/* Action Buttons */}
+            <View className="flex-row gap-3 pt-2">
               <View className="flex-1">
                 <Button label="Cancel" variant="outline" onPress={onClose} />
               </View>

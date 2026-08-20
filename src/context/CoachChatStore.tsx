@@ -6,6 +6,7 @@ import { wsService } from '../services/websocket';
 import { usePlan } from './PlanStore';
 import { useUser } from './UserStore';
 import { usePhysique } from './PhysiqueStore';
+import { useHealth } from './HealthStore';
 
 interface CoachChatContextType {
   messages: ChatMessage[];
@@ -17,6 +18,7 @@ interface CoachChatContextType {
   markAsRead: () => Promise<void>;
   refreshMessages: () => Promise<void>;
   sendMessage: (text: string, imagesBase64?: string[]) => Promise<void>;
+  resendMessage: (messageId: string | number) => Promise<void>;
   clearHistory: () => Promise<void>;
   acceptProposal: (messageId: string | number, plan: ProposedWorkoutItem[]) => Promise<void>;
   rejectProposal: (messageId: string | number) => void;
@@ -74,6 +76,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const { refreshPlan } = usePlan();
   const { refreshPhysique } = usePhysique();
+  const { refreshNiggles } = useHealth();
   const { user, isAuthenticated } = useUser();
 
   // Load last read timestamp from persistent storage
@@ -262,9 +265,13 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           )
         );
 
-        // Readable speed: brief pause on punctuation, fast flow between words
-        const hasPunctuation = /[.,!?:;\n]/.test(nextChunk);
-        const delay = hasPunctuation ? 50 : 30;
+        // Readable speed: linger on sentence ends, brief pause on soft punctuation,
+        // fast flow between words. A small random jitter avoids a metronomic
+        // feel — real typing/streaming never lands on a perfectly fixed interval.
+        const hasSentenceEnd = /[.!?\n]/.test(nextChunk);
+        const hasSoftPunctuation = /[,;:]/.test(nextChunk);
+        const jitter = Math.random() * 10;
+        const delay = hasSentenceEnd ? 90 + jitter : hasSoftPunctuation ? 45 + jitter : 16 + jitter;
 
         setTimeout(step, delay);
       };
@@ -316,8 +323,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         }
         if (res.planUpdated) {
           refreshPlan();
+          refreshNiggles();
         }
         refreshPhysique();
+        refreshNiggles();
 
         await streamCoachMessage(coachMsg);
       } else {
@@ -326,10 +335,17 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } catch (err: any) {
       console.error('Send message error:', err);
       setError(null);
+      setMessages((prev) => 
+        prev.map(m => m.id === userMsg.id ? { ...m, isError: true } : m)
+      );
       const fallbackCoachMsg: ChatMessage = processMessageItem({
         id: `coach-fallback-${Date.now()}`,
         clientId: `c-fallback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        content: `I got your message! I'm processing your workout data right now. Feel free to ask me anything else about your training or recovery! 🚀`,
+        content: err.status === 429 
+          ? "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]"
+          : (err.message && err.message !== "Failed to generate response." && !err.message.includes("Network response") && !err.message.includes("HTTP 500")
+              ? `I couldn't process that: ${err.message}` 
+              : `I got your message! I'm processing your workout data right now. Feel free to ask me anything else about your training or recovery! 🚀`),
         role: 'coach',
         timestamp: new Date().toISOString(),
       });
@@ -337,6 +353,21 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setSending(false);
     }
+  };
+
+  const resendMessage = async (messageId: string | number) => {
+    const msgIndex = messages.findIndex(m => m.id === messageId);
+    if (msgIndex === -1) return;
+    
+    const msgToResend = messages[msgIndex];
+    
+    setMessages((prev) => {
+      const idx = prev.findIndex(m => m.id === messageId);
+      if (idx === -1) return prev;
+      return prev.slice(0, idx);
+    });
+
+    await sendMessage(msgToResend.content, msgToResend.images);
   };
 
   const clearHistory = async () => {
@@ -532,6 +563,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         markAsRead,
         refreshMessages,
         sendMessage,
+        resendMessage,
         clearHistory,
         acceptProposal,
         rejectProposal,

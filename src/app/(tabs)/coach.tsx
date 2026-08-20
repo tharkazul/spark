@@ -134,6 +134,7 @@ const MessageRow = React.memo(({
   onAcceptInvite,
   onDeclineInvite,
   onExpandImage,
+  onResend,
 }: {
   item: ChatMessage;
   isFirstInRun: boolean;
@@ -145,6 +146,7 @@ const MessageRow = React.memo(({
   onAcceptInvite: any;
   onDeclineInvite: any;
   onExpandImage: (source: any) => void;
+  onResend: (id: string | number) => void;
 }) => {
   const hasText = hasRenderableText(item.content) || !!item.isStreaming;
   const hasImages = !!item.images?.length;
@@ -195,7 +197,7 @@ const MessageRow = React.memo(({
           </View>
         ) : null}
 
-        <MarkdownText content={item.content} isUser={isUser} onImagePress={onExpandImage} />
+        <MarkdownText content={item.content} isUser={isUser} isStreaming={item.isStreaming} onImagePress={onExpandImage} />
 
         {item.payload_json?.type === 'event_invite' ? (
           <EventInviteCard
@@ -222,7 +224,7 @@ const MessageRow = React.memo(({
           />
         ) : null}
 
-        {isLastInRun && (
+        {isLastInRun && !item.isError && (
           <Text
             className={`text-[10px] mt-1.5 self-end ${
               isUser ? 'text-white/70' : 'text-theme-muted'
@@ -232,13 +234,19 @@ const MessageRow = React.memo(({
           </Text>
         )}
       </View>
+      {isUser && item.isError && (
+        <TouchableOpacity activeOpacity={0.8} onPress={() => onResend(item.id)} className="mt-1 flex-row items-center self-end mr-1">
+          <Ionicons name="reload-circle" size={14} color="#EF4444" />
+          <Text className="text-red-500 text-xs ml-1 font-medium">Failed to send. Tap to retry.</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
 
 export default function CoachScreen() {
   const { t } = useLanguage();
-  const { messages, sendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error, markAsRead } = useCoachChat();
+  const { messages, sendMessage, resendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error, markAsRead } = useCoachChat();
   const { user, isChatMacroStripVisible, toggleChatMacroStrip } = useUser();
   const { plan } = usePlan();
   const { nutrition, clearLoggedNutrition } = usePhysique();
@@ -534,9 +542,10 @@ export default function CoachScreen() {
         onAcceptInvite={acceptInvite}
         onDeclineInvite={declineInvite}
         onExpandImage={(source) => setPreviewImage(source)}
+        onResend={resendMessage}
       />
     );
-  }, [user, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite]);
+  }, [user, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite, resendMessage]);
 
   const primaryWorkout = todayWorkouts[0] || null;
   const totalTodayRooka = todayWorkouts.reduce((acc, w) => acc + (w.target_rooka || (w as any).rookaPoints || 0), 0);
@@ -631,7 +640,7 @@ export default function CoachScreen() {
         visible={isWorkoutModalOpen}
         onClose={() => setIsWorkoutModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
@@ -732,7 +741,7 @@ export default function CoachScreen() {
         visible={isNutritionModalOpen}
         onClose={() => setIsNutritionModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[85%]"
+        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
@@ -802,7 +811,7 @@ export default function CoachScreen() {
         visible={isQuestModalOpen}
         onClose={() => setIsQuestModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">

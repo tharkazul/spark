@@ -64,5 +64,6 @@ export interface ChatMessage {
   proposalStatus?: 'pending' | 'accepted' | 'rejected';
   payload_json?: ChatPayload;
   isStreaming?: boolean;
+  isError?: boolean;
 }
 

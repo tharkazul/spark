@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useUser } from '../../context/UserStore';
 import { Button } from '../ui/Button';
@@ -114,12 +115,13 @@ export function AddWorkoutModal({
   const [isAppleWatchSyncing, setIsAppleWatchSyncing] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(400)).current;
+  const prevVisibleRef = useRef(false);
 
   // Preset quick duration options in minutes
   const quickDurations = [15, 30, 45, 60, 90, 120];
 
   useEffect(() => {
-    if (visible) {
+    if (visible && !prevVisibleRef.current) {
       slideAnim.setValue(400);
       Animated.spring(slideAnim, {
         toValue: 0,
@@ -154,6 +156,7 @@ export function AddWorkoutModal({
       }
       setCustomRooka(null);
     }
+    prevVisibleRef.current = visible;
   }, [initialWorkout, visible, targetDayName, user]);
 
   const handleDurationChange = (newMins: number) => {
@@ -347,11 +350,12 @@ export function AddWorkoutModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
-        <View className="flex-1 bg-theme-bg">
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1"
+        >
+          <View className="flex-1 bg-theme-bg">
           <TouchableOpacity
             activeOpacity={1}
             onPress={onClose}
@@ -361,25 +365,11 @@ export function AddWorkoutModal({
           {/* Bottom Sheet Modal View */}
           <Animated.View
             style={{ transform: [{ translateY: slideAnim }] }}
-            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-6 flex-1 shadow-2xl"
+            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 flex-1 shadow-2xl"
           >
-            {/* Header */}
-            <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/40 mb-2">
-              <View>
-                <Text className="text-lg font-extrabold text-theme-text">
-                  {initialWorkout ? 'Edit Workout' : 'Add Workout'}
-                </Text>
-                <Text className="text-xs text-theme-muted">
-                  {initialWorkout ? initialWorkout.title : `Scheduling for ${targetDayName} ${targetDateStr}`}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={onClose}
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center border border-theme-border/60"
-              >
-                <Ionicons name="close" size={18} color="#6F6F79" />
-              </TouchableOpacity>
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View className="items-center pb-4">
+              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
             </View>
 
             {/* STRUCTURED ACTIVITY BUILDER */}
@@ -393,11 +383,24 @@ export function AddWorkoutModal({
                 setSteps(newSteps);
                 setCustomRooka(rooka);
               }}
-              ListHeaderComponent={
-                <View className="space-y-6">
-                  {/* Discipline Selector - Horizontal Icon Strip */}
-                  <View>
-                    <View className="flex-row items-center justify-between">
+              ListHeaderComponent={React.useMemo(() => (
+                <View>
+                  {/* Header */}
+                  <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/40 mb-2">
+                    <View>
+                      <Text className="text-lg font-extrabold text-theme-text">
+                        {initialWorkout ? 'Edit Workout' : 'Add Workout'}
+                      </Text>
+                      <Text className="text-xs text-theme-muted">
+                        {initialWorkout ? initialWorkout.title : `Scheduling for ${targetDayName} ${targetDateStr}`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View className="space-y-6">
+                    {/* Discipline Selector - Horizontal Icon Strip */}
+                    <View>
+                      <View className="flex-row items-center justify-between">
                       {[
                         { type: 'RUN' as SportType, label: 'Run', icon: 'walk' },
                         { type: 'BIKE' as SportType, label: 'Bike', icon: 'bicycle' },
@@ -470,13 +473,15 @@ export function AddWorkoutModal({
                       </Text>
                     </View>
                   </View>
+                  </View>
                 </View>
-              }
-              ListFooterComponent={renderFooter()}
+              ), [selectedSport, title, durationMinutes, calculatedRooka])}
+              ListFooterComponent={React.useMemo(() => renderFooter(), [insets.bottom, isGarminSynced, isGarminSyncing, isAppleWatchSynced, isAppleWatchSyncing, initialWorkout, title, durationMinutes, calculatedRooka, steps])}
             />
           </Animated.View>
         </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

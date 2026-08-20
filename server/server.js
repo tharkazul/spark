@@ -11,7 +11,7 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
-app.use(bodyParser.json({ limit: "15mb" }));
+app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.static("public"));
 
 // Admin & Legal static routing

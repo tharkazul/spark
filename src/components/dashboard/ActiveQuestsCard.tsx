@@ -105,7 +105,7 @@ export function ActiveQuestsCard() {
         visible={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl p-6 border-t border-theme-border/50 max-h-[80%]"
+        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[80%]"
       >
         {/* Header */}
         <View className="flex-row items-center justify-between mb-4">

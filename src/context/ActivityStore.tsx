@@ -11,6 +11,7 @@ interface ActivityContextType {
   refreshActivities: () => Promise<void>;
   syncGarmin: () => Promise<void>;
   syncStrava: () => Promise<void>;
+  addManualActivity: (newAct: Partial<Activity>) => void;
 }
 
 const defaultActivities: Activity[] = [];
@@ -22,6 +23,25 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const addManualActivity = (newAct: Partial<Activity>) => {
+    const durSec = newAct.moving_time || 1800;
+    const distMeters = newAct.distance || 0;
+    const formattedActivity: Activity = {
+      id: `manual_${Date.now()}`,
+      name: newAct.name || 'Manual Workout',
+      type: newAct.type || 'Run',
+      start_date_local: new Date().toISOString(),
+      moving_time: durSec,
+      elapsed_time: durSec,
+      distance: distMeters,
+      total_elevation_gain: 0,
+      average_speed: distMeters && durSec ? distMeters / durSec : 0,
+      source: 'manual',
+      ...newAct,
+    };
+    setActivities((prev) => [formattedActivity, ...prev]);
+  };
 
   const refreshActivities = async () => {
     if (!isAuthenticated) return;
@@ -87,6 +107,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
         refreshActivities,
         syncGarmin,
         syncStrava,
+        addManualActivity,
       }}
     >
       {children}

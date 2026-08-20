@@ -7,12 +7,21 @@ import { WorkoutStep } from '../../types/plan';
 import { SportType } from '../../types/dashboard';
 import { makeStepId } from '../../utils/stepId';
 import { StepCard } from '../workout/StepCard';
+import { CARD_COLORS } from '../workout/StepCard.styles';
 
 let DraggableFlatListComponent: any = FlatList;
+let ScaleDecorator: any = ({ children }: any) => <>{children}</>;
 try {
   const mod = require('react-native-draggable-flatlist');
   DraggableFlatListComponent = mod.default || mod;
+  if (mod.ScaleDecorator) {
+    ScaleDecorator = mod.ScaleDecorator;
+  }
 } catch (e) {
+  // Falling back to a plain FlatList silently disables drag-reorder entirely
+  // (no `drag`/`isActive` passed to renderItem), so surface it instead of
+  // failing silently.
+  console.warn('[WorkoutStepBuilder] react-native-draggable-flatlist failed to load, falling back to FlatList:', e);
   DraggableFlatListComponent = FlatList;
 }
 
@@ -26,6 +35,99 @@ interface WorkoutStepBuilderProps {
   ListHeaderComponent?: React.ReactNode;
   ListFooterComponent?: React.ReactNode;
 }
+
+const MemoizedHeader = React.memo(({
+  ListHeaderComponent,
+  stepsLength,
+  handleAddStep,
+  handleAddRepeat
+}: any) => {
+  return (
+    <>
+      {ListHeaderComponent}
+
+      {/* UNIFIED WORKOUT STRUCTURE BUILDER CARD CONTAINER */}
+      <View className="p-4 rounded-[24px] bg-theme-bg/60 border border-theme-border my-3 flex-col gap-3.5">
+        {/* Section Header */}
+        <View className="flex-row items-center justify-between pb-2.5 border-b border-theme-border/60">
+          <View className="flex-row items-center gap-2">
+            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
+              <Ionicons name="layers-outline" size={16} color="#FF5F3B" />
+            </View>
+            <View>
+              <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-text">
+                Workout Structure Builder
+              </Text>
+              <Text className="text-[10px] text-theme-muted font-bold">
+                Target duration & interval block manager
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Add Interval Blocks */}
+        <View>
+          <Text className="text-[11px] font-bold text-slate-500 mb-2">
+            Add Interval Blocks:
+          </Text>
+
+          <View className="flex-row flex-wrap gap-2 mb-1">
+            <TouchableOpacity
+              onPress={() => handleAddStep('warmup')}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+            >
+              <Text className="text-[13px] font-medium text-slate-700">+ Warmup</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleAddStep('interval')}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+            >
+              <Text className="text-[13px] font-medium text-slate-700">+ Interval</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleAddStep('recovery')}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+            >
+              <Text className="text-[13px] font-medium text-slate-700">+ Recovery</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => handleAddStep('cooldown')}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+            >
+              <Text className="text-[13px] font-medium text-slate-700">+ Cooldown</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleAddRepeat}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
+            >
+              <Ionicons name="repeat" size={12} color="#334155" />
+              <Text className="text-[13px] font-medium text-slate-700">Repeat</Text>
+            </TouchableOpacity>
+          </View>
+
+          {stepsLength === 0 && (
+            <View className="py-4 items-center justify-center border border-dashed border-theme-border/80 rounded-2xl bg-theme-card/50 mt-2">
+              <Text className="text-xs text-theme-muted italic font-bold">
+                No structured interval steps. Tap above to add blocks.
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Label for active step cards list */}
+      {stepsLength > 0 && (
+        <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2 px-1">
+          Configured Interval Steps
+        </Text>
+      )}
+    </>
+  );
+});
 
 export function calculateWbRooka(steps: WorkoutStep[], isStrength: boolean, sport?: SportType | string): number {
   let totalRooka = 0;
@@ -98,7 +200,7 @@ export function WorkoutStepBuilder({
     onChangeSteps(newSteps, computedRooka);
   }, [isStrength, sport, onChangeSteps]);
 
-  const handleAddStep = (type: WorkoutStep['type']) => {
+  const handleAddStep = useCallback((type: WorkoutStep['type']) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newStep: WorkoutStep = isStrength
       ? { id: makeStepId(), type, condition_type: 'reps', condition_value: 10, target_type: 'no.target', weight: 0, exerciseName: '' }
@@ -110,9 +212,9 @@ export function WorkoutStepBuilder({
           target_type: 'no.target',
         };
     updateStepsAndNotify([...steps, newStep]);
-  };
+  }, [isStrength, steps, updateStepsAndNotify]);
 
-  const handleAddRepeat = () => {
+  const handleAddRepeat = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const repeatStep: WorkoutStep = {
       id: makeStepId(),
@@ -126,7 +228,7 @@ export function WorkoutStepBuilder({
       ],
     };
     updateStepsAndNotify([...steps, repeatStep]);
-  };
+  }, [isStrength, sport, steps, updateStepsAndNotify]);
 
   const handleUpdateStep = useCallback((id: string | undefined, field: keyof WorkoutStep, val: any) => {
     updateStepsAndNotify(steps.map((s) => (s.id === id ? { ...s, [field]: val } : s)));
@@ -166,7 +268,7 @@ export function WorkoutStepBuilder({
 
   const renderItem = useCallback(({ item, drag, isActive }: { item: WorkoutStep; drag?: () => void; isActive?: boolean }) => {
     return (
-      <View className="mb-2">
+      <View>
         <StepCard
           step={item}
           isStrength={isStrength}
@@ -182,102 +284,45 @@ export function WorkoutStepBuilder({
     );
   }, [isStrength, sport, handleUpdateStep, handleRemoveStep, handleUpdateSubStep, handleRemoveSubStep]);
 
-  const renderHeader = () => (
-    <>
-      {ListHeaderComponent}
+  // Shown as a dashed drop-zone in the slot the dragged step will land in if released.
+  const renderPlaceholder = useCallback(({ item }: { item: WorkoutStep }) => {
+    const colorConfig = CARD_COLORS[item.type as keyof typeof CARD_COLORS] || CARD_COLORS.default;
+    return (
+      <View
+        style={{
+          flex: 1,
+          marginBottom: 8,
+          borderRadius: 16,
+          borderWidth: 2,
+          borderStyle: 'dashed',
+          borderColor: colorConfig.border,
+          backgroundColor: colorConfig.bg,
+        }}
+      />
+    );
+  }, []);
 
-      {/* UNIFIED WORKOUT STRUCTURE BUILDER CARD CONTAINER */}
-      <View className="p-4 rounded-[24px] bg-theme-bg/60 border border-theme-border my-3 flex-col gap-3.5">
-        {/* Section Header */}
-        <View className="flex-row items-center justify-between pb-2.5 border-b border-theme-border/60">
-          <View className="flex-row items-center gap-2">
-            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
-              <Ionicons name="layers-outline" size={16} color="#FF5F3B" />
-            </View>
-            <View>
-              <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-text">
-                Workout Structure Builder
-              </Text>
-              <Text className="text-[10px] text-theme-muted font-bold">
-                Target duration & interval block manager
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Add Interval Blocks */}
-        <View>
-          <Text className="text-[11px] font-bold text-slate-500 mb-2">
-            Add Interval Blocks:
-          </Text>
-
-          <View className="flex-row flex-wrap gap-2 mb-1">
-            <TouchableOpacity
-              onPress={() => handleAddStep('warmup')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
-            >
-              <Text className="text-[13px] font-medium text-slate-700">+ Warmup</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleAddStep('interval')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
-            >
-              <Text className="text-[13px] font-medium text-slate-700">+ Interval</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleAddStep('recovery')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
-            >
-              <Text className="text-[13px] font-medium text-slate-700">+ Recovery</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleAddStep('cooldown')}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
-            >
-              <Text className="text-[13px] font-medium text-slate-700">+ Cooldown</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleAddRepeat}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex-row items-center gap-1.5"
-            >
-              <Ionicons name="repeat" size={12} color="#334155" />
-              <Text className="text-[13px] font-medium text-slate-700">Repeat</Text>
-            </TouchableOpacity>
-          </View>
-
-          {steps.length === 0 && (
-            <View className="py-4 items-center justify-center border border-dashed border-theme-border/80 rounded-2xl bg-theme-card/50 mt-2">
-              <Text className="text-xs text-theme-muted italic font-bold">
-                No structured interval steps. Tap above to add blocks.
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* Label for active step cards list */}
-      {steps.length > 0 && (
-        <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2 px-1">
-          Configured Interval Steps
-        </Text>
-      )}
-    </>
-  );
+  const headerElement = React.useMemo(() => (
+    <MemoizedHeader
+      ListHeaderComponent={ListHeaderComponent}
+      stepsLength={steps.length}
+      handleAddStep={handleAddStep}
+      handleAddRepeat={handleAddRepeat}
+    />
+  ), [ListHeaderComponent, steps.length, handleAddStep, handleAddRepeat]);
 
   return (
     <DraggableFlatListComponent
       data={steps}
+      extraData={steps}
       keyExtractor={(item: any) => item.id!}
       onDragEnd={({ data }: any) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         updateStepsAndNotify(data);
       }}
       renderItem={renderItem}
-      ListHeaderComponent={renderHeader}
+      renderPlaceholder={renderPlaceholder}
+      ListHeaderComponent={headerElement}
       ListFooterComponent={ListFooterComponent}
       contentContainerStyle={{ paddingBottom: 20 }}
       showsVerticalScrollIndicator={false}

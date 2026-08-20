@@ -16,6 +16,8 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../../constants/api';
@@ -391,16 +393,21 @@ export default function ProfileScreen() {
         visible={garminModalVisible}
         onRequestClose={() => setGarminModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg p-6 rounded-t-3xl border-t border-theme-border">
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          className="flex-1 justify-end bg-black/50"
+        >
+          <View className="bg-theme-bg px-6 pt-3 pb-6 rounded-t-3xl border-t border-theme-border">
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View className="items-center pb-4">
+              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+            </View>
+
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
                 <Ionicons name="watch-outline" size={24} color="#FF5A1F" />
                 <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
               </View>
-              <TouchableOpacity onPress={() => setGarminModalVisible(false)} className="p-1">
-                <Ionicons name="close" size={24} color="#8E8E93" />
-              </TouchableOpacity>
             </View>
 
             <Text className="text-sm text-theme-muted mb-6">
@@ -478,7 +485,7 @@ export default function ProfileScreen() {
               </View>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
