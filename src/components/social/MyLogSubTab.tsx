@@ -1,12 +1,14 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
-import { PMCComboChart } from './PMCComboChart';
 import { useActivities } from '../../context/ActivityStore';
-import { usePhysique } from '../../context/PhysiqueStore';
+import { useGamification } from '../../context/GamificationStore';
 import { useUser } from '../../context/UserStore';
 import { Activity } from '../../types/activity';
+import { BottomSheetModal } from '../ui/BottomSheetModal';
 
 interface MyLogSubTabProps {
   onOpenActivityModal?: (id: string | number, activity?: Partial<Activity>) => void;
@@ -33,6 +35,18 @@ function formatHumanizedDate(dateString?: string): string {
   }
 }
 
+function formatDuration(minutes?: number): string {
+  if (!minutes || minutes <= 0) return '0:00';
+  const totalSecs = Math.round(minutes * 60);
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 function getSportVisuals(sportType?: string, name?: string) {
   const sport = (sportType || '').toLowerCase();
   const n = (name || '').toLowerCase();
@@ -46,15 +60,15 @@ function getSportVisuals(sportType?: string, name?: string) {
   ) {
     return {
       icon: 'bicycle-outline' as const,
-      color: '#D97706',
-      bgClass: 'bg-[#FEF3C7] dark:bg-amber-950/30',
+      color: '#EA580C',
+      label: 'Cycle',
     };
   }
   if (sport.includes('swim') || sport.includes('water') || n.includes('swim')) {
     return {
       icon: 'water-outline' as const,
-      color: '#2563EB',
-      bgClass: 'bg-[#EFF6FF] dark:bg-blue-950/30',
+      color: '#38BDF8',
+      label: 'Swim',
     };
   }
   if (
@@ -68,8 +82,8 @@ function getSportVisuals(sportType?: string, name?: string) {
   ) {
     return {
       icon: 'barbell-outline' as const,
-      color: '#9333EA',
-      bgClass: 'bg-[#F3E8FF] dark:bg-purple-950/30',
+      color: '#C084FC',
+      label: 'Strength',
     };
   }
   if (
@@ -82,114 +96,379 @@ function getSportVisuals(sportType?: string, name?: string) {
   ) {
     return {
       icon: 'body-outline' as const,
-      color: '#059669',
-      bgClass: 'bg-[#ECFDF5] dark:bg-emerald-950/30',
+      color: '#34D399',
+      label: 'Mobility',
     };
   }
   if (sport.includes('walk') || sport.includes('hike') || n.includes('walk') || n.includes('hike')) {
     return {
       icon: 'footsteps-outline' as const,
-      color: '#F97316',
-      bgClass: 'bg-[#FFF7ED] dark:bg-orange-950/30',
+      color: '#F59E0B',
+      label: 'Walk',
     };
   }
   // Default: Running / Workout
   return {
     icon: 'walk-outline' as const,
-    color: '#EA580C',
-    bgClass: 'bg-[#FFF5EB] dark:bg-orange-950/30',
+    color: '#FF5F3B',
+    label: 'Ran',
   };
+}
+
+function CircularProgressChamber({
+  progress = 0.75,
+  icon,
+  iconColor = '#FF5F3B',
+  size = 54,
+  strokeWidth = 3,
+}: {
+  progress?: number;
+  icon: string;
+  iconColor?: string;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const radius = (size - strokeWidth * 2) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - Math.min(1, Math.max(0.04, progress)) * circumference;
+
+  return (
+    <View
+      style={{ width: size, height: size }}
+      className="rounded-full items-center justify-center bg-slate-200/50 dark:bg-white/[0.08] border border-slate-300/60 dark:border-white/15 relative"
+    >
+      <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="rgba(148, 163, 184, 0.2)"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={iconColor}
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          fill="none"
+        />
+      </Svg>
+      <Ionicons name={icon as any} size={20} color={iconColor} />
+    </View>
+  );
+}
+
+// Calculate Real Consecutive Day Activity Streak
+function calculateRealStreak(activities: Activity[]): number {
+  if (!activities || activities.length === 0) return 0;
+
+  const formatDateStr = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const activityDates = new Set(
+    activities
+      .filter((a) => a.start_date)
+      .map((a) => a.start_date.substring(0, 10))
+  );
+
+  const now = new Date();
+  const todayStr = formatDateStr(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = formatDateStr(yesterday);
+
+  // If no activity today and no activity yesterday, streak is 0
+  if (!activityDates.has(todayStr) && !activityDates.has(yesterdayStr)) {
+    return 0;
+  }
+
+  let streak = 0;
+  let checkDate = activityDates.has(todayStr) ? new Date(now) : new Date(yesterday);
+
+  while (true) {
+    const dateStr = formatDateStr(checkDate);
+    if (activityDates.has(dateStr)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return streak;
 }
 
 export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal }) => {
   const { user } = useUser();
   const { activities, loading } = useActivities();
-  const { physiqueLogs } = usePhysique();
+  const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
+
+  const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
+  const [questActionLoading, setQuestActionLoading] = useState(false);
+
+  // Active Quest Data
+  const activeQuest = quests?.find((q) => q.status === 'active') || quests?.[0] || null;
+  const currentProgress = activeQuest ? Math.round(activeQuest.progress || 0) : 0;
+  const targetVal = activeQuest ? Math.round(activeQuest.target_value || 1) : 1;
+  const questProgressPercent = activeQuest
+    ? Math.min(100, Math.round((currentProgress / targetVal) * 100))
+    : 0;
+
+  // Real Streak Calculation
+  const realStreak = useMemo(() => {
+    return calculateRealStreak(activities);
+  }, [activities]);
+
+  const handleGenerateQuest = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setQuestActionLoading(true);
+    try {
+      if (activeQuest) {
+        await swapActiveQuest(activeQuest.id);
+      } else {
+        await generateNewQuest();
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.error('Generate quest error in MyLog:', err);
+    } finally {
+      setQuestActionLoading(false);
+    }
+  };
 
   return (
-    <View className="space-y-4">
-      {/* Embedded PMC Training Load Chart Card */}
-      <PMCComboChart
-        activities={activities}
-        physiqueLogs={physiqueLogs}
-        targetCtl={user?.target_ctl || 75}
-      />
+    <View className="space-y-5 pb-6">
+      {/* SECTION 1: GOAL CRUSHER CARDS */}
+      <View>
+        <View className="flex-row justify-between items-center mb-3 px-0.5">
+          <Text className="text-lg font-extrabold text-theme-text tracking-tight">
+            Quests
+          </Text>
+          <Text className="text-xs font-semibold text-theme-muted">
+            Active
+          </Text>
+        </View>
 
-      {/* Activity History List Header */}
-      <View className="flex-row justify-between items-center mb-2 px-0.5">
-        <Text className="text-[11px] uppercase font-bold tracking-wider text-[#64748B]">
-          Activity Logs ({activities.length})
-        </Text>
+        {/* 2-CARD FROSTED GLASS ROW */}
+        <View className="flex-row gap-3">
+          {/* CARD 1: ACTIVE QUEST */}
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsQuestModalOpen(true);
+            }}
+            activeOpacity={0.8}
+            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs"
+          >
+            <View>
+              <Text className="text-xs font-semibold text-[#64748B] dark:text-[#A1A1AA]">
+                Active Quest
+              </Text>
+              <Text className="text-[21px] font-black text-theme-text tracking-tight mt-0.5 font-mono">
+                {activeQuest ? `${currentProgress} / ${targetVal}` : 'No Quest'}
+              </Text>
+            </View>
+
+            <View className="flex-row items-end justify-between">
+              <View className="bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-full border border-slate-200/80 dark:border-white/10">
+                <Text className="text-[11px] font-bold text-theme-text font-mono">
+                  {questProgressPercent}%
+                </Text>
+              </View>
+              <CircularProgressChamber
+                progress={questProgressPercent / 100}
+                icon="trophy"
+                iconColor="#F59E0B"
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* CARD 2: REAL STREAK */}
+          <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs">
+            <View>
+              <Text className="text-xs font-semibold text-[#64748B] dark:text-[#A1A1AA]">
+                Streak
+              </Text>
+              <Text className="text-[21px] font-black text-theme-text tracking-tight mt-0.5 font-mono">
+                {realStreak} {realStreak === 1 ? 'Day' : 'Days'}
+              </Text>
+            </View>
+
+            <View className="flex-row items-end justify-between">
+              <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-slate-200/80 dark:border-white/10">
+                <Text className="text-[10px] font-bold text-theme-text">
+                  {realStreak > 0 ? 'Keep it up!' : 'Start today!'}
+                </Text>
+              </View>
+              <CircularProgressChamber
+                progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
+                icon="flame"
+                iconColor="#EA580C"
+              />
+            </View>
+          </View>
+        </View>
       </View>
 
-      {/* Activity List Items */}
-      {loading && activities.length === 0 ? (
-        <View className="items-center justify-center p-8 bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl">
-          <ActivityIndicator size="large" color="#FF5F3B" />
-          <Text className="text-xs font-bold text-[#64748B] mt-3">Loading activity history...</Text>
+      {/* SECTION 2: RECENT ACTIVITIES LIST */}
+      <View>
+        <View className="flex-row justify-between items-center mb-3 px-0.5">
+          <Text className="text-lg font-extrabold text-theme-text tracking-tight">
+            Recent Activities
+          </Text>
+          <Text className="text-xs font-semibold text-theme-muted">
+            {activities.length} total
+          </Text>
         </View>
-      ) : activities.length === 0 ? (
-        <View className="p-8 items-center justify-center bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl">
-          <Ionicons name="fitness-outline" size={32} color="#94A3B8" />
-          <Text className="text-sm font-semibold text-[#64748B] mt-2">No activity history recorded yet.</Text>
-        </View>
-      ) : (
-        <View className="space-y-2.5">
-          {activities.map((act) => {
-            const idStr = String(act.id);
-            const visuals = getSportVisuals(act.sport_type, act.name);
-            const dateStr = formatHumanizedDate(act.start_date);
-            const rookaScore = Math.round(act.rooka_score || act.tss || 0);
 
-            // Construct metric subtitle
-            const metrics: string[] = [dateStr];
-            if (typeof act.distance_km === 'number' && act.distance_km > 0) {
-              metrics.push(`${act.distance_km.toFixed(2)} km`);
-            }
-            if (act.moving_time_min && act.moving_time_min > 0) {
-              metrics.push(`${Math.round(act.moving_time_min)} mins`);
-            }
+        {/* Activity List Items */}
+        {loading && activities.length === 0 ? (
+          <View className="items-center justify-center p-8 bg-theme-card/80 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[24px]">
+            <ActivityIndicator size="large" color="#FF5F3B" />
+            <Text className="text-xs font-bold text-[#64748B] mt-3">Loading activities...</Text>
+          </View>
+        ) : activities.length === 0 ? (
+          <View className="p-8 items-center justify-center bg-theme-card/80 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[24px]">
+            <Ionicons name="fitness-outline" size={32} color="#94A3B8" />
+            <Text className="text-sm font-semibold text-[#64748B] mt-2">No activity history recorded yet.</Text>
+          </View>
+        ) : (
+          <View className="space-y-2.5">
+            {activities.map((act) => {
+              const idStr = String(act.id);
+              const visuals = getSportVisuals(act.sport_type, act.name);
+              const dateStr = formatHumanizedDate(act.start_date);
+              const hasDistance = typeof act.distance_km === 'number' && act.distance_km > 0;
+              const primaryStat = hasDistance
+                ? `${act.distance_km!.toFixed(1)}km`
+                : `${Math.round(act.moving_time_min || 0)} mins`;
+              const secondaryStat = hasDistance
+                ? formatDuration(act.moving_time_min)
+                : `+${Math.round(act.rooka_score || act.tss || 0)}⚡`;
 
-            return (
-              <TouchableOpacity
-                key={`act-${idStr}`}
-                onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
-                activeOpacity={0.7}
-                className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-3.5 flex-row justify-between items-center mb-2.5"
-              >
-                <View className="flex-row items-center flex-1 pr-3">
-                  {/* 40x40 Rounded Tinted Icon Container */}
-                  <View
-                    className={`w-10 h-10 rounded-xl items-center justify-center mr-3.5 ${visuals.bgClass}`}
-                  >
-                    <Ionicons name={visuals.icon} size={20} color={visuals.color} />
+              return (
+                <TouchableOpacity
+                  key={`act-${idStr}`}
+                  onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
+                  activeOpacity={0.75}
+                  className="bg-theme-card/90 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[24px] p-3.5 flex-row items-center justify-between mb-2.5 shadow-xs"
+                >
+                  {/* Left: Circular Icon & Titles */}
+                  <View className="flex-row items-center flex-1 pr-3">
+                    <View className="w-12 h-12 rounded-full items-center justify-center bg-slate-100 dark:bg-white/10 border border-slate-200/60 dark:border-white/15 mr-3.5">
+                      <Ionicons name={visuals.icon} size={22} color={visuals.color} />
+                    </View>
+
+                    <View className="flex-1">
+                      <Text className="text-[15px] font-bold text-theme-text" numberOfLines={1}>
+                        {act.name || visuals.label}
+                      </Text>
+                      <Text className="text-xs font-medium text-[#64748B] dark:text-slate-400 mt-0.5">
+                        {dateStr}
+                      </Text>
+                    </View>
                   </View>
 
-                  {/* Title & Formatted Metadata */}
-                  <View className="flex-1">
-                    <Text className="text-[15px] font-semibold text-theme-text" numberOfLines={1}>
-                      {act.name || 'Workout'}
+                  {/* Right: Big Metric & Duration/Score */}
+                  <View className="items-end">
+                    <Text className="text-[15px] font-extrabold text-theme-text font-mono">
+                      {primaryStat}
                     </Text>
-                    <Text className="text-[13px] font-medium text-[#64748B] mt-0.5">
-                      {metrics.join(' · ')}
+                    <Text className="text-xs font-medium text-[#64748B] dark:text-slate-400 font-mono mt-0.5">
+                      {secondaryStat}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
 
-                {/* Right-side Rooka Score Pill & Chevron */}
-                <View className="flex-row items-center">
-                  <View className="bg-[#FFF7ED] dark:bg-orange-950/40 px-2.5 py-1 rounded-full mr-2 border border-[#FF5F3B]/15">
-                    <Text className="text-xs font-bold text-[#EA580C] dark:text-orange-400 font-mono">
-                      +{rookaScore} Rooka
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+      {/* Quest Detail BottomSheetModal */}
+      <BottomSheetModal
+        visible={isQuestModalOpen}
+        onClose={() => setIsQuestModalOpen(false)}
+        showHandle
+        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[80%]"
+      >
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
+              <Ionicons name="trophy" size={26} color="#F97316" />
+            </View>
+            <View>
+              <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+              <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
+            </View>
+          </View>
+          {activeQuest?.reward_points ? (
+            <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
+              <Text className="text-sm font-mono font-extrabold text-amber-500">
+                +{Math.round(activeQuest.reward_points)} Rooka
+              </Text>
+            </View>
+          ) : null}
         </View>
-      )}
+
+        <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
+          <Text className="text-sm font-bold text-theme-text leading-relaxed">
+            {activeQuest?.description || 'Complete your active challenges this week to earn bonus Rooka points.'}
+          </Text>
+        </View>
+
+        <View className="mb-6">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              Progress ({currentProgress} / {targetVal})
+            </Text>
+            <Text className="text-sm font-mono font-bold text-amber-500">
+              {questProgressPercent}%
+            </Text>
+          </View>
+          <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
+            <View
+              className="h-full bg-amber-500 rounded-full"
+              style={{ width: `${questProgressPercent}%` }}
+            />
+          </View>
+        </View>
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={handleGenerateQuest}
+            disabled={questActionLoading}
+            className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
+          >
+            {questActionLoading ? (
+              <ActivityIndicator size="small" color="#F97316" />
+            ) : (
+              <>
+                <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setIsQuestModalOpen(false)}
+            className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+          >
+            <Text className="text-xs font-black text-white">Got it</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 };
+
+

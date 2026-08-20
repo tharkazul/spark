@@ -49,11 +49,15 @@ export function AnimatedSplashOverlay() {
   ) : (
     <View
       onLayout={() => {
-        SplashScreen.hideAsync()
-          .catch(() => {})
-          .finally(() => {
-            setAnimate(true);
-          });
+        try {
+          SplashScreen.hideAsync()
+            .catch(() => {})
+            .finally(() => {
+              setAnimate(true);
+            });
+        } catch {
+          setAnimate(true);
+        }
       }}
       style={styles.splashOverlay}>
       {image}

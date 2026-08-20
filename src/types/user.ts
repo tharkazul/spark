@@ -37,5 +37,6 @@ export interface UserProfile {
   daily_token_limit?: number;
   dailyTokenLimit?: number;
   onboarding_completed?: boolean;
+  streak_days?: number;
 }
 

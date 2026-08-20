@@ -44,6 +44,7 @@ export interface Activity {
   total_elevation_gain?: number;
   start_date_local?: string;
   average_speed?: number;
+  calories?: number;
   source?: string;
 }
 

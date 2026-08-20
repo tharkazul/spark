@@ -198,9 +198,9 @@ export default function SocialScreen() {
                 setAddFriendsModalVisible(true);
               }}
               activeOpacity={0.7}
-              className="w-8 h-8 rounded-full bg-theme-accent/15 border border-theme-accent/30 items-center justify-center"
+              className="p-1.5 items-center justify-center mr-0.5"
             >
-              <Ionicons name="person-add-outline" size={16} color="#FF5F3B" />
+              <Ionicons name="person-add-outline" size={18} color="#FF5F3B" />
             </TouchableOpacity>
           }
         />

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AnatomicalBodyMap, ActiveNiggle, BODY_PARTS_LOOKUP } from './AnatomicalBodyMap';
+import { TrainingReadinessWidget } from './TrainingReadinessWidget';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
 import { MuscleFatigueCard } from './MuscleFatigueCard';
 import { Ionicons } from '@expo/vector-icons';
@@ -95,6 +96,9 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
   return (
     <View className="space-y-4">
+      {/* TRAINING READINESS GAUGE WIDGET */}
+      <TrainingReadinessWidget />
+
       {/* CYCLE TRACKER & COACH SYNC WIDGET */}
       <CycleTrackingWidget />
 

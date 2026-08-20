@@ -211,8 +211,8 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
                 size={16}
                 color={item.has_kudosed ? '#F43F5E' : '#6F6F79'}
               />
-              <Text className={`text-xs font-extrabold ${item.has_kudosed ? 'text-rose-500' : 'text-theme-muted'}`}>
-                {item.kudos_count} Kudos
+              <Text className={`text-xs font-extrabold font-mono ${item.has_kudosed ? 'text-rose-500' : 'text-theme-muted'}`}>
+                {item.kudos_count || 0}
               </Text>
             </TouchableOpacity>
 
