@@ -29,10 +29,22 @@ interface CoachChatContextType {
 
 const defaultWelcomeMessage: ChatMessage = {
   id: 'welcome-msg',
-  content: "Welcome to Rooka! ⚡️ I'm your AI endurance coach. I've locked in your profile, goals, and training availability. Let's make a plan together—what would you like to focus on first?",
+  content: `Welcome to your personalized endurance journey! ⚡️ I'm your AI endurance coach.
+
+🎯 **Your First Step: Baseline Assessment Test**
+Before we dial in high-load workouts, we need to calibrate your baseline fitness. Your initial benchmark test is scheduled in your plan to calculate your exact heart rate, power, and pace training zones.
+
+📅 **First Week Overview**:
+- **Days 1–2**: 🏁 **Baseline Assessment Workout** (record your max sustained effort)
+- **Following Days**: Active recovery, controlled Zone 2 aerobic base building, and foundational training.
+
+🧭 **Next Steps**:
+1. Check your **Today** / **Plan** tab to view your scheduled benchmark workout and its specific intervals.
+2. Connect your heart rate monitor or smartwatch before starting.
+3. Complete the assessment effort so I can analyze your metrics and calculate your training zones!`,
   role: 'coach',
   timestamp: new Date().toISOString(),
-  mood: 'default',
+  mood: 'motivated',
 };
 
 const parseWorkoutProposals = (content: string): ProposedWorkoutItem[] | undefined => {
@@ -79,12 +91,19 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const { refreshNiggles } = useHealth();
   const { user, isAuthenticated } = useUser();
 
-  // Load last read timestamp from persistent storage
+  // Load last read timestamp from persistent storage (scoped per user)
   useEffect(() => {
-    chatReadStorage.getLastReadTimestamp().then((ts) => {
-      setLastReadTimestamp(ts || 0);
-    });
-  }, []);
+    if (user?.id) {
+      chatReadStorage.getLastReadTimestamp(user.id).then((ts) => {
+        setLastReadTimestamp(ts || 0);
+      });
+      refreshMessages();
+    } else {
+      chatReadStorage.getLastReadTimestamp().then((ts) => {
+        setLastReadTimestamp(ts || 0);
+      });
+    }
+  }, [user?.id, isAuthenticated]);
 
   // Compute unread count whenever messages or lastReadTimestamp change
   useEffect(() => {
@@ -112,8 +131,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     const now = Math.max(Date.now(), maxMsgTime + 1000);
     setLastReadTimestamp(now);
     setUnreadCount(0);
-    await chatReadStorage.setLastReadTimestamp(now);
-  }, []);
+    await chatReadStorage.setLastReadTimestamp(now, user?.id);
+  }, [user?.id]);
 
   const setMessages = (action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     setMessagesState((prev) => {
@@ -206,7 +225,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     // Break text into words/tokens with trailing spaces
     const tokens: string[] = fullText.match(/\S+\s*/g) || [fullText];
     
-    // Group into phrase chunks of 1 to 3 words, breaking naturally on punctuation
+    // Group into phrase chunks of 2 to 4 words, breaking naturally on punctuation
     const chunks: string[] = [];
     let currentChunk = '';
     let wordsInChunk = 0;
@@ -217,7 +236,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       wordsInChunk++;
 
       const isPunctuationBreak = /[.,!?:;\n]/.test(token);
-      if (wordsInChunk >= 1 || isPunctuationBreak || i === tokens.length - 1) {
+      if (wordsInChunk >= 3 || isPunctuationBreak || i === tokens.length - 1) {
         chunks.push(currentChunk);
         currentChunk = '';
         wordsInChunk = 0;
@@ -235,13 +254,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         isStreaming: true,
       };
 
-      setMessages((prev) => [...prev, initialMsg]);
+      // Set initial stream item in memory
+      setMessagesState((prev) => [...prev, initialMsg]);
       setSending(false);
 
       let chunkIdx = 1;
 
       const step = () => {
         if (chunkIdx >= chunks.length) {
+          // Final state: persist to storage ONCE
           setMessages((prev) =>
             prev.map((m) =>
               (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
@@ -257,7 +278,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         revealedText += nextChunk;
         chunkIdx++;
 
-        setMessages((prev) =>
+        // In-memory update only during streaming (avoids AsyncStorage bottleneck)
+        setMessagesState((prev) =>
           prev.map((m) =>
             (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
               ? { ...m, content: revealedText, isStreaming: true }
@@ -265,13 +287,9 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           )
         );
 
-        // Readable speed: linger on sentence ends, brief pause on soft punctuation,
-        // fast flow between words. A small random jitter avoids a metronomic
-        // feel — real typing/streaming never lands on a perfectly fixed interval.
         const hasSentenceEnd = /[.!?\n]/.test(nextChunk);
         const hasSoftPunctuation = /[,;:]/.test(nextChunk);
-        const jitter = Math.random() * 10;
-        const delay = hasSentenceEnd ? 90 + jitter : hasSoftPunctuation ? 45 + jitter : 16 + jitter;
+        const delay = hasSentenceEnd ? 70 : hasSoftPunctuation ? 40 : 25;
 
         setTimeout(step, delay);
       };

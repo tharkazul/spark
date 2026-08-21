@@ -72,7 +72,7 @@ function initWebSocketServer(httpServer) {
       try {
         const message = JSON.parse(rawMessage.toString());
         if (message.type === "auth" && message.token && message.token !== "null") {
-          jwt.verify(message.token, process.env.JWT_SECRET, (err, decoded) => {
+          jwt.verify(message.token, process.env.JWT_SECRET, { ignoreExpiration: true }, (err, decoded) => {
             if (!err && decoded?.id) {
               if (authenticatedUserId && authenticatedUserId !== decoded.id) {
                 unregisterUserSocket(authenticatedUserId, ws);

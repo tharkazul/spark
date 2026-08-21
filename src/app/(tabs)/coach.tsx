@@ -472,10 +472,35 @@ export default function CoachScreen() {
     }
   };
 
+  const checkSelfHarmCrisis = (text: string): boolean => {
+    const crisisRegex = /(suicide|self-harm|self harm|kill myself|want to die|ending my life|end my life|hurting myself|hurt myself|cut myself|overdose|take my life|hopeless|can't go on|give up on life|mental breakdown)/i;
+    if (crisisRegex.test(text)) {
+      Alert.alert(
+        "Mental Health & Crisis Support",
+        "If you are experiencing thoughts of self-harm or distress, please know that confidential help is available 24/7:\n\n" +
+        "• US/Canada: Call/text 988 (Suicide & Crisis Lifeline) or text HOME to 741741.\n" +
+        "• Netherlands/EU: Call 113 or 112 (113 Zelfmoordpreventie).\n" +
+        "• UK: Call 111 or Samaritans at 116 123.\n\n" +
+        "Rooka AI Coach is an athletic fitness tool and cannot replace professional medical or crisis support.",
+        [
+          { text: "Call 988 (US)", onPress: () => Linking.openURL("tel:988") },
+          { text: "Call 113 (NL)", onPress: () => Linking.openURL("tel:113") },
+          { text: "Close", style: "cancel" }
+        ]
+      );
+      return true;
+    }
+    return false;
+  };
+
   const handleSend = (textOverride?: string) => {
     const rawText = textOverride !== undefined ? textOverride : inputText;
     const textToSend = rawText.trim();
     if ((!textToSend && selectedImages.length === 0) || sending) return;
+
+    if (textToSend && checkSelfHarmCrisis(textToSend)) {
+      return;
+    }
 
     const imagesToSend = [...selectedImages];
 

@@ -188,33 +188,33 @@ export const briefingStorage = {
 const CHAT_READ_KEY = 'rooka_chat_last_read_timestamp';
 
 export const chatReadStorage = {
-  async getLastReadTimestamp(): Promise<number> {
+  async getLastReadTimestamp(userId?: string | number): Promise<number> {
+    const key = userId ? `${CHAT_READ_KEY}_${userId}` : CHAT_READ_KEY;
     try {
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.localStorage) {
-          const raw = window.localStorage.getItem(CHAT_READ_KEY);
+          const raw = window.localStorage.getItem(key);
           return raw ? parseInt(raw, 10) : 0;
         }
         return 0;
       }
-      const raw = await AsyncStorage.getItem(CHAT_READ_KEY);
+      const raw = await AsyncStorage.getItem(key);
       return raw ? parseInt(raw, 10) : 0;
-    } catch {
+    } catch (e) {
       return 0;
     }
   },
 
-  async setLastReadTimestamp(timestamp: number): Promise<void> {
+  async setLastReadTimestamp(timestamp: number, userId?: string | number): Promise<void> {
+    const key = userId ? `${CHAT_READ_KEY}_${userId}` : CHAT_READ_KEY;
     try {
-      const val = timestamp.toString();
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(CHAT_READ_KEY, val);
+          window.localStorage.setItem(key, timestamp.toString());
         }
         return;
       }
-      await AsyncStorage.setItem(CHAT_READ_KEY, val);
-    } catch {}
+      await AsyncStorage.setItem(key, timestamp.toString());
+    } catch (e) {}
   },
 };
-

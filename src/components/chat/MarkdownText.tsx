@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, Platform, useColorScheme, TouchableOpacity } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import FitImage from 'react-native-fit-image';
@@ -20,17 +20,16 @@ const getFullImageUrl = (src?: string) => {
   return `${API_BASE_URL}${src.startsWith('/') ? src : `/${src}`}`;
 };
 
-export const hasRenderableText = (content?: string) =>
-  !!content?.replace(/```json[\s\S]*?```/gi, '').trim();
+export const hasRenderableText = (content?: string) => {
+  if (!content) return false;
+  if (!content.includes('```json')) return content.trim().length > 0;
+  return !!content.replace(/```json[\s\S]*?```/gi, '').trim();
+};
 
-export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, isStreaming, textColorOverride, onImagePress }) => {
+export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, isUser, isStreaming, textColorOverride, onImagePress }) => {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  // Blinking caret while the coach is still "typing". It's appended directly
-  // into the markdown string (not a separate row) so it sits inline right
-  // after the last real character and wraps naturally with the last line,
-  // instead of floating as its own block under the text.
   const [caretOn, setCaretOn] = useState(true);
 
   useEffect(() => {
@@ -40,19 +39,23 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, isS
     return () => clearInterval(id);
   }, [isStreaming]);
 
-  if (!content) return null;
+  const cleanedContent = useMemo(() => {
+    if (!content) return '';
+    if (!content.includes('```json')) return content.trim();
+    return content.replace(/```json[\s\S]*?```/gi, '').trim();
+  }, [content]);
 
-  const cleanedContent = content.replace(/```json[\s\S]*?```/gi, '').trim();
-  if (!cleanedContent) return null;
-
-  const displayContent = isStreaming ? `${cleanedContent}${caretOn ? ' ▍' : ' '}` : cleanedContent;
+  const displayContent = useMemo(() => {
+    if (!cleanedContent) return '';
+    return isStreaming ? `${cleanedContent}${caretOn ? ' ▍' : ' '}` : cleanedContent;
+  }, [cleanedContent, isStreaming, caretOn]);
 
   const defaultCoachColor = isDark ? '#F8FAFC' : '#0F172A';
   const textColor = textColorOverride || (isUser ? '#FFFFFF' : defaultCoachColor);
   const accentColor = isUser ? '#FFFFFF' : '#FF5A1F';
   const mutedColor = isUser ? 'rgba(255,255,255,0.7)' : isDark ? '#94A3B8' : '#64748B';
 
-  const markdownRules = {
+  const markdownRules = useMemo(() => ({
     image: (node: any) => {
       const { src, alt } = node.attributes;
       const uri = getFullImageUrl(src);
@@ -75,9 +78,9 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, isS
         </TouchableOpacity>
       );
     },
-  };
+  }), [onImagePress]);
 
-  const styles = StyleSheet.create({
+  const styles = useMemo(() => StyleSheet.create({
     body: {
       color: textColor,
       fontSize: 15,
@@ -193,7 +196,9 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, isS
       height: 1,
       marginVertical: 8,
     },
-  });
+  }), [textColor, accentColor, mutedColor, isUser, isDark]);
+
+  if (!displayContent) return null;
 
   return (
     <View className="w-full">
@@ -202,4 +207,4 @@ export const MarkdownText: React.FC<MarkdownTextProps> = ({ content, isUser, isS
       </Markdown>
     </View>
   );
-};
+});

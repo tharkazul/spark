@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
   DeviceEventEmitter,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -87,6 +87,16 @@ export default function PlanningHomeScreen() {
     });
     return () => sub.remove();
   }, []);
+
+  // Re-fetch the plan every time this tab regains focus (e.g. coming back from the
+  // coach chat after a new workout was discussed). Tab screens stay mounted between
+  // switches, so the mount-only effect above won't catch changes made elsewhere.
+  useFocusEffect(
+    useCallback(() => {
+      refreshPlan();
+    }, [refreshPlan])
+  );
+
   const { tabBarOccupied, notifyScroll } = useTabBar();
 
   const part3ScrollViewRef = useRef<ScrollView>(null);
@@ -199,107 +209,6 @@ export default function PlanningHomeScreen() {
     ],
   };
 
-  // Sample Workout Generator per day
-  const getSampleWorkoutsForDay = (dayName: string, dateStr: string, isPast: boolean): WorkoutItem[] => {
-    if (dayName === 'MON') {
-      return [
-        {
-          id: `w-mon-${dateStr}`,
-          day: 'MON',
-          dateStr,
-          type: 'RUN',
-          title: 'Controlled Aerobic Run - Injury Guardrail',
-          duration: '50 mins',
-          sparkPoints: 44,
-          isStructured: true,
-          isCompleted: isPast,
-          actualMetrics: isPast ? '152 avg bpm · 4:52/km' : undefined,
-          executionScore: isPast ? 100 : undefined,
-        },
-      ];
-    }
-    if (dayName === 'TUE') {
-      return [
-        {
-          id: `w-tue-${dateStr}`,
-          day: 'TUE',
-          dateStr,
-          type: 'STRENGTH',
-          title: 'At-Home Core & Mobility with Spark',
-          duration: '35 mins',
-          sparkPoints: 26,
-          isStructured: true,
-          isCompleted: isPast,
-          actualMetrics: isPast ? '35 mins · 118 avg bpm' : undefined,
-          executionScore: isPast ? 96 : undefined,
-        },
-      ];
-    }
-    if (dayName === 'WED') {
-      return [
-        {
-          id: `w-wed-${dateStr}`,
-          day: 'WED',
-          dateStr,
-          type: 'BIKE',
-          title: 'Threshold Interval Trainer Session',
-          duration: '60 mins',
-          sparkPoints: 52,
-          isStructured: true,
-          isCompleted: isPast,
-          actualMetrics: isPast ? '248W avg · 164 bpm' : undefined,
-          executionScore: isPast ? 102 : undefined,
-        },
-      ];
-    }
-    if (dayName === 'FRI') {
-      return [
-        {
-          id: `w-fri-${dateStr}`,
-          day: 'FRI',
-          dateStr,
-          type: 'BIKE',
-          title: 'Lekker fietsen',
-          duration: '60 mins',
-          sparkPoints: 84,
-          isStructured: true,
-          isCompleted: false,
-        },
-      ];
-    }
-    if (dayName === 'SAT') {
-      return [
-        {
-          id: `w-sat-${dateStr}`,
-          day: 'SAT',
-          dateStr,
-          type: 'STRENGTH',
-          title: 'Upper Body & Core Focus',
-          duration: '45 mins',
-          sparkPoints: 30,
-          isStructured: false,
-          isCompleted: false,
-        },
-      ];
-    }
-    if (dayName === 'SUN') {
-      return [
-        {
-          id: `w-sun-${dateStr}`,
-          day: 'SUN',
-          dateStr,
-          type: 'MOBILITY',
-          title: 'Active Recovery Walk & Stretch',
-          duration: '30 mins',
-          sparkPoints: 15,
-          isStructured: false,
-          isCompleted: false,
-        },
-      ];
-    }
-    return [];
-  };
-
   // Compute 7-Day Agenda Dynamically from weekStart
   const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
   const weeklyAgenda: DayAgenda[] = DAYS_HEADER.map((dayName, idx) => {
@@ -313,7 +222,7 @@ export default function PlanningHomeScreen() {
     const isPast = dayDate < todayMidnight;
 
     const customWorkouts = customWorkoutsByDate[dateYYYYMMDD];
-    let workouts = customWorkouts !== undefined ? customWorkouts : getSampleWorkoutsForDay(dayName, dateStr, isPast);
+    let workouts = customWorkouts !== undefined ? customWorkouts : [];
 
     if (plan && plan.length > 0) {
       const dbWorkouts = plan.filter((w) => w.date === dateYYYYMMDD);
@@ -416,7 +325,7 @@ export default function PlanningHomeScreen() {
     const targetYYYYMMDD = formatDateToYYYYMMDD(targetDate);
 
     setCustomWorkoutsByDate((prev) => {
-      const existing = prev[targetYYYYMMDD] || getSampleWorkoutsForDay(workoutData.day, targetDateStr, false);
+      const existing = prev[targetYYYYMMDD] || [];
       let updated: WorkoutItem[];
 
       if (existingId) {

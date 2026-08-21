@@ -16,7 +16,7 @@ interface LanguageContextType {
   t: (key: string, params?: Record<string, string | number>) => string;
 }
 
-const dictionaries: Record<Language, any> = { en, nl, de, es, fr };
+export const dictionaries: Record<Language, any> = { en, nl, de, es, fr };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 

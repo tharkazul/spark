@@ -52,6 +52,14 @@ db.serialize(() => {
     (err) => {},
   );
   db.run(
+    `ALTER TABLE chat_history ADD COLUMN image_path TEXT`,
+    (err) => {},
+  );
+  db.run(
+    `ALTER TABLE chat_history ADD COLUMN mood TEXT`,
+    (err) => {},
+  );
+  db.run(
     `ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free'`,
     (err) => {},
   );

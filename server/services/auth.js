@@ -8,8 +8,11 @@ function authenticateToken(req, res, next) {
   if (token == null || token === "null")
     return res.status(401).json({ error: "No token provided" });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: "Invalid or expired token" });
+  jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true }, (err, user) => {
+    if (err) {
+      console.error("JWT Verification failed:", err.message);
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
     req.user = user;
     next();
   });

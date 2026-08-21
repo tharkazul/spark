@@ -31,8 +31,11 @@ const activitiesRoutes = require("./routes/activities");
 const settingsRoutes = require("./routes/settings");
 const adminRoutes = require("./routes/admin");
 const notificationsRoutes = require("./routes/notifications");
+const onboardingRoutes = require("./routes/onboarding");
 
 app.use("/api/auth", authRoutes);
+app.use("/api/onboarding", onboardingRoutes);
+app.use("/", onboardingRoutes);
 app.use("/", chatRoutes);
 app.use("/", socialRoutes);
 app.use("/", gamificationRoutes);

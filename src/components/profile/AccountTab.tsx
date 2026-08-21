@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
+import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -66,6 +67,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
     try {
       await userApi.requestAccountData();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Data Export Requested", "Your personal account data summary has been compiled successfully.");
     } catch (err: any) {
       console.error('Export data error:', err);
     } finally {
@@ -73,17 +75,55 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
     }
   };
 
-  const handleDeleteAccount = async () => {
-    setDeleting(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    try {
-      await userApi.deleteAccount();
-      onLogout();
-    } catch (err: any) {
-      console.error('Deletion error:', err);
-    } finally {
-      setDeleting(false);
-    }
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account?",
+      "This action cannot be undone. All your workout history, physique logs, chat messages, and account settings will be permanently erased.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Permanently Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            try {
+              await userApi.deleteAccount();
+              onLogout();
+            } catch (err: any) {
+              console.error('Deletion error:', err);
+              Alert.alert("Error", err.message || "Failed to delete account.");
+            } finally {
+              setDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleManageSubscription = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const url = Platform.OS === 'ios'
+      ? 'https://apps.apple.com/account/subscriptions'
+      : 'https://play.google.com/store/account/subscriptions';
+    Linking.openURL(url).catch(() => {
+      Alert.alert("Manage Subscription", `Please manage your subscription directly in your ${Platform.OS === 'ios' ? 'Apple ID' : 'Google Play Store'} account settings.`);
+    });
+  };
+
+  const handleOpenPrivacyPolicy = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL('https://rookaapp.fitness/privacy.html').catch(() => {
+      Alert.alert("Privacy Policy", "Visit https://rookaapp.fitness/privacy.html to read our Privacy Policy.");
+    });
+  };
+
+  const handleOpenTerms = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL('https://rookaapp.fitness/terms.html').catch(() => {
+      Alert.alert("Terms of Service", "Visit https://rookaapp.fitness/terms.html to read our Terms of Service.");
+    });
   };
 
   return (
@@ -158,14 +198,58 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* DATA & PRIVACY */}
+      {/* SUBSCRIPTIONS */}
       <Card className="p-4 mb-6">
-        <View className="flex-row items-center gap-2 pb-3 mb-3">
-          <View className="w-2.5 h-2.5 rounded-full bg-slate-500" />
-          <Text className="text-theme-text font-bold text-sm">Account Data & Privacy</Text>
+        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
+          <View className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2" />
+          <Text className="text-theme-text font-bold text-sm">Subscription Management</Text>
+        </View>
+
+        <TouchableOpacity
+          onPress={handleManageSubscription}
+          className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
+        >
+          <View className="flex-row items-center">
+            <Ionicons name="card-outline" size={18} color="#8E8E93" />
+            <View className="ml-3">
+              <Text className="text-theme-text font-bold text-xs">Manage or Cancel Subscription</Text>
+              <Text className="text-theme-muted text-[10px] mt-0.5">1-Click cancel via {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'}</Text>
+            </View>
+          </View>
+          <Ionicons name="open-outline" size={16} color="#8E8E93" />
+        </TouchableOpacity>
+      </Card>
+
+      {/* LEGAL & PRIVACY */}
+      <Card className="p-4 mb-6">
+        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
+          <View className="w-2.5 h-2.5 rounded-full bg-blue-500 mr-2" />
+          <Text className="text-theme-text font-bold text-sm">Legal & Privacy Disclosures</Text>
         </View>
 
         <View className="space-y-3">
+          <TouchableOpacity
+            onPress={handleOpenPrivacyPolicy}
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="shield-checkmark-outline" size={18} color="#8E8E93" />
+              <Text className="text-theme-text font-bold text-xs ml-3">Privacy Policy</Text>
+            </View>
+            <Ionicons name="open-outline" size={16} color="#8E8E93" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleOpenTerms}
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="document-text-outline" size={18} color="#8E8E93" />
+              <Text className="text-theme-text font-bold text-xs ml-3">Terms of Service & EULA</Text>
+            </View>
+            <Ionicons name="open-outline" size={16} color="#8E8E93" />
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={handleExportData}
             disabled={exporting}
@@ -177,7 +261,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               ) : (
                 <Ionicons name="download-outline" size={18} color="#8E8E93" />
               )}
-              <Text className="text-theme-text font-bold text-xs ml-3">Export My Account Data</Text>
+              <Text className="text-theme-text font-bold text-xs ml-3">Export Account Data</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#8E8E93" />
           </TouchableOpacity>
@@ -193,7 +277,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               ) : (
                 <Ionicons name="trash-outline" size={18} color="#EF4444" />
               )}
-              <Text className="text-red-500 font-bold text-xs ml-3">Delete My Account</Text>
+              <Text className="text-red-500 font-bold text-xs ml-3">Delete Account & Purge Data</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#EF4444" />
           </TouchableOpacity>

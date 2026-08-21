@@ -649,6 +649,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       );
                                       let planUpdated = false;
 
+                                      // Wrap the plan mutations below and the chat_history writes further down
+                                      // in a single transaction, so a workout can never get committed to the
+                                      // plan without the chat message that produced it being saved (or vice versa).
+                                      db.run("BEGIN TRANSACTION");
+
                                       const jsonMatches = [
                                         ...aiReply.matchAll(
                                           /```(?:json)?\n?([\s\S]*?)```/gi,
@@ -678,41 +683,41 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             ];
 
                                             if (affectedDates.length > 0) {
-                                              const placeholders = affectedDates
-                                                .map(() => "?")
-                                                .join(",");
-
                                               await new Promise((resolvePlan) => {
-                                                db.run(
-                                                  `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
-                                                  [req.user.id, ...affectedDates],
-                                                  (err) => {
-                                                    if (err)
-                                                      console.error(
-                                                        "Failed to clear old plan data:",
-                                                        err,
-                                                      );
+                                                const placeholders = affectedDates
+                                                  .map(() => "?")
+                                                  .join(",");
+                                                db.serialize(() => {
+                                                  db.run(
+                                                    `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
+                                                    [req.user.id, ...affectedDates],
+                                                    (err) => {
+                                                      if (err)
+                                                        console.error(
+                                                          "Failed to clear old plan data:",
+                                                          err,
+                                                        );
+                                                    }
+                                                  );
 
-                                                    const stmt = db.prepare(`
-                                        INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) 
-                                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                                    `);
+                                                  const stmt = db.prepare(`
+                                                      INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) 
+                                                      VALUES (?, ?, ?, ?, ?, ?, ?)
+                                                  `);
 
-                                                    planData.forEach((day) => {
-                                                      stmt.run(
-                                                        req.user.id,
-                                                        day.date,
-                                                        day.sport,
-                                                        day.description,
-                                                        day.target_rooka,
-                                                        day.details,
-                                                        day.steps ? JSON.stringify(day.steps) : (day.steps_json || "[]"),
-                                                      );
-                                                    });
-                                                    stmt.finalize();
-                                                    resolvePlan();
-                                                  },
-                                                );
+                                                  planData.forEach((day) => {
+                                                    stmt.run(
+                                                      req.user.id,
+                                                      day.date,
+                                                      day.sport,
+                                                      day.description,
+                                                      day.target_rooka,
+                                                      day.details,
+                                                      day.steps ? JSON.stringify(day.steps) : (day.steps_json || "[]"),
+                                                    );
+                                                  });
+                                                  stmt.finalize(() => resolvePlan());
+                                                });
                                               });
                                             }
                                             planUpdated = true;
@@ -1147,13 +1152,25 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         },
                                       );
 
-                                      res.json({
-                                        reply: aiReply,
-                                        mood: mood,
-                                        planUpdated: planUpdated,
+                                      db.run("COMMIT", (commitErr) => {
+                                        if (commitErr) {
+                                          console.error(
+                                            "Failed to commit chat/plan transaction:",
+                                            commitErr,
+                                          );
+                                          return res.status(500).json({
+                                            error: "Failed to save chat and plan updates.",
+                                          });
+                                        }
+                                        res.json({
+                                          reply: aiReply,
+                                          mood: mood,
+                                          planUpdated: planUpdated,
+                                        });
                                       });
                                     } catch (err) {
                                       console.error("Chat parsing error:", err);
+                                      db.run("ROLLBACK");
                                       res
                                         .status(500)
                                         .json({

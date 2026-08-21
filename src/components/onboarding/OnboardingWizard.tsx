@@ -1,36 +1,42 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Switch,
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  Dimensions,
-  Animated,
-  Platform,
-  KeyboardAvoidingView,
-  Easing,
-  Pressable,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
-import { getCoachAvatarSource } from '../../utils/avatarUtils';
-import { userApi, integrationsApi } from '../../services/apiServices';
+import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Easing,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View
+} from 'react-native';
+import Reanimated, {
+  Easing as REasing,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../../constants/api';
-import { useUser } from '../../context/UserStore';
-import { useLanguage } from '../../context/LanguageContext';
-import { MarkdownText } from '../chat/MarkdownText';
-import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
+import { useLanguage, dictionaries } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserStore';
+import { apiClient } from '../../services/apiClient';
+import { integrationsApi } from '../../services/apiServices';
+import { getCoachAvatarSource } from '../../utils/avatarUtils';
+import { MarkdownText } from '../chat/MarkdownText';
+import { BottomSheetModal } from '../ui/BottomSheetModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -151,9 +157,111 @@ export default function OnboardingWizard() {
     }, 150);
   };
 
-  // Welcome Message Typewriter Effect
-  const WELCOME_MESSAGE =
-    "Hi! Welcome to Rooka. 👋 I'm your AI endurance coach. I'm here to build your personalized training experience around your life, your goals, and your schedule. Let's build something awesome together!";
+  // --- Hero -> Chat handoff animation ---
+  // The hero avatar visually "flies" from its big centered spot into the small
+  // top-left slot it occupies as the first chat avatar, shrinking as it goes.
+  // The headline/button/terms fade + drift up and out at the same time.
+  const heroAvatarBoxRef = useRef<View>(null);
+  // Invisible probe kept exactly where the small chat avatar will render
+  // (same top/left as the first chat row's avatar), so we can measure the
+  // real landing spot instead of guessing header height + padding.
+  const chatAvatarProbeRef = useRef<View>(null);
+  // The real first chat-row avatar, once it mounts — used to snap the clone
+  // onto its exact final position/size right before fading, so any tiny
+  // discrepancy between the probe estimate and reality can't show as a ghost.
+  const firstChatAvatarRef = useRef<View>(null);
+  const [isHeroTransitioning, setIsHeroTransitioning] = useState(false);
+
+  const heroT = useSharedValue(0);
+  const overlayOpacity = useSharedValue(0);
+  const heroContentOpacity = useSharedValue(1);
+  const heroContentTranslateY = useSharedValue(0);
+
+  const avatarFromX = useSharedValue(0);
+  const avatarFromY = useSharedValue(0);
+  const avatarFromSize = useSharedValue(112);
+  const avatarToX = useSharedValue(24);
+  const avatarToY = useSharedValue(80);
+  const avatarToSize = useSharedValue(40);
+
+  const heroContentStyle = useAnimatedStyle(() => ({
+    opacity: heroContentOpacity.value,
+    transform: [{ translateY: heroContentTranslateY.value }],
+  }));
+
+  const avatarOverlayStyle = useAnimatedStyle(() => {
+    const size = interpolate(heroT.value, [0, 1], [avatarFromSize.value, avatarToSize.value]);
+    return {
+      opacity: overlayOpacity.value,
+      top: interpolate(heroT.value, [0, 1], [avatarFromY.value, avatarToY.value]),
+      left: interpolate(heroT.value, [0, 1], [avatarFromX.value, avatarToX.value]),
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+    };
+  });
+
+  const finalizeHeroHandoff = () => {
+    startChatOnboarding();
+    // Wait for the real chat avatar to actually commit to the native layout
+    // (one rAF is often not enough on its own), then snap the clone onto its
+    // exact measured rect before fading — removes any residual few-px offset
+    // between the probe's estimate and where the real avatar actually lands.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (firstChatAvatarRef.current) {
+          firstChatAvatarRef.current.measureInWindow((x, y, w) => {
+            avatarToX.value = x;
+            avatarToY.value = y;
+            avatarToSize.value = w;
+            overlayOpacity.value = withDelay(80, withTiming(0, { duration: 140 }));
+          });
+        } else {
+          overlayOpacity.value = withDelay(80, withTiming(0, { duration: 140 }));
+        }
+      });
+    });
+  };
+
+  const handleBeginPress = () => {
+    if (isHeroTransitioning) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (!heroAvatarBoxRef.current || !chatAvatarProbeRef.current) {
+      startChatOnboarding();
+      return;
+    }
+
+    setIsHeroTransitioning(true);
+
+    heroAvatarBoxRef.current.measureInWindow((fromX, fromY, fromWidth) => {
+      avatarFromX.value = fromX;
+      avatarFromY.value = fromY;
+      avatarFromSize.value = fromWidth;
+
+      chatAvatarProbeRef.current?.measureInWindow((toX, toY, toWidth) => {
+        avatarToX.value = toX;
+        avatarToY.value = toY;
+        avatarToSize.value = toWidth;
+
+        overlayOpacity.value = 1;
+        heroContentOpacity.value = withTiming(0, { duration: 200, easing: REasing.out(REasing.quad) });
+        heroContentTranslateY.value = withTiming(-14, { duration: 220, easing: REasing.out(REasing.quad) });
+
+        heroT.value = withTiming(
+          1,
+          { duration: 480, easing: REasing.out(REasing.cubic) },
+          (finished) => {
+            if (finished) {
+              runOnJS(finalizeHeroHandoff)();
+            }
+          }
+        );
+      });
+    });
+  };
+
+  const WELCOME_MESSAGE = t('onboarding.welcomeMessage');
   const [typedText, setTypedText] = useState('');
 
   useEffect(() => {
@@ -173,9 +281,8 @@ export default function OnboardingWizard() {
 
       return () => clearInterval(timer);
     }
-  }, [currentStep]);
+  }, [currentStep, WELCOME_MESSAGE]);
 
-  // Form State
   const [coachTone, setCoachTone] = useState(
     user?.coach_tone || ''
   );
@@ -221,9 +328,7 @@ export default function OnboardingWizard() {
   const [targetCtl, setTargetCtl] = useState(user?.target_ctl?.toString() || '75');
   const [isEstimatingCtl, setIsEstimatingCtl] = useState(false);
   const [isAiFilled, setIsAiFilled] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
 
-  // Date Picker Modal State
   const [showDatePicker, setShowDatePicker] = useState(false);
   const MONTHS = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -233,79 +338,53 @@ export default function OnboardingWizard() {
   const startYear = Math.max(2026, currentYearNum);
   const YEARS = Array.from({ length: 6 }, (_, i) => (startYear + i).toString());
 
-  const [pickerMonth, setPickerMonth] = useState(() => {
-    if (raceDate) {
-      const parts = raceDate.split('-');
-      if (parts.length === 3) {
-        const mIdx = parseInt(parts[1], 10) - 1;
-        if (mIdx >= 0 && mIdx < 12) return MONTHS[mIdx];
-      }
-    }
-    return MONTHS[new Date().getMonth()];
-  });
-
-  const [pickerDay, setPickerDay] = useState(() => {
-    if (raceDate) {
-      const parts = raceDate.split('-');
-      if (parts.length === 3) return parseInt(parts[2], 10).toString();
-    }
-    return new Date().getDate().toString();
-  });
-
-  const [pickerYear, setPickerYear] = useState(() => {
-    if (raceDate) {
-      const parts = raceDate.split('-');
-      if (parts.length === 3) {
-        const yr = parseInt(parts[0], 10);
-        if (yr >= startYear) return yr.toString();
-      }
-    }
-    return startYear.toString();
-  });
+  const [pickerMonth, setPickerMonth] = useState('October');
+  const [pickerDay, setPickerDay] = useState('1');
+  const [pickerYear, setPickerYear] = useState(startYear.toString());
 
   const getDaysInMonth = (monthName: string, yearStr: string) => {
     const monthIndex = MONTHS.indexOf(monthName);
-    const year = parseInt(yearStr, 10);
-    if (monthIndex === -1 || isNaN(year)) return 31;
-    return new Date(year, monthIndex + 1, 0).getDate();
+    const y = parseInt(yearStr, 10) || startYear;
+    return new Date(y, monthIndex + 1, 0).getDate();
   };
 
-  const currentDaysInMonth = getDaysInMonth(pickerMonth, pickerYear);
-  const PICKER_DAYS = Array.from({ length: currentDaysInMonth }, (_, i) => (i + 1).toString());
+  const currentMaxDays = getDaysInMonth(pickerMonth, pickerYear);
+  const PICKER_DAYS = Array.from({ length: currentMaxDays }, (_, i) => (i + 1).toString());
 
   const isSelectedDateInPast = () => {
     const monthIndex = MONTHS.indexOf(pickerMonth);
-    const day = parseInt(pickerDay, 10);
-    const year = parseInt(pickerYear, 10);
-    if (monthIndex === -1 || isNaN(day) || isNaN(year)) return false;
-    const selectedDate = new Date(year, monthIndex, day);
+    const dayNum = parseInt(pickerDay, 10) || 1;
+    const yearNum = parseInt(pickerYear, 10) || startYear;
+    const selected = new Date(yearNum, monthIndex, dayNum);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return selectedDate < today;
+    return selected < today;
   };
 
   const handleSetPickerMonth = (m: string) => {
     setPickerMonth(m);
-    const maxDays = getDaysInMonth(m, pickerYear);
-    if (parseInt(pickerDay, 10) > maxDays) {
-      setPickerDay(maxDays.toString());
+    const maxD = getDaysInMonth(m, pickerYear);
+    if (parseInt(pickerDay, 10) > maxD) {
+      setPickerDay(maxD.toString());
     }
   };
 
   const handleSetPickerYear = (y: string) => {
     setPickerYear(y);
-    const maxDays = getDaysInMonth(pickerMonth, y);
-    if (parseInt(pickerDay, 10) > maxDays) {
-      setPickerDay(maxDays.toString());
+    const maxD = getDaysInMonth(pickerMonth, y);
+    if (parseInt(pickerDay, 10) > maxD) {
+      setPickerDay(maxD.toString());
     }
   };
 
   const handleConfirmDate = () => {
     if (isSelectedDateInPast()) return;
-    const monthIndex = (MONTHS.indexOf(pickerMonth) + 1).toString().padStart(2, '0');
-    const dayStr = pickerDay.padStart(2, '0');
-    const formatted = `${pickerYear}-${monthIndex}-${dayStr}`;
-    setRaceDate(formatted);
+    const monthIndex = MONTHS.indexOf(pickerMonth) + 1;
+    const mStr = monthIndex < 10 ? `0${monthIndex}` : `${monthIndex}`;
+    const dayNum = parseInt(pickerDay, 10);
+    const dStr = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
+    const fullDate = `${pickerYear}-${mStr}-${dStr}`;
+    setRaceDate(fullDate);
     setShowDatePicker(false);
   };
 
@@ -327,28 +406,31 @@ export default function OnboardingWizard() {
     setShowDatePicker(true);
   };
 
-  const ctlDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const raceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleRaceNameChange = (text: string) => {
     setRaceName(text);
-    if (!text.trim()) {
+    if (raceDebounceRef.current) clearTimeout(raceDebounceRef.current);
+    if (!text.trim() || text.trim().length < 3) {
       setIsEstimatingCtl(false);
       return;
     }
     setIsEstimatingCtl(true);
-    if (ctlDebounceRef.current) clearTimeout(ctlDebounceRef.current);
-    ctlDebounceRef.current = setTimeout(() => {
+    raceDebounceRef.current = setTimeout(() => {
       const lower = text.toLowerCase();
-      let estimated = 75;
-      if (lower.includes('140.6') || lower.includes('ironman 140') || (lower.includes('ironman') && !lower.includes('70.3'))) {
-        estimated = 105;
+      let estimated = 70;
+      if (lower.includes('ironman') || lower.includes('140.6')) {
+        estimated = 115;
       } else if (lower.includes('70.3') || lower.includes('half ironman')) {
+        estimated = 90;
+      } else if (lower.includes('marathon') || lower.includes('42k')) {
+        estimated = 85;
+      } else if (lower.includes('half marathon') || lower.includes('21k')) {
+        estimated = 65;
+      } else if (lower.includes('olympic') || lower.includes('triathlon')) {
+        estimated = 75;
+      } else if (lower.includes('hyrox')) {
         estimated = 80;
-      } else if (lower.includes('100k') || lower.includes('100m') || lower.includes('ultra')) {
-        estimated = 100;
-      } else if (lower.includes('marathon') || lower.includes('42k') || lower.includes('42.2')) {
-        estimated = 70;
-      } else if (lower.includes('half marathon') || lower.includes('21k') || lower.includes('21.1')) {
-        estimated = 55;
       } else if (lower.includes('10k')) {
         estimated = 45;
       } else if (lower.includes('5k')) {
@@ -369,20 +451,7 @@ export default function OnboardingWizard() {
     }
     contextDebounceRef.current = setTimeout(() => {
       const lower = text.toLowerCase();
-      let reaction = "Got it! I've noted down your background so I can personalize your training plan and post-workout feedback.";
-      if (lower.includes('marathon') || lower.includes('42k') || lower.includes('21k') || lower.includes('half')) {
-        reaction = "Exciting distance goal! We'll build progressive long runs and periodized fueling to get you race-ready.";
-      } else if (lower.includes('ironman') || lower.includes('70.3') || lower.includes('triathlon')) {
-        reaction = "Triathlon target locked! We'll balance swim, bike, and run volume so you stay strong and avoid overtraining.";
-      } else if (lower.includes('parent') || lower.includes('kid') || lower.includes('family') || lower.includes('busy') || lower.includes('work')) {
-        reaction = "Balancing family, work, and training is super inspiring! I'll keep your schedule flexible so workouts fit seamlessly into your life. ⚡️";
-      } else if (lower.includes('morning') || lower.includes('early')) {
-        reaction = "Early morning sessions are great for consistency! I'll schedule key opener workouts right when you feel most energized.";
-      } else if (lower.includes('beginner') || lower.includes('start') || lower.includes('new')) {
-        reaction = "Welcome to endurance training! We'll focus on building a sustainable base safely step by step.";
-      } else if (lower.includes('bike') || lower.includes('cycle') || lower.includes('cycling') || lower.includes('gran fondo')) {
-        reaction = "Awesome cycling focus! We'll target solid aerobic power and cadence work to boost your endurance on two wheels.";
-      }
+      let reaction = t('onboarding.contextFeedbackDefault');
       setCoachReaction(reaction);
     }, 600);
   };
@@ -402,9 +471,7 @@ export default function OnboardingWizard() {
   };
 
   const [isStreamingMessage, setIsStreamingMessage] = useState(false);
-
   const TYPING_NODE_ID = 'coach_typing_indicator';
-
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
 
@@ -503,7 +570,6 @@ export default function OnboardingWizard() {
     streamCoachMessage(coachAck, { thinkingMs: 550, onDone: () => setIsStreamingMessage(false) });
   };
 
-  // Step Action Handlers for Chat Flow
   const startChatOnboarding = () => {
     setCurrentStep(1);
     setTimeline([
@@ -515,18 +581,22 @@ export default function OnboardingWizard() {
     ]);
     scrollToBottom();
 
-    appendCoachPromptAndCard(null, 'Please select your preferred language:', 'card_language');
+    appendCoachPromptAndCard(null, t('onboarding.selectLanguagePrompt'), 'card_language');
   };
 
   const handleSelectLanguageChoice = (langCode: string, langName: string) => {
     if (isStreamingMessage) return;
     setLanguage(langCode as any);
 
+    const targetDict = dictionaries[langCode as keyof typeof dictionaries] || dictionaries.en;
+    const userLabel = (targetDict.onboarding?.selectedLanguageUser || 'Language: {lang}').replace('{lang}', langName);
+    const coachPrompt = (targetDict.onboarding?.coachLanguageAck || 'Thank you! I will communicate with you in {lang}. 👋 First, how would you like me to talk to you during workouts and chat?').replace('{lang}', langName);
+
     if (currentStep === 1) {
       setCurrentStep(2);
       appendCoachPromptAndCard(
-        `Language: ${langName}`,
-        `Thank you! I will communicate with you in ${langName}. 👋 First, how would you like me to talk to you during workouts and chat?`,
+        userLabel,
+        coachPrompt,
         'card_persona',
         { type: 'card_language', key: 'selected', val: langCode }
       );
@@ -534,10 +604,9 @@ export default function OnboardingWizard() {
       setTimeline((prev) =>
         prev.map((item) => (item.type === 'card_language' ? { ...item, data: { selected: langCode } } : item))
       );
-      appendCoachAckOnly(
-        `Updated Language: ${langName}`,
-        `Got it! Updated your preferred language to ${langName}. 👋`
-      );
+      const updatedUser = (targetDict.onboarding?.updatedLanguageUser || 'Updated Language: {lang}').replace('{lang}', langName);
+      const updatedAck = (targetDict.onboarding?.updatedLanguageAck || 'Got it! Updated your preferred language to {lang}. 👋').replace('{lang}', langName);
+      appendCoachAckOnly(updatedUser, updatedAck);
     }
   };
 
@@ -548,8 +617,8 @@ export default function OnboardingWizard() {
     if (currentStep === 2) {
       setCurrentStep(3);
       appendCoachPromptAndCard(
-        `Coach Tone: ${toneTitle}`,
-        `Awesome choice! ⚡️ To help tailor your physiological recovery & recommendations, please select your gender:`,
+        t('onboarding.selectedPersonaUser', { tone: toneTitle }),
+        t('onboarding.genderPrompt'),
         'card_gender',
         { type: 'card_persona', key: 'selected', val: toneTitle }
       );
@@ -558,8 +627,8 @@ export default function OnboardingWizard() {
         prev.map((item) => (item.type === 'card_persona' ? { ...item, data: { selected: toneTitle } } : item))
       );
       appendCoachAckOnly(
-        `Updated Coach Tone: ${toneTitle}`,
-        `Got it! Updated your coach tone preference to ${toneTitle}. ⚡️`
+        t('onboarding.updatedPersonaUser', { tone: toneTitle }),
+        t('onboarding.updatedPersonaAck', { tone: toneTitle })
       );
     }
   };
@@ -571,8 +640,8 @@ export default function OnboardingWizard() {
     if (currentStep === 3) {
       setCurrentStep(4);
       appendCoachPromptAndCard(
-        `Gender: ${genderLabel}`,
-        `Thank you! Now, tell me a bit about yourself, your fitness base, or any main event on your calendar.`,
+        t('onboarding.selectedGenderUser', { gender: genderLabel }),
+        t('onboarding.contextPrompt'),
         'card_context_event',
         { type: 'card_gender', key: 'selected', val: genderVal }
       );
@@ -581,8 +650,8 @@ export default function OnboardingWizard() {
         prev.map((item) => (item.type === 'card_gender' ? { ...item, data: { selected: genderVal } } : item))
       );
       appendCoachAckOnly(
-        `Updated Gender: ${genderLabel}`,
-        `Got it! Updated your gender preference to ${genderLabel}. ⚡️`
+        t('onboarding.updatedGenderUser', { gender: genderLabel }),
+        t('onboarding.updatedGenderAck', { gender: genderLabel })
       );
     }
   };
@@ -592,10 +661,10 @@ export default function OnboardingWizard() {
 
     if (currentStep === 4) {
       setCurrentStep(5);
-      const feedback = coachReaction || "Got it! I've saved your background and event details.";
+      const feedback = coachReaction || t('onboarding.contextFeedbackDefault');
       appendCoachPromptAndCard(
-        raceName ? `Event: ${raceName} (${raceDate || 'TBD'})` : 'Background details updated.',
-        `${feedback} Next, let's set your weekly training schedule availability!`,
+        raceName ? t('onboarding.contextUserEvent', { name: raceName, date: raceDate || 'TBD' }) : t('onboarding.contextUserBackground'),
+        `${feedback} ${t('onboarding.schedulePrompt')}`,
         'card_schedule',
         { type: 'card_context_event', key: 'completed', val: true }
       );
@@ -604,8 +673,8 @@ export default function OnboardingWizard() {
         prev.map((item) => (item.type === 'card_context_event' ? { ...item, data: { completed: true } } : item))
       );
       appendCoachAckOnly(
-        raceName ? `Updated Event: ${raceName} (${raceDate || 'TBD'})` : 'Updated background details.',
-        'Got it! Saved your updated background and target event. ⚡️'
+        raceName ? t('onboarding.contextUserEvent', { name: raceName, date: raceDate || 'TBD' }) : t('onboarding.contextUserBackground'),
+        t('onboarding.contextFeedbackDefault')
       );
     }
   };
@@ -616,8 +685,8 @@ export default function OnboardingWizard() {
     if (currentStep === 5) {
       setCurrentStep(6);
       appendCoachPromptAndCard(
-        'Weekly availability schedule locked in.',
-        'Perfect! Would you like to connect Garmin or Strava to auto-sync your completed workouts and HRV data?',
+        t('onboarding.selectedScheduleUser'),
+        t('onboarding.integrationsPrompt'),
         'card_integrations',
         { type: 'card_schedule', key: 'completed', val: true }
       );
@@ -626,8 +695,8 @@ export default function OnboardingWizard() {
         prev.map((item) => (item.type === 'card_schedule' ? { ...item, data: { completed: true } } : item))
       );
       appendCoachAckOnly(
-        'Updated weekly training schedule.',
-        'Got it! Updated your weekly availability schedule. ⚡️'
+        t('onboarding.selectedScheduleUser'),
+        t('onboarding.updateScheduleBtn')
       );
     }
   };
@@ -638,8 +707,8 @@ export default function OnboardingWizard() {
     if (currentStep === 6) {
       setCurrentStep(7);
       appendCoachPromptAndCard(
-        showGarmin ? 'Garmin connected.' : 'Integrations updated.',
-        "We're all set! ⚡️ I'm ready to craft your custom endurance plan. Select a tier to launch your training experience!",
+        t('onboarding.selectedIntegrationsUser'),
+        t('onboarding.paywallPrompt'),
         'card_paywall',
         { type: 'card_integrations', key: 'completed', val: true }
       );
@@ -648,8 +717,8 @@ export default function OnboardingWizard() {
         prev.map((item) => (item.type === 'card_integrations' ? { ...item, data: { completed: true } } : item))
       );
       appendCoachAckOnly(
-        showGarmin ? 'Garmin connected.' : 'Updated integrations.',
-        'Got it! Updated your device integrations. ⚡️'
+        t('onboarding.selectedIntegrationsUser'),
+        t('onboarding.updateIntegrationsBtn')
       );
     }
   };
@@ -677,18 +746,36 @@ export default function OnboardingWizard() {
       const fullContext = cleanContext
         ? `${cleanContext}${formattedMetricsContext ? `\n[Metrics: ${formattedMetricsContext}]` : ''}`
         : formattedMetricsContext
-        ? `Endurance athlete. [Metrics: ${formattedMetricsContext}]`
-        : 'Endurance athlete.';
+          ? `Endurance athlete. [Metrics: ${formattedMetricsContext}]`
+          : 'Endurance athlete.';
 
-      await updateUser({
-        coach_tone: coachTone,
-        athlete_context: fullContext,
-        gender: gender,
-        target_event: raceName || undefined,
-        event_date: raceDate || undefined,
-        target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
-        onboarding_completed: true,
-      } as any);
+      try {
+        await apiClient('/api/onboarding/finalize', {
+          method: 'POST',
+          body: JSON.stringify({
+            coachTone,
+            athleteContext: fullContext,
+            trainingAvailability: availability,
+            gender,
+            targetEvent: raceName || undefined,
+            eventDate: raceDate || undefined,
+            targetCtl: targetCtl ? parseFloat(targetCtl) : undefined,
+            language: language || 'en',
+          }),
+        });
+      } catch (e) {
+        console.warn('Finalize onboarding call warning:', e);
+        await updateUser({
+          coach_tone: coachTone,
+          athlete_context: fullContext,
+          training_availability: availability as any,
+          gender: gender,
+          target_event: raceName || undefined,
+          event_date: raceDate || undefined,
+          target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
+          onboarding_completed: true,
+        } as any);
+      }
 
       if (showGarmin && garminEmail && garminPassword) {
         try {
@@ -696,11 +783,11 @@ export default function OnboardingWizard() {
             garminUsername: garminEmail,
             garminPassword,
           });
-        } catch (_) {}
+        } catch (_) { }
       }
 
       await refreshUser();
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/coach');
     } catch (err: any) {
       console.error('Onboarding save error:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -738,139 +825,140 @@ export default function OnboardingWizard() {
     }
   };
 
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
+
   return (
+    <View style={{ flex: 1 }}>
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top', 'bottom']}>
       {/* Date Picker Modal */}
-      <Modal visible={showDatePicker} transparent animationType="slide">
-        <Pressable
-          onPress={() => setShowDatePicker(false)}
-          className="flex-1 justify-end bg-black/60"
-        >
-          <Pressable className="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6">
-            <View className="flex-row justify-between items-center mb-4">
-              <Pressable onPress={() => setShowDatePicker(false)}>
-                <Text className="text-theme-muted font-semibold text-sm">Cancel</Text>
-              </Pressable>
-              <Text className="text-theme-text font-bold text-base">Select Target Event Date</Text>
-              <Pressable
-                onPress={handleConfirmDate}
-                disabled={isSelectedDateInPast()}
-                className={isSelectedDateInPast() ? 'opacity-40' : 'opacity-100'}
-              >
-                <Text className="text-[#FF5A1F] font-bold text-sm">Confirm</Text>
-              </Pressable>
-            </View>
-
-            {isSelectedDateInPast() && (
-              <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center gap-2">
-                <Ionicons name="warning-outline" size={16} color="#ef4444" />
-                <Text className="text-red-500 text-xs font-bold text-center">
-                  Goal date cannot be in the past
-                </Text>
-              </View>
-            )}
-
-            <View className="h-[200px] flex-row relative">
-              <View className="absolute top-[84px] left-0 right-0 h-[44px] bg-theme-card border-y border-theme-border rounded-lg" />
-
-              {/* Month Column */}
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                snapToInterval={44}
-                decelerationRate="fast"
-                contentContainerStyle={{ paddingVertical: 84 }}
-                className="flex-1"
-              >
-                {MONTHS.map((m) => (
-                  <Pressable
-                    key={m}
-                    onPress={() => handleSetPickerMonth(m)}
-                    style={{ height: 44 }}
-                    className="items-center justify-center"
-                  >
-                    <Text
-                      className={`text-center text-lg ${
-                        pickerMonth === m
-                          ? 'font-bold text-black dark:text-white'
-                          : 'text-gray-400 dark:text-zinc-500 font-normal'
-                      }`}
-                    >
-                      {m}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-
-              {/* Day Column */}
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                snapToInterval={44}
-                decelerationRate="fast"
-                contentContainerStyle={{ paddingVertical: 84 }}
-                className="flex-1"
-              >
-                {PICKER_DAYS.map((d) => (
-                  <Pressable
-                    key={d}
-                    onPress={() => setPickerDay(d)}
-                    style={{ height: 44 }}
-                    className="items-center justify-center"
-                  >
-                    <Text
-                      className={`text-center text-lg ${
-                        pickerDay === d
-                          ? 'font-bold text-black dark:text-white'
-                          : 'text-gray-400 dark:text-zinc-500 font-normal'
-                      }`}
-                    >
-                      {d}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-
-              {/* Year Column */}
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                snapToInterval={44}
-                decelerationRate="fast"
-                contentContainerStyle={{ paddingVertical: 84 }}
-                className="flex-1"
-              >
-                {YEARS.map((y) => (
-                  <Pressable
-                    key={y}
-                    onPress={() => handleSetPickerYear(y)}
-                    style={{ height: 44 }}
-                    className="items-center justify-center"
-                  >
-                    <Text
-                      className={`text-center text-lg ${
-                        pickerYear === y
-                          ? 'font-bold text-black dark:text-white'
-                          : 'text-gray-400 dark:text-zinc-500 font-normal'
-                      }`}
-                    >
-                      {y}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
+      <BottomSheetModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        contentClassName="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6"
+      >
+        <View className="flex-row justify-between items-center mb-4">
+          <Pressable onPress={() => setShowDatePicker(false)}>
+            <Text className="text-theme-muted font-semibold text-sm">{t('onboarding.cancelBtn')}</Text>
           </Pressable>
-        </Pressable>
-      </Modal>
+          <Text className="text-theme-text font-bold text-base">{t('onboarding.selectTargetDateModalTitle')}</Text>
+          <Pressable
+            onPress={handleConfirmDate}
+            disabled={isSelectedDateInPast()}
+            className={isSelectedDateInPast() ? 'opacity-40' : 'opacity-100'}
+          >
+            <Text className="text-[#FF5A1F] font-bold text-sm">{t('onboarding.confirmDateBtn')}</Text>
+          </Pressable>
+        </View>
+
+        {isSelectedDateInPast() && (
+          <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center gap-2">
+            <Ionicons name="warning-outline" size={16} color="#ef4444" />
+            <Text className="text-red-500 text-xs font-bold text-center">
+              {t('onboarding.dateInPastWarning')}
+            </Text>
+          </View>
+        )}
+
+        <View className="h-[200px] flex-row relative">
+          <View className="absolute top-[84px] left-0 right-0 h-[44px] bg-theme-card border-y border-theme-border rounded-lg" />
+
+          {/* Month Column */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            snapToInterval={44}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingVertical: 84 }}
+            className="flex-1"
+          >
+            {MONTHS.map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => handleSetPickerMonth(m)}
+                style={{ height: 44 }}
+                className="items-center justify-center"
+              >
+                <Text
+                  className={`text-center text-lg ${pickerMonth === m
+                      ? 'font-bold text-black dark:text-white'
+                      : 'text-gray-400 dark:text-zinc-500 font-normal'
+                    }`}
+                >
+                  {m}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {/* Day Column */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            snapToInterval={44}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingVertical: 84 }}
+            className="flex-1"
+          >
+            {PICKER_DAYS.map((d) => (
+              <Pressable
+                key={d}
+                onPress={() => setPickerDay(d)}
+                style={{ height: 44 }}
+                className="items-center justify-center"
+              >
+                <Text
+                  className={`text-center text-lg ${pickerDay === d
+                      ? 'font-bold text-black dark:text-white'
+                      : 'text-gray-400 dark:text-zinc-500 font-normal'
+                    }`}
+                >
+                  {d}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {/* Year Column */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            snapToInterval={44}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingVertical: 84 }}
+            className="flex-1"
+          >
+            {YEARS.map((y) => (
+              <Pressable
+                key={y}
+                onPress={() => handleSetPickerYear(y)}
+                style={{ height: 44 }}
+                className="items-center justify-center"
+              >
+                <Text
+                  className={`text-center text-lg ${pickerYear === y
+                      ? 'font-bold text-black dark:text-white'
+                      : 'text-gray-400 dark:text-zinc-500 font-normal'
+                    }`}
+                >
+                  {y}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </BottomSheetModal>
 
       {/* Header Stepper Bar */}
       <View className="px-6 pt-4 pb-3 border-b border-theme-border flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
-          <View className="w-9 h-9 rounded-xl bg-[#FF5A1F] items-center justify-center shadow-md">
-            <Ionicons name="flash" size={22} color="#FFFFFF" />
+          <View className="w-9 h-9 rounded-xl overflow-hidden shadow-md">
+            <Image
+              source={require('../../../assets/images/logo-mark.png')}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
           </View>
           <View>
             <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">ROOKA</Text>
             <Text className="text-theme-muted text-[11px]">
-              {currentStep === 0 ? 'AI Endurance Coach' : `Step ${currentStep} of ${totalSteps}`}
+              {currentStep === 0 ? 'AI Endurance Coach' : t('onboarding.stepOf', { current: currentStep, total: totalSteps })}
             </Text>
           </View>
         </View>
@@ -884,12 +972,11 @@ export default function OnboardingWizard() {
                   idx + 1 === currentStep
                     ? { backgroundColor: '#FF5A1F' }
                     : idx + 1 < currentStep
-                    ? { backgroundColor: 'rgba(255, 90, 31, 0.5)' }
-                    : undefined
+                      ? { backgroundColor: 'rgba(255, 90, 31, 0.5)' }
+                      : undefined
                 }
-                className={`h-2 rounded-full bg-theme-border ${
-                  idx + 1 === currentStep ? 'w-6' : 'w-2'
-                }`}
+                className={`h-2 rounded-full bg-theme-border ${idx + 1 === currentStep ? 'w-6' : 'w-2'
+                  }`}
               />
             ))}
           </View>
@@ -901,6 +988,14 @@ export default function OnboardingWizard() {
         style={[{ flex: 1 }, keyboardStyle]}
         className="flex-1"
       >
+        {/* Invisible probe marking exactly where the first chat row's avatar
+            renders (px-6 pt-4, 40x40) — measured live so the hero avatar has
+            an accurate landing target instead of a guessed offset. */}
+        <View
+          ref={chatAvatarProbeRef}
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 16, left: 24, width: 40, height: 40, opacity: 0 }}
+        />
         <ScrollView
           ref={chatScrollViewRef}
           className="flex-1 px-6 pt-4"
@@ -912,8 +1007,11 @@ export default function OnboardingWizard() {
             if (node.type === 'welcome_hero' && currentStep === 0) {
               return (
                 <View key={node.id} className="items-center justify-center py-10 my-auto">
-                  <View className="relative mb-6">
-                    <View className="w-28 h-28 rounded-full items-center justify-center overflow-hidden bg-theme-bg">
+                  <View className="relative mb-6" style={{ opacity: isHeroTransitioning ? 0 : 1 }}>
+                    <View
+                      ref={heroAvatarBoxRef}
+                      className="w-28 h-28 rounded-full items-center justify-center overflow-hidden bg-theme-bg"
+                    >
                       <Image
                         source={getCoachAvatarSource(coachTone)}
                         className="w-full h-full"
@@ -921,22 +1019,45 @@ export default function OnboardingWizard() {
                     </View>
                   </View>
 
-                  <View className="w-full mb-8">
-                    <Text className="text-theme-text text-[22px] leading-[32px] font-semibold">
-                      {typedText}
-                      {typedText.length < WELCOME_MESSAGE.length && (
-                        <Text className="text-[#FF5A1F]">▌</Text>
-                      )}
-                    </Text>
-                  </View>
+                  <Reanimated.View style={heroContentStyle} className="w-full items-center">
+                    <View className="w-full mb-8">
+                      <Text className="text-theme-text text-[22px] leading-[32px] font-semibold">
+                        {typedText}
+                        {typedText.length < WELCOME_MESSAGE.length && (
+                          <Text className="text-[#FF5A1F]">▌</Text>
+                        )}
+                      </Text>
+                    </View>
 
-                  <Pressable
-                    onPress={startChatOnboarding}
-                    className="w-full py-4 rounded-2xl bg-[#FF5A1F] items-center justify-center flex-row gap-2 active:opacity-90"
-                  >
-                    <Text className="text-white font-extrabold text-lg">Meet Your Coach & Begin</Text>
-                    <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
-                  </Pressable>
+                    <Pressable
+                      onPress={handleBeginPress}
+                      disabled={isHeroTransitioning}
+                      className="w-full py-4 rounded-2xl bg-[#FF5A1F] items-center justify-center flex-row gap-2 active:opacity-90"
+                    >
+                      <Text className="text-white font-extrabold text-lg">{t('onboarding.meetCoachBegin')}</Text>
+                      <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+                    </Pressable>
+
+                    <View className="mt-6 px-2 items-center">
+                      <Text className="text-theme-muted text-[11px] text-center leading-relaxed">
+                        {t('onboarding.agreeToTerms')}{' '}
+                        <Text
+                          onPress={() => Linking.openURL('https://rooka.io/terms.html')}
+                          className="text-theme-accent font-semibold underline"
+                        >
+                          {t('onboarding.termsOfService')}
+                        </Text>
+                        {' '}{t('onboarding.andAcknowledge')}{' '}
+                        <Text
+                          onPress={() => Linking.openURL('https://rooka.io/privacy')}
+                          className="text-theme-accent font-semibold underline"
+                        >
+                          {t('onboarding.privacyPolicy')}
+                        </Text>
+                        {t('onboarding.termsDisclaimer')}
+                      </Text>
+                    </View>
+                  </Reanimated.View>
                 </View>
               );
             }
@@ -964,7 +1085,7 @@ export default function OnboardingWizard() {
               if (!node.text?.trim()) return null;
               return (
                 <View key={node.id} className="flex-row items-start gap-3 mb-4 pr-4">
-                  <View className="relative">
+                  <View className="relative" ref={node.id === 'node_welcome_banner' ? firstChatAvatarRef : undefined}>
                     <Image
                       source={getCoachAvatarSource(coachTone)}
                       className="w-10 h-10 rounded-full"
@@ -994,7 +1115,7 @@ export default function OnboardingWizard() {
               const isSelected = !!node.data?.selected;
               const languagesList = [
                 ...SUPPORTED_LANGUAGES,
-                { code: 'more', label: 'More soon', flag: '🌐', disabled: true },
+                { code: 'more', label: t('onboarding.moreSoon'), flag: '🌐', disabled: true },
               ];
               return (
                 <View
@@ -1004,7 +1125,7 @@ export default function OnboardingWizard() {
                 >
                   <View className="flex-row items-center gap-2">
                     <Ionicons name="language" size={20} color="#FF5A1F" />
-                    <Text className="text-theme-text font-bold text-sm">Select Your Preferred Language</Text>
+                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.selectLanguageTitle')}</Text>
                   </View>
 
                   <View className="flex-row flex-wrap justify-between gap-y-2.5 pt-1">
@@ -1017,7 +1138,7 @@ export default function OnboardingWizard() {
                             className="py-3 px-3 rounded-xl border border-dashed border-theme-border/60 bg-theme-bg/40 flex-row items-center justify-center gap-2 opacity-60"
                           >
                             <Text className="text-base">🌐</Text>
-                            <Text className="text-xs font-semibold text-theme-muted">More soon</Text>
+                            <Text className="text-xs font-semibold text-theme-muted">{lang.label}</Text>
                           </View>
                         );
                       }
@@ -1056,19 +1177,19 @@ export default function OnboardingWizard() {
                   className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
                   style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
-                  <Text className="text-theme-text font-bold text-sm">Choose Rooka's Coaching Tone</Text>
+                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.chooseToneTitle')}</Text>
 
                   <Pressable
                     disabled={isStreamingMessage}
                     onPress={() =>
                       handleSelectPersonaChoice(
                         'Empathetic but demanding elite endurance coach.',
-                        'Empathetic & Demanding'
+                        t('onboarding.toneEmpatheticShort')
                       )
                     }
                     className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                     style={
-                      node.data?.selected === 'Empathetic & Demanding'
+                      node.data?.selected === t('onboarding.toneEmpatheticShort')
                         ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                         : undefined
                     }
@@ -1081,9 +1202,9 @@ export default function OnboardingWizard() {
                         />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-theme-text font-bold text-xs">Empathetic & Demanding (Default)</Text>
+                        <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneEmpatheticTitle')}</Text>
                         <Text className="text-theme-muted text-[10px] mt-0.5">
-                          High expectations, supportive, data-backed guidance.
+                          {t('onboarding.toneEmpatheticDesc')}
                         </Text>
                       </View>
                     </View>
@@ -1094,12 +1215,12 @@ export default function OnboardingWizard() {
                     onPress={() =>
                       handleSelectPersonaChoice(
                         'Strict with data, but with a dry, snarky British sense of humor.',
-                        'Strict Data & British Humor'
+                        t('onboarding.toneStrictShort')
                       )
                     }
                     className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                     style={
-                      node.data?.selected === 'Strict Data & British Humor'
+                      node.data?.selected === t('onboarding.toneStrictShort')
                         ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                         : undefined
                     }
@@ -1112,9 +1233,9 @@ export default function OnboardingWizard() {
                         />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-theme-text font-bold text-xs">Strict Data & British Humor</Text>
+                        <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneStrictTitle')}</Text>
                         <Text className="text-theme-muted text-[10px] mt-0.5">
-                          Direct numbers focus with dry wit.
+                          {t('onboarding.toneStrictDesc')}
                         </Text>
                       </View>
                     </View>
@@ -1125,12 +1246,12 @@ export default function OnboardingWizard() {
                     onPress={() =>
                       handleSelectPersonaChoice(
                         'Enthusiastic cheerleader, extremely positive and forgiving.',
-                        'Positive Cheerleader'
+                        t('onboarding.toneCheerleaderShort')
                       )
                     }
                     className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                     style={
-                      node.data?.selected === 'Positive Cheerleader'
+                      node.data?.selected === t('onboarding.toneCheerleaderShort')
                         ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                         : undefined
                     }
@@ -1143,9 +1264,9 @@ export default function OnboardingWizard() {
                         />
                       </View>
                       <View className="flex-1">
-                        <Text className="text-theme-text font-bold text-xs">Positive Cheerleader</Text>
+                        <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneCheerleaderTitle')}</Text>
                         <Text className="text-theme-muted text-[10px] mt-0.5">
-                          Always encouraging, empathetic, focuses on consistency over perfection.
+                          {t('onboarding.toneCheerleaderDesc')}
                         </Text>
                       </View>
                     </View>
@@ -1161,16 +1282,16 @@ export default function OnboardingWizard() {
                   key={node.id}
                   className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
                 >
-                  <Text className="text-theme-text font-bold text-sm">Select Your Gender</Text>
+                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.genderTitle')}</Text>
                   <Text className="text-theme-muted text-xs">
-                    This helps your AI Coach tailor physiological recovery, load calculations, and cycle tracking.
+                    {t('onboarding.genderSubtitle')}
                   </Text>
-                  
+
                   <View className="gap-2.5 mt-1">
                     {[
-                      { label: 'Male', val: 'Male', icon: 'male-outline', desc: 'Physiological profile optimized for male athletes.' },
-                      { label: 'Female', val: 'Female', icon: 'female-outline', desc: 'Includes hormonal cycle tracking & phase-adjusted training.' },
-                      { label: 'Prefer not to share', val: 'Prefer not to share', icon: 'shield-outline', desc: 'General athletic profile without specified gender.' },
+                      { label: t('onboarding.genderMale'), val: 'Male', icon: 'male-outline', desc: t('onboarding.genderMaleDesc') },
+                      { label: t('onboarding.genderFemale'), val: 'Female', icon: 'female-outline', desc: t('onboarding.genderFemaleDesc') },
+                      { label: t('onboarding.genderPreferNot'), val: 'Prefer not to share', icon: 'shield-outline', desc: t('onboarding.genderPreferNotDesc') },
                     ].map((opt) => (
                       <Pressable
                         key={opt.val}
@@ -1210,7 +1331,7 @@ export default function OnboardingWizard() {
                   className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-4 shadow-sm"
                   style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
-                  <Text className="text-theme-text font-bold text-sm">Tell Us About Yourself & Main Event</Text>
+                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.contextTitle')}</Text>
 
                   <TextInput
                     editable={!isStreamingMessage}
@@ -1218,7 +1339,7 @@ export default function OnboardingWizard() {
                     numberOfLines={4}
                     value={athleteContext}
                     onChangeText={handleAthleteContextChange}
-                    placeholder="e.g. Amateur triathlete, parent of 2 kids, prefers morning runs..."
+                    placeholder={t('onboarding.contextPlaceholder')}
                     placeholderTextColor="#8E8E93"
                     className="p-4 bg-theme-bg border border-theme-border rounded-xl text-theme-text text-xs min-h-[90px]"
                     style={{ textAlignVertical: 'top' }}
@@ -1227,13 +1348,13 @@ export default function OnboardingWizard() {
                   {/* Physiological Baselines */}
                   <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2">
                     <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
-                      Physiological Baselines (Optional)
+                      {t('onboarding.baselinesTitle')}
                     </Text>
                     {metrics.map((item, idx) => (
                       <View key={idx} className="flex-row gap-2">
                         <TextInput
                           editable={!isStreamingMessage}
-                          placeholder="Label (e.g. FTP)"
+                          placeholder={t('onboarding.baselinePlaceholderLabel')}
                           placeholderTextColor="#8E8E93"
                           value={item.label}
                           onChangeText={(val) => {
@@ -1245,7 +1366,7 @@ export default function OnboardingWizard() {
                         />
                         <TextInput
                           editable={!isStreamingMessage}
-                          placeholder="Value"
+                          placeholder={t('onboarding.baselinePlaceholderValue')}
                           placeholderTextColor="#8E8E93"
                           value={item.value}
                           onChangeText={(val) => {
@@ -1262,18 +1383,18 @@ export default function OnboardingWizard() {
                       onPress={addMetricRow}
                       className="py-1.5 items-center bg-[#FF5A1F]/10 border border-[#FF5A1F]/30 rounded-lg mt-1"
                     >
-                      <Text className="text-[#FF5A1F] text-xs font-bold">+ Add Metric</Text>
+                      <Text className="text-[#FF5A1F] text-xs font-bold">{t('onboarding.addMetric')}</Text>
                     </Pressable>
                   </View>
 
                   {/* Main Goal Event Setup */}
                   <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2.5">
                     <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
-                      Main Target Event
+                      {t('onboarding.targetEventTitle')}
                     </Text>
                     <TextInput
                       editable={!isStreamingMessage}
-                      placeholder="Race Name (e.g. Amsterdam Marathon)"
+                      placeholder={t('onboarding.raceNamePlaceholder')}
                       placeholderTextColor="#8E8E93"
                       value={raceName}
                       onChangeText={handleRaceNameChange}
@@ -1286,7 +1407,7 @@ export default function OnboardingWizard() {
                         className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
                       >
                         <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
-                          {raceDate || 'Date (YYYY-MM-DD)'}
+                          {raceDate || t('onboarding.raceDatePlaceholder')}
                         </Text>
                         <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
                       </Pressable>
@@ -1301,7 +1422,7 @@ export default function OnboardingWizard() {
                           <>
                             <TextInput
                               editable={!isStreamingMessage}
-                              placeholder="Target CTL"
+                              placeholder={t('onboarding.targetCtlPlaceholder')}
                               placeholderTextColor="#8E8E93"
                               value={targetCtl}
                               keyboardType="numeric"
@@ -1328,7 +1449,7 @@ export default function OnboardingWizard() {
                     className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md"
                   >
                     <Text className="text-white font-bold text-xs">
-                      {isCompleted ? 'Update Details & Event ⚡️' : 'Confirm Details & Event ⚡️'}
+                      {isCompleted ? t('onboarding.updateContextEventBtn') : t('onboarding.confirmContextEventBtn')}
                     </Text>
                   </Pressable>
                 </View>
@@ -1343,9 +1464,9 @@ export default function OnboardingWizard() {
                   className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
                   style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
-                  <Text className="text-theme-text font-bold text-sm">Weekly Training Availability</Text>
+                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.scheduleTitle')}</Text>
                   <Text className="text-theme-muted text-xs">
-                    Select how many minutes you can comfortably dedicate each day.
+                    {t('onboarding.scheduleSubtitle')}
                   </Text>
 
                   <View className="gap-3 pt-1">
@@ -1356,7 +1477,7 @@ export default function OnboardingWizard() {
                           <View className="flex-row items-center justify-between">
                             <Text className="text-theme-text font-bold text-xs">{day}</Text>
                             <Text className="text-[#FF5A1F] font-bold text-xs">
-                              {currentVal === 0 ? 'Rest Day' : `${currentVal} mins`}
+                              {currentVal === 0 ? t('onboarding.restDay') : t('onboarding.mins', { count: currentVal })}
                             </Text>
                           </View>
 
@@ -1396,7 +1517,7 @@ export default function OnboardingWizard() {
                     className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
                   >
                     <Text className="text-white font-bold text-xs">
-                      {isCompleted ? 'Update Schedule ⚡️' : 'Lock In Schedule ⚡️'}
+                      {isCompleted ? t('onboarding.updateScheduleBtn') : t('onboarding.confirmScheduleBtn')}
                     </Text>
                   </Pressable>
                 </View>
@@ -1411,7 +1532,7 @@ export default function OnboardingWizard() {
                   className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
                   style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                 >
-                  <Text className="text-theme-text font-bold text-sm">Device & Fitness Sync</Text>
+                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.integrationsTitle')}</Text>
 
                   {/* Garmin Connect */}
                   <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-3">
@@ -1419,8 +1540,8 @@ export default function OnboardingWizard() {
                       <View className="flex-row items-center gap-3">
                         <Ionicons name="watch-outline" size={20} color="#007ACC" />
                         <View>
-                          <Text className="text-theme-text font-bold text-xs">Garmin Connect</Text>
-                          <Text className="text-theme-muted text-[10px]">Sync daily workouts & HRV</Text>
+                          <Text className="text-theme-text font-bold text-xs">{t('onboarding.garminTitle')}</Text>
+                          <Text className="text-theme-muted text-[10px]">{t('onboarding.garminSubtitle')}</Text>
                         </View>
                       </View>
                       <Switch
@@ -1435,7 +1556,7 @@ export default function OnboardingWizard() {
                       <View className="pt-2 gap-2 border-t border-theme-border">
                         <TextInput
                           editable={!isStreamingMessage}
-                          placeholder="Garmin Email / Username"
+                          placeholder={t('onboarding.garminUserPlaceholder')}
                           placeholderTextColor="#8E8E93"
                           value={garminEmail}
                           onChangeText={setGarminEmail}
@@ -1444,7 +1565,7 @@ export default function OnboardingWizard() {
                         />
                         <TextInput
                           editable={!isStreamingMessage}
-                          placeholder="Garmin Password"
+                          placeholder={t('onboarding.garminPassPlaceholder')}
                           placeholderTextColor="#8E8E93"
                           secureTextEntry
                           value={garminPassword}
@@ -1460,14 +1581,14 @@ export default function OnboardingWizard() {
                   <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 flex-row items-center justify-between">
                     <View className="flex-row items-center gap-2">
                       <Ionicons name="bicycle" size={18} color="#FC4C02" />
-                      <Text className="text-theme-text font-bold text-xs">Strava Sync</Text>
+                      <Text className="text-theme-text font-bold text-xs">{t('onboarding.stravaTitle')}</Text>
                     </View>
                     <Pressable
                       disabled={isStreamingMessage}
                       onPress={handleConnectStravaOAuth}
                       className="bg-[#FC4C02] px-3 py-1.5 rounded-lg"
                     >
-                      <Text className="text-white font-bold text-[10px]">Connect Strava</Text>
+                      <Text className="text-white font-bold text-[10px]">{t('onboarding.connectStrava')}</Text>
                     </Pressable>
                   </View>
 
@@ -1477,7 +1598,7 @@ export default function OnboardingWizard() {
                     className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
                   >
                     <Text className="text-white font-bold text-xs">
-                      {isCompleted ? 'Update Sync Settings ⚡️' : 'Continue to Final Step ⚡️'}
+                      {isCompleted ? t('onboarding.updateIntegrationsBtn') : t('onboarding.confirmIntegrationsBtn')}
                     </Text>
                   </Pressable>
                 </View>
@@ -1491,9 +1612,9 @@ export default function OnboardingWizard() {
                     <View className="w-12 h-12 rounded-2xl bg-[#FF5A1F] items-center justify-center mb-2 shadow-lg">
                       <Ionicons name="flash" size={24} color="#FFFFFF" />
                     </View>
-                    <Text className="text-theme-text font-extrabold text-lg text-center">Unlock Rooka+</Text>
+                    <Text className="text-theme-text font-extrabold text-lg text-center">{t('onboarding.paywallTitle')}</Text>
                     <Text className="text-theme-muted text-xs text-center mt-1">
-                      Upgrade to unlock unlimited Rooka chat, custom periodization, and automated sync.
+                      {t('onboarding.paywallSubtitle')}
                     </Text>
                   </View>
 
@@ -1509,13 +1630,13 @@ export default function OnboardingWizard() {
                       }
                     >
                       <View className="self-start px-2 py-0.5 bg-[#FF5A1F] rounded-full mb-1.5">
-                        <Text className="text-white font-bold text-[9px]">SAVE 17%</Text>
+                        <Text className="text-white font-bold text-[9px]">{t('onboarding.savePercent')}</Text>
                       </View>
-                      <Text className="text-theme-text font-bold text-sm">Annual</Text>
+                      <Text className="text-theme-text font-bold text-sm">{t('onboarding.annual')}</Text>
                       <Text className="text-[#FF5A1F] font-bold text-lg mt-0.5">
-                        €5.83<Text className="text-xs text-theme-muted">/mo</Text>
+                        {t('onboarding.annualPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.annualPeriod')}</Text>
                       </Text>
-                      <Text className="text-theme-muted text-[9px] mt-0.5">€69.99 billed yearly</Text>
+                      <Text className="text-theme-muted text-[9px] mt-0.5">{t('onboarding.annualBilled')}</Text>
                     </Pressable>
 
                     <Pressable
@@ -1527,21 +1648,21 @@ export default function OnboardingWizard() {
                           : undefined
                       }
                     >
-                      <Text className="text-theme-text font-bold text-sm mt-4">Monthly</Text>
+                      <Text className="text-theme-text font-bold text-sm mt-4">{t('onboarding.monthly')}</Text>
                       <Text className="text-theme-text font-bold text-lg mt-0.5">
-                        €6.99<Text className="text-xs text-theme-muted">/mo</Text>
+                        {t('onboarding.monthlyPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.monthlyPeriod')}</Text>
                       </Text>
-                      <Text className="text-theme-muted text-[9px] mt-0.5">Billed monthly</Text>
+                      <Text className="text-theme-muted text-[9px] mt-0.5">{t('onboarding.monthlyBilled')}</Text>
                     </Pressable>
                   </View>
 
                   {/* Feature Checklist */}
                   <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
                     {[
-                      'Increased Rooka chat tokens',
-                      'Personalized daily macro periodization & fueling protocols',
-                      'Strava auto-tagging controls',
-                      'Social leaderboard',
+                      t('onboarding.feat1'),
+                      t('onboarding.feat2'),
+                      t('onboarding.feat3'),
+                      t('onboarding.feat4'),
                     ].map((feat, idx) => (
                       <View key={idx} className="flex-row items-center gap-2">
                         <Ionicons name="checkmark-circle" size={16} color="#FF5A1F" />
@@ -1559,7 +1680,7 @@ export default function OnboardingWizard() {
                       {isSubmitting ? (
                         <ActivityIndicator color="white" />
                       ) : (
-                        <Text className="text-white font-extrabold text-sm">Start 14-Day Free Trial ⚡️</Text>
+                        <Text className="text-white font-extrabold text-sm">{t('onboarding.startTrialBtn')}</Text>
                       )}
                     </Pressable>
 
@@ -1568,7 +1689,7 @@ export default function OnboardingWizard() {
                       disabled={isSubmitting}
                       className="w-full py-3 rounded-xl border border-theme-border bg-theme-bg items-center justify-center"
                     >
-                      <Text className="text-theme-muted text-xs font-bold">Continue with Free Tier</Text>
+                      <Text className="text-theme-muted text-xs font-bold">{t('onboarding.freeTierBtn')}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -1580,5 +1701,20 @@ export default function OnboardingWizard() {
         </ScrollView>
       </Reanimated.View>
     </SafeAreaView>
+
+      {/* Floating clone of the coach avatar used purely for the hero -> chat handoff animation.
+          Deliberately rendered OUTSIDE the SafeAreaView, in this padding-free wrapper, so its
+          absolute top/left line up 1:1 with the raw measureInWindow() coordinates below —
+          no need to reason about how RN treats a positioned ancestor's own padding. */}
+      <Reanimated.View
+        pointerEvents="none"
+        style={[{ position: 'absolute', overflow: 'hidden' }, avatarOverlayStyle]}
+      >
+        <Image
+          source={getCoachAvatarSource(coachTone)}
+          style={{ width: '100%', height: '100%' }}
+        />
+      </Reanimated.View>
+    </View>
   );
 }
