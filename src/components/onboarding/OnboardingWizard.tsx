@@ -6,6 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Easing,
@@ -30,7 +31,7 @@ import Reanimated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../../constants/api';
 import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
-import { useLanguage, dictionaries } from '../../context/LanguageContext';
+import { dictionaries, useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { apiClient } from '../../services/apiClient';
 import { integrationsApi } from '../../services/apiServices';
@@ -317,9 +318,28 @@ export default function OnboardingWizard() {
     return dateObj < today;
   };
 
-  const [garminEmail, setGarminEmail] = useState('');
+  const [garminEmail, setGarminEmail] = useState(
+    (user as any)?.garmin_username || (user as any)?.garminUsername || ''
+  );
   const [garminPassword, setGarminPassword] = useState('');
-  const [showGarmin, setShowGarmin] = useState(false);
+  const [showGarmin, setShowGarmin] = useState(!!user?.garmin_connected);
+  const [isGarminSaved, setIsGarminSaved] = useState(!!user?.garmin_connected);
+  const [isSavingGarmin, setIsSavingGarmin] = useState(false);
+  const [garminSaveSuccessMsg, setGarminSaveSuccessMsg] = useState<string | null>(null);
+  const [garminError, setGarminError] = useState<string | null>(null);
+
+  const [isConnectingStrava, setIsConnectingStrava] = useState(false);
+  const [stravaSuccessMsg, setStravaSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.garmin_connected) {
+      setIsGarminSaved(true);
+      setShowGarmin(true);
+      if ((user as any)?.garmin_username || (user as any)?.garminUsername) {
+        setGarminEmail((user as any)?.garmin_username || (user as any)?.garminUsername);
+      }
+    }
+  }, [user?.garmin_connected]);
   const [raceName, setRaceName] = useState(user?.target_event || '');
   const [raceDate, setRaceDate] = useState(() => {
     const existing = user?.event_date || '';
@@ -701,8 +721,116 @@ export default function OnboardingWizard() {
     }
   };
 
-  const handleConfirmIntegrationsChoice = () => {
+  const handleSaveGarmin = async (): Promise<boolean> => {
+    if (!garminEmail.trim() || !garminPassword.trim()) {
+      setGarminError(t('onboarding.garminFillError'));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return false;
+    }
+    setIsSavingGarmin(true);
+    setGarminError(null);
+    setGarminSaveSuccessMsg(null);
+    try {
+      const res = await integrationsApi.saveGarminCredentials({
+        garminUsername: garminEmail.trim(),
+        garminPassword: garminPassword.trim(),
+      });
+      await refreshUser();
+      setIsGarminSaved(true);
+      setGarminSaveSuccessMsg(res?.message || t('onboarding.garminSavedSuccess'));
+      setGarminPassword('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return true;
+    } catch (err: any) {
+      setGarminError(err?.message || 'Failed to save Garmin credentials');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return false;
+    } finally {
+      setIsSavingGarmin(false);
+    }
+  };
+
+  const handleDisconnectGarmin = async () => {
+    setIsSavingGarmin(true);
+    try {
+      await integrationsApi.disconnectGarmin();
+      await refreshUser();
+      setIsGarminSaved(false);
+      setShowGarmin(false);
+      setGarminEmail('');
+      setGarminPassword('');
+      setGarminSaveSuccessMsg(null);
+      setGarminError(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      console.error('Garmin disconnect error:', err);
+    } finally {
+      setIsSavingGarmin(false);
+    }
+  };
+
+  const handleConnectStravaOAuth = async () => {
+    setIsConnectingStrava(true);
+    setStravaSuccessMsg(null);
+    try {
+      const clientId = '208765';
+      const stravaRedirectUri = `${API_BASE_URL}/oauthredirect`;
+      const appDeepLink = Linking.createURL('oauthredirect');
+      const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
+        stravaRedirectUri
+      )}&scope=activity:read_all,activity:write&approval_prompt=force`;
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, appDeepLink);
+      if (result.type === 'success' && result.url) {
+        let code: string | undefined;
+        try {
+          code = new URL(result.url).searchParams.get('code') || undefined;
+        } catch (_) {
+          const match = result.url.match(/[?&]code=([^&]+)/);
+          if (match) code = match[1];
+        }
+        if (code) {
+          const res = await integrationsApi.exchangeStravaCode(code);
+          await refreshUser();
+          setStravaSuccessMsg(res?.message || t('onboarding.stravaSuccessMsg'));
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert(
+            t('onboarding.stravaTitle'),
+            t('onboarding.stravaSuccessMsg')
+          );
+        }
+      }
+    } catch (err: any) {
+      console.error('Onboarding Strava OAuth error:', err);
+      Alert.alert(t('onboarding.stravaTitle'), t('onboarding.stravaErrorMsg'));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } finally {
+      setIsConnectingStrava(false);
+    }
+  };
+
+  const handleDisconnectStrava = async () => {
+    setIsConnectingStrava(true);
+    try {
+      await integrationsApi.disconnectStrava();
+      await refreshUser();
+      setStravaSuccessMsg(null);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      console.error('Strava disconnect error:', err);
+    } finally {
+      setIsConnectingStrava(false);
+    }
+  };
+
+  const handleConfirmIntegrationsChoice = async () => {
     if (isStreamingMessage) return;
+
+    // If user filled in credentials and has not yet saved, save automatically
+    if (showGarmin && garminEmail.trim() && garminPassword.trim() && !isGarminSaved) {
+      const saved = await handleSaveGarmin();
+      if (!saved) return;
+    }
 
     if (currentStep === 6) {
       setCurrentStep(7);
@@ -777,11 +905,11 @@ export default function OnboardingWizard() {
         } as any);
       }
 
-      if (showGarmin && garminEmail && garminPassword) {
+      if (showGarmin && garminEmail && garminPassword && !isGarminSaved) {
         try {
           await integrationsApi.saveGarminCredentials({
-            garminUsername: garminEmail,
-            garminPassword,
+            garminUsername: garminEmail.trim(),
+            garminPassword: garminPassword.trim(),
           });
         } catch (_) { }
       }
@@ -796,911 +924,1023 @@ export default function OnboardingWizard() {
     }
   };
 
-  const handleConnectStravaOAuth = async () => {
-    try {
-      const clientId = '208765';
-      const stravaRedirectUri = `${API_BASE_URL}/oauthredirect`;
-      const appDeepLink = Linking.createURL('oauthredirect');
-      const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
-        stravaRedirectUri
-      )}&scope=activity:read_all,activity:write&approval_prompt=force`;
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, appDeepLink);
-      if (result.type === 'success' && result.url) {
-        let code: string | undefined;
-        try {
-          code = new URL(result.url).searchParams.get('code') || undefined;
-        } catch (_) {
-          const match = result.url.match(/[?&]code=([^&]+)/);
-          if (match) code = match[1];
-        }
-        if (code) {
-          await integrationsApi.exchangeStravaCode(code);
-          await refreshUser();
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
-      }
-    } catch (err: any) {
-      console.error('Onboarding Strava OAuth error:', err);
-    }
-  };
-
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
 
   return (
     <View style={{ flex: 1 }}>
-    <SafeAreaView className="flex-1 bg-theme-bg" edges={['top', 'bottom']}>
-      {/* Date Picker Modal */}
-      <BottomSheetModal
-        visible={showDatePicker}
-        onClose={() => setShowDatePicker(false)}
-        contentClassName="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6"
-      >
-        <View className="flex-row justify-between items-center mb-4">
-          <Pressable onPress={() => setShowDatePicker(false)}>
-            <Text className="text-theme-muted font-semibold text-sm">{t('onboarding.cancelBtn')}</Text>
-          </Pressable>
-          <Text className="text-theme-text font-bold text-base">{t('onboarding.selectTargetDateModalTitle')}</Text>
-          <Pressable
-            onPress={handleConfirmDate}
-            disabled={isSelectedDateInPast()}
-            className={isSelectedDateInPast() ? 'opacity-40' : 'opacity-100'}
-          >
-            <Text className="text-[#FF5A1F] font-bold text-sm">{t('onboarding.confirmDateBtn')}</Text>
-          </Pressable>
-        </View>
-
-        {isSelectedDateInPast() && (
-          <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center gap-2">
-            <Ionicons name="warning-outline" size={16} color="#ef4444" />
-            <Text className="text-red-500 text-xs font-bold text-center">
-              {t('onboarding.dateInPastWarning')}
-            </Text>
+      <SafeAreaView className="flex-1 bg-theme-bg" edges={['top', 'bottom']}>
+        {/* Date Picker Modal */}
+        <BottomSheetModal
+          visible={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          contentClassName="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6"
+        >
+          <View className="flex-row justify-between items-center mb-4">
+            <Pressable onPress={() => setShowDatePicker(false)}>
+              <Text className="text-theme-muted font-semibold text-sm">{t('onboarding.cancelBtn')}</Text>
+            </Pressable>
+            <Text className="text-theme-text font-bold text-base">{t('onboarding.selectTargetDateModalTitle')}</Text>
+            <Pressable
+              onPress={handleConfirmDate}
+              disabled={isSelectedDateInPast()}
+              className={isSelectedDateInPast() ? 'opacity-40' : 'opacity-100'}
+            >
+              <Text className="text-[#FF5A1F] font-bold text-sm">{t('onboarding.confirmDateBtn')}</Text>
+            </Pressable>
           </View>
-        )}
 
-        <View className="h-[200px] flex-row relative">
-          <View className="absolute top-[84px] left-0 right-0 h-[44px] bg-theme-card border-y border-theme-border rounded-lg" />
+          {isSelectedDateInPast() && (
+            <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center gap-2">
+              <Ionicons name="warning-outline" size={16} color="#ef4444" />
+              <Text className="text-red-500 text-xs font-bold text-center">
+                {t('onboarding.dateInPastWarning')}
+              </Text>
+            </View>
+          )}
 
-          {/* Month Column */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            snapToInterval={44}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingVertical: 84 }}
-            className="flex-1"
-          >
-            {MONTHS.map((m) => (
-              <Pressable
-                key={m}
-                onPress={() => handleSetPickerMonth(m)}
-                style={{ height: 44 }}
-                className="items-center justify-center"
-              >
-                <Text
-                  className={`text-center text-lg ${pickerMonth === m
+          <View className="h-[200px] flex-row relative">
+            <View className="absolute top-[84px] left-0 right-0 h-[44px] bg-theme-card border-y border-theme-border rounded-lg" />
+
+            {/* Month Column */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              snapToInterval={44}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingVertical: 84 }}
+              className="flex-1"
+            >
+              {MONTHS.map((m) => (
+                <Pressable
+                  key={m}
+                  onPress={() => handleSetPickerMonth(m)}
+                  style={{ height: 44 }}
+                  className="items-center justify-center"
+                >
+                  <Text
+                    className={`text-center text-lg ${pickerMonth === m
                       ? 'font-bold text-black dark:text-white'
                       : 'text-gray-400 dark:text-zinc-500 font-normal'
-                    }`}
-                >
-                  {m}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+                      }`}
+                  >
+                    {m}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
 
-          {/* Day Column */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            snapToInterval={44}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingVertical: 84 }}
-            className="flex-1"
-          >
-            {PICKER_DAYS.map((d) => (
-              <Pressable
-                key={d}
-                onPress={() => setPickerDay(d)}
-                style={{ height: 44 }}
-                className="items-center justify-center"
-              >
-                <Text
-                  className={`text-center text-lg ${pickerDay === d
+            {/* Day Column */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              snapToInterval={44}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingVertical: 84 }}
+              className="flex-1"
+            >
+              {PICKER_DAYS.map((d) => (
+                <Pressable
+                  key={d}
+                  onPress={() => setPickerDay(d)}
+                  style={{ height: 44 }}
+                  className="items-center justify-center"
+                >
+                  <Text
+                    className={`text-center text-lg ${pickerDay === d
                       ? 'font-bold text-black dark:text-white'
                       : 'text-gray-400 dark:text-zinc-500 font-normal'
-                    }`}
-                >
-                  {d}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+                      }`}
+                  >
+                    {d}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
 
-          {/* Year Column */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            snapToInterval={44}
-            decelerationRate="fast"
-            contentContainerStyle={{ paddingVertical: 84 }}
-            className="flex-1"
-          >
-            {YEARS.map((y) => (
-              <Pressable
-                key={y}
-                onPress={() => handleSetPickerYear(y)}
-                style={{ height: 44 }}
-                className="items-center justify-center"
-              >
-                <Text
-                  className={`text-center text-lg ${pickerYear === y
+            {/* Year Column */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              snapToInterval={44}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingVertical: 84 }}
+              className="flex-1"
+            >
+              {YEARS.map((y) => (
+                <Pressable
+                  key={y}
+                  onPress={() => handleSetPickerYear(y)}
+                  style={{ height: 44 }}
+                  className="items-center justify-center"
+                >
+                  <Text
+                    className={`text-center text-lg ${pickerYear === y
                       ? 'font-bold text-black dark:text-white'
                       : 'text-gray-400 dark:text-zinc-500 font-normal'
-                    }`}
-                >
-                  {y}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      </BottomSheetModal>
-
-      {/* Header Stepper Bar */}
-      <View className="px-6 pt-4 pb-3 border-b border-theme-border flex-row items-center justify-between">
-        <View className="flex-row items-center gap-2">
-          <View className="w-9 h-9 rounded-xl overflow-hidden shadow-md">
-            <Image
-              source={require('../../../assets/images/logo-mark.png')}
-              className="w-full h-full"
-              resizeMode="cover"
-            />
+                      }`}
+                  >
+                    {y}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
-          <View>
-            <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">ROOKA</Text>
-            <Text className="text-theme-muted text-[11px]">
-              {currentStep === 0 ? 'AI Endurance Coach' : t('onboarding.stepOf', { current: currentStep, total: totalSteps })}
-            </Text>
-          </View>
-        </View>
+        </BottomSheetModal>
 
-        {currentStep >= 1 && (
-          <View className="flex-row gap-1">
-            {Array.from({ length: totalSteps }).map((_, idx) => (
-              <View
-                key={idx}
-                style={
-                  idx + 1 === currentStep
-                    ? { backgroundColor: '#FF5A1F' }
-                    : idx + 1 < currentStep
-                      ? { backgroundColor: 'rgba(255, 90, 31, 0.5)' }
-                      : undefined
-                }
-                className={`h-2 rounded-full bg-theme-border ${idx + 1 === currentStep ? 'w-6' : 'w-2'
-                  }`}
+        {/* Header Stepper Bar */}
+        <View className="px-6 pt-4 pb-3 border-b border-theme-border flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2">
+            <View className="w-9 h-9 rounded-xl overflow-hidden shadow-md">
+              <Image
+                source={require('../../../assets/images/logo-mark.png')}
+                className="w-full h-full"
+                resizeMode="cover"
               />
-            ))}
+            </View>
+            <View>
+              <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">ROOKA</Text>
+              <Text className="text-theme-muted text-[11px]">
+                {currentStep === 0 ? 'AI Endurance Coach' : t('onboarding.stepOf', { current: currentStep, total: totalSteps })}
+              </Text>
+            </View>
           </View>
-        )}
-      </View>
 
-      {/* Main Chat Scroll Container */}
-      <Reanimated.View
-        style={[{ flex: 1 }, keyboardStyle]}
-        className="flex-1"
-      >
-        {/* Invisible probe marking exactly where the first chat row's avatar
+          {currentStep >= 1 && (
+            <View className="flex-row gap-1">
+              {Array.from({ length: totalSteps }).map((_, idx) => (
+                <View
+                  key={idx}
+                  style={
+                    idx + 1 === currentStep
+                      ? { backgroundColor: '#FF5A1F' }
+                      : idx + 1 < currentStep
+                        ? { backgroundColor: 'rgba(255, 90, 31, 0.5)' }
+                        : undefined
+                  }
+                  className={`h-2 rounded-full bg-theme-border ${idx + 1 === currentStep ? 'w-6' : 'w-2'
+                    }`}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Main Chat Scroll Container */}
+        <Reanimated.View
+          style={[{ flex: 1 }, keyboardStyle]}
+          className="flex-1"
+        >
+          {/* Invisible probe marking exactly where the first chat row's avatar
             renders (px-6 pt-4, 40x40) — measured live so the hero avatar has
             an accurate landing target instead of a guessed offset. */}
-        <View
-          ref={chatAvatarProbeRef}
-          pointerEvents="none"
-          style={{ position: 'absolute', top: 16, left: 24, width: 40, height: 40, opacity: 0 }}
-        />
-        <ScrollView
-          ref={chatScrollViewRef}
-          className="flex-1 px-6 pt-4"
-          contentContainerStyle={{ paddingBottom: 140 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {timeline.map((node) => {
-            if (node.type === 'welcome_hero' && currentStep === 0) {
-              return (
-                <View key={node.id} className="items-center justify-center py-10 my-auto">
-                  <View className="relative mb-6" style={{ opacity: isHeroTransitioning ? 0 : 1 }}>
-                    <View
-                      ref={heroAvatarBoxRef}
-                      className="w-28 h-28 rounded-full items-center justify-center overflow-hidden bg-theme-bg"
-                    >
+          <View
+            ref={chatAvatarProbeRef}
+            pointerEvents="none"
+            style={{ position: 'absolute', top: 16, left: 24, width: 40, height: 40, opacity: 0 }}
+          />
+          <ScrollView
+            ref={chatScrollViewRef}
+            className="flex-1 px-6 pt-4"
+            contentContainerStyle={{ paddingBottom: 140 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {timeline.map((node) => {
+              if (node.type === 'welcome_hero' && currentStep === 0) {
+                return (
+                  <View key={node.id} className="items-center justify-center py-10 my-auto">
+                    <View className="relative mb-6" style={{ opacity: isHeroTransitioning ? 0 : 1 }}>
+                      <View
+                        ref={heroAvatarBoxRef}
+                        className="w-28 h-28 rounded-full items-center justify-center overflow-hidden bg-theme-bg"
+                      >
+                        <Image
+                          source={getCoachAvatarSource(coachTone)}
+                          className="w-full h-full"
+                        />
+                      </View>
+                    </View>
+
+                    <Reanimated.View style={heroContentStyle} className="w-full items-center">
+                      <View className="w-full mb-8">
+                        <Text className="text-theme-text text-[22px] leading-[32px] font-semibold">
+                          {typedText}
+                          {typedText.length < WELCOME_MESSAGE.length && (
+                            <Text className="text-[#FF5A1F]">▌</Text>
+                          )}
+                        </Text>
+                      </View>
+
+                      <Pressable
+                        onPress={handleBeginPress}
+                        disabled={isHeroTransitioning}
+                        className="w-full py-4 rounded-2xl bg-[#FF5A1F] items-center justify-center flex-row gap-2 active:opacity-90"
+                      >
+                        <Text className="text-white font-extrabold text-lg">{t('onboarding.meetCoachBegin')}</Text>
+                        <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+                      </Pressable>
+
+                      <View className="mt-6 px-2 items-center">
+                        <Text className="text-theme-muted text-[11px] text-center leading-relaxed">
+                          {t('onboarding.agreeToTerms')}{' '}
+                          <Text
+                            onPress={() => Linking.openURL('https://rooka.io/terms.html')}
+                            className="text-theme-accent font-semibold underline"
+                          >
+                            {t('onboarding.termsOfService')}
+                          </Text>
+                          {' '}{t('onboarding.andAcknowledge')}{' '}
+                          <Text
+                            onPress={() => Linking.openURL('https://rooka.io/privacy')}
+                            className="text-theme-accent font-semibold underline"
+                          >
+                            {t('onboarding.privacyPolicy')}
+                          </Text>
+                          {t('onboarding.termsDisclaimer')}
+                        </Text>
+                      </View>
+                    </Reanimated.View>
+                  </View>
+                );
+              }
+
+              if (node.type === 'coach_typing') {
+                return (
+                  <View key={node.id} className="flex-row items-start gap-3 mb-4 pr-4">
+                    <View className="relative">
                       <Image
                         source={getCoachAvatarSource(coachTone)}
-                        className="w-full h-full"
+                        className="w-10 h-10 rounded-full"
                       />
                     </View>
+                    <View className="flex-1 mt-1 justify-center min-h-[40px]">
+                      <View className="flex-row items-center gap-1.5 mb-1">
+                        <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Rooka</Text>
+                      </View>
+                      <TypingDots />
+                    </View>
                   </View>
+                );
+              }
 
-                  <Reanimated.View style={heroContentStyle} className="w-full items-center">
-                    <View className="w-full mb-8">
-                      <Text className="text-theme-text text-[22px] leading-[32px] font-semibold">
-                        {typedText}
-                        {typedText.length < WELCOME_MESSAGE.length && (
-                          <Text className="text-[#FF5A1F]">▌</Text>
-                        )}
+              if (node.type === 'coach_text') {
+                if (!node.text?.trim()) return null;
+                return (
+                  <View key={node.id} className="flex-row items-start gap-3 mb-4 pr-4">
+                    <View className="relative" ref={node.id === 'node_welcome_banner' ? firstChatAvatarRef : undefined}>
+                      <Image
+                        source={getCoachAvatarSource(coachTone)}
+                        className="w-10 h-10 rounded-full"
+                      />
+                    </View>
+                    <View className="flex-1 mt-1">
+                      <View className="flex-row items-center gap-1.5 mb-1">
+                        <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Rooka</Text>
+                      </View>
+                      <MarkdownText content={node.text || ''} isUser={false} />
+                    </View>
+                  </View>
+                );
+              }
+
+              if (node.type === 'user_text') {
+                return (
+                  <View key={node.id} className="flex-row justify-end mb-7 pl-12">
+                    <View className="bg-theme-accent rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] shadow-sm">
+                      <Text className="text-white font-medium text-[16px] leading-[24px]">{node.text}</Text>
+                    </View>
+                  </View>
+                );
+              }
+
+              if (node.type === 'card_language') {
+                const isSelected = !!node.data?.selected;
+                const languagesList = [
+                  ...SUPPORTED_LANGUAGES,
+                  { code: 'more', label: t('onboarding.moreSoon'), flag: '🌐', disabled: true },
+                ];
+                return (
+                  <View
+                    key={node.id}
+                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                  >
+                    <View className="flex-row items-center gap-2">
+                      <Ionicons name="language" size={20} color="#FF5A1F" />
+                      <Text className="text-theme-text font-bold text-sm">{t('onboarding.selectLanguageTitle')}</Text>
+                    </View>
+
+                    <View className="flex-row flex-wrap justify-between gap-y-2.5 pt-1">
+                      {languagesList.map((lang) => {
+                        if (lang.disabled) {
+                          return (
+                            <View
+                              key="more"
+                              style={{ width: '48.5%' }}
+                              className="py-3 px-3 rounded-xl border border-dashed border-theme-border/60 bg-theme-bg/40 flex-row items-center justify-center gap-2 opacity-60"
+                            >
+                              <Text className="text-base">🌐</Text>
+                              <Text className="text-xs font-semibold text-theme-muted">{lang.label}</Text>
+                            </View>
+                          );
+                        }
+                        const active = node.data?.selected === lang.code;
+                        return (
+                          <Pressable
+                            key={lang.code}
+                            disabled={isStreamingMessage}
+                            style={[
+                              { width: '48.5%' },
+                              active && { backgroundColor: '#FF5A1F', borderColor: '#FF5A1F' },
+                            ]}
+                            onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
+                            className="py-3 px-3 rounded-xl border flex-row items-center justify-center gap-2 active:bg-theme-card bg-theme-bg border-theme-border shadow-sm"
+                          >
+                            <Text className="text-base">{lang.flag}</Text>
+                            <Text
+                              className="text-xs font-bold text-theme-text"
+                              style={active ? { color: '#FFFFFF' } : undefined}
+                            >
+                              {lang.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              }
+
+              if (node.type === 'card_persona') {
+                const isSelected = !!node.data?.selected;
+                return (
+                  <View
+                    key={node.id}
+                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                  >
+                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.chooseToneTitle')}</Text>
+
+                    <Pressable
+                      disabled={isStreamingMessage}
+                      onPress={() =>
+                        handleSelectPersonaChoice(
+                          'Empathetic but demanding elite endurance coach.',
+                          t('onboarding.toneEmpatheticShort')
+                        )
+                      }
+                      className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                      style={
+                        node.data?.selected === t('onboarding.toneEmpatheticShort')
+                          ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          : undefined
+                      }
+                    >
+                      <View className="flex-row items-center">
+                        <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
+                          <Image
+                            source={getCoachAvatarSource('Empathetic but demanding elite endurance coach.')}
+                            className="w-full h-full"
+                          />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneEmpatheticTitle')}</Text>
+                          <Text className="text-theme-muted text-[10px] mt-0.5">
+                            {t('onboarding.toneEmpatheticDesc')}
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      disabled={isStreamingMessage}
+                      onPress={() =>
+                        handleSelectPersonaChoice(
+                          'Strict with data, but with a dry, snarky British sense of humor.',
+                          t('onboarding.toneStrictShort')
+                        )
+                      }
+                      className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                      style={
+                        node.data?.selected === t('onboarding.toneStrictShort')
+                          ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          : undefined
+                      }
+                    >
+                      <View className="flex-row items-center">
+                        <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
+                          <Image
+                            source={getCoachAvatarSource('Strict with data, but with a dry, snarky British sense of humor.')}
+                            className="w-full h-full"
+                          />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneStrictTitle')}</Text>
+                          <Text className="text-theme-muted text-[10px] mt-0.5">
+                            {t('onboarding.toneStrictDesc')}
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      disabled={isStreamingMessage}
+                      onPress={() =>
+                        handleSelectPersonaChoice(
+                          'Enthusiastic cheerleader, extremely positive and forgiving.',
+                          t('onboarding.toneCheerleaderShort')
+                        )
+                      }
+                      className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                      style={
+                        node.data?.selected === t('onboarding.toneCheerleaderShort')
+                          ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          : undefined
+                      }
+                    >
+                      <View className="flex-row items-center">
+                        <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
+                          <Image
+                            source={getCoachAvatarSource('Enthusiastic cheerleader, extremely positive and forgiving.')}
+                            className="w-full h-full"
+                          />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneCheerleaderTitle')}</Text>
+                          <Text className="text-theme-muted text-[10px] mt-0.5">
+                            {t('onboarding.toneCheerleaderDesc')}
+                          </Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  </View>
+                );
+              }
+
+              if (node.type === 'card_gender') {
+                const selectedGender = node.data?.selected || gender;
+                return (
+                  <View
+                    key={node.id}
+                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                  >
+                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.genderTitle')}</Text>
+                    <Text className="text-theme-muted text-xs">
+                      {t('onboarding.genderSubtitle')}
+                    </Text>
+
+                    <View className="gap-2.5 mt-1">
+                      {[
+                        { label: t('onboarding.genderMale'), val: 'Male', icon: 'male-outline', desc: t('onboarding.genderMaleDesc') },
+                        { label: t('onboarding.genderFemale'), val: 'Female', icon: 'female-outline', desc: t('onboarding.genderFemaleDesc') },
+                        { label: t('onboarding.genderPreferNot'), val: 'Prefer not to share', icon: 'shield-outline', desc: t('onboarding.genderPreferNotDesc') },
+                      ].map((opt) => (
+                        <Pressable
+                          key={opt.val}
+                          disabled={isStreamingMessage}
+                          onPress={() => handleSelectGenderChoice(opt.val, opt.label)}
+                          className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                          style={
+                            selectedGender === opt.val
+                              ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                              : undefined
+                          }
+                        >
+                          <View className="flex-row items-center">
+                            <View className="w-9 h-9 rounded-full bg-[#FF5A1F]/15 items-center justify-center mr-3">
+                              <Ionicons name={opt.icon as any} size={18} color="#FF5A1F" />
+                            </View>
+                            <View className="flex-1">
+                              <Text className="text-theme-text font-bold text-xs">{opt.label}</Text>
+                              <Text className="text-theme-muted text-[10px] mt-0.5">{opt.desc}</Text>
+                            </View>
+                            {selectedGender === opt.val && (
+                              <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
+                            )}
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                );
+              }
+
+              if (node.type === 'card_context_event') {
+                const isCompleted = !!node.data?.completed;
+                return (
+                  <View
+                    key={node.id}
+                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-4 shadow-sm"
+                    style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                  >
+                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.contextTitle')}</Text>
+
+                    <TextInput
+                      editable={!isStreamingMessage}
+                      multiline
+                      numberOfLines={4}
+                      value={athleteContext}
+                      onChangeText={handleAthleteContextChange}
+                      placeholder={t('onboarding.contextPlaceholder')}
+                      placeholderTextColor="#8E8E93"
+                      className="p-4 bg-theme-bg border border-theme-border rounded-xl text-theme-text text-xs min-h-[90px]"
+                      style={{ textAlignVertical: 'top' }}
+                    />
+
+                    {/* Physiological Baselines */}
+                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2">
+                      <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
+                        {t('onboarding.baselinesTitle')}
                       </Text>
+                      {metrics.map((item, idx) => (
+                        <View key={idx} className="flex-row gap-2">
+                          <TextInput
+                            editable={!isStreamingMessage}
+                            placeholder={t('onboarding.baselinePlaceholderLabel')}
+                            placeholderTextColor="#8E8E93"
+                            value={item.label}
+                            onChangeText={(val) => {
+                              const updated = [...metrics];
+                              updated[idx].label = val;
+                              setMetrics(updated);
+                            }}
+                            className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                          />
+                          <TextInput
+                            editable={!isStreamingMessage}
+                            placeholder={t('onboarding.baselinePlaceholderValue')}
+                            placeholderTextColor="#8E8E93"
+                            value={item.value}
+                            onChangeText={(val) => {
+                              const updated = [...metrics];
+                              updated[idx].value = val;
+                              setMetrics(updated);
+                            }}
+                            className="w-24 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                          />
+                        </View>
+                      ))}
+                      <Pressable
+                        disabled={isStreamingMessage}
+                        onPress={addMetricRow}
+                        className="py-1.5 items-center bg-[#FF5A1F]/10 border border-[#FF5A1F]/30 rounded-lg mt-1"
+                      >
+                        <Text className="text-[#FF5A1F] text-xs font-bold">{t('onboarding.addMetric')}</Text>
+                      </Pressable>
+                    </View>
+
+                    {/* Main Goal Event Setup */}
+                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2.5">
+                      <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
+                        {t('onboarding.targetEventTitle')}
+                      </Text>
+                      <TextInput
+                        editable={!isStreamingMessage}
+                        placeholder={t('onboarding.raceNamePlaceholder')}
+                        placeholderTextColor="#8E8E93"
+                        value={raceName}
+                        onChangeText={handleRaceNameChange}
+                        className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                      />
+                      <View className="flex-row gap-2">
+                        <Pressable
+                          disabled={isStreamingMessage}
+                          onPress={openDatePickerModal}
+                          className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
+                        >
+                          <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
+                            {raceDate || t('onboarding.raceDatePlaceholder')}
+                          </Text>
+                          <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
+                        </Pressable>
+
+                        <View className="w-28 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-center relative">
+                          {isEstimatingCtl ? (
+                            <View className="flex-row items-center gap-1">
+                              <ActivityIndicator size="small" color="#FF5A1F" />
+                              <Text className="text-[10px] text-[#FF5A1F] font-bold">Rooka...</Text>
+                            </View>
+                          ) : (
+                            <>
+                              <TextInput
+                                editable={!isStreamingMessage}
+                                placeholder={t('onboarding.targetCtlPlaceholder')}
+                                placeholderTextColor="#8E8E93"
+                                value={targetCtl}
+                                keyboardType="numeric"
+                                onChangeText={(val) => {
+                                  setTargetCtl(val);
+                                  setIsAiFilled(false);
+                                }}
+                                className="w-full text-theme-text text-xs text-center font-bold"
+                              />
+                              {isAiFilled && (
+                                <View className="absolute -top-2 -right-1 bg-[#FF5A1F] px-1.5 py-0.5 rounded-full">
+                                  <Text className="text-[8px] text-white font-bold">⚡️ Rooka</Text>
+                                </View>
+                              )}
+                            </>
+                          )}
+                        </View>
+                      </View>
                     </View>
 
                     <Pressable
-                      onPress={handleBeginPress}
-                      disabled={isHeroTransitioning}
-                      className="w-full py-4 rounded-2xl bg-[#FF5A1F] items-center justify-center flex-row gap-2 active:opacity-90"
+                      disabled={isStreamingMessage}
+                      onPress={handleConfirmContextAndEvent}
+                      className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md"
                     >
-                      <Text className="text-white font-extrabold text-lg">{t('onboarding.meetCoachBegin')}</Text>
-                      <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
-                    </Pressable>
-
-                    <View className="mt-6 px-2 items-center">
-                      <Text className="text-theme-muted text-[11px] text-center leading-relaxed">
-                        {t('onboarding.agreeToTerms')}{' '}
-                        <Text
-                          onPress={() => Linking.openURL('https://rooka.io/terms.html')}
-                          className="text-theme-accent font-semibold underline"
-                        >
-                          {t('onboarding.termsOfService')}
-                        </Text>
-                        {' '}{t('onboarding.andAcknowledge')}{' '}
-                        <Text
-                          onPress={() => Linking.openURL('https://rooka.io/privacy')}
-                          className="text-theme-accent font-semibold underline"
-                        >
-                          {t('onboarding.privacyPolicy')}
-                        </Text>
-                        {t('onboarding.termsDisclaimer')}
+                      <Text className="text-white font-bold text-xs">
+                        {isCompleted ? t('onboarding.updateContextEventBtn') : t('onboarding.confirmContextEventBtn')}
                       </Text>
-                    </View>
-                  </Reanimated.View>
-                </View>
-              );
-            }
+                    </Pressable>
+                  </View>
+                );
+              }
 
-            if (node.type === 'coach_typing') {
-              return (
-                <View key={node.id} className="flex-row items-start gap-3 mb-4 pr-4">
-                  <View className="relative">
-                    <Image
-                      source={getCoachAvatarSource(coachTone)}
-                      className="w-10 h-10 rounded-full"
-                    />
-                  </View>
-                  <View className="flex-1 mt-1 justify-center min-h-[40px]">
-                    <View className="flex-row items-center gap-1.5 mb-1">
-                      <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Rooka</Text>
-                    </View>
-                    <TypingDots />
-                  </View>
-                </View>
-              );
-            }
+              if (node.type === 'card_schedule') {
+                const isCompleted = !!node.data?.completed;
+                return (
+                  <View
+                    key={node.id}
+                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                  >
+                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.scheduleTitle')}</Text>
+                    <Text className="text-theme-muted text-xs">
+                      {t('onboarding.scheduleSubtitle')}
+                    </Text>
 
-            if (node.type === 'coach_text') {
-              if (!node.text?.trim()) return null;
-              return (
-                <View key={node.id} className="flex-row items-start gap-3 mb-4 pr-4">
-                  <View className="relative" ref={node.id === 'node_welcome_banner' ? firstChatAvatarRef : undefined}>
-                    <Image
-                      source={getCoachAvatarSource(coachTone)}
-                      className="w-10 h-10 rounded-full"
-                    />
-                  </View>
-                  <View className="flex-1 mt-1">
-                    <View className="flex-row items-center gap-1.5 mb-1">
-                      <Text className="text-theme-text font-black text-xs uppercase tracking-wider">Rooka</Text>
-                    </View>
-                    <MarkdownText content={node.text || ''} isUser={false} />
-                  </View>
-                </View>
-              );
-            }
-
-            if (node.type === 'user_text') {
-              return (
-                <View key={node.id} className="flex-row justify-end mb-7 pl-12">
-                  <View className="bg-theme-accent rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] shadow-sm">
-                    <Text className="text-white font-medium text-[16px] leading-[24px]">{node.text}</Text>
-                  </View>
-                </View>
-              );
-            }
-
-            if (node.type === 'card_language') {
-              const isSelected = !!node.data?.selected;
-              const languagesList = [
-                ...SUPPORTED_LANGUAGES,
-                { code: 'more', label: t('onboarding.moreSoon'), flag: '🌐', disabled: true },
-              ];
-              return (
-                <View
-                  key={node.id}
-                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
-                  style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
-                >
-                  <View className="flex-row items-center gap-2">
-                    <Ionicons name="language" size={20} color="#FF5A1F" />
-                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.selectLanguageTitle')}</Text>
-                  </View>
-
-                  <View className="flex-row flex-wrap justify-between gap-y-2.5 pt-1">
-                    {languagesList.map((lang) => {
-                      if (lang.disabled) {
+                    <View className="gap-3 pt-1">
+                      {DAYS.map((day) => {
+                        const currentVal = availability[day]?.maxMinutes || 0;
                         return (
-                          <View
-                            key="more"
-                            style={{ width: '48.5%' }}
-                            className="py-3 px-3 rounded-xl border border-dashed border-theme-border/60 bg-theme-bg/40 flex-row items-center justify-center gap-2 opacity-60"
-                          >
-                            <Text className="text-base">🌐</Text>
-                            <Text className="text-xs font-semibold text-theme-muted">{lang.label}</Text>
+                          <View key={day} className="bg-theme-bg p-3 rounded-xl border border-theme-border gap-2">
+                            <View className="flex-row items-center justify-between">
+                              <Text className="text-theme-text font-bold text-xs">{day}</Text>
+                              <Text className="text-[#FF5A1F] font-bold text-xs">
+                                {currentVal === 0 ? t('onboarding.restDay') : t('onboarding.mins', { count: currentVal })}
+                              </Text>
+                            </View>
+
+                            <View className="flex-row gap-1 justify-between">
+                              {DURATION_OPTIONS.map((opt) => {
+                                const isSelected = currentVal === opt.value;
+                                return (
+                                  <Pressable
+                                    key={opt.value}
+                                    disabled={isStreamingMessage}
+                                    onPress={() => handleDayDurationChange(day, opt.value)}
+                                    className="flex-1 py-1.5 rounded-lg items-center justify-center border bg-theme-card border-theme-border"
+                                    style={
+                                      isSelected
+                                        ? { backgroundColor: '#FF5A1F', borderColor: '#FF5A1F' }
+                                        : undefined
+                                    }
+                                  >
+                                    <Text
+                                      className="text-[10px] font-bold text-theme-muted"
+                                      style={isSelected ? { color: '#FFFFFF' } : undefined}
+                                    >
+                                      {opt.label}
+                                    </Text>
+                                  </Pressable>
+                                );
+                              })}
+                            </View>
                           </View>
                         );
-                      }
-                      const active = node.data?.selected === lang.code;
-                      return (
-                        <Pressable
-                          key={lang.code}
-                          disabled={isStreamingMessage}
-                          style={[
-                            { width: '48.5%' },
-                            active && { backgroundColor: '#FF5A1F', borderColor: '#FF5A1F' },
-                          ]}
-                          onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
-                          className="py-3 px-3 rounded-xl border flex-row items-center justify-center gap-2 active:bg-theme-card bg-theme-bg border-theme-border shadow-sm"
-                        >
-                          <Text className="text-base">{lang.flag}</Text>
-                          <Text
-                            className="text-xs font-bold text-theme-text"
-                            style={active ? { color: '#FFFFFF' } : undefined}
-                          >
-                            {lang.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                      })}
+                    </View>
+
+                    <Pressable
+                      disabled={isStreamingMessage}
+                      onPress={handleConfirmScheduleChoice}
+                      className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
+                    >
+                      <Text className="text-white font-bold text-xs">
+                        {isCompleted ? t('onboarding.updateScheduleBtn') : t('onboarding.confirmScheduleBtn')}
+                      </Text>
+                    </Pressable>
                   </View>
-                </View>
-              );
-            }
+                );
+              }
 
-            if (node.type === 'card_persona') {
-              const isSelected = !!node.data?.selected;
-              return (
-                <View
-                  key={node.id}
-                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
-                  style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
-                >
-                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.chooseToneTitle')}</Text>
+              if (node.type === 'card_integrations') {
+                const isCompleted = !!node.data?.completed;
+                const isGarminActive = isGarminSaved || !!user?.garmin_connected;
+                const isStravaActive = !!user?.strava_connected;
 
-                  <Pressable
-                    disabled={isStreamingMessage}
-                    onPress={() =>
-                      handleSelectPersonaChoice(
-                        'Empathetic but demanding elite endurance coach.',
-                        t('onboarding.toneEmpatheticShort')
-                      )
-                    }
-                    className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
-                    style={
-                      node.data?.selected === t('onboarding.toneEmpatheticShort')
-                        ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
-                        : undefined
-                    }
+                return (
+                  <View
+                    key={node.id}
+                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                   >
-                    <View className="flex-row items-center">
-                      <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
-                        <Image
-                          source={getCoachAvatarSource('Empathetic but demanding elite endurance coach.')}
-                          className="w-full h-full"
+                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.integrationsTitle')}</Text>
+
+                    {/* Garmin Connect */}
+                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-3">
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-row items-center gap-3 flex-1 mr-2">
+                          <Ionicons name="watch-outline" size={20} color="#007ACC" />
+                          <View className="flex-1">
+                            <View className="flex-row items-center gap-1.5 flex-wrap">
+                              <Text className="text-theme-text font-bold text-xs">{t('onboarding.garminTitle')}</Text>
+                              {isGarminActive && (
+                                <View className="bg-green-500/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
+                                  <Ionicons name="checkmark-circle" size={10} color="#22C55E" />
+                                  <Text className="text-green-500 text-[9px] font-bold">
+                                    {t('onboarding.garminConnectedBadge')}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text className="text-theme-muted text-[10px]">{t('onboarding.garminSubtitle')}</Text>
+                          </View>
+                        </View>
+                        <Switch
+                          disabled={isStreamingMessage || isSavingGarmin}
+                          value={showGarmin}
+                          onValueChange={(val) => {
+                            setShowGarmin(val);
+                          }}
+                          trackColor={{ false: '#3A3A3C', true: '#FF5A1F' }}
                         />
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneEmpatheticTitle')}</Text>
-                        <Text className="text-theme-muted text-[10px] mt-0.5">
-                          {t('onboarding.toneEmpatheticDesc')}
-                        </Text>
-                      </View>
+
+                      {showGarmin && (
+                        <View className="pt-2 gap-2 border-t border-theme-border">
+                          {isGarminActive && (
+                            <View className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5 flex-row items-center justify-between">
+                              <View className="flex-row items-center gap-2 flex-1 mr-2">
+                                <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                                <View className="flex-1">
+                                  <Text className="text-green-400 font-bold text-xs">
+                                    {garminSaveSuccessMsg || t('onboarding.garminSavedSuccess')}
+                                  </Text>
+                                  <Text className="text-theme-muted text-[10px]" numberOfLines={1}>
+                                    {t('onboarding.garminConnectedStatus')}: {garminEmail || (user as any)?.garmin_username || (user as any)?.garminUsername || 'Garmin User'}
+                                  </Text>
+                                </View>
+                              </View>
+                              <Pressable
+                                disabled={isSavingGarmin}
+                                onPress={handleDisconnectGarmin}
+                                className="px-2 py-1 bg-theme-bg/60 rounded border border-theme-border"
+                              >
+                                <Text className="text-red-400 font-medium text-[10px]">
+                                  {t('onboarding.garminDisconnectBtn')}
+                                </Text>
+                              </Pressable>
+                            </View>
+                          )}
+
+                          <TextInput
+                            editable={!isStreamingMessage && !isSavingGarmin}
+                            placeholder={t('onboarding.garminUserPlaceholder')}
+                            placeholderTextColor="#8E8E93"
+                            value={garminEmail}
+                            onChangeText={(text) => {
+                              setGarminEmail(text);
+                              setIsGarminSaved(false);
+                              setGarminError(null);
+                              setGarminSaveSuccessMsg(null);
+                            }}
+                            autoCapitalize="none"
+                            className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                          />
+                          <TextInput
+                            editable={!isStreamingMessage && !isSavingGarmin}
+                            placeholder={t('onboarding.garminPassPlaceholder')}
+                            placeholderTextColor="#8E8E93"
+                            secureTextEntry
+                            value={garminPassword}
+                            onChangeText={(text) => {
+                              setGarminPassword(text);
+                              setIsGarminSaved(false);
+                              setGarminError(null);
+                              setGarminSaveSuccessMsg(null);
+                            }}
+                            autoCapitalize="none"
+                            className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                          />
+
+                          {garminError && (
+                            <View className="flex-row items-center gap-1.5 px-1">
+                              <Ionicons name="alert-circle" size={13} color="#EF4444" />
+                              <Text className="text-red-400 text-[10px] flex-1">{garminError}</Text>
+                            </View>
+                          )}
+
+                          <Pressable
+                            disabled={isStreamingMessage || isSavingGarmin || !garminEmail.trim() || !garminPassword.trim()}
+                            onPress={handleSaveGarmin}
+                            className={`py-2 px-3 rounded-lg flex-row items-center justify-center gap-1.5 ${!garminEmail.trim() || !garminPassword.trim()
+                                ? 'bg-[#007ACC]/50 opacity-60'
+                                : 'bg-[#007ACC]'
+                              }`}
+                          >
+                            {isSavingGarmin ? (
+                              <>
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                <Text className="text-white font-bold text-xs">{t('onboarding.garminSavingBtn')}</Text>
+                              </>
+                            ) : (
+                              <>
+                                <Ionicons name="cloud-upload-outline" size={14} color="#FFFFFF" />
+                                <Text className="text-white font-bold text-xs">{t('onboarding.garminSaveBtn')}</Text>
+                              </>
+                            )}
+                          </Pressable>
+                        </View>
+                      )}
                     </View>
-                  </Pressable>
 
-                  <Pressable
-                    disabled={isStreamingMessage}
-                    onPress={() =>
-                      handleSelectPersonaChoice(
-                        'Strict with data, but with a dry, snarky British sense of humor.',
-                        t('onboarding.toneStrictShort')
-                      )
-                    }
-                    className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
-                    style={
-                      node.data?.selected === t('onboarding.toneStrictShort')
-                        ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
-                        : undefined
-                    }
-                  >
-                    <View className="flex-row items-center">
-                      <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
-                        <Image
-                          source={getCoachAvatarSource('Strict with data, but with a dry, snarky British sense of humor.')}
-                          className="w-full h-full"
-                        />
+                    {/* Strava Connect */}
+                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-row items-center gap-2 flex-1 mr-2">
+                          <Ionicons name="bicycle" size={18} color="#FC4C02" />
+                          <View className="flex-1">
+                            <View className="flex-row items-center gap-1.5 flex-wrap">
+                              <Text className="text-theme-text font-bold text-xs">{t('onboarding.stravaTitle')}</Text>
+                              {isStravaActive && (
+                                <View className="bg-green-500/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
+                                  <Ionicons name="checkmark-circle" size={10} color="#22C55E" />
+                                  <Text className="text-green-500 text-[9px] font-bold">
+                                    {t('onboarding.stravaConnectedBadge')}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text className="text-theme-muted text-[10px]">{t('onboarding.stravaSubtitle')}</Text>
+                          </View>
+                        </View>
+
+                        {isStravaActive ? (
+                          <View className="flex-row items-center gap-1.5">
+                            <Pressable
+                              disabled={isStreamingMessage || isConnectingStrava}
+                              onPress={handleConnectStravaOAuth}
+                              className="bg-theme-card border border-theme-border px-2.5 py-1.5 rounded-lg flex-row items-center gap-1"
+                            >
+                              {isConnectingStrava ? (
+                                <ActivityIndicator size="small" color="#8E8E93" />
+                              ) : (
+                                <Text className="text-theme-muted text-[10px] font-semibold">
+                                  {t('onboarding.stravaReconnectBtn')}
+                                </Text>
+                              )}
+                            </Pressable>
+                            <Pressable
+                              disabled={isStreamingMessage || isConnectingStrava}
+                              onPress={handleDisconnectStrava}
+                              className="px-2 py-1.5 bg-theme-card border border-theme-border rounded-lg"
+                            >
+                              <Text className="text-red-400 font-medium text-[10px]">
+                                {t('onboarding.stravaDisconnectBtn')}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        ) : (
+                          <Pressable
+                            disabled={isStreamingMessage || isConnectingStrava}
+                            onPress={handleConnectStravaOAuth}
+                            className="bg-[#FC4C02] px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
+                          >
+                            {isConnectingStrava ? (
+                              <>
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                <Text className="text-white font-bold text-[10px]">
+                                  {t('onboarding.stravaConnecting')}
+                                </Text>
+                              </>
+                            ) : (
+                              <Text className="text-white font-bold text-[10px]">
+                                {t('onboarding.connectStrava')}
+                              </Text>
+                            )}
+                          </Pressable>
+                        )}
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneStrictTitle')}</Text>
-                        <Text className="text-theme-muted text-[10px] mt-0.5">
-                          {t('onboarding.toneStrictDesc')}
-                        </Text>
-                      </View>
+
+                      {stravaSuccessMsg && isStravaActive && (
+                        <View className="bg-green-500/10 border border-green-500/20 rounded-lg p-2 flex-row items-center gap-1.5 mt-1">
+                          <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                          <Text className="text-green-400 font-semibold text-[10px] flex-1">
+                            {stravaSuccessMsg}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  </Pressable>
 
-                  <Pressable
-                    disabled={isStreamingMessage}
-                    onPress={() =>
-                      handleSelectPersonaChoice(
-                        'Enthusiastic cheerleader, extremely positive and forgiving.',
-                        t('onboarding.toneCheerleaderShort')
-                      )
-                    }
-                    className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
-                    style={
-                      node.data?.selected === t('onboarding.toneCheerleaderShort')
-                        ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
-                        : undefined
-                    }
-                  >
-                    <View className="flex-row items-center">
-                      <View className="w-10 h-10 rounded-full overflow-hidden border border-theme-border mr-3 bg-theme-bg">
-                        <Image
-                          source={getCoachAvatarSource('Enthusiastic cheerleader, extremely positive and forgiving.')}
-                          className="w-full h-full"
-                        />
+                    <Pressable
+                      disabled={isStreamingMessage || isSavingGarmin || isConnectingStrava}
+                      onPress={handleConfirmIntegrationsChoice}
+                      className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
+                    >
+                      <Text className="text-white font-bold text-xs">
+                        {isCompleted ? t('onboarding.updateIntegrationsBtn') : t('onboarding.confirmIntegrationsBtn')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              }
+
+              if (node.type === 'card_paywall') {
+                return (
+                  <View key={node.id} className="bg-theme-card border border-theme-border rounded-2xl p-5 mb-6 gap-4 shadow-sm">
+                    <View className="items-center my-1">
+                      <View className="w-12 h-12 rounded-2xl bg-[#FF5A1F] items-center justify-center mb-2 shadow-lg">
+                        <Ionicons name="flash" size={24} color="#FFFFFF" />
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-theme-text font-bold text-xs">{t('onboarding.toneCheerleaderTitle')}</Text>
-                        <Text className="text-theme-muted text-[10px] mt-0.5">
-                          {t('onboarding.toneCheerleaderDesc')}
-                        </Text>
-                      </View>
+                      <Text className="text-theme-text font-extrabold text-lg text-center">{t('onboarding.paywallTitle')}</Text>
+                      <Text className="text-theme-muted text-xs text-center mt-1">
+                        {t('onboarding.paywallSubtitle')}
+                      </Text>
                     </View>
-                  </Pressable>
-                </View>
-              );
-            }
 
-            if (node.type === 'card_gender') {
-              const selectedGender = node.data?.selected || gender;
-              return (
-                <View
-                  key={node.id}
-                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
-                >
-                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.genderTitle')}</Text>
-                  <Text className="text-theme-muted text-xs">
-                    {t('onboarding.genderSubtitle')}
-                  </Text>
-
-                  <View className="gap-2.5 mt-1">
-                    {[
-                      { label: t('onboarding.genderMale'), val: 'Male', icon: 'male-outline', desc: t('onboarding.genderMaleDesc') },
-                      { label: t('onboarding.genderFemale'), val: 'Female', icon: 'female-outline', desc: t('onboarding.genderFemaleDesc') },
-                      { label: t('onboarding.genderPreferNot'), val: 'Prefer not to share', icon: 'shield-outline', desc: t('onboarding.genderPreferNotDesc') },
-                    ].map((opt) => (
+                    {/* Pricing Tiers */}
+                    <View className="flex-row gap-3">
                       <Pressable
-                        key={opt.val}
-                        disabled={isStreamingMessage}
-                        onPress={() => handleSelectGenderChoice(opt.val, opt.label)}
-                        className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
+                        onPress={() => setSelectedPlan('annual')}
+                        className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
                         style={
-                          selectedGender === opt.val
+                          selectedPlan === 'annual'
                             ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                             : undefined
                         }
                       >
-                        <View className="flex-row items-center">
-                          <View className="w-9 h-9 rounded-full bg-[#FF5A1F]/15 items-center justify-center mr-3">
-                            <Ionicons name={opt.icon as any} size={18} color="#FF5A1F" />
-                          </View>
-                          <View className="flex-1">
-                            <Text className="text-theme-text font-bold text-xs">{opt.label}</Text>
-                            <Text className="text-theme-muted text-[10px] mt-0.5">{opt.desc}</Text>
-                          </View>
-                          {selectedGender === opt.val && (
-                            <Ionicons name="checkmark-circle" size={18} color="#FF5A1F" />
-                          )}
+                        <View className="self-start px-2 py-0.5 bg-[#FF5A1F] rounded-full mb-1.5">
+                          <Text className="text-white font-bold text-[9px]">{t('onboarding.savePercent')}</Text>
                         </View>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              );
-            }
-
-            if (node.type === 'card_context_event') {
-              const isCompleted = !!node.data?.completed;
-              return (
-                <View
-                  key={node.id}
-                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-4 shadow-sm"
-                  style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
-                >
-                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.contextTitle')}</Text>
-
-                  <TextInput
-                    editable={!isStreamingMessage}
-                    multiline
-                    numberOfLines={4}
-                    value={athleteContext}
-                    onChangeText={handleAthleteContextChange}
-                    placeholder={t('onboarding.contextPlaceholder')}
-                    placeholderTextColor="#8E8E93"
-                    className="p-4 bg-theme-bg border border-theme-border rounded-xl text-theme-text text-xs min-h-[90px]"
-                    style={{ textAlignVertical: 'top' }}
-                  />
-
-                  {/* Physiological Baselines */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2">
-                    <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
-                      {t('onboarding.baselinesTitle')}
-                    </Text>
-                    {metrics.map((item, idx) => (
-                      <View key={idx} className="flex-row gap-2">
-                        <TextInput
-                          editable={!isStreamingMessage}
-                          placeholder={t('onboarding.baselinePlaceholderLabel')}
-                          placeholderTextColor="#8E8E93"
-                          value={item.label}
-                          onChangeText={(val) => {
-                            const updated = [...metrics];
-                            updated[idx].label = val;
-                            setMetrics(updated);
-                          }}
-                          className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
-                        />
-                        <TextInput
-                          editable={!isStreamingMessage}
-                          placeholder={t('onboarding.baselinePlaceholderValue')}
-                          placeholderTextColor="#8E8E93"
-                          value={item.value}
-                          onChangeText={(val) => {
-                            const updated = [...metrics];
-                            updated[idx].value = val;
-                            setMetrics(updated);
-                          }}
-                          className="w-24 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
-                        />
-                      </View>
-                    ))}
-                    <Pressable
-                      disabled={isStreamingMessage}
-                      onPress={addMetricRow}
-                      className="py-1.5 items-center bg-[#FF5A1F]/10 border border-[#FF5A1F]/30 rounded-lg mt-1"
-                    >
-                      <Text className="text-[#FF5A1F] text-xs font-bold">{t('onboarding.addMetric')}</Text>
-                    </Pressable>
-                  </View>
-
-                  {/* Main Goal Event Setup */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2.5">
-                    <Text className="text-theme-muted text-[10px] font-bold uppercase tracking-wider">
-                      {t('onboarding.targetEventTitle')}
-                    </Text>
-                    <TextInput
-                      editable={!isStreamingMessage}
-                      placeholder={t('onboarding.raceNamePlaceholder')}
-                      placeholderTextColor="#8E8E93"
-                      value={raceName}
-                      onChangeText={handleRaceNameChange}
-                      className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
-                    />
-                    <View className="flex-row gap-2">
-                      <Pressable
-                        disabled={isStreamingMessage}
-                        onPress={openDatePickerModal}
-                        className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
-                      >
-                        <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
-                          {raceDate || t('onboarding.raceDatePlaceholder')}
+                        <Text className="text-theme-text font-bold text-sm">{t('onboarding.annual')}</Text>
+                        <Text className="text-[#FF5A1F] font-bold text-lg mt-0.5">
+                          {t('onboarding.annualPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.annualPeriod')}</Text>
                         </Text>
-                        <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
+                        <Text className="text-theme-muted text-[9px] mt-0.5">{t('onboarding.annualBilled')}</Text>
                       </Pressable>
 
-                      <View className="w-28 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-center relative">
-                        {isEstimatingCtl ? (
-                          <View className="flex-row items-center gap-1">
-                            <ActivityIndicator size="small" color="#FF5A1F" />
-                            <Text className="text-[10px] text-[#FF5A1F] font-bold">Rooka...</Text>
-                          </View>
+                      <Pressable
+                        onPress={() => setSelectedPlan('monthly')}
+                        className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
+                        style={
+                          selectedPlan === 'monthly'
+                            ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                            : undefined
+                        }
+                      >
+                        <Text className="text-theme-text font-bold text-sm mt-4">{t('onboarding.monthly')}</Text>
+                        <Text className="text-theme-text font-bold text-lg mt-0.5">
+                          {t('onboarding.monthlyPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.monthlyPeriod')}</Text>
+                        </Text>
+                        <Text className="text-theme-muted text-[9px] mt-0.5">{t('onboarding.monthlyBilled')}</Text>
+                      </Pressable>
+                    </View>
+
+                    {/* Feature Checklist */}
+                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
+                      {[
+                        t('onboarding.feat1'),
+                        t('onboarding.feat2'),
+                        t('onboarding.feat3'),
+                        t('onboarding.feat4'),
+                      ].map((feat, idx) => (
+                        <View key={idx} className="flex-row items-center gap-2">
+                          <Ionicons name="checkmark-circle" size={16} color="#FF5A1F" />
+                          <Text className="text-theme-text text-xs flex-1">{feat}</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    <View className="gap-2 pt-2">
+                      <Pressable
+                        onPress={() => handleCompleteSetup(true)}
+                        disabled={isSubmitting}
+                        className="w-full py-4 rounded-xl bg-[#FF5A1F] items-center justify-center shadow-lg"
+                      >
+                        {isSubmitting ? (
+                          <ActivityIndicator color="white" />
                         ) : (
-                          <>
-                            <TextInput
-                              editable={!isStreamingMessage}
-                              placeholder={t('onboarding.targetCtlPlaceholder')}
-                              placeholderTextColor="#8E8E93"
-                              value={targetCtl}
-                              keyboardType="numeric"
-                              onChangeText={(val) => {
-                                setTargetCtl(val);
-                                setIsAiFilled(false);
-                              }}
-                              className="w-full text-theme-text text-xs text-center font-bold"
-                            />
-                            {isAiFilled && (
-                              <View className="absolute -top-2 -right-1 bg-[#FF5A1F] px-1.5 py-0.5 rounded-full">
-                                <Text className="text-[8px] text-white font-bold">⚡️ Rooka</Text>
-                              </View>
-                            )}
-                          </>
+                          <Text className="text-white font-extrabold text-sm">{t('onboarding.startTrialBtn')}</Text>
                         )}
-                      </View>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => handleCompleteSetup(false)}
+                        disabled={isSubmitting}
+                        className="w-full py-3 rounded-xl border border-theme-border bg-theme-bg items-center justify-center"
+                      >
+                        <Text className="text-theme-muted text-xs font-bold">{t('onboarding.freeTierBtn')}</Text>
+                      </Pressable>
                     </View>
                   </View>
+                );
+              }
 
-                  <Pressable
-                    disabled={isStreamingMessage}
-                    onPress={handleConfirmContextAndEvent}
-                    className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md"
-                  >
-                    <Text className="text-white font-bold text-xs">
-                      {isCompleted ? t('onboarding.updateContextEventBtn') : t('onboarding.confirmContextEventBtn')}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            }
-
-            if (node.type === 'card_schedule') {
-              const isCompleted = !!node.data?.completed;
-              return (
-                <View
-                  key={node.id}
-                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
-                  style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
-                >
-                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.scheduleTitle')}</Text>
-                  <Text className="text-theme-muted text-xs">
-                    {t('onboarding.scheduleSubtitle')}
-                  </Text>
-
-                  <View className="gap-3 pt-1">
-                    {DAYS.map((day) => {
-                      const currentVal = availability[day]?.maxMinutes || 0;
-                      return (
-                        <View key={day} className="bg-theme-bg p-3 rounded-xl border border-theme-border gap-2">
-                          <View className="flex-row items-center justify-between">
-                            <Text className="text-theme-text font-bold text-xs">{day}</Text>
-                            <Text className="text-[#FF5A1F] font-bold text-xs">
-                              {currentVal === 0 ? t('onboarding.restDay') : t('onboarding.mins', { count: currentVal })}
-                            </Text>
-                          </View>
-
-                          <View className="flex-row gap-1 justify-between">
-                            {DURATION_OPTIONS.map((opt) => {
-                              const isSelected = currentVal === opt.value;
-                              return (
-                                <Pressable
-                                  key={opt.value}
-                                  disabled={isStreamingMessage}
-                                  onPress={() => handleDayDurationChange(day, opt.value)}
-                                  className="flex-1 py-1.5 rounded-lg items-center justify-center border bg-theme-card border-theme-border"
-                                  style={
-                                    isSelected
-                                      ? { backgroundColor: '#FF5A1F', borderColor: '#FF5A1F' }
-                                      : undefined
-                                  }
-                                >
-                                  <Text
-                                    className="text-[10px] font-bold text-theme-muted"
-                                    style={isSelected ? { color: '#FFFFFF' } : undefined}
-                                  >
-                                    {opt.label}
-                                  </Text>
-                                </Pressable>
-                              );
-                            })}
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-
-                  <Pressable
-                    disabled={isStreamingMessage}
-                    onPress={handleConfirmScheduleChoice}
-                    className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
-                  >
-                    <Text className="text-white font-bold text-xs">
-                      {isCompleted ? t('onboarding.updateScheduleBtn') : t('onboarding.confirmScheduleBtn')}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            }
-
-            if (node.type === 'card_integrations') {
-              const isCompleted = !!node.data?.completed;
-              return (
-                <View
-                  key={node.id}
-                  className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
-                  style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
-                >
-                  <Text className="text-theme-text font-bold text-sm">{t('onboarding.integrationsTitle')}</Text>
-
-                  {/* Garmin Connect */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-3">
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-row items-center gap-3">
-                        <Ionicons name="watch-outline" size={20} color="#007ACC" />
-                        <View>
-                          <Text className="text-theme-text font-bold text-xs">{t('onboarding.garminTitle')}</Text>
-                          <Text className="text-theme-muted text-[10px]">{t('onboarding.garminSubtitle')}</Text>
-                        </View>
-                      </View>
-                      <Switch
-                        disabled={isStreamingMessage}
-                        value={showGarmin}
-                        onValueChange={setShowGarmin}
-                        trackColor={{ false: '#3A3A3C', true: '#FF5A1F' }}
-                      />
-                    </View>
-
-                    {showGarmin && (
-                      <View className="pt-2 gap-2 border-t border-theme-border">
-                        <TextInput
-                          editable={!isStreamingMessage}
-                          placeholder={t('onboarding.garminUserPlaceholder')}
-                          placeholderTextColor="#8E8E93"
-                          value={garminEmail}
-                          onChangeText={setGarminEmail}
-                          autoCapitalize="none"
-                          className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
-                        />
-                        <TextInput
-                          editable={!isStreamingMessage}
-                          placeholder={t('onboarding.garminPassPlaceholder')}
-                          placeholderTextColor="#8E8E93"
-                          secureTextEntry
-                          value={garminPassword}
-                          onChangeText={setGarminPassword}
-                          autoCapitalize="none"
-                          className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
-                        />
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Strava Connect */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
-                      <Ionicons name="bicycle" size={18} color="#FC4C02" />
-                      <Text className="text-theme-text font-bold text-xs">{t('onboarding.stravaTitle')}</Text>
-                    </View>
-                    <Pressable
-                      disabled={isStreamingMessage}
-                      onPress={handleConnectStravaOAuth}
-                      className="bg-[#FC4C02] px-3 py-1.5 rounded-lg"
-                    >
-                      <Text className="text-white font-bold text-[10px]">{t('onboarding.connectStrava')}</Text>
-                    </Pressable>
-                  </View>
-
-                  <Pressable
-                    disabled={isStreamingMessage}
-                    onPress={handleConfirmIntegrationsChoice}
-                    className="w-full py-3 bg-[#FF5A1F] rounded-xl items-center justify-center shadow-md mt-2"
-                  >
-                    <Text className="text-white font-bold text-xs">
-                      {isCompleted ? t('onboarding.updateIntegrationsBtn') : t('onboarding.confirmIntegrationsBtn')}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            }
-
-            if (node.type === 'card_paywall') {
-              return (
-                <View key={node.id} className="bg-theme-card border border-theme-border rounded-2xl p-5 mb-6 gap-4 shadow-sm">
-                  <View className="items-center my-1">
-                    <View className="w-12 h-12 rounded-2xl bg-[#FF5A1F] items-center justify-center mb-2 shadow-lg">
-                      <Ionicons name="flash" size={24} color="#FFFFFF" />
-                    </View>
-                    <Text className="text-theme-text font-extrabold text-lg text-center">{t('onboarding.paywallTitle')}</Text>
-                    <Text className="text-theme-muted text-xs text-center mt-1">
-                      {t('onboarding.paywallSubtitle')}
-                    </Text>
-                  </View>
-
-                  {/* Pricing Tiers */}
-                  <View className="flex-row gap-3">
-                    <Pressable
-                      onPress={() => setSelectedPlan('annual')}
-                      className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
-                      style={
-                        selectedPlan === 'annual'
-                          ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
-                          : undefined
-                      }
-                    >
-                      <View className="self-start px-2 py-0.5 bg-[#FF5A1F] rounded-full mb-1.5">
-                        <Text className="text-white font-bold text-[9px]">{t('onboarding.savePercent')}</Text>
-                      </View>
-                      <Text className="text-theme-text font-bold text-sm">{t('onboarding.annual')}</Text>
-                      <Text className="text-[#FF5A1F] font-bold text-lg mt-0.5">
-                        {t('onboarding.annualPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.annualPeriod')}</Text>
-                      </Text>
-                      <Text className="text-theme-muted text-[9px] mt-0.5">{t('onboarding.annualBilled')}</Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => setSelectedPlan('monthly')}
-                      className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
-                      style={
-                        selectedPlan === 'monthly'
-                          ? { borderColor: '#FF5A1F', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
-                          : undefined
-                      }
-                    >
-                      <Text className="text-theme-text font-bold text-sm mt-4">{t('onboarding.monthly')}</Text>
-                      <Text className="text-theme-text font-bold text-lg mt-0.5">
-                        {t('onboarding.monthlyPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.monthlyPeriod')}</Text>
-                      </Text>
-                      <Text className="text-theme-muted text-[9px] mt-0.5">{t('onboarding.monthlyBilled')}</Text>
-                    </Pressable>
-                  </View>
-
-                  {/* Feature Checklist */}
-                  <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
-                    {[
-                      t('onboarding.feat1'),
-                      t('onboarding.feat2'),
-                      t('onboarding.feat3'),
-                      t('onboarding.feat4'),
-                    ].map((feat, idx) => (
-                      <View key={idx} className="flex-row items-center gap-2">
-                        <Ionicons name="checkmark-circle" size={16} color="#FF5A1F" />
-                        <Text className="text-theme-text text-xs flex-1">{feat}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  <View className="gap-2 pt-2">
-                    <Pressable
-                      onPress={() => handleCompleteSetup(true)}
-                      disabled={isSubmitting}
-                      className="w-full py-4 rounded-xl bg-[#FF5A1F] items-center justify-center shadow-lg"
-                    >
-                      {isSubmitting ? (
-                        <ActivityIndicator color="white" />
-                      ) : (
-                        <Text className="text-white font-extrabold text-sm">{t('onboarding.startTrialBtn')}</Text>
-                      )}
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() => handleCompleteSetup(false)}
-                      disabled={isSubmitting}
-                      className="w-full py-3 rounded-xl border border-theme-border bg-theme-bg items-center justify-center"
-                    >
-                      <Text className="text-theme-muted text-xs font-bold">{t('onboarding.freeTierBtn')}</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            }
-
-            return null;
-          })}
-        </ScrollView>
-      </Reanimated.View>
-    </SafeAreaView>
+              return null;
+            })}
+          </ScrollView>
+        </Reanimated.View>
+      </SafeAreaView>
 
       {/* Floating clone of the coach avatar used purely for the hero -> chat handoff animation.
           Deliberately rendered OUTSIDE the SafeAreaView, in this padding-free wrapper, so its
