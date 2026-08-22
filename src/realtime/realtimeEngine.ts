@@ -57,25 +57,7 @@ class RealtimeEngine {
   }
 
   public subscribe(eventType: RealtimeEventType | string, callback: (data: any) => void) {
-    if (!this.eventListeners.has(eventType)) {
-      this.eventListeners.set(eventType, new Set());
-    }
-
-    const listeners = this.eventListeners.get(eventType)!;
-    listeners.add(callback);
-
-    // Subscribe to WS underlying service
-    const unsubWs = wsService.subscribeToEvent(eventType, (data) => {
-      callback(data);
-    });
-
-    return () => {
-      listeners.delete(callback);
-      if (listeners.size === 0) {
-        this.eventListeners.delete(eventType);
-      }
-      unsubWs();
-    };
+    return wsService.subscribeToEvent(eventType, callback);
   }
 
   public sendEvent(eventType: string, payload: any) {

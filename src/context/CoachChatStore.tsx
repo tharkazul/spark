@@ -533,30 +533,32 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
       const messageId = data.messageId || 'streaming_coach_msg';
 
-      setMessages((prev) => {
+      setMessagesState((prev) => {
         const lastMsg = prev[prev.length - 1];
         if (
           lastMsg &&
           lastMsg.role === 'coach' &&
           (String(lastMsg.id) === String(messageId) || String(lastMsg.id).startsWith('streaming_'))
         ) {
-          const updatedContent = lastMsg.content + chunk;
+          const updatedContent = (lastMsg.content || '') + chunk;
           return [
             ...prev.slice(0, -1),
-            processMessageItem({
+            {
               ...lastMsg,
               content: updatedContent,
-            }),
+              isStreaming: true,
+            },
           ];
         } else {
           return [
             ...prev,
-            processMessageItem({
+            {
               id: messageId,
               content: chunk,
               role: 'coach',
+              isStreaming: true,
               timestamp: new Date().toISOString(),
-            }),
+            },
           ];
         }
       });

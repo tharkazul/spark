@@ -118,6 +118,11 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN deleted_at TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'en'`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {});
+  // Cached Garmin Connect session (OAuth1/OAuth2 tokens), encrypted at rest.
+  // Lets /api/sync-garmin reuse a session instead of logging in with
+  // username/password on every sync, which Garmin rate-limits aggressively.
+  db.run(`ALTER TABLE users ADD COLUMN garmin_oauth1_token TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN garmin_oauth2_token TEXT`, (err) => {});
   db.run(`CREATE TABLE IF NOT EXISTS push_tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,

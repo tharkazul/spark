@@ -148,7 +148,7 @@ router.post("/api/user/settings/garmin", authenticateToken, (req, res) => {
   const encryptedPassword = encrypt(garminPassword);
 
   db.run(
-    `UPDATE users SET garmin_username = ?, garmin_password = ? WHERE id = ?`,
+    `UPDATE users SET garmin_username = ?, garmin_password = ?, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
     [garminUsername, encryptedPassword, req.user.id],
     function (err) {
       if (err)
@@ -417,7 +417,7 @@ router.post("/api/user/disconnect/strava", authenticateToken, (req, res) => {
 
 router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
   db.run(
-    `UPDATE users SET garmin_username = NULL, garmin_password = NULL WHERE id = ?`,
+    `UPDATE users SET garmin_username = NULL, garmin_password = NULL, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
     [req.user.id],
     (err) => {
       if (err)
@@ -426,6 +426,52 @@ router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
     },
   );
 });
+
+/**
+ * Returns a logged-in GarminConnect client for a user, reusing a cached
+ * OAuth session whenever possible instead of authenticating with
+ * username/password on every call. Garmin rate-limits (429) accounts that
+ * log in too frequently, so a fresh username/password login only happens
+ * when there's no cached session or the cached one no longer works.
+ */
+async function getGarminClient(user, userId) {
+  const decryptedPassword = decrypt(user.garmin_password);
+  const GCClient = new GarminConnect({
+    username: user.garmin_username,
+    password: decryptedPassword,
+  });
+
+  if (user.garmin_oauth1_token && user.garmin_oauth2_token) {
+    try {
+      const oauth1 = JSON.parse(decrypt(user.garmin_oauth1_token));
+      const oauth2 = JSON.parse(decrypt(user.garmin_oauth2_token));
+      GCClient.loadToken(oauth1, oauth2);
+      await GCClient.getUserProfile(); // cheap call to confirm the restored session actually works
+      console.log("DEBUG: Reused cached Garmin session for", user.garmin_username);
+      return GCClient;
+    } catch (e) {
+      console.log(
+        "DEBUG: Cached Garmin session rejected, falling back to full login:",
+        e.message,
+      );
+    }
+  }
+
+  console.log("DEBUG: Attempting fresh Garmin login for user:", user.garmin_username);
+  await GCClient.login(user.garmin_username, decryptedPassword);
+
+  try {
+    const { oauth1, oauth2 } = GCClient.exportToken();
+    db.run(
+      `UPDATE users SET garmin_oauth1_token = ?, garmin_oauth2_token = ? WHERE id = ?`,
+      [encrypt(JSON.stringify(oauth1)), encrypt(JSON.stringify(oauth2)), userId],
+    );
+  } catch (e) {
+    console.error("Failed to cache Garmin session tokens:", e.message);
+  }
+
+  return GCClient;
+}
 
 router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
   console.log("DEBUG: Sync route triggered for user:", req.user.id);
@@ -438,7 +484,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT garmin_username, garmin_password FROM users WHERE id = ?`,
+        `SELECT garmin_username, garmin_password, garmin_oauth1_token, garmin_oauth2_token FROM users WHERE id = ?`,
         [req.user.id],
         (err, row) => {
           if (err || !row) reject(new Error("User credentials not found"));
@@ -447,14 +493,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       );
     });
 
-    const decryptedPassword = decrypt(user.garmin_password);
-    const GCClient = new GarminConnect({
-      username: user.garmin_username,
-      password: decryptedPassword,
-    });
-
-    console.log("DEBUG: Attempting login for user:", user.garmin_username);
-    await GCClient.login(user.garmin_username, decryptedPassword);
+    const GCClient = await getGarminClient(user, req.user.id);
     const client = GCClient.client || GCClient.http;
     if (!client) throw new Error("Garmin client initialization failed.");
 
