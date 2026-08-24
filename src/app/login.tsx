@@ -18,7 +18,7 @@ import { useLanguage } from '../context/LanguageContext';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, register, loading: storeLoading } = useUser();
+  const { login, register, loading: storeLoading, error: sessionError } = useUser();
   const { t } = useLanguage();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -29,10 +29,20 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // When the session is dropped (expired token, deleted account, server
+  // unreachable) the store records why. Without surfacing it here the user
+  // just lands on a bare login screen with no explanation for why they were
+  // signed out — which reads as "the app is broken".
+  const notice = errorMessage ?? sessionError;
+
   const handleSubmit = async () => {
     setErrorMessage(null);
     if (!email || !password) {
-      setErrorMessage('Please fill in both email and password.');
+      setErrorMessage(
+        mode === 'login'
+          ? 'Enter your email or username, and your password.'
+          : 'Please fill in both email and password.'
+      );
       return;
     }
 
@@ -134,11 +144,11 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Error Message */}
-          {errorMessage && (
+          {/* Error / session notice */}
+          {notice && (
             <View className="bg-red-500/10 rounded-xl p-3 mb-4 flex-row items-center">
               <Ionicons name="alert-circle" size={20} color="#EF4444" className="mr-2" />
-              <Text className="text-red-500 text-xs font-medium flex-1 ml-2">{errorMessage}</Text>
+              <Text className="text-red-500 text-xs font-medium flex-1 ml-2">{notice}</Text>
             </View>
           )}
 
@@ -161,21 +171,35 @@ export default function LoginScreen() {
                     className="flex-1 ml-3 text-theme-text"
                   />
                 </View>
+                <Text className="text-xs text-theme-muted mt-1.5">
+                  {t('auth.usernameOptionalHint')}
+                </Text>
               </View>
             )}
 
+            {/* Accounts are identified by a single field that may hold either an
+                email or a plain username, so signing in must say so. Labelling
+                it "Email Address" made a username like "Rutger" look invalid. */}
             <View className="mb-4">
               <Text className="text-xs font-semibold text-theme-muted mb-2">
-                {t('auth.enterEmail')}
+                {mode === 'login' ? t('auth.signInIdentifier') : t('auth.enterEmail')}
               </Text>
               <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
-                <Ionicons name="mail-outline" size={20} color="#8E8E93" />
+                <Ionicons
+                  name={mode === 'login' ? 'person-outline' : 'mail-outline'}
+                  size={20}
+                  color="#8E8E93"
+                />
                 <TextInput
-                  placeholder="athlete@rooka.com"
+                  placeholder={
+                    mode === 'login'
+                      ? t('auth.signInIdentifierPlaceholder')
+                      : 'athlete@rooka.com'
+                  }
                   placeholderTextColor="#8E8E93"
                   value={email}
                   onChangeText={setEmail}
-                  keyboardType="email-address"
+                  keyboardType={mode === 'login' ? 'default' : 'email-address'}
                   autoCapitalize="none"
                   autoCorrect={false}
                   style={inputStyle}

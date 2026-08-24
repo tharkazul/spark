@@ -43,7 +43,10 @@ router.post("/login", (req, res) => {
     [username],
     async (err, user) => {
       if (err || !user)
-        return res.status(400).json({ error: "Athlete not found." });
+        return res.status(400).json({
+          error: "No account found with that email or username.",
+          code: "ACCOUNT_NOT_FOUND",
+        });
 
       if (await bcrypt.compare(password, user.password_hash)) {
         const token = jwt.sign(

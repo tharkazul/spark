@@ -38,19 +38,11 @@ import { integrationsApi } from '../../services/apiServices';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { MarkdownText } from '../chat/MarkdownText';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { DurationRoller } from '../ui/DurationRoller';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DURATION_OPTIONS = [
-  { label: '0m', value: 0 },
-  { label: '30m', value: 30 },
-  { label: '45m', value: 45 },
-  { label: '60m', value: 60 },
-  { label: '90m', value: 90 },
-  { label: '120m+', value: 120 },
-];
-
 const SUPPORTED_LANGUAGES: Array<{ code: string; label: string; flag: string; disabled?: boolean }> = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'nl', label: 'Nederlands', flag: '🇳🇱' },
@@ -346,8 +338,6 @@ export default function OnboardingWizard() {
     return isPastDateString(existing) ? '' : existing;
   });
   const [targetCtl, setTargetCtl] = useState(user?.target_ctl?.toString() || '75');
-  const [isEstimatingCtl, setIsEstimatingCtl] = useState(false);
-  const [isAiFilled, setIsAiFilled] = useState(false);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const MONTHS = [
@@ -432,10 +422,8 @@ export default function OnboardingWizard() {
     setRaceName(text);
     if (raceDebounceRef.current) clearTimeout(raceDebounceRef.current);
     if (!text.trim() || text.trim().length < 3) {
-      setIsEstimatingCtl(false);
       return;
     }
-    setIsEstimatingCtl(true);
     raceDebounceRef.current = setTimeout(() => {
       const lower = text.toLowerCase();
       let estimated = 70;
@@ -457,8 +445,6 @@ export default function OnboardingWizard() {
         estimated = 35;
       }
       setTargetCtl(estimated.toString());
-      setIsEstimatingCtl(false);
-      setIsAiFilled(true);
     }, 700);
   };
 
@@ -1499,47 +1485,20 @@ export default function OnboardingWizard() {
                         onChangeText={handleRaceNameChange}
                         className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
                       />
-                      <View className="flex-row gap-2">
-                        <Pressable
-                          disabled={isStreamingMessage}
-                          onPress={openDatePickerModal}
-                          className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
-                        >
-                          <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
-                            {raceDate || t('onboarding.raceDatePlaceholder')}
-                          </Text>
-                          <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
-                        </Pressable>
-
-                        <View className="w-28 p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-center relative">
-                          {isEstimatingCtl ? (
-                            <View className="flex-row items-center gap-1">
-                              <ActivityIndicator size="small" color="#FF5F3B" />
-                              <Text className="text-xs text-[#FF5F3B] font-bold">Rooka...</Text>
-                            </View>
-                          ) : (
-                            <>
-                              <TextInput
-                                editable={!isStreamingMessage}
-                                placeholder={t('onboarding.targetCtlPlaceholder')}
-                                placeholderTextColor="#8E8E93"
-                                value={targetCtl}
-                                keyboardType="numeric"
-                                onChangeText={(val) => {
-                                  setTargetCtl(val);
-                                  setIsAiFilled(false);
-                                }}
-                                className="w-full text-theme-text text-xs text-center font-bold"
-                              />
-                              {isAiFilled && (
-                                <View className="absolute -top-2 -right-1 bg-[#FF5F3B] px-1.5 py-0.5 rounded-full">
-                                  <Text className="text-xs text-white font-bold">⚡️ Rooka</Text>
-                                </View>
-                              )}
-                            </>
-                          )}
-                        </View>
-                      </View>
+                      {/* Target CTL is still derived from the event name and sent
+                          to the backend on finalize — it just isn't shown. As a bare
+                          number it told the athlete nothing and invited edits to a
+                          value they had no basis to set. */}
+                      <Pressable
+                        disabled={isStreamingMessage}
+                        onPress={openDatePickerModal}
+                        className="w-full p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
+                      >
+                        <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
+                          {raceDate || t('onboarding.raceDatePlaceholder')}
+                        </Text>
+                        <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
+                      </Pressable>
                     </View>
 
                     <Pressable
@@ -1568,43 +1527,26 @@ export default function OnboardingWizard() {
                       {t('onboarding.scheduleSubtitle')}
                     </Text>
 
-                    <View className="gap-3 pt-1">
+                    {/* One row per day: the day, then how long they can train,
+                        with the unit spelled out. The previous 0m / 30m / 45m
+                        pills were read as metres rather than minutes. */}
+                    <View className="gap-2 pt-1">
                       {DAYS.map((day) => {
                         const currentVal = availability[day]?.maxMinutes || 0;
+                        const isRest = currentVal === 0;
                         return (
-                          <View key={day} className="bg-theme-bg p-3 rounded-xl border border-theme-border gap-2">
-                            <View className="flex-row items-center justify-between">
-                              <Text className="text-theme-text font-bold text-xs">{day}</Text>
-                              <Text className="text-[#FF5F3B] font-bold text-xs">
-                                {currentVal === 0 ? t('onboarding.restDay') : t('onboarding.mins', { count: currentVal })}
-                              </Text>
-                            </View>
+                          <View
+                            key={day}
+                            className="bg-theme-bg px-3 py-2.5 rounded-xl border border-theme-border flex-row items-center justify-between"
+                          >
+                            <Text className="text-theme-text font-bold text-sm w-12">{day}</Text>
 
-                            <View className="flex-row gap-1 justify-between">
-                              {DURATION_OPTIONS.map((opt) => {
-                                const isSelected = currentVal === opt.value;
-                                return (
-                                  <Pressable
-                                    key={opt.value}
-                                    disabled={isStreamingMessage}
-                                    onPress={() => handleDayDurationChange(day, opt.value)}
-                                    className="flex-1 py-1.5 rounded-lg items-center justify-center border bg-theme-card border-theme-border"
-                                    style={
-                                      isSelected
-                                        ? { backgroundColor: '#FF5F3B', borderColor: '#FF5F3B' }
-                                        : undefined
-                                    }
-                                  >
-                                    <Text
-                                      className="text-xs font-bold text-theme-muted"
-                                      style={isSelected ? { color: '#FFFFFF' } : undefined}
-                                    >
-                                      {opt.label}
-                                    </Text>
-                                  </Pressable>
-                                );
-                              })}
-                            </View>
+                            <DurationRoller
+                              value={currentVal}
+                              onChange={(minutes) => handleDayDurationChange(day, minutes)}
+                              disabled={isStreamingMessage}
+                              unitLabel={isRest ? t('onboarding.restDay') : t('onboarding.minutesUnit')}
+                            />
                           </View>
                         );
                       })}

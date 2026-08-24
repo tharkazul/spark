@@ -140,7 +140,10 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const register = async (email: string, password: string, username?: string) => {
     setLoading(true);
     setError(null);
-    const targetUsername = (username || email.split('@')[0]).trim();
+    // Whatever the athlete typed is what they will sign in with. Previously an
+    // email was truncated to its local part ('foo@bar.com' became 'foo'), so
+    // signing in with the address they just registered failed with "not found".
+    const targetUsername = (username || email).trim();
     try {
       await authApi.register({ username: targetUsername, password });
     } catch (err: any) {

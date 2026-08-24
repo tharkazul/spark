@@ -222,7 +222,17 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       ),
     );
 
-    if (existing && existing.onboarding_completed === 1 && existing.plan_count > 0 && !req.body.force) {
+    // An existing plan is on its own sufficient evidence that this is not a
+    // first run — an account can carry a full plan while `onboarding_completed`
+    // is still 0 (older rows, a restored database), and requiring both flags
+    // let that account rebuild its plan from scratch. Repair the flag so the
+    // athlete also stops being sent back into the wizard on every launch.
+    if (existing && existing.plan_count > 0 && !req.body.force) {
+      if (existing.onboarding_completed !== 1) {
+        await new Promise((resolve) =>
+          db.run(`UPDATE users SET onboarding_completed = 1 WHERE id = ?`, [userId], () => resolve()),
+        );
+      }
       return res.json({
         success: true,
         alreadyCompleted: true,
