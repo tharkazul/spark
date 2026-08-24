@@ -110,6 +110,14 @@ db.serialize(() => {
   db.run(`ALTER TABLE activities RENAME COLUMN spark_score TO rooka_score`, (err) => {});
   db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_name TEXT DEFAULT 'Rooka'`, (err) => {});
+  // Databases created before the Spark -> Rooka rename still carry
+  // `coach_name TEXT DEFAULT 'Spark'` on the column itself. ALTER TABLE ADD
+  // COLUMN above is a no-op there, so the stale default survives and every new
+  // account is greeted by "Spark". Rewrite the leftovers to the current brand.
+  db.run(
+    `UPDATE users SET coach_name = 'Rooka' WHERE coach_name IS NULL OR coach_name = '' OR coach_name = 'Spark'`,
+    (err) => {},
+  );
   db.run(`ALTER TABLE users ADD COLUMN coach_context TEXT DEFAULT ''`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_neutral TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_hype TEXT`, (err) => {});
@@ -224,6 +232,53 @@ db.serialize(() => {
   });
   db.run(`ALTER TABLE activities ADD COLUMN laps_json TEXT`, (err) => {
     if (!err) console.log("Added laps_json column to activities table.");
+  });
+
+  // --- Activity identity migration -----------------------------------------
+  // `activities.id` used to BE the Strava activity id, which is unique across
+  // all of Strava. That made an activity ownable by exactly one Rooka account:
+  // when a second account synced the same Strava athlete, its rows collided on
+  // the primary key, the upsert quietly updated the first account's rows, and
+  // the second athlete saw an empty history.
+  //
+  // `id` now stays a plain unique key of our own (so kudos, comments and every
+  // `WHERE id = ?` lookup keep working untouched), and the Strava id moves to
+  // its own column, unique *per user*.
+  //
+  // Existing rows keep their current id, so kudos/comments already pointing at
+  // them still resolve. Manually logged activities use a negative id and carry
+  // no Strava id; NULLs repeat freely in a SQLite unique index, so they cannot
+  // collide with each other.
+  db.run(`ALTER TABLE activities ADD COLUMN strava_activity_id TEXT`, (err) => {
+    if (!err) console.log("Added strava_activity_id column to activities table.");
+
+    db.run(
+      `UPDATE activities SET strava_activity_id = CAST(id AS TEXT)
+        WHERE strava_activity_id IS NULL AND id > 0`,
+      function (backfillErr) {
+        if (backfillErr) {
+          console.error("strava_activity_id backfill failed:", backfillErr.message);
+          return;
+        }
+        if (this.changes > 0) {
+          console.log(`Backfilled strava_activity_id for ${this.changes} activities.`);
+        }
+
+        // Required for `ON CONFLICT(user_id, strava_activity_id)` upserts.
+        db.run(
+          `CREATE UNIQUE INDEX IF NOT EXISTS idx_activities_user_strava
+             ON activities(user_id, strava_activity_id)`,
+          (idxErr) => {
+            if (idxErr) {
+              console.error(
+                "Could not create idx_activities_user_strava:",
+                idxErr.message,
+              );
+            }
+          },
+        );
+      },
+    );
   });
   db.run(
     `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,

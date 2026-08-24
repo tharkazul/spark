@@ -74,7 +74,7 @@ export function AdaptPlanModal({
                 <Ionicons name="time-outline" size={20} color="#16ACBD" />
                 <View className="flex-1">
                   <Text className="text-xs font-bold text-theme-text">30-Min Time Crunch</Text>
-                  <Text className="text-[10px] text-theme-muted">Shorten session without losing peak stimulus</Text>
+                  <Text className="text-xs text-theme-muted">Shorten session without losing peak stimulus</Text>
                 </View>
               </TouchableOpacity>
 
@@ -85,7 +85,7 @@ export function AdaptPlanModal({
                 <Ionicons name="heart-outline" size={20} color="#10B981" />
                 <View className="flex-1">
                   <Text className="text-xs font-bold text-theme-text">Zone 2 Aerobic Recovery</Text>
-                  <Text className="text-[10px] text-theme-muted">Reduce target watts to promote muscle healing</Text>
+                  <Text className="text-xs text-theme-muted">Reduce target watts to promote muscle healing</Text>
                 </View>
               </TouchableOpacity>
             </View>

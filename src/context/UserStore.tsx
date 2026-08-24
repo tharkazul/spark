@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { UserProfile } from '../types/user';
 import { userApi, authApi } from '../services/apiServices';
-import { setAuthToken, setOnUnauthorizedHandler, setOnRateLimitHandler } from '../services/apiClient';
+import { ApiError, setAuthToken, setOnUnauthorizedHandler, setOnRateLimitHandler } from '../services/apiClient';
 import { tokenStorage, chatStorage, briefingStorage } from '../services/storage';
+import { unregisterPushNotificationsAsync } from '../services/notificationService';
 import { wsService } from '../services/websocket';
 import { realtimeEngine } from '../realtime/realtimeEngine';
 
@@ -13,7 +14,7 @@ interface UserContextType {
   error: string | null;
   login: (emailOrUsername: string, password: string) => Promise<void>;
   register: (email: string, password: string, username?: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: (reason?: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
   trackRookaPlus: () => Promise<void>;
@@ -21,32 +22,37 @@ interface UserContextType {
   toggleChatMacroStrip: () => void;
 }
 
-const defaultFallbackUser = (username: string): UserProfile => ({
-  id: 1,
-  username: username || 'Athlete',
-  subscription_tier: 'rooka_plus',
-  total_rooka: 0,
-  level: 1,
-  coach_tone: 'Empathetic but demanding elite endurance coach.',
-  profile_picture_url: undefined,
-  garmin_connected: false,
-  strava_connected: false,
-  onboarding_completed: true,
-  daily_availability: {
-    MON: 45,
-    TUE: 45,
-    WED: 60,
-    THU: 45,
-    FRI: 60,
-    SAT: 90,
-    SUN: 45,
-  },
-  athlete_metrics: {
-    max_hr: 192,
-    resting_hr: 48,
-    ftp: 285,
-    weight_kg: undefined,
-  },
+/**
+ * Normalises the server profile payload (which mixes camelCase and snake_case)
+ * into a UserProfile.
+ *
+ * There is deliberately no "fallback user" here. Fabricating a profile when the
+ * server could not be reached made the app show a signed-in shell with
+ * strava_connected/garmin_connected forced to false and a hardcoded id, which
+ * is what made working integrations look like they had vanished after a reboot.
+ */
+const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => ({
+  ...(data as UserProfile),
+  total_rooka: data.total_rooka ?? data.totalRooka ?? prev?.total_rooka ?? 0,
+  subscription_tier:
+    data.subscriptionTier ?? data.subscription_tier ?? prev?.subscription_tier ?? 'free',
+  daily_token_usage: data.dailyTokenUsage ?? data.daily_token_usage ?? prev?.daily_token_usage ?? 0,
+  daily_token_limit:
+    data.dailyTokenLimit ?? data.daily_token_limit ?? prev?.daily_token_limit ?? 50000,
+  athlete_context: data.athleteContext ?? data.athlete_context ?? prev?.athlete_context,
+  coach_tone: data.coachTone ?? data.coach_tone ?? prev?.coach_tone,
+  coach_name: data.coachName ?? data.coach_name ?? 'Rooka',
+  coach_context: data.coachContext ?? data.coach_context ?? '',
+  coach_avatar_neutral: data.coachAvatarNeutral ?? data.coach_avatar_neutral,
+  coach_avatar_hype: data.coachAvatarHype ?? data.coach_avatar_hype,
+  coach_avatar_disappointed: data.coachAvatarDisappointed ?? data.coach_avatar_disappointed,
+  profile_picture_url:
+    data.profilePictureUrl ?? data.profile_picture_url ?? prev?.profile_picture_url,
+  garmin_connected: data.hasGarmin ?? data.garmin_connected ?? false,
+  strava_connected: data.hasStrava ?? data.strava_connected ?? false,
+  onboarding_completed: Boolean(
+    data.onboardingCompleted ?? data.onboarding_completed ?? prev?.onboarding_completed ?? true
+  ),
 });
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -57,12 +63,29 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isChatMacroStripVisible, setIsChatMacroStripVisible] = useState<boolean>(false);
+  const loggingOutRef = useRef<boolean>(false);
 
   const toggleChatMacroStrip = () => {
     setIsChatMacroStripVisible((prev) => !prev);
   };
 
-  const logout = async () => {
+  const logout = async (reason?: string) => {
+    // A 401 arriving while we are already tearing the session down must not
+    // start a second logout.
+    if (loggingOutRef.current) return;
+    loggingOutRef.current = true;
+
+    // Detach this device from the account so it stops receiving this phone's
+    // daily notifications. Best-effort and time-boxed: signing out must never
+    // wait on (or be blocked by) the network — the endpoint may not even exist
+    // on an older server build, which simply 404s.
+    try {
+      await Promise.race([
+        unregisterPushNotificationsAsync(),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
+    } catch (_) {}
+
     wsService.disconnect();
     setAuthToken(null);
     await tokenStorage.removeToken();
@@ -70,7 +93,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     if (briefingStorage.clearBriefing) await briefingStorage.clearBriefing();
     setUser(null);
     setIsAuthenticated(false);
-    setError(null);
+    setError(reason ?? null);
+    loggingOutRef.current = false;
   };
 
   const login = async (emailOrUsername: string, password: string) => {
@@ -78,62 +102,36 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     setError(null);
     const identifier = emailOrUsername.trim();
     try {
-      let res;
-      try {
-        res = await authApi.login({ username: identifier, password });
-      } catch (loginErr: any) {
-        if (loginErr.message && (loginErr.message.includes('not found') || loginErr.message.includes('Athlete'))) {
-          try {
-            await authApi.register({ username: identifier, password });
-            res = await authApi.login({ username: identifier, password });
-          } catch (_) {
-            throw loginErr;
-          }
-        } else {
-          throw loginErr;
-        }
+      // No implicit account creation here. Auto-registering on "Athlete not
+      // found" quietly produced a second, empty account whenever the identifier
+      // was typed differently, which reads as "my Strava connection and
+      // workouts disappeared". Registration is an explicit action on the login
+      // screen.
+      const res = await authApi.login({ username: identifier, password });
+
+      if (!res || !res.token) {
+        throw new Error('Sign in failed: no session token returned.');
       }
 
-      if (res && res.token) {
-        setAuthToken(res.token);
-        await tokenStorage.setToken(res.token);
-        
-        let profileData: UserProfile | null = null;
-        try {
-          profileData = await userApi.getProfile();
-        } catch (_) {}
+      setAuthToken(res.token);
 
-        const finalUser: UserProfile = profileData ? {
-          ...profileData,
-          total_rooka: (profileData as any).total_rooka ?? (profileData as any).totalRooka ?? profileData.total_rooka ?? 0,
-          subscription_tier: (profileData as any).subscriptionTier ?? (profileData as any).subscription_tier ?? profileData.subscription_tier ?? 'free',
-          daily_token_usage: (profileData as any).dailyTokenUsage ?? (profileData as any).daily_token_usage ?? 0,
-          daily_token_limit: (profileData as any).dailyTokenLimit ?? (profileData as any).daily_token_limit ?? 50000,
-          athlete_context: (profileData as any).athleteContext ?? (profileData as any).athlete_context ?? profileData.athlete_context,
-          coach_tone: (profileData as any).coachTone ?? profileData.coach_tone,
-          coach_name: (profileData as any).coachName ?? profileData.coach_name ?? 'Rooka',
-          coach_context: (profileData as any).coachContext ?? profileData.coach_context ?? '',
-          coach_avatar_neutral: (profileData as any).coachAvatarNeutral ?? profileData.coach_avatar_neutral,
-          coach_avatar_hype: (profileData as any).coachAvatarHype ?? profileData.coach_avatar_hype,
-          coach_avatar_disappointed: (profileData as any).coachAvatarDisappointed ?? profileData.coach_avatar_disappointed,
-          profile_picture_url: (profileData as any).profilePictureUrl ?? (profileData as any).profile_picture_url ?? profileData.profile_picture_url,
-          garmin_connected: (profileData as any).hasGarmin ?? profileData.garmin_connected,
-          strava_connected: (profileData as any).hasStrava ?? profileData.strava_connected,
-          onboarding_completed: Boolean(
-            (profileData as any).onboardingCompleted ?? (profileData as any).onboarding_completed ?? true
-          ),
-        } : defaultFallbackUser(identifier.split('@')[0]);
+      // Load the profile *before* persisting the token, so a token that cannot
+      // actually authenticate is never written to storage.
+      const profileData = await userApi.getProfile();
+      await tokenStorage.setToken(res.token);
 
-        setUser(finalUser);
-        setIsAuthenticated(true);
-      }
-    } catch (err: any) {
-      console.log('Login fallback activated:', err.message || err);
-      const fallbackToken = 'offline_dev_token';
-      setAuthToken(fallbackToken);
-      await tokenStorage.setToken(fallbackToken);
-      setUser(defaultFallbackUser(identifier.split('@')[0]));
+      setUser(normalizeProfile(profileData));
       setIsAuthenticated(true);
+    } catch (err: any) {
+      // Never fabricate a session. A fake token guarantees a 401 on the next
+      // request, which wipes the stored token and sends the user back to the
+      // login screen on every launch.
+      setAuthToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      const message = err?.message || 'Sign in failed. Please try again.';
+      setError(message);
+      throw err instanceof Error ? err : new Error(message);
     } finally {
       setLoading(false);
     }
@@ -146,8 +144,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       await authApi.register({ username: targetUsername, password });
     } catch (err: any) {
-      if (err.message && (err.message.toLowerCase().includes('already exist') || err.message.includes('Network') || err.message.includes('fetch'))) {
-        console.log('Register notice, proceeding to auto-login...');
+      // Only an existing username falls through to sign-in. A network failure
+      // must surface as a failed registration rather than silently attempting a
+      // login against an account that may never have been created.
+      if (err.message && err.message.toLowerCase().includes('already exist')) {
+        console.log('Register notice, account exists — proceeding to sign in...');
       } else {
         setError(err.message || 'Registration failed.');
         setLoading(false);
@@ -169,36 +170,19 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       const data = await userApi.getProfile();
       if (data) {
-        setUser((prev) => ({
-          ...prev,
-          ...data,
-          total_rooka: (data as any).total_rooka ?? (data as any).totalRooka ?? data.total_rooka ?? prev?.total_rooka ?? 0,
-          subscription_tier: (data as any).subscriptionTier ?? (data as any).subscription_tier ?? data.subscription_tier ?? prev?.subscription_tier ?? 'free',
-          daily_token_usage: (data as any).dailyTokenUsage ?? (data as any).daily_token_usage ?? prev?.daily_token_usage ?? 0,
-          daily_token_limit: (data as any).dailyTokenLimit ?? (data as any).daily_token_limit ?? prev?.daily_token_limit ?? 50000,
-          athlete_context: (data as any).athleteContext ?? (data as any).athlete_context ?? data.athlete_context,
-          coach_tone: (data as any).coachTone ?? data.coach_tone,
-          coach_name: (data as any).coachName ?? data.coach_name,
-          coach_context: (data as any).coachContext ?? data.coach_context,
-          coach_avatar_neutral: (data as any).coachAvatarNeutral ?? data.coach_avatar_neutral,
-          coach_avatar_hype: (data as any).coachAvatarHype ?? data.coach_avatar_hype,
-          coach_avatar_disappointed: (data as any).coachAvatarDisappointed ?? data.coach_avatar_disappointed,
-          profile_picture_url: (data as any).profilePictureUrl ?? (data as any).profile_picture_url ?? data.profile_picture_url ?? prev?.profile_picture_url,
-          garmin_connected: (data as any).hasGarmin ?? data.garmin_connected,
-          strava_connected: (data as any).hasStrava ?? data.strava_connected,
-          onboarding_completed: Boolean(
-            (data as any).onboardingCompleted ?? (data as any).onboarding_completed ?? prev?.onboarding_completed ?? true
-          ),
-        }));
+        setUser((prev) => normalizeProfile(data, prev));
       }
       setError(null);
     } catch (err: any) {
+      // A transient refresh failure must not clobber the profile we already
+      // hold — that is what used to flip garmin_connected/strava_connected
+      // back to false and make live connections look disconnected.
       console.log('UserStore refreshUser info:', err.message || err);
     }
   };
 
   const updateUser = async (data: Partial<UserProfile>) => {
-    setUser((prev) => ({ ...(prev || defaultFallbackUser('Athlete')), ...data }));
+    setUser((prev) => (prev ? { ...prev, ...data } : prev));
     try {
       await userApi.updateSettings(data);
     } catch (err: any) {
@@ -215,8 +199,15 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   };
 
   useEffect(() => {
-    setOnUnauthorizedHandler(() => {
-      logout();
+    // Only a genuine rejection of the session ends it. Anything else (server
+    // down, flaky network) must leave the stored token alone, otherwise a
+    // single failed request signs the user out for good.
+    setOnUnauthorizedHandler((reason) => {
+      const message =
+        reason === 'ACCOUNT_DELETED'
+          ? 'This account has been deleted.'
+          : 'Your session has expired. Please sign in again.';
+      logout(message);
     });
 
     setOnRateLimitHandler((msg) => {
@@ -227,35 +218,56 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       setLoading(true);
       try {
         const storedToken = await tokenStorage.getToken();
-        if (storedToken) {
-          setAuthToken(storedToken);
+        if (!storedToken) {
+          return;
+        }
+
+        setAuthToken(storedToken);
+
+        try {
+          // A cold start can race the network coming up. Retry transient
+          // failures a couple of times before giving up, so a slow first
+          // request does not drop the user back onto the login screen.
           let profile: UserProfile | null = null;
-          try {
-            profile = await userApi.getProfile();
-          } catch (_) {}
+          let lastErr: any = null;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              profile = await userApi.getProfile();
+              lastErr = null;
+              break;
+            } catch (attemptErr: any) {
+              lastErr = attemptErr;
+              // An outright rejection by the server is final — do not retry it.
+              if (attemptErr instanceof ApiError) break;
+              await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+            }
+          }
+          if (lastErr) throw lastErr;
 
-          const finalUser: UserProfile = profile ? {
-            ...profile,
-            total_rooka: (profile as any).total_rooka ?? (profile as any).totalRooka ?? profile.total_rooka ?? 0,
-            subscription_tier: (profile as any).subscriptionTier ?? (profile as any).subscription_tier ?? profile.subscription_tier ?? 'free',
-            daily_token_usage: (profile as any).dailyTokenUsage ?? (profile as any).daily_token_usage ?? 0,
-            daily_token_limit: (profile as any).dailyTokenLimit ?? (profile as any).daily_token_limit ?? 50000,
-            athlete_context: (profile as any).athleteContext ?? (profile as any).athlete_context ?? profile.athlete_context,
-            coach_tone: (profile as any).coachTone ?? profile.coach_tone,
-            profile_picture_url: (profile as any).profilePictureUrl ?? (profile as any).profile_picture_url ?? profile.profile_picture_url,
-            garmin_connected: (profile as any).hasGarmin ?? profile.garmin_connected,
-            strava_connected: (profile as any).hasStrava ?? profile.strava_connected,
-            onboarding_completed: Boolean(
-              (profile as any).onboardingCompleted ?? (profile as any).onboarding_completed ?? true
-            ),
-          } : defaultFallbackUser('Athlete');
-
-          setUser(finalUser);
+          setUser(normalizeProfile(profile));
           setIsAuthenticated(true);
+        } catch (err: any) {
+          if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+            // Session really is dead (expired, or the account was deleted).
+            // The 401 interceptor has already run logout(); this is just the
+            // explicit, readable path.
+            await logout(
+              err.data?.code === 'ACCOUNT_DELETED'
+                ? 'This account has been deleted.'
+                : 'Your session has expired. Please sign in again.'
+            );
+            return;
+          }
+
+          // Could not reach the server. Keep the token so the next launch can
+          // restore the session, and stay signed out for now instead of
+          // inventing a profile with every integration reported as missing.
+          console.log('Auth initialization deferred (server unreachable):', err?.message || err);
+          setAuthToken(null);
+          setError('Could not reach Rooka. Check your connection and try again.');
         }
       } catch (err) {
         console.log('Auth initialization failed:', err);
-        await logout();
       } finally {
         setLoading(false);
       }

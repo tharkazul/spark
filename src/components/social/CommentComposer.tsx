@@ -108,7 +108,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
       {/* MENTION AUTOCOMPLETE POPUP */}
       {showMentionList && filteredConnections.length > 0 && (
         <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-2 shadow-lg max-h-48 z-50">
-          <Text className="text-[10px] font-black uppercase text-theme-accent px-2 py-1 tracking-wider">
+          <Text className="text-xs font-extrabold text-theme-accent px-2 py-1">
             Mention Connection
           </Text>
           <FlatList
@@ -124,7 +124,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
                   <Image source={{ uri: item.profile_picture_url }} className="w-7 h-7 rounded-full" />
                 ) : (
                   <View className="w-7 h-7 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
-                    <Text className="text-xs font-black text-theme-accent">
+                    <Text className="text-xs font-extrabold text-theme-accent">
                       {item.username.charAt(0).toUpperCase()}
                     </Text>
                   </View>

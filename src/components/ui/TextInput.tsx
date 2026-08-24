@@ -9,7 +9,7 @@ export function TextInput({ label, error, className = '', ...props }: Props) {
   return (
     <View className={`w-full ${className}`}>
       {label && (
-        <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider mb-2">
+        <Text className="text-xs font-bold text-theme-muted mb-2">
           {label}
         </Text>
       )}

@@ -242,6 +242,8 @@ export const nl: TranslationKeys = {
     chronicLoad: '42-dagen Chronische Belasting',
     acuteLoad: '7-dagen Acute Belasting',
     emaTrendline: '7-dagen EMA Trendlijn',
+    noDataYet: 'Nog geen data',
+    logWeightPrompt: 'Log een gewicht om te starten',
     optimalBuilding: 'Optimaal Opbouwen',
     highFatigueRest: 'Hoge Vermoeidheid / Rust Nodig',
     productiveBuild: 'Productieve Opbouw',

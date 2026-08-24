@@ -195,11 +195,11 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
           <ScrollView className="flex-1 pt-4" showsVerticalScrollIndicator={false}>
             {/* Active Live Search Input */}
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              <Text className="text-xs font-bold text-theme-muted">
                 Live Athlete Search
               </Text>
               {searchQuery.trim().length > 0 && (
-                <Text className="text-[10px] text-theme-accent font-bold uppercase tracking-wide">
+                <Text className="text-xs text-theme-accent font-bold tracking-wide">
                   Searching live
                 </Text>
               )}
@@ -231,11 +231,11 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             {hasSearched && (
               <View className="mb-6">
                 <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+                  <Text className="text-xs font-bold text-theme-muted">
                     Matching Accounts ({searchResults.length})
                   </Text>
                   {searchResults.length > 0 && (
-                    <Text className="text-[10px] text-theme-muted font-medium">Top matches A-Z</Text>
+                    <Text className="text-xs text-theme-muted font-medium">Top matches A-Z</Text>
                   )}
                 </View>
 
@@ -256,7 +256,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               />
                             ) : (
                               <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
-                                <Text className="text-sm font-black text-theme-accent">
+                                <Text className="text-sm font-extrabold text-theme-accent">
                                   {item.username.charAt(0).toUpperCase()}
                                 </Text>
                               </View>
@@ -265,7 +265,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               <Text className="text-sm font-extrabold text-theme-text">
                                 {item.username}
                               </Text>
-                              <Text className="text-[11px] text-theme-muted font-medium">
+                              <Text className="text-xs text-theme-muted font-medium">
                                 Rooka Athlete
                               </Text>
                             </View>
@@ -330,7 +330,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             {/* Pending Requests Section */}
             {pendingRequests.length > 0 && (
               <View className="mb-6">
-                <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+                <Text className="text-xs font-bold text-theme-muted mb-2">
                   Pending Friend Requests ({pendingRequests.length})
                 </Text>
                 {pendingRequests.map((req) => (
@@ -340,7 +340,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                   >
                     <View className="flex-row items-center space-x-3">
                       <View className="w-9 h-9 rounded-full bg-theme-accent/20 items-center justify-center">
-                        <Text className="text-xs font-black text-theme-accent">
+                        <Text className="text-xs font-extrabold text-theme-accent">
                           {(req.username || 'A').charAt(0).toUpperCase()}
                         </Text>
                       </View>

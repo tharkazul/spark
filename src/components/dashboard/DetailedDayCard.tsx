@@ -119,14 +119,14 @@ export function DetailedDayCard({
 
               {day.isToday && (
                 <View className="bg-theme-accent px-2 py-0.5 rounded-full">
-                  <Text className="text-[9px] font-extrabold text-white uppercase tracking-wider">
+                  <Text className="text-xs font-extrabold text-white">
                     Today
                   </Text>
                 </View>
               )}
             </View>
 
-            <Text className="text-[11px] text-theme-muted font-bold">{weatherTemp} · Scheduled</Text>
+            <Text className="text-xs text-theme-muted font-bold">{weatherTemp} · Scheduled</Text>
           </View>
         </View>
 
@@ -139,7 +139,7 @@ export function DetailedDayCard({
           activeOpacity={0.7}
           className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
-          <Ionicons name="flash-outline" size={13} color="#F97316" />
+          <Ionicons name="flash-outline" size={13} color="#FF5F3B" />
           <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
         </TouchableOpacity>
       </View>
@@ -193,14 +193,14 @@ export function DetailedDayCard({
 
                     {workout.isStructured && (
                       <View className="px-2 py-0.5 bg-theme-card border border-theme-border rounded">
-                        <Text className="text-[9px] font-bold text-theme-muted">Structured</Text>
+                        <Text className="text-xs font-bold text-theme-muted">Structured</Text>
                       </View>
                     )}
 
                     {workout.isCompleted && (
                       <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                        <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
                       </View>
                     )}
                   </View>
@@ -226,7 +226,7 @@ export function DetailedDayCard({
                       className="flex-row items-center gap-1 px-2.5 py-1 bg-theme-card border border-theme-border rounded-lg"
                     >
                       <Ionicons name="person-add-outline" size={12} color="#6F6F79" />
-                      <Text className="text-[11px] font-bold text-theme-muted">Invite</Text>
+                      <Text className="text-xs font-bold text-theme-muted">Invite</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity

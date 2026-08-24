@@ -246,8 +246,8 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'basketball',
       outlineName: 'basketball-outline',
-      color: '#F97316',
-      bgColor: 'bg-[#F97316]/15',
+      color: '#FF5F3B',
+      bgColor: 'bg-[#FF5F3B]/15',
       label: 'BASKETBALL',
     };
   }

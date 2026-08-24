@@ -69,12 +69,12 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
               styles.optionButton,
               {
                 backgroundColor: active
-                  ? '#FF5733'
+                  ? '#FF5F3B'
                   : isDark
                   ? 'rgba(30, 41, 59, 0.7)'
                   : '#F1F5F9',
                 borderColor: active
-                  ? '#FF5733'
+                  ? '#FF5F3B'
                   : isDark
                   ? 'rgba(51, 65, 85, 0.6)'
                   : 'rgba(226, 232, 240, 0.8)',
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   activeButton: {
-    backgroundColor: '#FF5733',
+    backgroundColor: '#FF5F3B',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,

@@ -3,6 +3,11 @@ module.exports = {
   // NOTE: Update this to include the paths to all of your component files.
   content: ["./src/app/**/*.{js,jsx,ts,tsx}", "./src/components/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
+  // Required for the in-app Dark Mode switch (Profile > Preferences).
+  // Without this Tailwind defaults to `darkMode: 'media'`, the `.dark {}` block
+  // in global.css never activates, and NativeWind's toggleColorScheme() has no
+  // visible effect — the switch flips back and the theme never changes.
+  darkMode: "class",
   theme: {
     extend: {
       fontFamily: {
@@ -20,6 +25,21 @@ module.exports = {
         numeric: ['Rajdhani_700Bold', 'Rajdhani-Bold', 'sans-serif'],
         mono: ['Rajdhani_700Bold', 'Rajdhani-Bold', 'monospace'],
         barlow: ['Rajdhani_700Bold', 'Rajdhani-Bold', 'sans-serif'],
+      },
+      // A real type ramp. Before this the app used Tailwind's defaults but only
+      // ever reached for the bottom of them: 538 strings sat between 8 and 12px
+      // against 48 at 18px or above, so nothing led and nothing receded. The
+      // steps below are deliberately far apart — label / secondary / body /
+      // title / headline — so hierarchy is visible rather than implied.
+      fontSize: {
+        xs:     ['11px', { lineHeight: '15px' }],  // labels, captions, units
+        sm:     ['13px', { lineHeight: '18px' }],  // secondary body
+        base:   ['15px', { lineHeight: '22px' }],  // body
+        lg:     ['20px', { lineHeight: '26px' }],  // card + section titles
+        xl:     ['24px', { lineHeight: '30px' }],
+        '2xl':  ['28px', { lineHeight: '32px' }],  // headline metrics
+        '3xl':  ['34px', { lineHeight: '38px' }],
+        '4xl':  ['40px', { lineHeight: '44px' }],
       },
       colors: {
         brand: {

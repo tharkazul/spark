@@ -304,7 +304,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           )}
         </Svg>
 
-        <Text className="text-[11px] text-theme-muted mt-2 font-medium">
+        <Text className="text-xs text-theme-muted mt-2 font-medium">
           Tap any body region to log an issue or view severity
         </Text>
       </View>

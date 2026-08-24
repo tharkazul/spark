@@ -272,7 +272,7 @@ export function LogNiggleModal({
             >
               {/* Description Text Input */}
               <View className="mb-3.5">
-                <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
+                <Text className="text-xs font-bold text-theme-muted mb-1.5">
                   What hurts or feels tight?
                 </Text>
                 <TextInput
@@ -288,7 +288,7 @@ export function LogNiggleModal({
               {/* Body Part Selection */}
               <View className="mb-3.5">
                 <View className="flex-row justify-between items-center mb-1.5">
-                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted">
+                  <Text className="text-xs font-bold text-theme-muted">
                     Affected Area: <Text className="text-theme-accent font-extrabold">{currentDisplayName}</Text>
                   </Text>
                   {currentRegion?.isBilateral && (
@@ -301,7 +301,7 @@ export function LogNiggleModal({
                         }}
                         className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'left' ? 'bg-theme-accent' : ''}`}
                       >
-                        <Text className={`text-[10px] font-bold ${selectedSide === 'left' ? 'text-white' : 'text-theme-muted'}`}>Left</Text>
+                        <Text className={`text-xs font-bold ${selectedSide === 'left' ? 'text-white' : 'text-theme-muted'}`}>Left</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => {
@@ -311,7 +311,7 @@ export function LogNiggleModal({
                         }}
                         className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'right' ? 'bg-theme-accent' : ''}`}
                       >
-                        <Text className={`text-[10px] font-bold ${selectedSide === 'right' ? 'text-white' : 'text-theme-muted'}`}>Right</Text>
+                        <Text className={`text-xs font-bold ${selectedSide === 'right' ? 'text-white' : 'text-theme-muted'}`}>Right</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -353,11 +353,11 @@ export function LogNiggleModal({
               {/* 1-10 Severity Rating Row */}
               <View className="mb-2">
                 <View className="flex-row justify-between items-center mb-2">
-                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted">
+                  <Text className="text-xs font-bold text-theme-muted">
                     Severity Rating ({severity}/10)
                   </Text>
                   <View className={`px-2.5 py-0.5 rounded-full ${badge.bg}`}>
-                    <Text className={`text-[10px] font-extrabold ${badge.color}`}>{badge.label}</Text>
+                    <Text className={`text-xs font-extrabold ${badge.color}`}>{badge.label}</Text>
                   </View>
                 </View>
 

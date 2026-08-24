@@ -68,6 +68,32 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   return null;
 }
 
+/**
+ * Detaches this device's push token from the signed-in account.
+ *
+ * Called on logout: without it the token stays mapped to whoever signed in last,
+ * so an account that is no longer used on this phone keeps receiving the daily
+ * 08:00 coach notification.
+ */
+export async function unregisterPushNotificationsAsync(): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId ??
+      'eb8027ec-2138-4891-a3a4-684be50bfbdb';
+
+    const pushTokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    const token = pushTokenData?.data;
+    if (token) {
+      await notificationsApi.unregisterToken(token);
+    }
+  } catch (error) {
+    console.log('Failed to unregister push token:', error);
+  }
+}
+
 export function setupNotificationListeners(
   onNotificationReceived?: (notification: Notifications.Notification) => void,
   onNotificationResponse?: (response: Notifications.NotificationResponse) => void

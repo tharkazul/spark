@@ -117,21 +117,17 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
     `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
+      if (err) {
+        console.error("Failed to load user settings:", err.message);
+        return res.status(500).json({ error: "Failed to load profile" });
+      }
+      // Never invent a profile for a missing account: the client uses a
+      // successful response here as proof the session is still valid, so a
+      // fabricated row keeps deleted accounts looking signed in.
       if (!row) {
-        row = {
-          id: req.user.id,
-          username: req.user.username || 'athlete',
-          coach_tone: 'hype',
-          coach_name: 'Rooka',
-          coach_context: 'Empathetic athletic performance coach',
-          athlete_context: 'Active athlete',
-          gender: 'prefer_not_to_say',
-          total_rooka: 120,
-          daily_token_usage: 0,
-          daily_token_limit: 50000,
-          subscription_tier: 'rooka_plus',
-          onboarding_completed: 1,
-        };
+        return res
+          .status(401)
+          .json({ error: "Account no longer exists", code: "ACCOUNT_DELETED" });
       }
       let availability = {};
       if (row.training_availability) {
@@ -311,8 +307,10 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             "completed_quests", "user_xp", "nutrition_protocols", 
             "nutrition_intake", "daily_diet_logs", "biometrics",
             "physique_logs", "milestones", "kudos", "public_profile_cache", 
-            "completed_micro_steps", "push_subscriptions", "garmin_health_data", 
-            "user_titles", "athlete_niggles", "bonus_points"
+            "completed_micro_steps", "push_tokens", "garmin_health_data", 
+            "user_titles", "athlete_niggles", "bonus_points",
+            "strava_tokens", "benchmark_tests", "athlete_muscle_status",
+            "activity_comments", "user_feature_onboarding"
         ];
 
         db.serialize(() => {

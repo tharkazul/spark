@@ -52,7 +52,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
 
   const defaultCoachColor = isDark ? '#F8FAFC' : '#0F172A';
   const textColor = textColorOverride || (isUser ? '#FFFFFF' : defaultCoachColor);
-  const accentColor = isUser ? '#FFFFFF' : '#FF5A1F';
+  const accentColor = isUser ? '#FFFFFF' : '#FF5F3B';
   const mutedColor = isUser ? 'rgba(255,255,255,0.7)' : isDark ? '#94A3B8' : '#64748B';
 
   const markdownRules = useMemo(() => ({

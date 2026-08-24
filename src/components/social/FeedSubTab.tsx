@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
+import { wsService } from '../../services/websocket';
 import { SocialFeedActivity } from '../../types/social';
 
 interface FeedSubTabProps {
@@ -26,23 +27,38 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
 
   useEffect(() => {
     let isMounted = true;
-    fetchPending();
 
-    socialApi
-      .getFeed()
-      .then((res) => {
-        if (!isMounted) return;
-        if (res && Array.isArray(res.activities)) {
-          setFeedItems(res.activities);
-        }
-      })
-      .catch((err) => console.log('Feed fetch error:', err))
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
+    const loadFeed = () => {
+      fetchPending();
+      return socialApi
+        .getFeed()
+        .then((res) => {
+          if (!isMounted) return;
+          if (res && Array.isArray(res.activities)) {
+            setFeedItems(res.activities);
+          }
+        })
+        .catch((err) => console.log('Feed fetch error:', err))
+        .finally(() => {
+          if (isMounted) setLoading(false);
+        });
+    };
+
+    loadFeed();
+
+    // The server already emits these; nothing was listening, so kudos,
+    // comments and friend requests only appeared after leaving and
+    // re-entering the tab.
+    const unsubs = [
+      wsService.subscribeToEvent('kudos_received', loadFeed),
+      wsService.subscribeToEvent('comment_received', loadFeed),
+      wsService.subscribeToEvent('connection_request', loadFeed),
+      wsService.subscribeToEvent('connection_accepted', loadFeed),
+    ];
 
     return () => {
       isMounted = false;
+      unsubs.forEach((off) => off());
     };
   }, []);
 
@@ -103,7 +119,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
         <View className="bg-theme-accent/10 border border-theme-accent/30 rounded-2xl p-4 mb-4">
           <View className="flex-row items-center space-x-2 mb-3">
             <Ionicons name="person-add" size={16} color="#FF5F3B" />
-            <Text className="text-xs font-extrabold text-theme-accent uppercase tracking-wider">
+            <Text className="text-xs font-extrabold text-theme-accent">
               Friend Requests ({pendingRequests.length})
             </Text>
           </View>
@@ -114,7 +130,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
             >
               <View className="flex-row items-center space-x-3">
                 <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-                  <Text className="text-xs font-black text-theme-accent">
+                  <Text className="text-xs font-extrabold text-theme-accent">
                     {(req.username || 'A').charAt(0).toUpperCase()}
                   </Text>
                 </View>
@@ -154,7 +170,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
                 <Image source={{ uri: item.profile_picture_url }} className="w-10 h-10 rounded-full border border-theme-accent/40" />
               ) : (
                 <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
-                  <Text className="text-sm font-black text-theme-accent">
+                  <Text className="text-sm font-extrabold text-theme-accent">
                     {item.username ? item.username.charAt(0).toUpperCase() : 'A'}
                   </Text>
                 </View>
@@ -164,11 +180,11 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
                   <Text className="text-sm font-extrabold text-theme-text">{item.username}</Text>
                   {item.rooka_level ? (
                     <View className="px-1.5 py-0.5 bg-theme-accent/15 rounded">
-                      <Text className="text-[9px] font-black text-theme-accent">Lvl {item.rooka_level}</Text>
+                      <Text className="text-xs font-extrabold text-theme-accent">Lvl {item.rooka_level}</Text>
                     </View>
                   ) : null}
                 </View>
-                <Text className="text-[11px] text-theme-muted">
+                <Text className="text-xs text-theme-muted">
                   {item.start_date ? item.start_date.substring(0, 10) : 'Recent'}
                 </Text>
               </View>
@@ -176,7 +192,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
 
             <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
               <Ionicons name="flash" size={12} color="#FF5F3B" />
-              <Text className="text-xs font-black font-rajdhani text-theme-accent ml-1">+{Math.round(item.rooka_score || 0)} Rooka</Text>
+              <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">+{Math.round(item.rooka_score || 0)} Rooka</Text>
             </View>
           </View>
 
@@ -186,13 +202,13 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
           <View className="flex-row items-center space-x-4 bg-theme-bg p-3 rounded-xl mb-3 border border-theme-border/50">
             {typeof item.distance_km === 'number' && (
               <View>
-                <Text className="text-[10px] text-theme-muted uppercase font-bold">Distance</Text>
+                <Text className="text-xs text-theme-muted font-bold">Distance</Text>
                 <Text className="text-sm font-extrabold font-mono text-theme-text">{item.distance_km.toFixed(1)} km</Text>
               </View>
             )}
             {typeof item.moving_time_min === 'number' && (
               <View className="pl-4 border-l border-theme-border/50">
-                <Text className="text-[10px] text-theme-muted uppercase font-bold">Duration</Text>
+                <Text className="text-xs text-theme-muted font-bold">Duration</Text>
                 <Text className="text-sm font-extrabold font-mono text-theme-text">{Math.round(item.moving_time_min)} mins</Text>
               </View>
             )}

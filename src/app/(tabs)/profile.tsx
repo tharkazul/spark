@@ -127,7 +127,7 @@ export default function ProfileScreen() {
   const handleDisconnectGarmin = async () => {
     Alert.alert(
       'Disconnect Garmin',
-      'Are you sure you want to disconnect Garmin? This will stop Spark from pushing structured workouts to your watch.',
+      'Are you sure you want to disconnect Garmin? This will stop Rooka from pushing structured workouts to your watch.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -184,10 +184,39 @@ export default function ProfileScreen() {
           if (match) code = match[1];
         }
         if (code) {
-          const res = await integrationsApi.exchangeStravaCode(code);
-          await refreshUser();
-          await refreshActivities();
-          Alert.alert('Strava Connected', res.message || 'Strava connected successfully!');
+          const finishConnect = async (allowShared: boolean) => {
+            const res = await integrationsApi.exchangeStravaCode(code!, allowShared);
+            await refreshUser();
+            await refreshActivities();
+            Alert.alert('Strava Connected', res.message || 'Strava connected successfully!');
+          };
+
+          try {
+            await finishConnect(false);
+          } catch (exchangeErr: any) {
+            // The Strava account is already linked elsewhere. That is allowed —
+            // this account gets its own copy of the activities — but confirm it
+            // first, since it is usually a mistake.
+            if (exchangeErr?.data?.code === 'STRAVA_ALREADY_LINKED') {
+              Alert.alert(
+                'Already Connected Elsewhere',
+                `This Strava account is already connected to "${exchangeErr.data.linkedUsername}". Connect it to this account as well? Both accounts will keep their own copy of your activities.`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Connect Anyway',
+                    onPress: () => {
+                      finishConnect(true).catch((retryErr: any) =>
+                        Alert.alert('Strava Error', retryErr?.message || 'Failed to connect Strava.')
+                      );
+                    },
+                  },
+                ]
+              );
+            } else {
+              throw exchangeErr;
+            }
+          }
         } else {
           Alert.alert('Strava Error', 'No authorization code returned from Strava.');
         }
@@ -303,7 +332,7 @@ export default function ProfileScreen() {
               >
                 <Animated.Text
                   style={{ color: textColor }}
-                  className="text-[11px] font-extrabold text-center"
+                  className="text-xs font-extrabold text-center"
                   numberOfLines={1}
                 >
                   {label}
@@ -405,7 +434,7 @@ export default function ProfileScreen() {
 
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
-                <Ionicons name="watch-outline" size={24} color="#FF5A1F" />
+                <Ionicons name="watch-outline" size={24} color="#FF5F3B" />
                 <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
               </View>
             </View>
@@ -447,7 +476,7 @@ export default function ProfileScreen() {
             ) : (
               <View className="space-y-4 mb-4">
                 <View>
-                  <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Username / Email</Text>
+                  <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Username / Email</Text>
                   <TextInput
                     className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
                     placeholder="email@example.com"
@@ -460,7 +489,7 @@ export default function ProfileScreen() {
                 </View>
 
                 <View className="mt-3">
-                  <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Garmin Password</Text>
+                  <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Password</Text>
                   <TextInput
                     className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
                     placeholder="••••••••"

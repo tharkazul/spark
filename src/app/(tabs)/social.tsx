@@ -208,7 +208,7 @@ export default function SocialScreen() {
         {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
         <View className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-[#E2E8F0] dark:border-slate-700">
           <Animated.View
-            className="absolute top-1 bottom-1 bg-[#EA580C] rounded-lg shadow-xs"
+            className="absolute top-1 bottom-1 bg-[#FF5F3B] rounded-lg shadow-xs"
             style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }}
           />
 

@@ -83,13 +83,13 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       bg = 'bg-red-500/15 text-red-500';
       text = `Severity ${sev} (Severe)`;
     } else if (sev >= 2) {
-      bg = 'bg-orange-500/15 text-orange-500';
+      bg = 'bg-theme-accent/15 text-theme-accent';
       text = `Severity ${sev} (Moderate)`;
     }
 
     return (
       <View className={`px-2.5 py-1 rounded-full ${bg}`}>
-        <Text className="text-[10px] font-bold">{text}</Text>
+        <Text className="text-xs font-bold">{text}</Text>
       </View>
     );
   };
@@ -107,11 +107,11 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+            <Text className="text-xs font-bold text-theme-muted">
               Injury & Soreness Heatmap
             </Text>
           </View>
-          <Text className="text-[11px] font-semibold text-theme-accent">
+          <Text className="text-xs font-semibold text-theme-accent">
             {niggles.length} Active {niggles.length === 1 ? 'Issue' : 'Issues'}
           </Text>
         </View>
@@ -127,14 +127,14 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       {/* ACTIVE ISSUES LIST */}
       <Card className="mb-6 bg-theme-card">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+          <Text className="text-xs font-bold text-theme-muted">
             Active Issues Feed
           </Text>
           <TouchableOpacity
             onPress={() => handleSelectBodyPart('left_calf', 'Left Calf')}
             className="flex-row items-center space-x-1"
           >
-            <Ionicons name="add-circle-outline" size={16} color="#FF5A1F" />
+            <Ionicons name="add-circle-outline" size={16} color="#FF5F3B" />
             <Text className="text-xs font-bold text-theme-accent">Log New</Text>
           </TouchableOpacity>
         </View>
@@ -202,7 +202,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       >
         <View className="flex-row justify-between items-center pb-4 mb-4">
           <View>
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+            <Text className="text-xs font-bold text-theme-muted">
               Log Issue / Soreness
             </Text>
             <Text className="text-lg font-extrabold text-theme-text mt-0.5">
@@ -213,7 +213,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Severity Chips */}
-          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+          <Text className="text-xs font-bold text-theme-muted mb-2">
             Severity Level
           </Text>
           <View className="flex-row justify-between mb-4">
@@ -241,14 +241,14 @@ export const HealthTab: React.FC<HealthTabProps> = ({
             ))}
           </View>
 
-          <View className="flex-row justify-between text-[10px] text-theme-muted mb-5 px-1">
+          <View className="flex-row justify-between text-xs text-theme-muted mb-5 px-1">
             <Text className="text-xs text-theme-muted">1: Gentle Twinge</Text>
             <Text className="text-xs text-theme-muted">3: Modifies Gait</Text>
             <Text className="text-xs text-theme-muted">5: Cannot Bear Weight</Text>
           </View>
 
           {/* Notes Input */}
-          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+          <Text className="text-xs font-bold text-theme-muted mb-2">
             Context & Pain Notes
           </Text>
           <TextInput

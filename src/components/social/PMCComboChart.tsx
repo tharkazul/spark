@@ -123,7 +123,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
       <View className="flex-row justify-between items-center mb-3">
         <View className="flex-row items-center space-x-1.5">
           <Ionicons name="trending-up" size={16} color="#FF5F3B" />
-          <Text className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider ml-1">
+          <Text className="text-xs font-bold text-[#64748B] ml-1">
             Training Load
           </Text>
         </View>
@@ -143,7 +143,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
               }`}
             >
               <Text
-                className={`text-[10px] ${
+                className={`text-xs ${
                   selectedRange === rng
                     ? 'font-bold text-theme-accent'
                     : 'font-medium text-[#64748B] dark:text-slate-400'
@@ -338,17 +338,17 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
       <View className="flex-row justify-around items-center pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800/80 mt-1">
         <View className="flex-row items-center">
           <View className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-1.5" />
-          <Text className="text-[11px] font-medium text-[#64748B]">Fitness (CTL)</Text>
+          <Text className="text-xs font-medium text-[#64748B]">Fitness (CTL)</Text>
         </View>
 
         <View className="flex-row items-center">
           <View className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5" />
-          <Text className="text-[11px] font-medium text-[#64748B]">Fatigue (ATL)</Text>
+          <Text className="text-xs font-medium text-[#64748B]">Fatigue (ATL)</Text>
         </View>
 
         <View className="flex-row items-center">
           <View className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5" />
-          <Text className="text-[11px] font-medium text-[#64748B]">Form (TSB)</Text>
+          <Text className="text-xs font-medium text-[#64748B]">Form (TSB)</Text>
         </View>
       </View>
     </View>

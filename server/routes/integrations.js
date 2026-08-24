@@ -29,6 +29,7 @@ const {
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
+  getStravaUserIdsForAthlete,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
   updateUserRookaAndCheckLevel,
@@ -94,7 +95,15 @@ router.post("/webhook/strava", (req, res) => {
 
   if (aspect_type === "create" && object_type === "activity") {
     console.log(`🏃‍♂️ New Strava activity detected! Fetching ID: ${object_id}`);
-    getStravaActivity(owner_id, object_id);
+    // A Strava athlete may back more than one Rooka account; give each of them
+    // their own copy of the activity rather than only the first one mapped.
+    getStravaUserIdsForAthlete(owner_id).then((userIds) => {
+      if (!userIds.length) {
+        getStravaActivity(owner_id, object_id);
+        return;
+      }
+      userIds.forEach((userId) => getStravaActivity(owner_id, object_id, userId));
+    });
   } else if (
     object_type === "athlete" &&
     updates &&
@@ -242,7 +251,10 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
         );
         const userStartDateDay = userRow && userRow.rooka_start_date ? userRow.rooka_start_date.substring(0, 10) : null;
 
-        activities.forEach((act) => {
+        let storedForUser = 0;
+        let failed = 0;
+
+        for (const act of activities) {
           const tss =
             act.suffer_score || Math.round((act.moving_time / 3600) * 50);
           const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
@@ -254,31 +266,49 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
               tss,
             );
           }
-          db.run(
-            `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
+
+          // Upsert on (user_id, strava_activity_id): this athlete's own copy of
+          // the Strava activity, independent of any other account that happens
+          // to sync the same Strava profile.
+          const ok = await new Promise((resolve) =>
+            db.run(
+              `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
-            [
-              act.id,
-              req.user.id,
-              act.name,
-              act.sport_type,
-              act.distance / 1000,
-              act.total_elevation_gain,
-              act.moving_time / 60,
-              act.average_heartrate || 0,
-              act.start_date,
-              tss,
-              rookaScore,
-            ],
+                     ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
+              [
+                req.user.id,
+                String(act.id),
+                act.name,
+                act.sport_type,
+                act.distance / 1000,
+                act.total_elevation_gain,
+                act.moving_time / 60,
+                act.average_heartrate || 0,
+                act.start_date,
+                tss,
+                rookaScore,
+              ],
+              (insertErr) => {
+                if (insertErr) console.error("Strava activity upsert failed:", insertErr.message);
+                resolve(!insertErr);
+              },
+            ),
           );
+
+          if (ok) storedForUser++;
+          else failed++;
+
           tagStravaActivity(req.user.id, act, tokenData.access_token);
-        });
+        }
 
         updateUserRookaAndCheckLevel(req.user.id);
 
+        // Report what was actually stored for this athlete, never the raw count
+        // returned by Strava.
         res.json({
-          message: `Successfully synced ${activities.length} activities!`,
+          message: `Successfully synced ${storedForUser} activities!`,
+          synced: storedForUser,
+          failed,
         });
       } catch (err) {
         console.error("Strava Sync Error:", err);
@@ -325,7 +355,7 @@ router.post(
   "/api/user/settings/strava-exchange",
   authenticateToken,
   async (req, res) => {
-    const { code } = req.body;
+    const { code, allowShared } = req.body;
 
     if (!code)
       return res.status(400).json({ error: "No authorization code provided." });
@@ -352,6 +382,31 @@ router.post(
           .json({ error: `Strava rejected the authorization: ${errMsg}` });
       }
 
+      const stravaAthleteId = String(data.athlete.id);
+
+      // Activities are stored per user, so a second account connecting the same
+      // Strava athlete is now safe — it gets its own copy of every activity.
+      // It is still usually a mistake (the same person would appear twice in
+      // the feed and on leaderboards), so warn once and let the caller confirm.
+      const conflict = allowShared ? null : await new Promise((resolve) =>
+        db.get(
+          `SELECT st.user_id, u.username
+             FROM strava_tokens st
+             JOIN users u ON u.id = st.user_id
+            WHERE st.strava_id = ? AND st.user_id != ? AND u.deleted_at IS NULL`,
+          [stravaAthleteId, req.user.id],
+          (err, row) => resolve(err ? null : row),
+        ),
+      );
+
+      if (conflict) {
+        return res.status(409).json({
+          error: `This Strava account is already connected to another Rooka account (${conflict.username}). Connect it here as well?`,
+          code: "STRAVA_ALREADY_LINKED",
+          linkedUsername: conflict.username,
+        });
+      }
+
       db.run(`UPDATE users SET strava_refresh_token = ? WHERE id = ?`, [
         data.refresh_token,
         req.user.id,
@@ -364,7 +419,7 @@ router.post(
           data.access_token,
           data.refresh_token,
           data.expires_at,
-          String(data.athlete.id),
+          stravaAthleteId,
         ],
         (err) => {
           if (err)

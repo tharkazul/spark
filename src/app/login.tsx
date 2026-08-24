@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -78,8 +79,15 @@ export default function LoginScreen() {
         >
           {/* Header branding */}
           <View className="items-center mb-8">
-            <View className="w-16 h-16 rounded-2xl bg-theme-accent items-center justify-center mb-3 shadow-lg shadow-blue-500/30">
-              <Ionicons name="flash" size={32} color="#FFFFFF" />
+            {/* The Rooka mark, matching the app icon and the onboarding
+                header — was a generic Ionicons lightning bolt. */}
+            <View className="w-16 h-16 rounded-2xl overflow-hidden items-center justify-center mb-3 bg-white border border-theme-border/60 shadow-lg">
+              <Image
+                source={require('../../assets/images/logo-mark.png')}
+                className="w-full h-full"
+                resizeMode="cover"
+                accessibilityLabel="Rooka"
+              />
             </View>
             <Text className="text-3xl font-extrabold text-theme-text tracking-tight">ROOKA</Text>
             <Text className="text-sm font-medium text-theme-muted mt-1">
@@ -138,7 +146,7 @@ export default function LoginScreen() {
           <View className="space-y-4">
             {mode === 'register' && (
               <View className="mb-4">
-                <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+                <Text className="text-xs font-semibold text-theme-muted mb-2">
                   {t('auth.chooseUsername')}
                 </Text>
                 <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
@@ -157,7 +165,7 @@ export default function LoginScreen() {
             )}
 
             <View className="mb-4">
-              <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+              <Text className="text-xs font-semibold text-theme-muted mb-2">
                 {t('auth.enterEmail')}
               </Text>
               <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
@@ -177,7 +185,7 @@ export default function LoginScreen() {
             </View>
 
             <View className="mb-6">
-              <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider mb-2">
+              <Text className="text-xs font-semibold text-theme-muted mb-2">
                 {t('auth.enterPassword')}
               </Text>
               <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">

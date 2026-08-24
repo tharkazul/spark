@@ -60,7 +60,7 @@ function getSportVisuals(sportType?: string, name?: string) {
   ) {
     return {
       icon: 'bicycle-outline' as const,
-      color: '#EA580C',
+      color: '#FF5F3B',
       label: 'Cycle',
     };
   }
@@ -273,14 +273,14 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               <Text className="text-xs font-semibold text-[#64748B] dark:text-[#A1A1AA]">
                 Active Quest
               </Text>
-              <Text className="text-[21px] font-black text-theme-text tracking-tight mt-0.5 font-mono">
+              <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
                 {activeQuest ? `${currentProgress} / ${targetVal}` : 'No Quest'}
               </Text>
             </View>
 
             <View className="flex-row items-end justify-between">
               <View className="bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-full border border-slate-200/80 dark:border-white/10">
-                <Text className="text-[11px] font-bold text-theme-text font-mono">
+                <Text className="text-xs font-bold text-theme-text font-mono">
                   {questProgressPercent}%
                 </Text>
               </View>
@@ -298,21 +298,21 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               <Text className="text-xs font-semibold text-[#64748B] dark:text-[#A1A1AA]">
                 Streak
               </Text>
-              <Text className="text-[21px] font-black text-theme-text tracking-tight mt-0.5 font-mono">
+              <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
                 {realStreak} {realStreak === 1 ? 'Day' : 'Days'}
               </Text>
             </View>
 
             <View className="flex-row items-end justify-between">
               <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-slate-200/80 dark:border-white/10">
-                <Text className="text-[10px] font-bold text-theme-text">
+                <Text className="text-xs font-bold text-theme-text">
                   {realStreak > 0 ? 'Keep it up!' : 'Start today!'}
                 </Text>
               </View>
               <CircularProgressChamber
                 progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
                 icon="flame"
-                iconColor="#EA580C"
+                iconColor="#FF5F3B"
               />
             </View>
           </View>
@@ -369,7 +369,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                     </View>
 
                     <View className="flex-1">
-                      <Text className="text-[15px] font-bold text-theme-text" numberOfLines={1}>
+                      <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
                         {act.name || visuals.label}
                       </Text>
                       <Text className="text-xs font-medium text-[#64748B] dark:text-slate-400 mt-0.5">
@@ -380,7 +380,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
                   {/* Right: Big Metric & Duration/Score */}
                   <View className="items-end">
-                    <Text className="text-[15px] font-extrabold text-theme-text font-mono">
+                    <Text className="text-base font-extrabold text-theme-text font-mono">
                       {primaryStat}
                     </Text>
                     <Text className="text-xs font-medium text-[#64748B] dark:text-slate-400 font-mono mt-0.5">
@@ -404,10 +404,10 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
             <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color="#F97316" />
+              <Ionicons name="trophy" size={26} color="#FF5F3B" />
             </View>
             <View>
-              <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+              <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
               <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
             </View>
           </View>
@@ -428,7 +428,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
         <View className="mb-6">
           <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+            <Text className="text-xs font-bold text-theme-muted">
               Progress ({currentProgress} / {targetVal})
             </Text>
             <Text className="text-sm font-mono font-bold text-amber-500">
@@ -450,7 +450,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
             {questActionLoading ? (
-              <ActivityIndicator size="small" color="#F97316" />
+              <ActivityIndicator size="small" color="#FF5F3B" />
             ) : (
               <>
                 <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
@@ -463,7 +463,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             onPress={() => setIsQuestModalOpen(false)}
             className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
           >
-            <Text className="text-xs font-black text-white">Got it</Text>
+            <Text className="text-xs font-extrabold text-white">Got it</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>

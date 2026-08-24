@@ -147,7 +147,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
           onPress={() => router.navigate('/profile')}
           className="mt-6 bg-theme-accent px-6 py-3 rounded-full shadow-md"
         >
-          <Text className="text-white font-black text-center">Upgrade to Rooka+</Text>
+          <Text className="text-white font-extrabold text-center">Upgrade to Rooka+</Text>
         </TouchableOpacity>
       </View>
     );
@@ -158,7 +158,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
       {/* Dual Tab Switcher for Rooka Score vs 7-Day Quests */}
       <View className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden mb-4 border border-[#E2E8F0] dark:border-slate-700">
         <Animated.View
-          className="absolute top-1 bottom-1 bg-[#EA580C] rounded-lg shadow-xs"
+          className="absolute top-1 bottom-1 bg-[#FF5F3B] rounded-lg shadow-xs"
           style={{
             left: 4,
             width: subSegmentWidth,
@@ -173,13 +173,13 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
           <View className="relative items-center justify-center">
             <Animated.Text
               style={{ opacity: rookaWhiteOpacity }}
-              className="text-xs font-black text-white absolute"
+              className="text-xs font-extrabold text-white absolute"
             >
               ⚡️ Rooka Score
             </Animated.Text>
             <Animated.Text
               style={{ opacity: rookaGreyOpacity }}
-              className="text-xs font-black text-[#64748B] dark:text-slate-400"
+              className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
             >
               ⚡️ Rooka Score
             </Animated.Text>
@@ -193,13 +193,13 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
           <View className="relative items-center justify-center">
             <Animated.Text
               style={{ opacity: questsWhiteOpacity }}
-              className="text-xs font-black text-white absolute"
+              className="text-xs font-extrabold text-white absolute"
             >
               🏆 7-Day Quests
             </Animated.Text>
             <Animated.Text
               style={{ opacity: questsGreyOpacity }}
-              className="text-xs font-black text-[#64748B] dark:text-slate-400"
+              className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
             >
               🏆 7-Day Quests
             </Animated.Text>
@@ -238,7 +238,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                   }`}
                 >
                   <Text
-                    className={`text-xs font-black ${
+                    className={`text-xs font-extrabold ${
                       item.rank <= 3 ? 'text-slate-950' : 'text-theme-muted'
                     }`}
                   >
@@ -251,21 +251,21 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                     <Text className="text-sm font-extrabold text-theme-text">{item.username}</Text>
                     {isCurrentUser && (
                       <View className="bg-theme-accent px-1.5 py-0.5 rounded">
-                        <Text className="text-[9px] font-black text-white">YOU</Text>
+                        <Text className="text-xs font-extrabold text-white">YOU</Text>
                       </View>
                     )}
                   </View>
-                  <Text className="text-[11px] text-theme-muted font-medium">
+                  <Text className="text-xs text-theme-muted font-medium">
                     Lvl {item.rooka_level || 1} · {questsCount} Quests Completed
                   </Text>
                 </View>
               </View>
 
               <View className="items-end">
-                <Text className="text-base font-black text-theme-accent font-mono">
+                <Text className="text-base font-extrabold text-theme-accent font-mono">
                   {currentType === 'rooka' ? Math.round(item.total_rooka_score || 0) : questsCount}
                 </Text>
-                <Text className="text-[10px] text-theme-muted uppercase font-bold">
+                <Text className="text-xs text-theme-muted font-bold">
                   {currentType === 'rooka' ? 'Points' : 'Quests'}
                 </Text>
               </View>

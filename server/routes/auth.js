@@ -12,8 +12,10 @@ router.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const nowIso = new Date().toISOString();
     db.run(
-      `INSERT INTO users (username, password_hash, athlete_context, rooka_start_date) VALUES (?, ?, ?, ?)`,
-      [username, hashedPassword, context || "New athlete.", nowIso],
+      // coach_name is set explicitly: older databases still default this column
+      // to the pre-rename value 'Spark'.
+      `INSERT INTO users (username, password_hash, athlete_context, rooka_start_date, coach_name) VALUES (?, ?, ?, ?, ?)`,
+      [username, hashedPassword, context || "New athlete.", nowIso, "Rooka"],
       function (err) {
         if (err)
           return res

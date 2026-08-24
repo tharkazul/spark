@@ -139,7 +139,24 @@ router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req,
     function (err) {
       if (err) return res.status(500).json({ error: "Database error" });
       if (this.changes === 0) return res.status(404).json({ error: "User not found or already deleted" });
-      
+
+      // Cut the account off from anything that keeps reaching the user after
+      // deletion: push notifications (the 08:00 coach message) and the live
+      // Strava link that would keep pulling activities in.
+      db.get(
+        `SELECT id FROM users WHERE username = ? || '_deleted_' || id`,
+        [targetUsername],
+        (lookupErr, deletedUser) => {
+          if (lookupErr || !deletedUser) return;
+          db.run(`DELETE FROM push_tokens WHERE user_id = ?`, [deletedUser.id]);
+          db.run(`DELETE FROM strava_tokens WHERE user_id = ?`, [deletedUser.id]);
+          db.run(
+            `UPDATE users SET strava_refresh_token = NULL, garmin_username = NULL, garmin_password = NULL, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
+            [deletedUser.id]
+          );
+        }
+      );
+
       db.run(
         `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'soft_delete', ?, 'Account soft deleted')`,
         [req.user.username, targetUsername]

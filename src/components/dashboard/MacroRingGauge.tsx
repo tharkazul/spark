@@ -86,7 +86,7 @@ export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGa
 
         {/* Center Content */}
         <View className="absolute inset-0 items-center justify-center p-1">
-          <Text className={`${isSmall ? 'text-[11px]' : 'text-xs'} font-bold text-theme-text text-center`}>
+          <Text className={`${isSmall ? 'text-xs' : 'text-xs'} font-bold text-theme-text text-center`}>
             {label}
           </Text>
 
@@ -99,12 +99,12 @@ export function MacroRingGauge({ label, target, logged, size = 96 }: MacroRingGa
               >
                 {actualPct}%
               </Text>
-              <Text className={`${isSmall ? 'text-[9px]' : 'text-[10px]'} font-semibold font-mono text-theme-muted text-center`}>
+              <Text className={`${isSmall ? 'text-xs' : 'text-xs'} font-semibold font-mono text-theme-muted text-center`}>
                 {logged}g / {target}g
               </Text>
             </>
           ) : (
-            <Text className={`${isSmall ? 'text-[9px] mt-0.5' : 'text-[10px] mt-0.5'} font-semibold font-mono text-theme-muted text-center`}>
+            <Text className={`${isSmall ? 'text-xs mt-0.5' : 'text-xs mt-0.5'} font-semibold font-mono text-theme-muted text-center`}>
               {target}g
             </Text>
           )}

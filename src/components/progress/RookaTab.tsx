@@ -45,6 +45,8 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   const computedArchetype = calculateAthleteArchetype(activities, user?.athlete_metrics);
   const activeArchetypeData = customArchetypeData || computedArchetype;
   const activeArchetypeTitle = customArchetypeData?.title || computedArchetype.title;
+  // The radar is only meaningful once there is something to shape it.
+  const hasArchetypeData = Boolean(customArchetypeData) || (activities?.length ?? 0) > 0;
 
   const pmcMetrics = calculatePMCMetrics(
     activities,
@@ -66,13 +68,13 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
             <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-              <Ionicons name="flash" size={18} color="#FF5A1F" />
+              <Ionicons name="flash" size={18} color="#FF5F3B" />
             </View>
             <View className="flex-row items-baseline space-x-1.5">
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              <Text className="text-xs font-bold text-theme-muted">
                 {t('dashboard.sparkLevel')}
               </Text>
-              <Text className="text-theme-accent text-xl font-black font-rajdhani leading-tight">
+              <Text className="text-theme-accent text-xl font-extrabold font-rajdhani leading-tight">
                 {Math.round(activeLevelInfo.level)}
               </Text>
             </View>
@@ -91,23 +93,41 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         </View>
 
         <View className="flex-row justify-between items-center mt-1">
-          <Text className="text-[11px] text-theme-muted">{t('dashboard.progressNextLevel')}</Text>
-          <Text className="text-[11px] font-bold text-theme-accent">{xpPercent}%</Text>
+          <Text className="text-xs text-theme-muted">{t('dashboard.progressNextLevel')}</Text>
+          <Text className="text-xs font-bold text-theme-accent">{xpPercent}%</Text>
         </View>
       </Card>
 
       {/* ATHLETE ARCHETYPE CARD */}
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+          <Text className="text-xs font-bold text-theme-muted">
             {t('dashboard.athleteArchetype')}
           </Text>
-          <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full">
-            <Text className="text-[10px] font-bold text-theme-accent uppercase">{activeArchetypeTitle}</Text>
-          </View>
+          {hasArchetypeData && (
+            <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full">
+              <Text className="text-xs font-bold text-theme-accent">{activeArchetypeTitle}</Text>
+            </View>
+          )}
         </View>
 
-        <AthleteRadarChart data={activeArchetypeData} size={260} />
+        {hasArchetypeData ? (
+          <AthleteRadarChart data={activeArchetypeData} size={260} />
+        ) : (
+          /* With no sessions every axis floors at 25%, drawing a perfect
+             pentagon that looks like a real measurement of nothing. Say what
+             is needed instead. */
+          <View className="items-center justify-center py-10 px-6">
+            <Ionicons name="analytics-outline" size={34} color="#94A3B8" />
+            <Text className="text-theme-text font-bold text-base mt-3 text-center">
+              No sessions yet
+            </Text>
+            <Text className="text-theme-muted text-sm mt-1.5 text-center">
+              Log or sync a workout and your athlete profile will build itself from
+              what you actually train.
+            </Text>
+          </View>
+        )}
       </Card>
 
       {/* PMC TELEMETRY METRICS CARDS WITH SPARKLINES */}
@@ -132,11 +152,11 @@ export const RookaTab: React.FC<RookaTabProps> = ({
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center space-x-2">
               <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              <Text className="text-xs font-bold text-theme-muted">
                 {t('dashboard.questsLog')}
               </Text>
             </View>
-            <Text className="text-[11px] text-theme-muted">1 {t('dashboard.active')}</Text>
+            <Text className="text-xs text-theme-muted">1 {t('dashboard.active')}</Text>
           </View>
 
           <View className="bg-theme-bg/70 rounded-xl p-4">
@@ -149,8 +169,8 @@ export const RookaTab: React.FC<RookaTabProps> = ({
 
             <View className="flex-row justify-between items-center pt-2">
               <View className="flex-row items-center space-x-1">
-                <Ionicons name="trophy-outline" size={14} color="#FF5A1F" />
-                <Text className="text-xs font-bold text-theme-accent">{t('dashboard.reward')}: 75 Spark</Text>
+                <Ionicons name="trophy-outline" size={14} color="#FF5F3B" />
+                <Text className="text-xs font-bold text-theme-accent">{t('dashboard.reward')}: 75 Rooka</Text>
               </View>
 
               <TouchableOpacity

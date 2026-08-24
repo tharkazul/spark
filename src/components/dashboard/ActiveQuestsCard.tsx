@@ -50,7 +50,7 @@ export function ActiveQuestsCard() {
             {/* Left: Trophy Icon & Quest Info */}
             <View className="flex-row items-center gap-3 flex-1 mr-3">
               <View className="w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center">
-                <Ionicons name="trophy" size={20} color="#F97316" />
+                <Ionicons name="trophy" size={20} color="#FF5F3B" />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-center gap-1.5">
@@ -82,7 +82,7 @@ export function ActiveQuestsCard() {
           >
             <View className="flex-row items-center gap-3 flex-1">
               <View className="w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center">
-                <Ionicons name="trophy-outline" size={20} color="#F97316" />
+                <Ionicons name="trophy-outline" size={20} color="#FF5F3B" />
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-extrabold text-theme-text">No Active Quest</Text>
@@ -90,7 +90,7 @@ export function ActiveQuestsCard() {
               </View>
             </View>
             {loading ? (
-              <ActivityIndicator size="small" color="#F97316" />
+              <ActivityIndicator size="small" color="#FF5F3B" />
             ) : (
               <View className="bg-amber-500/15 px-3 py-1.5 rounded-xl">
                 <Text className="text-xs font-extrabold text-amber-500">+ Start</Text>
@@ -111,10 +111,10 @@ export function ActiveQuestsCard() {
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
             <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color="#F97316" />
+              <Ionicons name="trophy" size={26} color="#FF5F3B" />
             </View>
             <View>
-              <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+              <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
               <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
             </View>
           </View>
@@ -135,7 +135,7 @@ export function ActiveQuestsCard() {
         {/* Progress Meter */}
         <View className="mb-6">
           <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+            <Text className="text-xs font-bold text-theme-muted">
               Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
             </Text>
             <Text className="text-sm font-mono font-bold text-amber-500">
@@ -158,7 +158,7 @@ export function ActiveQuestsCard() {
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#F97316" />
+              <ActivityIndicator size="small" color="#FF5F3B" />
             ) : (
               <>
                 <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
@@ -171,7 +171,7 @@ export function ActiveQuestsCard() {
             onPress={() => setIsModalOpen(false)}
             className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
           >
-            <Text className="text-xs font-black text-white">Got it</Text>
+            <Text className="text-xs font-extrabold text-white">Got it</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>

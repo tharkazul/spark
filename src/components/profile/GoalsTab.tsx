@@ -229,7 +229,7 @@ export const GoalsTab: React.FC = () => {
             onPress={handleAddMilestone}
             className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
           >
-            <Ionicons name="add" size={14} color="#FF5A1F" />
+            <Ionicons name="add" size={14} color="#FF5F3B" />
             <Text className="text-theme-accent font-bold text-xs ml-1">+ Add Race</Text>
           </TouchableOpacity>
         </View>
@@ -241,7 +241,7 @@ export const GoalsTab: React.FC = () => {
           className="p-3 bg-theme-bg rounded-xl mb-4 flex-row items-center justify-between"
         >
           <View className="flex-row items-center flex-1 pr-2">
-            <Ionicons name="information-circle-outline" size={18} color="#FF5A1F" />
+            <Ionicons name="information-circle-outline" size={18} color="#FF5F3B" />
             <Text className="text-theme-text font-bold text-xs ml-2">
               CTL Target Reference Guide
             </Text>
@@ -258,30 +258,30 @@ export const GoalsTab: React.FC = () => {
             <View className="flex-row flex-wrap gap-2">
               <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">5K / Sprint Tri</Text>
-                <Text className="text-theme-muted text-[10px]">Target: 30 - 45 CTL</Text>
+                <Text className="text-theme-muted text-xs">Target: 30 - 45 CTL</Text>
               </View>
               <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">10K / Olympic Tri</Text>
-                <Text className="text-theme-muted text-[10px]">Target: 45 - 60 CTL</Text>
+                <Text className="text-theme-muted text-xs">Target: 45 - 60 CTL</Text>
               </View>
               <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">Half Marathon</Text>
-                <Text className="text-theme-muted text-[10px]">Target: 60 - 80 CTL</Text>
+                <Text className="text-theme-muted text-xs">Target: 60 - 80 CTL</Text>
               </View>
               <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">70.3 Half Ironman</Text>
-                <Text className="text-theme-muted text-[10px]">Target: 80 - 110 CTL</Text>
+                <Text className="text-theme-muted text-xs">Target: 80 - 110 CTL</Text>
               </View>
               <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">Full Marathon</Text>
-                <Text className="text-theme-muted text-[10px]">Target: 80 - 100+ CTL</Text>
+                <Text className="text-theme-muted text-xs">Target: 80 - 100+ CTL</Text>
               </View>
               <View className="w-[48%] p-2 rounded-lg bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">140.6 Full Ironman</Text>
-                <Text className="text-theme-muted text-[10px]">Target: 110 - 150+ CTL</Text>
+                <Text className="text-theme-muted text-xs">Target: 110 - 150+ CTL</Text>
               </View>
             </View>
-            <Text className="text-[10px] text-theme-muted italic mt-1 leading-relaxed">
+            <Text className="text-xs text-theme-muted italic mt-1 leading-relaxed">
               *CTL (Fitness) is auto-calculated based on race type, distance, and preparation window.
             </Text>
           </View>
@@ -294,7 +294,7 @@ export const GoalsTab: React.FC = () => {
             <Text className="text-theme-text font-bold text-xs mt-2 text-center">
               No upcoming races or milestones set
             </Text>
-            <Text className="text-theme-muted text-[11px] mt-1 text-center">
+            <Text className="text-theme-muted text-xs mt-1 text-center">
               Tap "+ Add Race" above to add your target event and structure your fitness progression.
             </Text>
           </View>
@@ -321,7 +321,7 @@ export const GoalsTab: React.FC = () => {
                         color={row.isARace ? '#EAB308' : '#8E8E93'}
                       />
                       <Text
-                        className={`text-[10px] font-bold ml-1 ${
+                        className={`text-xs font-bold ml-1 ${
                           row.isARace ? 'text-yellow-500' : 'text-theme-muted'
                         }`}
                       >
@@ -340,7 +340,7 @@ export const GoalsTab: React.FC = () => {
                   <View className="space-y-2.5">
                     {/* EVENT NAME INPUT */}
                     <View>
-                      <Text className="text-[9px] font-bold text-theme-muted uppercase mb-1">
+                      <Text className="text-xs font-bold text-theme-muted mb-1">
                         Event Name
                       </Text>
                       <TextInput
@@ -356,7 +356,7 @@ export const GoalsTab: React.FC = () => {
                     <View className="flex-row gap-2">
                       {/* DATE SELECTOR BUTTON (OPENS MODAL) */}
                       <View className="flex-1">
-                        <Text className="text-[9px] font-bold text-theme-muted uppercase mb-1">
+                        <Text className="text-xs font-bold text-theme-muted mb-1">
                           Event Date
                         </Text>
                         <TouchableOpacity
@@ -371,13 +371,13 @@ export const GoalsTab: React.FC = () => {
                           >
                             {formatDateDisplay(row.eventDate)}
                           </Text>
-                          <Ionicons name="calendar-outline" size={15} color="#FF5A1F" />
+                          <Ionicons name="calendar-outline" size={15} color="#FF5F3B" />
                         </TouchableOpacity>
                       </View>
 
                       {/* AUTO CALCULATED CTL READONLY BADGE */}
                       <View className="w-28 bg-theme-card rounded-xl p-2.5 border border-theme-border/50 justify-center items-center">
-                        <Text className="text-[9px] font-bold text-theme-muted uppercase mb-0.5">
+                        <Text className="text-xs font-bold text-theme-muted mb-0.5">
                           Target CTL
                         </Text>
                         <View className="flex-row items-center gap-1">
@@ -385,7 +385,7 @@ export const GoalsTab: React.FC = () => {
                             {calculatedCTL}
                           </Text>
                           <View className="px-1.5 py-0.5 bg-theme-accent/15 rounded">
-                            <Text className="text-[8px] font-extrabold text-theme-accent">AUTO</Text>
+                            <Text className="text-xs font-extrabold text-theme-accent">AUTO</Text>
                           </View>
                         </View>
                       </View>
@@ -434,14 +434,14 @@ export const GoalsTab: React.FC = () => {
             {/* Modal Header */}
             <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
               <View className="flex-row items-center gap-2">
-                <Ionicons name="calendar-outline" size={20} color="#FF5A1F" />
+                <Ionicons name="calendar-outline" size={20} color="#FF5F3B" />
                 <Text className="text-lg font-extrabold text-theme-text">Select Event Date</Text>
               </View>
             </View>
 
             {/* Formatted Date Preview */}
             <View className="p-3 bg-theme-card border border-theme-accent/30 rounded-xl mb-4 items-center">
-              <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
+              <Text className="text-xs font-bold text-theme-muted">
                 Selected Race Date
               </Text>
               <Text className="text-lg font-extrabold text-theme-accent mt-0.5">
@@ -452,7 +452,7 @@ export const GoalsTab: React.FC = () => {
             </View>
 
             {/* Quick Presets */}
-            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider mb-2">
+            <Text className="text-xs font-bold text-theme-muted mb-2">
               Quick Presets
             </Text>
             <View className="flex-row flex-wrap gap-2 mb-4">
@@ -490,20 +490,20 @@ export const GoalsTab: React.FC = () => {
                   onPress={() => setPickerYear((y) => Math.max(new Date().getFullYear(), y - 1))}
                   className="p-1"
                 >
-                  <Ionicons name="chevron-back" size={18} color="#FF5A1F" />
+                  <Ionicons name="chevron-back" size={18} color="#FF5F3B" />
                 </TouchableOpacity>
                 <Text className="text-sm font-extrabold text-theme-text font-mono">{pickerYear}</Text>
                 <TouchableOpacity
                   onPress={() => setPickerYear((y) => y + 1)}
                   className="p-1"
                 >
-                  <Ionicons name="chevron-forward" size={18} color="#FF5A1F" />
+                  <Ionicons name="chevron-forward" size={18} color="#FF5F3B" />
                 </TouchableOpacity>
               </View>
             </View>
 
             {/* Month Grid */}
-            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider mb-2">
+            <Text className="text-xs font-bold text-theme-muted mb-2">
               Month
             </Text>
             <View className="flex-row flex-wrap gap-1.5 mb-4">
@@ -536,7 +536,7 @@ export const GoalsTab: React.FC = () => {
             </View>
 
             {/* Day Selector Scroll */}
-            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider mb-2">
+            <Text className="text-xs font-bold text-theme-muted mb-2">
               Day of Month
             </Text>
             <ScrollView

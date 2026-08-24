@@ -9,6 +9,7 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -246,9 +247,9 @@ export function AddWorkoutModal({
       setIsGarminSynced(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      console.log('Garmin sync completed:', err?.message || err);
-      setIsGarminSynced(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      console.log('Garmin sync failed:', err?.message || err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Garmin Sync Failed', err?.message || 'Could not push this workout to Garmin. Please try again later.');
     } finally {
       setIsGarminSyncing(false);
     }
@@ -284,7 +285,7 @@ export function AddWorkoutModal({
     <View style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
       {/* Device Sync Row */}
       <View className="mb-6">
-        <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-3">
+        <Text className="text-xs font-extrabold text-theme-muted mb-3">
           Sync to Device
         </Text>
         <View className="flex-row gap-6">
@@ -294,11 +295,11 @@ export function AddWorkoutModal({
             activeOpacity={0.7}
             className="flex-row items-center gap-2.5"
           >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isGarminSynced ? 'bg-[#EA580C] border-[#EA580C]' : 'bg-slate-50 border-slate-300'}`}>
+            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isGarminSynced ? 'bg-[#FF5F3B] border-[#FF5F3B]' : 'bg-slate-50 border-slate-300'}`}>
               {isGarminSynced && <Ionicons name="checkmark" size={14} color="white" />}
             </View>
             <Text className="text-sm font-bold text-slate-700">Garmin</Text>
-            {isGarminSyncing && <ActivityIndicator size="small" color="#EA580C" />}
+            {isGarminSyncing && <ActivityIndicator size="small" color="#FF5F3B" />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -307,11 +308,11 @@ export function AddWorkoutModal({
             activeOpacity={0.7}
             className="flex-row items-center gap-2.5"
           >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isAppleWatchSynced ? 'bg-[#EA580C] border-[#EA580C]' : 'bg-slate-50 border-slate-300'}`}>
+            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isAppleWatchSynced ? 'bg-[#FF5F3B] border-[#FF5F3B]' : 'bg-slate-50 border-slate-300'}`}>
               {isAppleWatchSynced && <Ionicons name="checkmark" size={14} color="white" />}
             </View>
             <Text className="text-sm font-bold text-slate-700">Apple Watch</Text>
-            {isAppleWatchSyncing && <ActivityIndicator size="small" color="#EA580C" />}
+            {isAppleWatchSyncing && <ActivityIndicator size="small" color="#FF5F3B" />}
           </TouchableOpacity>
         </View>
       </View>
@@ -320,7 +321,7 @@ export function AddWorkoutModal({
       <View className="items-center w-full">
         <TouchableOpacity
           onPress={handleSave}
-          className="w-[70%] bg-[#EA580C] rounded-xl py-3.5 items-center justify-center mb-3"
+          className="w-[70%] bg-[#FF5F3B] rounded-xl py-3.5 items-center justify-center mb-3"
         >
            <Text className="text-white font-extrabold text-base">
              {initialWorkout ? (t('common.edit') || 'Update') : (t('common.save') || 'Save Workout')}
@@ -409,7 +410,7 @@ export function AddWorkoutModal({
                         { type: 'MOBILITY' as SportType, label: 'Mobility', icon: 'body', isFa: false },
                       ].map((item) => {
                         const isSelected = selectedSport === item.type;
-                        const iconColor = isSelected ? '#EA580C' : '#64748B';
+                        const iconColor = isSelected ? '#FF5F3B' : '#64748B';
                         return (
                           <TouchableOpacity
                             key={item.type}
@@ -436,8 +437,8 @@ export function AddWorkoutModal({
                               />
                             )}
                             <Text
-                              className={`text-[11px] font-bold mt-1 ${
-                                isSelected ? 'text-[#EA580C]' : 'text-slate-500'
+                              className={`text-xs font-bold mt-1 ${
+                                isSelected ? 'text-[#FF5F3B]' : 'text-slate-500'
                               }`}
                             >
                               {item.label}
@@ -455,13 +456,13 @@ export function AddWorkoutModal({
                       onChangeText={setTitle}
                       placeholder={`e.g. ${selectedSport === 'RUN' ? 'Threshold Interval Run' : 'Endurance Session'}`}
                       placeholderTextColor="#94A3B8"
-                      className="bg-white border border-[#E2E8F0] rounded-xl px-4 py-3 text-sm font-bold text-slate-800"
+                      className="bg-theme-bg border border-theme-border rounded-xl px-4 py-3 text-sm font-bold text-theme-text"
                     />
                   </View>
 
                   {/* Duration & Calculated Rooka row */}
                   <View className="flex-row items-center gap-3">
-                    <View className="flex-1 bg-white border border-[#E2E8F0] rounded-xl px-4 py-3 flex-row items-center">
+                    <View className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center">
                       <TextInput
                         value={String(durationMinutes)}
                         onChangeText={(val) => {
@@ -470,15 +471,15 @@ export function AddWorkoutModal({
                           else setDurationMinutes(0);
                         }}
                         keyboardType="number-pad"
-                        className="flex-1 text-sm font-bold text-slate-800"
+                        className="flex-1 text-sm font-bold text-theme-text"
                       />
-                      <Text className="text-xs font-bold text-slate-400">mins</Text>
+                      <Text className="text-xs font-bold text-theme-muted">mins</Text>
                     </View>
 
                     <View className="flex-1 bg-[#FFF7ED] border border-[#FFEDD5] rounded-xl px-4 py-3 flex-row items-center justify-center gap-2">
-                      <Ionicons name="sparkles" size={14} color="#EA580C" />
-                      <Text className="text-sm font-bold text-[#EA580C]">
-                        +{calculatedRooka} Rooka <Text className="text-[10px] text-[#F97316]/70 uppercase">· Auto</Text>
+                      <Ionicons name="sparkles" size={14} color="#FF5F3B" />
+                      <Text className="text-sm font-bold text-[#FF5F3B]">
+                        +{calculatedRooka} Rooka <Text className="text-xs text-[#FF5F3B]/70">· Auto</Text>
                       </Text>
                     </View>
                   </View>

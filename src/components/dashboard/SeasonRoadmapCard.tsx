@@ -44,7 +44,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
 
         {/* Race Countdown Badge matching TodaysPlanCard ADAPT button styling */}
         <View className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm">
-          <Ionicons name="trophy-outline" size={13} color="#F97316" />
+          <Ionicons name="trophy-outline" size={13} color="#FF5F3B" />
           <Text className="text-xs font-bold text-amber-500">
             {info.daysRemaining}d to {info.raceTargetName}
           </Text>
@@ -59,7 +59,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
       >
         {/* Progress Fill Layer */}
         <View
-          className="absolute top-0 bottom-0 left-0 bg-[#F97316]/20"
+          className="absolute top-0 bottom-0 left-0 bg-[#FF5F3B]/20"
           style={{ width: `${progressPercent}%` }}
         />
 
@@ -74,9 +74,9 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
               className="flex-1 items-center justify-center z-10 bg-transparent"
             >
               <Text
-                className={`text-[11px] font-extrabold uppercase tracking-wider ${
+                className={`text-xs font-extrabold ${
                   isCurrent
-                    ? 'text-theme-accent font-black'
+                    ? 'text-theme-accent font-extrabold'
                     : isCompleted
                     ? 'text-theme-text font-bold'
                     : 'text-theme-muted'
@@ -90,11 +90,11 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
 
         {/* Today Indicator Line & Badge */}
         <View
-          className="absolute top-0 bottom-0 w-[2.5px] bg-[#F97316] z-20"
+          className="absolute top-0 bottom-0 w-[2.5px] bg-[#FF5F3B] z-20"
           style={{ left: `${progressPercent}%` }}
         >
           <View className="absolute -top-2.5 -translate-x-1/2 left-0 bg-theme-card px-1 py-0.2 rounded shadow-sm">
-            <Text className="text-[7.5px] font-extrabold text-theme-accent uppercase">Today</Text>
+            <Text className="text-[7.5px] font-extrabold text-theme-accent">Today</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -138,13 +138,13 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                   <View className="flex-row items-center justify-between mb-1">
                     <View className="flex-row items-center gap-1.5">
                       <Text
-                        className={`text-xs font-extrabold uppercase tracking-wide ${
-                          isActive ? 'text-theme-accent font-black' : 'text-theme-text'
+                        className={`text-xs font-extrabold tracking-wide ${
+                          isActive ? 'text-theme-accent font-extrabold' : 'text-theme-text'
                         }`}
                       >
                         {phase.name}
                       </Text>
-                      <Text className="text-[11px] font-mono text-theme-muted">({phase.weeks})</Text>
+                      <Text className="text-xs font-mono text-theme-muted">({phase.weeks})</Text>
                     </View>
 
                     {isCompleted && (
@@ -156,7 +156,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
 
                     {isActive && (
                       <View className="bg-theme-accent px-2 py-0.5 rounded-full">
-                        <Text className="text-[8.5px] font-extrabold text-white uppercase">ACTIVE</Text>
+                        <Text className="text-[8.5px] font-extrabold text-white">ACTIVE</Text>
                       </View>
                     )}
                   </View>

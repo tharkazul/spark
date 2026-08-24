@@ -7,10 +7,10 @@
     /* Brand */
     --brand-primary: #2563EB;
     --brand-deep: #1D4ED8;
-    --accent: #FF5733;
+    --accent: #FF5F3B;
     --accent-hover: #E84D2B;
-    --accent-soft: rgba(255, 87, 51, 0.12);
-    --accent-border: rgba(255, 87, 51, 0.3);
+    --accent-soft: rgba(255, 95, 59, 0.12);
+    --accent-border: rgba(255, 95, 59, 0.3);
 
     /* Typography */
     --font-sans: 'PlusJakartaSans-Medium';
@@ -44,13 +44,13 @@
     --color-info-bg: #DBEAFE;
     --color-info-text: #1E3A8A;
     --color-focus: #2563EB;
-    --color-metric: #FF5733; /* Volt Coral */
+    --color-metric: #FF5F3B; /* Volt Coral */
 
     /* Sport Indicators (Light Mode) */
     --sport-swim: #2E8FE0;
     --sport-ride: #4CAF6D;
     --sport-run: #D9A62E;
-    --sport-cardio: #FF5733;
+    --sport-cardio: #FF5F3B;
     --sport-strength: #B36AE0;
     --sport-yoga: #10B981;
     --sport-walk: #8FA82E;
@@ -60,10 +60,10 @@
     /* Brand & Base */
     --brand-primary: #3B82F6;
     --brand-deep: #2563EB;
-    --accent: #FF5733; /* Volt Coral */
+    --accent: #FF5F3B; /* Volt Coral */
     --accent-hover: #FF6A4A;
-    --accent-soft: rgba(255, 87, 51, 0.15);
-    --accent-border: rgba(255, 87, 51, 0.35);
+    --accent-soft: rgba(255, 95, 59, 0.15);
+    --accent-border: rgba(255, 95, 59, 0.35);
 
     /* Dark Surfaces & Text */
     --bg-main: #0F172A; /* Obsidian Slate */
@@ -72,7 +72,7 @@
     --text-main: #F8FAFC; /* Pure Chalk */
     --text-muted: #94A3B8;
     --color-focus: #3B82F6;
-    --color-metric: #FF5733;
+    --color-metric: #FF5F3B;
 
     /* Semantic Status (Dark Mode - High Contrast) */
     --color-success: #10B981; /* Aero Mint */
@@ -92,7 +92,7 @@
     --sport-swim: #5BA8E8;
     --sport-ride: #6FC48A;
     --sport-run: #E0B94F;
-    --sport-cardio: #FF5733;
+    --sport-cardio: #FF5F3B;
     --sport-strength: #C48AEA;
     --sport-yoga: #10B981;
     --sport-walk: #A8C24F;
@@ -103,10 +103,10 @@
       /* Brand & Base */
       --brand-primary: #3B82F6;
       --brand-deep: #2563EB;
-      --accent: #FF5733; /* Volt Coral */
+      --accent: #FF5F3B; /* Volt Coral */
       --accent-hover: #FF6A4A;
-      --accent-soft: rgba(255, 87, 51, 0.15);
-      --accent-border: rgba(255, 87, 51, 0.35);
+      --accent-soft: rgba(255, 95, 59, 0.15);
+      --accent-border: rgba(255, 95, 59, 0.35);
 
       /* Dark Surfaces & Text */
       --bg-main: #0F172A; /* Obsidian Slate */
@@ -115,7 +115,7 @@
       --text-main: #F8FAFC; /* Pure Chalk */
       --text-muted: #94A3B8;
       --color-focus: #3B82F6;
-      --color-metric: #FF5733;
+      --color-metric: #FF5F3B;
 
       /* Semantic Status (Dark Mode - High Contrast) */
       --color-success: #10B981; /* Aero Mint */
@@ -135,7 +135,7 @@
       --sport-swim: #5BA8E8;
       --sport-ride: #6FC48A;
       --sport-run: #E0B94F;
-      --sport-cardio: #FF5733;
+      --sport-cardio: #FF5F3B;
       --sport-strength: #C48AEA;
       --sport-yoga: #10B981;
       --sport-walk: #A8C24F;

@@ -240,6 +240,8 @@ export const en = {
     chronicLoad: '42-day Chronic Load',
     acuteLoad: '7-day Acute Load',
     emaTrendline: '7-day EMA Trendline',
+    noDataYet: 'No data yet',
+    logWeightPrompt: 'Log a weight to start',
     optimalBuilding: 'Optimal Building',
     highFatigueRest: 'High Fatigue / Rest Needed',
     productiveBuild: 'Productive Build',

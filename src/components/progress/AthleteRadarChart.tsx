@@ -95,7 +95,7 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
             >
               <Text
                 numberOfLines={1}
-                className="text-[10px] font-bold text-theme-muted uppercase tracking-normal text-center"
+                className="text-xs font-bold text-theme-muted tracking-normal text-center"
               >
                 {m.label}
               </Text>
@@ -109,7 +109,7 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
         <Svg width={size} height={size}>
           <Defs>
             <LinearGradient id="radarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#FF5A1F" stopOpacity="0.5" />
+              <Stop offset="0%" stopColor="#FF5F3B" stopOpacity="0.5" />
               <Stop offset="100%" stopColor="#FF8554" stopOpacity="0.2" />
             </LinearGradient>
           </Defs>
@@ -148,7 +148,7 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
           <Polygon
             points={dataPolygonPoints}
             fill="url(#radarGrad)"
-            stroke="#FF5A1F"
+            stroke="#FF5F3B"
             strokeWidth="2.5"
           />
 
@@ -158,8 +158,8 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
               const pt = getPoint(i, m.value);
               return (
                 <G key={i}>
-                  <Circle cx={pt.x} cy={pt.y} r="4.5" fill="#FF5A1F" />
-                  <Circle cx={pt.x} cy={pt.y} r="7.5" fill="#FF5A1F" opacity="0.3" />
+                  <Circle cx={pt.x} cy={pt.y} r="4.5" fill="#FF5F3B" />
+                  <Circle cx={pt.x} cy={pt.y} r="7.5" fill="#FF5F3B" opacity="0.3" />
                 </G>
               );
             })}

@@ -74,7 +74,7 @@ export function MicroPlanAgendaCard({
         };
       case 'RUN':
         return {
-          bg: 'bg-[#F97316]/15',
+          bg: 'bg-[#FF5F3B]/15',
           text: 'text-[#FB923C]',
           borderLeft: 'border-l-[#FB923C]',
           label: 'RUN',
@@ -221,7 +221,7 @@ export function MicroPlanAgendaCard({
                   className="bg-theme-bg/60 p-3 rounded-2xl flex-row items-center justify-between gap-2 active:bg-theme-accent/10"
                 >
                   <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
-                    <Text className="text-xs font-black uppercase tracking-wider text-theme-muted shrink-0">
+                    <Text className="text-xs font-extrabold text-theme-muted shrink-0">
                       {day.dayName} {day.dateStr}
                     </Text>
 
@@ -238,7 +238,7 @@ export function MicroPlanAgendaCard({
                               <Ionicons name={cfg.icon as any} size={11} color={cfg.badgeColor} />
                               <Text
                                 numberOfLines={1}
-                                className={`text-[10px] font-bold ${cfg.text} shrink`}
+                                className={`text-xs font-bold ${cfg.text} shrink`}
                               >
                                 {w.title}
                               </Text>
@@ -249,7 +249,7 @@ export function MicroPlanAgendaCard({
                     ) : (
                       <View className="px-2 py-0.5 rounded-md bg-slate-700/20 flex-row items-center gap-1">
                         <Ionicons name="moon-outline" size={11} color="#94A3B8" />
-                        <Text className="text-[10px] font-bold text-slate-400">Rest / Recovery Day</Text>
+                        <Text className="text-xs font-bold text-slate-400">Rest / Recovery Day</Text>
                       </View>
                     )}
                   </View>
@@ -258,7 +258,7 @@ export function MicroPlanAgendaCard({
                     {hasWorkouts && day.workouts.every((w) => w.isCompleted) && (
                       <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
-                        <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
                       </View>
                     )}
 
@@ -288,14 +288,14 @@ export function MicroPlanAgendaCard({
                     }`}
                   >
                     <View className="flex-row items-center gap-2">
-                      <Text className="text-xs font-black uppercase tracking-wider text-theme-muted">
+                      <Text className="text-xs font-extrabold text-theme-muted">
                         {day.dayName}
                       </Text>
                       <Text className="text-xs font-extrabold text-theme-text">{day.dateStr}</Text>
 
                       {day.isToday && (
                         <View className="bg-theme-accent px-2.5 py-0.5 rounded-full">
-                          <Text className="text-[9px] font-extrabold text-white uppercase tracking-wider">
+                          <Text className="text-xs font-extrabold text-white">
                             Today
                           </Text>
                         </View>
@@ -357,7 +357,7 @@ export function MicroPlanAgendaCard({
                                 {workout.isCompleted && (
                                   <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
                                     <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                                    <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
+                                    <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
                                   </View>
                                 )}
                               </View>

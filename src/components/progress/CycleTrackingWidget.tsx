@@ -108,7 +108,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
               <Ionicons name="sparkles-outline" size={18} color="#8E9BA4" />
             </View>
             <View>
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              <Text className="text-xs font-bold text-theme-muted">
                 Hormonal Cycle Tracking
               </Text>
               <Text className="text-sm font-bold text-theme-text mt-0.5">
@@ -119,7 +119,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           <Switch
             value={false}
             onValueChange={handleToggleEnable}
-            trackColor={{ false: '#2A343D', true: '#FF5A1F' }}
+            trackColor={{ false: '#2A343D', true: '#FF5F3B' }}
           />
         </View>
       </Card>
@@ -132,7 +132,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center space-x-2">
           <View className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: phaseColor }} />
-          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+          <Text className="text-xs font-bold text-theme-muted">
             Cycle Tracking & Coach Sync
           </Text>
         </View>
@@ -141,7 +141,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           onPress={() => handleToggleEnable(false)}
           className="px-2 py-1 bg-theme-bg rounded-lg"
         >
-          <Text className="text-[10px] font-bold text-theme-muted">Disable</Text>
+          <Text className="text-xs font-bold text-theme-muted">Disable</Text>
         </TouchableOpacity>
       </View>
 
@@ -174,8 +174,8 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           </Svg>
 
           <View className="absolute inset-0 items-center justify-center">
-            <Text className="text-base font-black text-theme-text">Day {cycleDay}</Text>
-            <Text className="text-[10px] font-bold text-theme-muted">/ {avgCycleLength}</Text>
+            <Text className="text-base font-extrabold text-theme-text">Day {cycleDay}</Text>
+            <Text className="text-xs font-bold text-theme-muted">/ {avgCycleLength}</Text>
           </View>
         </View>
 
@@ -192,7 +192,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
             disabled={loading}
             className="self-start px-3 py-1.5 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center space-x-1"
           >
-            <Ionicons name="add-circle-outline" size={14} color="#FF5A1F" style={{ marginRight: 4 }} />
+            <Ionicons name="add-circle-outline" size={14} color="#FF5F3B" style={{ marginRight: 4 }} />
             <Text className="text-xs font-bold text-theme-accent">Log Period Start Today</Text>
           </TouchableOpacity>
         </View>
@@ -201,7 +201,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
       {/* AI Coach Integration Banner */}
       <View className="flex-row items-center bg-emerald-500/10 p-2.5 rounded-xl">
         <Ionicons name="analytics-outline" size={16} color="#10B981" style={{ marginRight: 6 }} />
-        <Text className="text-[11px] font-semibold text-emerald-400 flex-1 ml-1">
+        <Text className="text-xs font-semibold text-emerald-400 flex-1 ml-1">
           Synced to Coach Knowledge: Rooka AI automatically adjusts training volume and intensity for optimal recovery.
         </Text>
       </View>

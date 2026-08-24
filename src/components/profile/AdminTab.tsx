@@ -94,10 +94,10 @@ export function AdminTab() {
             className="flex-1 bg-amber-500/15 border border-amber-500/30 p-3 rounded-xl items-center flex-row justify-center gap-1.5"
           >
             {actionLoading === 'morning' ? (
-              <ActivityIndicator size="small" color="#F97316" />
+              <ActivityIndicator size="small" color="#FF5F3B" />
             ) : (
               <>
-                <Ionicons name="sunny-outline" size={16} color="#F97316" />
+                <Ionicons name="sunny-outline" size={16} color="#FF5F3B" />
                 <Text className="text-xs font-bold text-amber-500">Morning Sync</Text>
               </>
             )}
@@ -109,10 +109,10 @@ export function AdminTab() {
             className="flex-1 bg-theme-accent/15 border border-theme-accent/30 p-3 rounded-xl items-center flex-row justify-center gap-1.5"
           >
             {actionLoading === '24h' ? (
-              <ActivityIndicator size="small" color="#FF5A1F" />
+              <ActivityIndicator size="small" color="#FF5F3B" />
             ) : (
               <>
-                <Ionicons name="time-outline" size={16} color="#FF5A1F" />
+                <Ionicons name="time-outline" size={16} color="#FF5F3B" />
                 <Text className="text-xs font-bold text-theme-accent">Simulate 24h</Text>
               </>
             )}
@@ -125,7 +125,7 @@ export function AdminTab() {
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-base font-extrabold text-theme-text">User Management</Text>
           <TouchableOpacity onPress={fetchUsage} className="p-1">
-            <Ionicons name="refresh" size={18} color="#FF5A1F" />
+            <Ionicons name="refresh" size={18} color="#FF5F3B" />
           </TouchableOpacity>
         </View>
 
@@ -141,7 +141,7 @@ export function AdminTab() {
         </View>
 
         {loading ? (
-          <ActivityIndicator color="#FF5A1F" className="py-6" />
+          <ActivityIndicator color="#FF5F3B" className="py-6" />
         ) : filteredUsers.length === 0 ? (
           <Text className="text-xs text-theme-muted text-center py-4">No users found</Text>
         ) : (
@@ -150,7 +150,7 @@ export function AdminTab() {
               <View className="flex-row items-center justify-between mb-2">
                 <View>
                   <Text className="text-sm font-bold text-theme-text">{u.username}</Text>
-                  <Text className="text-[11px] text-theme-muted">
+                  <Text className="text-xs text-theme-muted">
                     Tier: {u.subscription_tier} · Limit: {u.effective_limit?.toLocaleString() || u.daily_token_limit}
                   </Text>
                 </View>
@@ -160,14 +160,14 @@ export function AdminTab() {
                     disabled={actionLoading !== null}
                     className="bg-amber-500/20 px-2.5 py-1 rounded-lg"
                   >
-                    <Text className="text-[11px] font-bold text-amber-500">+50k</Text>
+                    <Text className="text-xs font-bold text-amber-500">+50k</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleSetTier(u.username, u.subscription_tier === 'rooka_plus' ? 'free' : 'rooka_plus')}
                     disabled={actionLoading !== null}
                     className="bg-theme-accent/20 px-2.5 py-1 rounded-lg"
                   >
-                    <Text className="text-[11px] font-bold text-theme-accent">
+                    <Text className="text-xs font-bold text-theme-accent">
                       {u.subscription_tier === 'rooka_plus' ? 'Downgrade' : 'Upgrade'}
                     </Text>
                   </TouchableOpacity>

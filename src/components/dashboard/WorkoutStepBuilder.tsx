@@ -52,10 +52,10 @@ const MemoizedHeader = React.memo(({
               <Ionicons name="layers-outline" size={16} color="#FF5F3B" />
             </View>
             <View>
-              <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-text">
+              <Text className="text-xs font-extrabold text-theme-text">
                 Workout Structure Builder
               </Text>
-              <Text className="text-[10px] text-theme-muted font-bold">
+              <Text className="text-xs text-theme-muted font-bold">
                 Target duration & interval block manager
               </Text>
             </View>
@@ -64,7 +64,7 @@ const MemoizedHeader = React.memo(({
 
         {/* Add Interval Blocks */}
         <View>
-          <Text className="text-[11px] font-bold text-slate-500 dark:text-theme-muted mb-2">
+          <Text className="text-xs font-bold text-slate-500 dark:text-theme-muted mb-2">
             Add Interval Blocks:
           </Text>
 
@@ -123,7 +123,7 @@ const MemoizedHeader = React.memo(({
 
       {/* Label for active step cards list */}
       {stepsLength > 0 && (
-        <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2 px-1">
+        <Text className="text-xs font-extrabold text-theme-muted mb-2 px-1">
           Configured Interval Steps
         </Text>
       )}

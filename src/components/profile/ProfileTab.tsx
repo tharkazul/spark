@@ -150,7 +150,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             )}
             {uploadingPhoto && (
               <View className="absolute inset-0 bg-black/50 items-center justify-center">
-                <ActivityIndicator size="small" color="#FF5A1F" />
+                <ActivityIndicator size="small" color="#FF5F3B" />
               </View>
             )}
           </View>
@@ -176,7 +176,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       </View>
 
       {/* PERSONAL TITLES MANAGER */}
-      <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">
+      <Text className="text-theme-muted font-bold text-xs mb-2 ml-1">
         Personal Titles & Accolades
       </Text>
       <Card className="p-4 mb-6">
@@ -210,7 +210,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   <Ionicons
                     name={item.is_equipped ? 'ribbon' : 'ribbon-outline'}
                     size={18}
-                    color={item.is_equipped ? '#FF5A1F' : '#8E9BA4'}
+                    color={item.is_equipped ? '#FF5F3B' : '#8E9BA4'}
                     style={{ marginRight: 6 }}
                   />
                   <Text className="text-theme-text font-bold text-sm">{item.title_name}</Text>
@@ -218,7 +218,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
                 {item.is_equipped ? (
                   <View className="px-2.5 py-1 bg-theme-accent rounded-full">
-                    <Text className="text-white text-[10px] font-bold">Equipped</Text>
+                    <Text className="text-white text-xs font-bold">Equipped</Text>
                   </View>
                 ) : (
                   <Text className="text-theme-muted text-xs font-semibold">Tap to Equip</Text>
@@ -230,7 +230,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       </Card>
 
       {/* LANGUAGE SETTINGS */}
-      <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">
+      <Text className="text-theme-muted font-bold text-xs mb-2 ml-1">
         {t('profile.languageSettingTitle')}
       </Text>
       <Card className="p-4 mb-6">
@@ -244,7 +244,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       <CoachPersonaSettings />
 
       {/* APP PREFERENCES */}
-      <Text className="text-theme-muted font-bold text-xs uppercase tracking-wider mb-2 ml-1">
+      <Text className="text-theme-muted font-bold text-xs mb-2 ml-1">
         {t('nav.profile')} Preferences
       </Text>
       <Card className="p-2 mb-6">
@@ -254,13 +254,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <Switch
             value={colorScheme === 'dark'}
             onValueChange={toggleColorScheme}
-            trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
+            trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
           />
         )}
         {renderSettingRow(
           'notifications',
           t('profile.pushNotifications'),
-          <Switch value={true} trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }} />
+          <Switch value={true} trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }} />
         )}
       </Card>
     </View>

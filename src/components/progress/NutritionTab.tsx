@@ -17,19 +17,19 @@ export const NutritionTab: React.FC = () => {
 
       {/* FUELING STRATEGY & TIMING */}
       <Card className="mb-4 bg-theme-card border-theme-border">
-        <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-3">
+        <Text className="text-xs font-bold text-theme-muted mb-3">
           {t('dashboard.fuelingSchedule')}
         </Text>
 
         <View className="space-y-3">
           {/* Pre-Workout */}
           <View className="flex-row items-center bg-theme-bg/60 border border-theme-border rounded-xl p-3 mb-2">
-            <View className="w-10 h-10 rounded-full bg-orange-500/15 items-center justify-center mr-3 border border-orange-500/30">
-              <Ionicons name="time-outline" size={20} color="#FF5A1F" />
+            <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center mr-3 border border-theme-accent/30">
+              <Ionicons name="time-outline" size={20} color="#FF5F3B" />
             </View>
             <View className="flex-1">
               <Text className="text-xs font-bold text-theme-text">{t('dashboard.preWorkout')}</Text>
-              <Text className="text-[11px] text-theme-muted mt-0.5">
+              <Text className="text-xs text-theme-muted mt-0.5">
                 60g fast-acting carbs (banana + oats) + 300ml water.
               </Text>
             </View>
@@ -42,7 +42,7 @@ export const NutritionTab: React.FC = () => {
             </View>
             <View className="flex-1">
               <Text className="text-xs font-bold text-theme-text">{t('dashboard.intraWorkout')}</Text>
-              <Text className="text-[11px] text-theme-muted mt-0.5">
+              <Text className="text-xs text-theme-muted mt-0.5">
                 30g carbs/hr electrolyte gel or hydrogel drink mix.
               </Text>
             </View>
@@ -55,7 +55,7 @@ export const NutritionTab: React.FC = () => {
             </View>
             <View className="flex-1">
               <Text className="text-xs font-bold text-theme-text">{t('dashboard.postWorkout')}</Text>
-              <Text className="text-[11px] text-theme-muted mt-0.5">
+              <Text className="text-xs text-theme-muted mt-0.5">
                 35g whey protein isolate + 75g carbs within 45 mins.
               </Text>
             </View>
@@ -67,8 +67,8 @@ export const NutritionTab: React.FC = () => {
       <Card className="mb-6 bg-theme-card border-theme-border">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
-            <Ionicons name="water" size={18} color="#FF5A1F" />
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+            <Ionicons name="water" size={18} color="#FF5F3B" />
+            <Text className="text-xs font-bold text-theme-muted">
               {t('dashboard.hydrationTarget')}
             </Text>
           </View>

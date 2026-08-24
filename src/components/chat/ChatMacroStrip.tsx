@@ -53,7 +53,7 @@ export function ChatMacroStrip({ isVisible, onToggle }: ChatMacroStripProps) {
         className="self-center flex-row items-center bg-theme-bg border border-theme-border/50 px-3 py-1 rounded-full shadow-sm"
       >
         <Ionicons name={isVisible ? "chevron-down" : "chevron-up"} size={14} color="#94A3B8" />
-        <Text className="text-[10px] font-extrabold text-theme-muted ml-1 uppercase tracking-wider">
+        <Text className="text-xs font-extrabold text-theme-muted ml-1">
           {isVisible ? 'Hide Rings' : 'Show Rings'}
         </Text>
       </TouchableOpacity>

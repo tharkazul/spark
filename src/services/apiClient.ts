@@ -11,7 +11,7 @@ export class ApiError extends Error {
 }
 
 let authToken: string | null = null;
-let onUnauthorizedCallback: (() => void) | null = null;
+let onUnauthorizedCallback: ((reason?: string) => void) | null = null;
 let onRateLimitCallback: ((message?: string) => void) | null = null;
 
 export const setAuthToken = (token: string | null) => {
@@ -22,7 +22,9 @@ export const getAuthToken = (): string | null => {
   return authToken;
 };
 
-export const setOnUnauthorizedHandler = (callback: (() => void) | null) => {
+export const setOnUnauthorizedHandler = (
+  callback: ((reason?: string) => void) | null
+) => {
   onUnauthorizedCallback = callback;
 };
 
@@ -70,10 +72,20 @@ export async function apiClient<T>(
     headers,
   });
 
-  // Universal 401 interceptor (excluding login/register auth endpoints and requests with skipAuthInterceptor)
+  // Universal 401 interceptor (excluding login/register auth endpoints and requests with skipAuthInterceptor).
+  // A 401 here means the session itself is no longer usable — expired token,
+  // or an account that has been deleted — so the app must drop the session
+  // rather than keep pretending to be signed in.
   if (response.status === 401 && !endpoint.includes('/api/auth/') && !skipAuthInterceptor) {
+    let reason: string | undefined;
+    try {
+      const cloned = response.clone();
+      const payload = await cloned.json();
+      reason = payload?.code || payload?.error;
+    } catch (_) {}
+
     if (onUnauthorizedCallback) {
-      onUnauthorizedCallback();
+      onUnauthorizedCallback(reason);
     }
   }
 

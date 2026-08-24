@@ -102,10 +102,12 @@ export const integrationsApi = {
     apiClient<{ success?: boolean; message: string }>('/api/user/disconnect/garmin', {
       method: 'POST',
     }),
-  exchangeStravaCode: (code: string) =>
+  // allowShared confirms connecting a Strava account that is already linked to
+  // another Rooka account. Each account keeps its own copy of the activities.
+  exchangeStravaCode: (code: string, allowShared: boolean = false) =>
     apiClient<{ success?: boolean; message: string }>('/api/user/settings/strava-exchange', {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, allowShared }),
     }),
   saveStravaRefreshToken: (stravaRefreshToken: string) =>
     apiClient<{ success?: boolean; message: string }>('/api/user/settings/strava', {
@@ -307,6 +309,14 @@ export const notificationsApi = {
     apiClient<{ success: boolean; message: string }>('/api/notifications/register-token', {
       method: 'POST',
       body: JSON.stringify({ token, deviceType }),
+    }),
+  // skipAuthInterceptor: this runs during logout (including after the account
+  // was deleted), so a 401 here must not re-trigger the global logout handler.
+  unregisterToken: (token: string) =>
+    apiClient<{ success: boolean; message: string }>('/api/notifications/unregister-token', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+      skipAuthInterceptor: true,
     }),
   sendTestNotification: (title?: string, body?: string) =>
     apiClient<{ success: boolean; result?: any }>('/api/notifications/test', {

@@ -117,13 +117,13 @@ export const CoachPersonaSettings: React.FC = () => {
   return (
     <Card className="p-4 mb-6 space-y-4">
       <View className="flex-row items-center pb-3 mb-2">
-        <Ionicons name="sparkles" size={20} color="#FF5A1F" />
+        <Ionicons name="sparkles" size={20} color="#FF5F3B" />
         <Text className="text-base font-bold text-theme-text ml-2">Coach Persona & Settings</Text>
       </View>
 
       {/* Tone Picker */}
       <View className="mb-3">
-        <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+        <Text className="text-xs font-bold text-theme-muted mb-2">
           Coach Tone & Style
         </Text>
         <View className="space-y-2">
@@ -161,7 +161,7 @@ export const CoachPersonaSettings: React.FC = () => {
                     </View>
                   ) : (
                     <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isSelected ? 'bg-white/20' : 'bg-theme-accent/20'}`}>
-                      <Ionicons name="sparkles" size={16} color={isSelected ? '#FFFFFF' : '#FF5A1F'} />
+                      <Ionicons name="sparkles" size={16} color={isSelected ? '#FFFFFF' : '#FF5F3B'} />
                     </View>
                   )}
                   <Text className={`text-sm flex-1 ${isSelected ? 'font-bold text-white' : 'text-theme-text font-medium'}`}>
@@ -181,7 +181,7 @@ export const CoachPersonaSettings: React.FC = () => {
       {isCustomSelected && (
         <View className="p-3 bg-theme-bg opacity-60 rounded-xl space-y-3 mb-3">
           <View>
-            <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Coach Name</Text>
+            <Text className="text-xs font-bold text-theme-muted mb-1">Coach Name</Text>
             <TextInput
               className="bg-theme-card rounded-xl p-3 text-theme-text text-sm"
               placeholder="Coach Name: XXX"
@@ -192,7 +192,7 @@ export const CoachPersonaSettings: React.FC = () => {
           </View>
 
           <View className="mt-2">
-            <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Coach Context</Text>
+            <Text className="text-xs font-bold text-theme-muted mb-1">Coach Context</Text>
             <TextInput
               className="bg-theme-card rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
               placeholder="Coach Context: XXX"
@@ -205,17 +205,17 @@ export const CoachPersonaSettings: React.FC = () => {
 
           {/* 3 Avatar Mood Uploaders */}
           <View className="mt-3">
-            <Text className="text-xs font-bold text-theme-muted uppercase mb-1">
+            <Text className="text-xs font-bold text-theme-muted mb-1">
               Coach Avatars (3 Moods)
             </Text>
-            <Text className="text-[11px] text-theme-muted mb-3">
+            <Text className="text-xs text-theme-muted mb-3">
               Upload custom images for Neutral, Hype, and Disappointed moods:
             </Text>
 
             <View className="flex-row justify-between">
               {/* Neutral */}
               <View className="items-center flex-1 mr-1">
-                <Text className="text-[10px] font-bold text-theme-text mb-1">Neutral</Text>
+                <Text className="text-xs font-bold text-theme-text mb-1">Neutral</Text>
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('neutral')}
                   disabled={uploadingMood === 'neutral'}
@@ -231,7 +231,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   onPress={() => handlePickAvatar('neutral')}
                   className="bg-theme-accent/15 px-2 py-1 rounded"
                 >
-                  <Text className="text-[10px] font-bold text-theme-accent">
+                  <Text className="text-xs font-bold text-theme-accent">
                     {uploadingMood === 'neutral' ? '...' : 'Upload'}
                   </Text>
                 </TouchableOpacity>
@@ -239,7 +239,7 @@ export const CoachPersonaSettings: React.FC = () => {
 
               {/* Hype */}
               <View className="items-center flex-1 mx-1">
-                <Text className="text-[10px] font-bold text-theme-text mb-1">Hype</Text>
+                <Text className="text-xs font-bold text-theme-text mb-1">Hype</Text>
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('hype')}
                   disabled={uploadingMood === 'hype'}
@@ -255,7 +255,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   onPress={() => handlePickAvatar('hype')}
                   className="bg-theme-accent/15 px-2 py-1 rounded"
                 >
-                  <Text className="text-[10px] font-bold text-theme-accent">
+                  <Text className="text-xs font-bold text-theme-accent">
                     {uploadingMood === 'hype' ? '...' : 'Upload'}
                   </Text>
                 </TouchableOpacity>
@@ -263,7 +263,7 @@ export const CoachPersonaSettings: React.FC = () => {
 
               {/* Disappointed */}
               <View className="items-center flex-1 ml-1">
-                <Text className="text-[10px] font-bold text-theme-text mb-1">Disappointed</Text>
+                <Text className="text-xs font-bold text-theme-text mb-1">Disappointed</Text>
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('disappointed')}
                   disabled={uploadingMood === 'disappointed'}
@@ -279,7 +279,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   onPress={() => handlePickAvatar('disappointed')}
                   className="bg-theme-accent/15 px-2 py-1 rounded"
                 >
-                  <Text className="text-[10px] font-bold text-theme-accent">
+                  <Text className="text-xs font-bold text-theme-accent">
                     {uploadingMood === 'disappointed' ? '...' : 'Upload'}
                   </Text>
                 </TouchableOpacity>
@@ -291,7 +291,7 @@ export const CoachPersonaSettings: React.FC = () => {
 
       {/* Gender Selection Field */}
       <View className="mt-3 mb-2">
-        <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2">
+        <Text className="text-xs font-bold text-theme-muted mb-2">
           Athlete Gender
         </Text>
         <View className="flex-row gap-2">
@@ -334,7 +334,7 @@ export const CoachPersonaSettings: React.FC = () => {
 
       {/* Athlete Context Field */}
       <View className="mt-2">
-        <Text className="text-xs font-bold text-theme-muted uppercase mb-1">
+        <Text className="text-xs font-bold text-theme-muted mb-1">
           Athlete Background Context
         </Text>
         <TextInput

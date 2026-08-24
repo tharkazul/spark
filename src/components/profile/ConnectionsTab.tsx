@@ -134,6 +134,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
       console.error('Garmin sync error:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Garmin Sync Failed', err?.message || 'Could not sync with Garmin. Please try again later.');
     } finally {
       setGarminSyncing(false);
     }
@@ -146,6 +148,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
       console.error('Strava sync error:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Strava Sync Failed', err?.message || 'Could not sync with Strava. Please try again later.');
     } finally {
       setStravaSyncing(false);
     }
@@ -170,7 +174,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             }`}
           >
             <Text
-              className={`text-[10px] font-bold ${
+              className={`text-xs font-bold ${
                 isAppleConnected ? 'text-green-500' : 'text-red-500'
               }`}
             >
@@ -215,7 +219,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
-            <Ionicons name="watch-outline" size={20} color="#FF5A1F" />
+            <Ionicons name="watch-outline" size={20} color="#FF5F3B" />
             <Text className="text-theme-text font-bold text-sm">Garmin Connect Integration</Text>
           </View>
           <View
@@ -226,7 +230,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             }`}
           >
             <Text
-              className={`text-[10px] font-bold ${
+              className={`text-xs font-bold ${
                 isGarminConnected ? 'text-green-500' : 'text-red-500'
               }`}
             >
@@ -257,7 +261,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
             >
               {garminSyncing ? (
-                <ActivityIndicator size="small" color="#FF5A1F" />
+                <ActivityIndicator size="small" color="#FF5F3B" />
               ) : (
                 <>
                   <Ionicons name="sync-outline" size={16} color="#8E8E93" />
@@ -273,7 +277,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
-            <Ionicons name="fitness-outline" size={20} color="#FF5A1F" />
+            <Ionicons name="fitness-outline" size={20} color="#FF5F3B" />
             <Text className="text-theme-text font-bold text-sm">Strava Integration</Text>
           </View>
           <View
@@ -284,7 +288,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             }`}
           >
             <Text
-              className={`text-[10px] font-bold ${
+              className={`text-xs font-bold ${
                 isStravaConnected ? 'text-green-500' : 'text-red-500'
               }`}
             >
@@ -302,7 +306,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <TouchableOpacity
               onPress={onConnectStrava}
               disabled={stravaLoading}
-              className="bg-orange-500 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+              className="bg-theme-accent px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
             >
               {stravaLoading ? (
                 <ActivityIndicator size="small" color="#FFF" />
@@ -318,7 +322,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <TouchableOpacity
                 onPress={handleSyncStrava}
                 disabled={stravaSyncing}
-                className="bg-orange-500 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+                className="bg-theme-accent px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
               >
                 {stravaSyncing ? (
                   <ActivityIndicator size="small" color="#FFF" />
@@ -387,48 +391,48 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Rooka Score in Caption</Text>
-              <Text className="text-theme-muted text-[10px]">Add calculated XP and TSS to caption</Text>
+              <Text className="text-theme-muted text-xs">Add calculated XP and TSS to caption</Text>
             </View>
             <Switch
               value={currentToggles.captionRookaScore}
               onValueChange={(val) => handleToggleChange('captionRookaScore', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
+              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
             />
           </View>
 
           <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Post AI Workout Summary Title</Text>
-              <Text className="text-theme-muted text-[10px]">Auto-generate catchy workout title</Text>
+              <Text className="text-theme-muted text-xs">Auto-generate catchy workout title</Text>
             </View>
             <Switch
               value={currentToggles.titleSummary}
               onValueChange={(val) => handleToggleChange('titleSummary', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
+              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
             />
           </View>
 
           <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Muscle Strain Metrics</Text>
-              <Text className="text-theme-muted text-[10px]">Share affected muscle group load</Text>
+              <Text className="text-theme-muted text-xs">Share affected muscle group load</Text>
             </View>
             <Switch
               value={currentToggles.includeMuscleStrain}
               onValueChange={(val) => handleToggleChange('includeMuscleStrain', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
+              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
             />
           </View>
 
           <View className="flex-row items-center justify-between py-2">
             <View className="flex-1 pr-3">
               <Text className="text-theme-text font-bold text-xs">Include Fueling Recommendations</Text>
-              <Text className="text-theme-muted text-[10px]">Post carb/protein intake advice</Text>
+              <Text className="text-theme-muted text-xs">Post carb/protein intake advice</Text>
             </View>
             <Switch
               value={currentToggles.includeFueling}
               onValueChange={(val) => handleToggleChange('includeFueling', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5A1F' }}
+              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
             />
           </View>
         </View>

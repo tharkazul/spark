@@ -42,7 +42,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Today's Fueling Plan</Text>
-            <Text className="text-[10px] text-theme-muted font-bold">Macro Fueling & Meal Targets</Text>
+            <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Meal Targets</Text>
           </View>
         </View>
 
@@ -52,7 +52,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
             className="flex-row items-center gap-1 bg-theme-card px-3 py-1.5 rounded-full border border-theme-border"
           >
             <Ionicons name="refresh-outline" size={12} color="#A1A1AA" />
-            <Text className="text-[10px] font-bold text-theme-muted">Reset Today</Text>
+            <Text className="text-xs font-bold text-theme-muted">Reset Today</Text>
           </TouchableOpacity>
         )}
       </View>

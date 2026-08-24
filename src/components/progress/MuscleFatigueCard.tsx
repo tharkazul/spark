@@ -50,7 +50,7 @@ export const MuscleFatigueCard: React.FC = () => {
   // Helper for color badge
   const getFatigueStyle = (pct: number) => {
     if (pct >= 65) return { color: '#EF4444', bg: 'bg-red-500/15', label: 'High Fatigue' };
-    if (pct >= 35) return { color: '#F98845', bg: 'bg-orange-500/15', label: 'Moderate' };
+    if (pct >= 35) return { color: '#F98845', bg: 'bg-theme-accent/15', label: 'Moderate' };
     return { color: '#10B981', bg: 'bg-emerald-500/15', label: 'Fresh / Low' };
   };
 
@@ -59,11 +59,11 @@ export const MuscleFatigueCard: React.FC = () => {
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center space-x-2">
           <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
-          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+          <Text className="text-xs font-bold text-theme-muted">
             Muscle Fatigue & Breakdown
           </Text>
         </View>
-        <Text className="text-[11px] font-semibold text-theme-muted">7-Day Workload Model</Text>
+        <Text className="text-xs font-semibold text-theme-muted">7-Day Workload Model</Text>
       </View>
 
       <View className="space-y-3">
@@ -77,7 +77,7 @@ export const MuscleFatigueCard: React.FC = () => {
                   <Text className="text-xs font-extrabold text-theme-text">{m.name}</Text>
                 </View>
                 <View className={`px-2 py-0.5 rounded-md ${style.bg}`}>
-                  <Text className="text-[10px] font-bold" style={{ color: style.color }}>
+                  <Text className="text-xs font-bold" style={{ color: style.color }}>
                     {m.fatiguePct}% ({style.label})
                   </Text>
                 </View>

@@ -5,6 +5,7 @@ import { chatStorage, chatReadStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
 import { usePlan } from './PlanStore';
 import { useUser } from './UserStore';
+import { useActivities } from './ActivityStore';
 import { usePhysique } from './PhysiqueStore';
 import { useHealth } from './HealthStore';
 
@@ -89,7 +90,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const { refreshPlan } = usePlan();
   const { refreshPhysique } = usePhysique();
   const { refreshNiggles } = useHealth();
-  const { user, isAuthenticated } = useUser();
+  const { refreshActivities } = useActivities();
+  const { user, isAuthenticated, refreshUser } = useUser();
 
   // Load last read timestamp from persistent storage (scoped per user)
   useEffect(() => {
@@ -342,6 +344,12 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         if (res.planUpdated) {
           refreshPlan();
           refreshNiggles();
+          // The coach can log an activity, which also awards Rooka points and
+          // can level the athlete up. Neither the activity list nor the header
+          // total was refreshed here, so a session logged in chat stayed
+          // invisible on the dashboard until the app was relaunched.
+          refreshActivities();
+          refreshUser();
         }
         refreshPhysique();
         refreshNiggles();

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, LayoutAnimation } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -53,6 +54,13 @@ const StepCardComponent = ({
   onAddSubStep,
 }: StepCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { colorScheme } = useColorScheme();
+
+  // These numeric fields (reps / minutes / metres) are typed into, so their
+  // colour must be set explicitly rather than left to a utility class on a
+  // TextInput — an unresolved text colour renders as white on the light input
+  // background in dark mode, making the value invisible while editing.
+  const inputTextColor = colorScheme === 'dark' ? '#F8FAFC' : '#1E293B';
 
   const condType = step.condition_type || (isStrength ? 'reps' : 'time');
   const rawTargetType = step.target_type || 'no.target';
@@ -240,8 +248,10 @@ const StepCardComponent = ({
           {/* Step Header */}
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-1.5">
-              <Text className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-theme-text">
-                {step.type}
+              <Text className="text-xs font-extrabold text-slate-800 dark:text-theme-text">
+                {/* Was rendered via `uppercase`; the raw value is lowercase
+                    ("warmup", "interval"), so capitalise it at the source. */}
+                {step.type ? step.type.charAt(0).toUpperCase() + step.type.slice(1) : ''}
               </Text>
             </View>
 
@@ -275,7 +285,8 @@ const StepCardComponent = ({
                     }
                   }}
                   keyboardType="number-pad"
-                  className="w-10 text-sm font-extrabold text-slate-800 dark:text-theme-text text-center p-0"
+                  style={{ color: inputTextColor }}
+                  className="w-10 text-sm font-extrabold text-center p-0"
                 />
                 <Text className="text-xs font-bold text-slate-500 dark:text-theme-muted ml-1">times</Text>
               </View>
@@ -291,7 +302,8 @@ const StepCardComponent = ({
                   }}
                   placeholder="Exercise name (e.g. Core Plank / Squats)"
                   placeholderTextColor="#94A3B8"
-                  className="w-full h-9 bg-slate-50 dark:bg-theme-bg/70 border border-slate-200 dark:border-theme-border/60 rounded-xl px-3 text-xs font-bold text-slate-800 dark:text-theme-text"
+                  style={{ color: inputTextColor }}
+                  className="w-full h-9 bg-slate-50 dark:bg-theme-bg/70 border border-slate-200 dark:border-theme-border/60 rounded-xl px-3 text-xs font-bold"
                 />
               )}
 
@@ -302,13 +314,14 @@ const StepCardComponent = ({
                     value={step.condition_value !== undefined ? String(step.condition_value) : ''}
                     onChangeText={handleValueChange}
                     keyboardType={isStrengthOrMobility && condType === 'reps' ? 'number-pad' : 'decimal-pad'}
-                    className="w-10 text-xs text-center font-extrabold text-slate-800 dark:text-theme-text p-0"
+                    style={{ color: inputTextColor }}
+                    className="w-10 text-xs text-center font-extrabold p-0"
                   />
                   <TouchableOpacity
                     onPress={handleUnitToggle}
                     className="flex-row items-center ml-1 pl-1.5 border-l border-slate-200 dark:border-theme-border/60"
                   >
-                    <Text className="text-[11px] font-extrabold text-slate-500 dark:text-theme-muted uppercase">
+                    <Text className="text-xs font-extrabold text-slate-500 dark:text-theme-muted uppercase">
                       {unitDisplay}
                     </Text>
                   </TouchableOpacity>
@@ -328,7 +341,7 @@ const StepCardComponent = ({
                 >
                   <Text className="text-xs font-bold text-slate-500 dark:text-theme-muted">
                     Target:{' '}
-                    <Text className="text-slate-900 dark:text-theme-text font-black">
+                    <Text className="text-slate-900 dark:text-theme-text font-extrabold">
                       {targetDisplay}
                     </Text>
                   </Text>
@@ -343,7 +356,7 @@ const StepCardComponent = ({
               {/* Clean, Spacious Collapsible Target Picker Panel */}
               {isExpanded && (
                 <View className="mt-1 p-3 bg-slate-50 dark:bg-theme-bg/90 border border-slate-200/80 dark:border-theme-border/60 rounded-xl flex-col gap-2.5">
-                  <Text className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 dark:text-slate-400">
+                  <Text className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
                     Target Type
                   </Text>
 
@@ -381,7 +394,7 @@ const StepCardComponent = ({
                   {/* Sub-Selection: Zone Pills or Exact Values */}
                   {isZoneTarget && (
                     <View className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-theme-border/40">
-                      <Text className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 dark:text-slate-400">
+                      <Text className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
                         Select Zone
                       </Text>
                       <View className="flex-row flex-wrap items-center gap-1.5">
@@ -406,7 +419,7 @@ const StepCardComponent = ({
                               }`}
                             >
                               <Text
-                                className={`text-xs font-black ${
+                                className={`text-xs font-extrabold ${
                                   isZoneSelected ? 'text-white' : 'text-slate-800 dark:text-slate-100'
                                 }`}
                               >
@@ -421,7 +434,7 @@ const StepCardComponent = ({
 
                   {(isPaceExact || isExactPowerTarget || isWeightTarget) && (
                     <View className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-theme-border/40">
-                      <Text className="text-[10px] uppercase font-extrabold tracking-wider text-slate-500 dark:text-slate-400">
+                      <Text className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
                         {isWeightTarget ? 'Target Weight' : isExactPowerTarget ? 'Target Power' : 'Target Pace'}
                       </Text>
                       <View className="flex-row items-center gap-2">
@@ -448,7 +461,8 @@ const StepCardComponent = ({
                               : getPacePlaceholder(sport)
                           }
                           placeholderTextColor="#94A3B8"
-                          className="flex-1 h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 text-xs font-extrabold text-slate-800 dark:text-slate-100"
+                          style={{ color: inputTextColor }}
+                          className="flex-1 h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 text-xs font-extrabold"
                         />
                         <Text className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
                           {isWeightTarget
@@ -492,7 +506,7 @@ const StepCardComponent = ({
                   className="py-1.5 px-3 bg-slate-100 dark:bg-theme-bg/60 border border-dashed border-slate-300 dark:border-theme-border rounded-xl flex-row items-center justify-center gap-1 self-start mt-1"
                 >
                   <Ionicons name="add" size={14} color="#64748B" />
-                  <Text className="text-[11px] font-bold text-slate-600 dark:text-theme-muted">
+                  <Text className="text-xs font-bold text-slate-600 dark:text-theme-muted">
                     + Sub-step
                   </Text>
                 </TouchableOpacity>

@@ -219,7 +219,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   elevation: 8,
                 }}
               >
-                <Ionicons name="add-circle-outline" size={14} color={isDark ? '#FF6B35' : '#FF5A1F'} />
+                <Ionicons name="add-circle-outline" size={14} color={isDark ? '#FF6B35' : '#FF5F3B'} />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Workout</Text>
               </TouchableOpacity>
 
@@ -378,7 +378,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                         width: 58,
                         height: 58,
                         borderRadius: 29,
-                        backgroundColor: isDark ? '#FF6B35' : '#FF5A1F',
+                        backgroundColor: isDark ? '#FF6B35' : '#FF5F3B',
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginTop: -22,
@@ -460,7 +460,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   >
                     {(options.tabBarIcon as any) && (options.tabBarIcon as any)({ 
                       focused: isFocused, 
-                      color: isFocused ? (isDark ? '#FF6B35' : '#FF5A1F') : (isDark ? '#94A3B8' : '#64748B'), 
+                      color: isFocused ? (isDark ? '#FF6B35' : '#FF5F3B') : (isDark ? '#94A3B8' : '#64748B'), 
                       size: 22 
                     } as any)}
                   </View>

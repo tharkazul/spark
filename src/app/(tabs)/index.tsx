@@ -151,17 +151,21 @@ export default function PlanningHomeScreen() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekRangeLabel = `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
 
-  const mainRaceName = user?.target_event || 'Park 5k';
+  // The season roadmap only means anything once the athlete has actually set a
+  // target event. Without one it used to render an invented "Park 5k" 181 days
+  // out, which reads as real planning the athlete never asked for.
+  const hasSeasonGoal = Boolean(user?.target_event && user?.event_date);
+  const mainRaceName = user?.target_event ?? '';
 
   const calculateDaysRemaining = (eventDateStr?: string): number => {
-    if (!eventDateStr) return 181;
+    if (!eventDateStr) return 0;
     try {
       const targetDate = new Date(eventDateStr);
       const diffTime = targetDate.getTime() - now.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays > 0 ? diffDays : 0;
     } catch {
-      return 181;
+      return 0;
     }
   };
 
@@ -383,13 +387,16 @@ export default function PlanningHomeScreen() {
       <View className="flex-1 px-5 pt-2">
         {/* Pinned plan context — Card matching TodaysPlanCard styling */}
         <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
-          <SeasonRoadmapCard info={seasonInfo} />
-
-          <View className="h-px bg-theme-border/50 my-3.5" />
+          {hasSeasonGoal && (
+            <>
+              <SeasonRoadmapCard info={seasonInfo} />
+              <View className="h-px bg-theme-border/50 my-3.5" />
+            </>
+          )}
 
           {/* Week Selector Bar with Interactive Chevrons */}
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-[11px] uppercase tracking-wider font-extrabold text-theme-muted">
+            <Text className="text-xs font-extrabold text-theme-muted">
               Week plan
             </Text>
             <View className="flex-row items-center bg-theme-card border border-theme-border px-2.5 py-1 rounded-full shadow-sm">

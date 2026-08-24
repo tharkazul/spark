@@ -1,5 +1,37 @@
 import { WS_URL } from '../constants/api';
 
+/**
+ * The server and the client grew two different vocabularies for the same
+ * events, so most of the realtime layer was silently inert: of the names the
+ * client subscribed to, only `quest_updated` and `title_unlocked` were ever
+ * emitted.
+ *
+ * Rather than rename events across both codebases at once (the server is
+ * deployed separately and lags the app), a subscription accepts any wire name
+ * that means the same thing. Keys are what callers subscribe to; values are the
+ * names actually seen on the wire.
+ *
+ * Server-side emitters live in `server/services/sse.js` callers — keep this
+ * table in step with them.
+ */
+const EVENT_ALIASES: Record<string, string[]> = {
+  // Activity ingestion. The server says `activity_logged` for a manual/chat log
+  // and `sync_complete` at the end of a Strava/Garmin pull.
+  activity_synced: ['activity_synced', 'activity_logged', 'sync_complete'],
+  strava_sync_complete: ['strava_sync_complete', 'sync_complete'],
+  garmin_sync_complete: ['garmin_sync_complete', 'sync_complete'],
+
+  // Coach chat. Everything the coach pushes (including the 08:00 message)
+  // arrives as `unread_message`.
+  chat_message: ['chat_message', 'unread_message', 'chat_update'],
+  coach_response: ['coach_response', 'unread_message'],
+
+  // Gamification.
+  rooka_updated: ['rooka_updated', 'points_updated'],
+  level_up: ['level_up', 'level_updated'],
+  quest_completed: ['quest_completed', 'quest_updated'],
+};
+
 export type WSConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 class WebSocketService {
@@ -108,10 +140,11 @@ class WebSocketService {
   }
 
   subscribeToEvent(eventType: string, callback: (data: any) => void) {
+    const accepted = EVENT_ALIASES[eventType] ?? [eventType];
     const handler = (data: any) => {
       if (!data) return;
       const type = data.type || data.event;
-      if (type === eventType) {
+      if (accepted.includes(type)) {
         callback(data.payload !== undefined ? data.payload : data.data !== undefined ? data.data : data);
       }
     };

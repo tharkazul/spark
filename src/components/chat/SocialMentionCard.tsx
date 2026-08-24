@@ -23,7 +23,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
             {payload.author_name} mentioned you
           </Text>
           {payload.created_at ? (
-            <Text className="text-theme-muted text-[10px]">
+            <Text className="text-theme-muted text-xs">
               {new Date(payload.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           ) : null}
@@ -43,7 +43,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
           activeOpacity={0.7}
         >
           <Text className="text-theme-accent font-bold text-xs">View Activity Details</Text>
-          <Ionicons name="chevron-forward" size={14} color="#FF5A1F" />
+          <Ionicons name="chevron-forward" size={14} color="#FF5F3B" />
         </TouchableOpacity>
       ) : null}
     </View>

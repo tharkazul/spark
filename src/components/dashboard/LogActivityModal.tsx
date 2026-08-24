@@ -139,7 +139,7 @@ export function LogActivityModal({
               >
                 {/* Sport Type Selector */}
                 <View className="mb-4 mt-2">
-                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-2">
+                  <Text className="text-xs font-bold text-theme-muted mb-2">
                     Sport Type
                   </Text>
                   <View className="flex-row gap-2">
@@ -164,7 +164,7 @@ export function LogActivityModal({
                             color={isSelected ? '#10B981' : isDark ? '#94A3B8' : '#64748B'}
                           />
                           <Text
-                            className={`text-[10px] font-bold mt-1 ${
+                            className={`text-xs font-bold mt-1 ${
                               isSelected ? 'text-emerald-500' : 'text-theme-muted'
                             }`}
                           >
@@ -178,7 +178,7 @@ export function LogActivityModal({
 
                 {/* Activity Name */}
                 <View className="mb-4">
-                  <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
+                  <Text className="text-xs font-bold text-theme-muted mb-1.5">
                     Activity Title
                   </Text>
                   <TextInput
@@ -191,7 +191,7 @@ export function LogActivityModal({
                 {/* Duration & Distance Row */}
                 <View className="flex-row gap-3 mb-5">
                   <View className="flex-1">
-                    <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
+                    <Text className="text-xs font-bold text-theme-muted mb-1.5">
                       Duration (Mins)
                     </Text>
                     <TextInput
@@ -202,7 +202,7 @@ export function LogActivityModal({
                     />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-xs uppercase tracking-wider font-bold text-theme-muted mb-1.5">
+                    <Text className="text-xs font-bold text-theme-muted mb-1.5">
                       Distance (Km)
                     </Text>
                     <TextInput

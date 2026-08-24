@@ -17,17 +17,17 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
       <View className="px-4 py-2.5 flex-row justify-between items-center bg-theme-bg/60">
         <View className="flex-row items-center gap-2">
           <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="compass-outline" size={14} color="#FF5A1F" />
+            <Ionicons name="compass-outline" size={14} color="#FF5F3B" />
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Macro Periodization</Text>
-            <Text className="text-[9px] text-theme-muted">16-Week Training Block</Text>
+            <Text className="text-xs text-theme-muted">16-Week Training Block</Text>
           </View>
         </View>
 
         {/* Days Countdown Badge */}
         <View className="bg-theme-card px-2.5 py-1 rounded-lg">
-          <Text className="text-[10px] font-mono font-extrabold text-theme-accent">
+          <Text className="text-xs font-mono font-extrabold text-theme-accent">
             {info.daysRemaining} Days to {info.raceTargetName}
           </Text>
         </View>
@@ -45,7 +45,7 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
                 className={`flex-1 items-center justify-center ${isCurrent ? 'bg-theme-accent/15' : ''}`}
               >
                 <Text
-                  className={`text-[10px] font-extrabold uppercase tracking-widest ${isCurrent ? 'text-theme-accent' : 'text-theme-muted'
+                  className={`text-xs font-extrabold tracking-widest ${isCurrent ? 'text-theme-accent' : 'text-theme-muted'
                     }`}
                 >
                   {phase.name}
@@ -63,7 +63,7 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
           <Text className="text-xs text-theme-muted font-medium">
             Active Phase: <Text className="text-theme-accent font-extrabold">{currentPhaseName}</Text>
           </Text>
-          <Text className="text-[10px] text-theme-muted font-mono">
+          <Text className="text-xs text-theme-muted font-mono">
             {info.phases[info.currentPhaseIndex]?.weeks || ''}
           </Text>
         </View>

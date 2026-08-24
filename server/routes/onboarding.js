@@ -207,6 +207,29 @@ router.post('/finalize', authenticateToken, async (req, res) => {
   } = req.body;
 
   try {
+    // Onboarding must only ever build one starting plan. Re-running it (the
+    // wizard reappearing after a failed profile fetch, a retried request, a
+    // second device) otherwise stacks a fresh 7-day block starting "today" on
+    // top of the existing one and registers another pending baseline test, so
+    // yesterday's benchmark looks like it moved and the old planning is buried.
+    const existing = await new Promise((resolve) =>
+      db.get(
+        `SELECT u.onboarding_completed,
+                (SELECT COUNT(*) FROM micro_plan WHERE user_id = u.id) AS plan_count
+           FROM users u WHERE u.id = ?`,
+        [userId],
+        (err, row) => resolve(err ? null : row),
+      ),
+    );
+
+    if (existing && existing.onboarding_completed === 1 && existing.plan_count > 0 && !req.body.force) {
+      return res.json({
+        success: true,
+        alreadyCompleted: true,
+        message: 'Onboarding was already completed; existing plan kept.',
+      });
+    }
+
     const langNames = {
       nl: 'Dutch (Nederlands)',
       de: 'German (Deutsch)',
@@ -268,8 +291,17 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       });
     }
 
-    // 3. Register baseline test entry into benchmark_tests table
+    // 3. Register baseline test entry into benchmark_tests table.
+    // Clear any earlier still-pending onboarding baseline first so a user never
+    // ends up with two competing "do your baseline test" assessments.
     const benchmarkInfo = getBenchmarkInfoForUser(athleteContext, targetEvent);
+    await new Promise((resolve) => {
+      db.run(
+        `DELETE FROM benchmark_tests WHERE user_id = ? AND coach_notes = 'Initial Onboarding Baseline Assessment' AND completed_at IS NULL`,
+        [userId],
+        () => resolve()
+      );
+    });
     await new Promise((resolve) => {
       db.run(
         `INSERT INTO benchmark_tests (user_id, sport_type, test_name, metrics_json, coach_notes) VALUES (?, ?, ?, ?, ?)`,
@@ -407,7 +439,19 @@ Example format:
       ];
     }
 
-    // Save initial plan to micro_plan
+    // Save initial plan to micro_plan. Clear the dates we are about to write so
+    // a forced regeneration replaces that day rather than doubling it up.
+    const targetDates = [...new Set(planData.map((day) => day.date).filter(Boolean))];
+    if (targetDates.length > 0) {
+      await new Promise((resolve) =>
+        db.run(
+          `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${targetDates.map(() => '?').join(',')})`,
+          [userId, ...targetDates],
+          () => resolve(),
+        ),
+      );
+    }
+
     const stmt = db.prepare(`
       INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json)
       VALUES (?, ?, ?, ?, ?, ?, ?)

@@ -24,7 +24,7 @@ export function QuickActionsRow({
 
   return (
     <View className="mb-6">
-      <Text className="text-xs uppercase tracking-wider font-extrabold text-theme-muted mb-2.5 px-1">
+      <Text className="text-xs font-extrabold text-theme-muted mb-2.5 px-1">
         {t('dashboard.quickActions')}
       </Text>
 

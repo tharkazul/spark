@@ -25,7 +25,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
     <View className="mt-3 p-4 rounded-xl bg-theme-card border border-theme-accent/40 shadow-sm">
       <View className="flex-row items-center mb-3">
         <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center mr-2">
-          <Ionicons name="calendar-outline" size={18} color="#FF5A1F" />
+          <Ionicons name="calendar-outline" size={18} color="#FF5F3B" />
         </View>
         <View className="flex-1">
           <Text className="text-theme-text font-bold text-sm">Rooka Workout Proposal</Text>

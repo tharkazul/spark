@@ -42,7 +42,7 @@ export default function ActivitiesScreen() {
                 <Ionicons 
                   name={getSportFilledIcon(item.type, item.title)} 
                   size={20} 
-                  color="#FF5A1F" 
+                  color="#FF5F3B" 
                 />
               </View>
               <View>
@@ -53,15 +53,15 @@ export default function ActivitiesScreen() {
             
             <View className="flex-row justify-between bg-theme-bg p-3 rounded-xl">
               <View>
-                <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Distance</Text>
+                <Text className="text-theme-muted text-xs font-bold mb-1">Distance</Text>
                 <Text className="text-theme-text font-bold">{item.distance}</Text>
               </View>
               <View>
-                <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Time</Text>
+                <Text className="text-theme-muted text-xs font-bold mb-1">Time</Text>
                 <Text className="text-theme-text font-bold">{item.duration}</Text>
               </View>
               <View>
-                <Text className="text-theme-muted text-xs font-bold uppercase mb-1">Pace</Text>
+                <Text className="text-theme-muted text-xs font-bold mb-1">Pace</Text>
                 <Text className="text-theme-text font-bold">{item.type === 'Run' ? '5:07/km' : '20 km/u'}</Text>
               </View>
             </View>

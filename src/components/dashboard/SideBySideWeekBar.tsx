@@ -57,7 +57,7 @@ export function SideBySideWeekBar({
               }`}
             >
               <Text
-                className={`text-[10px] font-extrabold uppercase tracking-wider ${
+                className={`text-xs font-extrabold ${
                   isToday || isSelected ? 'text-white' : 'text-theme-muted'
                 }`}
               >

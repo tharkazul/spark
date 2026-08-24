@@ -50,7 +50,7 @@ export const TrainingReadinessWidget: React.FC = () => {
   } else if (score >= 35) {
     statusText = 'Moderate';
     adviceText = 'Steady Zone 2 aerobic maintenance recommended';
-    activeColor = '#F97316'; // Orange
+    activeColor = '#FF5F3B'; // Orange
   } else {
     statusText = 'Low';
     adviceText = 'Time to slow down';
@@ -76,12 +76,12 @@ export const TrainingReadinessWidget: React.FC = () => {
       {/* Header Row */}
       <View className="flex-row items-center justify-between mb-2">
         <View className="flex-row items-center space-x-2">
-          <View className="w-2.5 h-2.5 rounded-full bg-[#FF5733] mr-2" />
-          <Text className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <View className="w-2.5 h-2.5 rounded-full bg-[#FF5F3B] mr-2" />
+          <Text className="text-xs font-bold text-slate-400">
             Training Readiness
           </Text>
         </View>
-        <Text className="text-[11px] font-semibold text-slate-400">Daily Readiness Score</Text>
+        <Text className="text-xs font-semibold text-slate-400">Daily Readiness Score</Text>
       </View>
 
       {/* Main Gauge & Center Content */}
@@ -100,7 +100,7 @@ export const TrainingReadinessWidget: React.FC = () => {
           <Path
             d="M 64.7 53.7 A 86 86 0 0 1 112.5 34.3"
             fill="none"
-            stroke="#F97316"
+            stroke="#FF5F3B"
             strokeWidth={strokeW}
             strokeLinecap="round"
           />

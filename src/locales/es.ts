@@ -112,6 +112,8 @@ export const es: TranslationKeys = {
     chronicLoad: 'Carga crónica de 42 días',
     acuteLoad: 'Carga aguda de 7 días',
     emaTrendline: 'Línea de tendencia EMA de 7 días',
+    noDataYet: 'Sin datos aún',
+    logWeightPrompt: 'Registra un peso para empezar',
     optimalBuilding: 'Construcción óptima',
     highFatigueRest: 'Fatiga alta / Descanso necesario',
     productiveBuild: 'Construcción productiva',

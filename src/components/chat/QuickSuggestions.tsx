@@ -24,8 +24,8 @@ export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({ onSelectSugg
         contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}
       >
         <View className="flex-row items-center mr-1">
-          <Ionicons name="bulb-outline" size={16} color="#FF5A1F" />
-          <Text className="text-theme-accent text-xs font-bold ml-1 uppercase tracking-wider">{t('chat.suggestedQuestions')}</Text>
+          <Ionicons name="bulb-outline" size={16} color="#FF5F3B" />
+          <Text className="text-theme-accent text-xs font-bold ml-1">{t('chat.suggestedQuestions')}</Text>
         </View>
         {DEFAULT_SUGGESTIONS.map((item, idx) => (
           <TouchableOpacity

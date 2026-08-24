@@ -147,7 +147,7 @@ export function TodaysPlanCard({
               onPress={handleAdd}
               className="px-2.5 py-1 rounded-lg bg-theme-accent/15"
             >
-              <Text className="text-[10px] font-extrabold text-theme-accent">+ Log</Text>
+              <Text className="text-xs font-extrabold text-theme-accent">+ Log</Text>
             </TouchableOpacity>
           </View>
         </Card>
@@ -197,10 +197,10 @@ export function TodaysPlanCard({
                     {workout.isCompleted ? (
                       <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={10} color="#10B981" />
-                        <Text className="text-[9px] font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
                       </View>
                     ) : (
-                      <Text className="text-[10px] text-theme-muted font-bold">{t('dashboard.tapToEdit')}</Text>
+                      <Text className="text-xs text-theme-muted font-bold">{t('dashboard.tapToEdit')}</Text>
                     )}
                   </View>
                 </TouchableOpacity>

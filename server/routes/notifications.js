@@ -29,6 +29,28 @@ router.post("/api/notifications/register-token", authenticateToken, (req, res) =
   );
 });
 
+// Unregister an Expo Push Token (called on logout).
+// Without this the device token stays bound to the account that last signed in,
+// so every account ever used on a phone keeps receiving the 08:00 coach message.
+router.post("/api/notifications/unregister-token", authenticateToken, (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ error: "Token is required" });
+  }
+
+  db.run(
+    `DELETE FROM push_tokens WHERE token = ? AND user_id = ?`,
+    [token, req.user.id],
+    (err) => {
+      if (err) {
+        console.error("Failed to remove push token:", err);
+        return res.status(500).json({ error: "DB_ERROR" });
+      }
+      res.json({ success: true, message: "Push token unregistered" });
+    },
+  );
+});
+
 // Test Push Notification endpoint
 router.post("/api/notifications/test", authenticateToken, async (req, res) => {
   const userId = req.user.id;

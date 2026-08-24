@@ -12,6 +12,7 @@ import {
   Modal,
   Animated,
   Keyboard,
+  Linking,
   StyleSheet
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -226,7 +227,7 @@ const MessageRow = React.memo(({
 
         {isLastInRun && !item.isError && (
           <Text
-            className={`text-[10px] mt-1.5 self-end ${
+            className={`text-xs mt-1.5 self-end ${
               isUser ? 'text-white/70' : 'text-theme-muted'
             }`}
           >
@@ -550,7 +551,7 @@ export default function CoachScreen() {
       return (
         <View className="py-2.5 items-center justify-center pointer-events-none">
           <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full shadow-md">
-            <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">{item.title}</Text>
+            <Text className="text-theme-text text-xs font-extrabold tracking-wide">{item.title}</Text>
           </View>
         </View>
       );
@@ -677,7 +678,7 @@ export default function CoachScreen() {
               />
             </View>
             <View>
-              <Text className="text-lg font-black text-theme-text">
+              <Text className="text-lg font-extrabold text-theme-text">
                 {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
               </Text>
               <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
@@ -756,7 +757,7 @@ export default function CoachScreen() {
             onPress={() => setIsWorkoutModalOpen(false)}
             className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
           >
-            <Text className="text-xs font-black text-white">Got it</Text>
+            <Text className="text-xs font-extrabold text-white">Got it</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>
@@ -774,7 +775,7 @@ export default function CoachScreen() {
               <Ionicons name="restaurant-outline" size={24} color="#10B981" />
             </View>
             <View>
-              <Text className="text-lg font-black text-theme-text">Today's Fueling Plan</Text>
+              <Text className="text-lg font-extrabold text-theme-text">Today's Fueling Plan</Text>
               <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Targets</Text>
             </View>
           </View>
@@ -790,7 +791,7 @@ export default function CoachScreen() {
               className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border"
             >
               <Ionicons name="refresh-outline" size={12} color="#A1A1AA" />
-              <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
+              <Text className="text-xs font-bold text-theme-muted">Reset</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -827,7 +828,7 @@ export default function CoachScreen() {
           onPress={() => setIsNutritionModalOpen(false)}
           className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center mt-2"
         >
-          <Text className="text-xs font-black text-white">Got it</Text>
+          <Text className="text-xs font-extrabold text-white">Got it</Text>
         </TouchableOpacity>
       </BottomSheetModal>
 
@@ -841,10 +842,10 @@ export default function CoachScreen() {
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
             <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color="#F97316" />
+              <Ionicons name="trophy" size={26} color="#FF5F3B" />
             </View>
             <View>
-              <Text className="text-lg font-black text-theme-text">Active Quest</Text>
+              <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
               <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
             </View>
           </View>
@@ -863,7 +864,7 @@ export default function CoachScreen() {
 
         <View className="mb-6">
           <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+            <Text className="text-xs font-bold text-theme-muted">
               Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
             </Text>
             <Text className="text-sm font-mono font-bold text-amber-500">
@@ -885,7 +886,7 @@ export default function CoachScreen() {
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
             {questLoading ? (
-              <ActivityIndicator size="small" color="#F97316" />
+              <ActivityIndicator size="small" color="#FF5F3B" />
             ) : (
               <>
                 <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
@@ -898,7 +899,7 @@ export default function CoachScreen() {
             onPress={() => setIsQuestModalOpen(false)}
             className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
           >
-            <Text className="text-xs font-black text-white">Got it</Text>
+            <Text className="text-xs font-extrabold text-white">Got it</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>
@@ -915,7 +916,7 @@ export default function CoachScreen() {
           </TouchableOpacity>
           <View className="flex-row items-center space-x-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-1.5" />
-            <Text className="text-theme-text text-base font-black">Rooka</Text>
+            <Text className="text-theme-text text-base font-extrabold">Rooka</Text>
           </View>
         </View>
 
@@ -946,7 +947,7 @@ export default function CoachScreen() {
             {primaryWorkout?.sport || 'Rest'}
           </Text>
           {primaryWorkout?.target_rooka ? (
-            <Text className="text-[11px] font-mono font-extrabold text-theme-accent">
+            <Text className="text-xs font-mono font-extrabold text-theme-accent">
               +{Math.round(primaryWorkout.target_rooka)}⚡
             </Text>
           ) : null}
@@ -976,11 +977,11 @@ export default function CoachScreen() {
           activeOpacity={0.75}
           className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
         >
-          <Ionicons name="trophy" size={13} color="#F97316" />
+          <Ionicons name="trophy" size={13} color="#FF5F3B" />
           <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
             Quest
           </Text>
-          <Text className="text-[11px] font-mono font-extrabold text-amber-500">
+          <Text className="text-xs font-mono font-extrabold text-amber-500">
             {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
           </Text>
         </TouchableOpacity>
@@ -997,11 +998,19 @@ export default function CoachScreen() {
           </View>
           {!hasSubscriptionTier(user?.subscription_tier) ? (
             <TouchableOpacity className="bg-amber-500 px-2.5 py-1 rounded-md">
-              <Text className="text-black font-bold text-[10px]">UPGRADE</Text>
+              <Text className="text-black font-bold text-xs">UPGRADE</Text>
             </TouchableOpacity>
           ) : null}
         </View>
       ) : null}
+
+      {/* Today's macro progress rings. The component and its visibility state
+          already existed but were never mounted, so the rings from the spec
+          simply did not appear in chat. */}
+      <ChatMacroStrip
+        isVisible={isChatMacroStripVisible}
+        onToggle={toggleChatMacroStrip}
+      />
 
       {/* CHAT MESSAGES STREAM */}
       <View className="flex-1 relative">
@@ -1013,7 +1022,7 @@ export default function CoachScreen() {
             className="absolute top-2 self-center z-40"
           >
             <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full shadow-lg">
-              <Text className="text-theme-text text-[11px] font-extrabold tracking-wide">
+              <Text className="text-theme-text text-xs font-extrabold tracking-wide">
                 {floatingDate}
               </Text>
             </View>
@@ -1124,7 +1133,7 @@ export default function CoachScreen() {
               returnKeyType="send"
               enterKeyHint="send"
               onSubmitEditing={() => handleSend()}
-              className="text-theme-text text-[16px]"
+              className="text-theme-text text-base"
               style={{ maxHeight: 110, textAlignVertical: 'top', paddingTop: 10, paddingBottom: 10, lineHeight: 22 }}
             />
           </View>
@@ -1161,7 +1170,7 @@ export default function CoachScreen() {
                 <Ionicons
                   name="send"
                   size={15}
-                  color={sending || (!inputText.trim() && selectedImages.length === 0) ? '#8E8E93' : '#F97316'}
+                  color={sending || (!inputText.trim() && selectedImages.length === 0) ? '#8E8E93' : '#FF5F3B'}
                 />
               </TouchableOpacity>
             </View>

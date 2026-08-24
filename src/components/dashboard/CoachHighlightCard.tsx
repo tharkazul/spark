@@ -30,7 +30,7 @@ export function CoachHighlightCard({
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">{t('dashboard.coachBriefing')}</Text>
-            <Text className="text-[9px] text-theme-muted">{t('dashboard.dailyInsightAdvice')}</Text>
+            <Text className="text-xs text-theme-muted">{t('dashboard.dailyInsightAdvice')}</Text>
           </View>
         </View>
       </View>

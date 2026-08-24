@@ -104,6 +104,8 @@ export const de: TranslationKeys = {
     chronicLoad: '42-Tage chronische Belastung',
     acuteLoad: '7-Tage acute Belastung',
     emaTrendline: '7-Tage EMA-Trendlinie',
+    noDataYet: 'Noch keine Daten',
+    logWeightPrompt: 'Gewicht eintragen zum Starten',
     optimalBuilding: 'Optimaler Aufbau',
     highFatigueRest: 'Hohe Ermüdung / Ruhe nötig',
     productiveBuild: 'Produktiver Aufbau',

@@ -157,7 +157,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
         className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-theme-border/30"
       >
         <LinearGradient
-          colors={isMember ? ['#1E293B', '#0F172A'] : ['#FF5A1F', '#7C3AED']}
+          colors={isMember ? ['#1E293B', '#0F172A'] : ['#FF5F3B', '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ padding: 22, borderRadius: 16 }}
@@ -172,7 +172,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               </Text>
             </View>
             <View className="px-2.5 py-1 bg-white/20 rounded-full">
-              <Text className="text-white text-[10px] font-extrabold uppercase tracking-wider">
+              <Text className="text-white text-xs font-extrabold uppercase tracking-wider">
                 {isMember ? (tier === 'admin' ? 'ADMIN' : 'ACTIVE') : 'PRO TIER'}
               </Text>
             </View>
@@ -188,7 +188,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
 
           <View className="bg-white py-2.5 px-5 rounded-full self-start flex-row items-center shadow-sm">
             {trackingUpgrade ? (
-              <ActivityIndicator size="small" color="#FF5A1F" />
+              <ActivityIndicator size="small" color="#FF5F3B" />
             ) : (
               <Text className="text-theme-accent font-bold text-xs">
                 {isMember ? 'View Member Benefits' : 'View Premium Benefits'}
@@ -213,7 +213,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             <Ionicons name="card-outline" size={18} color="#8E8E93" />
             <View className="ml-3">
               <Text className="text-theme-text font-bold text-xs">Manage or Cancel Subscription</Text>
-              <Text className="text-theme-muted text-[10px] mt-0.5">1-Click cancel via {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'}</Text>
+              <Text className="text-theme-muted text-xs mt-0.5">1-Click cancel via {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'}</Text>
             </View>
           </View>
           <Ionicons name="open-outline" size={16} color="#8E8E93" />
@@ -257,7 +257,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           >
             <View className="flex-row items-center">
               {exporting ? (
-                <ActivityIndicator size="small" color="#FF5A1F" />
+                <ActivityIndicator size="small" color="#FF5F3B" />
               ) : (
                 <Ionicons name="download-outline" size={18} color="#8E8E93" />
               )}

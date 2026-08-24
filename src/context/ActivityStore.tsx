@@ -70,8 +70,11 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       await activitiesApi.syncGarmin();
       await refreshActivities();
+      setError(null);
     } catch (err: any) {
       console.error('Garmin sync error:', err);
+      setError(err.message || 'Garmin sync failed.');
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -82,8 +85,11 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       await activitiesApi.syncStrava();
       await refreshActivities();
+      setError(null);
     } catch (err: any) {
       console.error('Strava sync error:', err);
+      setError(err.message || 'Strava sync failed.');
+      throw err;
     } finally {
       setLoading(false);
     }

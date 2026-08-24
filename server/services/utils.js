@@ -544,20 +544,34 @@ async function getStravaTokenForUser(userIdOrStravaId) {
             `⚠️ Mapping index missing for ${lookupVal}. Attempting profile fallback link...`,
           );
 
-          db.get(
-            `SELECT id, strava_refresh_token FROM users WHERE strava_refresh_token IS NOT NULL LIMIT 1`,
+          // Heal a missing athlete -> user mapping ONLY when it is
+          // unambiguous. This used to take the first user with any Strava
+          // token (`LIMIT 1`) and permanently bind the incoming athlete to
+          // them, which imported a stranger's activities into whichever
+          // account happened to sort first — and persisted the bad mapping.
+          db.all(
+            `SELECT u.id, u.strava_refresh_token
+               FROM users u
+               LEFT JOIN strava_tokens t ON t.user_id = u.id
+              WHERE u.strava_refresh_token IS NOT NULL
+                AND u.deleted_at IS NULL
+                AND t.user_id IS NULL`,
             [],
-            async (fallbackErr, fallbackUser) => {
-              if (
-                fallbackErr ||
-                !fallbackUser ||
-                !fallbackUser.strava_refresh_token
-              ) {
+            async (fallbackErr, candidates) => {
+              if (fallbackErr || !candidates || candidates.length === 0) {
                 return reject(
                   "No Strava token found anywhere in the system for identifier: " +
                     userIdOrStravaId,
                 );
               }
+
+              if (candidates.length > 1) {
+                return reject(
+                  `Ambiguous Strava mapping for identifier ${lookupVal}: ${candidates.length} unmapped accounts have a Strava connection. Refusing to guess an owner.`,
+                );
+              }
+
+              const fallbackUser = candidates[0];
 
               db.run(
                 `INSERT OR IGNORE INTO strava_tokens (user_id, access_token, refresh_token, expires_at, strava_id) VALUES (?, ?, ?, ?, ?)`,
@@ -858,7 +872,27 @@ async function tagStravaActivity(userId, activity, token) {
   );
 }
 
-async function getStravaActivity(stravaAthleteId, activityId) {
+/**
+ * Every live Rooka account connected to a given Strava athlete.
+ *
+ * Now that an activity is stored per user, one Strava athlete can legitimately
+ * back more than one account, and a webhook has to reach all of them.
+ */
+function getStravaUserIdsForAthlete(stravaAthleteId) {
+  const lookupVal = String(stravaAthleteId).trim();
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT t.user_id
+         FROM strava_tokens t
+         JOIN users u ON u.id = t.user_id
+        WHERE CAST(t.strava_id AS TEXT) = ? AND u.deleted_at IS NULL`,
+      [lookupVal],
+      (err, rows) => resolve(err || !rows ? [] : rows.map((r) => r.user_id)),
+    );
+  });
+}
+
+async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
   try {
     console.log(
       `🔍 Processing webhook activity ${activityId} for Strava Athlete ${stravaAthleteId}...`,
@@ -868,9 +902,14 @@ async function getStravaActivity(stravaAthleteId, activityId) {
     let internalUserId;
 
     try {
-      const result = await getStravaTokenForUser(stravaAthleteId);
+      // When the caller already knows which account this is for (webhook
+      // fan-out), resolve the token for that account rather than whichever
+      // account happens to be mapped to the athlete first.
+      const result = await getStravaTokenForUser(
+        explicitUserId !== undefined ? explicitUserId : stravaAthleteId,
+      );
       accessToken = result.accessToken;
-      internalUserId = result.internalUserId;
+      internalUserId = explicitUserId !== undefined ? explicitUserId : result.internalUserId;
     } catch (lookupError) {
       console.warn(
         `⚠️ Token mapping failed (${lookupError.message}). Aborting webhook processing.`,
@@ -926,12 +965,12 @@ async function getStravaActivity(stravaAthleteId, activityId) {
         }
 
         db.run(
-          `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, laps_json) 
+          `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, laps_json) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json`,
+                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json`,
           [
-            data.id,
             internalUserId,
+            String(data.id),
             data.name,
             data.sport_type,
             data.distance / 1000,
@@ -1131,7 +1170,7 @@ async function syncAllStravaUsersOnStartup() {
 
       console.log("🔄 Running initial Strava sync for all connected users...");
       db.all(
-        "SELECT id, rooka_start_date FROM users WHERE strava_refresh_token IS NOT NULL",
+        "SELECT id, rooka_start_date FROM users WHERE strava_refresh_token IS NOT NULL AND deleted_at IS NULL",
         [],
         async (err, users) => {
           if (err || !users) return;
@@ -1173,12 +1212,12 @@ async function syncAllStravaUsersOnStartup() {
                     );
                   }
                   db.run(
-                    `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
+                    `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                             ON CONFLICT(id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
+                             ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
                     [
-                      act.id,
                       user.id,
+                      String(act.id),
                       act.name,
                       act.sport_type,
                       act.distance / 1000,
@@ -1332,8 +1371,25 @@ function updateUserRookaAndCheckLevel(userId) {
               if (err) return;
 
               const newLevelInfo = getRookaLevelInfo(newRooka);
+
+              // Tell the open app the total moved. Without this the header
+              // point count and level only ever changed on a cold reload.
+              if (newRooka !== oldRooka) {
+                sendSSEEvent(userId, "rooka_updated", {
+                  total_rooka: newRooka,
+                  rooka: Math.round((newRooka - oldRooka) * 10) / 10,
+                  level: newLevelInfo.level,
+                });
+              }
+
               if (newLevelInfo.level > oldLevelInfo.level) {
                 // Level up!
+                sendSSEEvent(userId, "level_up", {
+                  level: newLevelInfo.level,
+                  new_level: newLevelInfo.level,
+                  previous_level: oldLevelInfo.level,
+                  total_rooka: newRooka,
+                });
                 triggerLevelUpCoachPrompt(userId, newLevelInfo.level);
               }
 
@@ -2243,6 +2299,7 @@ module.exports = {
   formatStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
+  getStravaUserIdsForAthlete,
   syncAllStravaUsersOnStartup,
   triggerBackgroundSummary,
   updateUserRookaAndCheckLevel,
@@ -2257,11 +2314,16 @@ module.exports = {
     console.log("🌞 Running scheduled morning message job...");
     const todayStr = getAMSDateString();
     
-    // Find all users and any workouts they have planned for today
+    // Find every *live* user and any workouts they have planned for today.
+    // Deleted accounts and accounts that never finished onboarding must be
+    // excluded, otherwise every account that has ever been used on a device
+    // keeps firing an 08:00 notification at that device.
     db.all(
       `SELECT u.id, u.coach_tone, u.coach_name, u.coach_context, m.sport, m.description, m.details 
        FROM users u 
-       LEFT JOIN micro_plan m ON u.id = m.user_id AND m.date = ?`,
+       LEFT JOIN micro_plan m ON u.id = m.user_id AND m.date = ?
+       WHERE u.deleted_at IS NULL
+         AND u.onboarding_completed = 1`,
       [todayStr],
       async (err, rows) => {
         if (err || !rows) return;
@@ -2289,8 +2351,30 @@ module.exports = {
 
         for (const user of usersMap.values()) {
           try {
-            let prompt = `It is morning (${todayStr}). You are the athlete's coach. Write a short, proactive, energetic morning message. Acknowledge their recent work if applicable. `;
-            
+            // Ground the message in what the athlete actually did. Without this
+            // the model is asked to "acknowledge their recent work" with no data
+            // and invents sessions that never happened.
+            const recent = await new Promise((resolve) => {
+              db.all(
+                `SELECT name, sport_type, distance_km, moving_time_min, start_date
+                   FROM activities
+                  WHERE user_id = ? AND date(start_date) >= date('now', '-7 days')
+                  ORDER BY start_date DESC
+                  LIMIT 10`,
+                [user.id],
+                (actErr, actRows) => resolve(actErr || !actRows ? [] : actRows),
+              );
+            });
+
+            let prompt = `It is morning (${todayStr}). You are the athlete's coach. Write a short, proactive, energetic morning message. `;
+
+            if (recent.length > 0) {
+              prompt += `Here is EVERY session they actually completed in the last 7 days: ${JSON.stringify(recent)}. You may reference these specific sessions. `;
+            } else {
+              prompt += `IMPORTANT: they have logged NO training at all in the last 7 days. Do NOT congratulate them on recent work, a "great block", or any session — none happened. Do not invent any training. Simply greet them and look ahead. `;
+            }
+            prompt += `Never mention a workout, distance, or achievement that is not listed above. `;
+
             if (user.workouts.length > 0) {
               prompt += `They have the following workouts planned for today: ${JSON.stringify(user.workouts)}. Get them pumped up for it! `;
             } else {

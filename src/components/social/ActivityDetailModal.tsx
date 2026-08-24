@@ -731,7 +731,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
               rotateEnabled={true}
               pitchEnabled={true}
             >
-              <Polyline coordinates={coordinates} strokeColor="#EA580C" strokeWidth={4.5} />
+              <Polyline coordinates={coordinates} strokeColor="#FF5F3B" strokeWidth={4.5} />
               {startPt && <Marker coordinate={startPt} title="Start" pinColor="green" />}
               {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
             </MapView>
@@ -762,7 +762,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
           {/* 2. ACTIVITY HEADER & PROGRESS-STYLE TAB SELECTOR */}
           <View className="px-6 -mt-6">
             {/* Title & Sport Subtitle */}
-            <Text className="text-2xl font-black text-theme-text tracking-tight">
+            <Text className="text-2xl font-extrabold text-theme-text tracking-tight">
               {activity?.name || 'Workout Telemetry'}
             </Text>
             <View className="flex-row items-center gap-1.5 mt-1 mb-5">
@@ -861,7 +861,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
                       Distance
                     </Text>
-                    <Text className="text-lg font-black text-theme-text font-mono mt-0.5">
+                    <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
                       {distanceKmStr} km
                     </Text>
                   </View>
@@ -871,7 +871,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
                       {isCycling ? 'Avg Speed' : isSwim ? 'Avg Pace' : 'Avg Pace'}
                     </Text>
-                    <Text className="text-lg font-black text-theme-text font-mono mt-0.5">
+                    <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
                       {isCycling
                         ? `${avgSpeedKmh} km/h`
                         : isSwim
@@ -885,7 +885,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
                       {avgHeartRate ? 'Avg HR' : 'Avg Power'}
                     </Text>
-                    <Text className="text-lg font-black text-theme-text font-mono mt-0.5">
+                    <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
                       {avgHeartRate ? `${avgHeartRate} bpm` : `${avgPower} W`}
                     </Text>
                   </View>
@@ -900,7 +900,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
                       Moving Time
                     </Text>
-                    <Text className="text-lg font-black text-theme-text font-mono mt-0.5">
+                    <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
                       {durationMins} min
                     </Text>
                   </View>
@@ -910,7 +910,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
                       Elevation Gain
                     </Text>
-                    <Text className="text-lg font-black text-theme-text font-mono mt-0.5">
+                    <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
                       +{elevation} m
                     </Text>
                   </View>
@@ -920,7 +920,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
                       Calories
                     </Text>
-                    <Text className="text-lg font-black text-theme-text font-mono mt-0.5">
+                    <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
                       {calories} Cal
                     </Text>
                   </View>
@@ -961,7 +961,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
               {/* Comments Section */}
               <View className="mt-2 space-y-2">
-                <Text className="text-xs font-extrabold text-[#64748B] uppercase tracking-wider">
+                <Text className="text-xs font-extrabold text-[#64748B]">
                   Comments ({comments.length})
                 </Text>
                 {comments.map((c) => (
@@ -990,7 +990,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
               {setsOrEfforts.length > 0 && (
                 <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4">
                   <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-xs font-extrabold uppercase tracking-wider text-[#64748B]">
+                    <Text className="text-xs font-extrabold text-[#64748B]">
                       {hasMilestones ? 'Best Efforts & Milestones' : 'Strength Sets Breakdown'}
                     </Text>
                     <Text className="text-xs font-bold text-theme-accent">
@@ -1021,17 +1021,17 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                           <Text className="text-sm font-bold text-theme-text">{item.name}</Text>
                           {item.prRank === 1 && (
                             <View className="bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-2">
-                              <Text className="text-[10px] font-bold text-amber-600 dark:text-amber-300">PR</Text>
+                              <Text className="text-xs font-bold text-amber-600 dark:text-amber-300">PR</Text>
                             </View>
                           )}
                           {item.prRank === 2 && (
                             <View className="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded ml-2">
-                              <Text className="text-[10px] font-bold text-slate-600 dark:text-slate-300">2nd Best</Text>
+                              <Text className="text-xs font-bold text-slate-600 dark:text-slate-300">2nd Best</Text>
                             </View>
                           )}
                           {item.prRank === 3 && (
                             <View className="bg-amber-900/20 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-2">
-                              <Text className="text-[10px] font-bold text-amber-700 dark:text-amber-400">3rd Best</Text>
+                              <Text className="text-xs font-bold text-amber-700 dark:text-amber-400">3rd Best</Text>
                             </View>
                           )}
                         </View>
@@ -1043,7 +1043,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                             {formatEffortDuration(item.timeSec)}
                           </Text>
                           {item.paceOrSpeed ? (
-                            <Text className="text-[11px] font-medium font-mono text-[#64748B] dark:text-slate-400">
+                            <Text className="text-xs font-medium font-mono text-[#64748B] dark:text-slate-400">
                               {item.paceOrSpeed}
                             </Text>
                           ) : null}
@@ -1063,7 +1063,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
               {laps.length > 0 && (
                 <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4">
                   <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-xs font-extrabold uppercase tracking-wider text-[#64748B]">
+                    <Text className="text-xs font-extrabold text-[#64748B]">
                       {isCycling ? 'Speed by Lap' : 'Lap Splits Table'} ({laps.length})
                     </Text>
                     {laps.length > 5 && (
@@ -1087,12 +1087,12 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                   </View>
 
                   <View className="flex-row justify-between pb-2 border-b border-[#E2E8F0] dark:border-slate-800 px-1 mb-1">
-                    <Text className="text-[11px] uppercase font-semibold text-[#94A3B8] w-12">Lap</Text>
-                    <Text className="text-[11px] uppercase font-semibold text-[#94A3B8] w-20">Dist</Text>
-                    <Text className="text-[11px] uppercase font-semibold text-[#94A3B8] flex-1">
+                    <Text className="text-xs font-semibold text-[#94A3B8] w-12">Lap</Text>
+                    <Text className="text-xs font-semibold text-[#94A3B8] w-20">Dist</Text>
+                    <Text className="text-xs font-semibold text-[#94A3B8] flex-1">
                       {isCycling ? 'Speed' : isSwim ? 'Pace' : 'Pace'}
                     </Text>
-                    <Text className="text-[11px] uppercase font-semibold text-[#94A3B8] w-16 text-right">Avg HR</Text>
+                    <Text className="text-xs font-semibold text-[#94A3B8] w-16 text-right">Avg HR</Text>
                   </View>
 
                   {(isLapsExpanded ? laps : laps.slice(0, 5)).map((lap, idx) => (
