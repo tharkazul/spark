@@ -60,11 +60,31 @@ export const SPORT_MUSCLE_SHARES: Record<string, Partial<MuscleShares>> = {
  * down to 22%, so a Tuesday session is invisible by Friday. 0.78 gives a
  * half-life of about 2.8 days: yesterday's long run still dominates, last
  * weekend's has mostly cleared.
+ *
+ * Decay is applied at read time against a fractional age, so a muscle group
+ * recovers by the hour rather than lurching once at midnight the way the
+ * nightly job made it.
  */
 export const DAILY_RETENTION = 0.78;
 
-/** Days of history considered. Beyond this the retention factor is negligible. */
+/** Days of history considered. */
 export const WINDOW_DAYS = 7;
+
+/**
+ * Weight of a session `age` days old, tapered to reach exactly zero at the
+ * window edge.
+ *
+ * Raw `DAILY_RETENTION^age` is still worth 17% of its load at day seven, so
+ * dropping the session out of the window took that 17% with it in one instant —
+ * an 11-point fall on a real week, between two consecutive reads. Nothing
+ * happens to a muscle at the 168-hour mark; that was an artifact of the window.
+ * Subtracting the edge value and renormalising makes the curve continuous: 1 at
+ * age 0, 0 at age WINDOW_DAYS, and monotonic in between.
+ */
+export function retentionAt(age: number): number {
+  const edge = Math.pow(DAILY_RETENTION, WINDOW_DAYS);
+  return (Math.pow(DAILY_RETENTION, age) - edge) / (1 - edge);
+}
 
 /**
  * Decayed Rooka load at which a muscle reads ~63%.
@@ -79,8 +99,12 @@ export const WINDOW_DAYS = 7;
  *
  * The old arithmetic put that ordinary week at 95 on three muscles at once,
  * which is the complaint this is answering.
+ *
+ * 185 rather than 220 because `retentionAt` discards the window-edge residual;
+ * the two changes together hold every calibration point above exactly where it
+ * was agreed.
  */
-export const REFERENCE_LOAD = 220;
+export const REFERENCE_LOAD = 185;
 
 /**
  * Per-sport scaling of Rooka into mechanical muscle load.
@@ -170,8 +194,7 @@ export function decayedMuscleLoad(
     if (load <= 0) continue;
 
     const sport = sportKeyFor(activity);
-    const retained =
-      load * (SPORT_LOAD_WEIGHT[sport] ?? 1) * Math.pow(DAILY_RETENTION, age);
+    const retained = load * (SPORT_LOAD_WEIGHT[sport] ?? 1) * retentionAt(age);
     const shares = SPORT_MUSCLE_SHARES[sport];
 
     for (const muscle of MUSCLE_GROUPS) {

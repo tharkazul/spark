@@ -56,6 +56,7 @@ const {
   runDailyRecoveryJob,
   resetDailyTokensForAllUsers,
   resetDailyNutritionForAllUsers,
+  generateWeeklyAthleteDescriptionsJob,
 } = require("./services/utils");
 
 const { sseClients, initWebSocketServer } = require("./services/sse");
@@ -106,6 +107,14 @@ cron.schedule('5 0 * * *', () => {
 // Schedule weekly feature onboarding check on Sundays at 10:00 AM (Europe/Amsterdam timezone)
 cron.schedule('0 10 * * 0', () => {
   runWeeklyFeatureOnboardingJob();
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Schedule weekly public athlete description generator on Sunday nights at 23:00 (Europe/Amsterdam timezone)
+cron.schedule('0 23 * * 0', () => {
+  generateWeeklyAthleteDescriptionsJob();
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"

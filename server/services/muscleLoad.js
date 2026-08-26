@@ -44,7 +44,18 @@ const SPORT_LOAD_WEIGHT = {
 
 const DAILY_RETENTION = 0.78;
 const WINDOW_DAYS = 7;
-const REFERENCE_LOAD = 220;
+const REFERENCE_LOAD = 185;
+
+/**
+ * Weight of a session `age` days old, tapered to reach exactly zero at the
+ * window edge. See the note on `retentionAt` in src/domain/muscleLoad.ts:
+ * raw retention is still worth 17% at day seven, so dropping the session out of
+ * the window used to take that 17% with it between two consecutive reads.
+ */
+function retentionAt(age) {
+  const edge = Math.pow(DAILY_RETENTION, WINDOW_DAYS);
+  return (Math.pow(DAILY_RETENTION, age) - edge) / (1 - edge);
+}
 
 function sportKeyFor(activity) {
   const raw = `${activity.sport_type || ""} ${activity.name || ""}`.toLowerCase();
@@ -91,8 +102,7 @@ function decayedMuscleLoad(activities, now = new Date()) {
     if (load <= 0) continue;
 
     const sport = sportKeyFor(activity);
-    const retained =
-      load * (SPORT_LOAD_WEIGHT[sport] || 1) * Math.pow(DAILY_RETENTION, age);
+    const retained = load * (SPORT_LOAD_WEIGHT[sport] || 1) * retentionAt(age);
     const shares = SPORT_MUSCLE_SHARES[sport];
 
     for (const m of MUSCLE_GROUPS) {
@@ -198,6 +208,7 @@ module.exports = {
   DAILY_RETENTION,
   WINDOW_DAYS,
   REFERENCE_LOAD,
+  retentionAt,
   sportKeyFor,
   loadOf,
   ageInDays,

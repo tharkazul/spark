@@ -2,6 +2,8 @@ import {
   MUSCLE_GROUPS,
   DAILY_RETENTION,
   REFERENCE_LOAD,
+  WINDOW_DAYS,
+  retentionAt,
   ageInDays,
   decayedMuscleLoad,
   fatiguePercentages,
@@ -69,9 +71,46 @@ export function runMuscleLoadTests() {
   const today = decayedMuscleLoad([act(0, 'Run', 60)], NOW);
   const sixDaysAgo = decayedMuscleLoad([act(6, 'Run', 60)], NOW);
   assert(today.quads > sixDaysAgo.quads, 'today counts more than six days ago');
-  const expected = Math.pow(DAILY_RETENTION, 6);
   const ratio = sixDaysAgo.quads / today.quads;
-  assert(Math.abs(ratio - expected) < 0.01, `six-day retention should be ~${expected.toFixed(3)}`);
+  assert(
+    Math.abs(ratio - retentionAt(6)) < 0.01,
+    `six-day retention should be ~${retentionAt(6).toFixed(3)}, got ${ratio.toFixed(3)}`
+  );
+
+  // --- the window edge is continuous -----------------------------------
+  // Raw DAILY_RETENTION^7 is still 0.17, so before the taper an activity fell
+  // off the window carrying 17% of its load and the reading dropped ~11 points
+  // between two consecutive reads. Nothing happens to a muscle at 168 hours.
+  assert(Math.abs(retentionAt(0) - 1) < 1e-9, 'a session today counts in full');
+  assert(Math.abs(retentionAt(WINDOW_DAYS)) < 1e-9, 'weight reaches 0 at the window edge');
+  assert(retentionAt(1) > retentionAt(2), 'retention is monotonically decreasing');
+  assert(retentionAt(3) > retentionAt(6), 'retention is monotonically decreasing');
+
+  const hardSession = [act(0, 'Ride', 180, 1.2)];
+  const justInside = fatiguePercentages(
+    hardSession.map((a) => ({ ...a, start_date: new Date(NOW.getTime() - (WINDOW_DAYS * 86400000 - 3600000)).toISOString() })),
+    NOW
+  );
+  const justOutside = fatiguePercentages(
+    hardSession.map((a) => ({ ...a, start_date: new Date(NOW.getTime() - (WINDOW_DAYS * 86400000 + 3600000)).toISOString() })),
+    NOW
+  );
+  for (const m of MUSCLE_GROUPS) {
+    assert(
+      Math.abs(justInside[m] - justOutside[m]) <= 1,
+      `${m} must not jump across the window edge: ${justInside[m]} -> ${justOutside[m]}`
+    );
+  }
+
+  // Decay is continuous in time, not a nightly step: six hours of rest after a
+  // hard session has to register.
+  const ride = act(0, 'Ride', 180, 1.2);
+  const atSix = fatiguePercentages(
+    [{ ...ride, start_date: new Date(NOW.getTime() - 6 * 3600000).toISOString() }],
+    NOW
+  );
+  const atZero = fatiguePercentages([ride], NOW);
+  assert(atZero.quads > atSix.quads, 'a muscle recovers within the same day');
 
   // Outside the window it does not count at all.
   const outside = decayedMuscleLoad([act(30, 'Run', 60)], NOW);
@@ -145,6 +184,28 @@ export function runMuscleLoadTests() {
   for (const m of MUSCLE_GROUPS) {
     assert(Number.isFinite(junk[m]), `${m} stays finite on malformed input`);
     assert(junk[m] >= 0 && junk[m] < 100, `${m} stays in range on malformed input`);
+  }
+
+  // --- the agreed calibration ------------------------------------------
+  // These four readings were signed off explicitly. A change to REFERENCE_LOAD,
+  // DAILY_RETENTION or the taper that moves them is a recalibration and needs
+  // saying out loud, not a silent constant edit.
+  const CALIBRATION: [string, MuscleLoadActivity[], number][] = [
+    ['race taper', [act(0, 'Run', 25), act(2, 'Run', 30, 1.35), act(4, 'Ride', 40)], 19],
+    ['ordinary week', ordinaryWeek, 55],
+    [
+      'ordinary + gym',
+      [...ordinaryWeek, act(1, 'WeightTraining', 50, 0.7), act(4, 'WeightTraining', 50, 0.7)],
+      65,
+    ],
+    ['big block', bigBlock, 80],
+  ];
+  for (const [label, acts, expectedQuads] of CALIBRATION) {
+    const got = fatiguePercentages(acts, NOW).quads;
+    assert(
+      got === expectedQuads,
+      `${label} quads should read ${expectedQuads}% as agreed, got ${got}%`
+    );
   }
 
   console.log('[MuscleLoad Unit Tests] All muscle load tests passed successfully!');

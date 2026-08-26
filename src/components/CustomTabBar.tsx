@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Pressable, StyleSheet, DeviceEventEmitter, Modal } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Pressable, StyleSheet, DeviceEventEmitter, Modal, Animated as RNAnimated } from 'react-native';
 import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -19,7 +19,12 @@ import { LogNiggleModal } from './dashboard/LogNiggleModal';
 const TAB_ORDER = ['index', 'physique', 'coach', 'social', 'profile'];
 const TAB_BAR_HEIGHT = 62;
 
-export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps) {
+// The sliding active pill. 22pt icon plus the padding the blob used to carry.
+const PILL_WIDTH = 54;
+const PILL_HEIGHT = 38;
+const BAR_PADDING_H = 6;
+
+export function CustomTabBar({ state, descriptors, navigation, position }: MaterialTopTabBarProps) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -29,6 +34,20 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
   const { addWorkout } = usePlan();
   const { progress } = useKeyboardMotionContext();
   
+  // Width of the bar itself, so the pill can be placed on the same grid the
+  // flex:1 tabs land on.
+  const [barWidth, setBarWidth] = useState(0);
+
+  // `position` is the pager's fractional index — 1.4 means 40% of the way from
+  // Progress to Coach — and it is what makes the pill track the finger instead
+  // of jumping when the swipe settles. If the bar is ever mounted under a
+  // navigator that does not supply it, fall back to the settled index.
+  const fallbackPosition = useRef(new RNAnimated.Value(state.index)).current;
+  useEffect(() => {
+    if (!position) fallbackPosition.setValue(state.index);
+  }, [position, state.index, fallbackPosition]);
+  const pagerPosition = position ?? fallbackPosition;
+
   const [barInteractive, setBarInteractive] = useState(true);
   const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<'none' | 'weight' | 'workout' | 'activity' | 'injury'>('none');
@@ -102,11 +121,17 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
   const bubbleBorder = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.12)';
   const textCol = isDark ? '#F8FAFC' : '#0F172A';
 
+  // Each tab is flex:1 inside the bar's horizontal padding, so they tile evenly.
   const visibleRoutes = state.routes.filter((route) => {
     const { options } = descriptors[route.key];
     if ((options as any).href === null) return false;
     return TAB_ORDER.includes(route.name);
   });
+
+  const segmentWidth =
+    barWidth > 0 && visibleRoutes.length > 0
+      ? (barWidth - BAR_PADDING_H * 2) / visibleRoutes.length
+      : 0;
 
   const animatedStyle = useAnimatedStyle(() => {
     const totalOffset = TAB_BAR_HEIGHT + insets.bottom + 32;
@@ -298,6 +323,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
           <Animated.View 
             onLayout={(e) => {
               setTabBarOccupied(Math.max(insets.bottom, 16) + e.nativeEvent.layout.height);
+              setBarWidth(e.nativeEvent.layout.width);
             }}
             style={[{
               width: '85%',
@@ -318,6 +344,40 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
               elevation: 6,
             }, animatedStyle]}
           >
+            {/* Active pill. One element that slides, rather than a background
+                toggled per tab — the pill now follows the swipe the same way the
+                sub-tab indicators on Progress, Social and Profile do. It sits
+                before the tabs so it paints behind them, and it fades out across
+                the Coach slot, which is the raised circle and has no pill. */}
+            {segmentWidth > 0 && (
+              <RNAnimated.View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  top: (TAB_BAR_HEIGHT - 2 - PILL_HEIGHT) / 2,
+                  left: BAR_PADDING_H + segmentWidth / 2 - PILL_WIDTH / 2,
+                  width: PILL_WIDTH,
+                  height: PILL_HEIGHT,
+                  borderRadius: 20,
+                  backgroundColor: activeBlobBg,
+                  opacity: pagerPosition.interpolate({
+                    inputRange: [1, 1.5, 2, 2.5, 3],
+                    outputRange: [1, 0, 0, 0, 1],
+                    extrapolate: 'clamp',
+                  }),
+                  transform: [
+                    {
+                      translateX: pagerPosition.interpolate({
+                        inputRange: [0, visibleRoutes.length - 1],
+                        outputRange: [0, (visibleRoutes.length - 1) * segmentWidth],
+                        extrapolate: 'clamp',
+                      }),
+                    },
+                  ],
+                }}
+              />
+            )}
+
             {visibleRoutes.map((route) => {
               const { options } = descriptors[route.key];
               const routeIndex = state.routes.findIndex((r) => r.key === route.key);
@@ -448,21 +508,54 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                     justifyContent: 'center',
                   }}
                 >
+                  {/* The icon colour cross-fades on the same value as the pill.
+                      Two stacked copies with opposite opacities, because an
+                      Ionicons `color` prop cannot itself be animated — the same
+                      technique the sub-tab labels use. The background is gone
+                      from here: the pill is now a single sliding element. */}
                   <View
                     style={{
-                      backgroundColor: isFocused ? activeBlobBg : 'transparent',
                       paddingHorizontal: 16,
                       paddingVertical: 8,
-                      borderRadius: 20,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    {(options.tabBarIcon as any) && (options.tabBarIcon as any)({ 
-                      focused: isFocused, 
-                      color: isFocused ? (isDark ? '#FF6B35' : '#FF5F3B') : (isDark ? '#94A3B8' : '#64748B'), 
-                      size: 22 
-                    } as any)}
+                    <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+                      <RNAnimated.View
+                        style={{
+                          position: 'absolute',
+                          opacity: pagerPosition.interpolate({
+                            inputRange: [routeIndex - 1, routeIndex, routeIndex + 1],
+                            outputRange: [1, 0, 1],
+                            extrapolate: 'clamp',
+                          }),
+                        }}
+                      >
+                        {(options.tabBarIcon as any) &&
+                          (options.tabBarIcon as any)({
+                            focused: false,
+                            color: isDark ? '#94A3B8' : '#64748B',
+                            size: 22,
+                          } as any)}
+                      </RNAnimated.View>
+                      <RNAnimated.View
+                        style={{
+                          opacity: pagerPosition.interpolate({
+                            inputRange: [routeIndex - 1, routeIndex, routeIndex + 1],
+                            outputRange: [0, 1, 0],
+                            extrapolate: 'clamp',
+                          }),
+                        }}
+                      >
+                        {(options.tabBarIcon as any) &&
+                          (options.tabBarIcon as any)({
+                            focused: true,
+                            color: isDark ? '#FF6B35' : '#FF5F3B',
+                            size: 22,
+                          } as any)}
+                      </RNAnimated.View>
+                    </View>
                   </View>
                 </TouchableOpacity>
               );

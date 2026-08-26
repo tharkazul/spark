@@ -243,9 +243,9 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                     </View>
                   )}
 
-                  {profile.athlete_context ? (
-                    <Text className="text-xs text-theme-muted mt-1 leading-4" numberOfLines={2}>
-                      {profile.athlete_context}
+                  {profile.public_description ? (
+                    <Text className="text-xs text-theme-muted mt-1.5 leading-relaxed" numberOfLines={3}>
+                      {profile.public_description}
                     </Text>
                   ) : null}
                 </View>

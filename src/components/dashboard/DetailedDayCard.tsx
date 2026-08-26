@@ -95,7 +95,8 @@ export function DetailedDayCard({
 
   const hasWorkouts = day.workouts.length > 0;
 
-  const formatHumanDuration = (durationStr?: string, sport?: SportType) => {
+  const formatHumanDuration = (durationStr?: string, sport?: SportType | string) => {
+    if (sport === 'REST') return 'Rest day';
     if (!durationStr) return `45 min ${sport ? sport.toLowerCase() : 'session'}`;
     const cleanDur = durationStr.replace(/mins?/i, 'min').trim();
     const sportName = sport ? sport.toLowerCase() : 'session';

@@ -49,7 +49,7 @@ const {
   processTokenRefresh,
   getStravaTokenForUser,
   getRookaLevelInfo,
-  calculateRookaScore,
+  calculateRookaScoreZoned,
   mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
@@ -928,10 +928,12 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                               new Date().toISOString();
                                             const rookaScore =
                                               act.rooka_score ||
-                                              calculateRookaScore(
-                                                act.moving_time_min,
-                                                act.average_heartrate,
-                                              );
+                                              (await calculateRookaScoreZoned({
+                                                userId: req.user.id,
+                                                movingTimeMin: act.moving_time_min,
+                                                avgHr: act.average_heartrate,
+                                                sport: act.sport_type,
+                                              }));
 
                                             await new Promise((resolveInsert) => {
                                               db.run(

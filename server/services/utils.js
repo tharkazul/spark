@@ -193,17 +193,158 @@ async function getUserMacroPhase(userId) {
   });
 }
 
+async function generateAthleteWeeklyDescription(userId) {
+  return new Promise((resolve) => {
+    db.get(
+      `SELECT id, username FROM users WHERE id = ? AND deleted_at IS NULL`,
+      [userId],
+      async (err, user) => {
+        if (err || !user) return resolve(null);
+
+        db.all(
+          `SELECT id, name, sport_type, distance_km, moving_time_min, start_date, rooka_score, average_watts
+           FROM activities
+           WHERE user_id = ? AND start_date >= datetime('now', '-30 days')
+           ORDER BY start_date DESC`,
+          [user.id],
+          async (errActs, acts) => {
+            const activities = acts || [];
+
+            // Sport counts and disciplines
+            const sportCounts = {};
+            let totalKm = 0;
+            let totalMins = 0;
+            activities.forEach((a) => {
+              const sport = (a.sport_type || 'Workout').toLowerCase();
+              sportCounts[sport] = (sportCounts[sport] || 0) + 1;
+              totalKm += a.distance_km || 0;
+              totalMins += a.moving_time_min || 0;
+            });
+
+            const topSports = Object.entries(sportCounts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([s, c]) => `${c} ${s} session${c > 1 ? 's' : ''}`);
+
+            const hasRun = Boolean(sportCounts['run'] || sportCounts['virtualrun']);
+            const hasRide = Boolean(sportCounts['ride'] || sportCounts['virtualride'] || sportCounts['gravel'] || sportCounts['mtb'] || sportCounts['bike']);
+            const hasSwim = Boolean(sportCounts['swim']);
+            const hasStrength = Boolean(sportCounts['strength'] || sportCounts['weighttraining']);
+
+            let archetypeName = 'Multi-Discipline Athlete';
+            if (hasRun && (hasRide || hasSwim)) {
+              archetypeName = 'Multi-Sport Athlete';
+            } else if (hasStrength && (hasRun || hasRide)) {
+              archetypeName = 'Hyrox Hybrid';
+            } else if (hasRun) {
+              archetypeName = 'Endurance Runner';
+            } else if (hasRide) {
+              archetypeName = 'Rouleur';
+            } else if (hasStrength) {
+              archetypeName = 'Strength Athlete';
+            }
+
+            const fallbackDescriptions = {
+              'Multi-Sport Athlete': 'Dedicated multi-sport athlete building consistent weekly volume across endurance and conditioning disciplines. Known for relentless cross-training versatility and strong aerobic stamina on the course.',
+              'Hyrox Hybrid': 'Hybrid power athlete blending functional strength conditioning with steady endurance volume. Built for high work capacity, explosive grit, and strong pacing under load.',
+              'Endurance Runner': 'Committed endurance runner logging steady mileage and aerobic base work each week. Focused on progressive pacing, threshold durability, and aerobic stamina on the road.',
+              'Rouleur': 'Power-focused cyclist logging steady road mileage and driving sustained wattage on the bike. Specializes in aerobic endurance, tempo pacing, and relentless road rhythm.',
+              'Strength Athlete': 'Focused strength and conditioning athlete dedicated to progressive overload and functional power. Prioritizes muscular strength, structural integrity, and explosive drive.',
+              'Multi-Discipline Athlete': 'Disciplined athlete maintaining a strong habit of weekly training sessions and cross-conditioning. Driven by consistent progression, functional fitness, and multi-modal stamina.',
+            };
+
+            const defaultFallback =
+              fallbackDescriptions[archetypeName] ||
+              fallbackDescriptions['Multi-Discipline Athlete'];
+
+            let finalBio = defaultFallback;
+
+            if (activities.length > 0) {
+              try {
+                const prompt = `Here is the athletic training summary for athlete ${user.username}:
+- Archetype focus: ${archetypeName}
+- Past 30 days training: ${activities.length} workouts completed (${Math.round(totalKm)} km total distance, ${Math.round(totalMins / 60)} hours total).
+- Disciplines logged: ${topSports.join(', ') || 'Mixed training'}.
+
+Write a snappy, punchy, motivating 2-sentence public athletic bio describing their athletic focus and training discipline.
+
+CRITICAL PRIVACY RULES:
+1. Output EXACTLY 2 sentences. High energy, sports-focused, and concise.
+2. ABSOLUTELY NO personal life details (no family, kids, jobs, work schedule, medical or private data). Focus strictly on their training consistency, discipline, sport variety, and athletic strengths.
+3. Do not use quotes, hashtags, or preamble. Output ONLY the 2 sentences.`;
+
+                const systemPrompt = `You are an elite sports commentator. You write punchy, engaging 2-sentence public athlete bios focusing entirely on training discipline, athletic capabilities, and sport volume. Strictly omit all personal/private life details.`;
+
+                const aiRes = await generateWithFallback(prompt, systemPrompt);
+                let text = typeof aiRes === 'string' ? aiRes : aiRes?.text || '';
+                text = text.replace(/^["']|["']$/g, '').trim();
+
+                if (text && text.length > 20 && text.length < 320) {
+                  finalBio = text;
+                }
+              } catch (e) {
+                console.log(`AI bio generation fallback used for user ${user.id}:`, e?.message);
+              }
+            }
+
+            db.run(
+              `UPDATE users SET public_description = ? WHERE id = ?`,
+              [finalBio, user.id],
+              (errUp) => {
+                if (errUp) console.error('Error updating public_description:', errUp);
+                resolve(finalBio);
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+}
+
+async function generateWeeklyAthleteDescriptionsJob() {
+  console.log('🏁 Running Sunday night weekly athlete descriptions job...');
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT id, username FROM users WHERE deleted_at IS NULL`,
+      [],
+      async (err, users) => {
+        if (err || !users || users.length === 0) return resolve();
+        for (const u of users) {
+          try {
+            await generateAthleteWeeklyDescription(u.id);
+            // Brief delay to avoid rate-limiting
+            await new Promise((r) => setTimeout(r, 400));
+          } catch (e) {
+            console.error(`Error in weekly bio job for user ${u.id}:`, e);
+          }
+        }
+        console.log('✅ Completed Sunday night weekly athlete descriptions.');
+        resolve();
+      }
+    );
+  });
+}
+
 function generatePublicProfile(targetUserId, viewerUserId = null) {
   return new Promise((resolve) => {
     db.get(
-      `SELECT u.id, u.username, u.athlete_context, u.profile_picture_url, u.total_rooka,
+      `SELECT u.id, u.username, u.public_description, u.profile_picture_url, u.total_rooka,
               (SELECT status FROM connections WHERE user_id = ? AND friend_id = u.id) as connection_status
        FROM users u
        WHERE (u.id = ? OR u.username = ?) AND u.deleted_at IS NULL`,
       [viewerUserId, targetUserId, targetUserId],
-      (err, user) => {
+      async (err, user) => {
         if (err || !user) return resolve(null);
         const targetId = user.id;
+
+        let publicBio = user.public_description;
+        if (!publicBio) {
+          try {
+            publicBio = await generateAthleteWeeklyDescription(targetId);
+          } catch (e) {
+            publicBio = null;
+          }
+        }
 
         db.get(
           `SELECT ftp, weight_kg, max_hr FROM athlete_metrics WHERE user_id = ?`,
@@ -325,7 +466,7 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
                       username: user.username,
                       profilePictureUrl: user.profile_picture_url,
                       profile_picture_url: user.profile_picture_url,
-                      athlete_context: user.athlete_context,
+                      public_description: publicBio || user.public_description,
                       total_rooka: computedTotalRooka,
                       levelInfo: {
                         level: levelInfo.level,
@@ -946,17 +1087,23 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
     db.get(
       `SELECT rooka_start_date FROM users WHERE id = ?`,
       [internalUserId],
-      (err, uRow) => {
+      async (err, uRow) => {
         const userStartDateDay = uRow && uRow.rooka_start_date ? uRow.rooka_start_date.substring(0, 10) : null;
         const actStartDateDay = data.start_date ? data.start_date.substring(0, 10) : null;
 
         let rookaScore = 0;
         if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
-          rookaScore = calculateRookaScore(
-            data.moving_time / 60,
-            data.average_heartrate,
-            tss,
-          );
+          // The webhook is how activities normally arrive, so scoring it
+          // with the legacy helper meant the zone model almost never ran: no
+          // tables passed means the fallback multiplier of 1.0, i.e. bare
+          // minutes. Score against the athlete's own zones, as Sync does.
+          rookaScore = await calculateRookaScoreZoned({
+            userId: internalUserId,
+            movingTimeMin: data.moving_time / 60,
+            avgHr: data.average_heartrate,
+            avgWatts: data.weighted_average_watts || data.average_watts,
+            sport: mapStravaSportToRooka(data.sport_type),
+          });
         }
 
         let lapsJson = null;
@@ -973,9 +1120,9 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
         }
 
         db.run(
-          `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, laps_json, polyline) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json, polyline=COALESCE(excluded.polyline, polyline)`,
+          `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, laps_json, polyline) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, laps_json=excluded.laps_json, polyline=COALESCE(excluded.polyline, polyline)`,
           [
             internalUserId,
             String(data.id),
@@ -985,6 +1132,8 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
             data.total_elevation_gain,
             data.moving_time / 60,
             data.average_heartrate || null,
+            data.weighted_average_watts || data.average_watts || null,
+            data.max_heartrate || null,
             data.start_date,
             tss,
             rookaScore,
@@ -1207,23 +1356,25 @@ async function syncAllStravaUsersOnStartup() {
 
               if (Array.isArray(activities)) {
                 const userStartDateDay = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;
-                activities.forEach((act) => {
+                for (const act of activities) {
                   const tss =
                     act.suffer_score ||
                     Math.round((act.moving_time / 3600) * 50);
                   const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
                   let rookaScore = 0;
                   if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
-                    rookaScore = calculateRookaScore(
-                      act.moving_time / 60,
-                      act.average_heartrate,
-                      tss,
-                    );
+                    rookaScore = await calculateRookaScoreZoned({
+                      userId: user.id,
+                      movingTimeMin: act.moving_time / 60,
+                      avgHr: act.average_heartrate,
+                      avgWatts: act.weighted_average_watts || act.average_watts,
+                      sport: mapStravaSportToRooka(act.sport_type),
+                    });
                   }
                   db.run(
-                    `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, polyline) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                             ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
+                    `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, polyline) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
                     [
                       user.id,
                       String(act.id),
@@ -1233,13 +1384,15 @@ async function syncAllStravaUsersOnStartup() {
                       act.total_elevation_gain,
                       act.moving_time / 60,
                       act.average_heartrate || 0,
+                      act.weighted_average_watts || act.average_watts || null,
+                      act.max_heartrate || null,
                       act.start_date,
                       tss,
                       rookaScore,
                       extractStravaPolyline(act),
                     ],
                   );
-                });
+                }
                 updateUserRookaAndCheckLevel(user.id);
                 console.log(`✅ Startup sync complete for user ${user.id}`);
               } else {
@@ -2321,6 +2474,8 @@ module.exports = {
   evaluateAndProgressQuests,
   calculateQuestProgress,
   getEffectiveTokenLimit,
+  generateAthleteWeeklyDescription,
+  generateWeeklyAthleteDescriptionsJob,
   sendMorningMessage: async () => {
     console.log("🌞 Running scheduled morning message job...");
     const todayStr = getAMSDateString();

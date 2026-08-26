@@ -68,7 +68,7 @@ export interface PublicAthleteProfile {
   id: number;
   username: string;
   profilePictureUrl?: string;
-  athlete_context?: string;
+  public_description?: string;
   total_rooka?: number;
   levelInfo?: {
     level: number;

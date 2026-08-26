@@ -126,6 +126,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN deleted_at TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'en'`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN public_description TEXT`, (err) => {});
   // Date of birth drives max HR (220 - age) and therefore the heart-rate zone
   // table. Stored as a date rather than an age so it never goes stale.
   db.run(`ALTER TABLE users ADD COLUMN date_of_birth TEXT`, (err) => {});

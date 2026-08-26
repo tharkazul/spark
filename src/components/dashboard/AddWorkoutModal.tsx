@@ -21,6 +21,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useUser } from '../../context/UserStore';
 import { Button } from '../ui/Button';
 import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
+import { QuickBuildModal } from './QuickBuildModal';
 
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { WorkoutStep } from '../../types/plan';
@@ -113,6 +114,7 @@ export function AddWorkoutModal({
   const [durationMinutes, setDurationMinutes] = useState<number>(45);
   const [steps, setSteps] = useState<WorkoutStep[]>([]);
   const [customRooka, setCustomRooka] = useState<number | null>(null);
+  const [isQuickBuildOpen, setIsQuickBuildOpen] = useState(false);
 
   const [isGarminSynced, setIsGarminSynced] = useState(false);
   const [isGarminSyncing, setIsGarminSyncing] = useState(false);
@@ -139,7 +141,7 @@ export function AddWorkoutModal({
       setIsAppleWatchSynced(false);
 
       if (initialWorkout) {
-        setSelectedSport(initialWorkout.type);
+        setSelectedSport(String(initialWorkout.type || 'RUN').toUpperCase() as SportType);
         setTitle(initialWorkout.title);
         const parsedDur = parseInt(initialWorkout.duration || '45', 10);
         const dur = isNaN(parsedDur) ? 45 : parsedDur;
@@ -179,7 +181,7 @@ export function AddWorkoutModal({
     }
 
     let ratePerMin = 0.8;
-    switch (type) {
+    switch (String(type).toUpperCase()) {
       case 'RUN':
         ratePerMin = 0.8;
         break;
@@ -332,7 +334,7 @@ export function AddWorkoutModal({
           className="w-[70%] bg-[#FF5F3B] rounded-xl py-3.5 items-center justify-center mb-3"
         >
            <Text className="text-white font-extrabold text-base">
-             {initialWorkout ? (t('common.edit') || 'Update') : (t('common.save') || 'Save Workout')}
+             {t('common.save') || 'Save'}
            </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} className="py-2 px-6">
@@ -499,21 +501,15 @@ export function AddWorkoutModal({
                     </View>
                   )}
 
-                  {/* Duration & Calculated Rooka row */}
+                  {/* Quick Build & Calculated Rooka row */}
                   <View className="flex-row items-center gap-3">
-                    <View className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center">
-                      <TextInput
-                        value={String(durationMinutes)}
-                        onChangeText={(val) => {
-                          const parsed = parseInt(val, 10);
-                          if (!isNaN(parsed)) handleDurationChange(parsed);
-                          else setDurationMinutes(0);
-                        }}
-                        keyboardType="number-pad"
-                        className="flex-1 text-sm font-bold text-theme-text"
-                      />
-                      <Text className="text-xs font-bold text-theme-muted">mins</Text>
-                    </View>
+                    <TouchableOpacity
+                      onPress={() => setIsQuickBuildOpen(true)}
+                      className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2"
+                    >
+                      <Ionicons name="flash" size={14} color="#64748B" />
+                      <Text className="text-sm font-bold text-theme-text">Quick Build</Text>
+                    </TouchableOpacity>
 
                     <View className="flex-1 bg-[#FFF7ED] border border-[#FFEDD5] rounded-xl px-4 py-3 flex-row items-center justify-center gap-2">
                       <Ionicons name="sparkles" size={14} color="#FF5F3B" />
@@ -531,6 +527,11 @@ export function AddWorkoutModal({
         </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
+      <QuickBuildModal
+        visible={isQuickBuildOpen}
+        onClose={() => setIsQuickBuildOpen(false)}
+        onBuild={(mins) => handleDurationChange(mins)}
+      />
     </Modal>
   );
 }

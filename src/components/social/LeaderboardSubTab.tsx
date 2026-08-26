@@ -8,6 +8,107 @@ import { useRouter } from 'expo-router';
 import { socialApi } from '../../services/apiServices';
 import { LeaderboardEntry } from '../../types/social';
 
+/** Height of the switcher block, so a caller can animate it in without a jump. */
+export const LEADERBOARD_SWITCHER_HEIGHT = 46;
+
+export interface LeaderboardTypeSwitcherProps {
+  /** Horizontal scroll offset of the pager holding the two leaderboard pages. */
+  scrollX?: Animated.Value;
+  /** Which list is showing, when there is no pager to read it from. */
+  currentType?: 'rooka' | 'quests';
+  onSwitchType?: (type: 'rooka' | 'quests') => void;
+}
+
+/**
+ * The [Rooka Score | 7-Day Quests] switcher.
+ *
+ * Lives outside the pager. It used to be rendered inside each of the two
+ * leaderboard pages, so swiping between them slid two copies of the header
+ * across the screen — the header is a control for the pager, not content in it,
+ * and a control that moves with the thing it controls is disorienting.
+ */
+export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = ({
+  scrollX,
+  currentType = 'rooka',
+  onSwitchType,
+}) => {
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const subSegmentWidth = (SCREEN_WIDTH - 40 - 8) / 2;
+
+  // Pages 2 and 3 of the Social pager are the two leaderboards.
+  const track = (from: number, to: number) =>
+    scrollX
+      ? scrollX.interpolate({
+          inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+          outputRange: [from, to],
+          extrapolate: 'clamp',
+        })
+      : currentType === 'rooka'
+      ? from
+      : to;
+
+  const handlePress = (type: 'rooka' | 'quests') => {
+    Haptics.selectionAsync();
+    onSwitchType?.(type);
+  };
+
+  return (
+    <View
+      style={{ height: LEADERBOARD_SWITCHER_HEIGHT }}
+      className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden border border-[#E2E8F0] dark:border-slate-700"
+    >
+      <Animated.View
+        className="absolute top-1 bottom-1 bg-[#FF5F3B] rounded-lg shadow-xs"
+        style={{
+          left: 4,
+          width: subSegmentWidth,
+          transform: [{ translateX: track(0, subSegmentWidth) }],
+        }}
+      />
+
+      <TouchableOpacity
+        onPress={() => handlePress('rooka')}
+        className="flex-1 items-center justify-center z-10"
+      >
+        <View className="relative items-center justify-center">
+          <Animated.Text
+            style={{ opacity: track(1, 0) }}
+            className="text-xs font-extrabold text-white absolute"
+          >
+            ⚡️ Rooka Score
+          </Animated.Text>
+          <Animated.Text
+            style={{ opacity: track(0, 1) }}
+            className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
+          >
+            ⚡️ Rooka Score
+          </Animated.Text>
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => handlePress('quests')}
+        className="flex-1 items-center justify-center z-10"
+      >
+        <View className="relative items-center justify-center">
+          <Animated.Text
+            style={{ opacity: track(0, 1) }}
+            className="text-xs font-extrabold text-white absolute"
+          >
+            🏆 7-Day Quests
+          </Animated.Text>
+          <Animated.Text
+            style={{ opacity: track(1, 0) }}
+            className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
+          >
+            🏆 7-Day Quests
+          </Animated.Text>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 export interface LeaderboardSubTabProps {
   type?: 'rooka' | 'quests';
   onSwitchType?: (type: 'rooka' | 'quests') => void;
@@ -17,6 +118,12 @@ export interface LeaderboardSubTabProps {
   questLeaderboard?: LeaderboardEntry[];
   hasAccess?: boolean;
   onOpenAthleteProfile?: (userId: number | string) => void;
+  /**
+   * Render the type switcher inline. Social passes false and renders
+   * LeaderboardTypeSwitcher in its fixed header instead, so the control does not
+   * slide away with the pages it controls.
+   */
+  showSwitcher?: boolean;
 }
 
 export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
@@ -28,10 +135,10 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   questLeaderboard: controlledQuests,
   hasAccess: controlledHasAccess,
   onOpenAthleteProfile,
+  showSwitcher = true,
 }) => {
   const { user } = useUser();
   const router = useRouter();
-  const { width: SCREEN_WIDTH } = useWindowDimensions();
 
   const [internalActiveTab, setInternalActiveTab] = useState<'rooka' | 'quests'>('rooka');
   const [internalLoading, setInternalLoading] = useState<boolean>(true);
@@ -85,58 +192,6 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
     }
   };
 
-  const subSegmentWidth = (SCREEN_WIDTH - 40 - 8) / 2;
-
-  const subIndicatorTranslateX = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [0, subSegmentWidth],
-        extrapolate: 'clamp',
-      })
-    : currentType === 'quests'
-    ? subSegmentWidth
-    : 0;
-
-  const rookaWhiteOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [1, 0],
-        extrapolate: 'clamp',
-      })
-    : currentType === 'rooka'
-    ? 1
-    : 0;
-
-  const rookaGreyOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [0, 1],
-        extrapolate: 'clamp',
-      })
-    : currentType === 'rooka'
-    ? 0
-    : 1;
-
-  const questsWhiteOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [0, 1],
-        extrapolate: 'clamp',
-      })
-    : currentType === 'quests'
-    ? 1
-    : 0;
-
-  const questsGreyOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [1, 0],
-        extrapolate: 'clamp',
-      })
-    : currentType === 'quests'
-    ? 0
-    : 1;
-
   if (!hasAccess) {
     return (
       <View className="bg-theme-card border border-theme-border rounded-2xl p-6 items-center justify-center mt-4 shadow-sm">
@@ -157,57 +212,15 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
 
   return (
     <View className="space-y-4 mb-8">
-      {/* Dual Tab Switcher for Rooka Score vs 7-Day Quests */}
-      <View className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden mb-4 border border-[#E2E8F0] dark:border-slate-700">
-        <Animated.View
-          className="absolute top-1 bottom-1 bg-[#FF5F3B] rounded-lg shadow-xs"
-          style={{
-            left: 4,
-            width: subSegmentWidth,
-            transform: [{ translateX: subIndicatorTranslateX }],
-          }}
-        />
-
-        <TouchableOpacity
-          onPress={() => handleTabSwitch('rooka')}
-          className="flex-1 py-2.5 items-center justify-center z-10"
-        >
-          <View className="relative items-center justify-center">
-            <Animated.Text
-              style={{ opacity: rookaWhiteOpacity }}
-              className="text-xs font-extrabold text-white absolute"
-            >
-              ⚡️ Rooka Score
-            </Animated.Text>
-            <Animated.Text
-              style={{ opacity: rookaGreyOpacity }}
-              className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
-            >
-              ⚡️ Rooka Score
-            </Animated.Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => handleTabSwitch('quests')}
-          className="flex-1 py-2.5 items-center justify-center z-10"
-        >
-          <View className="relative items-center justify-center">
-            <Animated.Text
-              style={{ opacity: questsWhiteOpacity }}
-              className="text-xs font-extrabold text-white absolute"
-            >
-              🏆 7-Day Quests
-            </Animated.Text>
-            <Animated.Text
-              style={{ opacity: questsGreyOpacity }}
-              className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
-            >
-              🏆 7-Day Quests
-            </Animated.Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+      {showSwitcher && (
+        <View className="mb-4">
+          <LeaderboardTypeSwitcher
+            scrollX={scrollX}
+            currentType={currentType}
+            onSwitchType={handleTabSwitch}
+          />
+        </View>
+      )}
 
       {/* Leaderboard Ranks List */}
       {loading ? (

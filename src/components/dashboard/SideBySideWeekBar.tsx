@@ -16,8 +16,8 @@ export function SideBySideWeekBar({
   selectedDayIndex,
   onSelectDay,
 }: SideBySideWeekBarProps) {
-  const getSportIcon = (type: SportType) => {
-    switch (type) {
+  const getSportIcon = (type: SportType | string) => {
+    switch (String(type).toUpperCase()) {
       case 'RUN':
         return { icon: 'walk-outline', color: '#D9A62E' };
       case 'BIKE':

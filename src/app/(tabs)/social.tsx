@@ -15,7 +15,11 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { FeedSubTab } from '../../components/social/FeedSubTab';
 import { MyLogSubTab } from '../../components/social/MyLogSubTab';
-import { LeaderboardSubTab } from '../../components/social/LeaderboardSubTab';
+import {
+  LeaderboardSubTab,
+  LeaderboardTypeSwitcher,
+  LEADERBOARD_SWITCHER_HEIGHT,
+} from '../../components/social/LeaderboardSubTab';
 import { ActivityDetailModal } from '../../components/social/ActivityDetailModal';
 import { AddFriendsModal } from '../../components/social/AddFriendsModal';
 import { AthleteProfileModal } from '../../components/social/AthleteProfileModal';
@@ -190,6 +194,22 @@ export default function SocialScreen() {
     }
   };
 
+  // The switcher block reveals itself over the swipe from My Log into the
+  // leaderboard, so nothing jumps at the halfway mark.
+  const LEADERBOARD_HEADER_BLOCK = LEADERBOARD_SWITCHER_HEIGHT + 12;
+  const leaderboardHeaderHeight = scrollX.interpolate({
+    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
+    outputRange: [0, LEADERBOARD_HEADER_BLOCK],
+    extrapolate: 'clamp',
+  });
+  const leaderboardHeaderOpacity = scrollX.interpolate({
+    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const leaderboardType: 'rooka' | 'quests' =
+    lastLeaderboardPageIndex.current === 3 ? 'quests' : 'rooka';
+
   const bottomInsetPadding = Math.max(tabBarOccupied + 48, 120);
 
   return (
@@ -282,6 +302,29 @@ export default function SocialScreen() {
             </View>
           </TouchableOpacity>
         </View>
+
+        {/* The leaderboard's [Rooka Score | 7-Day Quests] switcher, pinned.
+            It used to sit inside each of the two leaderboard pages, so swiping
+            between them dragged two copies of the header across the screen.
+            Height and opacity are driven off the same scrollX as the pill, so it
+            grows in as you swipe toward the leaderboard rather than popping in
+            when the page index rounds over — and Feed and My Log keep exactly
+            the layout they had. */}
+        <Animated.View
+          style={{
+            height: leaderboardHeaderHeight,
+            opacity: leaderboardHeaderOpacity,
+            overflow: 'hidden',
+          }}
+        >
+          <View style={{ paddingTop: 12 }}>
+            <LeaderboardTypeSwitcher
+              scrollX={scrollX}
+              currentType={leaderboardType}
+              onSwitchType={handleLeaderboardSubTabPress}
+            />
+          </View>
+        </Animated.View>
       </View>
 
       {/* SWIPABLE HORIZONTAL PAGER VIEW */}
@@ -350,6 +393,7 @@ export default function SocialScreen() {
               questLeaderboard={questLeaderboard}
               hasAccess={hasLeaderboardAccess}
               onOpenAthleteProfile={handleOpenAthleteProfile}
+              showSwitcher={false}
             />
           </ScrollView>
         </View>
@@ -371,6 +415,7 @@ export default function SocialScreen() {
               questLeaderboard={questLeaderboard}
               hasAccess={hasLeaderboardAccess}
               onOpenAthleteProfile={handleOpenAthleteProfile}
+              showSwitcher={false}
             />
           </ScrollView>
         </View>
