@@ -133,6 +133,11 @@ db.serialize(() => {
   // signal at all and scored as bare minutes.
   db.run(`ALTER TABLE activities ADD COLUMN average_watts REAL`, (err) => {});
   db.run(`ALTER TABLE activities ADD COLUMN max_heartrate REAL`, (err) => {});
+  // The client has decoded polylines since the map was built, but the route was
+  // thrown away on the way in: Strava returns `map.summary_polyline` on every
+  // synced activity and nothing here kept it. Same class of bug as
+  // average_watts above.
+  db.run(`ALTER TABLE activities ADD COLUMN polyline TEXT`, (err) => {});
   // Per-athlete, per-sport zone tables. `sport` is 'default' or a sport name,
   // `kind` is 'hr' or 'power'; the boundaries live in zones_json so adding a
   // sport needs no schema change.
@@ -302,7 +307,7 @@ db.serialize(() => {
     );
   });
   db.run(
-    `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
+    `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, source TEXT DEFAULT 'coach', FOREIGN KEY(user_id) REFERENCES users(id))`,
   );
   db.run(
     `ALTER TABLE micro_plan RENAME COLUMN target_spark TO target_rooka`,
@@ -327,6 +332,21 @@ db.serialize(() => {
     },
   );
 
+  // Who prescribed this session. The coach's `details` prose is shown in the
+  // app as a note from the coach, which only makes sense on sessions the coach
+  // actually wrote — a workout the athlete built themselves has no coach to
+  // quote. Every row that existed before this column came from plan
+  // generation, so 'coach' is the right default for the backfill; the
+  // app-facing write routes set 'user' explicitly.
+  db.run(
+    `ALTER TABLE micro_plan ADD COLUMN source TEXT DEFAULT 'coach'`,
+    (err) => {
+      if (err && !err.message.includes("duplicate column name")) {
+        console.error("Error adding micro_plan source column:", err.message);
+      }
+    },
+  );
+
   // Migration: check if micro_plan is missing the 'id' column. If so, rebuild it.
   // This also implicitly drops the legacy UNIQUE(user_id, date, sport) constraint so users can have 2 runs in a day.
   db.all(`PRAGMA table_info(micro_plan);`, (err, rows) => {
@@ -338,7 +358,7 @@ db.serialize(() => {
         );
         db.serialize(() => {
           db.run(
-            `CREATE TABLE IF NOT EXISTS micro_plan_new (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
+            `CREATE TABLE IF NOT EXISTS micro_plan_new (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, source TEXT DEFAULT 'coach', FOREIGN KEY(user_id) REFERENCES users(id))`,
           );
           db.run(
             `INSERT INTO micro_plan_new (user_id, date, sport, description, target_rooka, details, steps_json) SELECT user_id, date, sport, description, target_tss as target_rooka, details, steps_json FROM micro_plan`,
@@ -400,8 +420,10 @@ db.serialize(() => {
         date TEXT,
         target_ctl REAL,
         is_main INTEGER DEFAULT 0,
+        artwork_url TEXT,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+  db.run(`ALTER TABLE milestones ADD COLUMN artwork_url TEXT`, (err) => {});
   db.run(`CREATE TABLE IF NOT EXISTS nutrition_protocols (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,

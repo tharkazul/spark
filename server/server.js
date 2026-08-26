@@ -12,7 +12,10 @@ const server = http.createServer(app);
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "50mb" }));
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
 // Admin & Legal static routing
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
@@ -49,8 +52,6 @@ app.use("/", notificationsRoutes);
 // Utilities and cron jobs
 const {
   syncAllStravaUsersOnStartup,
-  calculateGlobalMaxStats,
-  generateAllPublicProfiles,
   sendMorningMessage,
   runDailyRecoveryJob,
   resetDailyTokensForAllUsers,
@@ -70,9 +71,6 @@ db.serialize(() => {
 
   // Sync all Strava users on boot
   syncAllStravaUsersOnStartup();
-
-  // Create global leaderboard stats
-  calculateGlobalMaxStats();
 
   // Reset tokens & nutrition for any overdue accounts on startup
   resetDailyTokensForAllUsers();
@@ -117,22 +115,6 @@ setInterval(() => {
   // Sync all Strava users every 2 hours
   syncAllStravaUsersOnStartup();
 }, 2 * 60 * 60 * 1000);
-
-setInterval(() => {
-  // Update Leaderboard Profiles Daily at 3 AM AMS time
-  const amsDate = new Date().toLocaleTimeString("en-CA", {
-    timeZone: "Europe/Amsterdam",
-    hour12: false,
-  });
-  if (amsDate.startsWith("03:00:")) {
-    generateAllPublicProfiles();
-  }
-}, 60 * 1000);
-
-setInterval(() => {
-  // Update Leaderboard Stats every 6 hours
-  calculateGlobalMaxStats();
-}, 6 * 60 * 60 * 1000);
 
 
 

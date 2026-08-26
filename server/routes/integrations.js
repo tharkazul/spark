@@ -19,8 +19,6 @@ const {
   getWeatherContext,
   getUserMacroPhase,
   generatePublicProfile,
-  calculateGlobalMaxStats,
-  generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
   getRookaLevelInfo,
@@ -28,6 +26,7 @@ const {
   calculateRookaScoreZoned,
   mapStravaSportToRooka,
   formatStepsForStrava,
+  extractStravaPolyline,
   tagStravaActivity,
   getStravaActivity,
   getStravaUserIdsForAthlete,
@@ -275,9 +274,9 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
           // to sync the same Strava profile.
           const ok = await new Promise((resolve) =>
             db.run(
-              `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate`,
+              `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, polyline) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
               [
                 req.user.id,
                 String(act.id),
@@ -294,6 +293,11 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
                 act.start_date,
                 tss,
                 rookaScore,
+                // The map was drawing a placeholder square because the route
+                // never made it into the row. COALESCE on conflict means a
+                // re-sync of an older activity fills the gap without a
+                // summary_polyline-less response wiping a route we already have.
+                extractStravaPolyline(act),
               ],
               (insertErr) => {
                 if (insertErr) console.error("Strava activity upsert failed:", insertErr.message);
@@ -310,12 +314,37 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
 
         updateUserRookaAndCheckLevel(req.user.id);
 
+        // `evaluateQuestsAgainstActivity` was imported here but never called, so
+        // the Sync button inserted activities and skipped quest evaluation
+        // entirely — a 10 km run synced this way left the quest on 0/1. The
+        // webhook path in services/utils.js has always called it.
+        //
+        // Once after the loop, not once per activity: the evaluator re-reads the
+        // whole activity history from the database, and it generates a
+        // replacement quest (an AI call) whenever none is left active.
+        let completedQuests = [];
+        try {
+          completedQuests = await evaluateQuestsAgainstActivity(req.user.id, null);
+          if (completedQuests && completedQuests.length > 0) {
+            console.log(
+              `🏅 Strava sync completed ${completedQuests.length} quest(s) for user ${req.user.id}`,
+            );
+          }
+        } catch (e) {
+          console.error("Quest evaluation failed after Strava sync:", e.message);
+        }
+
         // Report what was actually stored for this athlete, never the raw count
         // returned by Strava.
         res.json({
           message: `Successfully synced ${storedForUser} activities!`,
           synced: storedForUser,
           failed,
+          completedQuests: (completedQuests || []).map((q) => ({
+            id: q.id,
+            description: q.description,
+            reward_points: q.reward_points,
+          })),
         });
       } catch (err) {
         console.error("Strava Sync Error:", err);

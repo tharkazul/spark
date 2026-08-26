@@ -19,8 +19,6 @@ const {
   getWeatherContext,
   getUserMacroPhase,
   generatePublicProfile,
-  calculateGlobalMaxStats,
-  generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
   getRookaLevelInfo,
@@ -38,52 +36,27 @@ const {
   evaluateAndProgressQuests
 } = require('../services/utils');
 
-router.get("/api/my-profile", authenticateToken, (req, res) => {
-  db.get(
-    "SELECT data FROM public_profile_cache WHERE user_id = ?",
-    [req.user.id],
-    async (err, row) => {
-      if (row && row.data) {
-        return res.json(JSON.parse(row.data));
-      } else {
-        try {
-          const globalMaxStats = await calculateGlobalMaxStats();
-          const profileData = await generatePublicProfile(
-            req.user.id,
-            globalMaxStats,
-          );
-          if (profileData) res.json(profileData);
-          else res.status(404).json({ error: "Profile not generated yet" });
-        } catch (e) {
-          console.error("Failed to generate profile for user", req.user.id, e);
-          res.status(500).json({ error: "Failed to generate profile" });
-        }
-      }
-    },
-  );
+router.get("/api/my-profile", authenticateToken, async (req, res) => {
+  try {
+    const profileData = await generatePublicProfile(req.user.id, req.user.id);
+    if (profileData) res.json(profileData);
+    else res.status(404).json({ error: "Profile not found" });
+  } catch (e) {
+    console.error("Failed to generate profile for user", req.user.id, e);
+    res.status(500).json({ error: "Failed to generate profile" });
+  }
 });
 
-router.get("/api/social/profile/:id", authenticateToken, (req, res) => {
+router.get("/api/social/profile/:id", authenticateToken, async (req, res) => {
   const targetUserId = req.params.id;
-
-  db.get(
-    `SELECT data FROM public_profile_cache WHERE user_id = ?`,
-    [targetUserId],
-    async (err, row) => {
-      if (row && row.data) {
-        return res.json(JSON.parse(row.data));
-      } else {
-        // Fallback generation if missing
-        const globalMaxStats = await calculateGlobalMaxStats();
-        const profileData = await generatePublicProfile(
-          targetUserId,
-          globalMaxStats,
-        );
-        if (profileData) res.json(profileData);
-        else res.status(404).json({ error: "User not found" });
-      }
-    },
-  );
+  try {
+    const profileData = await generatePublicProfile(targetUserId, req.user.id);
+    if (profileData) res.json(profileData);
+    else res.status(404).json({ error: "User not found" });
+  } catch (e) {
+    console.error("Failed to generate profile for user", targetUserId, e);
+    res.status(500).json({ error: "Failed to generate profile" });
+  }
 });
 
 router.post("/api/social/search", authenticateToken, (req, res) => {
@@ -259,7 +232,7 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
 router.get("/api/social/connections", authenticateToken, (req, res) => {
   db.all(
     `
-        SELECT c.friend_id, c.status, u.username
+        SELECT c.friend_id, c.status, u.username, u.profile_picture_url
         FROM connections c
         JOIN users u ON c.friend_id = u.id
         WHERE c.user_id = ?

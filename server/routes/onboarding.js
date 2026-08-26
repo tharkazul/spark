@@ -529,8 +529,8 @@ Example format:
     }
 
     const stmt = db.prepare(`
-      INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
     `);
     planData.forEach((day) => {
       stmt.run(

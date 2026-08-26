@@ -165,6 +165,15 @@ export default function ProgressScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        // Progress, Social and Profile each own a horizontal sub-tab pager, and
+        // the main tabs are now a pager too. Turning off bounce/overscroll is
+        // what makes the two cooperate: while this pager can still scroll in the
+        // drag direction it keeps the gesture, and once it is at its first or
+        // last page it has nowhere to go, so the drag passes up to the tab pager
+        // and you cross into the next main tab. With bounce on, the inner pager
+        // swallows the drag at its edge and rubber-bands instead.
+        bounces={false}
+        overScrollMode="never"
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: false, listener: handleHorizontalScroll }

@@ -9,6 +9,7 @@ export interface ArchetypeData {
   explosiveness: number; // 0 - 100
   consistency?: number; // 0 - 100
   title?: string;
+  description?: string;
 }
 
 interface AthleteRadarChartProps {

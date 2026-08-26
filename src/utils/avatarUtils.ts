@@ -45,3 +45,16 @@ export function getCoachAvatarSource(
   return require('../../assets/avatars/empathetic-default.png');
 }
 
+/**
+ * Resolves a profile picture path (relative like /uploads/profiles/... or full URL)
+ * into an absolute URL that React Native Image can load.
+ */
+export function getFullProfilePhotoUrl(path?: string | null): string | null {
+  if (!path || typeof path !== 'string' || !path.trim()) return null;
+  const trimmed = path.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('file://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  return `${API_BASE_URL}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`;
+}
+

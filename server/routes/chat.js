@@ -33,7 +33,7 @@ const profileStorage = multer.diskStorage({
 const uploadProfile = multer({ storage: profileStorage });
 const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
-const { generateWithFallback } = require('../services/ai');
+const { generateWithFallback, generateImage } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const {
   extractAndCleanFoodItems,
@@ -45,8 +45,6 @@ const {
   getWeatherContext,
   getUserMacroPhase,
   generatePublicProfile,
-  calculateGlobalMaxStats,
-  generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
   getRookaLevelInfo,
@@ -638,7 +636,26 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                          "body_part": "left_ankle_foot"
                        }
                      }
-                     \`\`\``;
+                     \`\`\`
+
+                     VISUAL COACHING & IMAGE GENERATION DIRECTIVES:
+                      You have the capability to generate visual biomechanics coaching diagrams, technique illustrations, exercise form guides, meal plates, or milestone celebration artwork for the athlete.
+                      Whenever the athlete:
+                      1. Asks for a visual explanation or asks what a specific technique/form looks like (e.g. "What does a proper catch phase look like in swimming?", "Show me proper running knee drive", "How should a high elbow catch look?", "Show me a healthy post-workout fueling plate"):
+                      2. Or explicitly asks you to generate, draw, create, or illustrate an image, diagram, poster, or visual guide:
+
+                      You MUST explain the concept clearly in text AND output a JSON block to generate the coaching image:
+                      \`\`\`json
+                      {
+                        "type": "generate_image",
+                        "data": {
+                          "prompt": "Detailed, professional, high-quality biomechanics coaching illustration showing [precise movement/technique details, athlete in action, clear underwater/track/gym setting, annotated arrows or glowing lines highlighting proper form, crystal-clear lighting, anatomical precision]",
+                          "caption": "Short descriptive title of the visual guide",
+                          "aspectRatio": "1:1"
+                        }
+                      }
+                      \`\`\`
+                      Always craft a rich, descriptive, high-quality prompt for the image model that emphasizes athletic accuracy and clean visual coaching clarity!`;
 
                                       let aiReply = await generateWithFallback(
                                         message,
@@ -648,6 +665,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         req.user.id,
                                       );
                                       let planUpdated = false;
+                                      let generatedChatImageUrl = null;
+                                      let generatedChatImageCaption = null;
 
                                       // Wrap the plan mutations below and the chat_history writes further down
                                       // in a single transaction, so a workout can never get committed to the
@@ -662,7 +681,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                       // Fallback: if no fenced code block was found, check if a raw JSON object exists in the reply
                                       if (jsonMatches.length === 0) {
-                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics)"[\s\S]*?\}/);
+                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|generate_image)"[\s\S]*?\}/);
                                         if (rawJsonMatch) {
                                           jsonMatches.push([rawJsonMatch[0], rawJsonMatch[0]]);
                                         }
@@ -701,8 +720,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                   );
 
                                                   const stmt = db.prepare(`
-                                                      INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) 
-                                                      VALUES (?, ?, ?, ?, ?, ?, ?)
+                                                      INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) 
+                                                      VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
                                                   `);
 
                                                   planData.forEach((day) => {
@@ -1046,19 +1065,47 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                               );
                                             });
                                             planUpdated = true;
-                                          }
-                                        } catch (e) {
-                                          console.error(
-                                            "Failed to parse an AI JSON block",
-                                            e,
-                                          );
-                                        }
-                                      }
+                                          } else if (
+                                             parsedData &&
+                                             parsedData.type === "generate_image" &&
+                                             parsedData.data
+                                           ) {
+                                             const imgPrompt = parsedData.data.prompt || parsedData.data.description;
+                                             const caption = parsedData.data.caption || "Coaching Visual";
+                                             if (imgPrompt) {
+                                               try {
+                                                 console.log(`🎨 Triggering on-demand image generation in chat for prompt: "${imgPrompt}"`);
+                                                 const { base64Data, mimeType } = await generateImage(imgPrompt, { aspectRatio: parsedData.data.aspectRatio || "1:1" });
+                                                 const ext = mimeType.includes("png") ? "png" : "jpg";
+                                                 const fileName = `img_${req.user.id}_${crypto.randomUUID()}.${ext}`;
+                                                 const dir = path.join(__dirname, "../secure_uploads/chat_images");
+                                                 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                                                 const filePath = path.join(dir, fileName);
+                                                 fs.writeFileSync(filePath, base64Data, "base64");
 
-                                      aiReply = aiReply
-                                        .replace(/```(?:json)?[\s\S]*?```/gi, "")
-                                        .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics)"[\s\S]*?\}/gi, "")
-                                        .trim();
+                                                 generatedChatImageUrl = `/api/images/chat/${fileName}`;
+                                                 generatedChatImageCaption = caption;
+                                               } catch (imgErr) {
+                                                 console.error("Chat image generation error:", imgErr.message);
+                                               }
+                                             }
+                                           }
+                                         } catch (e) {
+                                           console.error(
+                                             "Failed to parse an AI JSON block",
+                                             e,
+                                           );
+                                         }
+                                       }
+
+                                       aiReply = aiReply
+                                         .replace(/```(?:json)?[\s\S]*?```/gi, "")
+                                         .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|generate_image)"[\s\S]*?\}/gi, "")
+                                         .trim();
+
+                                       if (generatedChatImageUrl) {
+                                         aiReply += `\n\n![${generatedChatImageCaption || "Coaching Visual"}](${generatedChatImageUrl})`;
+                                       }
 
                                       let mood = "default";
                                       const lowerReply = aiReply.toLowerCase();

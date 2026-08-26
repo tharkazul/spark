@@ -745,7 +745,10 @@ export default function CoachScreen() {
           <TouchableOpacity
             onPress={() => {
               setIsWorkoutModalOpen(false);
-              router.push('/(tabs)/planning');
+              // `/(tabs)/planning` was an alias route re-exporting the Planning
+              // screen. The tab pager only carries the five declared screens, so
+              // go to the real one.
+              router.push('/(tabs)');
             }}
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >

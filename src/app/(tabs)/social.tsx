@@ -18,6 +18,7 @@ import { MyLogSubTab } from '../../components/social/MyLogSubTab';
 import { LeaderboardSubTab } from '../../components/social/LeaderboardSubTab';
 import { ActivityDetailModal } from '../../components/social/ActivityDetailModal';
 import { AddFriendsModal } from '../../components/social/AddFriendsModal';
+import { AthleteProfileModal } from '../../components/social/AthleteProfileModal';
 import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
@@ -82,6 +83,7 @@ export default function SocialScreen() {
   const [selectedInitialActivity, setSelectedInitialActivity] = useState<Partial<Activity> | undefined>(undefined);
 
   const [addFriendsModalVisible, setAddFriendsModalVisible] = useState<boolean>(false);
+  const [selectedAthleteId, setSelectedAthleteId] = useState<number | string | null>(null);
 
   const handleOpenActivityModal = (id: string | number, initialAct?: Partial<Activity>) => {
     Haptics.selectionAsync();
@@ -94,6 +96,11 @@ export default function SocialScreen() {
     setModalVisible(false);
     setSelectedActivityId(null);
     setSelectedInitialActivity(undefined);
+  };
+
+  const handleOpenAthleteProfile = (userId: number | string) => {
+    Haptics.selectionAsync();
+    setSelectedAthleteId(userId);
   };
 
   const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 3;
@@ -283,6 +290,15 @@ export default function SocialScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        // Progress, Social and Profile each own a horizontal sub-tab pager, and
+        // the main tabs are now a pager too. Turning off bounce/overscroll is
+        // what makes the two cooperate: while this pager can still scroll in the
+        // drag direction it keeps the gesture, and once it is at its first or
+        // last page it has nowhere to go, so the drag passes up to the tab pager
+        // and you cross into the next main tab. With bounce on, the inner pager
+        // swallows the drag at its edge and rubber-bands instead.
+        bounces={false}
+        overScrollMode="never"
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: false, listener: handleHorizontalScroll }
@@ -298,7 +314,10 @@ export default function SocialScreen() {
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
-            <FeedSubTab onOpenActivityModal={handleOpenActivityModal} />
+            <FeedSubTab
+              onOpenActivityModal={handleOpenActivityModal}
+              onOpenAthleteProfile={handleOpenAthleteProfile}
+            />
           </ScrollView>
         </View>
 
@@ -330,6 +349,7 @@ export default function SocialScreen() {
               rookaLeaderboard={rookaLeaderboard}
               questLeaderboard={questLeaderboard}
               hasAccess={hasLeaderboardAccess}
+              onOpenAthleteProfile={handleOpenAthleteProfile}
             />
           </ScrollView>
         </View>
@@ -350,6 +370,7 @@ export default function SocialScreen() {
               rookaLeaderboard={rookaLeaderboard}
               questLeaderboard={questLeaderboard}
               hasAccess={hasLeaderboardAccess}
+              onOpenAthleteProfile={handleOpenAthleteProfile}
             />
           </ScrollView>
         </View>
@@ -361,12 +382,22 @@ export default function SocialScreen() {
         activityId={selectedActivityId}
         initialActivity={selectedInitialActivity}
         onClose={handleCloseActivityModal}
+        onOpenAthleteProfile={handleOpenAthleteProfile}
       />
 
       {/* ADD / SEARCH FRIENDS MODAL */}
       <AddFriendsModal
         visible={addFriendsModalVisible}
         onClose={() => setAddFriendsModalVisible(false)}
+        onOpenAthleteProfile={handleOpenAthleteProfile}
+      />
+
+      {/* ATHLETE PUBLIC PROFILE MODAL */}
+      <AthleteProfileModal
+        visible={!!selectedAthleteId}
+        athleteId={selectedAthleteId}
+        onClose={() => setSelectedAthleteId(null)}
+        onOpenActivityModal={handleOpenActivityModal}
       />
     </View>
   );

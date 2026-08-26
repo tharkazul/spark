@@ -193,26 +193,44 @@ async function getUserMacroPhase(userId) {
   });
 }
 
-function generatePublicProfile(targetUserId, globalMaxStats) {
-  return new Promise((resolve, reject) => {
+function generatePublicProfile(targetUserId, viewerUserId = null) {
+  return new Promise((resolve) => {
     db.get(
-      `SELECT username, athlete_context, profile_picture_url FROM users WHERE id = ?`,
-      [targetUserId],
+      `SELECT u.id, u.username, u.athlete_context, u.profile_picture_url, u.total_rooka,
+              (SELECT status FROM connections WHERE user_id = ? AND friend_id = u.id) as connection_status
+       FROM users u
+       WHERE (u.id = ? OR u.username = ?) AND u.deleted_at IS NULL`,
+      [viewerUserId, targetUserId, targetUserId],
       (err, user) => {
         if (err || !user) return resolve(null);
+        const targetId = user.id;
 
-        db.all(
-          `SELECT id, name, distance_km, moving_time_min, start_date, sport_type, COALESCE(rooka_score, tss, 0) as rooka_score FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
-          [targetUserId],
-          async (err, activities) => {
+        db.get(
+          `SELECT ftp, weight_kg, max_hr FROM athlete_metrics WHERE user_id = ?`,
+          [targetId],
+          (errMetrics, metricsRow) => {
+            const athlete_metrics = {
+              ftp: metricsRow?.ftp || 0,
+              weight_kg: metricsRow?.weight_kg || 75,
+              max_hr: metricsRow?.max_hr || 190,
+            };
+
             db.all(
-              `SELECT start_date, substr(start_date, 1, 10) as date, tss, sport_type, distance_km, elevation_m, moving_time_min FROM activities WHERE user_id = ? ORDER BY start_date ASC`,
-              [targetUserId],
-              async (err, rows) => {
+              `SELECT id, name, distance_km, moving_time_min, start_date, sport_type,
+                      average_heartrate, average_watts, sets_json,
+                      COALESCE(rooka_score, tss, 0) as rooka_score, tss, elevation_m
+               FROM activities
+               WHERE user_id = ?
+               ORDER BY start_date DESC`,
+              [targetId],
+              async (errActs, allActivities) => {
+                const activities = allActivities || [];
+                const recentActivities = activities.slice(0, 10);
+
                 db.all(
                   `SELECT date, weight_kg FROM biometrics WHERE user_id = ? AND date >= date('now', '-30 days') ORDER BY date ASC`,
-                  [targetUserId],
-                  async (err, weights) => {
+                  [targetId],
+                  async (errW, weights) => {
                     const trends = {
                       dates: [],
                       tsb: [],
@@ -223,18 +241,24 @@ function generatePublicProfile(targetUserId, globalMaxStats) {
 
                     const tssMap = {};
                     let earliestDateStr = null;
-                    if (rows && rows.length > 0) {
-                      earliestDateStr = rows[0].date;
-                      rows.forEach((r) => {
-                        if (!tssMap[r.date]) tssMap[r.date] = 0;
-                        tssMap[r.date] += r.tss || 0;
+                    const ascActivities = [...activities].reverse();
+                    if (ascActivities.length > 0) {
+                      earliestDateStr = (ascActivities[0].start_date || '').substring(0, 10);
+                      ascActivities.forEach((r) => {
+                        const d = (r.start_date || '').substring(0, 10);
+                        if (d) {
+                          if (!tssMap[d]) tssMap[d] = 0;
+                          tssMap[d] += r.tss || 0;
+                        }
                       });
                     }
+
                     const weightMap = {};
-                    if (weights)
+                    if (weights) {
                       weights.forEach(
                         (w) => (weightMap[w.date] = w.weight_kg || null),
                       );
+                    }
 
                     let ctl = 0;
                     let atl = 0;
@@ -244,11 +268,10 @@ function generatePublicProfile(targetUserId, globalMaxStats) {
                       currentDate.setUTCHours(0, 0, 0, 0);
                       today.setUTCHours(0, 0, 0, 0);
 
-                      // Calculate how many days to push to trends
                       const totalDays = Math.round(
                         (today - currentDate) / (1000 * 60 * 60 * 24),
                       );
-                      const trendStartIdx = totalDays - 29; // We only want the last 30 days
+                      const trendStartIdx = totalDays - 29;
 
                       let currentDayIdx = 0;
                       while (currentDate <= today) {
@@ -257,12 +280,13 @@ function generatePublicProfile(targetUserId, globalMaxStats) {
                         const dailyTss = tssMap[dateStr] || 0;
                         ctl = ctl + (dailyTss - ctl) * (1 - Math.exp(-1 / 42));
                         atl = atl + (dailyTss - atl) * (1 - Math.exp(-1 / 7));
+                        const tsb = ctl - atl;
 
                         if (currentDayIdx >= trendStartIdx) {
                           trends.dates.push(dateStr);
-                          trends.ctl.push(ctl);
-                          trends.atl.push(atl);
-                          trends.tsb.push(ctl - atl);
+                          trends.ctl.push(Math.round(ctl * 10) / 10);
+                          trends.atl.push(Math.round(atl * 10) / 10);
+                          trends.tsb.push(Math.round(tsb * 10) / 10);
                           trends.weight.push(weightMap[dateStr] || null);
                         }
 
@@ -271,103 +295,54 @@ function generatePublicProfile(targetUserId, globalMaxStats) {
                       }
                     }
 
-                    let endurance = Math.min(
-                      100,
-                      Math.round((ctl / globalMaxStats.ctl) * 100),
-                    );
-                    let weightTrainingCount = rows
-                      ? rows.filter((r) => r.sport_type === "WeightTraining")
-                          .length
-                      : 0;
-                    let totalElevation = rows
-                      ? rows.reduce((sum, r) => sum + (r.elevation_m || 0), 0)
-                      : 0;
-                    let strengthScore =
-                      weightTrainingCount * 5 + totalElevation / 1000;
-                    let strength = Math.min(
-                      100,
-                      Math.round(
-                        (strengthScore / globalMaxStats.strength) * 100,
-                      ),
-                    );
-                    const uniqueSports = new Set(
-                      rows ? rows.map((r) => r.sport_type) : [],
-                    ).size;
-                    let versatility = Math.min(
-                      100,
-                      Math.round(
-                        (uniqueSports / globalMaxStats.versatility) * 100,
-                      ),
-                    );
-                    let explosiveSessions = rows
-                      ? rows.filter(
-                          (r) => r.tss / (r.moving_time_min || 1) > 1.2,
-                        ).length
-                      : 0;
-                    let explosiveness = Math.min(
-                      100,
-                      Math.round(
-                        (explosiveSessions / globalMaxStats.explosiveness) *
-                          100,
-                      ),
-                    );
-
-                    const radar = {
-                      endurance: endurance || 10,
-                      strength: strength || 10,
-                      versatility: versatility || 10,
-                      explosiveness: explosiveness || 10,
-                    };
-
-                    const genericCoachTone =
-                      "Empathetic but demanding elite endurance coach.";
-                    const currentTsb =
-                      trends.tsb.length > 0
-                        ? Math.round(trends.tsb[trends.tsb.length - 1])
-                        : 0;
-                    const prompt = `Write a 2-3 sentence "Coach Highlight" about ${user.username} (refer to them in the third person, e.g., "${user.username} is..."). 
-Recent Activities: ${activities.map((a) => a.name).join(", ")}
-Current Chronic Training Load (Fitness): ${Math.round(ctl)}
-Current Training Stress Balance (Readiness): ${currentTsb}
-
-Write this from the perspective of their coach (Tone: ${genericCoachTone}). Keep it brief, dynamic, and highly personalized based on their recent activities and current readiness! Talk about them to an audience. Do not mention their hidden background or context. Do not include any markdown bolding or headers.`;
-
-                    let highlight = "Keep pushing! They're doing great.";
-                    try {
-                      highlight = await generateWithFallback(
-                        "Generate public profile highlight",
-                        prompt,
-                        [],
-                      );
-                    } catch (e) {
-                      console.error("Highlight generation failed", e);
-                    }
-
                     let activeTitle = null;
                     try {
                       activeTitle = await new Promise((res) => {
                         db.get(
                           `SELECT id, title, description FROM user_titles WHERE user_id = ? AND is_active = 1 LIMIT 1`,
-                          [targetUserId],
+                          [targetId],
                           (errT, rowT) => res(!errT && rowT ? rowT : null),
                         );
                       });
                     } catch (e) {}
 
+                    const computedTotalRooka =
+                      typeof user.total_rooka === "number" && user.total_rooka > 0
+                        ? user.total_rooka
+                        : Math.round(
+                            activities.reduce(
+                              (sum, a) => sum + (a.rooka_score || 0),
+                              0,
+                            ),
+                          );
+                    const levelInfo = getRookaLevelInfo(computedTotalRooka);
+                    const isSelf =
+                      viewerUserId != null &&
+                      String(viewerUserId) === String(user.id);
+
                     const profileData = {
+                      id: user.id,
                       username: user.username,
                       profilePictureUrl: user.profile_picture_url,
-                      highlight: highlight,
-                      activities: activities,
-                      trends: trends,
-                      radar: radar,
+                      profile_picture_url: user.profile_picture_url,
+                      athlete_context: user.athlete_context,
+                      total_rooka: computedTotalRooka,
+                      levelInfo: {
+                        level: levelInfo.level,
+                        currentXp: Math.round(levelInfo.totalRooka),
+                        nextLevelXp: Math.round(levelInfo.nextLevelThreshold),
+                        progressPercent: Math.round(levelInfo.progressPercent),
+                      },
                       activeTitle: activeTitle,
+                      activities: activities,
+                      recentActivities: recentActivities,
+                      athlete_metrics: athlete_metrics,
+                      trends: trends,
+                      connectionStatus: isSelf
+                        ? "self"
+                        : user.connection_status || "none",
                     };
 
-                    db.run(
-                      `INSERT OR REPLACE INTO public_profile_cache (user_id, data, last_updated) VALUES (?, ?, datetime('now'))`,
-                      [targetUserId, JSON.stringify(profileData)],
-                    );
                     resolve(profileData);
                   },
                 );
@@ -376,107 +351,6 @@ Write this from the perspective of their coach (Tone: ${genericCoachTone}). Keep
           },
         );
       },
-    );
-  });
-}
-
-async function calculateGlobalMaxStats() {
-  return new Promise((resolve) => {
-    db.all(
-      `SELECT user_id, start_date, substr(start_date, 1, 10) as date, tss, sport_type, elevation_m, moving_time_min FROM activities ORDER BY start_date ASC`,
-      [],
-      (err, rows) => {
-        if (err || !rows)
-          return resolve({
-            ctl: 1,
-            strength: 1,
-            versatility: 1,
-            explosiveness: 1,
-          });
-
-        const userStats = {};
-        rows.forEach((r) => {
-          if (!userStats[r.user_id]) {
-            userStats[r.user_id] = {
-              ctlMap: {},
-              earliest: r.date,
-              weightTrainingCount: 0,
-              totalElevation: 0,
-              uniqueSports: new Set(),
-              explosiveSessions: 0,
-            };
-          }
-          const stats = userStats[r.user_id];
-          if (!stats.earliest) stats.earliest = r.date;
-
-          stats.ctlMap[r.date] = (stats.ctlMap[r.date] || 0) + (r.tss || 0);
-
-          if (r.sport_type === "WeightTraining") stats.weightTrainingCount++;
-          stats.totalElevation += r.elevation_m || 0;
-          if (r.sport_type) stats.uniqueSports.add(r.sport_type);
-          if (r.moving_time_min && r.tss / r.moving_time_min > 1.2)
-            stats.explosiveSessions++;
-        });
-
-        let globalMax = {
-          ctl: 1,
-          strength: 1,
-          versatility: 1,
-          explosiveness: 1,
-        };
-
-        Object.keys(userStats).forEach((uid) => {
-          const stats = userStats[uid];
-
-          let ctl = 0;
-          if (stats.earliest) {
-            let currentDate = new Date(stats.earliest);
-            const today = new Date();
-            currentDate.setUTCHours(0, 0, 0, 0);
-            today.setUTCHours(0, 0, 0, 0);
-            while (currentDate <= today) {
-              const dateStr = currentDate.toISOString().split("T")[0];
-              const dailyTss = stats.ctlMap[dateStr] || 0;
-              ctl = ctl + (dailyTss - ctl) * (1 - Math.exp(-1 / 42));
-              currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-            }
-          }
-
-          let strengthScore =
-            stats.weightTrainingCount * 5 + stats.totalElevation / 1000;
-          let versatilityScore = stats.uniqueSports.size;
-          let explosivenessScore = stats.explosiveSessions;
-
-          if (ctl > globalMax.ctl) globalMax.ctl = ctl;
-          if (strengthScore > globalMax.strength)
-            globalMax.strength = strengthScore;
-          if (versatilityScore > globalMax.versatility)
-            globalMax.versatility = versatilityScore;
-          if (explosivenessScore > globalMax.explosiveness)
-            globalMax.explosiveness = explosivenessScore;
-        });
-        resolve(globalMax);
-      },
-    );
-  });
-}
-
-async function generateAllPublicProfiles() {
-  console.log("🕒 Running 15:00 / 20:00 Profile Caching Routine...");
-  // 1. Calculate Global Max Stats using ALL activities
-  const globalMaxStats = await calculateGlobalMaxStats();
-  console.log(`[Cache] Global Max Stats calculated as:`, globalMaxStats);
-
-  // 2. Iterate all users and generate profile
-  db.all(`SELECT id FROM users`, [], async (err, users) => {
-    if (err || !users) return;
-    for (const u of users) {
-      await generatePublicProfile(u.id, globalMaxStats);
-      // sleep 2s to not hammer AI
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-    console.log(
-      "✅ All public profiles (Radar Charts & AI Highlights) have been successfully generated and cached!",
     );
   });
 }
@@ -666,6 +540,21 @@ async function calculateRookaScoreZoned({ userId, movingTimeMin, avgHr, avgWatts
   });
 }
 
+/**
+ * The encoded route of a Strava activity, if it has one.
+ *
+ * Summary activities (the /athlete/activities list) carry `map.summary_polyline`;
+ * the detailed single-activity response also carries a full `map.polyline`.
+ * Prefer the full one, fall back to the summary, and treat an empty string as
+ * absent so an indoor session stores NULL rather than "".
+ */
+function extractStravaPolyline(data) {
+  const map = data && data.map;
+  if (!map) return null;
+  const line = map.polyline || map.summary_polyline;
+  return line && String(line).length > 0 ? String(line) : null;
+}
+
 function mapStravaSportToRooka(stravaSport) {
   if (!stravaSport) return "Other";
   if (stravaSport.includes("Run")) return "Run";
@@ -675,6 +564,112 @@ function mapStravaSportToRooka(stravaSport) {
   if (stravaSport.includes("WeightTraining") || stravaSport.includes("Workout"))
     return "Strength";
   return "Other";
+}
+
+/**
+ * How long a single step lasts, in the unit it was prescribed in.
+ *
+ * `time_sec` used to fall through to the "reps" branch, so a 90-second rest
+ * between sets was published to Strava as "90 reps".
+ */
+function describeStepDuration(step) {
+  const v = step.condition_value;
+  if (v == null) return "";
+  switch (step.condition_type) {
+    case "time":
+      return `${v} min`;
+    case "time_sec":
+      return `${v} s`;
+    case "distance":
+      return `${v}m`;
+    case "distance_km":
+      return `${v}km`;
+    case "reps":
+    default:
+      return `${v} reps`;
+  }
+}
+
+/** The same duration, abbreviated for the one-line summary: 9', 90", 400m. */
+function abbreviateStepDuration(step) {
+  const v = step.condition_value;
+  if (v == null) return "";
+  switch (step.condition_type) {
+    case "time":
+      return `${v}'`;
+    case "time_sec":
+      return `${v}"`;
+    case "distance":
+      return `${v}m`;
+    case "distance_km":
+      return `${v}km`;
+    case "reps":
+    default:
+      return `${v}x`;
+  }
+}
+
+/** The intensity target of a step: Z3, 250W, 4:15, or nothing at all. */
+function describeStepTarget(step) {
+  if (step.target_type === "no.target") return "";
+  if (step.zone) return `Z${step.zone}`;
+  if (step.target_value) {
+    if (step.target_type === "power.exact") return `${step.target_value}W`;
+    return String(step.target_value);
+  }
+  if (step.weight) return `${step.weight}kg`;
+  return "";
+}
+
+/**
+ * The shape of a session on one line: `9' Z1 / 27' Z3 / 9' Z1`.
+ *
+ * This is what an athlete recognises as the workout they just did. The coach's
+ * prose paragraph is a different thing and does not belong in a field that is
+ * read at a glance next to a lap table.
+ */
+function summarizeStepsForStrava(stepsJson) {
+  if (!stepsJson || stepsJson === "[]" || stepsJson === "null") return null;
+  let steps;
+  try {
+    steps = typeof stepsJson === "string" ? JSON.parse(stepsJson) : stepsJson;
+  } catch (e) {
+    return null;
+  }
+  if (!Array.isArray(steps) || steps.length === 0) return null;
+
+  const segment = (step) => {
+    const dur = abbreviateStepDuration(step);
+    const target = describeStepTarget(step);
+    // A named strength movement is more use than its zone: "10x Back Squat 80kg".
+    const name = step.exerciseName || step.garmin_exercise_name;
+    if (name) {
+      const load = step.weight ? ` ${step.weight}kg` : "";
+      return `${dur} ${name}${load}`.trim();
+    }
+    return [dur, target].filter(Boolean).join(" ");
+  };
+
+  const parts = [];
+  for (const step of steps) {
+    if (step.type === "repeat") {
+      const inner = (step.steps || []).map(segment).filter(Boolean);
+      if (inner.length === 0) continue;
+      const iterations = step.iterations || 1;
+      parts.push(
+        inner.length === 1
+          ? `${iterations}x ${inner[0]}`
+          : `${iterations}x (${inner.join(" / ")})`,
+      );
+    } else {
+      // A rest step carries no intensity and only adds noise to a summary line.
+      if (step.type === "rest") continue;
+      const seg = segment(step);
+      if (seg) parts.push(seg);
+    }
+  }
+
+  return parts.length > 0 ? parts.join(" / ") : null;
 }
 
 function formatStepsForStrava(stepsJson) {
@@ -688,15 +683,11 @@ function formatStepsForStrava(stepsJson) {
         output += `- Repeat ${s.iterations}x:\n`;
         if (s.steps) {
           s.steps.forEach((sub) => {
-            let dur =
-              sub.condition_value +
-              (sub.condition_type === "time"
-                ? " min"
-                : sub.condition_type === "distance"
-                  ? "m"
-                  : " reps");
+            let dur = describeStepDuration(sub);
             let tgt = sub.target_value
-              ? sub.target_value
+              ? sub.target_type === "power.exact"
+                ? `${sub.target_value}W`
+                : sub.target_value
               : sub.zone
                 ? `Zone ${sub.zone}`
                 : sub.target_type === "no.target"
@@ -712,15 +703,11 @@ function formatStepsForStrava(stepsJson) {
           });
         }
       } else {
-        let dur =
-          s.condition_value +
-          (s.condition_type === "time"
-            ? " min"
-            : s.condition_type === "distance"
-              ? "m"
-              : " reps");
+        let dur = describeStepDuration(s);
         let tgt = s.target_value
-          ? s.target_value
+          ? s.target_type === "power.exact"
+            ? `${s.target_value}W`
+            : s.target_value
           : s.zone
             ? `Zone ${s.zone}`
             : s.target_type === "no.target"
@@ -795,6 +782,15 @@ function buildStravaUpdatePayload(existingDescription, plan, actualRooka, shareS
   }
 
   const descBlocks = [];
+
+  // The structure leads, on its own line, because it is the part an athlete
+  // recognises: `9' Z1 / 27' Z3 / 9' Z1`.
+  const structureSummary =
+    shareStructure && plan ? summarizeStepsForStrava(plan.steps_json) : null;
+  if (structureSummary) {
+    descBlocks.push(structureSummary);
+  }
+
   if (shareScore) {
     if (plan && plan.target_rooka != null) {
       descBlocks.push(`Rooka Target: ${plan.target_rooka} Rooka\nActual: ${Math.round(actualRooka)} Rooka`);
@@ -804,14 +800,12 @@ function buildStravaUpdatePayload(existingDescription, plan, actualRooka, shareS
   }
 
   if (shareStructure && plan) {
-    let stepsContent = formatStepsForStrava(plan.steps_json);
-    const workoutContent = stepsContent
-      ? stepsContent
-      : plan.details && plan.details.trim().length > 0
-        ? plan.details
-        : null;
-    if (workoutContent) {
-      descBlocks.push(`Planned Workout:\n${workoutContent}`);
+    // Steps only. This used to fall back to `plan.details` — the coach's prose
+    // paragraph — whenever a plan had no steps_json, which is how a pep talk
+    // ended up as the description of a set of intervals.
+    const stepsContent = formatStepsForStrava(plan.steps_json);
+    if (stepsContent) {
+      descBlocks.push(`Planned Workout:\n${stepsContent}`);
     }
   }
 
@@ -979,9 +973,9 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
         }
 
         db.run(
-          `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, laps_json) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json`,
+          `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, laps_json, polyline) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, laps_json=excluded.laps_json, polyline=COALESCE(excluded.polyline, polyline)`,
           [
             internalUserId,
             String(data.id),
@@ -995,6 +989,7 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
             tss,
             rookaScore,
             lapsJson,
+            extractStravaPolyline(data),
           ],
           async (err) => {
             if (!err) {
@@ -1226,9 +1221,9 @@ async function syncAllStravaUsersOnStartup() {
                     );
                   }
                   db.run(
-                    `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                             ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
+                    `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score, polyline) 
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
                     [
                       user.id,
                       String(act.id),
@@ -1241,6 +1236,7 @@ async function syncAllStravaUsersOnStartup() {
                       act.start_date,
                       tss,
                       rookaScore,
+                      extractStravaPolyline(act),
                     ],
                   );
                 });
@@ -2304,14 +2300,14 @@ module.exports = {
   getWeatherContext,
   getUserMacroPhase,
   generatePublicProfile,
-  calculateGlobalMaxStats,
-  generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
   getRookaLevelInfo,
   calculateRookaScore,
   mapStravaSportToRooka,
+  extractStravaPolyline,
   formatStepsForStrava,
+  summarizeStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
   getStravaUserIdsForAthlete,

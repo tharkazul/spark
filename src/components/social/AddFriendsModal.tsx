@@ -17,11 +17,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
+import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 
 interface AddFriendsModalProps {
   visible: boolean;
   onClose: () => void;
   onConnectionsUpdated?: () => void;
+  onOpenAthleteProfile?: (userId: number | string) => void;
 }
 
 interface SearchUserResult {
@@ -35,6 +37,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   visible,
   onClose,
   onConnectionsUpdated,
+  onOpenAthleteProfile,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { dragY, panHandlers } = useSheetDismiss(onClose);
@@ -117,7 +120,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
         setSearchResults(users);
         setHasSearched(true);
       }
-    } catch (err: any) {
+    } catch {
       if (searchId >= latestDisplayedSearchIdRef.current) {
         latestDisplayedSearchIdRef.current = searchId;
         setSearchResults([]);
@@ -142,7 +145,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
         );
         if (onConnectionsUpdated) onConnectionsUpdated();
       }
-    } catch (err: any) {
+    } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setConnectingId(null);
@@ -162,7 +165,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
         setPendingRequests((prev) => prev.filter((req) => req.friend_id !== friendId && req.id !== friendId));
         if (onConnectionsUpdated) onConnectionsUpdated();
       }
-    } catch (err: any) {
+    } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setConnectingId(null);
@@ -258,28 +261,46 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                           key={`search-user-${item.id}`}
                           className="flex-row items-center justify-between p-3.5 bg-theme-bg border border-theme-border/60 rounded-2xl mb-2"
                         >
-                          <View className="flex-row items-center space-x-3">
-                            {item.profile_picture_url ? (
-                              <Image
-                                source={{ uri: item.profile_picture_url }}
-                                className="w-10 h-10 rounded-full border border-theme-accent/40"
-                              />
-                            ) : (
-                              <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
-                                <Text className="text-sm font-extrabold text-theme-accent">
-                                  {item.username.charAt(0).toUpperCase()}
-                                </Text>
-                              </View>
-                            )}
-                            <View>
-                              <Text className="text-sm font-extrabold text-theme-text">
-                                {item.username}
-                              </Text>
-                              <Text className="text-xs text-theme-muted font-medium">
-                                Rooka Athlete
-                              </Text>
-                            </View>
-                          </View>
+                          {(() => {
+                            const searchAvatarUri = getFullProfilePhotoUrl(
+                              item.profile_picture_url || (item as any).profilePictureUrl
+                            );
+                            return (
+                              <TouchableOpacity
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                  if (onOpenAthleteProfile) {
+                                    onClose();
+                                    setTimeout(() => {
+                                      onOpenAthleteProfile(item.id);
+                                    }, 150);
+                                  }
+                                }}
+                                className="flex-row items-center space-x-3 flex-1 mr-2"
+                              >
+                                {searchAvatarUri ? (
+                                  <Image
+                                    source={{ uri: searchAvatarUri }}
+                                    className="w-10 h-10 rounded-full mr-3"
+                                  />
+                                ) : (
+                                  <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center mr-3">
+                                    <Text className="text-sm font-extrabold text-theme-accent">
+                                      {item.username.charAt(0).toUpperCase()}
+                                    </Text>
+                                  </View>
+                                )}
+                                <View className="flex-1">
+                                  <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
+                                    {item.username}
+                                  </Text>
+                                  <Text className="text-xs text-theme-muted font-medium">
+                                    Rooka Athlete
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })()}
 
                           {/* Action Button per Item */}
                           {item.status === 'self' ? (
@@ -330,7 +351,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                 ) : (
                   <View className="p-4 bg-theme-bg border border-theme-border/60 rounded-2xl items-center">
                     <Text className="text-xs text-theme-muted text-center font-medium">
-                      No athletes found matching "{searchQuery.trim()}".
+                      {`No athletes found matching "${searchQuery.trim()}".`}
                     </Text>
                   </View>
                 )}

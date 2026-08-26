@@ -1,16 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
 import { wsService } from '../../services/websocket';
+import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
+import { getSportIconConfig } from '../../utils/sportIcons';
 import { SocialFeedActivity } from '../../types/social';
 
 interface FeedSubTabProps {
   onOpenActivityModal?: (id: string | number, activity?: Partial<SocialFeedActivity>) => void;
+  onOpenAthleteProfile?: (userId: number | string) => void;
 }
 
-export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) => {
+interface FeedDayGroup {
+  id: string;
+  user_id: number | string;
+  username: string;
+  profile_picture_url?: string | null;
+  rooka_level?: number;
+  dateStr: string;
+  totalRooka: number;
+  activities: SocialFeedActivity[];
+  isMultiSport: boolean;
+}
+
+export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onOpenAthleteProfile }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [feedItems, setFeedItems] = useState<SocialFeedActivity[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -22,7 +37,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
         const pending = res.connections.filter((c: any) => c.status === 'pending_received');
         setPendingRequests(pending);
       }
-    } catch (e) {}
+    } catch {}
   };
 
   useEffect(() => {
@@ -46,9 +61,6 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
 
     loadFeed();
 
-    // The server already emits these; nothing was listening, so kudos,
-    // comments and friend requests only appeared after leaving and
-    // re-entering the tab.
     const unsubs = [
       wsService.subscribeToEvent('kudos_received', loadFeed),
       wsService.subscribeToEvent('comment_received', loadFeed),
@@ -75,7 +87,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
           }
         });
       }
-    } catch (e) {}
+    } catch {}
   };
 
   const handleToggleKudos = async (item: SocialFeedActivity) => {
@@ -103,6 +115,41 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
     }
   };
 
+  // Group activities from the same user on the same date into a single Brick / Multi-Sport session card
+  const groupedFeed = useMemo(() => {
+    const groups: FeedDayGroup[] = [];
+    const groupMap = new Map<string, FeedDayGroup>();
+
+    feedItems.forEach((act) => {
+      const uId = act.user_id || 'unknown';
+      const dateKey = act.start_date ? act.start_date.substring(0, 10) : 'recent';
+      const key = `${uId}_${dateKey}`;
+
+      if (!groupMap.has(key)) {
+        const group: FeedDayGroup = {
+          id: key,
+          user_id: act.user_id,
+          username: act.username,
+          profile_picture_url: act.profile_picture_url || (act as any).profilePictureUrl,
+          rooka_level: act.rooka_level,
+          dateStr: dateKey,
+          totalRooka: Math.round(act.rooka_score || 0),
+          activities: [act],
+          isMultiSport: false,
+        };
+        groupMap.set(key, group);
+        groups.push(group);
+      } else {
+        const group = groupMap.get(key)!;
+        group.activities.push(act);
+        group.totalRooka += Math.round(act.rooka_score || 0);
+        group.isMultiSport = true;
+      }
+    });
+
+    return groups;
+  }, [feedItems]);
+
   if (loading && feedItems.length === 0 && pendingRequests.length === 0) {
     return (
       <View className="items-center justify-center p-8">
@@ -113,41 +160,48 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
   }
 
   return (
-    <View className="space-y-4 pb-4">
+    <View className="space-y-3.5 pb-4">
       {/* PENDING FRIEND REQUESTS BANNER */}
       {pendingRequests.length > 0 && (
-        <View className="bg-theme-accent/10 border border-theme-accent/30 rounded-2xl p-4 mb-4">
-          <View className="flex-row items-center space-x-2 mb-3">
+        <View className="bg-theme-accent/10 border border-theme-accent/30 rounded-2xl p-3.5 mb-3">
+          <View className="flex-row items-center space-x-2 mb-2.5">
             <Ionicons name="person-add" size={16} color="#FF5F3B" />
             <Text className="text-xs font-extrabold text-theme-accent">
               Friend Requests ({pendingRequests.length})
             </Text>
           </View>
-          {pendingRequests.map((req) => (
-            <View
-              key={`feed-req-${req.friend_id || req.user_id}`}
-              className="flex-row items-center justify-between bg-theme-card p-3 rounded-xl border border-theme-border/50 mb-1.5"
-            >
-              <View className="flex-row items-center space-x-3">
-                <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-                  <Text className="text-xs font-extrabold text-theme-accent">
-                    {(req.username || 'A').charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-                <Text className="text-sm font-extrabold text-theme-text">{req.username}</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => handleAcceptRequest(req.friend_id || req.user_id)}
-                className="bg-emerald-500 px-3.5 py-1.5 rounded-lg"
+          {pendingRequests.map((req) => {
+            const reqAvatarUri = getFullProfilePhotoUrl(req.profile_picture_url || req.profilePictureUrl);
+            return (
+              <View
+                key={`feed-req-${req.friend_id || req.user_id}`}
+                className="flex-row items-center justify-between bg-theme-card p-3 rounded-xl border border-theme-border/50 mb-1.5"
               >
-                <Text className="text-xs font-extrabold text-white">Accept</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+                <View className="flex-row items-center space-x-3">
+                  {reqAvatarUri ? (
+                    <Image source={{ uri: reqAvatarUri }} className="w-8 h-8 rounded-full border border-theme-accent/40" />
+                  ) : (
+                    <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
+                      <Text className="text-xs font-extrabold text-theme-accent">
+                        {(req.username || 'A').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <Text className="text-sm font-extrabold text-theme-text">{req.username}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleAcceptRequest(req.friend_id || req.user_id)}
+                  className="bg-emerald-500 px-3.5 py-1.5 rounded-lg"
+                >
+                  <Text className="text-xs font-extrabold text-white">Accept</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </View>
       )}
 
-      {feedItems.length === 0 ? (
+      {groupedFeed.length === 0 ? (
         <View className="items-center justify-center p-8 bg-theme-card border border-theme-border/60 rounded-2xl my-2">
           <Ionicons name="people-outline" size={36} color="#8E8E93" style={{ marginBottom: 8 }} />
           <Text className="text-sm font-bold text-theme-text text-center">No Recent Activity</Text>
@@ -156,92 +210,174 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal }) =
           </Text>
         </View>
       ) : (
-        feedItems.map((item) => (
-        <TouchableOpacity
-          key={`feed-${item.id}`}
-          activeOpacity={0.9}
-          onPress={() => onOpenActivityModal && onOpenActivityModal(item.id, item)}
-          className="bg-theme-card border border-theme-border rounded-2xl p-4 shadow-sm mb-4"
-        >
-          {/* Header */}
-          <View className="flex-row justify-between items-center mb-3">
-            <View className="flex-row items-center space-x-3">
-              {item.profile_picture_url ? (
-                <Image source={{ uri: item.profile_picture_url }} className="w-10 h-10 rounded-full border border-theme-accent/40" />
-              ) : (
-                <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
-                  <Text className="text-sm font-extrabold text-theme-accent">
-                    {item.username ? item.username.charAt(0).toUpperCase() : 'A'}
+        groupedFeed.map((group) => {
+          const itemAvatarUri = getFullProfilePhotoUrl(group.profile_picture_url);
+          const primaryActivity = group.activities[0];
+          const hasKudosed = group.activities.some((a) => a.has_kudosed);
+          const totalKudos = group.activities.reduce((sum, a) => sum + (a.kudos_count || 0), 0);
+          const totalComments = group.activities.reduce((sum, a) => sum + (a.comments_count || 0), 0);
+
+          return (
+            <View
+              key={`feed-group-${group.id}`}
+              className="bg-theme-card rounded-2xl p-4 shadow-sm mb-3.5 border border-slate-100 dark:border-slate-800/60"
+            >
+              {/* Tight Athlete Header */}
+              <View className="flex-row justify-between items-center mb-2.5">
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (group.user_id && onOpenAthleteProfile) {
+                      onOpenAthleteProfile(group.user_id);
+                    }
+                  }}
+                  className="flex-row items-center flex-1 pr-2"
+                >
+                  {itemAvatarUri ? (
+                    <Image source={{ uri: itemAvatarUri }} className="w-10 h-10 rounded-full mr-3" />
+                  ) : (
+                    <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center mr-3">
+                      <Text className="text-sm font-extrabold text-theme-accent">
+                        {group.username ? group.username.charAt(0).toUpperCase() : 'A'}
+                      </Text>
+                    </View>
+                  )}
+                  <View className="flex-1">
+                    <View className="flex-row items-center space-x-1.5 flex-wrap">
+                      <Text className="text-sm font-extrabold text-theme-text">{group.username}</Text>
+                      {group.rooka_level ? (
+                        <View className="px-1.5 py-0.2 bg-theme-accent/15 rounded">
+                          <Text className="text-[11px] font-extrabold text-theme-accent">Lvl {group.rooka_level}</Text>
+                        </View>
+                      ) : null}
+                      {group.isMultiSport && (
+                        <View className="px-1.5 py-0.2 bg-amber-500/15 rounded">
+                          <Text className="text-[10px] font-extrabold text-amber-500">⚡️ Brick ({group.activities.length})</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text className="text-[11px] text-theme-muted mt-0.5">
+                      {group.dateStr}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
+                  <Ionicons name="flash" size={11} color="#FF5F3B" />
+                  <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">
+                    +{group.totalRooka} Rooka
                   </Text>
                 </View>
-              )}
-              <View>
-                <View className="flex-row items-center space-x-1.5">
-                  <Text className="text-sm font-extrabold text-theme-text">{item.username}</Text>
-                  {item.rooka_level ? (
-                    <View className="px-1.5 py-0.5 bg-theme-accent/15 rounded">
-                      <Text className="text-xs font-extrabold text-theme-accent">Lvl {item.rooka_level}</Text>
+              </View>
+
+              {/* Workout Body: Single Activity or Multi-Activity Brick Stack */}
+              {group.activities.length === 1 ? (
+                // Single Activity Card (Clean background, NO thick border)
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => onOpenActivityModal && onOpenActivityModal(primaryActivity.id, primaryActivity)}
+                  className="bg-theme-bg p-3.5 rounded-xl mb-2.5"
+                >
+                  <View className="flex-row items-center justify-between mb-2">
+                    <View className="flex-row items-center space-x-2 flex-1 pr-2">
+                      {(() => {
+                        const iconConfig = getSportIconConfig(primaryActivity.sport_type, primaryActivity.name || primaryActivity.title);
+                        return (
+                          <View className={`w-7 h-7 rounded-lg items-center justify-center ${iconConfig.bgColor}`}>
+                            <Ionicons name={iconConfig.name as any} size={15} color={iconConfig.color} />
+                          </View>
+                        );
+                      })()}
+                      <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
+                        {primaryActivity.name || primaryActivity.title || 'Workout'}
+                      </Text>
                     </View>
-                  ) : null}
+                    <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
+                  </View>
+
+                  <View className="flex-row items-center space-x-4 pt-1.5 border-t border-slate-200/50 dark:border-slate-800/50">
+                    {typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 && (
+                      <View>
+                        <Text className="text-[10px] text-theme-muted font-bold uppercase">Distance</Text>
+                        <Text className="text-sm font-extrabold font-mono text-theme-text">{primaryActivity.distance_km.toFixed(1)} km</Text>
+                      </View>
+                    )}
+                    {typeof primaryActivity.moving_time_min === 'number' && primaryActivity.moving_time_min > 0 && (
+                      <View className={typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 ? 'pl-4 border-l border-slate-200/60 dark:border-slate-800/60' : ''}>
+                        <Text className="text-[10px] text-theme-muted font-bold uppercase">Duration</Text>
+                        <Text className="text-sm font-extrabold font-mono text-theme-text">{Math.round(primaryActivity.moving_time_min)} mins</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                // Multi-Activity Stack (Brick Session / Triathlons)
+                <View className="space-y-1.5 mb-2.5">
+                  {group.activities.map((act, actIdx) => {
+                    const iconConfig = getSportIconConfig(act.sport_type, act.name || act.title);
+                    return (
+                      <TouchableOpacity
+                        key={`brick-act-${act.id}-${actIdx}`}
+                        activeOpacity={0.8}
+                        onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
+                        className="bg-theme-bg p-2.5 rounded-xl flex-row items-center justify-between"
+                      >
+                        <View className="flex-row items-center space-x-2.5 flex-1 pr-2">
+                          <View className={`w-7 h-7 rounded-lg items-center justify-center ${iconConfig.bgColor}`}>
+                            <Ionicons name={iconConfig.name as any} size={15} color={iconConfig.color} />
+                          </View>
+                          <View className="flex-1">
+                            <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
+                              {act.name || act.title || 'Workout'}
+                            </Text>
+                            <Text className="text-[11px] text-theme-muted font-medium">
+                              {typeof act.distance_km === 'number' && act.distance_km > 0 ? `${act.distance_km.toFixed(1)} km · ` : ''}
+                              {typeof act.moving_time_min === 'number' && act.moving_time_min > 0 ? `${Math.round(act.moving_time_min)} mins` : ''}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View className="flex-row items-center space-x-1.5">
+                          <Text className="text-xs font-extrabold font-rajdhani text-theme-accent">
+                            +{Math.round(act.rooka_score || 0)}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={13} color="#94A3B8" />
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <Text className="text-xs text-theme-muted">
-                  {item.start_date ? item.start_date.substring(0, 10) : 'Recent'}
-                </Text>
+              )}
+
+              {/* Footer Actions */}
+              <View className="flex-row items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
+                <TouchableOpacity
+                  onPress={() => handleToggleKudos(primaryActivity)}
+                  className={`flex-row items-center space-x-1.5 px-3 py-1.5 rounded-full ${
+                    hasKudosed ? 'bg-rose-500/15' : 'bg-theme-bg'
+                  }`}
+                >
+                  <Ionicons
+                    name={hasKudosed ? 'heart' : 'heart-outline'}
+                    size={15}
+                    color={hasKudosed ? '#F43F5E' : '#6F6F79'}
+                  />
+                  <Text className={`text-xs font-extrabold font-mono ${hasKudosed ? 'text-rose-500' : 'text-theme-muted'}`}>
+                    {totalKudos}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => onOpenActivityModal && onOpenActivityModal(primaryActivity.id, primaryActivity)}
+                  className="flex-row items-center space-x-1.5 px-3 py-1.5 rounded-full bg-theme-bg"
+                >
+                  <Ionicons name="chatbubble-outline" size={15} color="#6F6F79" />
+                  <Text className="text-xs font-bold text-theme-muted">{totalComments} Comments</Text>
+                </TouchableOpacity>
               </View>
             </View>
-
-            <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
-              <Ionicons name="flash" size={12} color="#FF5F3B" />
-              <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">+{Math.round(item.rooka_score || 0)} Rooka</Text>
-            </View>
-          </View>
-
-          {/* Activity Info */}
-          <Text className="text-base font-bold text-theme-text mb-2">{item.title}</Text>
-
-          <View className="flex-row items-center space-x-4 bg-theme-bg p-3 rounded-xl mb-3 border border-theme-border/50">
-            {typeof item.distance_km === 'number' && (
-              <View>
-                <Text className="text-xs text-theme-muted font-bold">Distance</Text>
-                <Text className="text-sm font-extrabold font-mono text-theme-text">{item.distance_km.toFixed(1)} km</Text>
-              </View>
-            )}
-            {typeof item.moving_time_min === 'number' && (
-              <View className="pl-4 border-l border-theme-border/50">
-                <Text className="text-xs text-theme-muted font-bold">Duration</Text>
-                <Text className="text-sm font-extrabold font-mono text-theme-text">{Math.round(item.moving_time_min)} mins</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Footer Actions */}
-          <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/30">
-            <TouchableOpacity
-              onPress={() => handleToggleKudos(item)}
-              className={`flex-row items-center space-x-1.5 px-3 py-1.5 rounded-full ${
-                item.has_kudosed ? 'bg-rose-500/15' : 'bg-theme-bg'
-              }`}
-            >
-              <Ionicons
-                name={item.has_kudosed ? 'heart' : 'heart-outline'}
-                size={16}
-                color={item.has_kudosed ? '#F43F5E' : '#6F6F79'}
-              />
-              <Text className={`text-xs font-extrabold font-mono ${item.has_kudosed ? 'text-rose-500' : 'text-theme-muted'}`}>
-                {item.kudos_count || 0}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => onOpenActivityModal && onOpenActivityModal(item.id, item)}
-              className="flex-row items-center space-x-1.5 px-3 py-1.5 rounded-full bg-theme-bg"
-            >
-              <Ionicons name="chatbubble-outline" size={16} color="#6F6F79" />
-              <Text className="text-xs font-bold text-theme-muted">{item.comments_count} Comments</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-        ))
+          );
+        })
       )}
     </View>
   );

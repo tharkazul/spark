@@ -220,6 +220,24 @@ export function DetailedDayCard({
                   {workout.title}
                 </Text>
 
+                {/* The coach's own description of the session. Stored on every
+                    generated plan and pushed to Strava, but never shown here
+                    until now. Only rendered for coach-written sessions — a
+                    workout you built yourself has no coach to quote. */}
+                {workout.coachNote && (
+                  <View className="flex-row gap-2 p-2.5 rounded-xl bg-theme-accent/5 border-l-2 border-l-theme-accent">
+                    <Ionicons
+                      name="chatbubble-ellipses-outline"
+                      size={13}
+                      color="#FF5F3B"
+                      style={{ marginTop: 1 }}
+                    />
+                    <Text className="flex-1 text-xs text-theme-muted leading-relaxed">
+                      {workout.coachNote}
+                    </Text>
+                  </View>
+                )}
+
                 {/* Clean Subline & Quick Actions Bar */}
                 <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/50">
                   {/* The badge above already states this workout's Rooka; the

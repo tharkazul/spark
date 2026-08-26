@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ScrollView, Animated, StyleSheet } from 'react-native';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
+import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
+import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
 import { useUser } from '../../context/UserStore';
 import { userApi } from '../../services/apiServices';
 
@@ -40,11 +40,6 @@ export function calculateTargetCTL(eventName: string): number {
   return 70; // Default target CTL
 }
 
-const MONTH_NAMES = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-];
-
 export const GoalsTab: React.FC = () => {
   const { user, refreshUser } = useUser();
 
@@ -52,17 +47,11 @@ export const GoalsTab: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Date Selector Modal state
+  // Date Selector Sheet state. The year/month/day selection lives inside
+  // EventDatePickerSheet, which onboarding shares.
   const [dateModalVisible, setDateModalVisible] = useState(false);
-  const { dragY: dateDragY, panHandlers: datePanHandlers } = useSheetDismiss(() =>
-    setDateModalVisible(false)
-  );
   const [activeMilestoneId, setActiveMilestoneId] = useState<string | null>(null);
-  
-  // Date Picker temporary selection state
-  const [pickerYear, setPickerYear] = useState<number>(new Date().getFullYear());
-  const [pickerMonth, setPickerMonth] = useState<number>(new Date().getMonth()); // 0-11
-  const [pickerDay, setPickerDay] = useState<number>(new Date().getDate());
+  const [pickerInitialDate, setPickerInitialDate] = useState<string>('');
 
   const [milestones, setMilestones] = useState<MilestoneRow[]>(() => {
     if (user?.target_event) {
@@ -128,45 +117,17 @@ export const GoalsTab: React.FC = () => {
     );
   };
 
-  // Open Date Picker Modal
   const handleOpenDatePicker = (milestone: MilestoneRow) => {
     Haptics.selectionAsync();
     setActiveMilestoneId(milestone.id);
-
-    let initialDate = new Date();
-    if (milestone.eventDate && milestone.eventDate.includes('-')) {
-      const parts = milestone.eventDate.split('-').map(Number);
-      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
-        initialDate = new Date(parts[0], parts[1] - 1, parts[2]);
-      }
-    }
-
-    setPickerYear(initialDate.getFullYear());
-    setPickerMonth(initialDate.getMonth());
-    setPickerDay(initialDate.getDate());
+    setPickerInitialDate(milestone.eventDate || '');
     setDateModalVisible(true);
   };
 
-  // Confirm selected date in modal
-  const handleConfirmDate = () => {
+  const handleConfirmDate = (dateStr: string) => {
     if (activeMilestoneId) {
-      const mStr = String(pickerMonth + 1).padStart(2, '0');
-      const dStr = String(pickerDay).padStart(2, '0');
-      const formattedDate = `${pickerYear}-${mStr}-${dStr}`;
-
-      handleUpdateMilestone(activeMilestoneId, 'eventDate', formattedDate);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleUpdateMilestone(activeMilestoneId, 'eventDate', dateStr);
     }
-    setDateModalVisible(false);
-  };
-
-  // Apply Quick Date Presets (+1 Month, +3 Months, +6 Months, +1 Year)
-  const handleApplyPreset = (monthsToAdd: number) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + monthsToAdd);
-    setPickerYear(d.getFullYear());
-    setPickerMonth(d.getMonth());
-    setPickerDay(Math.min(d.getDate(), 28));
   };
 
   const handleSaveCalendar = async () => {
@@ -217,8 +178,6 @@ export const GoalsTab: React.FC = () => {
     } catch (e) {}
     return dateStr;
   };
-
-  const daysInSelectedMonth = new Date(pickerYear, pickerMonth + 1, 0).getDate();
 
   return (
     <View className="space-y-6">
@@ -421,176 +380,13 @@ export const GoalsTab: React.FC = () => {
         )}
       </Card>
 
-      {/* DATE SELECTOR MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
+      {/* Shared with the onboarding wizard — one date sheet, not two. */}
+      <EventDatePickerSheet
         visible={dateModalVisible}
-        onRequestClose={() => setDateModalVisible(false)}
-      >
-        <View className="flex-1 justify-end bg-black/50">
-          {/* The dimmed area had no press target. */}
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setDateModalVisible(false)}
-            style={StyleSheet.absoluteFillObject}
-          />
-          <Animated.View
-            style={{ transform: [{ translateY: dateDragY }] }}
-            className="bg-theme-bg px-5 pt-3 pb-5 rounded-t-3xl border-t border-theme-border"
-          >
-            {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
-            <View {...datePanHandlers} className="items-center pb-4 pt-1">
-              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-            </View>
-
-            {/* Modal Header */}
-            <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
-              <View className="flex-row items-center gap-2">
-                <Ionicons name="calendar-outline" size={20} color="#FF5F3B" />
-                <Text className="text-lg font-extrabold text-theme-text">Select Event Date</Text>
-              </View>
-            </View>
-
-            {/* Formatted Date Preview */}
-            <View className="p-3 bg-theme-card border border-theme-accent/30 rounded-xl mb-4 items-center">
-              <Text className="text-xs font-bold text-theme-muted">
-                Selected Race Date
-              </Text>
-              <Text className="text-lg font-extrabold text-theme-accent mt-0.5">
-                {formatDateDisplay(
-                  `${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(pickerDay).padStart(2, '0')}`
-                )}
-              </Text>
-            </View>
-
-            {/* Quick Presets */}
-            <Text className="text-xs font-bold text-theme-muted mb-2">
-              Quick Presets
-            </Text>
-            <View className="flex-row flex-wrap gap-2 mb-4">
-              <TouchableOpacity
-                onPress={() => handleApplyPreset(1)}
-                className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-lg"
-              >
-                <Text className="text-xs font-bold text-theme-text">+1 Month</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleApplyPreset(3)}
-                className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-lg"
-              >
-                <Text className="text-xs font-bold text-theme-text">+3 Months</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleApplyPreset(6)}
-                className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-lg"
-              >
-                <Text className="text-xs font-bold text-theme-text">+6 Months</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleApplyPreset(12)}
-                className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-lg"
-              >
-                <Text className="text-xs font-bold text-theme-text">+1 Year</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Year Selector */}
-            <View className="flex-row items-center justify-between mb-3 bg-theme-card p-2 rounded-xl">
-              <Text className="text-xs font-bold text-theme-muted">Year</Text>
-              <View className="flex-row items-center gap-3">
-                <TouchableOpacity
-                  onPress={() => setPickerYear((y) => Math.max(new Date().getFullYear(), y - 1))}
-                  className="p-1"
-                >
-                  <Ionicons name="chevron-back" size={18} color="#FF5F3B" />
-                </TouchableOpacity>
-                <Text className="text-sm font-extrabold text-theme-text font-mono">{pickerYear}</Text>
-                <TouchableOpacity
-                  onPress={() => setPickerYear((y) => y + 1)}
-                  className="p-1"
-                >
-                  <Ionicons name="chevron-forward" size={18} color="#FF5F3B" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Month Grid */}
-            <Text className="text-xs font-bold text-theme-muted mb-2">
-              Month
-            </Text>
-            <View className="flex-row flex-wrap gap-1.5 mb-4">
-              {MONTH_NAMES.map((mName, idx) => {
-                const isSelected = pickerMonth === idx;
-                return (
-                  <TouchableOpacity
-                    key={mName}
-                    onPress={() => {
-                      setPickerMonth(idx);
-                      const maxDays = new Date(pickerYear, idx + 1, 0).getDate();
-                      if (pickerDay > maxDays) setPickerDay(maxDays);
-                    }}
-                    className={`w-[23%] py-2 rounded-lg items-center ${
-                      isSelected
-                        ? 'bg-theme-accent'
-                        : 'bg-theme-card border border-theme-border/50'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        isSelected ? 'text-white' : 'text-theme-text'
-                      }`}
-                    >
-                      {mName}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Day Selector Scroll */}
-            <Text className="text-xs font-bold text-theme-muted mb-2">
-              Day of Month
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mb-5"
-            >
-              {Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1).map((dNum) => {
-                const isSelected = pickerDay === dNum;
-                return (
-                  <TouchableOpacity
-                    key={dNum}
-                    onPress={() => setPickerDay(dNum)}
-                    className={`w-10 h-10 rounded-xl items-center justify-center mr-2 border ${
-                      isSelected
-                        ? 'bg-theme-accent border-theme-accent'
-                        : 'bg-theme-card border-theme-border/50'
-                    }`}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        isSelected ? 'text-white' : 'text-theme-text'
-                      }`}
-                    >
-                      {dNum}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Confirm Button */}
-            <TouchableOpacity
-              onPress={handleConfirmDate}
-              className="bg-theme-accent py-3.5 rounded-xl items-center shadow-sm"
-            >
-              <Text className="text-white font-bold text-sm">Confirm Date</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Modal>
+        value={pickerInitialDate}
+        onClose={() => setDateModalVisible(false)}
+        onConfirm={handleConfirmDate}
+      />
     </View>
   );
 };

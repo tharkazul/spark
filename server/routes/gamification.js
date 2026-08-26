@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
-const { generateWithFallback } = require('../services/ai');
+const { generateWithFallback, generateImage } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const {
   matchGarminExercise,
@@ -18,8 +18,6 @@ const {
   getWeatherContext,
   getUserMacroPhase,
   generatePublicProfile,
-  calculateGlobalMaxStats,
-  generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
   getRookaLevelInfo,
@@ -77,6 +75,46 @@ router.post("/api/milestones", authenticateToken, (req, res) => {
 
     res.json({ success: true, message: "Calendar updated!" });
   });
+});
+
+router.post("/api/milestones/:id/artwork", authenticateToken, async (req, res) => {
+  const milestoneId = req.params.id;
+  db.get(
+    `SELECT * FROM milestones WHERE id = ? AND user_id = ?`,
+    [milestoneId, req.user.id],
+    async (err, milestone) => {
+      if (err || !milestone) {
+        return res.status(404).json({ error: "Milestone not found." });
+      }
+
+      try {
+        const prompt = `Epic, inspiring, high-quality athletic event poster artwork for an endurance race milestone: "${milestone.name}". Target date: ${milestone.date}. Dramatic cinematic lighting, sleek modern graphic design badge, vibrant neon and metallic accents, athlete silhouette in motion, award-winning concept art, 8k resolution, motivational sports aesthetic`;
+
+        const { base64Data, mimeType } = await generateImage(prompt, { aspectRatio: "1:1" });
+        const ext = mimeType.includes("png") ? "png" : "jpg";
+        const fileName = `milestone_${req.user.id}_${milestoneId}_${Date.now()}.${ext}`;
+        const dir = path.join(__dirname, "../public/uploads/milestones");
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        const filePath = path.join(dir, fileName);
+        fs.writeFileSync(filePath, base64Data, "base64");
+
+        const artworkUrl = `/uploads/milestones/${fileName}`;
+        db.run(
+          `UPDATE milestones SET artwork_url = ? WHERE id = ? AND user_id = ?`,
+          [artworkUrl, milestoneId, req.user.id],
+          (updateErr) => {
+            if (updateErr) {
+              console.error("DB update error for milestone artwork:", updateErr);
+            }
+            res.json({ success: true, artworkUrl });
+          }
+        );
+      } catch (genErr) {
+        console.error("Failed to generate milestone artwork:", genErr);
+        res.status(500).json({ error: "Failed to generate milestone artwork: " + genErr.message });
+      }
+    }
+  );
 });
 
 router.get("/api/gamification", authenticateToken, async (req, res) => {

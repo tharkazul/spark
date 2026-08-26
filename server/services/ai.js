@@ -169,4 +169,84 @@ async function generateWithFallback(
   );
 }
 
-module.exports = { generateWithFallback, geminiConfigs };
+async function generateImage(prompt, options = {}) {
+  const models = [
+    "gemini-2.5-flash-image",
+    "gemini-3.1-flash-image",
+    "gemini-3.1-flash-lite-image",
+    "gemini-3-pro-image",
+  ];
+
+  let lastError = null;
+
+  // Try GEMINI_API_KEY2 first (dedicated paid key for image generation)
+  const apiKeysToTry = [
+    options.apiKey,
+    process.env.GEMINI_API_KEY2,
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_BACKUP,
+  ].filter(Boolean);
+
+  for (const apiKey of apiKeysToTry) {
+    const ai = new GoogleGenAI({ apiKey });
+
+    // 1. Try Imagen 3 dedicated image generation endpoint first
+    try {
+      console.log(`🎨 Attempting image generation via Imagen 3...`);
+      const imgRes = await ai.models.generateImages({
+        model: "imagen-3.0-generate-002",
+        prompt: prompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: "image/jpeg",
+          aspectRatio: options.aspectRatio || "1:1",
+        },
+      });
+
+      const base64Bytes = imgRes.generatedImages?.[0]?.image?.imageBytes;
+      if (base64Bytes) {
+        console.log("✅ Imagen 3 image generation successful!");
+        return {
+          base64Data: base64Bytes,
+          mimeType: "image/jpeg",
+        };
+      }
+    } catch (imagenErr) {
+      console.warn(`⚠️ Imagen 3 attempt failed (${imagenErr.message}). Trying Gemini image models...`);
+      lastError = imagenErr;
+    }
+
+    // 2. Try Gemini Image multimodal models
+    for (const modelName of models) {
+      try {
+        console.log(`🎨 Attempting image generation with ${modelName}...`);
+        const result = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            responseModalities: ["IMAGE", "TEXT"],
+          },
+        });
+
+        const candidate = result.candidates?.[0];
+        for (const part of candidate?.content?.parts || []) {
+          if (part.inlineData && part.inlineData.data) {
+            console.log(`✅ Gemini image generation successful with ${modelName}!`);
+            return {
+              base64Data: part.inlineData.data,
+              mimeType: part.inlineData.mimeType || "image/jpeg",
+            };
+          }
+        }
+      } catch (geminiErr) {
+        console.warn(`⚠️ Model ${modelName} failed: ${geminiErr.message}`);
+        lastError = geminiErr;
+      }
+    }
+  }
+
+  console.error("❌ All image generation models failed:", lastError?.message);
+  throw lastError || new Error("Unable to generate image at this time.");
+}
+
+module.exports = { generateWithFallback, generateImage, geminiConfigs };

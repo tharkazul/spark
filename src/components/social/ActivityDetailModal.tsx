@@ -33,6 +33,7 @@ interface ActivityDetailModalProps {
   activityId: string | number | null;
   initialActivity?: Partial<Activity>;
   onClose: () => void;
+  onOpenAthleteProfile?: (userId: number | string) => void;
 }
 
 export interface ActivitySetOrEffort {
@@ -298,6 +299,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
   activityId,
   initialActivity,
   onClose,
+  onOpenAthleteProfile,
 }) => {
   const { user } = useUser();
   const { colorScheme } = useColorScheme();
@@ -388,7 +390,11 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
     };
   }, [visible, activityId, initialActivity]);
 
-  // Decode polyline into Map coordinates
+  // Decode polyline into Map coordinates.
+  //
+  // There used to be a hardcoded loop around Amsterdam here as a fallback, so an
+  // activity with no stored route showed a square someone had never ridden. An
+  // empty list is honest: the map is replaced by an explicit "no GPS" panel below.
   const coordinates: Coordinate[] = React.useMemo(() => {
     if (activity?.polyline) {
       try {
@@ -396,14 +402,10 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
         if (decoded && decoded.length > 0) return decoded;
       } catch (e) {}
     }
-    return [
-      { latitude: 52.3702, longitude: 4.8952 },
-      { latitude: 52.3740, longitude: 4.9040 },
-      { latitude: 52.3680, longitude: 4.9120 },
-      { latitude: 52.3640, longitude: 4.9010 },
-      { latitude: 52.3702, longitude: 4.8952 },
-    ];
+    return [];
   }, [activity?.polyline]);
+
+  const hasRoute = coordinates.length > 0;
 
   const fitMapToRoute = (animated = true) => {
     if (coordinates.length > 0 && mapRef.current) {
@@ -699,12 +701,16 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
   const startPt = coordinates[0];
   const endPt = coordinates[coordinates.length - 1];
-  const initialRegion = getBoundingRegion(coordinates) || {
-    latitude: startPt.latitude,
-    longitude: startPt.longitude,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  };
+  const initialRegion =
+    getBoundingRegion(coordinates) ||
+    (startPt
+      ? {
+          latitude: startPt.latitude,
+          longitude: startPt.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }
+      : undefined);
 
   const fadeGradientColors = isDark
     ? ['rgba(18, 18, 20, 0)', 'rgba(18, 18, 20, 0.65)', '#121214']
@@ -721,20 +727,29 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
         >
           {/* 1. TOP FADED MAP CONTAINER (Movable and Zoomable) */}
           <View className="w-full h-72 relative bg-slate-200 dark:bg-slate-800">
-            <MapView
-              ref={mapRef}
-              style={{ width: '100%', height: '100%' }}
-              initialRegion={initialRegion}
-              onMapReady={() => fitMapToRoute(false)}
-              scrollEnabled={true}
-              zoomEnabled={true}
-              rotateEnabled={true}
-              pitchEnabled={true}
-            >
-              <Polyline coordinates={coordinates} strokeColor="#FF5F3B" strokeWidth={4.5} />
-              {startPt && <Marker coordinate={startPt} title="Start" pinColor="green" />}
-              {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
-            </MapView>
+            {hasRoute ? (
+              <MapView
+                ref={mapRef}
+                style={{ width: '100%', height: '100%' }}
+                initialRegion={initialRegion}
+                onMapReady={() => fitMapToRoute(false)}
+                scrollEnabled={true}
+                zoomEnabled={true}
+                rotateEnabled={true}
+                pitchEnabled={true}
+              >
+                <Polyline coordinates={coordinates} strokeColor="#FF5F3B" strokeWidth={4.5} />
+                {startPt && <Marker coordinate={startPt} title="Start" pinColor="green" />}
+                {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
+              </MapView>
+            ) : (
+              <View className="w-full h-full items-center justify-center gap-2 px-8">
+                <Ionicons name="map-outline" size={26} color="#8E9BA4" />
+                <Text className="text-xs font-bold text-theme-muted text-center">
+                  No route recorded for this activity
+                </Text>
+              </View>
+            )}
 
             {/* Fading Gradient Overlay */}
             <LinearGradient

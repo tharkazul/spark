@@ -41,4 +41,10 @@ export interface PlannedWorkout {
   steps?: WorkoutStep[];
   is_benchmark?: boolean;
   benchmark_type?: string;
+  /**
+   * Who prescribed this session. `details` is the coach's own words, so it is
+   * only presented as a note from the coach when the coach wrote the row.
+   * Rows that predate the column read as 'coach'.
+   */
+  source?: 'coach' | 'user';
 }

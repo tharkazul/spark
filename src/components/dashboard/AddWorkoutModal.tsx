@@ -226,6 +226,10 @@ export function AddWorkoutModal({
         isCompleted: initialWorkout ? initialWorkout.isCompleted : false,
         actualMetrics: initialWorkout?.actualMetrics,
         executionScore: initialWorkout?.executionScore,
+        // Editing a coach session keeps it a coach session, so the note stays.
+        isCoachCreated: initialWorkout?.isCoachCreated,
+        coachNote: initialWorkout?.coachNote,
+        notes: initialWorkout?.notes,
       },
       initialWorkout?.id
     );
@@ -466,6 +470,28 @@ export function AddWorkoutModal({
                     />
                   </View>
 
+                  {/* Why the coach prescribed this. Read-only: it is their note,
+                      not a field on the workout, and it is absent on sessions
+                      you built yourself. */}
+                  {initialWorkout?.coachNote && (
+                    <View className="flex-row gap-2.5 p-3 rounded-xl bg-theme-accent/5 border-l-2 border-l-theme-accent">
+                      <Ionicons
+                        name="chatbubble-ellipses-outline"
+                        size={15}
+                        color="#FF5F3B"
+                        style={{ marginTop: 1 }}
+                      />
+                      <View className="flex-1">
+                        <Text className="text-xs font-bold text-theme-accent mb-0.5">
+                          From your coach
+                        </Text>
+                        <Text className="text-xs text-theme-muted leading-relaxed">
+                          {initialWorkout.coachNote}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
                   {/* Duration & Calculated Rooka row */}
                   <View className="flex-row items-center gap-3">
                     <View className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center">
@@ -491,7 +517,7 @@ export function AddWorkoutModal({
                   </View>
                   </View>
                 </View>
-              ), [selectedSport, title, durationMinutes, calculatedRooka])}
+              ), [selectedSport, title, durationMinutes, calculatedRooka, initialWorkout])}
               ListFooterComponent={React.useMemo(() => renderFooter(), [insets.bottom, isGarminSynced, isGarminSyncing, isAppleWatchSynced, isAppleWatchSyncing, initialWorkout, title, durationMinutes, calculatedRooka, steps])}
             />
           </Animated.View>

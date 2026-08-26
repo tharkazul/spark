@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
+import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { MentionUser } from '../../types/social';
 
 interface CommentComposerProps {
@@ -115,23 +116,26 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
             data={filteredConnections}
             keyExtractor={(item) => `mention-${item.id}`}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => handleSelectMention(item.username)}
-                className="flex-row items-center space-x-2.5 p-2 rounded-xl active:bg-theme-accent/15"
-              >
-                {item.profile_picture_url ? (
-                  <Image source={{ uri: item.profile_picture_url }} className="w-7 h-7 rounded-full" />
-                ) : (
-                  <View className="w-7 h-7 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
-                    <Text className="text-xs font-extrabold text-theme-accent">
-                      {item.username.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                <Text className="text-xs font-extrabold text-theme-text">@{item.username}</Text>
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const mentionAvatarUri = getFullProfilePhotoUrl(item.profile_picture_url);
+              return (
+                <TouchableOpacity
+                  onPress={() => handleSelectMention(item.username)}
+                  className="flex-row items-center space-x-2.5 p-2 rounded-xl active:bg-theme-accent/15"
+                >
+                  {mentionAvatarUri ? (
+                    <Image source={{ uri: mentionAvatarUri }} className="w-7 h-7 rounded-full" />
+                  ) : (
+                    <View className="w-7 h-7 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
+                      <Text className="text-xs font-extrabold text-theme-accent">
+                        {item.username.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <Text className="text-xs font-extrabold text-theme-text">@{item.username}</Text>
+                </TouchableOpacity>
+              );
+            }}
           />
         </View>
       )}

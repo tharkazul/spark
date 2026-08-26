@@ -6,7 +6,7 @@ import { PhysiqueEntry, NutritionProtocol } from '../types/physique';
 import { Quest, UserTitle } from '../types/gamification';
 import { Niggle } from '../types/health';
 import { ChatMessage, TokenUsage } from '../types/chat';
-import { SocialFeedActivity, ActivityComment, SocialConnection, LeaderboardResponse } from '../types/social';
+import { SocialFeedActivity, ActivityComment, SocialConnection, LeaderboardResponse, PublicAthleteProfile } from '../types/social';
 
 export const authApi = {
   login: (credentials: { email?: string; username?: string; password: string }) =>
@@ -293,7 +293,7 @@ export const socialApi = {
       method: 'POST',
       body: JSON.stringify({ friendId }),
     }),
-  getProfile: (userId: number | string) => apiClient<any>(`/api/social/profile/${userId}`),
+  getProfile: (userId: number | string) => apiClient<PublicAthleteProfile>(`/api/social/profile/${userId}`),
   acceptInvite: (inviteId: number | string) =>
     apiClient<{ success: boolean; message?: string }>(`/api/social/invite/${inviteId}/accept`, {
       method: 'POST',

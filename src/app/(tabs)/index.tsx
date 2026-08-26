@@ -17,6 +17,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
 import { usePlan } from '../../context/PlanStore';
+import { planApi } from '../../services/apiServices';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '../../components/ui/Card';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
@@ -271,6 +272,14 @@ export default function PlanningHomeScreen() {
           actualMetrics: w.actualMetrics,
           executionScore: w.executionScore,
           notes: w.details,
+          // The coach's own description of the session. Rows written before the
+          // `source` column existed all came from plan generation, so an absent
+          // value counts as the coach.
+          isCoachCreated: w.source !== 'user',
+          coachNote:
+            w.source !== 'user' && w.details && w.details.trim().length > 0
+              ? w.details.trim()
+              : undefined,
         };
       });
     }
@@ -361,8 +370,26 @@ export default function PlanningHomeScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const handleConfirmAdaptation = (type: string) => {
-    // Adaptation logic
+  const handleConfirmAdaptation = async (type: string) => {
+    if (type === 'MOVE_ALL_ONE_DAY') {
+      try {
+        const todayStr = formatDateToYYYYMMDD(new Date());
+        await planApi.pushForward(todayStr);
+        await refreshPlan();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (err) {
+        console.error('Failed to push forward:', err);
+      }
+    } else {
+      let prompt = '';
+      if (type === 'TIME_CRUNCH') prompt = 'I only have 30 minutes today, please adapt my workout to a time crunch.';
+      if (type === 'MOVE_INDOORS') prompt = 'I need to move my workout indoors today. Please adapt it for the trainer/treadmill.';
+      if (type === 'CANCEL_COMPLETELY') prompt = 'I want to cancel my workout completely today. I need to rest.';
+      
+      if (prompt) {
+        sendMessage(prompt);
+      }
+    }
   };
 
   const handleSaveWeight = (newWeight: number) => {

@@ -6,6 +6,7 @@ export interface SocialFeedActivity {
   profile_picture_url?: string;
   rooka_level: number;
   title: string;
+  name?: string;
   sport_type: string;
   distance_km?: number;
   moving_time_min?: number;
@@ -61,4 +62,38 @@ export interface MentionUser {
   id: number;
   username: string;
   profile_picture_url?: string;
+}
+
+export interface PublicAthleteProfile {
+  id: number;
+  username: string;
+  profilePictureUrl?: string;
+  athlete_context?: string;
+  total_rooka?: number;
+  levelInfo?: {
+    level: number;
+    currentXp: number;
+    nextLevelXp: number;
+    progressPercent?: number;
+  };
+  activeTitle?: {
+    id: number;
+    title: string;
+    description?: string;
+  } | null;
+  activities?: any[];
+  recentActivities?: any[];
+  athlete_metrics?: {
+    ftp?: number;
+    weight_kg?: number;
+    max_hr?: number;
+  };
+  trends?: {
+    dates: string[];
+    ctl: number[];
+    atl: number[];
+    tsb: number[];
+    weight: (number | null)[];
+  };
+  connectionStatus?: 'none' | 'pending' | 'pending_received' | 'accepted' | 'self';
 }

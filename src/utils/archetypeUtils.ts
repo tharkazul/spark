@@ -5,6 +5,7 @@ export interface ArchetypeData {
   explosiveness: number; // 0 - 100
   consistency: number;  // 0 - 100
   title: string;        // Dynamic archetype classification title
+  description: string;  // Detailed archetype narrative
 }
 
 export interface ActivityForArchetype {
@@ -40,6 +41,7 @@ export function calculateAthleteArchetype(
       explosiveness: 25,
       consistency: 25,
       title: 'Developing Athlete',
+      description: 'Building baseline training volume and establishing workout consistency across core endurance and strength domains.',
     };
   }
 
@@ -139,24 +141,43 @@ export function calculateAthleteArchetype(
   const weeklyWorkoutDays = uniqueDays / (daysSpan / 7);
   const consistencyScore = Math.min(100, Math.round((weeklyWorkoutDays / 4.5) * 100));
 
-  // --- DYNAMIC TITLE CLASSIFICATION ---
+  // --- DYNAMIC TITLE & DESCRIPTION CLASSIFICATION ---
   let title = 'Developing Athlete';
+  let description =
+    'Building baseline training volume and establishing workout consistency across core endurance and strength domains.';
+
   if (activeSet.length < 5) {
     title = 'Developing Athlete';
+    description =
+      'Building baseline training volume and establishing workout consistency across core endurance and strength domains.';
   } else if (enduranceScore >= 60 && strengthScore >= 60) {
     title = 'Balanced Hybrid';
+    description =
+      'Demonstrates exceptional dual-capacity across high-volume endurance and heavy resistance work, maintaining strong work capacity across all training domains.';
   } else if (enduranceScore >= 70 && strengthScore < 45) {
     title = 'Endurance Specialist';
+    description =
+      'Excels in sustained aerobic capacity and long-duration volume, showing deep cardiovascular efficiency and stamina.';
   } else if (strengthScore >= 70 && enduranceScore < 45) {
     title = 'Iron Specialist';
+    description =
+      'Prioritizes heavy resistance training and raw muscular strength, maintaining high peak output in power and strength disciplines.';
   } else if (explosivenessScore >= 65 && strengthScore >= 50) {
     title = 'Speed & Power Athlete';
+    description =
+      'Dominates high-intensity anaerobic efforts, interval surges, and explosive power outputs with strong threshold resilience.';
   } else if (versatilityScore >= 70) {
     title = 'Multi-Sport Athlete';
+    description =
+      'Possesses exceptional versatility across diverse disciplines (running, cycling, swimming, functional fitness), seamlessly adapting to multi-modal training.';
   } else if (consistencyScore >= 75) {
     title = 'Consistent Grinder';
+    description =
+      'Maintains remarkable training discipline and regular weekly frequency, building fitness through relentless week-over-week consistency.';
   } else if (versatilityScore >= 45) {
     title = 'Versatile Athlete';
+    description =
+      'Balances cross-training variety across multiple athletic disciplines with steady training volume.';
   }
 
   return {
@@ -166,5 +187,6 @@ export function calculateAthleteArchetype(
     explosiveness: Math.max(15, explosivenessScore),
     consistency: Math.max(15, consistencyScore),
     title,
+    description,
   };
 }

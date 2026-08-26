@@ -16,6 +16,7 @@ export interface LeaderboardSubTabProps {
   rookaLeaderboard?: LeaderboardEntry[];
   questLeaderboard?: LeaderboardEntry[];
   hasAccess?: boolean;
+  onOpenAthleteProfile?: (userId: number | string) => void;
 }
 
 export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
@@ -26,6 +27,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   rookaLeaderboard: controlledRooka,
   questLeaderboard: controlledQuests,
   hasAccess: controlledHasAccess,
+  onOpenAthleteProfile,
 }) => {
   const { user } = useUser();
   const router = useRouter();
@@ -219,8 +221,15 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
           const questsCount = (item as any).completed_quests_count ?? item.quests_completed_7d ?? 0;
 
           return (
-            <View
+            <TouchableOpacity
               key={`rank-${item.user_id || item.rank}-${currentType}`}
+              activeOpacity={0.75}
+              onPress={() => {
+                const athleteTargetId = item.user_id || (item as any).id;
+                if (athleteTargetId && onOpenAthleteProfile) {
+                  onOpenAthleteProfile(athleteTargetId);
+                }
+              }}
               className={`bg-theme-card border rounded-2xl p-4 mb-2.5 flex-row justify-between items-center shadow-sm ${
                 isCurrentUser ? 'border-theme-accent bg-theme-accent/5' : 'border-theme-border'
               }`}
@@ -269,7 +278,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                   {currentType === 'rooka' ? 'Points' : 'Quests'}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })
       )}

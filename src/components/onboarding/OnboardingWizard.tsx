@@ -37,8 +37,8 @@ import { apiClient } from '../../services/apiClient';
 import { integrationsApi } from '../../services/apiServices';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { MarkdownText } from '../chat/MarkdownText';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { DurationRoller } from '../ui/DurationRoller';
+import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -353,80 +353,18 @@ export default function OnboardingWizard() {
   // table, which is what every Rooka score is now weighted by.
   const [age, setAge] = useState('');
 
+  // The three-column month/day/year roller that used to live here has been
+  // replaced by the Goals sheet (year stepper, month grid, day strip, quick
+  // presets), so there is one event-date picker in the app rather than two.
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
   const currentYearNum = new Date().getFullYear();
   const startYear = Math.max(2026, currentYearNum);
-  const YEARS = Array.from({ length: 6 }, (_, i) => (startYear + i).toString());
 
-  const [pickerMonth, setPickerMonth] = useState('October');
-  const [pickerDay, setPickerDay] = useState('1');
-  const [pickerYear, setPickerYear] = useState(startYear.toString());
-
-  const getDaysInMonth = (monthName: string, yearStr: string) => {
-    const monthIndex = MONTHS.indexOf(monthName);
-    const y = parseInt(yearStr, 10) || startYear;
-    return new Date(y, monthIndex + 1, 0).getDate();
-  };
-
-  const currentMaxDays = getDaysInMonth(pickerMonth, pickerYear);
-  const PICKER_DAYS = Array.from({ length: currentMaxDays }, (_, i) => (i + 1).toString());
-
-  const isSelectedDateInPast = () => {
-    const monthIndex = MONTHS.indexOf(pickerMonth);
-    const dayNum = parseInt(pickerDay, 10) || 1;
-    const yearNum = parseInt(pickerYear, 10) || startYear;
-    const selected = new Date(yearNum, monthIndex, dayNum);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return selected < today;
-  };
-
-  const handleSetPickerMonth = (m: string) => {
-    setPickerMonth(m);
-    const maxD = getDaysInMonth(m, pickerYear);
-    if (parseInt(pickerDay, 10) > maxD) {
-      setPickerDay(maxD.toString());
-    }
-  };
-
-  const handleSetPickerYear = (y: string) => {
-    setPickerYear(y);
-    const maxD = getDaysInMonth(pickerMonth, y);
-    if (parseInt(pickerDay, 10) > maxD) {
-      setPickerDay(maxD.toString());
-    }
-  };
-
-  const handleConfirmDate = () => {
-    if (isSelectedDateInPast()) return;
-    const monthIndex = MONTHS.indexOf(pickerMonth) + 1;
-    const mStr = monthIndex < 10 ? `0${monthIndex}` : `${monthIndex}`;
-    const dayNum = parseInt(pickerDay, 10);
-    const dStr = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
-    const fullDate = `${pickerYear}-${mStr}-${dStr}`;
-    setRaceDate(fullDate);
-    setShowDatePicker(false);
+  const handleConfirmDate = (dateStr: string) => {
+    setRaceDate(dateStr);
   };
 
   const openDatePickerModal = () => {
-    let initialDate = new Date();
-    if (raceDate) {
-      const parts = raceDate.split('-').map(Number);
-      if (parts.length === 3 && !parts.some(isNaN)) {
-        const parsed = new Date(parts[0], parts[1] - 1, parts[2]);
-        if (!isNaN(parsed.getTime())) initialDate = parsed;
-      }
-    }
-    const initialYr = Math.max(startYear, initialDate.getFullYear()).toString();
-    setPickerYear(initialYr);
-    setPickerMonth(MONTHS[initialDate.getMonth()]);
-    const maxDays = getDaysInMonth(MONTHS[initialDate.getMonth()], initialYr);
-    const safeDay = Math.min(initialDate.getDate(), maxDays).toString();
-    setPickerDay(safeDay);
     setShowDatePicker(true);
   };
 
@@ -930,120 +868,19 @@ export default function OnboardingWizard() {
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView className="flex-1 bg-theme-bg" edges={['top', 'bottom']}>
-        {/* Date Picker Modal */}
-        <BottomSheetModal
+        {/* Event date picker — the same sheet the Goals tab uses. */}
+        <EventDatePickerSheet
           visible={showDatePicker}
+          value={raceDate}
           onClose={() => setShowDatePicker(false)}
-          contentClassName="bg-theme-bg border-t border-theme-border rounded-t-3xl p-6"
-        >
-          <View className="flex-row justify-between items-center mb-4">
-            <Pressable onPress={() => setShowDatePicker(false)}>
-              <Text className="text-theme-muted font-semibold text-sm">{t('onboarding.cancelBtn')}</Text>
-            </Pressable>
-            <Text className="text-theme-text font-bold text-base">{t('onboarding.selectTargetDateModalTitle')}</Text>
-            <Pressable
-              onPress={handleConfirmDate}
-              disabled={isSelectedDateInPast()}
-              className={isSelectedDateInPast() ? 'opacity-40' : 'opacity-100'}
-            >
-              <Text className="text-[#FF5F3B] font-bold text-sm">{t('onboarding.confirmDateBtn')}</Text>
-            </Pressable>
-          </View>
-
-          {isSelectedDateInPast() && (
-            <View className="mb-3 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center gap-2">
-              <Ionicons name="warning-outline" size={16} color="#ef4444" />
-              <Text className="text-red-500 text-xs font-bold text-center">
-                {t('onboarding.dateInPastWarning')}
-              </Text>
-            </View>
-          )}
-
-          <View className="h-[200px] flex-row relative">
-            <View className="absolute top-[84px] left-0 right-0 h-[44px] bg-theme-card border-y border-theme-border rounded-lg" />
-
-            {/* Month Column */}
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              snapToInterval={44}
-              decelerationRate="fast"
-              contentContainerStyle={{ paddingVertical: 84 }}
-              className="flex-1"
-            >
-              {MONTHS.map((m) => (
-                <Pressable
-                  key={m}
-                  onPress={() => handleSetPickerMonth(m)}
-                  style={{ height: 44 }}
-                  className="items-center justify-center"
-                >
-                  <Text
-                    className={`text-center text-lg ${pickerMonth === m
-                      ? 'font-bold text-black dark:text-white'
-                      : 'text-gray-400 dark:text-zinc-500 font-normal'
-                      }`}
-                  >
-                    {m}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            {/* Day Column */}
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              snapToInterval={44}
-              decelerationRate="fast"
-              contentContainerStyle={{ paddingVertical: 84 }}
-              className="flex-1"
-            >
-              {PICKER_DAYS.map((d) => (
-                <Pressable
-                  key={d}
-                  onPress={() => setPickerDay(d)}
-                  style={{ height: 44 }}
-                  className="items-center justify-center"
-                >
-                  <Text
-                    className={`text-center text-lg ${pickerDay === d
-                      ? 'font-bold text-black dark:text-white'
-                      : 'text-gray-400 dark:text-zinc-500 font-normal'
-                      }`}
-                  >
-                    {d}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            {/* Year Column */}
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              snapToInterval={44}
-              decelerationRate="fast"
-              contentContainerStyle={{ paddingVertical: 84 }}
-              className="flex-1"
-            >
-              {YEARS.map((y) => (
-                <Pressable
-                  key={y}
-                  onPress={() => handleSetPickerYear(y)}
-                  style={{ height: 44 }}
-                  className="items-center justify-center"
-                >
-                  <Text
-                    className={`text-center text-lg ${pickerYear === y
-                      ? 'font-bold text-black dark:text-white'
-                      : 'text-gray-400 dark:text-zinc-500 font-normal'
-                      }`}
-                  >
-                    {y}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        </BottomSheetModal>
+          onConfirm={handleConfirmDate}
+          title={t('onboarding.selectTargetDateModalTitle')}
+          previewLabel={t('onboarding.selectTargetDateModalTitle')}
+          confirmLabel={t('onboarding.confirmDateBtn')}
+          pastWarning={t('onboarding.dateInPastWarning')}
+          disallowPast
+          minYear={startYear}
+        />
 
         {/* Header Stepper Bar */}
         <View className="px-6 pt-4 pb-3 border-b border-theme-border flex-row items-center justify-between">

@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '../ui/Card';
-import { LineChart } from 'react-native-gifted-charts';
 import { AthleteRadarChart } from './AthleteRadarChart';
 import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,7 +33,11 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   const { activities } = useActivities();
   const { physiqueLogs } = usePhysique();
 
-  const computedInfo = getRookaLevelInfo(user?.total_rooka ?? 0);
+  const activitiesTotalRooka = Math.round(
+    activities.reduce((sum, a) => sum + (a.rooka_score ?? a.tss ?? 0), 0)
+  );
+  const effectiveTotalRooka = Math.max(user?.total_rooka ?? 0, activitiesTotalRooka);
+  const computedInfo = getRookaLevelInfo(effectiveTotalRooka);
   const activeLevelInfo = customLevelInfo || {
     level: computedInfo.level,
     currentXp: computedInfo.totalRooka,
@@ -112,7 +115,16 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         </View>
 
         {hasArchetypeData ? (
-          <AthleteRadarChart data={activeArchetypeData} size={260} />
+          <>
+            <AthleteRadarChart data={activeArchetypeData} size={260} />
+            {activeArchetypeData.description ? (
+              <View className="mt-3 pt-3 border-t border-theme-border/40">
+                <Text className="text-xs text-theme-muted text-center leading-relaxed">
+                  {activeArchetypeData.description}
+                </Text>
+              </View>
+            ) : null}
+          </>
         ) : (
           /* With no sessions every axis floors at 25%, drawing a perfect
              pentagon that looks like a real measurement of nothing. Say what

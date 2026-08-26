@@ -19,14 +19,13 @@ const {
   getWeatherContext,
   getUserMacroPhase,
   generatePublicProfile,
-  calculateGlobalMaxStats,
-  generateAllPublicProfiles,
   processTokenRefresh,
   getStravaTokenForUser,
   getRookaLevelInfo,
   calculateRookaScore,
   mapStravaSportToRooka,
   formatStepsForStrava,
+  extractStravaPolyline,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
@@ -219,7 +218,12 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
           start_date: row.start_date,
           start_date_local: row.start_date,
           sets_json: sets,
-          kudos_count: row.kudos_count || 0
+          kudos_count: row.kudos_count || 0,
+          // Without this the client had no route to decode and fell back to a
+          // hardcoded square over Amsterdam.
+          polyline: row.polyline || null,
+          average_watts: row.average_watts || null,
+          max_heartrate: row.max_heartrate || null,
         };
         return res.json(fallbackData);
       }
@@ -293,6 +297,16 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
           activityData.sets_json = extractedSets; // attach for frontend
         }
 
+        // Opportunistic backfill: whenever an older activity is opened and the
+        // live fetch succeeds, keep its route so the next open works offline too.
+        const livePolyline = extractStravaPolyline(activityData);
+        if (livePolyline) {
+          db.run(
+            `UPDATE activities SET polyline = ? WHERE user_id = ? AND (id = ? OR strava_activity_id = ?) AND (polyline IS NULL OR polyline = '')`,
+            [livePolyline, req.user.id, activityId, String(activityId)],
+          );
+        }
+
         res.json(activityData);
       } catch (err) {
         console.error("Single Activity Fetch Error:", err);
@@ -327,7 +341,7 @@ router.get("/api/dashboard-data", authenticateToken, (req, res) => {
 
 router.get("/api/history", authenticateToken, (req, res) => {
   db.all(
-    `SELECT id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 50`,
+    `SELECT id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate, average_watts, max_heartrate, elevation_m, polyline FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 50`,
     [req.user.id],
     (err, rows) => {
       res.json(rows || []);
@@ -339,7 +353,7 @@ router.post("/api/micro-plan", authenticateToken, (req, res) => {
   const { date, sport, description, target_rooka, details, steps_json } =
     req.body;
   db.run(
-    `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) VALUES (?, ?, ?, ?, ?, ?, ?, 'user')`,
     [
       req.user.id,
       date,
@@ -401,7 +415,7 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
       if (workouts.length === 0) return res.json({ success: true });
 
       const stmt = db.prepare(
-        `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       );
       workouts.forEach((w) => {
         stmt.run(
@@ -412,6 +426,9 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
           w.target_rooka,
           w.details,
           w.steps_json || "[]",
+          // This route rewrites a whole day, so a caller replaying a
+          // coach-written session has to say so or its provenance is lost.
+          w.source === "coach" ? "coach" : "user",
         );
       });
       stmt.finalize();
@@ -639,8 +656,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                                 );
 
                               const stmt = db.prepare(`
-                                INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json) 
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) 
+                                VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
                             `);
 
                               planData.forEach((day) => {

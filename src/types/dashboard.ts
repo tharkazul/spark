@@ -16,6 +16,12 @@ export interface WorkoutItem {
   executionScore?: number; // e.g. 98 (% target hit)
   notes?: string;
   steps?: any[];
+  /**
+   * The coach's description of the session, in their words. Reached Strava and
+   * nowhere else until now. Only set on coach-written sessions.
+   */
+  coachNote?: string;
+  isCoachCreated?: boolean;
 }
 
 export interface NutritionMacro {
