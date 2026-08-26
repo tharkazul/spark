@@ -48,7 +48,7 @@ import { API_BASE_URL } from '../../constants/api';
 import { hasSubscriptionTier } from '../../utils/permissions';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { useTabBar } from '../../context/TabBarContext';
-import { ChatMacroStrip } from '../../components/chat/ChatMacroStrip';
+
 import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
 
@@ -248,7 +248,7 @@ const MessageRow = React.memo(({
 export default function CoachScreen() {
   const { t } = useLanguage();
   const { messages, sendMessage, resendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error, markAsRead } = useCoachChat();
-  const { user, isChatMacroStripVisible, toggleChatMacroStrip } = useUser();
+  const { user } = useUser();
   const { plan } = usePlan();
   const { nutrition, clearLoggedNutrition } = usePhysique();
   const insets = useSafeAreaInsets();
@@ -1010,10 +1010,7 @@ export default function CoachScreen() {
       {/* Today's macro progress rings. The component and its visibility state
           already existed but were never mounted, so the rings from the spec
           simply did not appear in chat. */}
-      <ChatMacroStrip
-        isVisible={isChatMacroStripVisible}
-        onToggle={toggleChatMacroStrip}
-      />
+
 
       {/* CHAT MESSAGES STREAM */}
       <View className="flex-1 relative">

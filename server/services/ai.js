@@ -171,13 +171,18 @@ async function generateWithFallback(
 
 async function generateImage(prompt, options = {}) {
   const models = [
-    "gemini-2.5-flash-image",
-    "gemini-3.1-flash-image",
-    "gemini-3.1-flash-lite-image",
     "gemini-3-pro-image",
+    "gemini-3.1-flash-image",
+    "gemini-2.5-flash-image",
   ];
 
   let lastError = null;
+
+  // Auto-enhance prompt to ensure photorealistic sports photography rather than cartoon sketches
+  let enhancedPrompt = prompt;
+  if (!prompt.toLowerCase().includes("photorealistic") && !prompt.toLowerCase().includes("photography") && !prompt.toLowerCase().includes("illustration")) {
+    enhancedPrompt = `Hyper-realistic 8k commercial sports photography of ${prompt}. Real human athlete, anatomical perfection, natural muscle definition, crystal-sharp focus, shot on 35mm lens, authentic gym or athletic lighting, photorealistic masterpiece.`;
+  }
 
   // Try GEMINI_API_KEY2 first (dedicated paid key for image generation)
   const apiKeysToTry = [
@@ -222,7 +227,7 @@ async function generateImage(prompt, options = {}) {
         console.log(`🎨 Attempting image generation with ${modelName}...`);
         const result = await ai.models.generateContent({
           model: modelName,
-          contents: prompt,
+          contents: enhancedPrompt,
           config: {
             responseModalities: ["IMAGE", "TEXT"],
           },

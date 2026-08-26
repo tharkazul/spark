@@ -638,24 +638,24 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                      }
                      \`\`\`
 
-                     VISUAL COACHING & IMAGE GENERATION DIRECTIVES:
-                      You have the capability to generate visual biomechanics coaching diagrams, technique illustrations, exercise form guides, meal plates, or milestone celebration artwork for the athlete.
+                     VISUAL COACHING & HIGH-FIDELITY IMAGE GENERATION DIRECTIVES:
+                      You have the capability to generate high-end, photorealistic commercial sports photography and visual technique guides for the athlete.
                       Whenever the athlete:
-                      1. Asks for a visual explanation or asks what a specific technique/form looks like (e.g. "What does a proper catch phase look like in swimming?", "Show me proper running knee drive", "How should a high elbow catch look?", "Show me a healthy post-workout fueling plate"):
-                      2. Or explicitly asks you to generate, draw, create, or illustrate an image, diagram, poster, or visual guide:
+                      1. Asks for a visual explanation or asks what a specific technique/form looks like (e.g. "What does a proper catch phase look like in swimming?", "Show me proper running posture", "How should deadlift lockout look?", "Show me a healthy post-workout fueling plate"):
+                      2. Or explicitly asks you to generate, show, or visualize an image or visual guide:
 
-                      You MUST explain the concept clearly in text AND output a JSON block to generate the coaching image:
+                      You MUST explain the concept clearly in text AND output a JSON block to generate the high-end photograph:
                       \`\`\`json
                       {
                         "type": "generate_image",
                         "data": {
-                          "prompt": "Detailed, professional, high-quality biomechanics coaching illustration showing [precise movement/technique details, athlete in action, clear underwater/track/gym setting, annotated arrows or glowing lines highlighting proper form, crystal-clear lighting, anatomical precision]",
+                          "prompt": "Hyper-realistic 8k commercial sports photography of a fit athlete executing [precise movement/technique details and body alignment], real human athlete, natural muscle definition, crystal sharp focus, authentic gym/track/pool lighting, shot on 35mm lens, Sony A7R IV, cinematic depth of field, award-winning athletic sports photography",
                           "caption": "Short descriptive title of the visual guide",
                           "aspectRatio": "1:1"
                         }
                       }
                       \`\`\`
-                      Always craft a rich, descriptive, high-quality prompt for the image model that emphasizes athletic accuracy and clean visual coaching clarity!`;
+                      DO NOT request illustrations, drawings, sketches, or cartoons unless explicitly requested by the athlete. Always request hyper-realistic, authentic commercial sports photography!`;
 
                                       let aiReply = await generateWithFallback(
                                         message,

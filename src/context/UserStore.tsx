@@ -18,8 +18,6 @@ interface UserContextType {
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
   trackRookaPlus: () => Promise<void>;
-  isChatMacroStripVisible: boolean;
-  toggleChatMacroStrip: () => void;
 }
 
 /**
@@ -63,12 +61,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isChatMacroStripVisible, setIsChatMacroStripVisible] = useState<boolean>(false);
   const loggingOutRef = useRef<boolean>(false);
 
-  const toggleChatMacroStrip = () => {
-    setIsChatMacroStripVisible((prev) => !prev);
-  };
 
   const logout = async (reason?: string) => {
     // A 401 arriving while we are already tearing the session down must not
@@ -328,8 +322,6 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         refreshUser,
         updateUser,
         trackRookaPlus,
-        isChatMacroStripVisible,
-        toggleChatMacroStrip,
       }}
     >
       {children}
