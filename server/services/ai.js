@@ -178,11 +178,15 @@ async function generateImage(prompt, options = {}) {
 
   let lastError = null;
 
-  // Auto-enhance prompt to ensure photorealistic sports photography rather than cartoon sketches
+  // Auto-enhance prompt to ensure photorealistic sports photography with crisp focus and no motion blur
   let enhancedPrompt = prompt;
-  if (!prompt.toLowerCase().includes("photorealistic") && !prompt.toLowerCase().includes("photography") && !prompt.toLowerCase().includes("illustration")) {
-    enhancedPrompt = `Hyper-realistic 8k commercial sports photography of ${prompt}. Real human athlete, anatomical perfection, natural muscle definition, crystal-sharp focus, shot on 35mm lens, authentic gym or athletic lighting, photorealistic masterpiece.`;
+  if (!prompt.toLowerCase().includes("photorealistic") && !prompt.toLowerCase().includes("photography")) {
+    enhancedPrompt = `Hyper-realistic 8k commercial sports photography of ${prompt}. Real human athlete, anatomical precision, crisp freeze-frame shot, 1/2000s shutter speed, zero motion blur, razor-sharp focus, shot on 35mm lens, Sony A7R IV, clean athletic lighting, photorealistic masterpiece.`;
+  } else if (!prompt.toLowerCase().includes("shutter speed") && !prompt.toLowerCase().includes("motion blur")) {
+    enhancedPrompt = `${prompt}, crisp freeze-frame shot, 1/2000s shutter speed, zero motion blur, razor-sharp athletic focus, professional 8k sports photography.`;
   }
+
+  console.log(`📸 Full Image Prompt Sent to AI: "${enhancedPrompt}"`);
 
   // Try GEMINI_API_KEY2 first (dedicated paid key for image generation)
   const apiKeysToTry = [
@@ -195,36 +199,10 @@ async function generateImage(prompt, options = {}) {
   for (const apiKey of apiKeysToTry) {
     const ai = new GoogleGenAI({ apiKey });
 
-    // 1. Try Imagen 3 dedicated image generation endpoint first
-    try {
-      console.log(`🎨 Attempting image generation via Imagen 3...`);
-      const imgRes = await ai.models.generateImages({
-        model: "imagen-3.0-generate-002",
-        prompt: prompt,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: "image/jpeg",
-          aspectRatio: options.aspectRatio || "1:1",
-        },
-      });
-
-      const base64Bytes = imgRes.generatedImages?.[0]?.image?.imageBytes;
-      if (base64Bytes) {
-        console.log("✅ Imagen 3 image generation successful!");
-        return {
-          base64Data: base64Bytes,
-          mimeType: "image/jpeg",
-        };
-      }
-    } catch (imagenErr) {
-      console.warn(`⚠️ Imagen 3 attempt failed (${imagenErr.message}). Trying Gemini image models...`);
-      lastError = imagenErr;
-    }
-
-    // 2. Try Gemini Image multimodal models
+    // Try Gemini Image multimodal models in quality order
     for (const modelName of models) {
       try {
-        console.log(`🎨 Attempting image generation with ${modelName}...`);
+        console.log(`🎨 Attempting image generation with model: ${modelName}...`);
         const result = await ai.models.generateContent({
           model: modelName,
           contents: enhancedPrompt,
