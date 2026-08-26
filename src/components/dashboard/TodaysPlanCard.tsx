@@ -28,7 +28,10 @@ export function TodaysPlanCard({
   const { t } = useLanguage();
 
   const getDisciplineConfig = (type: SportType) => {
-    switch (type) {
+    // The plan stores sport in title case ('Bike'), while these cases are
+    // upper. Every workout therefore fell through to the REST branch and
+    // rendered a moon. Normalise before matching.
+    switch (String(type || '').toUpperCase()) {
       case 'SWIM':
         return {
           bg: 'bg-sky-500/15',

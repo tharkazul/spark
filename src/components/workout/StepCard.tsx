@@ -324,6 +324,7 @@ const StepCardComponent = ({
                     <Text className="text-xs font-extrabold text-slate-500 dark:text-theme-muted uppercase">
                       {unitDisplay}
                     </Text>
+                    <Ionicons name="chevron-down" size={10} color="#64748B" style={{ marginLeft: 2 }} />
                   </TouchableOpacity>
                 </View>
 

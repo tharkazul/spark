@@ -231,8 +231,7 @@ export default function PlanningHomeScreen() {
 
     if (plan && plan.length > 0) {
       const dbWorkouts = plan.filter((w) => w.date === dateYYYYMMDD);
-      workouts = dbWorkouts.map((w) => {
-        
+      const mappedDbWorkouts = dbWorkouts.map((w) => {
         // calculate duration from steps_json if possible
         let durStr = '45 mins';
         if (w.steps_json && typeof w.steps_json === 'string' && w.steps_json !== '[]') {
@@ -246,43 +245,54 @@ export default function PlanningHomeScreen() {
                  if (s.type === 'repeat' && s.iterations && s.steps) {
                     let iterMins = 0;
                     for (const rs of s.steps) {
-                       if (rs.condition_type === 'time' && rs.condition_value) iterMins += rs.condition_value;
-                       if (rs.condition_type === 'time_sec' && rs.condition_value) iterMins += rs.condition_value / 60;
+                      if (rs.condition_type === 'time' && rs.condition_value) iterMins += rs.condition_value;
+                      if (rs.condition_type === 'time_sec' && rs.condition_value) iterMins += rs.condition_value / 60;
                     }
                     totalMins += (iterMins * s.iterations);
                  }
+                 if (s.steps) parseSteps(s.steps);
                }
-            }
+            };
             parseSteps(steps);
             if (totalMins > 0) durStr = `${Math.round(totalMins)} mins`;
-          } catch (e) {}
+          } catch(e) {}
         }
         
+        let parsedSteps = [];
+        if (w.steps_json && typeof w.steps_json === 'string') {
+           try { parsedSteps = JSON.parse(w.steps_json); } catch(e){}
+        }
+
         return {
           id: String(w.id),
-          day: dayName,
-          dateStr: dateStr,
-          type: (w.sport || 'RUN').toUpperCase() as any,
-          title: w.description || 'Workout',
-          duration: durStr,
-          rookaPoints: w.target_rooka,
-          sparkPoints: w.target_rooka,
-          isStructured: !!w.steps_json && w.steps_json !== '[]',
+          day: w.day || dayName,
+          dateStr: w.dateStr || dateStr,
+          type: (w.sport as any) || 'RUN',
+          title: w.title || w.description || 'Planned Workout',
+          duration: w.duration || durStr,
+          rookaPoints: w.target_rooka || 0,
+          sparkPoints: w.target_spark || 0,
+          isStructured: parsedSteps.length > 0,
           isCompleted: w.isCompleted || false,
           actualMetrics: w.actualMetrics,
           executionScore: w.executionScore,
+          steps: parsedSteps,
           notes: w.details,
-          // The coach's own description of the session. Rows written before the
-          // `source` column existed all came from plan generation, so an absent
-          // value counts as the coach.
+          // The coach's own description of the session. It reached Strava and
+          // nowhere else before this. Rows written before micro_plan gained a
+          // `source` column all came from plan generation, so an absent value
+          // counts as the coach; a workout you built yourself has no coach to
+          // quote and shows no note.
           isCoachCreated: w.source !== 'user',
           coachNote:
             w.source !== 'user' && w.details && w.details.trim().length > 0
               ? w.details.trim()
               : undefined,
-        };
+        } as WorkoutItem;
       });
+      workouts = [...mappedDbWorkouts, ...(customWorkouts || [])];
     }
+
 
     return {
       dayName,

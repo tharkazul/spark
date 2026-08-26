@@ -35,6 +35,7 @@ const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback, generateImage } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
+const muscleLoad = require('../services/muscleLoad');
 const {
   extractAndCleanFoodItems,
   matchGarminExercise,
@@ -315,14 +316,20 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       .map((n) => `- ${n.body_part}: FULLY HEALED / RESOLVED`)
                                       .join("\n                    ");
                                 }
+                                    // Muscle load now comes from the athlete's own activities via the
+                                    // shared model, not from `athlete_muscle_status`. That table was filled
+                                    // by one AI call per synced activity, so it held nothing for anyone
+                                    // whose activities landed after the daily quota ran out — and the coach
+                                    // then reasoned from "no significant fatigue" about an athlete in the
+                                    // middle of a heavy block. These are the numbers the athlete is looking
+                                    // at on the Progress tab.
                                     db.all(
-                                      `SELECT body_part, fatigue_score, development_score FROM athlete_muscle_status WHERE user_id = ? AND (fatigue_score > 10 OR development_score > 10)`,
+                                      `SELECT ${muscleLoad.ACTIVITY_COLUMNS} FROM activities WHERE user_id = ? AND substr(replace(start_date, 'T', ' '), 1, 10) >= date('now', '-8 days')`,
                                       [req.user.id],
                                       async (err, muscleRows) => {
-                                        let muscleStatusText = "No significant muscle fatigue or peak development.";
-                                        if (muscleRows && muscleRows.length > 0) {
-                                          muscleStatusText = muscleRows.map(m => `- ${m.body_part}: Fatigue ${Math.round(m.fatigue_score)}, Peak Development ${Math.round(m.development_score)}`).join("\n                    ");
-                                        }
+                                        const muscleStatusText = muscleLoad.describeMuscleStatus(
+                                          err ? [] : muscleRows || []
+                                        );
 
                                         db.all(
                                           `SELECT sport_type, test_name, metrics_json, coach_notes, completed_at FROM benchmark_tests WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,

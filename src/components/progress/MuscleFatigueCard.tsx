@@ -3,10 +3,11 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { useActivities } from '../../context/ActivityStore';
+import { fatiguePercentages, MuscleGroup } from '../../domain/muscleLoad';
 
 interface MuscleScore {
   name: string;
-  key: string;
+  key: MuscleGroup;
   fatiguePct: number; // 0 - 100%
   icon: keyof typeof Ionicons.glyphMap;
 }
@@ -14,37 +15,23 @@ interface MuscleScore {
 export const MuscleFatigueCard: React.FC = () => {
   const { activities } = useActivities();
 
-  // Compute realistic muscle group fatigue scores based on recent activities (last 7 days)
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
-  const recent = activities.filter((act) => new Date(act.start_date || Date.now()) >= sevenDaysAgo);
-
-  let runCount = 0;
-  let bikeCount = 0;
-  let strengthCount = 0;
-
-  recent.forEach((act) => {
-    const type = (act.sport_type || act.name || '').toLowerCase();
-    if (type.includes('run')) runCount++;
-    else if (type.includes('ride') || type.includes('bike') || type.includes('cycl')) bikeCount++;
-    else if (type.includes('strength') || type.includes('weight') || type.includes('gym')) strengthCount++;
-  });
-
-  const quadsFatigue = Math.min(95, 30 + runCount * 15 + bikeCount * 18);
-  const calvesFatigue = Math.min(95, 25 + runCount * 22);
-  const hamstringsFatigue = Math.min(95, 20 + runCount * 14 + bikeCount * 12);
-  const glutesFatigue = Math.min(95, 20 + bikeCount * 16 + strengthCount * 15);
-  const coreFatigue = Math.min(95, 15 + runCount * 8 + strengthCount * 12);
-  const upperBodyFatigue = Math.min(95, 10 + strengthCount * 25);
+  // Per-muscle load from the shared model in domain/muscleLoad.ts. What used to
+  // be here counted activities and clamped at 95, which put an ordinary week at
+  // 95/91/86 on the three leg groups — three muscles hitting one ceiling rather
+  // than three measurements. The model measures Rooka, decays it by age and
+  // saturates smoothly instead.
+  const scores = React.useMemo(
+    () => fatiguePercentages(activities as any),
+    [activities]
+  );
 
   const muscles: MuscleScore[] = [
-    { name: 'Quadriceps', key: 'quads', fatiguePct: quadsFatigue, icon: 'walk-outline' },
-    { name: 'Calves & Achilles', key: 'calves', fatiguePct: calvesFatigue, icon: 'footsteps-outline' },
-    { name: 'Hamstrings', key: 'hamstrings', fatiguePct: hamstringsFatigue, icon: 'fitness-outline' },
-    { name: 'Glutes & Hip Flexors', key: 'glutes', fatiguePct: glutesFatigue, icon: 'bicycle-outline' },
-    { name: 'Core & Abdominals', key: 'core', fatiguePct: coreFatigue, icon: 'shield-checkmark-outline' },
-    { name: 'Upper Body & Shoulders', key: 'upper', fatiguePct: upperBodyFatigue, icon: 'barbell-outline' },
+    { name: 'Quadriceps', key: 'quads', fatiguePct: scores.quads, icon: 'walk-outline' },
+    { name: 'Calves & Achilles', key: 'calves', fatiguePct: scores.calves, icon: 'footsteps-outline' },
+    { name: 'Hamstrings', key: 'hamstrings', fatiguePct: scores.hamstrings, icon: 'fitness-outline' },
+    { name: 'Glutes & Hip Flexors', key: 'glutes', fatiguePct: scores.glutes, icon: 'bicycle-outline' },
+    { name: 'Core & Abdominals', key: 'core', fatiguePct: scores.core, icon: 'shield-checkmark-outline' },
+    { name: 'Upper Body & Shoulders', key: 'upper', fatiguePct: scores.upper, icon: 'barbell-outline' },
   ];
 
   // Helper for color badge

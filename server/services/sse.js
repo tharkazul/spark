@@ -6,34 +6,40 @@ const sseClients = new Map();
 const wsClients = new Map();
 
 function sendSSEEvent(userId, eventName, data) {
-  // Deliver to Server-Sent Events (SSE) clients
-  const sseSet = sseClients.get(userId);
-  if (sseSet) {
-    for (const res of sseSet) {
-      try {
-        res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
-      } catch (err) {
-        console.error(`[SSE] Error sending event to user ${userId}:`, err.message);
+  const targetIds = [userId, String(userId), Number(userId)].filter(
+    (v, i, a) => v !== undefined && v !== null && !isNaN(v) && a.indexOf(v) === i
+  );
+
+  for (const uid of targetIds) {
+    // Deliver to Server-Sent Events (SSE) clients
+    const sseSet = sseClients.get(uid);
+    if (sseSet) {
+      for (const res of sseSet) {
+        try {
+          res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
+        } catch (err) {
+          console.error(`[SSE] Error sending event to user ${uid}:`, err.message);
+        }
       }
     }
-  }
 
-  // Deliver to WebSocket clients
-  const wsSet = wsClients.get(userId);
-  if (wsSet) {
-    const payload = JSON.stringify({
-      type: eventName,
-      event: eventName,
-      data,
-      payload: data,
-      timestamp: new Date().toISOString()
-    });
-    for (const ws of wsSet) {
-      if (ws.readyState === 1 /* WebSocket.OPEN */) {
-        try {
-          ws.send(payload);
-        } catch (err) {
-          console.error(`[WS] Error sending event to user ${userId}:`, err.message);
+    // Deliver to WebSocket clients
+    const wsSet = wsClients.get(uid);
+    if (wsSet) {
+      const payload = JSON.stringify({
+        type: eventName,
+        event: eventName,
+        data,
+        payload: data,
+        timestamp: new Date().toISOString()
+      });
+      for (const ws of wsSet) {
+        if (ws.readyState === 1 /* WebSocket.OPEN */) {
+          try {
+            ws.send(payload);
+          } catch (err) {
+            console.error(`[WS] Error sending event to user ${uid}:`, err.message);
+          }
         }
       }
     }

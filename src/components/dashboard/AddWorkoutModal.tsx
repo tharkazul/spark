@@ -109,6 +109,7 @@ export function AddWorkoutModal({
 
   const [selectedSport, setSelectedSport] = useState<SportType>('RUN');
   const [title, setTitle] = useState('');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState<number>(45);
   const [steps, setSteps] = useState<WorkoutStep[]>([]);
   const [customRooka, setCustomRooka] = useState<number | null>(null);
@@ -398,13 +399,28 @@ export function AddWorkoutModal({
                 <View>
                   {/* Header */}
                   <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/40 mb-2">
-                    <View>
-                      <Text className="text-lg font-extrabold text-theme-text">
-                        {initialWorkout ? 'Edit Workout' : 'Add Workout'}
-                      </Text>
-                      <Text className="text-xs text-theme-muted">
-                        {initialWorkout ? initialWorkout.title : `Scheduling for ${targetDayName} ${targetDateStr}`}
-                      </Text>
+                    <View className="flex-row items-center gap-2">
+                      {isEditingTitle ? (
+                        <TextInput
+                          autoFocus
+                          value={title}
+                          onChangeText={setTitle}
+                          onBlur={() => setIsEditingTitle(false)}
+                          onSubmitEditing={() => setIsEditingTitle(false)}
+                          placeholder="Workout Title"
+                          placeholderTextColor="#94A3B8"
+                          className="text-lg font-extrabold text-theme-text p-0 m-0 min-w-[200px]"
+                        />
+                      ) : (
+                        <>
+                          <Text className="text-lg font-extrabold text-theme-text">
+                            {title || (initialWorkout ? 'Edit Workout' : 'Add Workout')}
+                          </Text>
+                          <TouchableOpacity onPress={() => setIsEditingTitle(true)} className="p-1">
+                            <Ionicons name="pencil" size={16} color="#94A3B8" />
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </View>
                   </View>
 
@@ -459,16 +475,7 @@ export function AddWorkoutModal({
                     </View>
                   </View>
 
-                  {/* Workout Title Input */}
-                  <View>
-                    <TextInput
-                      value={title}
-                      onChangeText={setTitle}
-                      placeholder={`e.g. ${selectedSport === 'RUN' ? 'Threshold Interval Run' : 'Endurance Session'}`}
-                      placeholderTextColor="#94A3B8"
-                      className="bg-theme-bg border border-theme-border rounded-xl px-4 py-3 text-sm font-bold text-theme-text"
-                    />
-                  </View>
+
 
                   {/* Why the coach prescribed this. Read-only: it is their note,
                       not a field on the workout, and it is absent on sessions

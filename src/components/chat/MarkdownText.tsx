@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import FitImage from 'react-native-fit-image';
 import { API_BASE_URL } from '../../constants/api';
+import { wsService } from '../../services/websocket';
+import { chatApi } from '../../services/apiServices';
 
 interface MarkdownTextProps {
   content: string;
@@ -25,6 +27,97 @@ export const hasRenderableText = (content?: string) => {
   if (!content) return false;
   if (!content.includes('```json')) return content.trim().length > 0;
   return !!content.replace(/```json[\s\S]*?```/gi, '').trim();
+};
+
+const LoadingImagePlaceholder: React.FC<{
+  pendingKey: string;
+  alt?: string;
+  isDark: boolean;
+  textColor: string;
+  mutedColor: string;
+  onImagePress?: (uri: string) => void;
+}> = ({ pendingKey, alt, isDark, textColor, mutedColor, onImagePress }) => {
+  const [resolvedUri, setResolvedUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    // 1. Listen to real-time WebSocket event
+    const unsub = wsService.subscribeToEvent('chat_image_ready', (data: any) => {
+      if (data?.pendingKey === pendingKey && data?.imageUrl) {
+        setResolvedUri(getFullImageUrl(data.imageUrl));
+      }
+    });
+
+    // 2. Self-resolving backup poller every 1.5s
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const historyRes = await chatApi.getHistory();
+        const historyList = Array.isArray(historyRes) ? historyRes : (historyRes?.history || []);
+        for (const msg of historyList) {
+          if (msg.content && msg.content.includes('/api/images/chat/') && !msg.content.includes(`loading://${pendingKey}`)) {
+            const match = msg.content.match(/!\[.*?\]\(((\/api\/images\/chat\/[^\s)]+))\)/);
+            if (match && match[1]) {
+              setResolvedUri(getFullImageUrl(match[1]));
+              clearInterval(interval);
+              break;
+            }
+          }
+        }
+      } catch (_) {}
+      if (attempts >= 10) clearInterval(interval);
+    }, 1500);
+
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
+  }, [pendingKey]);
+
+  if (resolvedUri) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => onImagePress?.(resolvedUri)}
+        style={{ width: '100%', marginVertical: 8 }}
+      >
+        <FitImage
+          source={{ uri: resolvedUri }}
+          indicator={false}
+          style={{ borderRadius: 12, overflow: 'hidden' }}
+          accessible={!!alt}
+          accessibilityLabel={alt || undefined}
+        />
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        width: '100%',
+        marginVertical: 10,
+        padding: 16,
+        borderRadius: 16,
+        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+        borderWidth: 1,
+        borderColor: isDark ? 'rgba(255, 95, 59, 0.3)' : 'rgba(255, 95, 59, 0.25)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+        <Ionicons name="sparkles" size={16} color="#FF5F3B" style={{ marginRight: 6 }} />
+        <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>
+          Developing Visual Coaching Guide...
+        </Text>
+      </View>
+      <ActivityIndicator size="small" color="#FF5F3B" style={{ marginVertical: 8 }} />
+      <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center' }}>
+        {alt || 'High-resolution technique photo is generating in the background...'}
+      </Text>
+    </View>
+  );
 };
 
 export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, isUser, isStreaming, textColorOverride, onImagePress }) => {
@@ -60,32 +153,17 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
     image: (node: any) => {
       const { src, alt } = node.attributes;
       if (src && src.startsWith('loading://')) {
+        const pendingKey = src.replace('loading://', '');
         return (
-          <View
+          <LoadingImagePlaceholder
             key={node.key}
-            style={{
-              width: '100%',
-              marginVertical: 10,
-              padding: 16,
-              borderRadius: 16,
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-              borderWidth: 1,
-              borderColor: isDark ? 'rgba(255, 95, 59, 0.3)' : 'rgba(255, 95, 59, 0.25)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              <Ionicons name="sparkles" size={16} color="#FF5F3B" style={{ marginRight: 6 }} />
-              <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>
-                Developing Visual Coaching Guide...
-              </Text>
-            </View>
-            <ActivityIndicator size="small" color="#FF5F3B" style={{ marginVertical: 8 }} />
-            <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center' }}>
-              {alt || 'High-resolution technique photo is generating in the background...'}
-            </Text>
-          </View>
+            pendingKey={pendingKey}
+            alt={alt}
+            isDark={isDark}
+            textColor={textColor}
+            mutedColor={mutedColor}
+            onImagePress={onImagePress}
+          />
         );
       }
 

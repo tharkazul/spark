@@ -35,6 +35,7 @@ const {
   generateQuestForUser,
   evaluateQuestsAgainstActivity
 } = require('../services/utils');
+const muscleLoad = require('../services/muscleLoad');
 
 router.get("/api/micro-plan", authenticateToken, (req, res) => {
   db.all(
@@ -545,6 +546,15 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     nigglesText = JSON.stringify(niggleRows);
                   }
 
+                  // Plan generation saw active injuries but never muscle load, so
+                  // nothing stopped it stacking a third quad-heavy day in a row.
+                  let muscleStatusText = "All muscle groups fresh.";
+                  try {
+                    muscleStatusText = await muscleLoad.getMuscleStatusTextForUser(req.user.id);
+                  } catch (e) {
+                    console.error("Muscle load for plan generation failed:", e.message);
+                  }
+
                   const systemPrompt = `You are Coach Rooka, an elite Ironman Triathlon and endurance coach.
                 Tone: ${user.coach_tone || "empathetic"}
                 Athlete Context: ${user.athlete_context || "General endurance athlete"}
@@ -553,6 +563,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                 Schedule Boundaries:
                 ${availabilityText}
                 Key Physiological Metrics: ${metricsText}
+                MUSCLE LOAD OVER THE LAST 7 DAYS (0-100% of a reference load, derived from completed activities):
+                    ${muscleStatusText}
                 Recent Strength & PB History:
                 ${recentSetsText}
                 ACTIVE INJURIES/NIGGLES:
@@ -562,23 +574,24 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             0. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
             1. You are generating a 7-day training plan starting exactly on ${targetDate}.
             2. SCHEDULE BOUNDARIES: You MUST adhere to the daily time constraints listed in "Schedule Boundaries". If a day is marked 'blocked' or max_minutes is 0, you are strictly forbidden from scheduling any active training on that day (you may only schedule 'Rest'). Do not spike the ATL excessively on a single day to compensate; distribute the load safely across the 'Available' and 'Time-Capped' days.
-            3. INJURY GUARDRAILS: The athlete has active injuries listed above. You MUST alter the training plan based on this data to prevent further injury.
+            3. MUSCLE LOAD: Read "MUSCLE LOAD OVER THE LAST 7 DAYS". Any group listed HIGH is already heavily loaded — do not schedule two consecutive sessions whose main driver is that group, and prefer a sport that spares it (a HIGH quadriceps or calf reading favours swimming over running or riding). Groups not listed are fresh and available.
+            4. INJURY GUARDRAILS: The athlete has active injuries listed above. You MUST alter the training plan based on this data to prevent further injury.
                - If an injury is Lower Body (Severity 3+): Strictly avoid high-impact running. Substitute required aerobic load with swimming or indoor cycling.
                - If an injury affects Grip/Hands: Substitute swimming or heavy upper-body strength with running or indoor cycling.
                - If Severity is 5: Schedule complete rest for the affected area.
                - Whenever you modify a template due to an active injury, you must add a brief note in the 'description' explaining the substitution (e.g., 'Swapped today's run for a ride to protect your Achilles').
-            4. You must append a JSON code block at the very end of your response containing the schedule.
-            5. Use metric measurements exclusively (km, kg, km/h). DO NOT repeat greetings, filler words, or preamble.
-            6. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout, create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
-            7. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array, NOT in the 'details' text! Use "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and push for progressive overload.
-            8. TARGETS: If a workout step requires a specific pace or power target:
+            5. You must append a JSON code block at the very end of your response containing the schedule.
+            6. Use metric measurements exclusively (km, kg, km/h). DO NOT repeat greetings, filler words, or preamble.
+            7. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout, create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
+            8. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array, NOT in the 'details' text! Use "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and push for progressive overload.
+            9. TARGETS: If a workout step requires a specific pace or power target:
                - For exact pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and set "target_value": "4:15" (do NOT include "min/km" in target_value!).
                - For exact power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
                - For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
                - For HR Zones: set "target_type": "heart.rate.zone" and "zone": <1-5>.
                - For open targets: set "target_type": "no.target".
-            9. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
-            10. BENCHMARK ASSESSMENT: If the athlete is new or setting up an onboarding plan, Day 1 or Day 2 MUST contain exactly ONE sport-tailored Benchmark Assessment workout to establish baseline capabilities:
+            10. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
+            11. BENCHMARK ASSESSMENT: If the athlete is new or setting up an onboarding plan, Day 1 or Day 2 MUST contain exactly ONE sport-tailored Benchmark Assessment workout to establish baseline capabilities:
                  - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run ("sport": "Run", "description": "🎯 Benchmark Assessment: 5k Pace & HR Test").
                  - For CYCLING focus: Schedule a 20-min FTP Baseline Test ("sport": "Bike", "description": "🎯 Benchmark Assessment: 20-Min FTP Baseline Test").
                  - For SWIMMING focus: Schedule a 400m CSS Swim Test ("sport": "Swim", "description": "🎯 Benchmark Assessment: 400m CSS Swim Test").
