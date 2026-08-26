@@ -404,7 +404,7 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
     const userId = req.user.id;
     if (!userId) return res.status(400).json({ error: "Missing user ID" });
 
-    db.get(`SELECT username FROM users WHERE id = ?`, [userId], (err, user) => {
+    db.get(`SELECT username FROM users WHERE id = ?`, [userId], async (err, user) => {
         if (err || !user) return res.status(404).json({ error: "User not found" });
 
         const username = user.username || "";
@@ -424,8 +424,18 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             "activity_comments", "user_feature_onboarding"
         ];
 
+        // Same single-connection hazard as the chat route: without taking a
+        // turn, this BEGIN can land inside an already-open chat transaction, and
+        // this COMMIT would then commit that request's half-written work.
+        let releaseTx = null;
+        try {
+            releaseTx = await db.beginSerializedTransaction("account-delete");
+        } catch (txErr) {
+            console.error("Could not open the account deletion transaction:", txErr.message);
+            return res.status(500).json({ error: "Failed to delete account" });
+        }
+
         db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
             
             tablesWithUserId.forEach(table => {
                 db.run(`DELETE FROM ${table} WHERE user_id = ?`, [userId], function(err) {
@@ -442,10 +452,13 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err) {
                 if (err) {
                     console.error("Error deleting user:", err.message);
-                    db.run("ROLLBACK");
+                    db.run("ROLLBACK", () => {
+                        if (releaseTx) { releaseTx(); releaseTx = null; }
+                    });
                     return res.status(500).json({ error: "Failed to delete account" });
                 }
                 db.run("COMMIT", function(err) {
+                    if (releaseTx) { releaseTx(); releaseTx = null; }
                     if (err) return res.status(500).json({ error: "Failed to commit deletion" });
                     res.json({ success: true, message: "Account deleted successfully." });
                 });

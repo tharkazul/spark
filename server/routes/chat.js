@@ -362,6 +362,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                       nutritionContextText += "No food or drinks have been logged yet today. (0g Carbs, 0g Protein, 0g Fat)";
                                                     }
 
+                                    // Declared out here so the catch below can release it.
+                                    let releaseTx = null;
                                     try {
                                       let cleanHistory = [];
 
@@ -671,11 +673,15 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       );
                                       let planUpdated = false;
                                       const pendingImageTasks = [];
+                                      let questCelebrationPrompt = null;
 
                                       // Wrap the plan mutations below and the chat_history writes further down
                                       // in a single transaction, so a workout can never get committed to the
                                       // plan without the chat message that produced it being saved (or vice versa).
-                                      db.run("BEGIN TRANSACTION");
+                                      // Serialised: one SQLite connection means two overlapping chat
+                                      // requests would otherwise interleave their BEGIN/COMMIT and
+                                      // commit each other's half-written work.
+                                      releaseTx = await db.beginSerializedTransaction("chat");
 
                                       const jsonMatches = [
                                         ...aiReply.matchAll(
@@ -1002,16 +1008,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                 completedQuests &&
                                                 completedQuests.length > 0
                                               ) {
-                                                let appendPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} Rooka points! Give a short 1-2 sentence highly motivating response celebrating their completed quest!`;
-                                                const coachAddendum =
-                                                  await generateWithFallback(
-                                                    appendPrompt,
-                                                    "You are a motivating elite coach.",
-                                                    null,
-                                                    base64DataArray,
-                                                  );
-                                                aiReply +=
-                                                  "\n\n" + coachAddendum;
+                                                // Deferred until after COMMIT. This only appends celebration
+                                                // text, but awaiting the model here held the transaction open
+                                                // for as long as it took - up to a minute once the rate-limit
+                                                // backoff kicks in.
+                                                questCelebrationPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} Rooka points! Give a short 1-2 sentence highly motivating response celebrating their completed quest!`;
                                               }
                                             } catch (e) {
                                               console.error(
@@ -1207,7 +1208,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         },
                                       );
 
-                                      db.run("COMMIT", (commitErr) => {
+                                      db.run("COMMIT", async (commitErr) => {
+                                        if (releaseTx) {
+                                          releaseTx();
+                                          releaseTx = null;
+                                        }
                                         if (commitErr) {
                                           console.error(
                                             "Failed to commit chat/plan transaction:",
@@ -1217,6 +1222,29 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             error: "Failed to save chat and plan updates.",
                                           });
                                         }
+                                        // The celebration runs here, outside the transaction. The
+                                        // stored coach message is patched to match, so history and
+                                        // what the athlete sees do not diverge.
+                                        if (questCelebrationPrompt) {
+                                          try {
+                                            const coachAddendum = await generateWithFallback(
+                                              questCelebrationPrompt,
+                                              "You are a motivating elite coach.",
+                                              null,
+                                              base64DataArray,
+                                            );
+                                            if (coachAddendum) {
+                                              aiReply += "\n\n" + coachAddendum;
+                                              db.run(
+                                                `UPDATE chat_history SET content = ? WHERE id = (SELECT MAX(id) FROM chat_history WHERE user_id = ? AND role = 'coach')`,
+                                                [aiReply, req.user.id],
+                                              );
+                                            }
+                                          } catch (celebrationErr) {
+                                            console.error("Quest celebration generation failed:", celebrationErr.message);
+                                          }
+                                        }
+
                                         // 1. Send the instant response to the client immediately!
                                         res.json({
                                           reply: aiReply,
@@ -1268,7 +1296,12 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       });
                                     } catch (err) {
                                       console.error("Chat parsing error:", err);
-                                      db.run("ROLLBACK");
+                                      db.run("ROLLBACK", () => {
+                                        if (releaseTx) {
+                                          releaseTx();
+                                          releaseTx = null;
+                                        }
+                                      });
                                       res
                                         .status(500)
                                         .json({

@@ -625,4 +625,62 @@ db.serialize(() => {
     )`);
 });
 
+/**
+ * Take a turn at a write transaction.
+ *
+ * SQLite gives this process a single connection, so transactions cannot
+ * overlap. When a second request issues BEGIN while another is still open, that
+ * BEGIN fails, the second COMMIT then commits the FIRST request's half-written
+ * work, and the first COMMIT errors with "cannot commit - no transaction is
+ * active". Chat requests are long enough to overlap routinely, so the
+ * transactional sections queue here instead of racing.
+ *
+ * Returns a release function: call it exactly once, after COMMIT or ROLLBACK.
+ * A watchdog releases anyway if a caller never does, because a wedged lock
+ * would silently stall every later write rather than failing loudly.
+ */
+const TX_WATCHDOG_MS = 60000;
+let txQueue = Promise.resolve();
+
+async function beginSerializedTransaction(label = "tx") {
+  const previous = txQueue;
+  let markFinished;
+  const finished = new Promise((resolve) => {
+    markFinished = resolve;
+  });
+  // Whoever comes next waits for us, whether we succeed or fail.
+  txQueue = previous.then(() => finished, () => finished);
+
+  await previous.catch(() => {});
+
+  try {
+    await new Promise((resolve, reject) =>
+      db.run("BEGIN TRANSACTION", (err) => (err ? reject(err) : resolve())),
+    );
+  } catch (err) {
+    markFinished();
+    throw err;
+  }
+
+  let released = false;
+  const watchdog = setTimeout(() => {
+    if (released) return;
+    released = true;
+    console.error(
+      `Transaction watchdog fired for "${label}" after ${TX_WATCHDOG_MS}ms - releasing the lock.`,
+    );
+    markFinished();
+  }, TX_WATCHDOG_MS);
+  if (watchdog.unref) watchdog.unref();
+
+  return function release() {
+    if (released) return;
+    released = true;
+    clearTimeout(watchdog);
+    markFinished();
+  };
+}
+
+db.beginSerializedTransaction = beginSerializedTransaction;
+
 module.exports = db;
