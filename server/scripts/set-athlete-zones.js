@@ -134,7 +134,16 @@ async function applyTo(athlete) {
       [athlete.id, String(ftp)]
     );
   }
-  await athleteZones.seedDefaultZones(athlete.id);
+  // Write the bands printed above. seedDefaultZones cannot be used here: it
+  // resolves through resolveZonesForUser, which returns the ALREADY SAVED table
+  // when one exists, so a corrected max HR would print new zones and then
+  // re-save the old ones unchanged. This overwrites the athlete's default
+  // table, which is the point of the script -- the dry run shows exactly what
+  // lands.
+  await athleteZones.saveZones(athlete.id, "default", "hr", hr, "derived");
+  if (power) {
+    await athleteZones.saveZones(athlete.id, "default", "power", power, "derived");
+  }
   return true;
 }
 
