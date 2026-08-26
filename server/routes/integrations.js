@@ -312,8 +312,6 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
           tagStravaActivity(req.user.id, act, tokenData.access_token);
         }
 
-        updateUserRookaAndCheckLevel(req.user.id);
-
         // `evaluateQuestsAgainstActivity` was imported here but never called, so
         // the Sync button inserted activities and skipped quest evaluation
         // entirely — a 10 km run synced this way left the quest on 0/1. The
@@ -333,6 +331,13 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
         } catch (e) {
           console.error("Quest evaluation failed after Strava sync:", e.message);
         }
+
+        // After quest evaluation, not before. A completed quest writes its
+        // reward to `bonus_points`, and `total_rooka` is activities + bonus — so
+        // recomputing first left the reward out of the total until some later,
+        // unrelated request happened to recompute it. That is when the level-up
+        // fired: minutes after a sync that appeared to add nothing new.
+        updateUserRookaAndCheckLevel(req.user.id);
 
         // Report what was actually stored for this athlete, never the raw count
         // returned by Strava.

@@ -95,6 +95,15 @@ async function resolveZonesForUser(userId, sport = "default") {
   let hrZones = pick("hr");
   let powerZones = pick("power");
 
+  // Which table the power zones actually came from, so callers can tell a
+  // sport's own table apart from the cycling-FTP default. Null means nothing
+  // was saved and the bands below are derived from FTP.
+  const powerZonesSport = saved[`${sport}:power`]
+    ? sport
+    : saved[`default:power`]
+      ? "default"
+      : null;
+
   if (!hrZones) {
     const age = zones.ageFromDateOfBirth(user && user.date_of_birth);
     const maxHr = metrics.max_hr || zones.maxHrFromAge(age);
@@ -107,6 +116,7 @@ async function resolveZonesForUser(userId, sport = "default") {
   return {
     hrZones,
     powerZones,
+    powerZonesSport,
     maxHr: metrics.max_hr || zones.maxHrFromAge(zones.ageFromDateOfBirth(user && user.date_of_birth)) || null,
     ftp: metrics.ftp || null,
   };

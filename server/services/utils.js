@@ -668,16 +668,24 @@ function calculateRookaScore(movingTimeMin, avgHr, fallbackScore = 0) {
  */
 async function calculateRookaScoreZoned({ userId, movingTimeMin, avgHr, avgWatts, sport }) {
   if (!movingTimeMin || movingTimeMin <= 0) return 0;
-  const { hrZones, powerZones } = await athleteZones.resolveZonesForUser(
-    userId,
-    sport || "default"
-  );
+  const { hrZones, powerZones, powerZonesSport } =
+    await athleteZones.resolveZonesForUser(userId, sport || "default");
+
+  // Strava reports running power on the same `average_watts` field as cycling
+  // power, but the two are nowhere near the same scale: a steady run reads
+  // 400-500 W, which against a cycling FTP table is zone 7. Left unguarded,
+  // every run pins the multiplier to 1.5 and an easy jog scores as a max
+  // effort. Only score power where the table actually describes the sport --
+  // the athlete's own table for it, or the FTP default on the bike.
+  const powerApplies =
+    !sport || sport === "default" || sport === "Bike" || powerZonesSport === sport;
+
   return zoneModel.scoreActivity({
     movingMinutes: movingTimeMin,
     avgHr,
-    avgWatts,
+    avgWatts: powerApplies ? avgWatts : null,
     hrZones,
-    powerZones,
+    powerZones: powerApplies ? powerZones : null,
   });
 }
 
@@ -1210,6 +1218,13 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
 
                         if (completedQuests && completedQuests.length > 0) {
                           const newQuest = await generateQuestForUser(internalUserId);
+
+                          // The reward went to `bonus_points`, which is half of
+                          // `total_rooka`. The total was computed at insert time,
+                          // before this, so without recomputing it here the
+                          // reward — and any level-up it causes — surfaces at
+                          // some arbitrary later request instead.
+                          updateUserRookaAndCheckLevel(internalUserId);
 
                           prompt += `\n\nCRITICAL INFO: The user ALSO just completed their active quest: "${completedQuests[0].description}" and earned ${completedQuests[0].reward_points} Rooka points! `;
 
@@ -1764,13 +1779,28 @@ Please respond using this JSON schema:
 }
 
 function triggerLevelUpCoachPrompt(userId, newLevel) {
-  db.all(
-    `SELECT sport_type, SUM(distance_km) as total_dist, COUNT(id) as count FROM activities WHERE user_id = ? GROUP BY sport_type`,
+  // Stats since the athlete joined Rooka, not all-time.
+  //
+  // A level is earned from Rooka scored on or after `rooka_start_date`, but this
+  // query had no such filter, so it summed the entire imported Strava history.
+  // The coach then congratulated a Level 3 — a couple of hundred points — with
+  // "over 1,000km on the bike and 82 runs", numbers the athlete never earned a
+  // single point for. Same window as the score, or the message describes a
+  // different athlete than the one being levelled up.
+  db.get(
+    `SELECT substr(rooka_start_date, 1, 10) as start_day FROM users WHERE id = ?`,
     [userId],
-    (err, rows) => {
+    (startErr, startRow) => {
+      const startDay = startRow && startRow.start_day ? startRow.start_day : null;
+      const statsQuery = startDay
+        ? `SELECT sport_type, SUM(distance_km) as total_dist, COUNT(id) as count FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ? GROUP BY sport_type`
+        : `SELECT sport_type, SUM(distance_km) as total_dist, COUNT(id) as count FROM activities WHERE user_id = ? GROUP BY sport_type`;
+      const statsParams = startDay ? [userId, startDay] : [userId];
+
+      db.all(statsQuery, statsParams, (err, rows) => {
       if (err) return;
 
-      let statsStr = rows
+      let statsStr = (rows || [])
         .map(
           (r) =>
             `${r.sport_type}: ${Math.round(r.total_dist)}km (${r.count} sessions)`,
@@ -1790,7 +1820,7 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
             toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
           }
           const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
-          const prompt = `The athlete just leveled up to Rooka Level ${newLevel}! Here are their all-time stats so far: ${statsStr}. Write a short, highly motivating congratulatory message (1-3 sentences). Acknowledge their hard work.`;
+          const prompt = `The athlete just leveled up to Rooka Level ${newLevel}! Here is everything they have done since joining Rooka: ${statsStr}. Write a short, highly motivating congratulatory message (1-3 sentences). Acknowledge their hard work. Only reference the numbers given above — do not invent distances, counts or achievements, and do not imply they have done more than this.`;
 
           try {
             const aiReply = await generateWithFallback(
@@ -1816,6 +1846,7 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
           }
         },
       );
+      });
     },
   );
 }
@@ -2106,6 +2137,10 @@ async function evaluateAndProgressQuests(userId) {
 
       if (val >= q.target_value) {
         q.status = "completed";
+        // Marks the transition that happened in *this* call. Callers that
+        // celebrate a completion or hand out a replacement quest must act on
+        // this and not on `status === "completed"`, which stays true forever.
+        q.justCompleted = true;
         const completedAt = new Date().toISOString().replace("T", " ").substring(0, 19);
         q.completed_at = completedAt;
         db.run(
@@ -2138,9 +2173,19 @@ async function evaluateAndProgressQuests(userId) {
   return quests;
 }
 
+/**
+ * Quests that crossed their target during *this* evaluation.
+ *
+ * This used to return `status === "completed"`, which is every quest the athlete
+ * has ever finished. Since a completion is permanent, one finished quest meant
+ * this returned non-empty forever — so every synced activity re-celebrated a
+ * quest completed days ago and minted a replacement quest, one AI call each,
+ * against the quota that is already running out. `justCompleted` is set only on
+ * the transition.
+ */
 async function evaluateQuestsAgainstActivity(userId, activityData) {
   const allQuests = await evaluateAndProgressQuests(userId);
-  return allQuests.filter((q) => q.status === "completed");
+  return allQuests.filter((q) => q.justCompleted);
 }
 
 async function calculateQuestProgress(userId, quest) {

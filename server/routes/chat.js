@@ -990,6 +990,14 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                               sendSSEEvent(req.user.id, "quest_updated", {});
 
+                                              if (completedQuests && completedQuests.length > 0) {
+                                                // The reward lands in `bonus_points` after the
+                                                // total was recomputed above, so recompute again
+                                                // or the reward — and any level-up it triggers —
+                                                // only appears on some later unrelated request.
+                                                updateUserRookaAndCheckLevel(req.user.id);
+                                              }
+
                                               if (
                                                 completedQuests &&
                                                 completedQuests.length > 0

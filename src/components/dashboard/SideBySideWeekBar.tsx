@@ -89,12 +89,19 @@ export function SideBySideWeekBar({
               </View>
 
               {/* Rooka points or Completion Check */}
-              <View className="items-center justify-center pt-0.5 border-t border-theme-border/40 w-full">
+              <View className="items-center justify-center pt-1 pb-1 border-t border-theme-border/40 w-full h-[24px]">
                 {hasWorkouts && day.workouts.every((w) => w.isCompleted) ? (
                   <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                ) : totalRooka > 0 ? (
+                  <View className="flex-row items-center justify-center gap-0.5">
+                    <Text className="text-[10px] font-mono font-extrabold text-theme-accent">
+                      {totalRooka}
+                    </Text>
+                    <Ionicons name="sparkles" size={10} color="#FF5F3B" />
+                  </View>
                 ) : (
-                  <Text className="text-xs font-mono font-extrabold text-theme-accent">
-                    {totalRooka > 0 ? `${totalRooka} Rooka` : 'Rest'}
+                  <Text className="text-[10px] font-mono font-extrabold text-theme-accent">
+                    Rest
                   </Text>
                 )}
               </View>
