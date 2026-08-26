@@ -291,7 +291,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
         const hasSentenceEnd = /[.!?\n]/.test(nextChunk);
         const hasSoftPunctuation = /[,;:]/.test(nextChunk);
-        const delay = hasSentenceEnd ? 70 : hasSoftPunctuation ? 40 : 25;
+        const delay = hasSentenceEnd ? 50 : hasSoftPunctuation ? 30 : 15;
 
         setTimeout(step, delay);
       };
@@ -572,10 +572,44 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       });
     });
 
+    const unsubChatImageReady = wsService.subscribeToEvent('chat_image_ready', (data: any) => {
+      if (data?.pendingKey && data?.imageUrl) {
+        setMessagesState((prev) =>
+          prev.map((msg) => {
+            if (msg.content && msg.content.includes(`loading://${data.pendingKey}`)) {
+              return {
+                ...msg,
+                content: msg.content.replace(`loading://${data.pendingKey}`, data.imageUrl),
+              };
+            }
+            return msg;
+          })
+        );
+      }
+    });
+
+    const unsubChatImageFailed = wsService.subscribeToEvent('chat_image_failed', (data: any) => {
+      if (data?.pendingKey) {
+        setMessagesState((prev) =>
+          prev.map((msg) => {
+            if (msg.content && msg.content.includes(`loading://${data.pendingKey}`)) {
+              return {
+                ...msg,
+                content: msg.content.replace(new RegExp(`!\\[.*?\\]\\(loading://${data.pendingKey}\\)`, 'g'), '').trim(),
+              };
+            }
+            return msg;
+          })
+        );
+      }
+    });
+
     return () => {
       unsubCoachResponse();
       unsubChatMessage();
       unsubStreamChunk();
+      unsubChatImageReady();
+      unsubChatImageFailed();
     };
   }, [isAuthenticated]);
 

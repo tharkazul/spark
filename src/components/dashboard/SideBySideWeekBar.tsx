@@ -73,17 +73,17 @@ export function SideBySideWeekBar({
                   day.workouts.map((w) => {
                     const cfg = getSportIcon(w.type);
                     return (
-                      <View
-                        key={w.id}
-                        className="w-7 h-7 rounded-lg bg-theme-card items-center justify-center"
-                      >
-                        <Ionicons name={cfg.icon as any} size={14} color={cfg.color} />
+                      /* The icon sat in its own rounded box inside the day
+                         chip inside the week card — three nested surfaces to
+                         show one glyph. The glyph alone reads better. */
+                      <View key={w.id} className="w-7 h-7 items-center justify-center">
+                        <Ionicons name={cfg.icon as any} size={16} color={cfg.color} />
                       </View>
                     );
                   })
                 ) : (
-                  <View className="w-7 h-7 rounded-lg bg-gray-500/10 items-center justify-center">
-                    <Ionicons name="moon-outline" size={14} color="#6F6F79" />
+                  <View className="w-7 h-7 items-center justify-center">
+                    <Ionicons name="moon-outline" size={16} color="#6F6F79" />
                   </View>
                 )}
               </View>
@@ -93,7 +93,7 @@ export function SideBySideWeekBar({
                 {hasWorkouts && day.workouts.every((w) => w.isCompleted) ? (
                   <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                 ) : (
-                  <Text className="text-[8.5px] font-mono font-extrabold text-theme-accent">
+                  <Text className="text-xs font-mono font-extrabold text-theme-accent">
                     {totalRooka > 0 ? `${totalRooka} Rooka` : 'Rest'}
                   </Text>
                 )}

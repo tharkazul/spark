@@ -171,7 +171,7 @@ export function DetailedDayCard({
           </TouchableOpacity>
         </View>
       ) : (
-        <View className="space-y-3">
+        <View>
           {day.workouts.map((workout) => {
             const cfg = getDisciplineConfig(workout.type);
             const humanDuration = formatHumanDuration(workout.duration, workout.type);
@@ -184,7 +184,12 @@ export function DetailedDayCard({
                   onSelectWorkout(workout);
                 }}
                 activeOpacity={0.8}
-                className={`p-4 rounded-2xl border border-l-4 ${cfg.borderLeft} ${cfg.borderColor} bg-theme-bg/60 flex-col gap-2`}
+                /* One card level per screen: the day. A workout used to be a
+                   second bordered, rounded, padded box inside it — three
+                   borders deep once you count the page card. It is now
+                   separated by space and a hairline rule instead, and carries
+                   its sport colour once, on the badge. */
+                className="py-3.5 flex-col gap-2 border-b border-theme-border/40"
               >
                 {/* Top Discipline Line */}
                 <View className="flex-row items-center justify-between">
@@ -200,11 +205,6 @@ export function DetailedDayCard({
                       +{Math.round(workout.rookaPoints || 0)} Rooka
                     </Text>
 
-                    {workout.isStructured && (
-                      <View className="px-2 py-0.5 bg-theme-card border border-theme-border rounded">
-                        <Text className="text-xs font-bold text-theme-muted">Structured</Text>
-                      </View>
-                    )}
 
                     {workout.isCompleted && (
                       <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
@@ -277,7 +277,7 @@ export function DetailedDayCard({
           <TouchableOpacity
             onPress={() => onAddWorkout(day.dayName, day.dateStr)}
             activeOpacity={0.8}
-            className="w-full py-3 bg-theme-bg/60 border border-dashed border-theme-border rounded-2xl flex-row items-center justify-center gap-1.5 active:bg-theme-accent/10"
+            className="w-full py-3 mt-1 flex-row items-center justify-center gap-1.5 active:opacity-60"
           >
             <Ionicons name="add-circle-outline" size={16} color="#FF5F3B" />
             <Text className="text-xs font-extrabold text-theme-accent">+ Add Exercise</Text>

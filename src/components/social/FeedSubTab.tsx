@@ -247,16 +247,16 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                       <Text className="text-sm font-extrabold text-theme-text">{group.username}</Text>
                       {group.rooka_level ? (
                         <View className="px-1.5 py-0.2 bg-theme-accent/15 rounded">
-                          <Text className="text-[11px] font-extrabold text-theme-accent">Lvl {group.rooka_level}</Text>
+                          <Text className="text-xs font-extrabold text-theme-accent">Lvl {group.rooka_level}</Text>
                         </View>
                       ) : null}
                       {group.isMultiSport && (
                         <View className="px-1.5 py-0.2 bg-amber-500/15 rounded">
-                          <Text className="text-[10px] font-extrabold text-amber-500">⚡️ Brick ({group.activities.length})</Text>
+                          <Text className="text-xs font-extrabold text-amber-500">⚡️ Brick ({group.activities.length})</Text>
                         </View>
                       )}
                     </View>
-                    <Text className="text-[11px] text-theme-muted mt-0.5">
+                    <Text className="text-xs text-theme-muted mt-0.5">
                       {group.dateStr}
                     </Text>
                   </View>
@@ -298,13 +298,13 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                   <View className="flex-row items-center space-x-4 pt-1.5 border-t border-slate-200/50 dark:border-slate-800/50">
                     {typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 && (
                       <View>
-                        <Text className="text-[10px] text-theme-muted font-bold uppercase">Distance</Text>
+                        <Text className="text-xs text-theme-muted font-bold uppercase">Distance</Text>
                         <Text className="text-sm font-extrabold font-mono text-theme-text">{primaryActivity.distance_km.toFixed(1)} km</Text>
                       </View>
                     )}
                     {typeof primaryActivity.moving_time_min === 'number' && primaryActivity.moving_time_min > 0 && (
                       <View className={typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 ? 'pl-4 border-l border-slate-200/60 dark:border-slate-800/60' : ''}>
-                        <Text className="text-[10px] text-theme-muted font-bold uppercase">Duration</Text>
+                        <Text className="text-xs text-theme-muted font-bold uppercase">Duration</Text>
                         <Text className="text-sm font-extrabold font-mono text-theme-text">{Math.round(primaryActivity.moving_time_min)} mins</Text>
                       </View>
                     )}
@@ -330,7 +330,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                             <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
                               {act.name || act.title || 'Workout'}
                             </Text>
-                            <Text className="text-[11px] text-theme-muted font-medium">
+                            <Text className="text-xs text-theme-muted font-medium">
                               {typeof act.distance_km === 'number' && act.distance_km > 0 ? `${act.distance_km.toFixed(1)} km · ` : ''}
                               {typeof act.moving_time_min === 'number' && act.moving_time_min > 0 ? `${Math.round(act.moving_time_min)} mins` : ''}
                             </Text>

@@ -636,26 +636,24 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                          "body_part": "left_ankle_foot"
                        }
                      }
-                     \`\`\`
-
-                     VISUAL COACHING & HIGH-FIDELITY IMAGE GENERATION DIRECTIVES:
-                      You have the capability to generate high-end, photorealistic commercial sports photography and visual technique guides for the athlete.
+                     \`\`\`                      VISUAL COACHING & HIGH-FIDELITY IMAGE GENERATION DIRECTIVES (NANO BANANA ENGINE):
+                      You have the capability to generate high-end, studio-grade commercial sports photography and visual technique guides for the athlete using the Nano Banana 2 image engine.
                       Whenever the athlete:
-                      1. Asks for a visual explanation or asks what a specific technique/form looks like (e.g. "What does a proper catch phase look like in swimming?", "Show me proper running posture", "How should deadlift lockout look?", "Show me a healthy post-workout fueling plate"):
+                      1. Asks for a visual explanation or asks what a specific technique/form looks like (e.g. "What does a proper catch phase look like in swimming?", "Show me proper running posture", "How should deadlift lockout look?", "Show me proper aerodynamic TT position"):
                       2. Or explicitly asks you to generate, show, or visualize an image or visual guide:
 
-                      You MUST explain the concept clearly in text AND output a JSON block to generate the high-end photograph:
+                      You MUST explain the concept clearly in text AND output a JSON block to generate the studio photograph following the Nano Banana 4-part formula (Subject + Action + Context + Technical Camera Specs):
                       \`\`\`json
                       {
                         "type": "generate_image",
                         "data": {
-                          "prompt": "Hyper-realistic 8k commercial sports photography of a fit athlete executing [precise movement/technique details and body alignment], real human athlete, natural muscle definition, crystal sharp focus, authentic gym/track/pool lighting, shot on 35mm lens, Sony A7R IV, cinematic depth of field, award-winning athletic sports photography",
+                          "prompt": "Studio sports photography of a real human athlete executing [precise movement/technique details, exact limb angles, and body alignment]. Deep depth of field, f/8 aperture, razor-sharp focus across entire body and equipment, bright even studio/pool/track lighting, freeze-frame, 1/4000s shutter speed, zero motion blur, authentic human anatomy, clean background, 8k commercial sports quality",
                           "caption": "Short descriptive title of the visual guide",
                           "aspectRatio": "1:1"
                         }
                       }
                       \`\`\`
-                      DO NOT request illustrations, drawings, sketches, or cartoons unless explicitly requested by the athlete. Always request hyper-realistic, authentic commercial sports photography!`;
+                      DO NOT request illustrations, drawings, sketches, or cartoons, and NEVER use words like 'cinematic depth of field' or 'motion blur' which cause distortion. Always request razor-sharp, studio-lit commercial sports photography!`;
 
                                       let aiReply = await generateWithFallback(
                                         message,
@@ -665,8 +663,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         req.user.id,
                                       );
                                       let planUpdated = false;
-                                      let generatedChatImageUrl = null;
-                                      let generatedChatImageCaption = null;
+                                      const pendingImageTasks = [];
 
                                       // Wrap the plan mutations below and the chat_history writes further down
                                       // in a single transaction, so a workout can never get committed to the
@@ -1066,30 +1063,22 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             });
                                             planUpdated = true;
                                           } else if (
-                                             parsedData &&
-                                             parsedData.type === "generate_image" &&
-                                             parsedData.data
-                                           ) {
-                                             const imgPrompt = parsedData.data.prompt || parsedData.data.description;
-                                             const caption = parsedData.data.caption || "Coaching Visual";
-                                             if (imgPrompt) {
-                                               try {
-                                                 console.log(`🎨 Triggering on-demand image generation in chat for prompt: "${imgPrompt}"`);
-                                                 const { base64Data, mimeType } = await generateImage(imgPrompt, { aspectRatio: parsedData.data.aspectRatio || "1:1" });
-                                                 const ext = mimeType.includes("png") ? "png" : "jpg";
-                                                 const fileName = `img_${req.user.id}_${crypto.randomUUID()}.${ext}`;
-                                                 const dir = path.join(__dirname, "../secure_uploads/chat_images");
-                                                 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                                                 const filePath = path.join(dir, fileName);
-                                                 fs.writeFileSync(filePath, base64Data, "base64");
-
-                                                 generatedChatImageUrl = `/api/images/chat/${fileName}`;
-                                                 generatedChatImageCaption = caption;
-                                               } catch (imgErr) {
-                                                 console.error("Chat image generation error:", imgErr.message);
-                                               }
-                                             }
-                                           }
+                                            parsedData &&
+                                            parsedData.type === "generate_image" &&
+                                            parsedData.data
+                                          ) {
+                                            const imgPrompt = parsedData.data.prompt || parsedData.data.description;
+                                            const caption = parsedData.data.caption || "Coaching Visual";
+                                            if (imgPrompt) {
+                                              const pendingKey = `pending_${crypto.randomUUID()}`;
+                                              pendingImageTasks.push({
+                                                prompt: imgPrompt,
+                                                caption,
+                                                pendingKey,
+                                                aspectRatio: parsedData.data.aspectRatio || "1:1",
+                                              });
+                                            }
+                                          }
                                          } catch (e) {
                                            console.error(
                                              "Failed to parse an AI JSON block",
@@ -1102,9 +1091,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                          .replace(/```(?:json)?[\s\S]*?```/gi, "")
                                          .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|generate_image)"[\s\S]*?\}/gi, "")
                                          .trim();
+                                         
+                                       aiReply = aiReply.replace(/[^.!?\n]*:\s*$/i, "").trim();
 
-                                       if (generatedChatImageUrl) {
-                                         aiReply += `\n\n![${generatedChatImageCaption || "Coaching Visual"}](${generatedChatImageUrl})`;
+                                       for (const task of pendingImageTasks) {
+                                         aiReply += `\n\n![${task.caption}](loading://${task.pendingKey})`;
                                        }
 
                                       let mood = "default";
@@ -1209,11 +1200,54 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             error: "Failed to save chat and plan updates.",
                                           });
                                         }
+                                        // 1. Send the instant response to the client immediately!
                                         res.json({
                                           reply: aiReply,
                                           mood: mood,
                                           planUpdated: planUpdated,
                                         });
+
+                                        // 2. Asynchronously generate any requested images in the background
+                                        if (pendingImageTasks.length > 0) {
+                                          for (const task of pendingImageTasks) {
+                                            (async () => {
+                                              try {
+                                                console.log(`🎨 Background image generation starting for prompt: "${task.prompt}"...`);
+                                                const { base64Data, mimeType } = await generateImage(task.prompt, { aspectRatio: task.aspectRatio });
+                                                const ext = mimeType.includes("png") ? "png" : "jpg";
+                                                const fileName = `img_${req.user.id}_${crypto.randomUUID()}.${ext}`;
+                                                const dir = path.join(__dirname, "../secure_uploads/chat_images");
+                                                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                                                const filePath = path.join(dir, fileName);
+                                                fs.writeFileSync(filePath, base64Data, "base64");
+
+                                                const realImageUrl = `/api/images/chat/${fileName}`;
+                                                // Update SQLite record so history persists
+                                                db.run(
+                                                  `UPDATE chat_history SET content = REPLACE(content, ?, ?) WHERE user_id = ? AND content LIKE ?`,
+                                                  [`loading://${task.pendingKey}`, realImageUrl, req.user.id, `%loading://${task.pendingKey}%`]
+                                                );
+
+                                                // Broadcast live to mobile app over WebSocket / SSE
+                                                sendSSEEvent(req.user.id, "chat_image_ready", {
+                                                  pendingKey: task.pendingKey,
+                                                  imageUrl: realImageUrl,
+                                                  caption: task.caption,
+                                                });
+                                                console.log(`✅ Background image completed & broadcasted to athlete!`);
+                                              } catch (bgErr) {
+                                                console.error("Background image generation error:", bgErr.message);
+                                                db.run(
+                                                  `UPDATE chat_history SET content = REPLACE(content, ?, '') WHERE user_id = ? AND content LIKE ?`,
+                                                  [`![${task.caption}](loading://${task.pendingKey})`, req.user.id, `%loading://${task.pendingKey}%`]
+                                                );
+                                                sendSSEEvent(req.user.id, "chat_image_failed", {
+                                                  pendingKey: task.pendingKey,
+                                                });
+                                              }
+                                            })();
+                                          }
+                                        }
                                       });
                                     } catch (err) {
                                       console.error("Chat parsing error:", err);
@@ -1390,6 +1424,8 @@ CRITICAL RULES:
                     aiReply = aiReply
                       .replace(/```json[\s\S]*?```/gi, "")
                       .trim();
+                      
+                    aiReply = aiReply.replace(/[^.!?\n]*:\s*$/i, "").trim();
 
                     db.run(
                       `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'default')`,

@@ -680,6 +680,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                         aiReply = aiReply
                           .replace(/```json[\s\S]*?```/, "")
                           .trim();
+                        aiReply = aiReply.replace(/[^.!?\n]*:\s*$/i, "").trim();
                       } catch (e) {
                         console.error("Failed to parse AI JSON block", e);
                       }

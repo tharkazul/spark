@@ -264,12 +264,10 @@ export const GoalsTab: React.FC = () => {
         ) : (
           <View className="space-y-3">
             {milestones.map((row) => {
-              const calculatedCTL = calculateTargetCTL(row.eventName);
-
               return (
                 <View
                   key={row.id}
-                  className="p-3 bg-theme-bg rounded-xl space-y-3 border border-theme-border/30"
+                  className="p-3 bg-theme-bg rounded-xl space-y-3"
                 >
                   <View className="flex-row items-center justify-between">
                     <TouchableOpacity
@@ -311,11 +309,11 @@ export const GoalsTab: React.FC = () => {
                         onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
                         placeholder="e.g. 5K park run, Amsterdam Marathon..."
                         placeholderTextColor="#8E8E93"
-                        className="bg-theme-card rounded-xl p-3 text-xs text-theme-text font-bold border border-theme-border/50"
+                        className="bg-theme-card rounded-xl p-3 text-xs text-theme-text font-bold"
                       />
                     </View>
 
-                    {/* EVENT DATE & AUTO-CALCULATED CTL ROW */}
+                    {/* EVENT DATE ROW */}
                     <View className="flex-row gap-2">
                       {/* DATE SELECTOR BUTTON (OPENS MODAL) */}
                       <View className="flex-1">
@@ -325,7 +323,7 @@ export const GoalsTab: React.FC = () => {
                         <TouchableOpacity
                           onPress={() => handleOpenDatePicker(row)}
                           activeOpacity={0.8}
-                          className="bg-theme-card rounded-xl p-3 flex-row items-center justify-between border border-theme-border/50"
+                          className="bg-theme-card rounded-xl p-3 flex-row items-center justify-between"
                         >
                           <Text
                             className={`text-xs font-bold ${
@@ -336,21 +334,6 @@ export const GoalsTab: React.FC = () => {
                           </Text>
                           <Ionicons name="calendar-outline" size={15} color="#FF5F3B" />
                         </TouchableOpacity>
-                      </View>
-
-                      {/* AUTO CALCULATED CTL READONLY BADGE */}
-                      <View className="w-28 bg-theme-card rounded-xl p-2.5 border border-theme-border/50 justify-center items-center">
-                        <Text className="text-xs font-bold text-theme-muted mb-0.5">
-                          Target CTL
-                        </Text>
-                        <View className="flex-row items-center gap-1">
-                          <Text className="text-base font-extrabold text-theme-accent">
-                            {calculatedCTL}
-                          </Text>
-                          <View className="px-1.5 py-0.5 bg-theme-accent/15 rounded">
-                            <Text className="text-xs font-extrabold text-theme-accent">AUTO</Text>
-                          </View>
-                        </View>
                       </View>
                     </View>
                   </View>

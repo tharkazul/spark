@@ -171,8 +171,8 @@ async function generateWithFallback(
 
 async function generateImage(prompt, options = {}) {
   const models = [
-    "gemini-3-pro-image",
-    "gemini-3.1-flash-image",
+    "gemini-3.1-flash-image", // Nano Banana 2
+    "gemini-3-pro-image",      // Nano Banana Pro
     "gemini-2.5-flash-image",
   ];
 

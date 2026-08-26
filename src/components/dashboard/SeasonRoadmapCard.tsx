@@ -94,7 +94,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           style={{ left: `${progressPercent}%` }}
         >
           <View className="absolute -top-2.5 -translate-x-1/2 left-0 bg-theme-card px-1 py-0.2 rounded shadow-sm">
-            <Text className="text-[7.5px] font-extrabold text-theme-accent">Today</Text>
+            <Text className="text-xs font-extrabold text-theme-accent">Today</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -150,13 +150,13 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                     {isCompleted && (
                       <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
-                        <Text className="text-[8.5px] font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
                       </View>
                     )}
 
                     {isActive && (
                       <View className="bg-theme-accent px-2 py-0.5 rounded-full">
-                        <Text className="text-[8.5px] font-extrabold text-white">ACTIVE</Text>
+                        <Text className="text-xs font-extrabold text-white">ACTIVE</Text>
                       </View>
                     )}
                   </View>

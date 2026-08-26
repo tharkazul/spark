@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, Platform, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Platform, useColorScheme, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import FitImage from 'react-native-fit-image';
 import { API_BASE_URL } from '../../constants/api';
@@ -58,6 +59,36 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
   const markdownRules = useMemo(() => ({
     image: (node: any) => {
       const { src, alt } = node.attributes;
+      if (src && src.startsWith('loading://')) {
+        return (
+          <View
+            key={node.key}
+            style={{
+              width: '100%',
+              marginVertical: 10,
+              padding: 16,
+              borderRadius: 16,
+              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+              borderWidth: 1,
+              borderColor: isDark ? 'rgba(255, 95, 59, 0.3)' : 'rgba(255, 95, 59, 0.25)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+              <Ionicons name="sparkles" size={16} color="#FF5F3B" style={{ marginRight: 6 }} />
+              <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>
+                Developing Visual Coaching Guide...
+              </Text>
+            </View>
+            <ActivityIndicator size="small" color="#FF5F3B" style={{ marginVertical: 8 }} />
+            <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center' }}>
+              {alt || 'High-resolution technique photo is generating in the background...'}
+            </Text>
+          </View>
+        );
+      }
+
       const uri = getFullImageUrl(src);
       if (!uri) return null;
 
@@ -78,7 +109,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
         </TouchableOpacity>
       );
     },
-  }), [onImagePress]);
+  }), [onImagePress, textColor, mutedColor, isDark]);
 
   const styles = useMemo(() => StyleSheet.create({
     body: {

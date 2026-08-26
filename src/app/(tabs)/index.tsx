@@ -65,7 +65,7 @@ export default function PlanningHomeScreen() {
   const { sendMessage } = useCoachChat();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
-  const { plan, refreshPlan } = usePlan();
+  const { plan, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
@@ -326,7 +326,7 @@ export default function PlanningHomeScreen() {
     setIsAddModalOpen(true);
   };
 
-  const handleSaveWorkout = (workoutData: Omit<WorkoutItem, 'id'>, existingId?: string) => {
+  const handleSaveWorkout = async (workoutData: Omit<WorkoutItem, 'id'>, existingId?: string) => {
     const matchedDay = weeklyAgenda.find(
       (d) => d.dayName === workoutData.day || d.dateStr === workoutData.dateStr
     );
@@ -336,6 +336,28 @@ export default function PlanningHomeScreen() {
     const targetDate = new Date(weekStart);
     if (dayIdx >= 0) targetDate.setDate(targetDate.getDate() + dayIdx);
     const targetYYYYMMDD = formatDateToYYYYMMDD(targetDate);
+
+    // Save to DB via usePlan if available
+    try {
+      const plannedWorkout = {
+        date: targetYYYYMMDD,
+        day: workoutData.day,
+        sport: workoutData.type,
+        title: workoutData.title,
+        description: workoutData.notes || '',
+        target_rooka: workoutData.rookaPoints || 0,
+        steps_json: JSON.stringify(workoutData.steps || []),
+      };
+      
+      if (existingId && !existingId.startsWith('w-')) {
+        await updateWorkout(existingId, plannedWorkout);
+      } else {
+        await addWorkout(plannedWorkout);
+      }
+      await refreshPlan();
+    } catch (err) {
+      console.error('Failed to save workout to DB', err);
+    }
 
     setCustomWorkoutsByDate((prev) => {
       const existing = prev[targetYYYYMMDD] || [];
@@ -355,8 +377,18 @@ export default function PlanningHomeScreen() {
     });
   };
 
-  const handleDeleteWorkout = (workoutId: string) => {
+  const handleDeleteWorkout = async (workoutId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    
+    try {
+      if (!workoutId.startsWith('w-')) {
+        await deleteWorkout(workoutId);
+        await refreshPlan();
+      }
+    } catch (err) {
+      console.error('Failed to delete workout from DB', err);
+    }
+    
     setCustomWorkoutsByDate((prev) => {
       const nextState = { ...prev };
       Object.keys(nextState).forEach((key) => {

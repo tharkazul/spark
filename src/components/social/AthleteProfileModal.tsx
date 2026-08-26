@@ -412,7 +412,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                   <View className="bg-theme-bg p-3.5 rounded-2xl flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
                       <Text className="text-xs font-extrabold text-theme-text">Fitness Trajectory</Text>
-                      <Text className="text-[11px] text-theme-muted mt-0.5">Chronic training load (CTL)</Text>
+                      <Text className="text-xs text-theme-muted mt-0.5">Chronic training load (CTL)</Text>
                     </View>
                     <Sparkline
                       data={ctlHistory.length >= 2 ? ctlHistory : [10, 12, 14, 15, 18, 20]}
@@ -429,7 +429,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                   <View className="bg-theme-bg p-3.5 rounded-2xl flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
                       <Text className="text-xs font-extrabold text-theme-text">Fatigue Load</Text>
-                      <Text className="text-[11px] text-theme-muted mt-0.5">Acute training load (ATL)</Text>
+                      <Text className="text-xs text-theme-muted mt-0.5">Acute training load (ATL)</Text>
                     </View>
                     <Sparkline
                       data={atlHistory.length >= 2 ? atlHistory : [8, 15, 12, 22, 19, 25]}
@@ -446,7 +446,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                   <View className="bg-theme-bg p-3.5 rounded-2xl flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
                       <Text className="text-xs font-extrabold text-theme-text">Form & Readiness</Text>
-                      <Text className="text-[11px] text-theme-muted mt-0.5">Freshness balance (TSB)</Text>
+                      <Text className="text-xs text-theme-muted mt-0.5">Freshness balance (TSB)</Text>
                     </View>
                     <Sparkline
                       data={tsbHistory.length >= 2 ? tsbHistory : [5, 2, -4, -2, 4, 6]}
