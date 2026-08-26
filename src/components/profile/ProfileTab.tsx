@@ -13,6 +13,7 @@ import { useColorScheme } from 'nativewind';
 import { userApi, gamificationApi } from '../../services/apiServices';
 import { API_BASE_URL } from '../../constants/api';
 import { UserTitle } from '../../types/gamification';
+import { TrainingZonesCard } from './TrainingZonesCard';
 
 interface ProfileTabProps {
   username: string;
@@ -242,6 +243,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* COACH PERSONA SETTINGS */}
       <CoachPersonaSettings />
+
+      {/* Zones drive every Rooka score, so they sit with the athlete's
+          own details rather than in a settings sub-menu. */}
+      <TrainingZonesCard />
 
       {/* APP PREFERENCES */}
       <Text className="text-theme-muted font-bold text-xs mb-2 ml-1">

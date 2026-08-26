@@ -304,6 +304,40 @@ export const socialApi = {
     }),
 };
 
+export interface ZoneBandDto {
+  zone: number;
+  min: number;
+  max: number | null;
+}
+
+export interface ZonesResponse {
+  sport: string;
+  hrZones: ZoneBandDto[] | null;
+  powerZones: ZoneBandDto[] | null;
+  maxHr: number | null;
+  ftp: number | null;
+  tables: { sport: string; kind: 'hr' | 'power'; source: string; updatedAt: string; zones: ZoneBandDto[] }[];
+}
+
+export const zonesApi = {
+  get: (sport: string = 'default') =>
+    apiClient<ZonesResponse>(`/api/user/zones?sport=${encodeURIComponent(sport)}`),
+  save: (sport: string, kind: 'hr' | 'power', zones: ZoneBandDto[]) =>
+    apiClient<{ success: boolean }>('/api/user/zones', {
+      method: 'PUT',
+      body: JSON.stringify({ sport, kind, zones }),
+    }),
+  remove: (sport: string) =>
+    apiClient<{ success: boolean }>(`/api/user/zones/${encodeURIComponent(sport)}`, {
+      method: 'DELETE',
+    }),
+  reset: (sport: string = 'default') =>
+    apiClient<ZonesResponse>('/api/user/zones/reset', {
+      method: 'POST',
+      body: JSON.stringify({ sport }),
+    }),
+};
+
 export const notificationsApi = {
   registerToken: (token: string, deviceType: string = 'ios') =>
     apiClient<{ success: boolean; message: string }>('/api/notifications/register-token', {

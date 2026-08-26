@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -32,6 +33,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   const [showModal, setShowModal] = useState(visible);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   useEffect(() => {
     if (visible) {
@@ -102,16 +104,18 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           {/* Bottom Sheet: Slides Up Simultaneously */}
           <Animated.View
             style={[
-              { transform: [{ translateY }] },
+              { transform: [{ translateY: Animated.add(translateY, dragY) }] },
               style,
             ]}
             className={contentClassName}
           >
-            {showHandle && (
-              <View className="items-center pb-4 pt-1 -mt-3">
-                <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-              </View>
-            )}
+            {/* Grab area. The handle is always rendered now — it is the
+                affordance that tells you the sheet can be pulled down, and it
+                is the only region that claims the drag gesture, so content
+                inside the sheet still scrolls normally. */}
+            <View {...panHandlers} className="items-center pb-4 pt-1 -mt-3">
+              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+            </View>
             {children}
           </Animated.View>
         </View>

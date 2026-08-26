@@ -8,6 +8,7 @@ import { SportType } from '../../types/dashboard';
 import { makeStepId } from '../../utils/stepId';
 import { StepCard } from '../workout/StepCard';
 import { CARD_COLORS } from '../workout/StepCard.styles';
+import { stepMultiplier } from '../../domain/rookaScore';
 
 let DraggableFlatListComponent: any = FlatList;
 let ScaleDecorator: any = ({ children }: any) => <>{children}</>;
@@ -155,29 +156,15 @@ export function calculateWbRooka(steps: WorkoutStep[], isStrength: boolean, spor
       let iterations = step.iterations || 1;
       (step.steps || []).forEach((sub) => {
         let mins = getStepEquivalentMinutes(sub);
-        let multiplier = 1.2;
-        if (sub.target_type && sub.target_type.endsWith('.zone')) {
-          let z = Number(sub.zone) || 2;
-          if (z >= 4) multiplier = 1.5;
-          else if (z === 3) multiplier = 1.3;
-          else if (z <= 1) multiplier = 1.0;
-        } else if (sub.target_type === 'pace.exact' || sub.target_type === 'power.exact') {
-          multiplier = 1.4;
-        }
+        // Shared with the server so the builder's preview and the recorded
+        // score cannot disagree.
+        const multiplier = stepMultiplier(sub.target_type, sub.zone, sub.target_value);
         repeatMins += mins * multiplier;
       });
       totalRooka += repeatMins * iterations;
     } else {
-      let mins = getStepEquivalentMinutes(step);
-      let multiplier = 1.2;
-      if (step.target_type && step.target_type.endsWith('.zone')) {
-        let z = Number(step.zone) || 2;
-        if (z >= 4) multiplier = 1.5;
-        else if (z === 3) multiplier = 1.3;
-        else if (z <= 1) multiplier = 1.0;
-      } else if (step.target_type === 'pace.exact' || step.target_type === 'power.exact') {
-        multiplier = 1.4;
-      }
+      const mins = getStepEquivalentMinutes(step);
+      const multiplier = stepMultiplier(step.target_type, step.zone, step.target_value);
       totalRooka += mins * multiplier;
     }
   });

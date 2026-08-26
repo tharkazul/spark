@@ -99,6 +99,12 @@ export function DetailedDayCard({
     return `${cleanDur} ${sportName}`;
   };
 
+  // Sum across the day's workouts — this is the number the header was assumed
+  // to be showing but never was.
+  const dayTotalRooka = Math.round(
+    (day.workouts || []).reduce((sum, w) => sum + (w.rookaPoints || 0), 0)
+  );
+
   return (
     <Card
       className={`p-4 md:p-5 mb-5 border ${day.isToday
@@ -126,7 +132,10 @@ export function DetailedDayCard({
               )}
             </View>
 
-            <Text className="text-xs text-theme-muted font-bold">{weatherTemp} · Scheduled</Text>
+            <Text className="text-xs text-theme-muted font-bold">
+              {weatherTemp} · Scheduled
+              {dayTotalRooka > 0 ? ` · ${dayTotalRooka} total Rooka` : ''}
+            </Text>
           </View>
         </View>
 
@@ -213,8 +222,10 @@ export function DetailedDayCard({
 
                 {/* Clean Subline & Quick Actions Bar */}
                 <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/50">
+                  {/* The badge above already states this workout's Rooka; the
+                      figure was simply printed twice on the same card. */}
                   <Text className="text-xs text-theme-muted font-bold">
-                    {humanDuration} · +{Math.round(workout.rookaPoints || 0)} Rooka
+                    {humanDuration}
                   </Text>
 
                   <View className="flex-row items-center gap-2">

@@ -53,6 +53,7 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
   onboarding_completed: Boolean(
     data.onboardingCompleted ?? data.onboarding_completed ?? prev?.onboarding_completed ?? true
   ),
+  needsZoneSetup: Boolean(data.needsZoneSetup ?? prev?.needsZoneSetup ?? false),
 });
 
 const UserContext = createContext<UserContextType | undefined>(undefined);

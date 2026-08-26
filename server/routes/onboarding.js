@@ -203,10 +203,49 @@ router.post('/finalize', authenticateToken, async (req, res) => {
     eventDate,
     targetCtl,
     gender,
-    language
+    language,
+    age,
+    dateOfBirth
   } = req.body;
 
+  // Seed training zones FIRST, before the "already onboarded" guard below.
+  // Zones are what every Rooka score is weighted by, and existing athletes have
+  // none — so a returning user must be able to acquire them without their plan
+  // being rebuilt. Running this after the guard meant the very users who needed
+  // zones were the ones who never got them.
+  async function seedZonesFor(userId) {
+    try {
+      const zoneModel = require('../services/zones');
+      const athleteZones = require('../services/athleteZones');
+
+      if (dateOfBirth) {
+        await new Promise((resolve) =>
+          db.run(`UPDATE users SET date_of_birth = ? WHERE id = ?`, [dateOfBirth, userId], () => resolve())
+        );
+      }
+
+      const resolvedAge = age ? Number(age) : zoneModel.ageFromDateOfBirth(dateOfBirth);
+      const maxHr = zoneModel.maxHrFromAge(resolvedAge);
+      if (maxHr) {
+        await new Promise((resolve) =>
+          db.run(
+            `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'max_hr', ?)
+             ON CONFLICT(user_id, metric) DO UPDATE SET value = excluded.value`,
+            [userId, String(maxHr)],
+            () => resolve()
+          )
+        );
+      }
+      return await athleteZones.seedDefaultZones(userId);
+    } catch (errZones) {
+      console.warn('Zone seeding warning:', errZones && errZones.message);
+      return null;
+    }
+  }
+
   try {
+    await seedZonesFor(userId);
+
     // Onboarding must only ever build one starting plan. Re-running it (the
     // wizard reappearing after a failed profile fetch, a retried request, a
     // second device) otherwise stacks a fresh 7-day block starting "today" on
@@ -233,10 +272,37 @@ router.post('/finalize', authenticateToken, async (req, res) => {
           db.run(`UPDATE users SET onboarding_completed = 1 WHERE id = ?`, [userId], () => resolve()),
         );
       }
+      // The athlete may well have adjusted their tone, context, availability or
+      // language while walking back through the wizard. Keeping the plan must
+      // not mean silently discarding what they just typed.
+      await new Promise((resolve) =>
+        db.run(
+          `UPDATE users SET
+             coach_tone = COALESCE(?, coach_tone),
+             athlete_context = COALESCE(?, athlete_context),
+             training_availability = COALESCE(?, training_availability),
+             gender = COALESCE(?, gender),
+             language = COALESCE(?, language)
+           WHERE id = ?`,
+          [
+            coachTone || null,
+            athleteContext || null,
+            typeof trainingAvailability === 'object'
+              ? JSON.stringify(trainingAvailability)
+              : trainingAvailability || null,
+            gender || null,
+            language || null,
+            userId,
+          ],
+          () => resolve()
+        )
+      );
+
       return res.json({
         success: true,
         alreadyCompleted: true,
-        message: 'Onboarding was already completed; existing plan kept.',
+        zonesSeeded: true,
+        message: 'Training zones updated; your existing plan was kept.',
       });
     }
 
@@ -472,7 +538,7 @@ Example format:
         day.date,
         day.sport || 'Run',
         day.description || 'Workout',
-        day.target_rooka || day.target_spark || 40,
+        require('../services/zones').planDayTargetRooka(day) || 40,
         day.details || '',
         typeof day.steps_json === 'object' ? JSON.stringify(day.steps_json) : (day.steps_json || '[]')
       );

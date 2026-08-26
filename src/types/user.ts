@@ -37,6 +37,8 @@ export interface UserProfile {
   daily_token_limit?: number;
   dailyTokenLimit?: number;
   onboarding_completed?: boolean;
+  /** Set by the server when the athlete has no training zone table yet. */
+  needsZoneSetup?: boolean;
   streak_days?: number;
 }
 

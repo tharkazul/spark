@@ -11,6 +11,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { TextInput } from '../ui/TextInput';
 import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +48,7 @@ export function LogActivityModal({
   const [distance, setDistance] = useState('');
 
   const slideAnim = useRef(new Animated.Value(400)).current;
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   useEffect(() => {
     if (visible) {
@@ -110,13 +112,13 @@ export function LogActivityModal({
           <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
             <Animated.View
               style={{
-                transform: [{ translateY: slideAnim }],
+                transform: [{ translateY: Animated.add(slideAnim, dragY) }],
                 paddingBottom: Math.max(insets.bottom, 24),
               }}
               className="bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl flex-col"
             >
               {/* TOP PULL HANDLE INDICATOR */}
-              <View className="items-center pb-4">
+              <View {...panHandlers} className="items-center pb-4 pt-1">
                 <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
               </View>
 

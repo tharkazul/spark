@@ -126,6 +126,27 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN deleted_at TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'en'`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {});
+  // Date of birth drives max HR (220 - age) and therefore the heart-rate zone
+  // table. Stored as a date rather than an age so it never goes stale.
+  db.run(`ALTER TABLE users ADD COLUMN date_of_birth TEXT`, (err) => {});
+  // Average power was discarded on sync, so a power-only ride had no intensity
+  // signal at all and scored as bare minutes.
+  db.run(`ALTER TABLE activities ADD COLUMN average_watts REAL`, (err) => {});
+  db.run(`ALTER TABLE activities ADD COLUMN max_heartrate REAL`, (err) => {});
+  // Per-athlete, per-sport zone tables. `sport` is 'default' or a sport name,
+  // `kind` is 'hr' or 'power'; the boundaries live in zones_json so adding a
+  // sport needs no schema change.
+  db.run(`CREATE TABLE IF NOT EXISTS athlete_zones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        sport TEXT NOT NULL DEFAULT 'default',
+        kind TEXT NOT NULL,
+        zones_json TEXT NOT NULL,
+        source TEXT DEFAULT 'derived',
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, sport, kind),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`, (err) => {});
   // Cached Garmin Connect session (OAuth1/OAuth2 tokens), encrypted at rest.
   // Lets /api/sync-garmin reuse a session instead of logging in with
   // username/password on every sync, which Garmin rate-limits aggressively.

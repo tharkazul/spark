@@ -9,10 +9,12 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
+  StyleSheet,
   Alert,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -103,6 +105,7 @@ export function AddWorkoutModal({
   const { t } = useLanguage();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   const [selectedSport, setSelectedSport] = useState<SportType>('RUN');
   const [title, setTitle] = useState('');
@@ -356,20 +359,23 @@ export function AddWorkoutModal({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           className="flex-1"
         >
-          <View className="flex-1 bg-theme-bg">
+          {/* The sheet used to be flex-1 on an opaque background, so there was
+              no dark area to tap and the backdrop below it was unreachable.
+              It now stops short of the top, leaving a real dimmed backdrop. */}
+          <View className="flex-1 justify-end bg-black/60">
           <TouchableOpacity
             activeOpacity={1}
             onPress={onClose}
-            className="absolute inset-0"
+            style={StyleSheet.absoluteFillObject}
           />
 
           {/* Bottom Sheet Modal View */}
           <Animated.View
-            style={{ transform: [{ translateY: slideAnim }] }}
-            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 flex-1 shadow-2xl"
+            style={{ transform: [{ translateY: Animated.add(slideAnim, dragY) }] }}
+            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 h-[93%] shadow-2xl"
           >
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View className="items-center pb-4">
+            {/* TOP PULL HANDLE INDICATOR — also the drag-to-dismiss grab area */}
+            <View {...panHandlers} className="items-center pb-4 pt-1">
               <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
             </View>
 

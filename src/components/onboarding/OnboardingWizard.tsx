@@ -290,7 +290,17 @@ export default function OnboardingWizard() {
     { label: 'Resting HR', value: user?.athlete_metrics?.resting_hr?.toString() || '' },
   ]);
 
-  const [availability, setAvailability] = useState<{ [day: string]: { available: boolean; maxMinutes: number } }>({
+  // Returning athletes are walked back through the wizard to supply an age for
+  // their training zones, so their saved availability is prefilled — this is a
+  // review, not a re-entry.
+  const savedAvailability = (user as any)?.trainingAvailability || (user as any)?.training_availability;
+  const [availability, setAvailability] = useState<{ [day: string]: { available: boolean; maxMinutes: number } }>(() => {
+    const parsed =
+      typeof savedAvailability === 'string'
+        ? (() => { try { return JSON.parse(savedAvailability); } catch { return null; } })()
+        : savedAvailability;
+    if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) return parsed;
+    return {
     Mon: { available: true, maxMinutes: 60 },
     Tue: { available: true, maxMinutes: 60 },
     Wed: { available: true, maxMinutes: 60 },
@@ -298,6 +308,7 @@ export default function OnboardingWizard() {
     Fri: { available: true, maxMinutes: 60 },
     Sat: { available: true, maxMinutes: 60 },
     Sun: { available: true, maxMinutes: 60 },
+  };
   });
 
   const isPastDateString = (dateStr?: string) => {
@@ -338,6 +349,9 @@ export default function OnboardingWizard() {
     return isPastDateString(existing) ? '' : existing;
   });
   const [targetCtl, setTargetCtl] = useState(user?.target_ctl?.toString() || '75');
+  // Age drives max HR (220 - age) and therefore the whole heart-rate zone
+  // table, which is what every Rooka score is now weighted by.
+  const [age, setAge] = useState('');
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const MONTHS = [
@@ -874,6 +888,7 @@ export default function OnboardingWizard() {
             targetEvent: raceName || undefined,
             eventDate: raceDate || undefined,
             targetCtl: targetCtl ? parseFloat(targetCtl) : undefined,
+            age: age ? parseInt(age, 10) : undefined,
             language: language || 'en',
           }),
         });
@@ -1429,6 +1444,36 @@ export default function OnboardingWizard() {
                       className="p-4 bg-theme-bg border border-theme-border rounded-xl text-theme-text text-xs min-h-[90px]"
                       style={{ textAlignVertical: 'top' }}
                     />
+
+                    {/* Age — required for heart-rate zones */}
+                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2">
+                      <Text className="text-theme-text font-bold text-xs">
+                        {t('onboarding.ageTitle')}
+                      </Text>
+                      <Text className="text-theme-muted text-xs">
+                        {t('onboarding.ageSubtitle')}
+                      </Text>
+                      <View className="flex-row items-center gap-2">
+                        <TextInput
+                          editable={!isStreamingMessage}
+                          placeholder="35"
+                          placeholderTextColor="#8E8E93"
+                          value={age}
+                          onChangeText={(v) => setAge(v.replace(/[^0-9]/g, '').slice(0, 3))}
+                          keyboardType="number-pad"
+                          style={{ color: '#FF5F3B' }}
+                          className="w-16 p-2.5 bg-theme-card border border-theme-border rounded-lg text-sm font-bold text-center"
+                        />
+                        <Text className="text-theme-muted text-sm">
+                          {t('onboarding.ageYears')}
+                        </Text>
+                        {age && Number(age) > 0 && Number(age) < 120 ? (
+                          <Text className="text-theme-muted text-xs ml-1">
+                            {t('onboarding.ageMaxHr', { bpm: String(220 - Number(age)) })}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
 
                     {/* Physiological Baselines */}
                     <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2">

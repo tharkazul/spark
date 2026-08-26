@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, ScrollView, Animated, StyleSheet } from 'react-native';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
@@ -53,6 +54,9 @@ export const GoalsTab: React.FC = () => {
 
   // Date Selector Modal state
   const [dateModalVisible, setDateModalVisible] = useState(false);
+  const { dragY: dateDragY, panHandlers: datePanHandlers } = useSheetDismiss(() =>
+    setDateModalVisible(false)
+  );
   const [activeMilestoneId, setActiveMilestoneId] = useState<string | null>(null);
   
   // Date Picker temporary selection state
@@ -425,9 +429,18 @@ export const GoalsTab: React.FC = () => {
         onRequestClose={() => setDateModalVisible(false)}
       >
         <View className="flex-1 justify-end bg-black/50">
-          <View className="bg-theme-bg px-5 pt-3 pb-5 rounded-t-3xl border-t border-theme-border">
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View className="items-center pb-4">
+          {/* The dimmed area had no press target. */}
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setDateModalVisible(false)}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <Animated.View
+            style={{ transform: [{ translateY: dateDragY }] }}
+            className="bg-theme-bg px-5 pt-3 pb-5 rounded-t-3xl border-t border-theme-border"
+          >
+            {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
+            <View {...datePanHandlers} className="items-center pb-4 pt-1">
               <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
             </View>
 
@@ -575,7 +588,7 @@ export const GoalsTab: React.FC = () => {
             >
               <Text className="text-white font-bold text-sm">Confirm Date</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>

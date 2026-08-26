@@ -711,7 +711,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                       day.date,
                                                       day.sport,
                                                       day.description,
-                                                      day.target_rooka,
+                                                      require('../services/zones').planDayTargetRooka(day),
                                                       day.details,
                                                       day.steps ? JSON.stringify(day.steps) : (day.steps_json || "[]"),
                                                     );

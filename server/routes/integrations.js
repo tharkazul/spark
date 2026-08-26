@@ -25,6 +25,7 @@ const {
   getStravaTokenForUser,
   getRookaLevelInfo,
   calculateRookaScore,
+  calculateRookaScoreZoned,
   mapStravaSportToRooka,
   formatStepsForStrava,
   tagStravaActivity,
@@ -260,11 +261,13 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
           const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
           let rookaScore = 0;
           if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
-            rookaScore = calculateRookaScore(
-              act.moving_time / 60,
-              act.average_heartrate,
-              tss,
-            );
+            rookaScore = await calculateRookaScoreZoned({
+              userId: req.user.id,
+              movingTimeMin: act.moving_time / 60,
+              avgHr: act.average_heartrate,
+              avgWatts: act.weighted_average_watts || act.average_watts,
+              sport: mapStravaSportToRooka(act.sport_type),
+            });
           }
 
           // Upsert on (user_id, strava_activity_id): this athlete's own copy of
@@ -272,9 +275,9 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
           // to sync the same Strava profile.
           const ok = await new Promise((resolve) =>
             db.run(
-              `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, tss, rooka_score) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate`,
+              `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate`,
               [
                 req.user.id,
                 String(act.id),
@@ -284,6 +287,10 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
                 act.total_elevation_gain,
                 act.moving_time / 60,
                 act.average_heartrate || 0,
+                // Power was dropped entirely before this, so a power-only ride
+                // reached the scorer with no intensity signal at all.
+                act.weighted_average_watts || act.average_watts || null,
+                act.max_heartrate || null,
                 act.start_date,
                 tss,
                 rookaScore,

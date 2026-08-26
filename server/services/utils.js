@@ -4,6 +4,8 @@ const path = require('path');
 const crypto = require('crypto');
 const fuzzysort = require('fuzzysort');
 const { sendSSEEvent } = require('./sse');
+const zoneModel = require('./zones');
+const athleteZones = require('./athleteZones');
 const { generateWithFallback } = require('./ai');
 const { sendPushToUser } = require('./pushNotificationService');
 
@@ -634,22 +636,34 @@ function getRookaLevelInfo(total_rooka) {
   };
 }
 
+/**
+ * Legacy signature, kept so existing call sites keep working. The bands here
+ * were absolute bpm thresholds identical for every athlete, and ignored power
+ * entirely — a power-only ride scored as bare minutes. Prefer
+ * `calculateRookaScoreZoned` where the athlete's zone tables are available.
+ */
 function calculateRookaScore(movingTimeMin, avgHr, fallbackScore = 0) {
   if (!movingTimeMin || movingTimeMin <= 0) return fallbackScore || 0;
-  let baseScore = movingTimeMin;
-  let bonus = 0;
+  return zoneModel.scoreActivity({ movingMinutes: movingTimeMin, avgHr });
+}
 
-  if (avgHr) {
-    if (avgHr >= 180) bonus = 1.0;
-    else if (avgHr >= 160) bonus = 0.4;
-    else if (avgHr >= 140) bonus = 0.3;
-    else if (avgHr >= 120) bonus = 0.2;
-    else if (avgHr >= 100) bonus = 0.0;
-    else if (avgHr >= 80) bonus = -0.2;
-    else bonus = -0.5;
-  }
-
-  return baseScore + baseScore * bonus;
+/**
+ * Score an activity against this athlete's own zone tables.
+ * Effort is the harder of the heart-rate and power zones.
+ */
+async function calculateRookaScoreZoned({ userId, movingTimeMin, avgHr, avgWatts, sport }) {
+  if (!movingTimeMin || movingTimeMin <= 0) return 0;
+  const { hrZones, powerZones } = await athleteZones.resolveZonesForUser(
+    userId,
+    sport || "default"
+  );
+  return zoneModel.scoreActivity({
+    movingMinutes: movingTimeMin,
+    avgHr,
+    avgWatts,
+    hrZones,
+    powerZones,
+  });
 }
 
 function mapStravaSportToRooka(stravaSport) {
@@ -2280,6 +2294,7 @@ module.exports = {
   getStravaShareSettings,
   buildStravaUpdatePayload,
   runDailyRecoveryJob,
+  calculateRookaScoreZoned,
   analyzeMuscleImpact,
   matchGarminExercise,
   getAMSDateString,

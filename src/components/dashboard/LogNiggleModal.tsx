@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { useHealth } from '../../context/HealthStore';
 import { BODY_PARTS_LOOKUP } from '../progress/AnatomicalBodyMap';
 import { Button } from '../ui/Button';
@@ -109,6 +110,7 @@ export function LogNiggleModal({
   const [isManuallySelected, setIsManuallySelected] = useState<boolean>(false);
 
   const [showModal, setShowModal] = useState(visible);
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
@@ -234,14 +236,14 @@ export function LogNiggleModal({
           <Animated.View
             style={[
               {
-                transform: [{ translateY: slideAnim }],
+                transform: [{ translateY: Animated.add(slideAnim, dragY) }],
                 paddingBottom: Math.max(insets.bottom, 20),
               },
             ]}
             className="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl flex-col max-h-[85%]"
           >
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View className="items-center pb-3">
+            {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
+            <View {...panHandlers} className="items-center pb-3 pt-1">
               <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
             </View>
 

@@ -649,7 +649,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                                   day.date,
                                   day.sport,
                                   day.description,
-                                  day.target_rooka,
+                                  require('../services/zones').planDayTargetRooka(day),
                                   day.details,
                                   day.steps_json || "[]",
                                 );

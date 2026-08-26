@@ -13,11 +13,15 @@ export default function TabLayout() {
     if (!loading) {
       if (!isAuthenticated) {
         router.replace('/login');
-      } else if (user && !user.onboarding_completed) {
+      } else if (user && (!user.onboarding_completed || user.needsZoneSetup)) {
+        // Zones are what every Rooka score is weighted by. An account created
+        // before zones existed has none and cannot be scored, so it goes back
+        // through onboarding once to supply an age — the plan it already has is
+        // protected by the guard in /finalize.
         router.replace('/onboarding');
       }
     }
-  }, [isAuthenticated, loading, user?.onboarding_completed]);
+  }, [isAuthenticated, loading, user?.onboarding_completed, user?.needsZoneSetup]);
 
   return (
     <HeaderLayoutProvider>

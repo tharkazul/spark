@@ -5,6 +5,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Animated,
+  StyleSheet,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
@@ -12,6 +14,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
 
@@ -34,6 +37,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   onConnectionsUpdated,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const { dragY, panHandlers } = useSheetDismiss(onClose);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchUserResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -176,9 +180,15 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1 justify-end bg-black/60"
       >
-        <View className="bg-theme-card border-t border-theme-border rounded-t-3xl px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]">
+        {/* The dimmed area had no press target, so tapping it did nothing. */}
+        <TouchableOpacity activeOpacity={1} onPress={onClose} style={StyleSheet.absoluteFillObject} />
+
+        <Animated.View
+          style={{ transform: [{ translateY: dragY }] }}
+          className="bg-theme-card border-t border-theme-border rounded-t-3xl px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]"
+        >
           {/* TOP PULL HANDLE INDICATOR */}
-          <View className="items-center pb-4">
+          <View {...panHandlers} className="items-center pb-4 pt-1">
             <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
           </View>
 
@@ -357,7 +367,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
               </View>
             )}
           </ScrollView>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
