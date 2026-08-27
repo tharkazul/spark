@@ -255,7 +255,15 @@ export function AddWorkoutModal({
     setIsGarminSyncing(true);
     try {
       const { syncGarminWorkout } = require('../../api/integrations');
-      await syncGarminWorkout([{ date: targetDateStr || new Date().toISOString().split('T')[0], sport: selectedSport }]);
+      const finalTitle = title.trim() || `${selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()} Workout`;
+      await syncGarminWorkout([{
+        date: targetDateStr || new Date().toISOString().split('T')[0],
+        sport: selectedSport,
+        title: finalTitle,
+        description: finalTitle,
+        rookaPoints: calculatedRooka,
+        steps: steps || [],
+      }]);
       setIsGarminSynced(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {

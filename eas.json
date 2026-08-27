@@ -10,6 +10,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "npm_config_force": "true"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -20,6 +23,9 @@
     "production": {
       "autoIncrement": true,
       "distribution": "store",
+      "env": {
+        "npm_config_force": "true"
+      },
       "android": {
         "buildType": "app-bundle"
       }

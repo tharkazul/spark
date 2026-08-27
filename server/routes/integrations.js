@@ -625,15 +625,35 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       );
     });
 
-    let workoutsToSync = workouts;
+    let workoutsToSync = [];
     if (Array.isArray(selectedWorkouts) && selectedWorkouts.length > 0) {
-      workoutsToSync = workouts.filter((w) =>
-        selectedWorkouts.some((sw) => {
-          const dateMatch = String(sw.date).trim() === String(w.date).trim();
-          const sportMatch = !sw.sport || String(sw.sport).toLowerCase().trim() === String(w.sport || '').toLowerCase().trim();
-          return dateMatch && sportMatch;
-        }),
-      );
+      const hasDirectSteps = selectedWorkouts.some((sw) => sw.steps || sw.steps_json);
+      if (hasDirectSteps) {
+        workoutsToSync = selectedWorkouts.map((sw) => ({
+          date: sw.date || todayStr,
+          sport: sw.sport,
+          description: sw.title || sw.description || `${sw.sport} Workout`,
+          target_rooka: sw.rookaPoints || sw.target_rooka || 55,
+          steps_json: sw.steps
+            ? typeof sw.steps === "string"
+              ? sw.steps
+              : JSON.stringify(sw.steps)
+            : sw.steps_json,
+        }));
+      } else {
+        workoutsToSync = workouts.filter((w) =>
+          selectedWorkouts.some((sw) => {
+            const dateMatch = String(sw.date).trim() === String(w.date).trim();
+            const sportMatch =
+              !sw.sport ||
+              String(sw.sport).toLowerCase().trim() ===
+                String(w.sport || "").toLowerCase().trim();
+            return dateMatch && sportMatch;
+          }),
+        );
+      }
+    } else {
+      workoutsToSync = workouts;
     }
 
     if (!workoutsToSync || workoutsToSync.length === 0) {

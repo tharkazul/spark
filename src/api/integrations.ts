@@ -3,6 +3,10 @@ import { apiClient } from '../services/apiClient';
 export interface GarminSyncWorkoutPayload {
   date: string;
   sport: string;
+  title?: string;
+  description?: string;
+  rookaPoints?: number;
+  steps?: any[];
 }
 
 export interface GarminSyncResponse {
