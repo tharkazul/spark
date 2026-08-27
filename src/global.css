@@ -7,8 +7,8 @@
     /* Brand */
     --brand-primary: #2563EB;
     --brand-deep: #1D4ED8;
-    --accent: #FF5F3B;
-    --accent-hover: #E84D2B;
+    --accent: 255 95 59;
+    --accent-hover: 232 77 43;
     --accent-soft: rgba(255, 95, 59, 0.12);
     --accent-border: rgba(255, 95, 59, 0.3);
 
@@ -24,11 +24,11 @@
     --gray-400: #94A3B8;
     --gray-600: #475569;
     --gray-800: #1E293B;
-    --bg-main: #F8FAFC; /* Pure Chalk */
-    --bg-card: #FFFFFF;
-    --border-color: #E2E8F0;
-    --text-main: #0F172A; /* Obsidian Slate */
-    --text-muted: #64748B;
+    --bg-main: 248 250 252; /* Pure Chalk */
+    --bg-card: 255 255 255;
+    --border-color: 226 232 240;
+    --text-main: 15 23 42; /* Obsidian Slate */
+    --text-muted: 100 116 139;
 
     /* Semantic Status */
     --color-success: #10B981; /* Aero Mint */
@@ -60,17 +60,17 @@
     /* Brand & Base */
     --brand-primary: #3B82F6;
     --brand-deep: #2563EB;
-    --accent: #FF5F3B; /* Volt Coral */
-    --accent-hover: #FF6A4A;
+    --accent: 255 95 59; /* Volt Coral */
+    --accent-hover: 255 106 74;
     --accent-soft: rgba(255, 95, 59, 0.15);
     --accent-border: rgba(255, 95, 59, 0.35);
 
     /* Dark Surfaces & Text */
-    --bg-main: #0F172A; /* Obsidian Slate */
-    --bg-card: #1E293B;
-    --border-color: #334155;
-    --text-main: #F8FAFC; /* Pure Chalk */
-    --text-muted: #94A3B8;
+    --bg-main: 15 23 42; /* Obsidian Slate */
+    --bg-card: 30 41 59;
+    --border-color: 51 65 85;
+    --text-main: 248 250 252; /* Pure Chalk */
+    --text-muted: 148 163 184;
     --color-focus: #3B82F6;
     --color-metric: #FF5F3B;
 
@@ -103,17 +103,17 @@
       /* Brand & Base */
       --brand-primary: #3B82F6;
       --brand-deep: #2563EB;
-      --accent: #FF5F3B; /* Volt Coral */
-      --accent-hover: #FF6A4A;
+      --accent: 255 95 59; /* Volt Coral */
+      --accent-hover: 255 106 74;
       --accent-soft: rgba(255, 95, 59, 0.15);
       --accent-border: rgba(255, 95, 59, 0.35);
 
       /* Dark Surfaces & Text */
-      --bg-main: #0F172A; /* Obsidian Slate */
-      --bg-card: #1E293B;
-      --border-color: #334155;
-      --text-main: #F8FAFC; /* Pure Chalk */
-      --text-muted: #94A3B8;
+      --bg-main: 15 23 42; /* Obsidian Slate */
+      --bg-card: 30 41 59;
+      --border-color: 51 65 85;
+      --text-main: 248 250 252; /* Pure Chalk */
+      --text-muted: 148 163 184;
       --color-focus: #3B82F6;
       --color-metric: #FF5F3B;
 

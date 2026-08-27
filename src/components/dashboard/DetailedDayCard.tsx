@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/hooks/use-theme';
+import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View, useColorScheme } from 'react-native';
 import { SportType, WorkoutItem } from '../../types/dashboard';
 import { Card } from '../ui/Card';
 import { DayAgenda } from './MicroPlanAgendaCard';
@@ -25,78 +27,15 @@ export function DetailedDayCard({
   onDeleteWorkout,
   onInvitePartner,
 }: DetailedDayCardProps) {
-  const getDisciplineConfig = (type: SportType) => {
-    // The plan stores sport in title case ('Bike'), while these cases are
-    // upper. Every workout therefore fell through to the REST branch and
-    // rendered a moon. Normalise before matching.
-    switch (String(type || '').toUpperCase()) {
-      case 'SWIM':
-        return {
-          bg: 'bg-sky-500/15',
-          text: 'text-sky-400',
-          borderColor: 'border-sky-500/40',
-          borderLeft: 'border-l-sky-400',
-          label: 'SWIM',
-          icon: 'water-outline',
-          badgeColor: '#38BDF8',
-        };
-      case 'RUN':
-        return {
-          bg: 'bg-amber-500/15',
-          text: 'text-amber-400',
-          borderColor: 'border-amber-500/40',
-          borderLeft: 'border-l-amber-400',
-          label: 'RUN',
-          icon: 'walk-outline',
-          badgeColor: '#F59E0B',
-        };
-      case 'BIKE':
-        return {
-          bg: 'bg-emerald-500/15',
-          text: 'text-emerald-400',
-          borderColor: 'border-emerald-500/40',
-          borderLeft: 'border-l-emerald-400',
-          label: 'BIKE',
-          icon: 'bicycle-outline',
-          badgeColor: '#34D399',
-        };
-      case 'STRENGTH':
-        return {
-          bg: 'bg-purple-500/15',
-          text: 'text-purple-400',
-          borderColor: 'border-purple-500/40',
-          borderLeft: 'border-l-purple-400',
-          label: 'STRENGTH',
-          icon: 'barbell-outline',
-          badgeColor: '#C084FC',
-        };
-      case 'MOBILITY':
-        return {
-          bg: 'bg-teal-500/15',
-          text: 'text-teal-400',
-          borderColor: 'border-teal-500/40',
-          borderLeft: 'border-l-teal-400',
-          label: 'MOBILITY',
-          icon: 'body-outline',
-          badgeColor: '#2DD4BF',
-        };
-      default:
-        return {
-          bg: 'bg-gray-500/15',
-          text: 'text-gray-400',
-          borderColor: 'border-gray-500/40',
-          borderLeft: 'border-l-gray-400',
-          label: 'REST',
-          icon: 'moon-outline',
-          badgeColor: '#A1A1AA',
-        };
-    }
-  };
+    const theme = useTheme();
+    // One palette for every screen; see utils/disciplineConfig.
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+
 
   const hasWorkouts = day.workouts.length > 0;
 
   const formatHumanDuration = (durationStr?: string, sport?: SportType | string) => {
-    if (sport === 'REST') return 'Rest day';
+    if (String(sport).toUpperCase() === 'REST') return 'Rest day';
     if (!durationStr) return `45 min ${sport ? sport.toLowerCase() : 'session'}`;
     const cleanDur = durationStr.replace(/mins?/i, 'min').trim();
     const sportName = sport ? sport.toLowerCase() : 'session';
@@ -120,12 +59,12 @@ export function DetailedDayCard({
       <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
         <View className="flex-row items-center gap-3">
           <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="calendar-outline" size={20} color="#FF5F3B" />
+            <Ionicons name="calendar-outline" size={20} color={theme.tint} />
           </View>
 
           <View>
             <View className="flex-row items-center gap-2">
-              <Text className="text-base font-extrabold text-theme-text">{day.dayName} {day.dateStr}</Text>
+              <Text className="text-lg font-extrabold text-theme-text">{day.dayName} {day.dateStr}</Text>
 
               {day.isToday && (
                 <View className="bg-theme-accent px-2 py-0.5 rounded-full">
@@ -136,8 +75,8 @@ export function DetailedDayCard({
               )}
             </View>
 
-            <Text className="text-xs text-theme-muted font-bold">
-              {weatherTemp} · Scheduled
+            <Text className="text-sm text-theme-muted">
+              {weatherTemp}
               {dayTotalRooka > 0 ? ` · ${dayTotalRooka} total Rooka` : ''}
             </Text>
           </View>
@@ -152,7 +91,7 @@ export function DetailedDayCard({
           activeOpacity={0.7}
           className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
-          <Ionicons name="flash-outline" size={13} color="#FF5F3B" />
+          <Ionicons name="flash-outline" size={13} color={theme.tint} />
           <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
         </TouchableOpacity>
       </View>
@@ -160,9 +99,9 @@ export function DetailedDayCard({
       {/* Workouts List for this Day */}
       {!hasWorkouts ? (
         <View className="p-5 rounded-2xl border border-theme-border bg-theme-bg/60 flex-col items-center justify-center gap-2">
-          <Ionicons name="moon-outline" size={24} color="#6F6F79" />
-          <Text className="text-sm font-bold text-theme-text">Rest & Recovery Day</Text>
-          <Text className="text-xs text-theme-muted text-center px-4 font-bold">
+          <Ionicons name="moon-outline" size={24} color={theme.textSecondary} />
+          <Text className="text-base font-bold text-theme-text">Rest & Recovery Day</Text>
+          <Text className="text-sm text-theme-muted text-center px-4">
             No structured sessions scheduled for this day. Take time to stretch and refuel.
           </Text>
 
@@ -171,13 +110,13 @@ export function DetailedDayCard({
             className="mt-2 flex-row items-center gap-1.5 px-4 py-2 rounded-xl bg-theme-accent"
           >
             <Ionicons name="add" size={16} color="#FFFFFF" />
-            <Text className="text-xs font-extrabold text-white">Add workout</Text>
+            <Text className="text-sm font-extrabold text-white">Add workout</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View>
-          {day.workouts.map((workout) => {
-            const cfg = getDisciplineConfig(workout.type);
+          {day.workouts.map((workout, wIndex) => {
+            const cfg = getDisciplineConfig(workout.type, scheme);
             const humanDuration = formatHumanDuration(workout.duration, workout.type);
 
             return (
@@ -192,20 +131,29 @@ export function DetailedDayCard({
                    second bordered, rounded, padded box inside it — three
                    borders deep once you count the page card. It is now
                    separated by space and a hairline rule instead, and carries
-                   its sport colour once, on the badge. */
-                className="py-3.5 flex-col gap-2 border-b border-theme-border/40"
+                   its sport colour once, on the badge.
+
+                   The rule only separates one workout from the NEXT one. Drawn
+                   unconditionally it also fired after the last workout, boxing
+                   in the Add button for no reason. */
+                className={`py-3.5 flex-col gap-2 ${
+                  wIndex < day.workouts.length - 1 ? 'border-b border-theme-border/40' : ''
+                }`}
               >
                 {/* Top Discipline Line */}
                 <View className="flex-row items-center justify-between">
-                  <View className={`px-2.5 py-0.5 rounded-md ${cfg.bg} flex-row items-center gap-1.5`}>
-                    <Ionicons name={cfg.icon as any} size={13} color={cfg.badgeColor} />
-                    <Text className={`text-xs font-extrabold ${cfg.text}`}>
+                  <View
+                    style={{ backgroundColor: cfg.tint }}
+                    className="px-2.5 py-0.5 rounded-md flex-row items-center gap-1.5"
+                  >
+                    <Ionicons name={cfg.icon as any} size={13} color={cfg.color} />
+                    <Text style={{ color: cfg.color }} className="text-xs font-extrabold">
                       {cfg.label}
                     </Text>
                   </View>
 
                   <View className="flex-row items-center gap-2">
-                    <Text className="text-xs font-mono font-bold text-theme-accent">
+                    <Text className="text-sm font-mono font-bold text-theme-accent">
                       +{Math.round(workout.rookaPoints || 0)} Rooka
                     </Text>
 
@@ -220,7 +168,7 @@ export function DetailedDayCard({
                 </View>
 
                 {/* Workout Title */}
-                <Text className="text-sm font-extrabold text-theme-text leading-snug">
+                <Text className="text-base font-extrabold text-theme-text leading-snug">
                   {workout.title}
                 </Text>
 
@@ -233,20 +181,20 @@ export function DetailedDayCard({
                     <Ionicons
                       name="chatbubble-ellipses-outline"
                       size={13}
-                      color="#FF5F3B"
+                      color={theme.tint}
                       style={{ marginTop: 1 }}
                     />
-                    <Text className="flex-1 text-xs text-theme-muted leading-relaxed">
+                    <Text className="flex-1 text-sm text-theme-muted leading-relaxed">
                       {workout.coachNote}
                     </Text>
                   </View>
                 )}
 
                 {/* Clean Subline & Quick Actions Bar */}
-                <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/50">
+                <View className="flex-row items-center justify-between pt-1">
                   {/* The badge above already states this workout's Rooka; the
                       figure was simply printed twice on the same card. */}
-                  <Text className="text-xs text-theme-muted font-bold">
+                  <Text className="text-sm text-theme-muted">
                     {humanDuration}
                   </Text>
 
@@ -258,7 +206,7 @@ export function DetailedDayCard({
                       }}
                       className="flex-row items-center gap-1 px-2.5 py-1 bg-theme-card border border-theme-border rounded-lg"
                     >
-                      <Ionicons name="person-add-outline" size={12} color="#6F6F79" />
+                      <Ionicons name="person-add-outline" size={12} color={theme.textSecondary} />
                       <Text className="text-xs font-bold text-theme-muted">Invite</Text>
                     </TouchableOpacity>
 
@@ -283,8 +231,8 @@ export function DetailedDayCard({
             activeOpacity={0.8}
             className="w-full py-3 mt-1 flex-row items-center justify-center gap-1.5 active:opacity-60"
           >
-            <Ionicons name="add-circle-outline" size={16} color="#FF5F3B" />
-            <Text className="text-xs font-extrabold text-theme-accent">+ Add Exercise</Text>
+            <Ionicons name="add-circle-outline" size={16} color={theme.tint} />
+            <Text className="text-sm font-extrabold text-theme-accent">+ Add Exercise</Text>
           </TouchableOpacity>
         </View>
       )}

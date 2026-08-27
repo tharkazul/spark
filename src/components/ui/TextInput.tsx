@@ -1,4 +1,5 @@
 import { TextInput as RNTextInput, TextInputProps, View, Text } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
 
 interface Props extends TextInputProps {
   label?: string;
@@ -6,6 +7,7 @@ interface Props extends TextInputProps {
 }
 
 export function TextInput({ label, error, className = '', ...props }: Props) {
+    const theme = useTheme();
   return (
     <View className={`w-full ${className}`}>
       {label && (
@@ -15,7 +17,7 @@ export function TextInput({ label, error, className = '', ...props }: Props) {
       )}
       <RNTextInput
         className="w-full p-4 rounded-xl text-base bg-theme-bg text-theme-text"
-        placeholderTextColor="#8E8E93"
+        placeholderTextColor={theme.textSecondary}
         {...props}
       />
       {error && (

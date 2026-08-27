@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
 import Svg, { Polygon, Line, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
 
@@ -29,6 +30,7 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
   data = DEFAULT_DATA,
   size = 260,
 }) => {
+    const theme = useTheme();
   const center = size / 2;
   const radius = (size - 70) / 2;
 
@@ -110,7 +112,7 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
         <Svg width={size} height={size}>
           <Defs>
             <LinearGradient id="radarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <Stop offset="0%" stopColor="#FF5F3B" stopOpacity="0.5" />
+              <Stop offset="0%" stopColor={theme.tint} stopOpacity="0.5" />
               <Stop offset="100%" stopColor="#FF8554" stopOpacity="0.2" />
             </LinearGradient>
           </Defs>
@@ -149,7 +151,7 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
           <Polygon
             points={dataPolygonPoints}
             fill="url(#radarGrad)"
-            stroke="#FF5F3B"
+            stroke={theme.tint}
             strokeWidth="2.5"
           />
 
@@ -159,8 +161,8 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
               const pt = getPoint(i, m.value);
               return (
                 <G key={i}>
-                  <Circle cx={pt.x} cy={pt.y} r="4.5" fill="#FF5F3B" />
-                  <Circle cx={pt.x} cy={pt.y} r="7.5" fill="#FF5F3B" opacity="0.3" />
+                  <Circle cx={pt.x} cy={pt.y} r="4.5" fill={theme.tint} />
+                  <Circle cx={pt.x} cy={pt.y} r="7.5" fill={theme.tint} opacity="0.3" />
                 </G>
               );
             })}

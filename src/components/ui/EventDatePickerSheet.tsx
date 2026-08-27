@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -80,6 +81,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
   pastWarning = 'That date is already in the past',
   minYear,
 }) => {
+    const theme = useTheme();
   const thisYear = new Date().getFullYear();
   const floorYear = minYear ?? thisYear;
 
@@ -153,7 +155,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       {/* Header */}
       <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
         <View className="flex-row items-center gap-2">
-          <Ionicons name="calendar-outline" size={20} color="#FF5F3B" />
+          <Ionicons name="calendar-outline" size={20} color={theme.tint} />
           <Text className="text-lg font-extrabold text-theme-text">{title}</Text>
         </View>
       </View>
@@ -196,11 +198,11 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
             disabled={pickerYear <= floorYear}
             className={`p-1 ${pickerYear <= floorYear ? 'opacity-30' : ''}`}
           >
-            <Ionicons name="chevron-back" size={18} color="#FF5F3B" />
+            <Ionicons name="chevron-back" size={18} color={theme.tint} />
           </TouchableOpacity>
           <Text className="text-sm font-extrabold text-theme-text font-mono">{pickerYear}</Text>
           <TouchableOpacity onPress={() => stepYear(1)} className="p-1">
-            <Ionicons name="chevron-forward" size={18} color="#FF5F3B" />
+            <Ionicons name="chevron-forward" size={18} color={theme.tint} />
           </TouchableOpacity>
         </View>
       </View>

@@ -229,6 +229,38 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
   );
 });
 
+router.post(["/api/social/decline", "/api/social/reject"], authenticateToken, (req, res) => {
+  const { friendId } = req.body;
+  db.run(
+    `UPDATE connections SET status = 'declined' WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)`,
+    [req.user.id, friendId, friendId, req.user.id],
+    function (err) {
+      // Update recipient's existing chat history payload for this friend request to 'declined'
+      db.all(
+        `SELECT id, payload_json FROM chat_history WHERE user_id = ? AND role = 'coach' AND payload_json LIKE '%connection_request%'`,
+        [req.user.id],
+        (err, rows) => {
+          if (rows) {
+            rows.forEach((row) => {
+              try {
+                const parsed = JSON.parse(row.payload_json);
+                if (parsed && (parsed.friend_id == friendId || parsed.fromUserId == friendId)) {
+                  parsed.status = "declined";
+                  db.run(
+                    `UPDATE chat_history SET payload_json = ? WHERE id = ?`,
+                    [JSON.stringify(parsed), row.id]
+                  );
+                }
+              } catch (e) {}
+            });
+          }
+        }
+      );
+      res.json({ success: true });
+    }
+  );
+});
+
 router.get("/api/social/connections", authenticateToken, (req, res) => {
   db.all(
     `

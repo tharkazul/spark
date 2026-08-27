@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useTheme } from '@/hooks/use-theme';
+import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import {
   View,
   Text,
@@ -13,8 +15,7 @@ import {
   Animated,
   Keyboard,
   Linking,
-  StyleSheet
-} from 'react-native';
+  StyleSheet, useColorScheme } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -134,6 +135,8 @@ const MessageRow = React.memo(({
   onReject,
   onAcceptInvite,
   onDeclineInvite,
+  onAcceptConnection,
+  onDeclineConnection,
   onExpandImage,
   onResend,
 }: {
@@ -146,6 +149,8 @@ const MessageRow = React.memo(({
   onReject: any;
   onAcceptInvite: any;
   onDeclineInvite: any;
+  onAcceptConnection?: (friendId: number | string) => Promise<void> | void;
+  onDeclineConnection?: (friendId: number | string) => Promise<void> | void;
   onExpandImage: (source: any) => void;
   onResend: (id: string | number) => void;
 }) => {
@@ -213,6 +218,8 @@ const MessageRow = React.memo(({
         ) : (item.payload_json as any)?.type === 'connection_request' || (item.payload_json as any)?.type === 'connection_accepted' ? (
           <ConnectionRequestCard
             payload={item.payload_json as any}
+            onAccept={onAcceptConnection}
+            onDecline={onDeclineConnection}
           />
         ) : null}
 
@@ -246,8 +253,24 @@ const MessageRow = React.memo(({
 });
 
 export default function CoachScreen() {
+    const theme = useTheme();
   const { t } = useLanguage();
-  const { messages, sendMessage, resendMessage, sending, loading, acceptProposal, rejectProposal, acceptInvite, declineInvite, tokenUsage, error, markAsRead } = useCoachChat();
+  const {
+    messages,
+    sendMessage,
+    resendMessage,
+    sending,
+    loading,
+    acceptProposal,
+    rejectProposal,
+    acceptInvite,
+    declineInvite,
+    acceptConnection,
+    declineConnection,
+    tokenUsage,
+    error,
+    markAsRead,
+  } = useCoachChat();
   const { user } = useUser();
   const { plan } = usePlan();
   const { nutrition, clearLoggedNutrition } = usePhysique();
@@ -567,11 +590,13 @@ export default function CoachScreen() {
         onReject={rejectProposal}
         onAcceptInvite={acceptInvite}
         onDeclineInvite={declineInvite}
+        onAcceptConnection={acceptConnection}
+        onDeclineConnection={declineConnection}
         onExpandImage={(source) => setPreviewImage(source)}
         onResend={resendMessage}
       />
     );
-  }, [user, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite, resendMessage]);
+  }, [user, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite, acceptConnection, declineConnection, resendMessage]);
 
   const primaryWorkout = todayWorkouts[0] || null;
   const totalTodayRooka = todayWorkouts.reduce((acc, w) => acc + (w.target_rooka || (w as any).rookaPoints || 0), 0);
@@ -598,15 +623,10 @@ export default function CoachScreen() {
     }
   };
 
-  const getSportIconConfig = (sport?: string) => {
-    const s = (sport || '').toUpperCase();
-    if (s.includes('RUN')) return { icon: 'walk-outline', color: '#F59E0B', bg: 'bg-amber-500/15' };
-    if (s.includes('BIKE') || s.includes('CYCL')) return { icon: 'bicycle-outline', color: '#34D399', bg: 'bg-emerald-500/15' };
-    if (s.includes('SWIM')) return { icon: 'water-outline', color: '#38BDF8', bg: 'bg-sky-500/15' };
-    if (s.includes('STRENGTH')) return { icon: 'barbell-outline', color: '#C084FC', bg: 'bg-purple-500/15' };
-    if (s.includes('MOBILITY')) return { icon: 'body-outline', color: '#2DD4BF', bg: 'bg-teal-500/15' };
-    return { icon: 'flash-outline', color: '#FF5F3B', bg: 'bg-theme-accent/15' };
-  };
+    // One palette for every screen; see utils/disciplineConfig.
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const getSportIconConfig = (sport?: string) => getDisciplineConfig(sport, scheme);
+
 
   const now = new Date();
   const dateBadgeStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -702,7 +722,10 @@ export default function CoachScreen() {
                   {/* Top Sport Line */}
                   <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
                     <View className="flex-row items-center gap-2">
-                      <View className={`w-7 h-7 rounded-lg ${cfg.bg} items-center justify-center`}>
+                      <View
+                        style={{ backgroundColor: cfg.tint }}
+                        className="w-7 h-7 rounded-lg items-center justify-center"
+                      >
                         <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
                       </View>
                       <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
@@ -735,7 +758,7 @@ export default function CoachScreen() {
           </View>
         ) : (
           <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
-            <Ionicons name="moon-outline" size={28} color="#6F6F79" />
+            <Ionicons name="moon-outline" size={28} color={theme.textSecondary} />
             <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
             <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
           </View>
@@ -752,7 +775,7 @@ export default function CoachScreen() {
             }}
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
-            <Ionicons name="calendar-outline" size={16} color="#FF5F3B" />
+            <Ionicons name="calendar-outline" size={16} color={theme.tint} />
             <Text className="text-xs font-extrabold text-theme-accent">View Full Plan</Text>
           </TouchableOpacity>
 
@@ -793,7 +816,7 @@ export default function CoachScreen() {
               }}
               className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border"
             >
-              <Ionicons name="refresh-outline" size={12} color="#A1A1AA" />
+              <Ionicons name="refresh-outline" size={12} color={theme.textSecondary} />
               <Text className="text-xs font-bold text-theme-muted">Reset</Text>
             </TouchableOpacity>
           )}
@@ -845,7 +868,7 @@ export default function CoachScreen() {
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
             <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color="#FF5F3B" />
+              <Ionicons name="trophy" size={26} color={theme.tint} />
             </View>
             <View>
               <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
@@ -889,10 +912,10 @@ export default function CoachScreen() {
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
             {questLoading ? (
-              <ActivityIndicator size="small" color="#FF5F3B" />
+              <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <>
-                <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                <Ionicons name="refresh-outline" size={16} color={theme.textSecondary} />
                 <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
               </>
             )}
@@ -925,7 +948,7 @@ export default function CoachScreen() {
 
         {/* Header Right: Date */}
         <View className="flex-row items-center gap-1.5 py-1.5">
-          <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
+          <Ionicons name="calendar-outline" size={13} color={theme.tint} />
           <Text className="text-xs font-bold font-mono text-theme-muted">{dateBadgeStr}</Text>
         </View>
       </View>
@@ -980,7 +1003,7 @@ export default function CoachScreen() {
           activeOpacity={0.75}
           className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
         >
-          <Ionicons name="trophy" size={13} color="#FF5F3B" />
+          <Ionicons name="trophy" size={13} color={theme.tint} />
           <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
             Quest
           </Text>
@@ -1068,7 +1091,7 @@ export default function CoachScreen() {
             className="absolute bottom-3 right-4 z-40 bg-theme-accent w-10 h-10 rounded-full shadow-lg items-center justify-center"
             style={{
               elevation: 8,
-              shadowColor: '#FF5F3B',
+              shadowColor: theme.tint,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.4,
               shadowRadius: 6,
@@ -1119,7 +1142,7 @@ export default function CoachScreen() {
             <RNTextInput
               ref={inputRef}
               placeholder="Ask about your training, nutrition, or recovery..."
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.textSecondary}
               value={inputText}
               onChangeText={(text) => {
                 if (text.endsWith('\n')) {

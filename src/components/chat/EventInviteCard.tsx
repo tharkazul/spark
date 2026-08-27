@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EventInvitePayload } from '../../types/chat';
@@ -23,6 +24,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
   onAccept,
   onDecline,
 }) => {
+    const theme = useTheme();
   const [status, setStatus] = useState<'pending' | 'accepted' | 'declined'>(payload.status || 'pending');
   const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
 
@@ -56,7 +58,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
     <View className="my-3 bg-theme-card/90 border border-theme-border rounded-2xl p-4 shadow-sm">
       <View className="flex-row items-center gap-3 mb-3">
         <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center">
-          <Ionicons name={getSportIcon(payload.sport)} size={20} color="#FF5F3B" />
+          <Ionicons name={getSportIcon(payload.sport)} size={20} color={theme.tint} />
         </View>
         <View className="flex-1">
           <Text className="text-theme-text font-bold text-sm">

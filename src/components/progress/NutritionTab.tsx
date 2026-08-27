@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
 import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +8,7 @@ import { NutritionProtocolCard } from '../dashboard/NutritionProtocolCard';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const NutritionTab: React.FC = () => {
+    const theme = useTheme();
   const { t } = useLanguage();
   const { nutrition } = usePhysique();
 
@@ -25,7 +27,7 @@ export const NutritionTab: React.FC = () => {
           {/* Pre-Workout */}
           <View className="flex-row items-center bg-theme-bg/60 border border-theme-border rounded-xl p-3 mb-2">
             <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center mr-3 border border-theme-accent/30">
-              <Ionicons name="time-outline" size={20} color="#FF5F3B" />
+              <Ionicons name="time-outline" size={20} color={theme.tint} />
             </View>
             <View className="flex-1">
               <Text className="text-xs font-bold text-theme-text">{t('dashboard.preWorkout')}</Text>
@@ -67,7 +69,7 @@ export const NutritionTab: React.FC = () => {
       <Card className="mb-6 bg-theme-card border-theme-border">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
-            <Ionicons name="water" size={18} color="#FF5F3B" />
+            <Ionicons name="water" size={18} color={theme.tint} />
             <Text className="text-xs font-bold text-theme-muted">
               {t('dashboard.hydrationTarget')}
             </Text>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   View,
   Text,
@@ -17,6 +18,7 @@ import { useUser } from '../context/UserStore';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function LoginScreen() {
+    const theme = useTheme();
   const router = useRouter();
   const { login, register, loading: storeLoading, error: sessionError } = useUser();
   const { t } = useLanguage();
@@ -160,10 +162,10 @@ export default function LoginScreen() {
                   {t('auth.chooseUsername')}
                 </Text>
                 <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
-                  <Ionicons name="person-outline" size={20} color="#8E8E93" />
+                  <Ionicons name="person-outline" size={20} color={theme.textSecondary} />
                   <TextInput
                     placeholder="Athlete Username"
-                    placeholderTextColor="#8E8E93"
+                    placeholderTextColor={theme.textSecondary}
                     value={username}
                     onChangeText={setUsername}
                     autoCapitalize="none"
@@ -188,7 +190,7 @@ export default function LoginScreen() {
                 <Ionicons
                   name={mode === 'login' ? 'person-outline' : 'mail-outline'}
                   size={20}
-                  color="#8E8E93"
+                  color={theme.textSecondary}
                 />
                 <TextInput
                   placeholder={
@@ -196,7 +198,7 @@ export default function LoginScreen() {
                       ? t('auth.signInIdentifierPlaceholder')
                       : 'athlete@rooka.com'
                   }
-                  placeholderTextColor="#8E8E93"
+                  placeholderTextColor={theme.textSecondary}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType={mode === 'login' ? 'default' : 'email-address'}
@@ -213,10 +215,10 @@ export default function LoginScreen() {
                 {t('auth.enterPassword')}
               </Text>
               <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
-                <Ionicons name="lock-closed-outline" size={20} color="#8E8E93" />
+                <Ionicons name="lock-closed-outline" size={20} color={theme.textSecondary} />
                 <TextInput
                   placeholder="••••••••"
-                  placeholderTextColor="#8E8E93"
+                  placeholderTextColor={theme.textSecondary}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -228,7 +230,7 @@ export default function LoginScreen() {
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
-                    color="#8E8E93"
+                    color={theme.textSecondary}
                   />
                 </TouchableOpacity>
               </View>

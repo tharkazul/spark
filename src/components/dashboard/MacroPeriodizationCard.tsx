@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/hooks/use-theme';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { MacroPeriodInfo } from '../../types/dashboard';
@@ -9,6 +10,7 @@ interface MacroPeriodizationCardProps {
 }
 
 export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
+    const theme = useTheme();
   const currentPhaseName = info.phases[info.currentPhaseIndex]?.name || 'BUILD';
 
   return (
@@ -17,7 +19,7 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
       <View className="px-4 py-2.5 flex-row justify-between items-center bg-theme-bg/60">
         <View className="flex-row items-center gap-2">
           <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="compass-outline" size={14} color="#FF5F3B" />
+            <Ionicons name="compass-outline" size={14} color={theme.tint} />
           </View>
           <View>
             <Text className="text-sm font-extrabold text-theme-text">Macro Periodization</Text>

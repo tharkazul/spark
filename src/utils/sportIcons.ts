@@ -1,5 +1,6 @@
 import { ComponentProps } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { sportColor } from '../constants/theme';
 
 export type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
@@ -15,7 +16,11 @@ export interface SportIconConfig {
 /**
  * Returns the appropriate icon config based on sport_type and activity name.
  */
-export function getSportIconConfig(sportType?: string, activityName?: string): SportIconConfig {
+export function getSportIconConfig(
+  sportType?: string,
+  activityName?: string,
+  scheme: 'light' | 'dark' = 'light',
+): SportIconConfig {
   const sport = (sportType || '').toLowerCase().trim();
   const name = (activityName || '').toLowerCase().trim();
   const combined = `${sport} ${name}`;
@@ -39,7 +44,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'bicycle',
       outlineName: 'bicycle-outline',
-      color: '#4CAF6D',
+      color: sportColor('BIKE', scheme),
       bgColor: 'bg-[#4CAF6D]/15',
       label: 'BIKE',
     };
@@ -58,7 +63,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
       name: 'swimmer',
       outlineName: 'swimmer',
       family: 'FontAwesome5',
-      color: '#2E8FE0',
+      color: sportColor('SWIM', scheme),
       bgColor: 'bg-[#2E8FE0]/15',
       label: 'SWIM',
     };
@@ -83,7 +88,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'barbell',
       outlineName: 'barbell-outline',
-      color: '#B36AE0',
+      color: sportColor('STRENGTH', scheme),
       bgColor: 'bg-[#B36AE0]/15',
       label: 'STRENGTH',
     };
@@ -107,7 +112,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'body',
       outlineName: 'body-outline',
-      color: '#2EBFAF',
+      color: sportColor('MOBILITY', scheme),
       bgColor: 'bg-[#2EBFAF]/15',
       label: 'MOBILITY',
     };
@@ -126,7 +131,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'footsteps',
       outlineName: 'footsteps-outline',
-      color: '#8FA82E',
+      color: sportColor('WALK', scheme),
       bgColor: 'bg-[#8FA82E]/15',
       label: 'WALK',
     };
@@ -152,7 +157,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'walk',
       outlineName: 'walk-outline',
-      color: '#D9A62E',
+      color: sportColor('RUN', scheme),
       bgColor: 'bg-[#D9A62E]/15',
       label: 'RUN',
     };
@@ -178,7 +183,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'boat',
       outlineName: 'boat-outline',
-      color: '#0284C7',
+      color: sportColor('ROWING', scheme),
       bgColor: 'bg-[#0284C7]/15',
       label: 'ROWING',
     };
@@ -199,7 +204,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'snow',
       outlineName: 'snow-outline',
-      color: '#38BDF8',
+      color: sportColor('WINTER', scheme),
       bgColor: 'bg-[#38BDF8]/15',
       label: 'WINTER',
     };
@@ -225,7 +230,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'tennisball',
       outlineName: 'tennisball-outline',
-      color: '#84CC16',
+      color: sportColor('RACQUET', scheme),
       bgColor: 'bg-[#84CC16]/15',
       label: 'RACQUET',
     };
@@ -236,7 +241,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'football',
       outlineName: 'football-outline',
-      color: '#10B981',
+      color: sportColor('SOCCER', scheme),
       bgColor: 'bg-[#10B981]/15',
       label: 'SOCCER',
     };
@@ -246,7 +251,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'basketball',
       outlineName: 'basketball-outline',
-      color: '#FF5F3B',
+      color: sportColor('BASKETBALL', scheme),
       bgColor: 'bg-[#FF5F3B]/15',
       label: 'BASKETBALL',
     };
@@ -256,7 +261,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'golf',
       outlineName: 'golf-outline',
-      color: '#22C55E',
+      color: sportColor('GOLF', scheme),
       bgColor: 'bg-[#22C55E]/15',
       label: 'GOLF',
     };
@@ -276,7 +281,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'shield',
       outlineName: 'shield-outline',
-      color: '#EF4444',
+      color: sportColor('COMBAT', scheme),
       bgColor: 'bg-[#EF4444]/15',
       label: 'COMBAT',
     };
@@ -299,7 +304,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
     return {
       name: 'fitness',
       outlineName: 'fitness-outline',
-      color: '#F43F5E',
+      color: sportColor('FITNESS', scheme),
       bgColor: 'bg-[#F43F5E]/15',
       label: 'FITNESS',
     };
@@ -309,7 +314,7 @@ export function getSportIconConfig(sportType?: string, activityName?: string): S
   return {
     name: 'fitness',
     outlineName: 'fitness-outline',
-    color: '#FF5F3B',
+    color: sportColor('DEFAULT', scheme),
     bgColor: 'bg-theme-accent/15',
     label: sportType ? sportType.toUpperCase() : 'WORKOUT',
   };

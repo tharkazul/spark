@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +16,7 @@ export function QuickActionsRow({
   onLogWeight,
   onReportInjury,
 }: QuickActionsRowProps) {
+    const theme = useTheme();
   const { t } = useLanguage();
 
   const handlePress = (action: () => void) => {
@@ -36,7 +38,7 @@ export function QuickActionsRow({
           className="flex-1 bg-theme-card p-3 rounded-2xl flex-row items-center justify-center gap-2 shadow-xs"
         >
           <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="add" size={16} color="#FF5F3B" />
+            <Ionicons name="add" size={16} color={theme.tint} />
           </View>
           <Text className="text-xs font-bold text-theme-text">{t('dashboard.addActivity')}</Text>
         </TouchableOpacity>

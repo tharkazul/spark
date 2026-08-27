@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '../ui/Card';
 import { AthleteRadarChart } from './AthleteRadarChart';
@@ -28,6 +29,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   levelInfo: customLevelInfo,
   archetypeData: customArchetypeData,
 }) => {
+    const theme = useTheme();
   const { t } = useLanguage();
   const { user } = useUser();
   const { activities } = useActivities();
@@ -71,7 +73,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-2">
             <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-              <Ionicons name="flash" size={18} color="#FF5F3B" />
+              <Ionicons name="flash" size={18} color={theme.tint} />
             </View>
             <View className="flex-row items-baseline space-x-1.5">
               <Text className="text-xs font-bold text-theme-muted">
@@ -130,7 +132,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
              pentagon that looks like a real measurement of nothing. Say what
              is needed instead. */
           <View className="items-center justify-center py-10 px-6">
-            <Ionicons name="analytics-outline" size={34} color="#94A3B8" />
+            <Ionicons name="analytics-outline" size={34} color={theme.textSecondary} />
             <Text className="text-theme-text font-bold text-base mt-3 text-center">
               No sessions yet
             </Text>
@@ -181,7 +183,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
 
             <View className="flex-row justify-between items-center pt-2">
               <View className="flex-row items-center space-x-1">
-                <Ionicons name="trophy-outline" size={14} color="#FF5F3B" />
+                <Ionicons name="trophy-outline" size={14} color={theme.tint} />
                 <Text className="text-xs font-bold text-theme-accent">{t('dashboard.reward')}: 75 Rooka</Text>
               </View>
 

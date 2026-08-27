@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
+import { getDisciplineConfig } from '../../utils/disciplineConfig';
+import { View, Text, TouchableOpacity, useColorScheme } from 'react-native';
 import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -25,75 +27,12 @@ export function TodaysPlanCard({
   onAddWorkout,
   onSelectWorkout,
 }: TodaysPlanCardProps) {
+    const theme = useTheme();
   const { t } = useLanguage();
 
-  const getDisciplineConfig = (type: SportType) => {
-    // The plan stores sport in title case ('Bike'), while these cases are
-    // upper. Every workout therefore fell through to the REST branch and
-    // rendered a moon. Normalise before matching.
-    switch (String(type || '').toUpperCase()) {
-      case 'SWIM':
-        return {
-          bg: 'bg-sky-500/15',
-          text: 'text-sky-400',
-          borderLeft: 'border-l-sky-400',
-          borderColor: 'border-sky-500/40',
-          label: 'SWIM',
-          icon: 'water-outline',
-          badgeColor: '#38BDF8',
-        };
-      case 'RUN':
-        return {
-          bg: 'bg-amber-500/15',
-          text: 'text-amber-400',
-          borderLeft: 'border-l-amber-400',
-          borderColor: 'border-amber-500/40',
-          label: 'RUN',
-          icon: 'walk-outline',
-          badgeColor: '#F59E0B',
-        };
-      case 'BIKE':
-        return {
-          bg: 'bg-emerald-500/15',
-          text: 'text-emerald-400',
-          borderLeft: 'border-l-emerald-400',
-          borderColor: 'border-emerald-500/40',
-          label: 'BIKE',
-          icon: 'bicycle-outline',
-          badgeColor: '#34D399',
-        };
-      case 'STRENGTH':
-        return {
-          bg: 'bg-purple-500/15',
-          text: 'text-purple-400',
-          borderLeft: 'border-l-purple-400',
-          borderColor: 'border-purple-500/40',
-          label: 'STRENGTH',
-          icon: 'barbell-outline',
-          badgeColor: '#C084FC',
-        };
-      case 'MOBILITY':
-        return {
-          bg: 'bg-teal-500/15',
-          text: 'text-teal-400',
-          borderLeft: 'border-l-teal-400',
-          borderColor: 'border-teal-500/40',
-          label: 'MOBILITY',
-          icon: 'body-outline',
-          badgeColor: '#2DD4BF',
-        };
-      default:
-        return {
-          bg: 'bg-gray-500/15',
-          text: 'text-gray-400',
-          borderLeft: 'border-l-gray-400',
-          borderColor: 'border-gray-500/40',
-          label: 'REST',
-          icon: 'moon-outline',
-          badgeColor: '#A1A1AA',
-        };
-    }
-  };
+    // One palette for every screen; see utils/disciplineConfig.
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+
 
   const handleAdapt = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -127,7 +66,7 @@ export function TodaysPlanCard({
           activeOpacity={0.7}
           className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
-          <Ionicons name="flash-outline" size={13} color="#FF5F3B" />
+          <Ionicons name="flash-outline" size={13} color={theme.tint} />
           <Text className="text-xs font-bold text-theme-accent">{t('dashboard.adapt')}</Text>
         </TouchableOpacity>
       </View>
@@ -137,7 +76,7 @@ export function TodaysPlanCard({
         <Card className="p-4 bg-theme-card flex-row items-center justify-between">
           <View className="flex-row items-center gap-3 flex-1">
             <View className="w-10 h-10 rounded-xl bg-gray-500/15 items-center justify-center">
-              <Ionicons name="moon-outline" size={20} color="#6F6F79" />
+              <Ionicons name="moon-outline" size={20} color={theme.textSecondary} />
             </View>
             <View className="flex-1">
               <Text className="text-sm font-extrabold text-theme-text">{t('dashboard.restRecoveryDay')}</Text>
@@ -161,7 +100,7 @@ export function TodaysPlanCard({
                            (workout.title || '').toLowerCase().includes('rest') || 
                            (workout.title || '').toLowerCase().includes('recovery');
             const rookaVal = isRest ? 0 : Math.round(workout.rookaPoints || 0);
-            const cfg = getDisciplineConfig(isRest ? 'REST' : workout.type);
+            const cfg = getDisciplineConfig(isRest ? 'REST' : workout.type, scheme);
             const humanDuration = formatHumanDuration(workout.duration, workout.type);
 
             return (
@@ -179,8 +118,11 @@ export function TodaysPlanCard({
                 >
                   {/* Left: Sport Icon + Title & Duration */}
                   <View className="flex-row items-center gap-3 flex-1 mr-3">
-                    <View className={`w-10 h-10 rounded-xl ${cfg.bg} items-center justify-center`}>
-                      <Ionicons name={cfg.icon as any} size={20} color={cfg.badgeColor} />
+                    <View
+                      style={{ backgroundColor: cfg.tint }}
+                      className="w-10 h-10 rounded-xl items-center justify-center"
+                    >
+                      <Ionicons name={cfg.icon as any} size={20} color={cfg.color} />
                     </View>
                     <View className="flex-1">
                       <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
@@ -217,7 +159,7 @@ export function TodaysPlanCard({
             activeOpacity={0.8}
             className="w-full py-2.5 bg-theme-card/60 rounded-xl flex-row items-center justify-center gap-1.5"
           >
-            <Ionicons name="add-circle-outline" size={15} color="#FF5F3B" />
+            <Ionicons name="add-circle-outline" size={15} color={theme.tint} />
             <Text className="text-xs font-extrabold text-theme-accent">+ {t('dashboard.addExercise')}</Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -7,6 +8,7 @@ import { useActivities } from '../../context/ActivityStore';
 import { ActiveNiggle } from './AnatomicalBodyMap';
 
 export const TrainingReadinessWidget: React.FC = () => {
+    const theme = useTheme();
   const { niggles: storeNiggles } = useHealth();
   const { activities } = useActivities();
   const niggles = storeNiggles as ActiveNiggle[];
@@ -76,7 +78,7 @@ export const TrainingReadinessWidget: React.FC = () => {
       {/* Header Row */}
       <View className="flex-row items-center justify-between mb-2">
         <View className="flex-row items-center space-x-2">
-          <View className="w-2.5 h-2.5 rounded-full bg-[#FF5F3B] mr-2" />
+          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
           <Text className="text-xs font-bold text-slate-400">
             Training Readiness
           </Text>
@@ -100,7 +102,7 @@ export const TrainingReadinessWidget: React.FC = () => {
           <Path
             d="M 64.7 53.7 A 86 86 0 0 1 112.5 34.3"
             fill="none"
-            stroke="#FF5F3B"
+            stroke={theme.tint}
             strokeWidth={strokeW}
             strokeLinecap="round"
           />

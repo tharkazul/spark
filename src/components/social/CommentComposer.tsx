@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   View,
   Text,
@@ -23,6 +24,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
   onSendComment,
   placeholder = 'Add a comment... (use @ to mention)',
 }) => {
+    const theme = useTheme();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -108,7 +110,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
     <View className="relative z-50">
       {/* MENTION AUTOCOMPLETE POPUP */}
       {showMentionList && filteredConnections.length > 0 && (
-        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-2 shadow-lg max-h-48 z-50">
+        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-2 shadow-lg max-h-48 z-50">
           <Text className="text-xs font-extrabold text-theme-accent px-2 py-1">
             Mention Connection
           </Text>
@@ -142,7 +144,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
 
       {/* INPUT FIELD */}
       <View
-        className={`flex-row items-center bg-[#F1F5F9] dark:bg-slate-800/70 rounded-xl p-1.5 ${
+        className={`flex-row items-center bg-theme-bg dark:bg-slate-800/70 rounded-xl p-1.5 ${
           isFocused ? 'border-[1.5px] border-[#0F172A] dark:border-white' : 'border border-transparent'
         }`}
       >
@@ -152,7 +154,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={theme.textSecondary}
           multiline
           className="flex-1 px-3 py-2 text-sm font-semibold text-theme-text max-h-24"
         />

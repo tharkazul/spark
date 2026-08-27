@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   View,
   Text,
@@ -60,6 +61,7 @@ function formatShortDate(d: Date): string {
 }
 
 export default function PlanningHomeScreen() {
+    const theme = useTheme();
   const router = useRouter();
   const { user } = useUser();
   const { sendMessage } = useCoachChat();
@@ -216,8 +218,8 @@ export default function PlanningHomeScreen() {
 
   // Compute 7-Day Agenda Dynamically from weekStart
   const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  const weeklyAgenda: DayAgenda[] = DAYS_HEADER.map((dayName, idx) => {
-    const dayDate = new Date(weekStart);
+  const buildAgenda = (start: Date): DayAgenda[] => DAYS_HEADER.map((dayName, idx) => {
+    const dayDate = new Date(start);
     dayDate.setDate(dayDate.getDate() + idx);
     dayDate.setHours(0, 0, 0, 0);
 
@@ -302,6 +304,19 @@ export default function PlanningHomeScreen() {
       workouts,
     };
   });
+
+  const shiftWeeks = (d: Date, n: number) => {
+    const out = new Date(d);
+    out.setDate(out.getDate() + n * 7);
+    return out;
+  };
+
+  const weeklyAgenda = buildAgenda(weekStart);
+  // The strip renders its neighbours so a swipe has something real to drag in.
+  // Both come from the plan already in memory, so this is two array maps rather
+  // than two fetches.
+  const prevWeekAgenda = buildAgenda(shiftWeeks(weekStart, -1));
+  const nextWeekAgenda = buildAgenda(shiftWeeks(weekStart, 1));
 
   useEffect(() => {
     hasScrolledToTodayRef.current = false;
@@ -465,22 +480,24 @@ export default function PlanningHomeScreen() {
 
           {/* Week Selector Bar with Interactive Chevrons */}
           <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-xs font-extrabold text-theme-muted">
+            <Text className="text-sm font-extrabold text-theme-muted">
               Week plan
             </Text>
             <View className="flex-row items-center bg-theme-card border border-theme-border px-2.5 py-1 rounded-full shadow-sm">
               <TouchableOpacity onPress={handlePrevWeek} activeOpacity={0.6} className="px-1.5 py-0.5">
-                <Ionicons name="chevron-back" size={13} color="#FF5F3B" />
+                <Ionicons name="chevron-back" size={13} color={theme.tint} />
               </TouchableOpacity>
-              <Text className="text-xs font-mono font-extrabold text-theme-text px-1">{weekRangeLabel}</Text>
+              <Text className="text-sm font-mono font-extrabold text-theme-text px-1">{weekRangeLabel}</Text>
               <TouchableOpacity onPress={handleNextWeek} activeOpacity={0.6} className="px-1.5 py-0.5">
-                <Ionicons name="chevron-forward" size={13} color="#FF5F3B" />
+                <Ionicons name="chevron-forward" size={13} color={theme.tint} />
               </TouchableOpacity>
             </View>
           </View>
 
           <SideBySideWeekBar
             agenda={weeklyAgenda}
+            prevAgenda={prevWeekAgenda}
+            nextAgenda={nextWeekAgenda}
             selectedDayIndex={selectedDayIndex}
             onSelectDay={(idx) => {
               setSelectedDayIndex(idx);
@@ -488,6 +505,8 @@ export default function PlanningHomeScreen() {
                 part3ScrollViewRef.current?.scrollTo({ y: dayYPositions[idx], animated: true });
               }
             }}
+            onPrevWeek={handlePrevWeek}
+            onNextWeek={handleNextWeek}
           />
         </Card>
 

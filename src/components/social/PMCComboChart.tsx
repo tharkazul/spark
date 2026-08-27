@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Rect, Path, Circle, Line, Text as SvgText } from 'react-native-svg';
@@ -33,6 +34,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
   targetCtl = 75,
   height = 210,
 }) => {
+    const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const chartWidth = Math.max(320, windowWidth - 48);
 
@@ -60,9 +62,9 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
 
   if (historySlice.length === 0) {
     return (
-      <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 items-center justify-center min-h-[180px]">
-        <Ionicons name="stats-chart-outline" size={32} color="#94A3B8" />
-        <Text className="text-sm font-semibold text-[#64748B] mt-2">No Training Load Data Available</Text>
+      <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-5 items-center justify-center min-h-[180px]">
+        <Ionicons name="stats-chart-outline" size={32} color={theme.textSecondary} />
+        <Text className="text-sm font-semibold text-theme-muted mt-2">No Training Load Data Available</Text>
       </View>
     );
   }
@@ -118,18 +120,18 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
   const endDateLabel = formatDateLabel(historySlice[historySlice.length - 1]?.date);
 
   return (
-    <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4 mb-4">
+    <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-4 mb-4">
       {/* Header with Title and Range Selector */}
       <View className="flex-row justify-between items-center mb-3">
         <View className="flex-row items-center space-x-1.5">
-          <Ionicons name="trending-up" size={16} color="#FF5F3B" />
-          <Text className="text-xs font-bold text-[#64748B] ml-1">
+          <Ionicons name="trending-up" size={16} color={theme.tint} />
+          <Text className="text-xs font-bold text-theme-muted ml-1">
             Training Load
           </Text>
         </View>
 
         {/* Range Segmented Control */}
-        <View className="flex-row bg-[#F1F5F9] dark:bg-slate-800/80 rounded-lg p-0.5">
+        <View className="flex-row bg-theme-bg dark:bg-slate-800/80 rounded-lg p-0.5">
           {(['7D', '14D', '30D', 'ALL'] as const).map((rng) => (
             <TouchableOpacity
               key={rng}
@@ -146,7 +148,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
                 className={`text-xs ${
                   selectedRange === rng
                     ? 'font-bold text-theme-accent'
-                    : 'font-medium text-[#64748B] dark:text-slate-400'
+                    : 'font-medium text-theme-muted dark:text-slate-400'
                 }`}
               >
                 {rng}
@@ -158,8 +160,8 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
 
       {/* Selected Point Tooltip Banner */}
       {selectedPoint && (
-        <View className="bg-[#F8FAFC] dark:bg-slate-800/60 px-3 py-2 rounded-xl mb-2 flex-row justify-between items-center border border-[#E2E8F0] dark:border-slate-700">
-          <Text className="text-xs font-mono font-bold text-[#64748B]">{selectedPoint.date}</Text>
+        <View className="bg-theme-bg dark:bg-slate-800/60 px-3 py-2 rounded-xl mb-2 flex-row justify-between items-center border border-theme-border dark:border-slate-700">
+          <Text className="text-xs font-mono font-bold text-theme-muted">{selectedPoint.date}</Text>
           <View className="flex-row gap-3">
             <Text className="text-xs font-bold text-sky-500">CTL: {selectedPoint.ctl.toFixed(1)}</Text>
             <Text className="text-xs font-bold text-rose-500">ATL: {selectedPoint.atl.toFixed(1)}</Text>
@@ -216,7 +218,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
             x={chartWidth - paddingRight + 6}
             y={getY(maxVal * 0.9) + 3}
             fontSize="10"
-            fill="#94A3B8"
+            fill={theme.textSecondary}
             textAnchor="start"
             fontWeight="500"
           >
@@ -226,7 +228,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
             x={chartWidth - paddingRight + 6}
             y={zeroY + 3}
             fontSize="10"
-            fill="#94A3B8"
+            fill={theme.textSecondary}
             textAnchor="start"
             fontWeight="500"
           >
@@ -237,7 +239,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
               x={chartWidth - paddingRight + 6}
               y={getY(minVal * 0.8) + 3}
               fontSize="10"
-              fill="#94A3B8"
+              fill={theme.textSecondary}
               textAnchor="start"
               fontWeight="500"
             >
@@ -303,7 +305,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
             x={getX(0)}
             y={height - 8}
             fontSize="10"
-            fill="#94A3B8"
+            fill={theme.textSecondary}
             textAnchor="start"
             fontWeight="500"
           >
@@ -314,7 +316,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
               x={getX(midIndex)}
               y={height - 8}
               fontSize="10"
-              fill="#94A3B8"
+              fill={theme.textSecondary}
               textAnchor="middle"
               fontWeight="500"
             >
@@ -325,7 +327,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
             x={getX(historySlice.length - 1)}
             y={height - 8}
             fontSize="10"
-            fill="#94A3B8"
+            fill={theme.textSecondary}
             textAnchor="end"
             fontWeight="500"
           >
@@ -335,20 +337,20 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
       </View>
 
       {/* Legend Footer */}
-      <View className="flex-row justify-around items-center pt-2.5 border-t border-[#F1F5F9] dark:border-slate-800/80 mt-1">
+      <View className="flex-row justify-around items-center pt-2.5 border-t border-theme-border dark:border-slate-800/80 mt-1">
         <View className="flex-row items-center">
           <View className="w-1.5 h-1.5 rounded-full bg-sky-500 mr-1.5" />
-          <Text className="text-xs font-medium text-[#64748B]">Fitness (CTL)</Text>
+          <Text className="text-xs font-medium text-theme-muted">Fitness (CTL)</Text>
         </View>
 
         <View className="flex-row items-center">
           <View className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5" />
-          <Text className="text-xs font-medium text-[#64748B]">Fatigue (ATL)</Text>
+          <Text className="text-xs font-medium text-theme-muted">Fatigue (ATL)</Text>
         </View>
 
         <View className="flex-row items-center">
           <View className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5" />
-          <Text className="text-xs font-medium text-[#64748B]">Form (TSB)</Text>
+          <Text className="text-xs font-medium text-theme-muted">Form (TSB)</Text>
         </View>
       </View>
     </View>

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ChatMessage, TokenUsage, ProposedWorkoutItem } from '../types/chat';
-import { chatApi, planApi } from '../services/apiServices';
+import { chatApi, planApi, socialApi } from '../services/apiServices';
 import { chatStorage, chatReadStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
 import { usePlan } from './PlanStore';
@@ -25,6 +25,8 @@ interface CoachChatContextType {
   rejectProposal: (messageId: string | number) => void;
   acceptInvite: (inviteId: string) => Promise<void>;
   declineInvite: (inviteId: string) => Promise<void>;
+  acceptConnection: (friendId: number | string) => Promise<void>;
+  declineConnection: (friendId: number | string) => Promise<void>;
   checkin: () => Promise<void>;
 }
 
@@ -64,6 +66,19 @@ const parseWorkoutProposals = (content: string): ProposedWorkoutItem[] | undefin
   return undefined;
 };
 
+const parseConnectionRequestFromContent = (content?: string): any | undefined => {
+  if (!content) return undefined;
+  const match = content.match(/(.+?)\s+wants to connect with you on Rooka!/i);
+  if (match && match[1]) {
+    return {
+      type: 'connection_request',
+      username: match[1].trim(),
+      status: 'pending',
+    };
+  }
+  return undefined;
+};
+
 const parsePayloadJson = (msg: ChatMessage): any | undefined => {
   if (msg.payload_json) {
     if (typeof msg.payload_json === 'object') return msg.payload_json;
@@ -73,7 +88,7 @@ const parsePayloadJson = (msg: ChatMessage): any | undefined => {
       return undefined;
     }
   }
-  return undefined;
+  return parseConnectionRequestFromContent(msg.content);
 };
 
 const CoachChatContext = createContext<CoachChatContextType | undefined>(undefined);
@@ -171,7 +186,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       images: msg.images || images,
       proposedPlan: msg.proposedPlan || proposedPlan,
       proposalStatus: msg.proposalStatus || (proposedPlan ? 'pending' : undefined),
-      payload_json: msg.payload_json || payload,
+      payload_json: payload || (typeof msg.payload_json === 'object' ? msg.payload_json : undefined),
     };
   };
 
@@ -480,6 +495,58 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  const acceptConnection = async (friendId: number | string) => {
+    try {
+      await socialApi.acceptUser(friendId);
+      setMessages((prev) =>
+        prev.map((msg) => {
+          const payload = msg.payload_json as any;
+          if (
+            payload &&
+            (String(payload.friend_id) === String(friendId) ||
+              String(payload.fromUserId) === String(friendId) ||
+              String(payload.id) === String(friendId))
+          ) {
+            return {
+              ...msg,
+              payload_json: { ...payload, status: 'accepted' },
+            };
+          }
+          return msg;
+        })
+      );
+    } catch (e) {
+      console.error('Failed to accept connection:', e);
+      throw e;
+    }
+  };
+
+  const declineConnection = async (friendId: number | string) => {
+    try {
+      await socialApi.declineUser(friendId);
+      setMessages((prev) =>
+        prev.map((msg) => {
+          const payload = msg.payload_json as any;
+          if (
+            payload &&
+            (String(payload.friend_id) === String(friendId) ||
+              String(payload.fromUserId) === String(friendId) ||
+              String(payload.id) === String(friendId))
+          ) {
+            return {
+              ...msg,
+              payload_json: { ...payload, status: 'declined' },
+            };
+          }
+          return msg;
+        })
+      );
+    } catch (e) {
+      console.error('Failed to decline connection:', e);
+      throw e;
+    }
+  };
+
   const checkin = async () => {
     try {
       const res = await chatApi.checkin();
@@ -518,6 +585,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           content,
           role: 'coach',
           timestamp: data.timestamp || new Date().toISOString(),
+          payload_json: data.payload_json,
         });
         setMessages((prev) => [...prev, coachMsg]);
       }
@@ -530,6 +598,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           content: data.content,
           role: data.role === 'user' ? 'user' : 'coach',
           timestamp: data.timestamp || new Date().toISOString(),
+          payload_json: data.payload_json,
         });
         setMessages((prev) => [...prev, item]);
       }
@@ -631,6 +700,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         rejectProposal,
         acceptInvite,
         declineInvite,
+        acceptConnection,
+        declineConnection,
         checkin,
       }}
     >

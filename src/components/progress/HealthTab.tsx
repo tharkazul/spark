@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -23,6 +24,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   onSaveNiggle,
   onResolveNiggle,
 }) => {
+    const theme = useTheme();
   const { niggles: storeNiggles, saveNiggle: storeSaveNiggle, resolveNiggle: storeResolveNiggle } = useHealth();
   const niggles = storeNiggles as ActiveNiggle[];
   const [modalVisible, setModalVisible] = useState(false);
@@ -134,7 +136,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
             onPress={() => handleSelectBodyPart('left_calf', 'Left Calf')}
             className="flex-row items-center space-x-1"
           >
-            <Ionicons name="add-circle-outline" size={16} color="#FF5F3B" />
+            <Ionicons name="add-circle-outline" size={16} color={theme.tint} />
             <Text className="text-xs font-bold text-theme-accent">Log New</Text>
           </TouchableOpacity>
         </View>

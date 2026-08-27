@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   View,
   Text,
@@ -36,6 +37,7 @@ const TABS = ['feed', 'mylog', 'leaderboard'] as const;
 type TabType = typeof TABS[number];
 
 export default function SocialScreen() {
+    const theme = useTheme();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { notifyScroll, tabBarOccupied } = useTabBar();
   const { t } = useLanguage();
@@ -227,15 +229,15 @@ export default function SocialScreen() {
               activeOpacity={0.7}
               className="p-1.5 items-center justify-center mr-0.5"
             >
-              <Ionicons name="person-add-outline" size={18} color="#FF5F3B" />
+              <Ionicons name="person-add-outline" size={18} color={theme.tint} />
             </TouchableOpacity>
           }
         />
 
         {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
-        <View className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-[#E2E8F0] dark:border-slate-700">
+        <View className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-theme-border dark:border-slate-700">
           <Animated.View
-            className="absolute top-1 bottom-1 bg-[#FF5F3B] rounded-lg shadow-xs"
+            className="absolute top-1 bottom-1 bg-theme-accent rounded-lg shadow-xs"
             style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }}
           />
 
@@ -253,7 +255,7 @@ export default function SocialScreen() {
               </Animated.Text>
               <Animated.Text
                 style={{ opacity: feedGreyOpacity }}
-                className="text-xs font-medium text-[#64748B] dark:text-slate-400"
+                className="text-xs font-medium text-theme-muted dark:text-slate-400"
               >
                 Feed
               </Animated.Text>
@@ -274,7 +276,7 @@ export default function SocialScreen() {
               </Animated.Text>
               <Animated.Text
                 style={{ opacity: logGreyOpacity }}
-                className="text-xs font-medium text-[#64748B] dark:text-slate-400"
+                className="text-xs font-medium text-theme-muted dark:text-slate-400"
               >
                 My Log
               </Animated.Text>
@@ -295,7 +297,7 @@ export default function SocialScreen() {
               </Animated.Text>
               <Animated.Text
                 style={{ opacity: leaderboardGreyOpacity }}
-                className="text-xs font-medium text-[#64748B] dark:text-slate-400"
+                className="text-xs font-medium text-theme-muted dark:text-slate-400"
               >
                 Leaderboard
               </Animated.Text>

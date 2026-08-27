@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { ScrollView, TouchableOpacity, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../context/LanguageContext';
@@ -8,6 +9,7 @@ interface QuickSuggestionsProps {
 }
 
 export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({ onSelectSuggestion }) => {
+    const theme = useTheme();
   const { t } = useLanguage();
 
   const DEFAULT_SUGGESTIONS = [
@@ -24,7 +26,7 @@ export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({ onSelectSugg
         contentContainerStyle={{ paddingHorizontal: 12, gap: 8 }}
       >
         <View className="flex-row items-center mr-1">
-          <Ionicons name="bulb-outline" size={16} color="#FF5F3B" />
+          <Ionicons name="bulb-outline" size={16} color={theme.tint} />
           <Text className="text-theme-accent text-xs font-bold ml-1">{t('chat.suggestedQuestions')}</Text>
         </View>
         {DEFAULT_SUGGESTIONS.map((item, idx) => (

@@ -146,7 +146,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
   }
 
   db.get(
-    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, daily_image_count, last_image_reset_date FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -167,7 +167,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           common_token_usage: 0,
           last_token_reset_date: new Date().toISOString().split("T")[0],
           daily_token_limit: 50000,
-          subscription_tier: 'rooka_plus'
+          subscription_tier: 'rooka_plus',
+          daily_image_count: 0,
+          last_image_reset_date: new Date().toISOString().split("T")[0]
         };
       }
 
@@ -185,6 +187,18 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           [currentDailyLimit, todayStr, req.user.id],
         );
       }
+
+      // Image generation quota logic (Free = 0 images, Rooka+ / Admin = 1 image/day)
+      const isPaidTier = user.subscription_tier === 'rooka_plus' || user.subscription_tier === 'admin';
+      let dailyImageCount = user.daily_image_count || 0;
+      if (user.last_image_reset_date !== todayStr) {
+        dailyImageCount = 0;
+        db.run(
+          `UPDATE users SET daily_image_count = 0, last_image_reset_date = ? WHERE id = ?`,
+          [todayStr, req.user.id]
+        );
+      }
+      const canGenerateImage = isPaidTier && dailyImageCount < 1;
 
       if (currentDailyUsage > currentDailyLimit) {
         const replyText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]";
@@ -644,14 +658,21 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                        "data": {
                          "body_part": "left_ankle_foot"
                        }
-                     }
-                     \`\`\`                      VISUAL COACHING & HIGH-FIDELITY IMAGE GENERATION DIRECTIVES (NANO BANANA ENGINE):
-                      You have the capability to generate high-end, studio-grade commercial sports photography and visual technique guides for the athlete using the Nano Banana 2 image engine.
-                      Whenever the athlete:
-                      1. Asks for a visual explanation or asks what a specific technique/form looks like (e.g. "What does a proper catch phase look like in swimming?", "Show me proper running posture", "How should deadlift lockout look?", "Show me proper aerodynamic TT position"):
-                      2. Or explicitly asks you to generate, show, or visualize an image or visual guide:
-
-                      You MUST explain the concept clearly in text AND output a JSON block to generate the studio photograph following the Nano Banana 4-part formula (Subject + Action + Context + Technical Camera Specs):
+                                         ${
+                        !isPaidTier
+                          ? `VISUAL COACHING & IMAGE STATUS: DISABLED FOR FREE TIER USERS.
+                      If the athlete asks you to generate, show, or draw an image, photograph, or visual guide:
+                      Politely explain the coaching cues and biomechanics in text and mention: "AI visual coaching guides and custom race artwork are a Rooka+ feature! Upgrade to Rooka+ to unlock daily visual guides."
+                      NEVER output a generate_image JSON block for free tier athletes.`
+                          : dailyImageCount >= 1
+                          ? `VISUAL COACHING & IMAGE STATUS: DAILY LIMIT REACHED (1 of 1 visual credits used today).
+                      If the athlete asks for an image/photo/visual guide:
+                      Explain the coaching cues and biomechanics thoroughly in text and let them know: "You've used your 1 visual coaching credit for today (it resets tomorrow)!"
+                      NEVER output a generate_image JSON block when the daily credit is already used.`
+                          : `VISUAL COACHING & HIGH-FIDELITY IMAGE GENERATION DIRECTIVES (NANO BANANA ENGINE):
+                      You have 1 visual guide credit available for this Rooka+ athlete today.
+                      When the athlete asks for a visual explanation or asks to generate an image:
+                      Explain the concept clearly in text AND output a JSON block to generate the studio photograph following the Nano Banana 4-part formula:
                       \`\`\`json
                       {
                         "type": "generate_image",
@@ -662,7 +683,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         }
                       }
                       \`\`\`
-                      DO NOT request illustrations, drawings, sketches, or cartoons, and NEVER use words like 'cinematic depth of field' or 'motion blur' which cause distortion. Always request razor-sharp, studio-lit commercial sports photography!`;
+                      DO NOT request illustrations, drawings, sketches, or cartoons, and NEVER use words like 'cinematic depth of field' or 'motion blur' which cause distortion. Always request razor-sharp, studio-lit commercial sports photography!`
+                      }`;
 
                                       let aiReply = await generateWithFallback(
                                         message,
@@ -1252,45 +1274,64 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                           planUpdated: planUpdated,
                                         });
 
-                                        // 2. Asynchronously generate any requested images in the background
+                                        // 2. Asynchronously generate any requested images in the background ONLY if allowed by tier and quota
                                         if (pendingImageTasks.length > 0) {
-                                          for (const task of pendingImageTasks) {
-                                            (async () => {
-                                              try {
-                                                console.log(`🎨 Background image generation starting for prompt: "${task.prompt}"...`);
-                                                const { base64Data, mimeType } = await generateImage(task.prompt, { aspectRatio: task.aspectRatio });
-                                                const ext = mimeType.includes("png") ? "png" : "jpg";
-                                                const fileName = `img_${req.user.id}_${crypto.randomUUID()}.${ext}`;
-                                                const dir = path.join(__dirname, "../secure_uploads/chat_images");
-                                                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                                                const filePath = path.join(dir, fileName);
-                                                fs.writeFileSync(filePath, base64Data, "base64");
+                                          if (!canGenerateImage) {
+                                            console.log(`🚫 Image generation blocked: User ${req.user.id} has no image credits available (Tier: ${user.subscription_tier}, Used: ${dailyImageCount}/1).`);
+                                            for (const task of pendingImageTasks) {
+                                              db.run(
+                                                `UPDATE chat_history SET content = REPLACE(content, ?, '') WHERE user_id = ? AND content LIKE ?`,
+                                                [`![${task.caption}](loading://${task.pendingKey})`, req.user.id, `%loading://${task.pendingKey}%`]
+                                              );
+                                              sendSSEEvent(req.user.id, "chat_image_failed", {
+                                                pendingKey: task.pendingKey,
+                                              });
+                                            }
+                                          } else {
+                                            // Increment user's daily image count
+                                            db.run(
+                                              `UPDATE users SET daily_image_count = daily_image_count + 1 WHERE id = ?`,
+                                              [req.user.id]
+                                            );
 
-                                                const realImageUrl = `/api/images/chat/${fileName}`;
-                                                // Update SQLite record so history persists
-                                                db.run(
-                                                  `UPDATE chat_history SET content = REPLACE(content, ?, ?) WHERE user_id = ? AND content LIKE ?`,
-                                                  [`loading://${task.pendingKey}`, realImageUrl, req.user.id, `%loading://${task.pendingKey}%`]
-                                                );
+                                            for (const task of pendingImageTasks) {
+                                              (async () => {
+                                                try {
+                                                  console.log(`🎨 Background image generation starting for prompt: "${task.prompt}"...`);
+                                                  const { base64Data, mimeType } = await generateImage(task.prompt, { aspectRatio: task.aspectRatio });
+                                                  const ext = mimeType.includes("png") ? "png" : "jpg";
+                                                  const fileName = `img_${req.user.id}_${crypto.randomUUID()}.${ext}`;
+                                                  const dir = path.join(__dirname, "../secure_uploads/chat_images");
+                                                  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                                                  const filePath = path.join(dir, fileName);
+                                                  fs.writeFileSync(filePath, base64Data, "base64");
 
-                                                // Broadcast live to mobile app over WebSocket / SSE
-                                                sendSSEEvent(req.user.id, "chat_image_ready", {
-                                                  pendingKey: task.pendingKey,
-                                                  imageUrl: realImageUrl,
-                                                  caption: task.caption,
-                                                });
-                                                console.log(`✅ Background image completed & broadcasted to athlete!`);
-                                              } catch (bgErr) {
-                                                console.error("Background image generation error:", bgErr.message);
-                                                db.run(
-                                                  `UPDATE chat_history SET content = REPLACE(content, ?, '') WHERE user_id = ? AND content LIKE ?`,
-                                                  [`![${task.caption}](loading://${task.pendingKey})`, req.user.id, `%loading://${task.pendingKey}%`]
-                                                );
-                                                sendSSEEvent(req.user.id, "chat_image_failed", {
-                                                  pendingKey: task.pendingKey,
-                                                });
-                                              }
-                                            })();
+                                                  const realImageUrl = `/api/images/chat/${fileName}`;
+                                                  // Update SQLite record so history persists
+                                                  db.run(
+                                                    `UPDATE chat_history SET content = REPLACE(content, ?, ?) WHERE user_id = ? AND content LIKE ?`,
+                                                    [`loading://${task.pendingKey}`, realImageUrl, req.user.id, `%loading://${task.pendingKey}%`]
+                                                  );
+
+                                                  // Broadcast live to mobile app over WebSocket / SSE
+                                                  sendSSEEvent(req.user.id, "chat_image_ready", {
+                                                    pendingKey: task.pendingKey,
+                                                    imageUrl: realImageUrl,
+                                                    caption: task.caption,
+                                                  });
+                                                  console.log(`✅ Background image completed & broadcasted to athlete!`);
+                                                } catch (bgErr) {
+                                                  console.error("Background image generation error:", bgErr.message);
+                                                  db.run(
+                                                    `UPDATE chat_history SET content = REPLACE(content, ?, '') WHERE user_id = ? AND content LIKE ?`,
+                                                    [`![${task.caption}](loading://${task.pendingKey})`, req.user.id, `%loading://${task.pendingKey}%`]
+                                                  );
+                                                  sendSSEEvent(req.user.id, "chat_image_failed", {
+                                                    pendingKey: task.pendingKey,
+                                                  });
+                                                }
+                                              })();
+                                            }
                                           }
                                         }
                                       });

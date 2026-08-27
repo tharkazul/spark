@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { adminApi } from '../../services/apiServices';
 
 export function AdminTab() {
+    const theme = useTheme();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -94,10 +96,10 @@ export function AdminTab() {
             className="flex-1 bg-amber-500/15 border border-amber-500/30 p-3 rounded-xl items-center flex-row justify-center gap-1.5"
           >
             {actionLoading === 'morning' ? (
-              <ActivityIndicator size="small" color="#FF5F3B" />
+              <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <>
-                <Ionicons name="sunny-outline" size={16} color="#FF5F3B" />
+                <Ionicons name="sunny-outline" size={16} color={theme.tint} />
                 <Text className="text-xs font-bold text-amber-500">Morning Sync</Text>
               </>
             )}
@@ -109,10 +111,10 @@ export function AdminTab() {
             className="flex-1 bg-theme-accent/15 border border-theme-accent/30 p-3 rounded-xl items-center flex-row justify-center gap-1.5"
           >
             {actionLoading === '24h' ? (
-              <ActivityIndicator size="small" color="#FF5F3B" />
+              <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <>
-                <Ionicons name="time-outline" size={16} color="#FF5F3B" />
+                <Ionicons name="time-outline" size={16} color={theme.tint} />
                 <Text className="text-xs font-bold text-theme-accent">Simulate 24h</Text>
               </>
             )}
@@ -125,23 +127,23 @@ export function AdminTab() {
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-base font-extrabold text-theme-text">User Management</Text>
           <TouchableOpacity onPress={fetchUsage} className="p-1">
-            <Ionicons name="refresh" size={18} color="#FF5F3B" />
+            <Ionicons name="refresh" size={18} color={theme.tint} />
           </TouchableOpacity>
         </View>
 
         <View className="bg-theme-bg p-2.5 rounded-xl flex-row items-center gap-2 mb-3">
-          <Ionicons name="search-outline" size={16} color="#8E8E93" />
+          <Ionicons name="search-outline" size={16} color={theme.textSecondary} />
           <TextInput
             className="flex-1 text-sm text-theme-text p-0"
             placeholder="Search username..."
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={theme.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
         {loading ? (
-          <ActivityIndicator color="#FF5F3B" className="py-6" />
+          <ActivityIndicator color={theme.tint} className="py-6" />
         ) : filteredUsers.length === 0 ? (
           <Text className="text-xs text-theme-muted text-center py-4">No users found</Text>
         ) : (

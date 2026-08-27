@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -10,6 +11,7 @@ interface ScreenHeaderTitleRowProps {
 }
 
 export function ScreenHeaderTitleRow({ title, children, dateLabel, rightElement }: ScreenHeaderTitleRowProps) {
+    const theme = useTheme();
   const now = new Date();
   const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
   const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
@@ -26,7 +28,7 @@ export function ScreenHeaderTitleRow({ title, children, dateLabel, rightElement 
       <View className="flex-row items-center space-x-2">
         {rightElement}
         <View className="flex-row items-center gap-1.5 py-1.5">
-          <Ionicons name="calendar-outline" size={13} color="#FF5F3B" />
+          <Ionicons name="calendar-outline" size={13} color={theme.tint} />
           <Text className="text-xs font-bold font-mono text-theme-muted">{formattedDate}</Text>
         </View>
       </View>

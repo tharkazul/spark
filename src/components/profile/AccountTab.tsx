@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ interface AccountTabProps {
 }
 
 export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus }) => {
+    const theme = useTheme();
   const { t } = useLanguage();
   const { user, refreshUser } = useUser();
   const { tokenUsage } = useCoachChatStore();
@@ -188,7 +190,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
 
           <View className="bg-white py-2.5 px-5 rounded-full self-start flex-row items-center shadow-sm">
             {trackingUpgrade ? (
-              <ActivityIndicator size="small" color="#FF5F3B" />
+              <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <Text className="text-theme-accent font-bold text-xs">
                 {isMember ? 'View Member Benefits' : 'View Premium Benefits'}
@@ -210,13 +212,13 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
         >
           <View className="flex-row items-center">
-            <Ionicons name="card-outline" size={18} color="#8E8E93" />
+            <Ionicons name="card-outline" size={18} color={theme.textSecondary} />
             <View className="ml-3">
               <Text className="text-theme-text font-bold text-xs">Manage or Cancel Subscription</Text>
               <Text className="text-theme-muted text-xs mt-0.5">1-Click cancel via {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'}</Text>
             </View>
           </View>
-          <Ionicons name="open-outline" size={16} color="#8E8E93" />
+          <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
         </TouchableOpacity>
       </Card>
 
@@ -233,10 +235,10 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
           >
             <View className="flex-row items-center">
-              <Ionicons name="shield-checkmark-outline" size={18} color="#8E8E93" />
+              <Ionicons name="shield-checkmark-outline" size={18} color={theme.textSecondary} />
               <Text className="text-theme-text font-bold text-xs ml-3">Privacy Policy</Text>
             </View>
-            <Ionicons name="open-outline" size={16} color="#8E8E93" />
+            <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -244,10 +246,10 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
           >
             <View className="flex-row items-center">
-              <Ionicons name="document-text-outline" size={18} color="#8E8E93" />
+              <Ionicons name="document-text-outline" size={18} color={theme.textSecondary} />
               <Text className="text-theme-text font-bold text-xs ml-3">Terms of Service & EULA</Text>
             </View>
-            <Ionicons name="open-outline" size={16} color="#8E8E93" />
+            <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -257,13 +259,13 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           >
             <View className="flex-row items-center">
               {exporting ? (
-                <ActivityIndicator size="small" color="#FF5F3B" />
+                <ActivityIndicator size="small" color={theme.tint} />
               ) : (
-                <Ionicons name="download-outline" size={18} color="#8E8E93" />
+                <Ionicons name="download-outline" size={18} color={theme.textSecondary} />
               )}
               <Text className="text-theme-text font-bold text-xs ml-3">Export Account Data</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#8E8E93" />
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity

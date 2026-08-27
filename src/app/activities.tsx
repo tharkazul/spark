@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../components/ui/Card';
@@ -9,6 +10,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { getSportFilledIcon } from '../utils/sportIcons';
 
 export default function ActivitiesScreen() {
+    const theme = useTheme();
   const { activities, loading, refreshActivities } = useActivities();
   const { t } = useLanguage();
 
@@ -42,7 +44,7 @@ export default function ActivitiesScreen() {
                 <Ionicons 
                   name={getSportFilledIcon(item.type, item.title)} 
                   size={20} 
-                  color="#FF5F3B" 
+                  color={theme.tint} 
                 />
               </View>
               <View>

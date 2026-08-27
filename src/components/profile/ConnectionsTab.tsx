@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -45,6 +46,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   onDisconnectStrava,
   stravaLoading = false,
 }) => {
+    const theme = useTheme();
   const { user } = useUser();
   const { syncGarmin, syncStrava } = useActivities();
 
@@ -207,7 +209,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <ActivityIndicator size="small" color="#FF2D55" />
             ) : (
               <>
-                <Ionicons name="sync-outline" size={16} color="#8E8E93" />
+                <Ionicons name="sync-outline" size={16} color={theme.textSecondary} />
                 <Text className="text-theme-text font-bold text-xs ml-2">Sync Apple Health</Text>
               </>
             )}
@@ -219,7 +221,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
-            <Ionicons name="watch-outline" size={20} color="#FF5F3B" />
+            <Ionicons name="watch-outline" size={20} color={theme.tint} />
             <Text className="text-theme-text font-bold text-sm">Garmin Connect Integration</Text>
           </View>
           <View
@@ -261,10 +263,10 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
             >
               {garminSyncing ? (
-                <ActivityIndicator size="small" color="#FF5F3B" />
+                <ActivityIndicator size="small" color={theme.tint} />
               ) : (
                 <>
-                  <Ionicons name="sync-outline" size={16} color="#8E8E93" />
+                  <Ionicons name="sync-outline" size={16} color={theme.textSecondary} />
                   <Text className="text-theme-text font-bold text-xs ml-2">Sync Workouts</Text>
                 </>
               )}
@@ -277,7 +279,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
-            <Ionicons name="fitness-outline" size={20} color="#FF5F3B" />
+            <Ionicons name="fitness-outline" size={20} color={theme.tint} />
             <Text className="text-theme-text font-bold text-sm">Strava Integration</Text>
           </View>
           <View
@@ -396,7 +398,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <Switch
               value={currentToggles.captionRookaScore}
               onValueChange={(val) => handleToggleChange('captionRookaScore', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
+              trackColor={{ false: '#DDE3E9', true: theme.tint }}
             />
           </View>
 
@@ -408,7 +410,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <Switch
               value={currentToggles.titleSummary}
               onValueChange={(val) => handleToggleChange('titleSummary', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
+              trackColor={{ false: '#DDE3E9', true: theme.tint }}
             />
           </View>
 
@@ -420,7 +422,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <Switch
               value={currentToggles.includeMuscleStrain}
               onValueChange={(val) => handleToggleChange('includeMuscleStrain', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
+              trackColor={{ false: '#DDE3E9', true: theme.tint }}
             />
           </View>
 
@@ -432,7 +434,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <Switch
               value={currentToggles.includeFueling}
               onValueChange={(val) => handleToggleChange('includeFueling', val)}
-              trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
+              trackColor={{ false: '#DDE3E9', true: theme.tint }}
             />
           </View>
         </View>

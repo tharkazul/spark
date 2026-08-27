@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card } from '../ui/Card';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
@@ -8,6 +9,7 @@ import { Quest } from '../../types/gamification';
 import { useGamification } from '../../context/GamificationStore';
 
 export function ActiveQuestsCard() {
+    const theme = useTheme();
   const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,7 +52,7 @@ export function ActiveQuestsCard() {
             {/* Left: Trophy Icon & Quest Info */}
             <View className="flex-row items-center gap-3 flex-1 mr-3">
               <View className="w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center">
-                <Ionicons name="trophy" size={20} color="#FF5F3B" />
+                <Ionicons name="trophy" size={20} color={theme.tint} />
               </View>
               <View className="flex-1">
                 <View className="flex-row items-center gap-1.5">
@@ -71,7 +73,7 @@ export function ActiveQuestsCard() {
                   +{Math.round(activeQuest.reward_points || 0)} ⚡
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6F6F79" />
+              <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
             </View>
           </TouchableOpacity>
         ) : (
@@ -82,7 +84,7 @@ export function ActiveQuestsCard() {
           >
             <View className="flex-row items-center gap-3 flex-1">
               <View className="w-10 h-10 rounded-xl bg-amber-500/15 items-center justify-center">
-                <Ionicons name="trophy-outline" size={20} color="#FF5F3B" />
+                <Ionicons name="trophy-outline" size={20} color={theme.tint} />
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-extrabold text-theme-text">No Active Quest</Text>
@@ -90,7 +92,7 @@ export function ActiveQuestsCard() {
               </View>
             </View>
             {loading ? (
-              <ActivityIndicator size="small" color="#FF5F3B" />
+              <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <View className="bg-amber-500/15 px-3 py-1.5 rounded-xl">
                 <Text className="text-xs font-extrabold text-amber-500">+ Start</Text>
@@ -111,7 +113,7 @@ export function ActiveQuestsCard() {
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
             <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color="#FF5F3B" />
+              <Ionicons name="trophy" size={26} color={theme.tint} />
             </View>
             <View>
               <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
@@ -158,10 +160,10 @@ export function ActiveQuestsCard() {
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#FF5F3B" />
+              <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <>
-                <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                <Ionicons name="refresh-outline" size={16} color={theme.textSecondary} />
                 <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
               </>
             )}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, Modal, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../ui/Button';
@@ -10,6 +11,7 @@ interface QuickBuildModalProps {
 }
 
 export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalProps) {
+    const theme = useTheme();
   const [mins, setMins] = useState('45');
 
   const handleBuild = () => {
@@ -28,7 +30,7 @@ export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalPr
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-xl font-extrabold text-theme-text">Quick Build</Text>
               <TouchableOpacity onPress={onClose}>
-                <Ionicons name="close" size={24} color="#94A3B8" />
+                <Ionicons name="close" size={24} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 

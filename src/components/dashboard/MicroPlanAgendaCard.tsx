@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useTheme } from '@/hooks/use-theme';
+import { getDisciplineConfig } from '../../utils/disciplineConfig';
+import { View, Text, TouchableOpacity, ActivityIndicator, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { WorkoutItem, SportType } from '../../types/dashboard';
@@ -33,6 +35,7 @@ export function MicroPlanAgendaCard({
   onAddWorkoutToDay,
   onSelectWorkout,
 }: MicroPlanAgendaCardProps) {
+    const theme = useTheme();
   // Track expanded state per day
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
   const [internalGenerating, setInternalGenerating] = useState(false);
@@ -61,67 +64,9 @@ export function MicroPlanAgendaCard({
     }));
   };
 
-  const getDisciplineConfig = (type: SportType) => {
-    // The plan stores sport in title case ('Bike'), while these cases are
-    // upper. Every workout therefore fell through to the REST branch and
-    // rendered a moon. Normalise before matching.
-    switch (String(type || '').toUpperCase()) {
-      case 'SWIM':
-        return {
-          bg: 'bg-[#2E8FE0]/15',
-          text: 'text-[#38BDF8]',
-          borderLeft: 'border-l-[#38BDF8]',
-          label: 'SWIM',
-          icon: 'water-outline',
-          badgeColor: '#38BDF8',
-        };
-      case 'RUN':
-        return {
-          bg: 'bg-[#FF5F3B]/15',
-          text: 'text-[#FB923C]',
-          borderLeft: 'border-l-[#FB923C]',
-          label: 'RUN',
-          icon: 'walk-outline',
-          badgeColor: '#FB923C',
-        };
-      case 'BIKE':
-        return {
-          bg: 'bg-[#10B981]/15',
-          text: 'text-[#34D399]',
-          borderLeft: 'border-l-[#34D399]',
-          label: 'BIKE',
-          icon: 'bicycle-outline',
-          badgeColor: '#34D399',
-        };
-      case 'STRENGTH':
-        return {
-          bg: 'bg-[#A855F7]/15',
-          text: 'text-[#C084FC]',
-          borderLeft: 'border-l-[#C084FC]',
-          label: 'STRENGTH',
-          icon: 'barbell-outline',
-          badgeColor: '#C084FC',
-        };
-      case 'MOBILITY':
-        return {
-          bg: 'bg-[#14B8A6]/15',
-          text: 'text-[#2DD4BF]',
-          borderLeft: 'border-l-[#2DD4BF]',
-          label: 'MOBILITY',
-          icon: 'body-outline',
-          badgeColor: '#2DD4BF',
-        };
-      default:
-        return {
-          bg: 'bg-slate-700/20',
-          text: 'text-slate-400',
-          borderLeft: 'border-l-slate-400',
-          label: 'REST',
-          icon: 'moon-outline',
-          badgeColor: '#94A3B8',
-        };
-    }
-  };
+    // One palette for every screen; see utils/disciplineConfig.
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+
 
   const handlePrev = () => {
     Haptics.selectionAsync();
@@ -232,16 +177,18 @@ export function MicroPlanAgendaCard({
                     {hasWorkouts ? (
                       <View className="flex-row items-center gap-1.5 flex-1 min-w-0">
                         {day.workouts.map((w) => {
-                          const cfg = getDisciplineConfig(w.type);
+                          const cfg = getDisciplineConfig(w.type, scheme);
                           return (
                             <View
                               key={w.id}
-                              className={`px-2 py-0.5 rounded-md ${cfg.bg} flex-row items-center gap-1 shrink min-w-0`}
+                              style={{ backgroundColor: cfg.tint }}
+                              className="px-2 py-0.5 rounded-md flex-row items-center gap-1 shrink min-w-0"
                             >
-                              <Ionicons name={cfg.icon as any} size={11} color={cfg.badgeColor} />
+                              <Ionicons name={cfg.icon as any} size={11} color={cfg.color} />
                               <Text
                                 numberOfLines={1}
-                                className={`text-xs font-bold ${cfg.text} shrink`}
+                                style={{ color: cfg.color }}
+                                className="text-xs font-bold shrink"
                               >
                                 {w.title}
                               </Text>
@@ -251,7 +198,7 @@ export function MicroPlanAgendaCard({
                       </View>
                     ) : (
                       <View className="px-2 py-0.5 rounded-md bg-slate-700/20 flex-row items-center gap-1">
-                        <Ionicons name="moon-outline" size={11} color="#94A3B8" />
+                        <Ionicons name="moon-outline" size={11} color={theme.textSecondary} />
                         <Text className="text-xs font-bold text-slate-400">Rest / Recovery Day</Text>
                       </View>
                     )}
@@ -326,12 +273,12 @@ export function MicroPlanAgendaCard({
                   <View className="p-3 bg-theme-bg/30 space-y-2.5">
                     {!hasWorkouts ? (
                       <View className="py-3 px-3.5 bg-theme-bg/40 rounded-xl flex-row items-center gap-2">
-                        <Ionicons name="moon-outline" size={16} color="#94A3B8" />
+                        <Ionicons name="moon-outline" size={16} color={theme.textSecondary} />
                         <Text className="text-xs font-bold text-theme-muted">Rest / Recovery Day</Text>
                       </View>
                     ) : (
                       day.workouts.map((workout) => {
-                        const cfg = getDisciplineConfig(workout.type);
+                        const cfg = getDisciplineConfig(workout.type, scheme);
 
                         return (
                           <TouchableOpacity
@@ -341,13 +288,17 @@ export function MicroPlanAgendaCard({
                               onSelectWorkout(workout);
                             }}
                             activeOpacity={0.75}
-                            className={`p-3.5 rounded-xl border-l-4 ${cfg.borderLeft} bg-theme-card/80 flex-col gap-2 active:bg-theme-accent/5`}
+                            style={{ borderLeftColor: cfg.color }}
+                            className="p-3.5 rounded-xl border-l-4 bg-theme-card/80 flex-col gap-2 active:bg-theme-accent/5"
                           >
                             {/* Top Line: Discipline Tag & Rooka Score */}
                             <View className="flex-row items-center justify-between">
-                              <View className={`px-2.5 py-0.5 rounded-md ${cfg.bg} flex-row items-center gap-1.5`}>
-                                <Ionicons name={cfg.icon as any} size={13} color={cfg.badgeColor} />
-                                <Text className={`text-xs font-extrabold ${cfg.text}`}>
+                              <View
+                                style={{ backgroundColor: cfg.tint }}
+                                className="px-2.5 py-0.5 rounded-md flex-row items-center gap-1.5"
+                              >
+                                <Ionicons name={cfg.icon as any} size={13} color={cfg.color} />
+                                <Text style={{ color: cfg.color }} className="text-xs font-extrabold">
                                   {cfg.label}
                                 </Text>
                               </View>
@@ -382,7 +333,7 @@ export function MicroPlanAgendaCard({
                                   {workout.actualMetrics}
                                 </Text>
                               ) : (
-                                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+                                <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
                               )}
                             </View>
                           </TouchableOpacity>

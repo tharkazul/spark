@@ -39,11 +39,31 @@ const {
 } = require('../services/utils');
 
 const SPORT_MAP = {
-  Run: { sportTypeId: 1, sportTypeKey: "running" },
-  Bike: { sportTypeId: 2, sportTypeKey: "cycling" },
-  Swim: { sportTypeId: 4, sportTypeKey: "swimming" },
-  Strength: { sportTypeId: 5, sportTypeKey: "strength_training" },
+  run: { sportTypeId: 1, sportTypeKey: "running" },
+  running: { sportTypeId: 1, sportTypeKey: "running" },
+  bike: { sportTypeId: 2, sportTypeKey: "cycling" },
+  cycling: { sportTypeId: 2, sportTypeKey: "cycling" },
+  ride: { sportTypeId: 2, sportTypeKey: "cycling" },
+  swim: { sportTypeId: 4, sportTypeKey: "swimming" },
+  swimming: { sportTypeId: 4, sportTypeKey: "swimming" },
+  strength: { sportTypeId: 5, sportTypeKey: "strength_training" },
+  strength_training: { sportTypeId: 5, sportTypeKey: "strength_training" },
+  gym: { sportTypeId: 5, sportTypeKey: "strength_training" },
+  cardio: { sportTypeId: 6, sportTypeKey: "cardio_training" },
+  cardio_training: { sportTypeId: 6, sportTypeKey: "cardio_training" },
+  hiit: { sportTypeId: 6, sportTypeKey: "cardio_training" },
+  walk: { sportTypeId: 7, sportTypeKey: "walking" },
+  walking: { sportTypeId: 7, sportTypeKey: "walking" },
+  mobility: { sportTypeId: 8, sportTypeKey: "flexibility_training" },
+  yoga: { sportTypeId: 8, sportTypeKey: "flexibility_training" },
+  flexibility: { sportTypeId: 8, sportTypeKey: "flexibility_training" },
 };
+
+function getSportDefinition(sport) {
+  if (!sport) return null;
+  const key = sport.toString().toLowerCase().trim();
+  return SPORT_MAP[key] || { sportTypeId: 1, sportTypeKey: "running" };
+}
 
 const STEP_TYPE_MAP = {
   warmup: { id: 1, key: "warmup" },
@@ -573,10 +593,6 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
   console.log("DEBUG: Sync route triggered for user:", req.user.id);
   const selectedWorkouts = req.body.workouts;
 
-  if (!selectedWorkouts || selectedWorkouts.length === 0) {
-    return res.status(400).json({ error: "No workouts selected for sync." });
-  }
-
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
@@ -589,6 +605,10 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       );
     });
 
+    if (!user.garmin_username || !user.garmin_password) {
+      return res.status(400).json({ error: "Garmin credentials not connected." });
+    }
+
     const GCClient = await getGarminClient(user, req.user.id);
     const client = GCClient.client || GCClient.http;
     if (!client) throw new Error("Garmin client initialization failed.");
@@ -596,7 +616,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     const todayStr = getAMSDateString();
     const workouts = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
+        `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ? ORDER BY date ASC`,
         [req.user.id, todayStr],
         (err, rows) => {
           if (err) reject(err);
@@ -605,32 +625,43 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       );
     });
 
-    const workoutsToSync = workouts.filter((w) =>
-      selectedWorkouts.some((sw) => sw.date === w.date && sw.sport === w.sport),
-    );
+    let workoutsToSync = workouts;
+    if (Array.isArray(selectedWorkouts) && selectedWorkouts.length > 0) {
+      workoutsToSync = workouts.filter((w) =>
+        selectedWorkouts.some((sw) => {
+          const dateMatch = String(sw.date).trim() === String(w.date).trim();
+          const sportMatch = !sw.sport || String(sw.sport).toLowerCase().trim() === String(w.sport || '').toLowerCase().trim();
+          return dateMatch && sportMatch;
+        }),
+      );
+    }
 
-    if (workoutsToSync.length === 0)
+    if (!workoutsToSync || workoutsToSync.length === 0) {
       return res
         .status(400)
-        .json({ error: "No valid workouts found to sync." });
+        .json({ error: "No scheduled workouts found to sync." });
+    }
 
     let syncedCount = 0;
+    let lastError = null;
 
     for (const workout of workoutsToSync) {
-      if (workout.sport === "Rest" || !SPORT_MAP[workout.sport]) continue;
+      if (workout.sport === "Rest" || workout.sport === "REST") continue;
 
-      const sportDef = SPORT_MAP[workout.sport];
+      const sportDef = getSportDefinition(workout.sport);
+      if (!sportDef) continue;
+
       let stepsArray = [];
       try {
-        stepsArray = JSON.parse(workout.steps_json);
+        stepsArray = typeof workout.steps_json === 'string' ? JSON.parse(workout.steps_json) : (workout.steps_json || []);
       } catch (e) {
         stepsArray = [];
       }
 
-      if (stepsArray.length === 0) {
+      if (!Array.isArray(stepsArray) || stepsArray.length === 0) {
         let durationMins = Math.max(
           5,
-          Math.round((workout.target_rooka / 55) * 60),
+          Math.round(((workout.target_rooka || 55) / 55) * 60),
         );
         stepsArray = [
           {
@@ -651,7 +682,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
             numberOfIterations: step.iterations || 1,
             workoutSteps: (step.steps || []).map((subStep, subIndex) => {
               const nType =
-                subStep.type === "drill" ? "interval" : subStep.type;
+                subStep.type === "drill" ? "interval" : (subStep.type || "interval");
               const sDef = STEP_TYPE_MAP[nType] || STEP_TYPE_MAP["interval"];
               const tDef =
                 TARGET_TYPE_MAP[subStep.target_type] ||
@@ -670,8 +701,8 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
                 },
                 endConditionValue:
                   subStep.condition_type === "time"
-                    ? subStep.condition_value * 60
-                    : subStep.condition_value,
+                    ? (subStep.condition_value || 1) * 60
+                    : (subStep.condition_value || 1),
                 targetType: {
                   workoutTargetTypeId: tDef.id,
                   workoutTargetTypeKey: tDef.key,
@@ -728,16 +759,23 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
                 if (match) {
                   sDTO.category = match.category_key;
                   sDTO.exerciseName = match.exercise_key;
+                } else if (sportDef.sportTypeKey === "strength_training") {
+                  sDTO.category = "CARDIO";
+                  sDTO.exerciseName = "CARDIO";
+                  sDTO.description = subStep.exerciseName;
                 } else {
-                  sDTO.description = subStep.exerciseName; // Fallback to notes if no match
+                  sDTO.description = subStep.exerciseName;
                 }
+              } else if (sportDef.sportTypeKey === "strength_training") {
+                sDTO.category = "CARDIO";
+                sDTO.exerciseName = "CARDIO";
               }
               return sDTO;
             }),
           };
         }
 
-        const normalizedType = step.type === "drill" ? "interval" : step.type;
+        const normalizedType = step.type === "drill" ? "interval" : (step.type || "interval");
         const stepDef =
           STEP_TYPE_MAP[normalizedType] || STEP_TYPE_MAP["interval"];
         const targetDef =
@@ -755,8 +793,8 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
           },
           endConditionValue:
             step.condition_type === "time"
-              ? step.condition_value * 60
-              : step.condition_value,
+              ? (step.condition_value || 1) * 60
+              : (step.condition_value || 1),
           targetType: {
             workoutTargetTypeId: targetDef.id,
             workoutTargetTypeKey: targetDef.key,
@@ -813,23 +851,31 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
           if (match) {
             stepDTO.category = match.category_key;
             stepDTO.exerciseName = match.exercise_key;
+          } else if (sportDef.sportTypeKey === "strength_training") {
+            stepDTO.category = "CARDIO";
+            stepDTO.exerciseName = "CARDIO";
+            stepDTO.description = step.exerciseName;
           } else {
-            stepDTO.description = step.exerciseName; // Fallback to notes if no match
+            stepDTO.description = step.exerciseName;
           }
+        } else if (sportDef.sportTypeKey === "strength_training") {
+          stepDTO.category = "CARDIO";
+          stepDTO.exerciseName = "CARDIO";
         }
         return stepDTO;
       });
 
+      const cleanTitle = (workout.description || `${workout.sport} Workout`).slice(0, 45);
       const wkt = {
-        workoutName: `Rooka: ${workout.sport}`,
-        description: workout.description,
+        workoutName: `Rooka: ${cleanTitle}`,
+        description: workout.description || "",
         sportType: sportDef,
         workoutSegments: [
           { segmentOrder: 1, sportType: sportDef, workoutSteps: garminSteps },
         ],
       };
 
-      if (workout.sport === "Swim") {
+      if (sportDef.sportTypeKey === "swimming") {
         wkt.poolLength = 25;
         wkt.poolLengthUnit = { unitId: 1, unitKey: "meter", factor: 100 };
       }
@@ -846,19 +892,30 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
             { date: workout.date },
           );
           syncedCount++;
+        } else {
+          console.warn("Garmin workout creation returned no workoutId:", response);
         }
       } catch (err) {
+        lastError = err?.response?.data?.message || err?.message || "Garmin API rejected workout";
         console.error(
           `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
-          err.message,
+          err?.response?.data || err.message,
         );
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
+    if (syncedCount === 0 && workoutsToSync.length > 0) {
+      return res.status(400).json({
+        error: "Failed to push workouts to Garmin Connect.",
+        details: lastError || "Garmin API rejected the workout payload.",
+      });
+    }
+
     res.json({
       success: true,
-      message: `Successfully pushed ${syncedCount} structured workouts!`,
+      message: `Successfully pushed ${syncedCount} structured workout(s) to Garmin!`,
+      syncedCount,
     });
   } catch (err) {
     console.error("CRITICAL ERROR in sync-garmin:", err);

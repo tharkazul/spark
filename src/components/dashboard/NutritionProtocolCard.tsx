@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NutritionMacro } from '../../types/dashboard';
@@ -11,6 +12,7 @@ interface NutritionProtocolCardProps {
 }
 
 export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps) {
+    const theme = useTheme();
   const { clearLoggedNutrition } = usePhysique();
 
   const handleClearLoggedFood = async () => {
@@ -51,7 +53,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
             onPress={handleClearLoggedFood}
             className="flex-row items-center gap-1 bg-theme-card px-3 py-1.5 rounded-full border border-theme-border"
           >
-            <Ionicons name="refresh-outline" size={12} color="#A1A1AA" />
+            <Ionicons name="refresh-outline" size={12} color={theme.textSecondary} />
             <Text className="text-xs font-bold text-theme-muted">Reset Today</Text>
           </TouchableOpacity>
         )}

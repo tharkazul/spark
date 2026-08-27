@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SubscriptionTier } from '../../types/user';
@@ -34,6 +35,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
   weightHistory = [],
   tier = 'free',
 }) => {
+    const theme = useTheme();
   const { t } = useLanguage();
 
   // With no sessions logged, CTL/ATL/TSB are all zero and every derived label
@@ -65,7 +67,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
       {/* Metric Section Header */}
       <View className="flex-row items-center justify-between mb-3 px-1">
         <View className="flex-row items-center space-x-2">
-          <Ionicons name="pulse-outline" size={18} color="#FF5F3B" />
+          <Ionicons name="pulse-outline" size={18} color={theme.tint} />
           <Text className="text-xs font-bold text-theme-text">
             {t('dashboard.performanceManagement')}
           </Text>
@@ -187,7 +189,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             <Text className="text-xs font-bold text-theme-muted">
               {t('physique.weightInput')}
             </Text>
-            <Ionicons name="scale-outline" size={12} color="#FF5F3B" />
+            <Ionicons name="scale-outline" size={12} color={theme.tint} />
           </View>
           <Text className="text-2xl font-extrabold text-theme-text font-barlow tracking-tight mb-2">
             {weightKg > 0 ? `${weightKg.toFixed(1)} ` : '-- '}
@@ -199,7 +201,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             <>
               <Sparkline
                 data={weightHistory}
-                color="#FF5F3B"
+                color={theme.tint}
                 gradientFrom="#FF5F3B44"
                 gradientTo="#FF5F3B00"
                 height={32}

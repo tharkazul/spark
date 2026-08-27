@@ -293,6 +293,16 @@ export const socialApi = {
       method: 'POST',
       body: JSON.stringify({ friendId }),
     }),
+  declineUser: (friendId: number | string) =>
+    apiClient<{ success: boolean }>('/api/social/decline', {
+      method: 'POST',
+      body: JSON.stringify({ friendId }),
+    }),
+  rejectUser: (friendId: number | string) =>
+    apiClient<{ success: boolean }>('/api/social/decline', {
+      method: 'POST',
+      body: JSON.stringify({ friendId }),
+    }),
   getProfile: (userId: number | string) => apiClient<PublicAthleteProfile>(`/api/social/profile/${userId}`),
   acceptInvite: (inviteId: number | string) =>
     apiClient<{ success: boolean; message?: string }>(`/api/social/invite/${inviteId}/accept`, {

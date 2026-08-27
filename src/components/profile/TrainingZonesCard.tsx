@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -33,6 +34,7 @@ interface ZoneTableProps {
 }
 
 function ZoneTable({ title, unit, zones, onChange, disabled }: ZoneTableProps) {
+    const theme = useTheme();
   const setBound = (index: number, key: 'min' | 'max', raw: string) => {
     const digits = raw.replace(/[^0-9]/g, '');
     const next = zones.map((z, i) =>
@@ -56,7 +58,7 @@ function ZoneTable({ title, unit, zones, onChange, disabled }: ZoneTableProps) {
               value={String(z.min ?? '')}
               onChangeText={(v) => setBound(i, 'min', v)}
               keyboardType="number-pad"
-              style={{ color: '#FF5F3B' }}
+              style={{ color: theme.tint }}
               className="w-14 text-sm font-bold text-center bg-theme-card border border-theme-border rounded-lg py-1.5"
             />
             <Text className="text-theme-muted text-sm">–</Text>
@@ -65,9 +67,9 @@ function ZoneTable({ title, unit, zones, onChange, disabled }: ZoneTableProps) {
               value={z.max == null ? '' : String(z.max)}
               onChangeText={(v) => setBound(i, 'max', v)}
               placeholder="max"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.textSecondary}
               keyboardType="number-pad"
-              style={{ color: '#FF5F3B' }}
+              style={{ color: theme.tint }}
               className="w-14 text-sm font-bold text-center bg-theme-card border border-theme-border rounded-lg py-1.5"
             />
             <Text className="text-theme-muted text-sm ml-1 w-10">{unit}</Text>
@@ -79,6 +81,7 @@ function ZoneTable({ title, unit, zones, onChange, disabled }: ZoneTableProps) {
 }
 
 export function TrainingZonesCard() {
+  const theme = useTheme();
   const [sport, setSport] = useState<SportKey>('default');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -181,7 +184,7 @@ export function TrainingZonesCard() {
     <Card className="mb-4 bg-theme-card">
       <View className="flex-row items-center justify-between mb-1">
         <View className="flex-row items-center gap-2">
-          <Ionicons name="speedometer-outline" size={18} color="#FF5F3B" />
+          <Ionicons name="speedometer-outline" size={18} color={theme.tint} />
           <Text className="text-base font-extrabold text-theme-text">Training Zones</Text>
         </View>
         <TouchableOpacity onPress={handleReset} disabled={saving}>
@@ -211,7 +214,7 @@ export function TrainingZonesCard() {
               className="flex-1 py-2 rounded-lg items-center justify-center border"
               style={
                 active
-                  ? { backgroundColor: '#FF5F3B', borderColor: '#FF5F3B' }
+                  ? { backgroundColor: theme.tint, borderColor: theme.tint }
                   : { borderColor: 'rgba(148,163,184,0.35)' }
               }
             >
@@ -240,11 +243,11 @@ export function TrainingZonesCard() {
 
       {loading ? (
         <View className="py-8 items-center">
-          <ActivityIndicator color="#FF5F3B" />
+          <ActivityIndicator color={theme.tint} />
         </View>
       ) : hrZones.length === 0 && powerZones.length === 0 ? (
         <View className="py-6 items-center px-4">
-          <Ionicons name="help-circle-outline" size={30} color="#94A3B8" />
+          <Ionicons name="help-circle-outline" size={30} color={theme.textSecondary} />
           <Text className="text-theme-text font-bold text-sm mt-2 text-center">
             No zones yet
           </Text>

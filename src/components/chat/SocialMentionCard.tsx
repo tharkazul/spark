@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SocialMentionPayload } from '../../types/chat';
@@ -12,6 +13,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
   payload,
   onPressActivity,
 }) => {
+    const theme = useTheme();
   return (
     <View className="my-3 bg-theme-card/90 border border-theme-border rounded-2xl p-4 shadow-sm">
       <View className="flex-row items-center gap-2.5 mb-2">
@@ -43,7 +45,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
           activeOpacity={0.7}
         >
           <Text className="text-theme-accent font-bold text-xs">View Activity Details</Text>
-          <Ionicons name="chevron-forward" size={14} color="#FF5F3B" />
+          <Ionicons name="chevron-forward" size={14} color={theme.tint} />
         </TouchableOpacity>
       ) : null}
     </View>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -9,6 +10,7 @@ interface SeasonRoadmapCardProps {
 }
 
 export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
+    const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const totalPhases = info.phases.length || 4;
@@ -25,28 +27,32 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
       <TouchableOpacity
         onPress={toggleExpand}
         activeOpacity={0.75}
-        className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50"
+        className="flex-row items-center gap-3 pb-3 mb-3.5 border-b border-theme-border/50"
       >
-        <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="compass-outline" size={20} color="#FF5F3B" />
-          </View>
+        <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
+          <Ionicons name="compass-outline" size={20} color={theme.tint} />
+        </View>
 
+        <View className="flex-1">
           <View className="flex-row items-center gap-1.5">
-            <Text className="text-base font-extrabold text-theme-text">Training Phase</Text>
+            <Text className="text-lg font-extrabold text-theme-text">Training Phase</Text>
             <Ionicons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
               size={15}
-              color="#FF5F3B"
+              color={theme.tint}
             />
           </View>
-        </View>
 
-        {/* Race Countdown Badge matching TodaysPlanCard ADAPT button styling */}
-        <View className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5 shadow-sm">
-          <Ionicons name="trophy-outline" size={13} color="#FF5F3B" />
-          <Text className="text-xs font-bold text-amber-500">
-            {info.daysRemaining}d to {info.raceTargetName}
+          {/* The countdown reads as a line of text rather than a pill beside
+              the title. A pill cannot grow or wrap, so "Ironman 70.3" already
+              ran off the card and "Marathon des Sables" would be far worse.
+              This is the same title-over-meta shape DetailedDayCard uses. */}
+          <Text className="text-sm text-theme-muted">
+            <Text className="font-extrabold text-theme-accent">
+              {info.daysRemaining} {info.daysRemaining === 1 ? 'day' : 'days'}
+            </Text>
+            {' to '}
+            {info.raceTargetName}
           </Text>
         </View>
       </TouchableOpacity>
@@ -59,7 +65,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
       >
         {/* Progress Fill Layer */}
         <View
-          className="absolute top-0 bottom-0 left-0 bg-[#FF5F3B]/20"
+          className="absolute top-0 bottom-0 left-0 bg-theme-accent/20"
           style={{ width: `${progressPercent}%` }}
         />
 
@@ -90,7 +96,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
 
         {/* Today Indicator Line & Badge */}
         <View
-          className="absolute top-0 bottom-0 w-[2.5px] bg-[#FF5F3B] z-20"
+          className="absolute top-0 bottom-0 w-[2.5px] bg-theme-accent z-20"
           style={{ left: `${progressPercent}%` }}
         >
           <View className="absolute -top-2.5 -translate-x-1/2 left-0 bg-theme-card px-1 py-0.2 rounded shadow-sm">
@@ -105,8 +111,8 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           {/* Fitness Projection Bar */}
           <View className="bg-theme-bg/50 p-3 rounded-2xl mb-3 border border-theme-border/40">
             <View className="flex-row justify-between items-center mb-1.5">
-              <Text className="text-xs font-bold text-theme-text">Fitness Projection (CTL)</Text>
-              <Text className="text-xs font-mono font-bold text-theme-accent">
+              <Text className="text-sm font-bold text-theme-text">Fitness Projection (CTL)</Text>
+              <Text className="text-sm font-mono font-bold text-theme-accent">
                 {info.currentCTL} CTL <Text className="text-theme-muted font-normal">/ Target {info.targetCTL} CTL</Text>
               </Text>
             </View>
@@ -138,7 +144,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                   <View className="flex-row items-center justify-between mb-1">
                     <View className="flex-row items-center gap-1.5">
                       <Text
-                        className={`text-xs font-extrabold tracking-wide ${
+                        className={`text-sm font-extrabold ${
                           isActive ? 'text-theme-accent font-extrabold' : 'text-theme-text'
                         }`}
                       >
@@ -161,10 +167,10 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                     )}
                   </View>
 
-                  <Text className="text-xs font-bold text-theme-text mb-0.5">
+                  <Text className="text-sm font-bold text-theme-text mb-0.5">
                     Focus: {phase.focus}
                   </Text>
-                  <Text className="text-xs text-theme-muted leading-relaxed">
+                  <Text className="text-sm text-theme-muted leading-relaxed">
                     {phase.description}
                   </Text>
                 </View>

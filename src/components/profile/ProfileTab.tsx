@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +34,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   isRookaPlus,
   renderSettingRow,
 }) => {
+    const theme = useTheme();
   const { t } = useLanguage();
   const { user, updateUser, refreshUser } = useUser();
   const { colorScheme, toggleColorScheme } = useColorScheme();
@@ -147,11 +149,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 transition={200}
               />
             ) : (
-              <Ionicons name="person" size={42} color="#8E8E93" />
+              <Ionicons name="person" size={42} color={theme.textSecondary} />
             )}
             {uploadingPhoto && (
               <View className="absolute inset-0 bg-black/50 items-center justify-center">
-                <ActivityIndicator size="small" color="#FF5F3B" />
+                <ActivityIndicator size="small" color={theme.tint} />
               </View>
             )}
           </View>
@@ -190,7 +192,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <Text className="text-theme-muted text-xs italic text-center py-2">Loading titles...</Text>
         ) : titles.length === 0 ? (
           <View className="py-4 items-center justify-center">
-            <Ionicons name="ribbon-outline" size={24} color="#8E8E93" style={{ marginBottom: 6 }} />
+            <Ionicons name="ribbon-outline" size={24} color={theme.textSecondary} style={{ marginBottom: 6 }} />
             <Text className="text-theme-muted text-xs italic text-center">
               No titles earned yet
             </Text>
@@ -259,13 +261,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <Switch
             value={colorScheme === 'dark'}
             onValueChange={toggleColorScheme}
-            trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }}
+            trackColor={{ false: '#DDE3E9', true: theme.tint }}
           />
         )}
         {renderSettingRow(
           'notifications',
           t('profile.pushNotifications'),
-          <Switch value={true} trackColor={{ false: '#DDE3E9', true: '#FF5F3B' }} />
+          <Switch value={true} trackColor={{ false: '#DDE3E9', true: theme.tint }} />
         )}
       </Card>
     </View>

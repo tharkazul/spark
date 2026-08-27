@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   View,
   Text,
@@ -103,6 +104,7 @@ export function AddWorkoutModal({
   onSave,
   onDelete,
 }: AddWorkoutModalProps) {
+    const theme = useTheme();
   const { t } = useLanguage();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
@@ -305,11 +307,11 @@ export function AddWorkoutModal({
             activeOpacity={0.7}
             className="flex-row items-center gap-2.5"
           >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isGarminSynced ? 'bg-[#FF5F3B] border-[#FF5F3B]' : 'bg-slate-50 border-slate-300'}`}>
+            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isGarminSynced ? 'bg-theme-accent border-theme-accent' : 'bg-slate-50 border-slate-300'}`}>
               {isGarminSynced && <Ionicons name="checkmark" size={14} color="white" />}
             </View>
             <Text className="text-sm font-bold text-slate-700">Garmin</Text>
-            {isGarminSyncing && <ActivityIndicator size="small" color="#FF5F3B" />}
+            {isGarminSyncing && <ActivityIndicator size="small" color={theme.tint} />}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -318,11 +320,11 @@ export function AddWorkoutModal({
             activeOpacity={0.7}
             className="flex-row items-center gap-2.5"
           >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isAppleWatchSynced ? 'bg-[#FF5F3B] border-[#FF5F3B]' : 'bg-slate-50 border-slate-300'}`}>
+            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isAppleWatchSynced ? 'bg-theme-accent border-theme-accent' : 'bg-slate-50 border-slate-300'}`}>
               {isAppleWatchSynced && <Ionicons name="checkmark" size={14} color="white" />}
             </View>
             <Text className="text-sm font-bold text-slate-700">Apple Watch</Text>
-            {isAppleWatchSyncing && <ActivityIndicator size="small" color="#FF5F3B" />}
+            {isAppleWatchSyncing && <ActivityIndicator size="small" color={theme.tint} />}
           </TouchableOpacity>
         </View>
       </View>
@@ -331,7 +333,7 @@ export function AddWorkoutModal({
       <View className="items-center w-full">
         <TouchableOpacity
           onPress={handleSave}
-          className="w-[70%] bg-[#FF5F3B] rounded-xl py-3.5 items-center justify-center mb-3"
+          className="w-[70%] bg-theme-accent rounded-xl py-3.5 items-center justify-center mb-3"
         >
            <Text className="text-white font-extrabold text-base">
              {t('common.save') || 'Save'}
@@ -410,7 +412,7 @@ export function AddWorkoutModal({
                           onBlur={() => setIsEditingTitle(false)}
                           onSubmitEditing={() => setIsEditingTitle(false)}
                           placeholder="Workout Title"
-                          placeholderTextColor="#94A3B8"
+                          placeholderTextColor={theme.textSecondary}
                           className="text-lg font-extrabold text-theme-text p-0 m-0 min-w-[200px]"
                         />
                       ) : (
@@ -419,7 +421,7 @@ export function AddWorkoutModal({
                             {title || (initialWorkout ? 'Edit Workout' : 'Add Workout')}
                           </Text>
                           <TouchableOpacity onPress={() => setIsEditingTitle(true)} className="p-1">
-                            <Ionicons name="pencil" size={16} color="#94A3B8" />
+                            <Ionicons name="pencil" size={16} color={theme.textSecondary} />
                           </TouchableOpacity>
                         </>
                       )}
@@ -446,8 +448,8 @@ export function AddWorkoutModal({
                             activeOpacity={0.7}
                             className={`flex-1 rounded-xl items-center justify-center py-2 ${
                               isSelected
-                                ? 'bg-[#FFF7ED] border border-[#FFEDD5]'
-                                : 'bg-[#F8FAFC] border border-transparent'
+                                ? 'bg-theme-accent-soft border border-theme-accent-border'
+                                : 'bg-theme-bg border border-transparent'
                             }`}
                             style={{ marginHorizontal: 2 }}
                           >
@@ -466,7 +468,7 @@ export function AddWorkoutModal({
                             )}
                             <Text
                               className={`text-xs font-bold mt-1 ${
-                                isSelected ? 'text-[#FF5F3B]' : 'text-slate-500'
+                                isSelected ? 'text-theme-accent' : 'text-slate-500'
                               }`}
                             >
                               {item.label}
@@ -487,7 +489,7 @@ export function AddWorkoutModal({
                       <Ionicons
                         name="chatbubble-ellipses-outline"
                         size={15}
-                        color="#FF5F3B"
+                        color={theme.tint}
                         style={{ marginTop: 1 }}
                       />
                       <View className="flex-1">
@@ -507,14 +509,14 @@ export function AddWorkoutModal({
                       onPress={() => setIsQuickBuildOpen(true)}
                       className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2"
                     >
-                      <Ionicons name="flash" size={14} color="#64748B" />
+                      <Ionicons name="flash" size={14} color={theme.textSecondary} />
                       <Text className="text-sm font-bold text-theme-text">Quick Build</Text>
                     </TouchableOpacity>
 
-                    <View className="flex-1 bg-[#FFF7ED] border border-[#FFEDD5] rounded-xl px-4 py-3 flex-row items-center justify-center gap-2">
-                      <Ionicons name="sparkles" size={14} color="#FF5F3B" />
-                      <Text className="text-sm font-bold text-[#FF5F3B]">
-                        +{calculatedRooka} Rooka <Text className="text-xs text-[#FF5F3B]/70">· Auto</Text>
+                    <View className="flex-1 bg-theme-accent-soft border border-theme-accent-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2">
+                      <Ionicons name="sparkles" size={14} color={theme.tint} />
+                      <Text className="text-sm font-bold text-theme-accent">
+                        +{calculatedRooka} Rooka <Text className="text-xs text-theme-accent/70">· Auto</Text>
                       </Text>
                     </View>
                   </View>

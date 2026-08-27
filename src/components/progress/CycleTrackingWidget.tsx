@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, Switch, Alert } from 'react-native';
 import Svg, { Circle, G } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ interface CycleTrackingWidgetProps {
 export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
   avgCycleLength = 28,
 }) => {
+    const theme = useTheme();
   const { user, updateUser } = useUser();
   const [loading, setLoading] = useState(false);
 
@@ -119,7 +121,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           <Switch
             value={false}
             onValueChange={handleToggleEnable}
-            trackColor={{ false: '#2A343D', true: '#FF5F3B' }}
+            trackColor={{ false: '#2A343D', true: theme.tint }}
           />
         </View>
       </Card>
@@ -192,7 +194,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
             disabled={loading}
             className="self-start px-3 py-1.5 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center space-x-1"
           >
-            <Ionicons name="add-circle-outline" size={14} color="#FF5F3B" style={{ marginRight: 4 }} />
+            <Ionicons name="add-circle-outline" size={14} color={theme.tint} style={{ marginRight: 4 }} />
             <Text className="text-xs font-bold text-theme-accent">Log Period Start Today</Text>
           </TouchableOpacity>
         </View>

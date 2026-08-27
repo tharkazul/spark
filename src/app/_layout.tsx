@@ -1,4 +1,5 @@
 import '../global.css';
+import { useTheme } from '@/hooks/use-theme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -40,6 +41,7 @@ function PushNotificationListener() {
 }
 
 export default function RootLayout() {
+    const theme = useTheme();
   const colorScheme = useColorScheme();
 
   const [fontsLoaded, fontError] = useFonts({
@@ -70,7 +72,7 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) {
     return (
       <View className="flex-1 bg-theme-bg items-center justify-center">
-        <ActivityIndicator size="large" color="#FF5F3B" />
+        <ActivityIndicator size="large" color={theme.tint} />
       </View>
     );
   }

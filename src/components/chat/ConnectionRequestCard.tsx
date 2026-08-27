@@ -7,79 +7,168 @@ import { socialApi } from '../../services/apiServices';
 interface ConnectionRequestCardProps {
   payload: {
     type: 'connection_request' | 'connection_accepted';
-    friend_id?: number;
-    fromUserId?: number;
+    friend_id?: number | string;
+    fromUserId?: number | string;
     username?: string;
     status?: string;
   };
+  onAccept?: (friendId: number | string) => Promise<void> | void;
+  onDecline?: (friendId: number | string) => Promise<void> | void;
   onConnectionAccepted?: () => void;
 }
 
 export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
   payload,
+  onAccept,
+  onDecline,
   onConnectionAccepted,
 }) => {
   const targetId = payload.friend_id || payload.fromUserId;
-  const isAcceptedType = payload.type === 'connection_accepted' || payload.status === 'accepted';
-  const [accepted, setAccepted] = useState(isAcceptedType);
-  const [loading, setLoading] = useState(false);
+  const initialStatus =
+    payload.type === 'connection_accepted' || payload.status === 'accepted'
+      ? 'accepted'
+      : payload.status === 'declined' || payload.status === 'rejected'
+      ? 'declined'
+      : 'pending';
+
+  const [status, setStatus] = useState<'pending' | 'accepted' | 'declined' | string>(initialStatus);
+  const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
 
   const handleAccept = async () => {
-    if (!targetId || accepted) return;
+    if (!targetId || status === 'accepted' || loading !== null) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
+    setLoading('accept');
     try {
-      const res = await socialApi.acceptUser(targetId);
-      if (res && res.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setAccepted(true);
-        if (onConnectionAccepted) onConnectionAccepted();
+      if (onAccept) {
+        await onAccept(targetId);
+      } else {
+        await socialApi.acceptUser(targetId);
       }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setStatus('accepted');
+      if (onConnectionAccepted) onConnectionAccepted();
     } catch (e) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
-      setLoading(false);
+      setLoading(null);
     }
   };
 
+  const handleDecline = async () => {
+    if (!targetId || status === 'declined' || loading !== null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLoading('decline');
+    try {
+      if (onDecline) {
+        await onDecline(targetId);
+      } else {
+        await socialApi.declineUser(targetId);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setStatus('declined');
+    } catch (e) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const isAccepted = status === 'accepted';
+  const isDeclined = status === 'declined' || status === 'rejected';
+  const isPending = !isAccepted && !isDeclined;
+
   return (
-    <View className="mt-3 p-3.5 bg-theme-bg border border-theme-border/70 rounded-2xl">
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center space-x-3">
-          <View className="w-9 h-9 rounded-full bg-theme-accent/20 items-center justify-center border border-theme-accent/40">
+    <View className="mt-3 p-3.5 bg-theme-bg border border-theme-border/70 rounded-2xl shadow-xs">
+      <View className="flex-row items-center justify-between mb-2">
+        <View className="flex-row items-center flex-1 mr-2">
+          <View
+            className={`w-9 h-9 rounded-full items-center justify-center border ${
+              isAccepted
+                ? 'bg-emerald-500/20 border-emerald-500/40'
+                : isDeclined
+                ? 'bg-red-500/20 border-red-500/40'
+                : 'bg-theme-accent/20 border-theme-accent/40'
+            }`}
+          >
             <Ionicons
-              name={accepted ? 'checkmark-circle' : 'person-add'}
+              name={isAccepted ? 'checkmark-circle' : isDeclined ? 'close-circle' : 'person-add'}
               size={18}
-              color={accepted ? '#10B981' : '#FF5F3B'}
+              color={isAccepted ? '#10B981' : isDeclined ? '#EF4444' : '#FF5F3B'}
             />
           </View>
-          <View>
-            <Text className="text-sm font-extrabold text-theme-text">{payload.username || 'Rooka Athlete'}</Text>
+          <View className="ml-2.5 flex-1">
+            <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
+              {payload.username || 'Rooka Athlete'}
+            </Text>
             <Text className="text-xs text-theme-muted font-medium">
-              {accepted ? 'Connected Athlete' : 'Sent you a connection request'}
+              {isAccepted
+                ? 'Connected Athlete'
+                : isDeclined
+                ? 'Connection Declined'
+                : 'Sent you a connection request'}
             </Text>
           </View>
         </View>
 
-        {accepted ? (
-          <View className="flex-row items-center bg-emerald-500/15 px-3 py-1.5 rounded-full border border-emerald-500/30">
-            <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-            <Text className="text-xs font-extrabold text-emerald-500 ml-1">Connected</Text>
-          </View>
-        ) : (
-          <TouchableOpacity
-            onPress={handleAccept}
-            disabled={loading}
-            className="bg-emerald-500 px-3.5 py-1.5 rounded-xl shadow-xs flex-row items-center space-x-1"
+        {!isPending && (
+          <View
+            className={`flex-row items-center px-2.5 py-1 rounded-full border ${
+              isAccepted
+                ? 'bg-emerald-500/15 border-emerald-500/30'
+                : 'bg-red-500/15 border-red-500/30'
+            }`}
           >
-            {loading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text className="text-xs font-extrabold text-white">Accept</Text>
-            )}
-          </TouchableOpacity>
+            <Ionicons
+              name={isAccepted ? 'checkmark-circle' : 'close-circle'}
+              size={12}
+              color={isAccepted ? '#10B981' : '#EF4444'}
+            />
+            <Text
+              className={`text-xs font-extrabold ml-1 ${
+                isAccepted ? 'text-emerald-500' : 'text-red-400'
+              }`}
+            >
+              {isAccepted ? 'Connected' : 'Declined'}
+            </Text>
+          </View>
         )}
       </View>
+
+      {isPending && (
+        <View className="flex-row items-center gap-2 pt-2 border-t border-theme-border/50 mt-1">
+          <TouchableOpacity
+            onPress={handleAccept}
+            disabled={loading !== null}
+            activeOpacity={0.8}
+            className="flex-1 bg-emerald-500 py-2 rounded-xl items-center justify-center flex-row shadow-xs"
+          >
+            {loading === 'accept' ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark" size={15} color="#FFFFFF" />
+                <Text className="text-xs font-extrabold text-white ml-1">Accept</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleDecline}
+            disabled={loading !== null}
+            activeOpacity={0.8}
+            className="flex-1 bg-theme-card border border-theme-border py-2 rounded-xl items-center justify-center flex-row"
+          >
+            {loading === 'decline' ? (
+              <ActivityIndicator size="small" color="#9CA3AF" />
+            ) : (
+              <>
+                <Ionicons name="close" size={15} color="#9CA3AF" />
+                <Text className="text-xs font-bold text-theme-muted ml-1">Reject</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };

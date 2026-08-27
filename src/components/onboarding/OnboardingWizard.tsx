@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
@@ -123,6 +124,7 @@ function TypingDots() {
 }
 
 export default function OnboardingWizard() {
+    const theme = useTheme();
 
   const { user, refreshUser, updateUser } = useUser();
   const { t, language, setLanguage } = useLanguage();
@@ -907,7 +909,7 @@ export default function OnboardingWizard() {
                   key={idx}
                   style={
                     idx + 1 === currentStep
-                      ? { backgroundColor: '#FF5F3B' }
+                      ? { backgroundColor: theme.tint }
                       : idx + 1 < currentStep
                         ? { backgroundColor: 'rgba(255, 90, 31, 0.5)' }
                         : undefined
@@ -961,7 +963,7 @@ export default function OnboardingWizard() {
                         <Text className="text-theme-text text-xl leading-[32px] font-semibold">
                           {typedText}
                           {typedText.length < WELCOME_MESSAGE.length && (
-                            <Text className="text-[#FF5F3B]">▌</Text>
+                            <Text className="text-theme-accent">▌</Text>
                           )}
                         </Text>
                       </View>
@@ -969,7 +971,7 @@ export default function OnboardingWizard() {
                       <Pressable
                         onPress={handleBeginPress}
                         disabled={isHeroTransitioning}
-                        className="w-full py-4 rounded-2xl bg-[#FF5F3B] items-center justify-center flex-row gap-2 active:opacity-90"
+                        className="w-full py-4 rounded-2xl bg-theme-accent items-center justify-center flex-row gap-2 active:opacity-90"
                       >
                         <Text className="text-white font-extrabold text-lg">{t('onboarding.meetCoachBegin')}</Text>
                         <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
@@ -1061,7 +1063,7 @@ export default function OnboardingWizard() {
                     style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                   >
                     <View className="flex-row items-center gap-2">
-                      <Ionicons name="language" size={20} color="#FF5F3B" />
+                      <Ionicons name="language" size={20} color={theme.tint} />
                       <Text className="text-theme-text font-bold text-sm">{t('onboarding.selectLanguageTitle')}</Text>
                     </View>
 
@@ -1086,7 +1088,7 @@ export default function OnboardingWizard() {
                             disabled={isStreamingMessage}
                             style={[
                               { width: '48.5%' },
-                              active && { backgroundColor: '#FF5F3B', borderColor: '#FF5F3B' },
+                              active && { backgroundColor: theme.tint, borderColor: theme.tint },
                             ]}
                             onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
                             className="py-3 px-3 rounded-xl border flex-row items-center justify-center gap-2 active:bg-theme-card bg-theme-bg border-theme-border shadow-sm"
@@ -1127,7 +1129,7 @@ export default function OnboardingWizard() {
                       className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                       style={
                         node.data?.selected === t('onboarding.toneEmpatheticShort')
-                          ? { borderColor: '#FF5F3B', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                           : undefined
                       }
                     >
@@ -1158,7 +1160,7 @@ export default function OnboardingWizard() {
                       className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                       style={
                         node.data?.selected === t('onboarding.toneStrictShort')
-                          ? { borderColor: '#FF5F3B', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                           : undefined
                       }
                     >
@@ -1189,7 +1191,7 @@ export default function OnboardingWizard() {
                       className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                       style={
                         node.data?.selected === t('onboarding.toneCheerleaderShort')
-                          ? { borderColor: '#FF5F3B', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                           : undefined
                       }
                     >
@@ -1237,20 +1239,20 @@ export default function OnboardingWizard() {
                           className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                           style={
                             selectedGender === opt.val
-                              ? { borderColor: '#FF5F3B', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                              ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                               : undefined
                           }
                         >
                           <View className="flex-row items-center">
-                            <View className="w-9 h-9 rounded-full bg-[#FF5F3B]/15 items-center justify-center mr-3">
-                              <Ionicons name={opt.icon as any} size={18} color="#FF5F3B" />
+                            <View className="w-9 h-9 rounded-full bg-theme-accent/15 items-center justify-center mr-3">
+                              <Ionicons name={opt.icon as any} size={18} color={theme.tint} />
                             </View>
                             <View className="flex-1">
                               <Text className="text-theme-text font-bold text-xs">{opt.label}</Text>
                               <Text className="text-theme-muted text-xs mt-0.5">{opt.desc}</Text>
                             </View>
                             {selectedGender === opt.val && (
-                              <Ionicons name="checkmark-circle" size={18} color="#FF5F3B" />
+                              <Ionicons name="checkmark-circle" size={18} color={theme.tint} />
                             )}
                           </View>
                         </Pressable>
@@ -1277,7 +1279,7 @@ export default function OnboardingWizard() {
                       value={athleteContext}
                       onChangeText={handleAthleteContextChange}
                       placeholder={t('onboarding.contextPlaceholder')}
-                      placeholderTextColor="#8E8E93"
+                      placeholderTextColor={theme.textSecondary}
                       className="p-4 bg-theme-bg border border-theme-border rounded-xl text-theme-text text-xs min-h-[90px]"
                       style={{ textAlignVertical: 'top' }}
                     />
@@ -1294,11 +1296,11 @@ export default function OnboardingWizard() {
                         <TextInput
                           editable={!isStreamingMessage}
                           placeholder="35"
-                          placeholderTextColor="#8E8E93"
+                          placeholderTextColor={theme.textSecondary}
                           value={age}
                           onChangeText={(v) => setAge(v.replace(/[^0-9]/g, '').slice(0, 3))}
                           keyboardType="number-pad"
-                          style={{ color: '#FF5F3B' }}
+                          style={{ color: theme.tint }}
                           className="w-16 p-2.5 bg-theme-card border border-theme-border rounded-lg text-sm font-bold text-center"
                         />
                         <Text className="text-theme-muted text-sm">
@@ -1322,7 +1324,7 @@ export default function OnboardingWizard() {
                           <TextInput
                             editable={!isStreamingMessage}
                             placeholder={t('onboarding.baselinePlaceholderLabel')}
-                            placeholderTextColor="#8E8E93"
+                            placeholderTextColor={theme.textSecondary}
                             value={item.label}
                             onChangeText={(val) => {
                               const updated = [...metrics];
@@ -1334,7 +1336,7 @@ export default function OnboardingWizard() {
                           <TextInput
                             editable={!isStreamingMessage}
                             placeholder={t('onboarding.baselinePlaceholderValue')}
-                            placeholderTextColor="#8E8E93"
+                            placeholderTextColor={theme.textSecondary}
                             value={item.value}
                             onChangeText={(val) => {
                               const updated = [...metrics];
@@ -1348,9 +1350,9 @@ export default function OnboardingWizard() {
                       <Pressable
                         disabled={isStreamingMessage}
                         onPress={addMetricRow}
-                        className="py-1.5 items-center bg-[#FF5F3B]/10 border border-[#FF5F3B]/30 rounded-lg mt-1"
+                        className="py-1.5 items-center bg-theme-accent/10 border border-theme-accent/30 rounded-lg mt-1"
                       >
-                        <Text className="text-[#FF5F3B] text-xs font-bold">{t('onboarding.addMetric')}</Text>
+                        <Text className="text-theme-accent text-xs font-bold">{t('onboarding.addMetric')}</Text>
                       </Pressable>
                     </View>
 
@@ -1362,7 +1364,7 @@ export default function OnboardingWizard() {
                       <TextInput
                         editable={!isStreamingMessage}
                         placeholder={t('onboarding.raceNamePlaceholder')}
-                        placeholderTextColor="#8E8E93"
+                        placeholderTextColor={theme.textSecondary}
                         value={raceName}
                         onChangeText={handleRaceNameChange}
                         className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
@@ -1379,14 +1381,14 @@ export default function OnboardingWizard() {
                         <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
                           {raceDate || t('onboarding.raceDatePlaceholder')}
                         </Text>
-                        <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
+                        <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
                       </Pressable>
                     </View>
 
                     <Pressable
                       disabled={isStreamingMessage}
                       onPress={handleConfirmContextAndEvent}
-                      className="w-full py-3 bg-[#FF5F3B] rounded-xl items-center justify-center shadow-md"
+                      className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center shadow-md"
                     >
                       <Text className="text-white font-bold text-xs">
                         {isCompleted ? t('onboarding.updateContextEventBtn') : t('onboarding.confirmContextEventBtn')}
@@ -1437,7 +1439,7 @@ export default function OnboardingWizard() {
                     <Pressable
                       disabled={isStreamingMessage}
                       onPress={handleConfirmScheduleChoice}
-                      className="w-full py-3 bg-[#FF5F3B] rounded-xl items-center justify-center shadow-md mt-2"
+                      className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center shadow-md mt-2"
                     >
                       <Text className="text-white font-bold text-xs">
                         {isCompleted ? t('onboarding.updateScheduleBtn') : t('onboarding.confirmScheduleBtn')}
@@ -1486,7 +1488,7 @@ export default function OnboardingWizard() {
                           onValueChange={(val) => {
                             setShowGarmin(val);
                           }}
-                          trackColor={{ false: '#3A3A3C', true: '#FF5F3B' }}
+                          trackColor={{ false: '#3A3A3C', true: theme.tint }}
                         />
                       </View>
 
@@ -1520,7 +1522,7 @@ export default function OnboardingWizard() {
                           <TextInput
                             editable={!isStreamingMessage && !isSavingGarmin}
                             placeholder={t('onboarding.garminUserPlaceholder')}
-                            placeholderTextColor="#8E8E93"
+                            placeholderTextColor={theme.textSecondary}
                             value={garminEmail}
                             onChangeText={(text) => {
                               setGarminEmail(text);
@@ -1534,7 +1536,7 @@ export default function OnboardingWizard() {
                           <TextInput
                             editable={!isStreamingMessage && !isSavingGarmin}
                             placeholder={t('onboarding.garminPassPlaceholder')}
-                            placeholderTextColor="#8E8E93"
+                            placeholderTextColor={theme.textSecondary}
                             secureTextEntry
                             value={garminPassword}
                             onChangeText={(text) => {
@@ -1607,7 +1609,7 @@ export default function OnboardingWizard() {
                               className="bg-theme-card border border-theme-border px-2.5 py-1.5 rounded-lg flex-row items-center gap-1"
                             >
                               {isConnectingStrava ? (
-                                <ActivityIndicator size="small" color="#8E8E93" />
+                                <ActivityIndicator size="small" color={theme.textSecondary} />
                               ) : (
                                 <Text className="text-theme-muted text-xs font-semibold">
                                   {t('onboarding.stravaReconnectBtn')}
@@ -1659,7 +1661,7 @@ export default function OnboardingWizard() {
                     <Pressable
                       disabled={isStreamingMessage || isSavingGarmin || isConnectingStrava}
                       onPress={handleConfirmIntegrationsChoice}
-                      className="w-full py-3 bg-[#FF5F3B] rounded-xl items-center justify-center shadow-md mt-2"
+                      className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center shadow-md mt-2"
                     >
                       <Text className="text-white font-bold text-xs">
                         {isCompleted ? t('onboarding.updateIntegrationsBtn') : t('onboarding.confirmIntegrationsBtn')}
@@ -1673,7 +1675,7 @@ export default function OnboardingWizard() {
                 return (
                   <View key={node.id} className="bg-theme-card border border-theme-border rounded-2xl p-5 mb-6 gap-4 shadow-sm">
                     <View className="items-center my-1">
-                      <View className="w-12 h-12 rounded-2xl bg-[#FF5F3B] items-center justify-center mb-2 shadow-lg">
+                      <View className="w-12 h-12 rounded-2xl bg-theme-accent items-center justify-center mb-2 shadow-lg">
                         <Ionicons name="flash" size={24} color="#FFFFFF" />
                       </View>
                       <Text className="text-theme-text font-extrabold text-lg text-center">{t('onboarding.paywallTitle')}</Text>
@@ -1689,15 +1691,15 @@ export default function OnboardingWizard() {
                         className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
                         style={
                           selectedPlan === 'annual'
-                            ? { borderColor: '#FF5F3B', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                            ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                             : undefined
                         }
                       >
-                        <View className="self-start px-2 py-0.5 bg-[#FF5F3B] rounded-full mb-1.5">
+                        <View className="self-start px-2 py-0.5 bg-theme-accent rounded-full mb-1.5">
                           <Text className="text-white font-bold text-xs">{t('onboarding.savePercent')}</Text>
                         </View>
                         <Text className="text-theme-text font-bold text-sm">{t('onboarding.annual')}</Text>
-                        <Text className="text-[#FF5F3B] font-bold text-lg mt-0.5">
+                        <Text className="text-theme-accent font-bold text-lg mt-0.5">
                           {t('onboarding.annualPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.annualPeriod')}</Text>
                         </Text>
                         <Text className="text-theme-muted text-xs mt-0.5">{t('onboarding.annualBilled')}</Text>
@@ -1708,7 +1710,7 @@ export default function OnboardingWizard() {
                         className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
                         style={
                           selectedPlan === 'monthly'
-                            ? { borderColor: '#FF5F3B', backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                            ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
                             : undefined
                         }
                       >
@@ -1729,7 +1731,7 @@ export default function OnboardingWizard() {
                         t('onboarding.feat4'),
                       ].map((feat, idx) => (
                         <View key={idx} className="flex-row items-center gap-2">
-                          <Ionicons name="checkmark-circle" size={16} color="#FF5F3B" />
+                          <Ionicons name="checkmark-circle" size={16} color={theme.tint} />
                           <Text className="text-theme-text text-xs flex-1">{feat}</Text>
                         </View>
                       ))}
@@ -1739,7 +1741,7 @@ export default function OnboardingWizard() {
                       <Pressable
                         onPress={() => handleCompleteSetup(true)}
                         disabled={isSubmitting}
-                        className="w-full py-4 rounded-xl bg-[#FF5F3B] items-center justify-center shadow-lg"
+                        className="w-full py-4 rounded-xl bg-theme-accent items-center justify-center shadow-lg"
                       >
                         {isSubmitting ? (
                           <ActivityIndicator color="white" />

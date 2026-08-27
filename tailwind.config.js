@@ -46,7 +46,7 @@ module.exports = {
           DEFAULT: '#FF5F3B',
           deep: '#E8481F',
           ink: '#1B1B1F',
-          accent: 'var(--accent)',
+          accent: 'rgb(var(--accent) / <alpha-value>)',
         },
         neutral: {
           50: '#F7F7F9',
@@ -86,14 +86,19 @@ module.exports = {
           yoga: 'var(--sport-yoga)',
           walk: 'var(--sport-walk)',
         },
+        // Channel triplets + <alpha-value> so opacity modifiers work. With a
+        // plain `var(--x)` holding a hex, Tailwind silently emits NO rule for
+        // `bg-theme-accent/20` -- 223 such classes across 50 files were dead,
+        // which is why translucent accent surfaces never appeared and
+        // `border-theme-border/50` fell back to React Native's default black.
         theme: {
-          bg: 'var(--bg-main)',
-          card: 'var(--bg-card)',
-          border: 'var(--border-color)',
-          text: 'var(--text-main)',
-          muted: 'var(--text-muted)',
-          accent: 'var(--accent)',
-          'accent-hover': 'var(--accent-hover)',
+          bg: 'rgb(var(--bg-main) / <alpha-value>)',
+          card: 'rgb(var(--bg-card) / <alpha-value>)',
+          border: 'rgb(var(--border-color) / <alpha-value>)',
+          text: 'rgb(var(--text-main) / <alpha-value>)',
+          muted: 'rgb(var(--text-muted) / <alpha-value>)',
+          accent: 'rgb(var(--accent) / <alpha-value>)',
+          'accent-hover': 'rgb(var(--accent-hover) / <alpha-value>)',
           'accent-soft': 'var(--accent-soft)',
           'accent-border': 'var(--accent-border)'
         },

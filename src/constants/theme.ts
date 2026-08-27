@@ -30,57 +30,81 @@ export const SemanticColors = {
   info: { main: '#3B82F6', bg: '#E8F0FE', text: '#123E80' },
 } as const;
 
+/**
+ * Sport hues, one value per theme.
+ *
+ * The dark values are the light ones mixed ~23% toward white, which is the
+ * ratio the original hand-picked pairs already used - a sport keeps its
+ * identity on a dark card without glowing. Read these through `sportColor()`
+ * rather than indexing directly, so an unknown sport falls back sensibly.
+ *
+ * This replaced four separate copies of the same palette (utils/sportIcons,
+ * SideBySideWeekBar, MicroPlanAgendaCard, coach.tsx), three of which held only
+ * the light values - which is why sport colours never changed in dark mode.
+ */
 export const SportColors = {
   light: {
-    SWIM: { color: '#2E8FE0', darkText: '#04263F' },
-    BIKE: { color: '#4CAF6D', darkText: '#0E3A20' },
-    RIDE: { color: '#4CAF6D', darkText: '#0E3A20' },
-    RUN: { color: '#D9A62E', darkText: '#4A3705' },
-    CARDIO: { color: '#E0625A', darkText: '#4A1D19' },
-    HIIT: { color: '#E0625A', darkText: '#4A1D19' },
-    STRENGTH: { color: '#B36AE0', darkText: '#3A1A4A' },
-    YOGA: { color: '#2EBFAF', darkText: '#053E38' },
-    MOBILITY: { color: '#2EBFAF', darkText: '#053E38' },
-    WALK: { color: '#8FA82E', darkText: '#2C3705' },
-    HIKE: { color: '#8FA82E', darkText: '#2C3705' },
-    REST: { color: '#6F6F79', darkText: '#1B1B1F' },
+    SWIM: '#2E8FE0', BIKE: '#4CAF6D', RIDE: '#4CAF6D', RUN: '#D9A62E',
+    CARDIO: '#E0625A', HIIT: '#E0625A', STRENGTH: '#B36AE0', YOGA: '#2EBFAF',
+    MOBILITY: '#2EBFAF', WALK: '#8FA82E', HIKE: '#8FA82E', REST: '#6F6F79',
+    ROWING: '#0284C7', WINTER: '#38BDF8', RACQUET: '#84CC16', SOCCER: '#10B981',
+    BASKETBALL: '#FF5F3B', GOLF: '#22C55E', COMBAT: '#EF4444', FITNESS: '#F43F5E',
+    DEFAULT: '#FF5F3B',
   },
   dark: {
-    SWIM: { color: '#5BA8E8', darkText: '#04263F' },
-    BIKE: { color: '#6FC48A', darkText: '#0E3A20' },
-    RIDE: { color: '#6FC48A', darkText: '#0E3A20' },
-    RUN: { color: '#E0B94F', darkText: '#4A3705' },
-    CARDIO: { color: '#E8837C', darkText: '#4A1D19' },
-    HIIT: { color: '#E8837C', darkText: '#4A1D19' },
-    STRENGTH: { color: '#C48AEA', darkText: '#3A1A4A' },
-    YOGA: { color: '#4FD1C0', darkText: '#053E38' },
-    MOBILITY: { color: '#4FD1C0', darkText: '#053E38' },
-    WALK: { color: '#A8C24F', darkText: '#2C3705' },
-    HIKE: { color: '#A8C24F', darkText: '#2C3705' },
-    REST: { color: '#9A9AA2', darkText: '#F5F5F7' },
+    SWIM: '#5BA8E8', BIKE: '#6FC48A', RIDE: '#6FC48A', RUN: '#E0B94F',
+    CARDIO: '#E8837C', HIIT: '#E8837C', STRENGTH: '#C48AEA', YOGA: '#4FD1C0',
+    MOBILITY: '#4FD1C0', WALK: '#A8C24F', HIKE: '#A8C24F', REST: '#9A9AA2',
+    ROWING: '#3CA0D4', WINTER: '#66CCFA', RACQUET: '#A0D84B', SOCCER: '#47C99E',
+    BASKETBALL: '#FF8468', GOLF: '#55D283', COMBAT: '#F36F6F', FITNESS: '#F76B83',
+    DEFAULT: '#FF6B45',
   },
 } as const;
 
+export type SportKey = keyof typeof SportColors.light;
+
+/** The hue for a sport in the given theme; unknown sports get the accent. */
+export function sportColor(
+  sport: string | undefined,
+  scheme: 'light' | 'dark' = 'light',
+): string {
+  const key = String(sport || '').toUpperCase() as SportKey;
+  return SportColors[scheme][key] ?? SportColors[scheme].DEFAULT;
+}
+
+/**
+ * The runtime half of the palette.
+ *
+ * These MUST match the CSS custom properties in `src/global.css`, which is
+ * what every `theme-*` Tailwind class resolves to. Anything with a className
+ * reads global.css; anything setting a prop (icon `color`, placeholderTextColor)
+ * reads this. When the two disagree the same "muted" text is two different
+ * greys depending on how it happened to be written -- which is exactly what
+ * this file previously did, holding a warm neutral set while global.css held
+ * Tailwind's slate.
+ *
+ * global.css is the source of truth. Change it there, mirror it here.
+ */
 export const Colors = {
   light: {
-    text: '#1B1B1F',
-    textSecondary: '#6F6F79',
-    background: '#F7F7F9',
-    card: '#FFFFFF',
-    border: '#DEDEE3',
-    tint: '#FF5F3B',
-    backgroundElement: '#EAEAED',
-    backgroundSelected: '#DEDEE3',
+    text: '#0F172A',               // --text-main
+    textSecondary: '#64748B',      // --text-muted
+    background: '#F8FAFC',         // --bg-main
+    card: '#FFFFFF',               // --bg-card
+    border: '#E2E8F0',             // --border-color
+    tint: '#FF5F3B',               // --accent
+    backgroundElement: '#F1F5F9',  // --gray-100
+    backgroundSelected: '#E2E8F0', // --gray-200
   },
   dark: {
-    text: '#F5F5F7',
-    textSecondary: '#9A9AA2',
-    background: '#17171A',
-    card: '#212226',
-    border: '#2D2E33',
-    tint: '#FF6B45',
-    backgroundElement: '#212226',
-    backgroundSelected: '#2D2E33',
+    text: '#F8FAFC',
+    textSecondary: '#94A3B8',
+    background: '#0F172A',
+    card: '#1E293B',
+    border: '#334155',
+    tint: '#FF5F3B',
+    backgroundElement: '#1E293B',
+    backgroundSelected: '#334155',
   },
 } as const;
 

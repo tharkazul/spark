@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -26,6 +27,7 @@ interface FeedDayGroup {
 }
 
 export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onOpenAthleteProfile }) => {
+    const theme = useTheme();
   const [loading, setLoading] = useState<boolean>(true);
   const [feedItems, setFeedItems] = useState<SocialFeedActivity[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -153,7 +155,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
   if (loading && feedItems.length === 0 && pendingRequests.length === 0) {
     return (
       <View className="items-center justify-center p-8">
-        <ActivityIndicator size="large" color="#FF5F3B" />
+        <ActivityIndicator size="large" color={theme.tint} />
         <Text className="text-xs font-bold text-theme-muted mt-3">Loading social feed...</Text>
       </View>
     );
@@ -165,7 +167,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
       {pendingRequests.length > 0 && (
         <View className="bg-theme-accent/10 border border-theme-accent/30 rounded-2xl p-3.5 mb-3">
           <View className="flex-row items-center space-x-2 mb-2.5">
-            <Ionicons name="person-add" size={16} color="#FF5F3B" />
+            <Ionicons name="person-add" size={16} color={theme.tint} />
             <Text className="text-xs font-extrabold text-theme-accent">
               Friend Requests ({pendingRequests.length})
             </Text>
@@ -203,7 +205,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
 
       {groupedFeed.length === 0 ? (
         <View className="items-center justify-center p-8 bg-theme-card border border-theme-border/60 rounded-2xl my-2">
-          <Ionicons name="people-outline" size={36} color="#8E8E93" style={{ marginBottom: 8 }} />
+          <Ionicons name="people-outline" size={36} color={theme.textSecondary} style={{ marginBottom: 8 }} />
           <Text className="text-sm font-bold text-theme-text text-center">No Recent Activity</Text>
           <Text className="text-xs text-theme-muted text-center mt-1 px-4 leading-relaxed">
             No activity from your connections yet. Tap the + icon at the top right to find and add athlete friends!
@@ -263,7 +265,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                 </TouchableOpacity>
 
                 <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
-                  <Ionicons name="flash" size={11} color="#FF5F3B" />
+                  <Ionicons name="flash" size={11} color={theme.tint} />
                   <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">
                     +{group.totalRooka} Rooka
                   </Text>
@@ -292,7 +294,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                         {primaryActivity.name || primaryActivity.title || 'Workout'}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
+                    <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
                   </View>
 
                   <View className="flex-row items-center space-x-4 pt-1.5 border-t border-slate-200/50 dark:border-slate-800/50">
@@ -341,7 +343,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                           <Text className="text-xs font-extrabold font-rajdhani text-theme-accent">
                             +{Math.round(act.rooka_score || 0)}
                           </Text>
-                          <Ionicons name="chevron-forward" size={13} color="#94A3B8" />
+                          <Ionicons name="chevron-forward" size={13} color={theme.textSecondary} />
                         </View>
                       </TouchableOpacity>
                     );
@@ -371,7 +373,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                   onPress={() => onOpenActivityModal && onOpenActivityModal(primaryActivity.id, primaryActivity)}
                   className="flex-row items-center space-x-1.5 px-3 py-1.5 rounded-full bg-theme-bg"
                 >
-                  <Ionicons name="chatbubble-outline" size={15} color="#6F6F79" />
+                  <Ionicons name="chatbubble-outline" size={15} color={theme.textSecondary} />
                   <Text className="text-xs font-bold text-theme-muted">{totalComments} Comments</Text>
                 </TouchableOpacity>
               </View>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   Modal,
   View,
@@ -301,6 +302,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
   onClose,
   onOpenAthleteProfile,
 }) => {
+    const theme = useTheme();
   const { user } = useUser();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -738,7 +740,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                 rotateEnabled={true}
                 pitchEnabled={true}
               >
-                <Polyline coordinates={coordinates} strokeColor="#FF5F3B" strokeWidth={4.5} />
+                <Polyline coordinates={coordinates} strokeColor={theme.tint} strokeWidth={4.5} />
                 {startPt && <Marker coordinate={startPt} title="Start" pinColor="green" />}
                 {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
               </MapView>
@@ -786,13 +788,13 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                 size={16}
                 color="#3B82F6"
               />
-              <Text className="text-sm font-semibold text-[#64748B] dark:text-slate-400">
+              <Text className="text-sm font-semibold text-theme-muted dark:text-slate-400">
                 {formatActivityDate(activity?.start_date)}
               </Text>
             </View>
 
             {/* 3. FULL-WIDTH PROGRESS-STYLE SUB-TAB SWITCHER (Sliding Orange Pill) */}
-            <View className="relative flex-row bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-1 overflow-hidden border border-[#E2E8F0] dark:border-slate-800 mb-6">
+            <View className="relative flex-row bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-1 overflow-hidden border border-theme-border dark:border-slate-800 mb-6">
               <Animated.View
                 className="absolute top-1 bottom-1 bg-theme-accent rounded-xl"
                 style={{
@@ -860,7 +862,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
             {/* PAGE 1: DETAILS */}
             <View style={{ width: SCREEN_WIDTH }} className="px-6 space-y-5">
               {/* Device Info Row */}
-              <View className="pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
+              <View className="pb-3 border-b border-theme-border dark:border-slate-800">
                 <View className="flex-row items-center gap-2.5">
                   <Ionicons name="watch-outline" size={17} color={isDark ? '#94A3B8' : '#64748B'} />
                   <Text className="text-sm font-semibold text-theme-text">Apple Watch</Text>
@@ -873,7 +875,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                 <View className="flex-row justify-between items-center">
                   {/* Distance */}
                   <View className="w-1/3">
-                    <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
+                    <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                       Distance
                     </Text>
                     <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
@@ -883,7 +885,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
                   {/* Pace / Speed */}
                   <View className="w-1/3 items-center">
-                    <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
+                    <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                       {isCycling ? 'Avg Speed' : isSwim ? 'Avg Pace' : 'Avg Pace'}
                     </Text>
                     <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
@@ -897,7 +899,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
                   {/* Power or Heart Rate */}
                   <View className="w-1/3 items-end">
-                    <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
+                    <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                       {avgHeartRate ? 'Avg HR' : 'Avg Power'}
                     </Text>
                     <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
@@ -906,13 +908,13 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                   </View>
                 </View>
 
-                <View className="h-px bg-[#E2E8F0] dark:bg-slate-800" />
+                <View className="h-px bg-theme-border dark:bg-slate-800" />
 
                 {/* Row 2 */}
                 <View className="flex-row justify-between items-center">
                   {/* Moving Time */}
                   <View className="w-1/3">
-                    <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
+                    <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                       Moving Time
                     </Text>
                     <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
@@ -922,7 +924,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
                   {/* Elevation Gain */}
                   <View className="w-1/3 items-center">
-                    <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
+                    <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                       Elevation Gain
                     </Text>
                     <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
@@ -932,7 +934,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
                   {/* Calories */}
                   <View className="w-1/3 items-end">
-                    <Text className="text-xs font-semibold text-[#94A3B8] dark:text-[#A1A1AA]">
+                    <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                       Calories
                     </Text>
                     <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
@@ -946,7 +948,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
               <View className="flex-row justify-between items-center bg-slate-100 dark:bg-slate-800/60 rounded-2xl p-4 mt-2">
                 <View className="flex-row items-center gap-3">
                   <View className="flex-row items-center gap-1.5">
-                    <Ionicons name="sparkles" size={16} color="#FF5F3B" />
+                    <Ionicons name="sparkles" size={16} color={theme.tint} />
                     <Text className="text-sm font-bold text-theme-text font-mono">
                       +{rookaScore} Rooka
                     </Text>
@@ -976,7 +978,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
               {/* Comments Section */}
               <View className="mt-2 space-y-2">
-                <Text className="text-xs font-extrabold text-[#64748B]">
+                <Text className="text-xs font-extrabold text-theme-muted">
                   Comments ({comments.length})
                 </Text>
                 {comments.map((c) => (
@@ -990,7 +992,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     </View>
                     {c.user_id === user?.id && (
                       <TouchableOpacity onPress={() => handleDeleteComment(c.id)}>
-                        <Ionicons name="trash-outline" size={13} color="#94A3B8" />
+                        <Ionicons name="trash-outline" size={13} color={theme.textSecondary} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -1003,9 +1005,9 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
             <View style={{ width: SCREEN_WIDTH }} className="px-6 space-y-4">
               {/* BEST EFFORTS & MILESTONES TABLE */}
               {setsOrEfforts.length > 0 && (
-                <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4">
+                <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-4">
                   <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-xs font-extrabold text-[#64748B]">
+                    <Text className="text-xs font-extrabold text-theme-muted">
                       {hasMilestones ? 'Best Efforts & Milestones' : 'Strength Sets Breakdown'}
                     </Text>
                     <Text className="text-xs font-bold text-theme-accent">
@@ -1016,7 +1018,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                   {setsOrEfforts.map((item, idx) => (
                     <View
                       key={`effort-${idx}`}
-                      className="flex-row justify-between items-center bg-[#F8FAFC] dark:bg-slate-800/40 p-3 rounded-xl mb-2 border border-[#F1F5F9] dark:border-slate-800/60"
+                      className="flex-row justify-between items-center bg-theme-bg dark:bg-slate-800/40 p-3 rounded-xl mb-2 border border-theme-border dark:border-slate-800/60"
                     >
                       <View className="flex-row items-center flex-1 pr-2">
                         <View
@@ -1058,7 +1060,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                             {formatEffortDuration(item.timeSec)}
                           </Text>
                           {item.paceOrSpeed ? (
-                            <Text className="text-xs font-medium font-mono text-[#64748B] dark:text-slate-400">
+                            <Text className="text-xs font-medium font-mono text-theme-muted dark:text-slate-400">
                               {item.paceOrSpeed}
                             </Text>
                           ) : null}
@@ -1076,9 +1078,9 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
               {/* LAP SPLITS TABLE */}
               {laps.length > 0 && (
-                <View className="bg-theme-card border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-4">
+                <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-4">
                   <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-xs font-extrabold text-[#64748B]">
+                    <Text className="text-xs font-extrabold text-theme-muted">
                       {isCycling ? 'Speed by Lap' : 'Lap Splits Table'} ({laps.length})
                     </Text>
                     {laps.length > 5 && (
@@ -1095,19 +1097,19 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                         <Ionicons
                           name={isLapsExpanded ? 'chevron-up' : 'chevron-down'}
                           size={14}
-                          color="#FF5F3B"
+                          color={theme.tint}
                         />
                       </TouchableOpacity>
                     )}
                   </View>
 
-                  <View className="flex-row justify-between pb-2 border-b border-[#E2E8F0] dark:border-slate-800 px-1 mb-1">
-                    <Text className="text-xs font-semibold text-[#94A3B8] w-12">Lap</Text>
-                    <Text className="text-xs font-semibold text-[#94A3B8] w-20">Dist</Text>
-                    <Text className="text-xs font-semibold text-[#94A3B8] flex-1">
+                  <View className="flex-row justify-between pb-2 border-b border-theme-border dark:border-slate-800 px-1 mb-1">
+                    <Text className="text-xs font-semibold text-theme-muted w-12">Lap</Text>
+                    <Text className="text-xs font-semibold text-theme-muted w-20">Dist</Text>
+                    <Text className="text-xs font-semibold text-theme-muted flex-1">
                       {isCycling ? 'Speed' : isSwim ? 'Pace' : 'Pace'}
                     </Text>
-                    <Text className="text-xs font-semibold text-[#94A3B8] w-16 text-right">Avg HR</Text>
+                    <Text className="text-xs font-semibold text-theme-muted w-16 text-right">Avg HR</Text>
                   </View>
 
                   {(isLapsExpanded ? laps : laps.slice(0, 5)).map((lap, idx) => (
@@ -1115,7 +1117,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                       key={`lap-${lap.lap_index}`}
                       className={`flex-row justify-between items-center py-2.5 px-1 ${
                         idx !== (isLapsExpanded ? laps.length : 5) - 1
-                          ? 'border-b border-[#F1F5F9] dark:border-slate-800/60'
+                          ? 'border-b border-theme-border dark:border-slate-800/60'
                           : ''
                       }`}
                     >
@@ -1125,12 +1127,12 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                       <Text className="text-xs font-semibold font-mono text-theme-text w-20">
                         {lap.distance_km.toFixed(2)} km
                       </Text>
-                      <Text className="text-xs font-medium font-mono text-[#64748B] dark:text-slate-400 flex-1">
+                      <Text className="text-xs font-medium font-mono text-theme-muted dark:text-slate-400 flex-1">
                         {lap.split_pace || `${Math.round(lap.elapsed_time_min)} min`}
                       </Text>
                       <Text
                         className={`text-xs font-medium font-mono w-16 text-right ${
-                          lap.average_heartrate ? 'text-rose-500' : 'text-[#94A3B8]'
+                          lap.average_heartrate ? 'text-rose-500' : 'text-theme-muted'
                         }`}
                       >
                         {lap.average_heartrate ? `${Math.round(lap.average_heartrate)} bpm` : '--'}

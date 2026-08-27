@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -41,6 +42,7 @@ export function calculateTargetCTL(eventName: string): number {
 }
 
 export const GoalsTab: React.FC = () => {
+    const theme = useTheme();
   const { user, refreshUser } = useUser();
 
   const [guideExpanded, setGuideExpanded] = useState(false);
@@ -192,7 +194,7 @@ export const GoalsTab: React.FC = () => {
             onPress={handleAddMilestone}
             className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
           >
-            <Ionicons name="add" size={14} color="#FF5F3B" />
+            <Ionicons name="add" size={14} color={theme.tint} />
             <Text className="text-theme-accent font-bold text-xs ml-1">+ Add Race</Text>
           </TouchableOpacity>
         </View>
@@ -204,7 +206,7 @@ export const GoalsTab: React.FC = () => {
           className="p-3 bg-theme-bg rounded-xl mb-4 flex-row items-center justify-between"
         >
           <View className="flex-row items-center flex-1 pr-2">
-            <Ionicons name="information-circle-outline" size={18} color="#FF5F3B" />
+            <Ionicons name="information-circle-outline" size={18} color={theme.tint} />
             <Text className="text-theme-text font-bold text-xs ml-2">
               CTL Target Reference Guide
             </Text>
@@ -212,7 +214,7 @@ export const GoalsTab: React.FC = () => {
           <Ionicons
             name={guideExpanded ? 'chevron-up' : 'chevron-down'}
             size={18}
-            color="#8E8E93"
+            color={theme.textSecondary}
           />
         </TouchableOpacity>
 
@@ -253,7 +255,7 @@ export const GoalsTab: React.FC = () => {
         {/* MILESTONES LIST */}
         {milestones.length === 0 ? (
           <View className="p-4 bg-theme-bg/60 rounded-xl items-center justify-center my-2">
-            <Ionicons name="flag-outline" size={24} color="#8E8E93" />
+            <Ionicons name="flag-outline" size={24} color={theme.textSecondary} />
             <Text className="text-theme-text font-bold text-xs mt-2 text-center">
               No upcoming races or milestones set
             </Text>
@@ -308,7 +310,7 @@ export const GoalsTab: React.FC = () => {
                         value={row.eventName}
                         onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
                         placeholder="e.g. 5K park run, Amsterdam Marathon..."
-                        placeholderTextColor="#8E8E93"
+                        placeholderTextColor={theme.textSecondary}
                         className="bg-theme-card rounded-xl p-3 text-xs text-theme-text font-bold"
                       />
                     </View>
@@ -332,7 +334,7 @@ export const GoalsTab: React.FC = () => {
                           >
                             {formatDateDisplay(row.eventDate)}
                           </Text>
-                          <Ionicons name="calendar-outline" size={15} color="#FF5F3B" />
+                          <Ionicons name="calendar-outline" size={15} color={theme.tint} />
                         </TouchableOpacity>
                       </View>
                     </View>

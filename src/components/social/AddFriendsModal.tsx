@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   Modal,
   View,
@@ -39,6 +40,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   onConnectionsUpdated,
   onOpenAthleteProfile,
 }) => {
+    const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const { dragY, panHandlers } = useSheetDismiss(onClose);
   const [searching, setSearching] = useState(false);
@@ -199,7 +201,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
           <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/50">
             <View className="flex-row items-center space-x-2">
               <View className="w-8 h-8 rounded-full bg-theme-accent/15 items-center justify-center">
-                <Ionicons name="person-add" size={16} color="#FF5F3B" />
+                <Ionicons name="person-add" size={16} color={theme.tint} />
               </View>
               <Text className="text-lg font-extrabold text-theme-text">Find & Add Friends</Text>
             </View>
@@ -219,23 +221,23 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             </View>
 
             <View className="flex-row items-center bg-theme-bg border border-theme-border/80 rounded-xl px-3 py-2 mb-4">
-              <Ionicons name="search" size={18} color="#8E8E93" />
+              <Ionicons name="search" size={18} color={theme.textSecondary} />
               <TextInput
                 value={searchQuery}
                 onChangeText={handleQueryChange}
                 onSubmitEditing={() => executeSearch(searchQuery.trim())}
                 returnKeyType="search"
                 placeholder="Start typing username..."
-                placeholderTextColor="#8E8E93"
+                placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
                 className="flex-1 text-sm font-semibold text-theme-text py-1 ml-2"
               />
               {searching ? (
-                <ActivityIndicator size="small" color="#FF5F3B" className="mr-1" />
+                <ActivityIndicator size="small" color={theme.tint} className="mr-1" />
               ) : searchQuery.length > 0 ? (
                 <TouchableOpacity onPress={() => handleQueryChange('')} className="mr-1">
-                  <Ionicons name="close-circle" size={18} color="#8E8E93" />
+                  <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
                 </TouchableOpacity>
               ) : null}
             </View>

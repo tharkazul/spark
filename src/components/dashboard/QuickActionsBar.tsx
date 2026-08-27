@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -15,6 +16,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
   onLogWeight,
   onNiggleCheck,
 }) => {
+    const theme = useTheme();
   return (
     <View className="mb-4">
       <Text className="text-xs font-bold text-theme-muted mb-2 px-1">
@@ -25,7 +27,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
           onPress={onLogActivity}
           className="flex-1 bg-theme-card rounded-xl p-2.5 items-center justify-center shadow-sm active:bg-theme-accent/10"
         >
-          <Ionicons name="add-circle-outline" size={18} color="#FF5F3B" />
+          <Ionicons name="add-circle-outline" size={18} color={theme.tint} />
           <Text className="text-xs font-bold text-theme-text mt-1 text-center" numberOfLines={1}>
             + Activity
           </Text>

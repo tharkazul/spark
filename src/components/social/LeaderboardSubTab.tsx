@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator, Animated, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -55,10 +56,10 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
   return (
     <View
       style={{ height: LEADERBOARD_SWITCHER_HEIGHT }}
-      className="relative flex-row bg-[#F1F5F9] dark:bg-slate-800 rounded-xl p-1 overflow-hidden border border-[#E2E8F0] dark:border-slate-700"
+      className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden border border-theme-border dark:border-slate-700"
     >
       <Animated.View
-        className="absolute top-1 bottom-1 bg-[#FF5F3B] rounded-lg shadow-xs"
+        className="absolute top-1 bottom-1 bg-theme-accent rounded-lg shadow-xs"
         style={{
           left: 4,
           width: subSegmentWidth,
@@ -79,7 +80,7 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
           </Animated.Text>
           <Animated.Text
             style={{ opacity: track(0, 1) }}
-            className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
+            className="text-xs font-extrabold text-theme-muted dark:text-slate-400"
           >
             ⚡️ Rooka Score
           </Animated.Text>
@@ -99,7 +100,7 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
           </Animated.Text>
           <Animated.Text
             style={{ opacity: track(1, 0) }}
-            className="text-xs font-extrabold text-[#64748B] dark:text-slate-400"
+            className="text-xs font-extrabold text-theme-muted dark:text-slate-400"
           >
             🏆 7-Day Quests
           </Animated.Text>
@@ -137,6 +138,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   onOpenAthleteProfile,
   showSwitcher = true,
 }) => {
+    const theme = useTheme();
   const { user } = useUser();
   const router = useRouter();
 
@@ -195,7 +197,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   if (!hasAccess) {
     return (
       <View className="bg-theme-card border border-theme-border rounded-2xl p-6 items-center justify-center mt-4 shadow-sm">
-        <Ionicons name="lock-closed-outline" size={48} color="#FF5F3B" />
+        <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
         <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Leaderboard Locked</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed">
           Upgrade to the Rooka+ subscription to unlock global leaderboards and rank against your friends.
@@ -225,7 +227,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
       {/* Leaderboard Ranks List */}
       {loading ? (
         <View className="items-center justify-center p-8">
-          <ActivityIndicator size="large" color="#FF5F3B" />
+          <ActivityIndicator size="large" color={theme.tint} />
           <Text className="text-xs font-bold text-theme-muted mt-3">Fetching leaderboard rankings...</Text>
         </View>
       ) : (

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, LayoutAnimation } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { TouchableOpacity } from 'react-native-gesture-handler';
@@ -53,6 +54,7 @@ const StepCardComponent = ({
   onRemoveSub,
   onAddSubStep,
 }: StepCardProps) => {
+    const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const { colorScheme } = useColorScheme();
 
@@ -266,7 +268,7 @@ const StepCardComponent = ({
               }}
               className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-theme-bg"
             >
-              <Ionicons name="close" size={16} color="#94A3B8" />
+              <Ionicons name="close" size={16} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -301,7 +303,7 @@ const StepCardComponent = ({
                     updateFn('exerciseName', text);
                   }}
                   placeholder="Exercise name (e.g. Core Plank / Squats)"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={theme.textSecondary}
                   style={{ color: inputTextColor }}
                   className="w-full h-9 bg-slate-50 dark:bg-theme-bg/70 border border-slate-200 dark:border-theme-border/60 rounded-xl px-3 text-xs font-bold"
                 />
@@ -324,7 +326,7 @@ const StepCardComponent = ({
                     <Text className="text-xs font-extrabold text-slate-500 dark:text-theme-muted uppercase">
                       {unitDisplay}
                     </Text>
-                    <Ionicons name="chevron-down" size={10} color="#64748B" style={{ marginLeft: 2 }} />
+                    <Ionicons name="chevron-down" size={10} color={theme.textSecondary} style={{ marginLeft: 2 }} />
                   </TouchableOpacity>
                 </View>
 
@@ -349,7 +351,7 @@ const StepCardComponent = ({
                   <Ionicons
                     name={isExpanded ? 'chevron-up' : 'chevron-down'}
                     size={13}
-                    color="#64748B"
+                    color={theme.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
@@ -461,7 +463,7 @@ const StepCardComponent = ({
                               ? '200'
                               : getPacePlaceholder(sport)
                           }
-                          placeholderTextColor="#94A3B8"
+                          placeholderTextColor={theme.textSecondary}
                           style={{ color: inputTextColor }}
                           className="flex-1 h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 text-xs font-extrabold"
                         />
@@ -506,7 +508,7 @@ const StepCardComponent = ({
                   onPress={() => onAddSubStep(step.id, 'interval')}
                   className="py-1.5 px-3 bg-slate-100 dark:bg-theme-bg/60 border border-dashed border-slate-300 dark:border-theme-border rounded-xl flex-row items-center justify-center gap-1 self-start mt-1"
                 >
-                  <Ionicons name="add" size={14} color="#64748B" />
+                  <Ionicons name="add" size={14} color={theme.textSecondary} />
                   <Text className="text-xs font-bold text-slate-600 dark:text-theme-muted">
                     + Sub-step
                   </Text>

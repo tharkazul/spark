@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Card } from './ui/Card';
@@ -25,6 +26,7 @@ const GENDER_OPTIONS = [
 ];
 
 export const CoachPersonaSettings: React.FC = () => {
+    const theme = useTheme();
   const { user, refreshUser, updateUser } = useUser();
 
   const [selectedTone, setSelectedTone] = useState<string>('Empathetic but demanding elite endurance coach.');
@@ -117,7 +119,7 @@ export const CoachPersonaSettings: React.FC = () => {
   return (
     <Card className="p-4 mb-6 space-y-4">
       <View className="flex-row items-center pb-3 mb-2">
-        <Ionicons name="sparkles" size={20} color="#FF5F3B" />
+        <Ionicons name="sparkles" size={20} color={theme.tint} />
         <Text className="text-base font-bold text-theme-text ml-2">Coach Persona & Settings</Text>
       </View>
 
@@ -185,7 +187,7 @@ export const CoachPersonaSettings: React.FC = () => {
             <TextInput
               className="bg-theme-card rounded-xl p-3 text-theme-text text-sm"
               placeholder="Coach Name: XXX"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.textSecondary}
               value={coachName}
               onChangeText={setCoachName}
             />
@@ -196,7 +198,7 @@ export const CoachPersonaSettings: React.FC = () => {
             <TextInput
               className="bg-theme-card rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
               placeholder="Coach Context: XXX"
-              placeholderTextColor="#8E8E93"
+              placeholderTextColor={theme.textSecondary}
               value={coachContext}
               onChangeText={setCoachContext}
               multiline
@@ -224,7 +226,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   {user?.coach_avatar_neutral ? (
                     <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_neutral)! }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   ) : (
-                    <Ionicons name="camera-outline" size={20} color="#8E8E93" />
+                    <Ionicons name="camera-outline" size={20} color={theme.textSecondary} />
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -248,7 +250,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   {user?.coach_avatar_hype ? (
                     <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_hype)! }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   ) : (
-                    <Ionicons name="flame-outline" size={20} color="#8E8E93" />
+                    <Ionicons name="flame-outline" size={20} color={theme.textSecondary} />
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -272,7 +274,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   {user?.coach_avatar_disappointed ? (
                     <Image source={{ uri: getFullAvatarUrl(user.coach_avatar_disappointed)! }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                   ) : (
-                    <Ionicons name="sad-outline" size={20} color="#8E8E93" />
+                    <Ionicons name="sad-outline" size={20} color={theme.textSecondary} />
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -340,7 +342,7 @@ export const CoachPersonaSettings: React.FC = () => {
         <TextInput
           className="bg-theme-card rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
           placeholder="e.g. Training for marathon, has 2 kids..."
-          placeholderTextColor="#8E8E93"
+          placeholderTextColor={theme.textSecondary}
           value={athleteContext}
           onChangeText={setAthleteContext}
           multiline

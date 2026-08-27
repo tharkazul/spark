@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
@@ -47,7 +49,7 @@ function formatDuration(minutes?: number): string {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-function getSportVisuals(sportType?: string, name?: string) {
+function getSportVisuals(sportType?: string, name?: string, accent = Colors.light.tint) {
   const sport = (sportType || '').toLowerCase();
   const n = (name || '').toLowerCase();
 
@@ -60,7 +62,7 @@ function getSportVisuals(sportType?: string, name?: string) {
   ) {
     return {
       icon: 'bicycle-outline' as const,
-      color: '#FF5F3B',
+      color: accent,
       label: 'Cycle',
     };
   }
@@ -110,7 +112,7 @@ function getSportVisuals(sportType?: string, name?: string) {
   // Default: Running / Workout
   return {
     icon: 'walk-outline' as const,
-    color: '#FF5F3B',
+    color: accent,
     label: 'Ran',
   };
 }
@@ -208,6 +210,7 @@ function calculateRealStreak(activities: Activity[]): number {
 }
 
 export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal }) => {
+  const theme = useTheme();
   const { user } = useUser();
   const { activities, loading } = useActivities();
   const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
@@ -267,10 +270,10 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               setIsQuestModalOpen(true);
             }}
             activeOpacity={0.8}
-            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs"
+            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs"
           >
             <View>
-              <Text className="text-xs font-semibold text-[#64748B] dark:text-[#A1A1AA]">
+              <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                 Active Quest
               </Text>
               <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
@@ -293,9 +296,9 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
           </TouchableOpacity>
 
           {/* CARD 2: REAL STREAK */}
-          <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs">
+          <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs">
             <View>
-              <Text className="text-xs font-semibold text-[#64748B] dark:text-[#A1A1AA]">
+              <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                 Streak
               </Text>
               <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
@@ -312,7 +315,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               <CircularProgressChamber
                 progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
                 icon="flame"
-                iconColor="#FF5F3B"
+                iconColor={theme.tint}
               />
             </View>
           </View>
@@ -332,20 +335,20 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
         {/* Activity List Items */}
         {loading && activities.length === 0 ? (
-          <View className="items-center justify-center p-8 bg-theme-card/80 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[24px]">
-            <ActivityIndicator size="large" color="#FF5F3B" />
-            <Text className="text-xs font-bold text-[#64748B] mt-3">Loading activities...</Text>
+          <View className="items-center justify-center p-8 bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[24px]">
+            <ActivityIndicator size="large" color={theme.tint} />
+            <Text className="text-xs font-bold text-theme-muted mt-3">Loading activities...</Text>
           </View>
         ) : activities.length === 0 ? (
-          <View className="p-8 items-center justify-center bg-theme-card/80 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[24px]">
-            <Ionicons name="fitness-outline" size={32} color="#94A3B8" />
-            <Text className="text-sm font-semibold text-[#64748B] mt-2">No activity history recorded yet.</Text>
+          <View className="p-8 items-center justify-center bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[24px]">
+            <Ionicons name="fitness-outline" size={32} color={theme.textSecondary} />
+            <Text className="text-sm font-semibold text-theme-muted mt-2">No activity history recorded yet.</Text>
           </View>
         ) : (
           <View className="space-y-2.5">
             {activities.map((act) => {
               const idStr = String(act.id);
-              const visuals = getSportVisuals(act.sport_type, act.name);
+              const visuals = getSportVisuals(act.sport_type, act.name, theme.tint);
               const dateStr = formatHumanizedDate(act.start_date);
               const hasDistance = typeof act.distance_km === 'number' && act.distance_km > 0;
               const primaryStat = hasDistance
@@ -360,7 +363,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                   key={`act-${idStr}`}
                   onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
                   activeOpacity={0.75}
-                  className="bg-theme-card/90 dark:bg-white/[0.06] border border-[#E2E8F0] dark:border-white/[0.1] rounded-[24px] p-3.5 flex-row items-center justify-between mb-2.5 shadow-xs"
+                  className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[24px] p-3.5 flex-row items-center justify-between mb-2.5 shadow-xs"
                 >
                   {/* Left: Circular Icon & Titles */}
                   <View className="flex-row items-center flex-1 pr-3">
@@ -372,7 +375,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                       <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
                         {act.name || visuals.label}
                       </Text>
-                      <Text className="text-xs font-medium text-[#64748B] dark:text-slate-400 mt-0.5">
+                      <Text className="text-xs font-medium text-theme-muted dark:text-slate-400 mt-0.5">
                         {dateStr}
                       </Text>
                     </View>
@@ -383,7 +386,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                     <Text className="text-base font-extrabold text-theme-text font-mono">
                       {primaryStat}
                     </Text>
-                    <Text className="text-xs font-medium text-[#64748B] dark:text-slate-400 font-mono mt-0.5">
+                    <Text className="text-xs font-medium text-theme-muted dark:text-slate-400 font-mono mt-0.5">
                       {secondaryStat}
                     </Text>
                   </View>
@@ -404,7 +407,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
             <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color="#FF5F3B" />
+              <Ionicons name="trophy" size={26} color={theme.tint} />
             </View>
             <View>
               <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
@@ -450,10 +453,10 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
           >
             {questActionLoading ? (
-              <ActivityIndicator size="small" color="#FF5F3B" />
+              <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <>
-                <Ionicons name="refresh-outline" size={16} color="#6F6F79" />
+                <Ionicons name="refresh-outline" size={16} color={theme.textSecondary} />
                 <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
               </>
             )}

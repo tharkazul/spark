@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -40,6 +41,7 @@ export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account';
 const TABS: ProfileSubTab[] = ['profile', 'goals', 'connections', 'account'];
 
 export default function ProfileScreen() {
+    const theme = useTheme();
   const { user, logout, refreshUser } = useUser();
   const { t } = useLanguage();
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
@@ -277,7 +279,7 @@ export default function ProfileScreen() {
       onPress={onPress}
       className="flex-row items-center py-4 border-b border-theme-border"
     >
-      <Ionicons name={icon} size={22} color="#8E8E93" className="mr-4" />
+      <Ionicons name={icon} size={22} color={theme.textSecondary} className="mr-4" />
       <Text className="text-theme-text text-base flex-1 ml-3">{title}</Text>
       {value}
     </TouchableOpacity>
@@ -443,7 +445,7 @@ export default function ProfileScreen() {
 
             <View className="flex-row items-center justify-between mb-4">
               <View className="flex-row items-center">
-                <Ionicons name="watch-outline" size={24} color="#FF5F3B" />
+                <Ionicons name="watch-outline" size={24} color={theme.tint} />
                 <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
               </View>
             </View>
@@ -489,7 +491,7 @@ export default function ProfileScreen() {
                   <TextInput
                     className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
                     placeholder="email@example.com"
-                    placeholderTextColor="#8E8E93"
+                    placeholderTextColor={theme.textSecondary}
                     value={garminUser}
                     onChangeText={setGarminUser}
                     autoCapitalize="none"
@@ -502,7 +504,7 @@ export default function ProfileScreen() {
                   <TextInput
                     className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
                     placeholder="••••••••"
-                    placeholderTextColor="#8E8E93"
+                    placeholderTextColor={theme.textSecondary}
                     value={garminPass}
                     onChangeText={setGarminPass}
                     secureTextEntry

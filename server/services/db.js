@@ -48,6 +48,14 @@ db.serialize(() => {
     (err) => {},
   );
   db.run(
+    `ALTER TABLE users ADD COLUMN daily_image_count INTEGER DEFAULT 0`,
+    (err) => {},
+  );
+  db.run(
+    `ALTER TABLE users ADD COLUMN last_image_reset_date TEXT`,
+    (err) => {},
+  );
+  db.run(
     `ALTER TABLE chat_history ADD COLUMN payload_json TEXT`,
     (err) => {},
   );

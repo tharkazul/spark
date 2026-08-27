@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import {
   Modal,
   View,
@@ -39,6 +40,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
   onClose,
   onOpenActivityModal,
 }) => {
+    const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user: currentUser } = useUser();
   const { activities: currentActivities } = useActivities();
@@ -186,7 +188,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
 
         {loading ? (
           <View className="flex-1 items-center justify-center p-8">
-            <ActivityIndicator size="large" color="#FF5F3B" />
+            <ActivityIndicator size="large" color={theme.tint} />
             <Text className="text-xs font-bold text-theme-muted mt-3">Loading athlete profile...</Text>
           </View>
         ) : error || !profile ? (
@@ -329,7 +331,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
               <View className="flex-row items-center justify-between mb-2">
                 <View className="flex-row items-center space-x-2">
                   <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-                    <Ionicons name="flash" size={18} color="#FF5F3B" />
+                    <Ionicons name="flash" size={18} color={theme.tint} />
                   </View>
                   <View className="flex-row items-baseline space-x-1.5">
                     <Text className="text-xs font-bold text-theme-muted uppercase">
@@ -386,7 +388,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                 </>
               ) : (
                 <View className="items-center justify-center py-10 px-6">
-                  <Ionicons name="analytics-outline" size={34} color="#94A3B8" />
+                  <Ionicons name="analytics-outline" size={34} color={theme.textSecondary} />
                   <Text className="text-theme-text font-bold text-base mt-3 text-center">
                     No sessions yet
                   </Text>
@@ -401,7 +403,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
             {hasActivities && (
               <Card className="mb-4 bg-theme-card p-4">
                 <View className="flex-row items-center space-x-2 mb-3 px-1">
-                  <Ionicons name="pulse-outline" size={16} color="#FF5F3B" />
+                  <Ionicons name="pulse-outline" size={16} color={theme.tint} />
                   <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
                     Performance Telemetry
                   </Text>
@@ -484,7 +486,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                     >
                       <View className="flex-row items-center space-x-3 flex-1 pr-2">
                         <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-                          <Ionicons name={sportIcon as any} size={20} color="#FF5F3B" />
+                          <Ionicons name={sportIcon as any} size={20} color={theme.tint} />
                         </View>
                         <View className="flex-1">
                           <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
@@ -504,7 +506,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
 
                       {act.rooka_score || act.spark_score ? (
                         <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
-                          <Ionicons name="flash" size={11} color="#FF5F3B" />
+                          <Ionicons name="flash" size={11} color={theme.tint} />
                           <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">
                             +{Math.round(act.rooka_score || act.spark_score || 0)}
                           </Text>
