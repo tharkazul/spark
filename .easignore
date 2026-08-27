@@ -1,0 +1,9 @@
+# Ignore local native directories so EAS Build runs `expo prebuild` in the cloud
+android/
+ios/
+
+# Standard ignores
+.git/
+node_modules/
+.expo/
+*.log
