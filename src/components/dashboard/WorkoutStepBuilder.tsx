@@ -73,7 +73,7 @@ const MemoizedHeader = React.memo(({
             <TouchableOpacity
               onPress={() => handleAddStep('warmup')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
               <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400">+ Warmup</Text>
             </TouchableOpacity>
@@ -81,7 +81,7 @@ const MemoizedHeader = React.memo(({
             <TouchableOpacity
               onPress={() => handleAddStep('interval')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
               <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">+ Interval</Text>
             </TouchableOpacity>
@@ -89,7 +89,7 @@ const MemoizedHeader = React.memo(({
             <TouchableOpacity
               onPress={() => handleAddStep('recovery')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
               <Text className="text-xs font-bold text-amber-600 dark:text-amber-400">+ Recovery</Text>
             </TouchableOpacity>
@@ -97,7 +97,7 @@ const MemoizedHeader = React.memo(({
             <TouchableOpacity
               onPress={() => handleAddStep('cooldown')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
               <Text className="text-xs font-bold text-purple-600 dark:text-purple-400">+ Cooldown</Text>
             </TouchableOpacity>
@@ -105,7 +105,7 @@ const MemoizedHeader = React.memo(({
             <TouchableOpacity
               onPress={handleAddRepeat}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-xl flex-row items-center gap-1.5 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1.5 shadow-xs"
             >
               <Ionicons name="repeat" size={13} color="#FF5F3B" />
               <Text className="text-xs font-bold text-theme-accent">Repeat</Text>
@@ -113,7 +113,7 @@ const MemoizedHeader = React.memo(({
           </View>
 
           {stepsLength === 0 && (
-            <View className="py-4 items-center justify-center border border-dashed border-theme-border/80 rounded-2xl bg-theme-card/50 mt-2">
+            <View className="py-4 items-center justify-center border border-dashed border-theme-border/80 rounded-tile bg-theme-card/50 mt-2">
               <Text className="text-xs text-theme-muted italic font-bold">
                 No structured interval steps. Tap above to add blocks.
               </Text>

@@ -199,14 +199,14 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
 
   if (!hasAccess) {
     return (
-      <View className="bg-theme-card border border-theme-border rounded-2xl p-6 items-center justify-center mt-4 shadow-sm">
+      <View className="bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center mt-4 shadow-sm">
         <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
         <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Leaderboard Locked</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed">
           Upgrade to the Rooka+ subscription to unlock global leaderboards and rank against your friends.
         </Text>
         <TouchableOpacity
-          onPress={() => presentPaywall()}
+          onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
           className="mt-6 bg-theme-accent px-6 py-3 rounded-full shadow-md"
         >
           <Text className="text-white font-extrabold text-center">Upgrade to Rooka+</Text>

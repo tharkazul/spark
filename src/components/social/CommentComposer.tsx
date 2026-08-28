@@ -110,7 +110,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
     <View className="relative z-50">
       {/* MENTION AUTOCOMPLETE POPUP */}
       {showMentionList && filteredConnections.length > 0 && (
-        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-2 shadow-lg max-h-48 z-50">
+        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-theme-border dark:border-slate-800 rounded-tile p-2 shadow-lg max-h-48 z-50">
           <Text className="text-xs font-extrabold text-theme-accent px-2 py-1">
             Mention Connection
           </Text>

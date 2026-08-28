@@ -75,6 +75,7 @@ function initWebSocketServer(httpServer) {
     });
 
     ws.on("message", (rawMessage) => {
+      ws.isAlive = true;
       try {
         const message = JSON.parse(rawMessage.toString());
         if (message.type === "auth" && message.token && message.token !== "null") {

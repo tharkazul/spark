@@ -24,7 +24,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
   const isRejected = status === 'rejected';
 
   return (
-    <View className="mt-3 p-4 rounded-xl bg-theme-card border border-theme-accent/40 shadow-sm">
+    <View className="mt-3 p-4 rounded-tile bg-theme-card border border-theme-accent/40 shadow-sm">
       <View className="flex-row items-center mb-3">
         <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center mr-2">
           <Ionicons name="calendar-outline" size={18} color={theme.tint} />

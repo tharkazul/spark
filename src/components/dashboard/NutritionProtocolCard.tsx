@@ -35,7 +35,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
   const hasLoggedFood = (nutrition.loggedCarbs || 0) > 0 || (nutrition.loggedProtein || 0) > 0 || (nutrition.loggedFat || 0) > 0;
 
   return (
-    <View className="mb-4 rounded-3xl bg-theme-card border border-theme-border shadow-sm overflow-hidden">
+    <View className="mb-4 rounded-card bg-theme-card border border-theme-border shadow-sm overflow-hidden">
       {/* Header Bar matching Quest Card header design */}
       <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/50 border-b border-theme-border/30">
         <View className="flex-row items-center gap-2.5">
@@ -100,7 +100,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
                 {loggedItems.map((item: any, idx: number) => (
                   <View
                     key={`${item.name || item}-${idx}`}
-                    className="flex-row items-center justify-between p-2.5 bg-theme-card rounded-xl border border-theme-border/40"
+                    className="flex-row items-center justify-between p-2.5 bg-theme-card rounded-tile border border-theme-border/40"
                   >
                     <Text className="text-xs font-bold text-theme-text">{typeof item === 'string' ? item : item.name}</Text>
                     {typeof item !== 'string' && item.calories && (

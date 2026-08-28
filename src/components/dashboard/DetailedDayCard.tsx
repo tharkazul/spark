@@ -204,7 +204,7 @@ export function DetailedDayCard({
                         e.stopPropagation();
                         onInvitePartner(workout);
                       }}
-                      className="flex-row items-center gap-1 px-2.5 py-1 bg-theme-card border border-theme-border rounded-lg"
+                      className="flex-row items-center gap-1 px-2.5 py-1 bg-theme-card border border-theme-border rounded-control"
                     >
                       <Ionicons name="person-add-outline" size={12} color={theme.textSecondary} />
                       <Text className="text-xs font-bold text-theme-muted">Invite</Text>

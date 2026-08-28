@@ -12,8 +12,15 @@
   --primary-glow: rgba(37, 99, 235, 0.35);
   --primary-subtle: rgba(37, 99, 235, 0.12);
 
-  --accent: #FF5733; /* Volt Coral */
-  --accent-glow: rgba(255, 87, 51, 0.35);
+  /* Volt Coral -- must stay identical to the app: src/global.css --accent and
+     tailwind.config.js brand.DEFAULT. The site used to declare #FF5733 under
+     this same name while 19 tints below derived from a third value (#FF5A1F).
+     Held as a channel triplet so every tint comes from one place. */
+  --accent-rgb: 255 95 59;
+  --accent: rgb(var(--accent-rgb));
+  --accent-deep: #E8481F;
+  --accent-light: #FF9E66;
+  --accent-glow: rgb(var(--accent-rgb) / 0.35);
 
   --cyan: #3B82F6;
   --cyan-glow: rgba(59, 130, 246, 0.3);
@@ -28,7 +35,7 @@
   --text-inverse: #080C14;
 
   --border: rgba(255, 255, 255, 0.08);
-  --border-active: rgba(255, 87, 51, 0.4);
+  --border-active: rgb(var(--accent-rgb) / 0.4);
   --border-card: rgba(255, 255, 255, 0.06);
 
   --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -128,7 +135,7 @@ h1, h2, h3, h4, .font-display {
 }
 
 .gradient-fire {
-  background: linear-gradient(135deg, #FF9E66 0%, var(--accent) 50%, #E63900 100%);
+  background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 50%, var(--accent-deep) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -183,13 +190,13 @@ h1, h2, h3, h4, .font-display {
 .btn-primary {
   background: linear-gradient(135deg, var(--primary) 0%, #E5450B 100%);
   color: #FFFFFF;
-  box-shadow: 0 6px 20px rgba(255, 90, 31, 0.4);
+  box-shadow: 0 6px 20px rgb(var(--accent-rgb) / 0.4);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #FF6F3B 0%, var(--primary) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
   transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(255, 90, 31, 0.55);
+  box-shadow: 0 10px 28px rgb(var(--accent-rgb) / 0.55);
 }
 
 .btn-secondary {
@@ -250,7 +257,7 @@ h1, h2, h3, h4, .font-display {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--primary) 0%, #FF2B00 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent-deep) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -258,7 +265,7 @@ h1, h2, h3, h4, .font-display {
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 800;
-  box-shadow: 0 4px 15px rgba(255, 90, 31, 0.4);
+  box-shadow: 0 4px 15px rgb(var(--accent-rgb) / 0.4);
 }
 
 .logo-text {
@@ -396,7 +403,7 @@ h1, h2, h3, h4, .font-display {
   border: 4px solid #1E293B;
   border-radius: 44px;
   padding: 20px 18px 24px;
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 90, 31, 0.2);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 35px rgb(var(--accent-rgb) / 0.2);
   position: relative;
   overflow: hidden;
 }
@@ -426,7 +433,7 @@ h1, h2, h3, h4, .font-display {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #FF5A1F, #FFB020);
+  background: linear-gradient(135deg, var(--accent), #FFB020);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -447,8 +454,8 @@ h1, h2, h3, h4, .font-display {
 }
 
 .recovery-gauge-card {
-  background: linear-gradient(135deg, rgba(255, 90, 31, 0.12) 0%, rgba(17, 24, 39, 0.8) 100%);
-  border: 1px solid rgba(255, 90, 31, 0.25);
+  background: linear-gradient(135deg, rgb(var(--accent-rgb) / 0.12) 0%, rgba(17, 24, 39, 0.8) 100%);
+  border: 1px solid rgb(var(--accent-rgb) / 0.25);
   border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 14px;
@@ -675,7 +682,7 @@ h1, h2, h3, h4, .font-display {
 
 .feature-card:hover {
   background: var(--bg-card-hover);
-  border-color: rgba(255, 90, 31, 0.3);
+  border-color: rgb(var(--accent-rgb) / 0.3);
   transform: translateY(-6px);
   box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7);
 }
@@ -761,7 +768,7 @@ h1, h2, h3, h4, .font-display {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
-  box-shadow: 0 4px 15px rgba(255, 90, 31, 0.4);
+  box-shadow: 0 4px 15px rgb(var(--accent-rgb) / 0.4);
 }
 
 .sim-chat-box {
@@ -788,8 +795,8 @@ h1, h2, h3, h4, .font-display {
 
 .sim-bubble-coach {
   align-self: flex-start;
-  background: linear-gradient(135deg, rgba(255, 90, 31, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
-  border: 1px solid rgba(255, 90, 31, 0.25);
+  background: linear-gradient(135deg, rgb(var(--accent-rgb) / 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgb(var(--accent-rgb) / 0.25);
   color: #F8FAFC;
   border-bottom-left-radius: 4px;
 }
@@ -837,15 +844,15 @@ h1, h2, h3, h4, .font-display {
 
 .comparison-table th.highlight-col {
   color: var(--primary);
-  background: rgba(255, 90, 31, 0.08);
-  border-left: 1px solid rgba(255, 90, 31, 0.2);
-  border-right: 1px solid rgba(255, 90, 31, 0.2);
+  background: rgb(var(--accent-rgb) / 0.08);
+  border-left: 1px solid rgb(var(--accent-rgb) / 0.2);
+  border-right: 1px solid rgb(var(--accent-rgb) / 0.2);
 }
 
 .comparison-table td.highlight-col {
-  background: rgba(255, 90, 31, 0.04);
-  border-left: 1px solid rgba(255, 90, 31, 0.15);
-  border-right: 1px solid rgba(255, 90, 31, 0.15);
+  background: rgb(var(--accent-rgb) / 0.04);
+  border-left: 1px solid rgb(var(--accent-rgb) / 0.15);
+  border-right: 1px solid rgb(var(--accent-rgb) / 0.15);
   font-weight: 600;
 }
 
@@ -860,14 +867,14 @@ h1, h2, h3, h4, .font-display {
 
 /* TestFlight CTA Section */
 .cta-box {
-  background: linear-gradient(135deg, rgba(255, 90, 31, 0.18) 0%, rgba(14, 22, 38, 0.95) 100%);
-  border: 1px solid rgba(255, 90, 31, 0.35);
+  background: linear-gradient(135deg, rgb(var(--accent-rgb) / 0.18) 0%, rgba(14, 22, 38, 0.95) 100%);
+  border: 1px solid rgb(var(--accent-rgb) / 0.35);
   border-radius: var(--radius-xl);
   padding: 60px 48px;
   text-align: center;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(255, 90, 31, 0.15);
+  box-shadow: 0 20px 60px rgb(var(--accent-rgb) / 0.15);
 }
 
 .cta-box h2 {

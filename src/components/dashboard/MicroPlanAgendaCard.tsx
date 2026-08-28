@@ -98,7 +98,7 @@ export function MicroPlanAgendaCard({
   };
 
   return (
-    <View className="p-0 overflow-hidden mb-8 rounded-3xl bg-theme-card/80 shadow-sm">
+    <View className="p-0 overflow-hidden mb-8 rounded-card bg-theme-card/80 shadow-sm">
       {/* Header & Week Navigator */}
       <View className="p-4 bg-theme-bg/40">
         <View className="flex-row items-center justify-between gap-2 mb-3">
@@ -289,7 +289,7 @@ export function MicroPlanAgendaCard({
                             }}
                             activeOpacity={0.75}
                             style={{ borderLeftColor: cfg.color }}
-                            className="p-3.5 rounded-xl border-l-4 bg-theme-card/80 flex-col gap-2 active:bg-theme-accent/5"
+                            className="p-3.5 rounded-tile border-l-4 bg-theme-card/80 flex-col gap-2 active:bg-theme-accent/5"
                           >
                             {/* Top Line: Discipline Tag & Rooka Score */}
                             <View className="flex-row items-center justify-between">

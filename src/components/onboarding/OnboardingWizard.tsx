@@ -918,6 +918,10 @@ export default function OnboardingWizard() {
         } catch (_) { }
       }
 
+      try {
+        await updateUser({ onboarding_completed: true } as any);
+      } catch (_) {}
+
       await refreshUser();
       router.replace('/(tabs)/coach');
     } catch (err: any) {
@@ -1122,7 +1126,7 @@ export default function OnboardingWizard() {
                 return (
                   <View
                     key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
                     style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                   >
                     <View className="flex-row items-center gap-2">
@@ -1154,7 +1158,7 @@ export default function OnboardingWizard() {
                               active && { backgroundColor: theme.tint, borderColor: theme.tint },
                             ]}
                             onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
-                            className="py-3 px-3 rounded-xl border flex-row items-center justify-center gap-2 active:bg-theme-card bg-theme-bg border-theme-border shadow-sm"
+                            className="py-3 px-3 rounded-control border flex-row items-center justify-center gap-2 active:bg-theme-card bg-theme-bg border-theme-border shadow-sm"
                           >
                             <Text className="text-base">{lang.flag}</Text>
                             <Text
@@ -1176,7 +1180,7 @@ export default function OnboardingWizard() {
                 return (
                   <View
                     key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
                     style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.chooseToneTitle')}</Text>
@@ -1282,7 +1286,7 @@ export default function OnboardingWizard() {
                 return (
                   <View
                     key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.genderTitle')}</Text>
                     <Text className="text-theme-muted text-xs">
@@ -1330,7 +1334,7 @@ export default function OnboardingWizard() {
                 return (
                   <View
                     key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-4 shadow-sm"
+                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-4 shadow-sm"
                     style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.contextTitle')}</Text>
@@ -1364,7 +1368,7 @@ export default function OnboardingWizard() {
                           onChangeText={(v) => setAge(v.replace(/[^0-9]/g, '').slice(0, 3))}
                           keyboardType="number-pad"
                           style={{ color: theme.tint }}
-                          className="w-16 p-2.5 bg-theme-card border border-theme-border rounded-lg text-sm font-bold text-center"
+                          className="w-16 p-2.5 bg-theme-card border border-theme-border rounded-control text-sm font-bold text-center"
                         />
                         <Text className="text-theme-muted text-sm">
                           {t('onboarding.ageYears')}
@@ -1394,7 +1398,7 @@ export default function OnboardingWizard() {
                               updated[idx].label = val;
                               setMetrics(updated);
                             }}
-                            className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                            className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
                           />
                           <TextInput
                             editable={!isStreamingMessage}
@@ -1406,7 +1410,7 @@ export default function OnboardingWizard() {
                               updated[idx].value = val;
                               setMetrics(updated);
                             }}
-                            className="w-24 p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                            className="w-24 p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
                           />
                         </View>
                       ))}
@@ -1430,7 +1434,7 @@ export default function OnboardingWizard() {
                         placeholderTextColor={theme.textSecondary}
                         value={raceName}
                         onChangeText={handleRaceNameChange}
-                        className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                        className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
                       />
                       {/* Target CTL is still derived from the event name and sent
                           to the backend on finalize — it just isn't shown. As a bare
@@ -1439,7 +1443,7 @@ export default function OnboardingWizard() {
                       <Pressable
                         disabled={isStreamingMessage}
                         onPress={openDatePickerModal}
-                        className="w-full p-2.5 bg-theme-card border border-theme-border rounded-lg flex-row items-center justify-between"
+                        className="w-full p-2.5 bg-theme-card border border-theme-border rounded-control flex-row items-center justify-between"
                       >
                         <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
                           {raceDate || t('onboarding.raceDatePlaceholder')}
@@ -1466,7 +1470,7 @@ export default function OnboardingWizard() {
                 return (
                   <View
                     key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
                     style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.scheduleTitle')}</Text>
@@ -1520,7 +1524,7 @@ export default function OnboardingWizard() {
                 return (
                   <View
                     key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-5 gap-3 shadow-sm"
+                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
                     style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.integrationsTitle')}</Text>
@@ -1594,7 +1598,7 @@ export default function OnboardingWizard() {
                               setGarminSaveSuccessMsg(null);
                             }}
                             autoCapitalize="none"
-                            className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                            className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
                           />
                           <TextInput
                             editable={!isStreamingMessage && !isSavingGarmin}
@@ -1609,7 +1613,7 @@ export default function OnboardingWizard() {
                               setGarminSaveSuccessMsg(null);
                             }}
                             autoCapitalize="none"
-                            className="p-2.5 bg-theme-card border border-theme-border rounded-lg text-theme-text text-xs"
+                            className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
                           />
 
                           {garminError && (
@@ -1669,7 +1673,7 @@ export default function OnboardingWizard() {
                             <Pressable
                               disabled={isStreamingMessage || isConnectingStrava}
                               onPress={handleConnectStravaOAuth}
-                              className="bg-theme-card border border-theme-border px-2.5 py-1.5 rounded-lg flex-row items-center gap-1"
+                              className="bg-theme-card border border-theme-border px-2.5 py-1.5 rounded-control flex-row items-center gap-1"
                             >
                               {isConnectingStrava ? (
                                 <ActivityIndicator size="small" color={theme.textSecondary} />
@@ -1682,7 +1686,7 @@ export default function OnboardingWizard() {
                             <Pressable
                               disabled={isStreamingMessage || isConnectingStrava}
                               onPress={handleDisconnectStrava}
-                              className="px-2 py-1.5 bg-theme-card border border-theme-border rounded-lg"
+                              className="px-2 py-1.5 bg-theme-card border border-theme-border rounded-control"
                             >
                               <Text className="text-red-400 font-medium text-xs">
                                 {t('onboarding.stravaDisconnectBtn')}
@@ -1736,7 +1740,7 @@ export default function OnboardingWizard() {
 
               if (node.type === 'card_paywall') {
                 return (
-                  <View key={node.id} className="bg-theme-card border border-theme-border rounded-2xl p-5 mb-6 gap-4 shadow-sm">
+                  <View key={node.id} className="bg-theme-card border border-theme-border rounded-card p-5 mb-6 gap-4 shadow-sm">
                     <View className="items-center my-1">
                       <View className="w-12 h-12 rounded-2xl bg-theme-accent items-center justify-center mb-2 shadow-lg">
                         <Ionicons name="flash" size={24} color="#FFFFFF" />

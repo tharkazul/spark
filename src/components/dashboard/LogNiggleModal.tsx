@@ -240,7 +240,7 @@ export function LogNiggleModal({
                 paddingBottom: Math.max(insets.bottom, 20),
               },
             ]}
-            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl flex-col max-h-[85%]"
+            className="w-full bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col max-h-[85%]"
           >
             {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
             <View {...panHandlers} className="items-center pb-3 pt-1">

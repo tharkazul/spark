@@ -446,7 +446,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
 
               {/* What they pay under it — server-computed, same as the paywall */}
               {discountPricing ? (
-                <View className="flex-row justify-between p-3 bg-theme-card rounded-xl mb-2">
+                <View className="flex-row justify-between p-3 bg-theme-card rounded-tile mb-2">
                   <View>
                     <Text className="text-[10px] font-bold text-theme-muted uppercase">Monthly</Text>
                     <View className="flex-row items-baseline gap-1.5">

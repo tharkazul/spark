@@ -28,7 +28,7 @@ export function MacroPeriodizationCard({ info }: MacroPeriodizationCardProps) {
         </View>
 
         {/* Days Countdown Badge */}
-        <View className="bg-theme-card px-2.5 py-1 rounded-lg">
+        <View className="bg-theme-card px-2.5 py-1 rounded-control">
           <Text className="text-xs font-mono font-extrabold text-theme-accent">
             {info.daysRemaining} Days to {info.raceTargetName}
           </Text>

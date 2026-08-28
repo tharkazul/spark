@@ -126,7 +126,7 @@ export function LogActivityModal({
                 transform: [{ translateY: Animated.add(slideAnim, dragY) }],
                 paddingBottom: Math.max(insets.bottom, 24),
               }}
-              className="bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl flex-col"
+              className="bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col"
             >
               {/* TOP PULL HANDLE INDICATOR */}
               <View {...panHandlers} className="items-center pb-4 pt-1">

@@ -185,7 +185,7 @@ export const CoachPersonaSettings: React.FC = () => {
           <View>
             <Text className="text-xs font-bold text-theme-muted mb-1">Coach Name</Text>
             <TextInput
-              className="bg-theme-card rounded-xl p-3 text-theme-text text-sm"
+              className="bg-theme-card rounded-control p-3 text-theme-text text-sm"
               placeholder="Coach Name: XXX"
               placeholderTextColor={theme.textSecondary}
               value={coachName}
@@ -196,7 +196,7 @@ export const CoachPersonaSettings: React.FC = () => {
           <View className="mt-2">
             <Text className="text-xs font-bold text-theme-muted mb-1">Coach Context</Text>
             <TextInput
-              className="bg-theme-card rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
+              className="bg-theme-card rounded-control p-3 text-theme-text text-sm min-h-[70px]"
               placeholder="Coach Context: XXX"
               placeholderTextColor={theme.textSecondary}
               value={coachContext}
@@ -340,7 +340,7 @@ export const CoachPersonaSettings: React.FC = () => {
           Athlete Background Context
         </Text>
         <TextInput
-          className="bg-theme-card rounded-xl p-3 text-theme-text text-sm min-h-[70px]"
+          className="bg-theme-card rounded-control p-3 text-theme-text text-sm min-h-[70px]"
           placeholder="e.g. Training for marathon, has 2 kids..."
           placeholderTextColor={theme.textSecondary}
           value={athleteContext}

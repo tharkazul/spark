@@ -482,7 +482,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                           onOpenActivityModal(act.id, act);
                         }
                       }}
-                      className="bg-theme-card border border-theme-border rounded-2xl p-4 mb-2.5 flex-row items-center justify-between shadow-xs"
+                      className="bg-theme-card border border-theme-border rounded-tile p-4 mb-2.5 flex-row items-center justify-between shadow-xs"
                     >
                       <View className="flex-row items-center space-x-3 flex-1 pr-2">
                         <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">

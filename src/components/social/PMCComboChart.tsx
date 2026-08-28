@@ -62,7 +62,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
 
   if (historySlice.length === 0) {
     return (
-      <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-5 items-center justify-center min-h-[180px]">
+      <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-5 items-center justify-center min-h-[180px]">
         <Ionicons name="stats-chart-outline" size={32} color={theme.textSecondary} />
         <Text className="text-sm font-semibold text-theme-muted mt-2">No Training Load Data Available</Text>
       </View>
@@ -120,7 +120,7 @@ export const PMCComboChart: React.FC<PMCComboChartProps> = ({
   const endDateLabel = formatDateLabel(historySlice[historySlice.length - 1]?.date);
 
   return (
-    <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-4 mb-4">
+    <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-4 mb-4">
       {/* Header with Title and Range Selector */}
       <View className="flex-row justify-between items-center mb-3">
         <View className="flex-row items-center space-x-1.5">

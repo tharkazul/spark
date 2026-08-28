@@ -55,7 +55,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
   };
 
   return (
-    <View className="my-3 bg-theme-card/90 border border-theme-border rounded-2xl p-4 shadow-sm">
+    <View className="my-3 bg-theme-card/90 border border-theme-border rounded-tile p-4 shadow-sm">
       <View className="flex-row items-center gap-3 mb-3">
         <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center">
           <Ionicons name={getSportIcon(payload.sport)} size={20} color={theme.tint} />

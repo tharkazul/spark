@@ -41,10 +41,33 @@ module.exports = {
         '3xl':  ['34px', { lineHeight: '38px' }],
         '4xl':  ['40px', { lineHeight: '44px' }],
       },
+      // Card corners used to be whatever the file reached for: the `Card`
+      // primitive said 24px while ~15 hand-rolled surfaces said 16px, 20 said
+      // 8px, and two said 26px -- so a card corner depended on which file you
+      // opened. These three are the whole vocabulary now. Roles, not sizes, so
+      // the value can move without a find-and-replace:
+      //   card    -- a top-level surface, full width, sits on the canvas
+      //   tile    -- a grid tile, chat card, or anything nested inside a card
+      //   control -- input, button, chip, segmented-control track
+      // Pills and avatars keep `rounded-full`; those aren't corners.
+      borderRadius: {
+        card: '24px',
+        tile: '16px',
+        control: '12px',
+      },
       colors: {
+        // The brand orange, and the only oranges. There were 8 near-identical
+        // values in circulation (#FF5733 #FF5A1F #FF6B35 #FF6F3B #FF8554
+        // #FF2B00 #E63900 + this one) because each surface picked its own --
+        // the marketing site even declared #FF5733 as "Volt Coral" while the
+        // app declared #FF5F3B under the same name. Third-party brand colors
+        // (Strava #FC4C02, Garmin #007CC3, Apple #FF2D55) are deliberately NOT
+        // in this scale; they belong to someone else and must not be unified.
         brand: {
-          DEFAULT: '#FF5F3B',
-          deep: '#E8481F',
+          DEFAULT: '#FF5F3B',  // canonical accent, light mode
+          dark: '#FF6B45',     // accent on dark canvas (was also #FF6B35)
+          deep: '#E8481F',     // pressed / deepest stop (was also #FF2B00, #E63900)
+          light: '#FF9E66',    // tint, gradient head
           ink: '#1B1B1F',
           accent: 'rgb(var(--accent) / <alpha-value>)',
         },

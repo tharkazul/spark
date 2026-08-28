@@ -5,9 +5,7 @@ const fs = require("fs");
 const multer = require("multer");
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
-const { getRookaLevelInfo } = require("../services/utils");
-const athleteZones = require("../services/athleteZones");
-const zoneModel = require("../services/zones");
+const { getSparkLevelInfo } = require("../services/utils");
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -53,6 +51,24 @@ router.post("/api/settings/privacy", authenticateToken, (req, res) => {
   );
 });
 
+router.post("/api/notifications/register-push-token", authenticateToken, (req, res) => {
+  const { pushToken, platform } = req.body;
+  if (!pushToken) return res.status(400).json({ error: "Missing pushToken" });
+
+  db.run(
+    `INSERT INTO push_tokens (user_id, push_token, platform) VALUES (?, ?, ?)
+     ON CONFLICT(push_token) DO UPDATE SET user_id = excluded.user_id, platform = excluded.platform`,
+    [req.user.id, pushToken, platform || 'expo'],
+    function (err) {
+      if (err) {
+        console.error("Push token save error:", err);
+        return res.status(500).json({ error: "DB_ERROR" });
+      }
+      res.json({ success: true });
+    }
+  );
+});
+
 router.post(
   "/api/settings/profile-picture",
   authenticateToken,
@@ -70,8 +86,7 @@ router.post(
           console.error(err);
           return res.status(500).json({ error: "DB_ERROR" });
         }
-        db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [req.user.id]);
-        res.json({ success: true, url, profile_picture_url: url });
+        res.json({ success: true, url });
       },
     );
   },
@@ -116,272 +131,145 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, coach_avatar_horny, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
-      if (err) {
-        console.error("Failed to load user settings:", err.message);
-        return res.status(500).json({ error: "Failed to load profile" });
-      }
-      // Never invent a profile for a missing account: the client uses a
-      // successful response here as proof the session is still valid, so a
-      // fabricated row keeps deleted accounts looking signed in.
-      if (!row) {
-        return res
-          .status(401)
-          .json({ error: "Account no longer exists", code: "ACCOUNT_DELETED" });
-      }
+      if (err || !row) return res.status(500).json({ error: "DB Error" });
       let availability = {};
       if (row.training_availability) {
         try {
           availability = JSON.parse(row.training_availability);
         } catch (e) {}
       }
-      const rookaLevelInfo = getRookaLevelInfo(row.total_rooka);
+      const sparkLevelInfo = getSparkLevelInfo(row.total_spark);
       
       const { getEffectiveTokenLimit, getAMSDateString } = require('../services/utils');
       const currentLimit = getEffectiveTokenLimit(row);
       const todayStr = getAMSDateString();
       const dailyUsage = (row.last_token_reset_date === todayStr) ? (row.daily_token_usage || 0) : 0;
 
-      const isCompleted = row.onboarding_completed === 1;
-
-      db.get(
-        `SELECT name, date, target_ctl FROM milestones WHERE user_id = ? AND is_main = 1 LIMIT 1`,
-        [req.user.id],
-        async (mErr, milestoneRow) => {
-          // Scoring is zone-weighted, so an athlete with no zone table cannot be
-          // scored properly. Accounts that predate zones have none, and there is
-          // nothing to derive them from without an age — so the app is told to
-          // walk them back through onboarding.
-          let needsZoneSetup = true;
-          try {
-            const resolved = await athleteZones.resolveZonesForUser(req.user.id, 'default');
-            needsZoneSetup = !resolved.hrZones && !resolved.powerZones;
-          } catch (_) {}
-
-          res.json({
-            needsZoneSetup,
-            id: row.id,
-            username: row.username,
-            email: row.email || null,
-            hasStrava: !!row.strava_refresh_token,
-            hasGarmin: !!row.garmin_username,
-            garminUsername: row.garmin_username,
-            coachTone: row.coach_tone,
-            coachName: row.coach_name || 'Rooka',
-            coachContext: row.coach_context || '',
-            coachAvatarNeutral: row.coach_avatar_neutral || null,
-            coachAvatarHype: row.coach_avatar_hype || null,
-            coachAvatarDisappointed: row.coach_avatar_disappointed || null,
-            athleteContext: row.athlete_context,
-            gender: row.gender,
-            cycleTrackingEnabled: row.cycle_tracking_enabled !== 0,
-            cycle_tracking_enabled: row.cycle_tracking_enabled !== 0,
-            lastCycleStart: row.last_cycle_start,
-            averageCycleLength: row.average_cycle_length || 28,
-            searchPrivacy: row.search_privacy === 1,
-            profilePictureUrl: row.profile_picture_url,
-            trainingAvailability: availability,
-            rookaLevel: rookaLevelInfo,
-            total_rooka: row.total_rooka || 0,
-            totalRooka: row.total_rooka || 0,
-            dailyTokenUsage: dailyUsage,
-            daily_token_usage: dailyUsage,
-            dailyTokenLimit: currentLimit,
-            daily_token_limit: currentLimit,
-            subscriptionTier: row.subscription_tier || 'free',
-            subscription_tier: row.subscription_tier || 'free',
-            target_event: milestoneRow ? milestoneRow.name : undefined,
-            event_date: milestoneRow ? milestoneRow.date : undefined,
-            target_ctl: milestoneRow ? milestoneRow.target_ctl : undefined,
-            onboardingCompleted: isCompleted,
-            onboarding_completed: isCompleted,
-          });
-        }
-      );
+      res.json({
+        id: row.id,
+        username: row.username,
+        email: row.email,
+        hasStrava: !!row.strava_refresh_token,
+        hasGarmin: !!row.garmin_username,
+        garminUsername: row.garmin_username,
+        coachTone: row.coach_tone,
+        coachName: row.coach_name || 'Spark',
+        coachContext: row.coach_context || '',
+        coachAvatarNeutral: row.coach_avatar_neutral || null,
+        coachAvatarHype: row.coach_avatar_hype || null,
+        coachAvatarDisappointed: row.coach_avatar_disappointed || null,
+        coachAvatarHorny: row.coach_avatar_horny || null,
+        athleteContext: row.athlete_context,
+        gender: row.gender,
+        language: row.language || 'en',
+        lastCycleStart: row.last_cycle_start,
+        averageCycleLength: row.average_cycle_length || 28,
+        searchPrivacy: row.search_privacy === 1,
+        profilePictureUrl: row.profile_picture_url,
+        trainingAvailability: availability,
+        sparkLevel: sparkLevelInfo,
+        dailyTokenUsage: dailyUsage,
+        dailyTokenLimit: currentLimit,
+        subscriptionTier: row.subscription_tier || 'free',
+        subscription_tier: row.subscription_tier || 'free',
+      });
     },
   );
 });
 
-// --- TRAINING ZONES -------------------------------------------------------
-
-// Every table the athlete has, plus what the defaults were derived from.
-router.get("/api/user/zones", authenticateToken, async (req, res) => {
-  try {
-    const sport = req.query.sport || "default";
-    const resolved = await athleteZones.resolveZonesForUser(req.user.id, sport);
-    db.all(
-      `SELECT sport, kind, zones_json, source, updated_at FROM athlete_zones WHERE user_id = ?`,
-      [req.user.id],
-      (err, rows) => {
-        const tables = (rows || []).map((r) => ({
-          sport: r.sport,
-          kind: r.kind,
-          source: r.source,
-          updatedAt: r.updated_at,
-          zones: (() => {
-            try { return JSON.parse(r.zones_json); } catch (_) { return []; }
-          })(),
-        }));
-        res.json({
-          sport,
-          hrZones: resolved.hrZones,
-          powerZones: resolved.powerZones,
-          maxHr: resolved.maxHr,
-          ftp: resolved.ftp,
-          tables,
-        });
+router.post("/api/user/settings/account", authenticateToken, (req, res) => {
+  const { email } = req.body;
+  // Note: we can also add username here later if we want to allow username changes, but that requires checking for uniqueness.
+  
+  if (email !== undefined) {
+    db.run(
+      `UPDATE users SET email = ? WHERE id = ?`,
+      [email, req.user.id],
+      function (err) {
+        if (err) {
+          if (err.message.includes('UNIQUE constraint failed')) {
+            return res.status(400).json({ error: "Email is already in use by another account." });
+          }
+          return res.status(500).json({ error: "Failed to update account details." });
+        }
+        res.json({ success: true, message: "Account updated successfully" });
       }
     );
-  } catch (e) {
-    console.error("Failed to load zones:", e);
-    res.status(500).json({ error: "Failed to load training zones" });
-  }
-});
-
-// Save one table. `sport` may be 'default' or any sport name, which is how a
-// separate Swim or Bike table gets added without a schema change.
-router.put("/api/user/zones", authenticateToken, async (req, res) => {
-  const { sport = "default", kind, zones } = req.body || {};
-  if (kind !== "hr" && kind !== "power") {
-    return res.status(400).json({ error: "kind must be 'hr' or 'power'" });
-  }
-  if (!Array.isArray(zones) || zones.length === 0) {
-    return res.status(400).json({ error: "zones must be a non-empty array" });
-  }
-  const clean = zones
-    .map((z) => ({
-      zone: Number(z.zone),
-      min: Number(z.min),
-      max: z.max == null || z.max === "" ? null : Number(z.max),
-    }))
-    .filter((z) => z.zone > 0 && !isNaN(z.min));
-
-  if (clean.length === 0) {
-    return res.status(400).json({ error: "No valid zone rows supplied" });
-  }
-  // Boundaries must climb, otherwise zoneOf() would resolve unpredictably.
-  clean.sort((a, b) => a.zone - b.zone);
-  for (let i = 1; i < clean.length; i++) {
-    if (clean[i].min < clean[i - 1].min) {
-      return res.status(400).json({ error: "Zone lower bounds must increase" });
-    }
-  }
-
-  try {
-    await athleteZones.saveZones(req.user.id, sport, kind, clean, "manual");
-    res.json({ success: true, sport, kind, zones: clean });
-  } catch (e) {
-    console.error("Failed to save zones:", e);
-    res.status(500).json({ error: "Failed to save training zones" });
-  }
-});
-
-// Drop a sport-specific table and fall back to the default one.
-router.delete("/api/user/zones/:sport", authenticateToken, async (req, res) => {
-  if (req.params.sport === "default") {
-    return res.status(400).json({ error: "The default table cannot be removed" });
-  }
-  await athleteZones.deleteZones(req.user.id, req.params.sport);
-  res.json({ success: true });
-});
-
-// Rebuild a table from max HR / FTP, discarding manual edits.
-router.post("/api/user/zones/reset", authenticateToken, async (req, res) => {
-  const { sport = "default" } = req.body || {};
-  try {
-    const { maxHr, ftp } = await athleteZones.resolveZonesForUser(req.user.id, sport);
-    const hr = zoneModel.buildHrZones(maxHr);
-    const power = zoneModel.buildPowerZones(ftp);
-    if (hr) await athleteZones.saveZones(req.user.id, sport, "hr", hr, "derived");
-    if (power) await athleteZones.saveZones(req.user.id, sport, "power", power, "derived");
-    res.json({ success: true, hrZones: hr, powerZones: power, maxHr, ftp });
-  } catch (e) {
-    res.status(500).json({ error: "Failed to reset training zones" });
+  } else {
+    res.status(400).json({ error: "No fields to update." });
   }
 });
 
 router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
-  const {
-    coachTone,
-    coachName,
-    coachContext,
-    athleteContext,
-    gender,
-    cycleTrackingEnabled,
-    cycle_tracking_enabled,
-    lastCycleStart,
-    trainingAvailability,
-    onboardingCompleted,
-    targetEvent,
-    eventDate,
-    targetCtl,
-  } = req.body;
-  const availabilityStr = trainingAvailability
-    ? JSON.stringify(trainingAvailability)
-    : "{}";
+  db.get(`SELECT * FROM users WHERE id = ?`, [req.user.id], (err, row) => {
+    if (err || !row) return res.status(500).json({ error: "Database error." });
 
-  const markCompleted = onboardingCompleted ? 1 : 0;
-  const cycleTrackingVal = cycleTrackingEnabled !== undefined ? cycleTrackingEnabled : cycle_tracking_enabled;
-  const cycleTrackingValNum = cycleTrackingVal === false || cycleTrackingVal === 0 ? 0 : cycleTrackingVal === true || cycleTrackingVal === 1 ? 1 : null;
+    const reqTone = req.body.coachTone !== undefined ? req.body.coachTone : row.coach_tone;
+    const reqName = req.body.coachName !== undefined ? req.body.coachName : row.coach_name;
+    const reqContext = req.body.coachContext !== undefined ? req.body.coachContext : row.coach_context;
+    const athleteContext = req.body.athleteContext !== undefined ? req.body.athleteContext : row.athlete_context;
+    const gender = req.body.gender !== undefined ? req.body.gender : row.gender;
+    const lastCycleStart = req.body.lastCycleStart !== undefined ? req.body.lastCycleStart : row.last_cycle_start;
+    const availabilityStr = req.body.trainingAvailability !== undefined
+      ? JSON.stringify(req.body.trainingAvailability)
+      : row.training_availability;
 
+    let finalTone = reqTone;
+    let finalName = reqName;
+    let finalContext = reqContext;
+
+    // Check premium/admin status
+    const isPremium = row.subscription_tier === 'admin' || row.subscription_tier === 'premium' || row.subscription_tier === 'rooka_plus';
+
+    if (!isPremium && finalTone === 'custom') {
+      // Revert to defaults if non-premium tries to set custom coach
+      finalTone = "Empathetic but demanding elite endurance coach.";
+      finalName = "Rooka";
+      finalContext = "";
+    }
+
+    db.run(
+      `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ? WHERE id = ?`,
+      [
+        finalTone,
+        finalName || "Spark",
+        finalContext || "",
+        athleteContext,
+        gender || "Prefer not to say",
+        lastCycleStart || null,
+        availabilityStr,
+        req.user.id,
+      ],
+      function (err) {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Failed to update coach settings." });
+        res.json({ message: "Coach updated successfully!" });
+      },
+    );
+  });
+});
+
+router.post("/api/user/settings/language", authenticateToken, (req, res) => {
+  const { language } = req.body;
+  if (!language) return res.status(400).json({ error: "Language required" });
   db.run(
-    `UPDATE users SET 
-      coach_tone = COALESCE(?, coach_tone), 
-      coach_name = COALESCE(?, coach_name), 
-      coach_context = COALESCE(?, coach_context), 
-      athlete_context = COALESCE(?, athlete_context), 
-      gender = COALESCE(?, gender), 
-      cycle_tracking_enabled = COALESCE(?, cycle_tracking_enabled), 
-      last_cycle_start = COALESCE(?, last_cycle_start), 
-      training_availability = COALESCE(?, training_availability), 
-      onboarding_completed = CASE WHEN ? = 1 THEN 1 ELSE onboarding_completed END 
-    WHERE id = ?`,
-    [
-      coachTone !== undefined ? coachTone : null,
-      coachName !== undefined ? coachName : null,
-      coachContext !== undefined ? coachContext : null,
-      athleteContext !== undefined ? athleteContext : null,
-      gender !== undefined ? gender : null,
-      cycleTrackingValNum !== undefined ? cycleTrackingValNum : null,
-      lastCycleStart !== undefined ? lastCycleStart : null,
-      trainingAvailability !== undefined ? availabilityStr : null,
-      markCompleted,
-      req.user.id,
-    ],
+    `UPDATE users SET language = ? WHERE id = ?`,
+    [language, req.user.id],
     function (err) {
-      if (err)
-        return res
-          .status(500)
-          .json({ error: "Failed to update coach settings." });
-
-      if (targetEvent || eventDate || targetCtl) {
-        db.run(
-          `DELETE FROM milestones WHERE user_id = ? AND is_main = 1`,
-          [req.user.id],
-          () => {
-            db.run(
-              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main) VALUES (?, ?, ?, ?, 1)`,
-              [
-                req.user.id,
-                targetEvent || "Main Event",
-                eventDate || null,
-                targetCtl ? parseFloat(targetCtl) : null,
-              ],
-            );
-          }
-        );
-      }
-
-      res.json({ message: "Coach updated successfully!" });
-    },
+      if (err) return res.status(500).json({ error: "Failed to update language setting." });
+      res.json({ success: true, language });
+    }
   );
 });
 
-router.post('/api/track-rooka-plus-click', authenticateToken, (req, res) => {
+router.post('/api/track-spark-plus-click', authenticateToken, (req, res) => {
     db.run(
-        `UPDATE users SET rooka_plus_clicks = COALESCE(rooka_plus_clicks, 0) + 1 WHERE id = ?`,
+        `UPDATE users SET spark_plus_clicks = COALESCE(spark_plus_clicks, 0) + 1 WHERE id = ?`,
         [req.user.id],
         function(err) {
             if (err) return res.status(500).json({ error: 'Database error' });
@@ -401,32 +289,11 @@ router.post('/api/request-account-data', authenticateToken, (req, res) => {
     );
 });
 
-router.post('/api/user/settings/account', authenticateToken, (req, res) => {
-  const { email, username } = req.body || {};
-  const cleanEmail = email ? email.trim().toLowerCase() : null;
-  const cleanUsername = username ? username.trim() : null;
-
-  db.run(
-    `UPDATE users SET 
-      email = COALESCE(?, email),
-      username = COALESCE(?, username)
-    WHERE id = ?`,
-    [cleanEmail, cleanUsername, req.user.id],
-    function(err) {
-      if (err) {
-        console.error('Update account details error:', err);
-        return res.status(500).json({ error: 'Failed to update account details.' });
-      }
-      res.json({ success: true, message: 'Account details updated successfully.' });
-    }
-  );
-});
-
 router.delete('/api/user/account', authenticateToken, (req, res) => {
     const userId = req.user.id;
     if (!userId) return res.status(400).json({ error: "Missing user ID" });
 
-    db.get(`SELECT username FROM users WHERE id = ?`, [userId], async (err, user) => {
+    db.get(`SELECT username FROM users WHERE id = ?`, [userId], (err, user) => {
         if (err || !user) return res.status(404).json({ error: "User not found" });
 
         const username = user.username || "";
@@ -440,24 +307,12 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             "completed_quests", "user_xp", "nutrition_protocols", 
             "nutrition_intake", "daily_diet_logs", "biometrics",
             "physique_logs", "milestones", "kudos", "public_profile_cache", 
-            "completed_micro_steps", "push_tokens", "garmin_health_data", 
-            "user_titles", "athlete_niggles", "bonus_points",
-            "strava_tokens", "benchmark_tests", "athlete_muscle_status",
-            "activity_comments", "user_feature_onboarding"
+            "completed_micro_steps", "push_subscriptions", "garmin_health_data", 
+            "user_titles", "athlete_niggles", "bonus_points"
         ];
 
-        // Same single-connection hazard as the chat route: without taking a
-        // turn, this BEGIN can land inside an already-open chat transaction, and
-        // this COMMIT would then commit that request's half-written work.
-        let releaseTx = null;
-        try {
-            releaseTx = await db.beginSerializedTransaction("account-delete");
-        } catch (txErr) {
-            console.error("Could not open the account deletion transaction:", txErr.message);
-            return res.status(500).json({ error: "Failed to delete account" });
-        }
-
         db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
             
             tablesWithUserId.forEach(table => {
                 db.run(`DELETE FROM ${table} WHERE user_id = ?`, [userId], function(err) {
@@ -474,13 +329,10 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err) {
                 if (err) {
                     console.error("Error deleting user:", err.message);
-                    db.run("ROLLBACK", () => {
-                        if (releaseTx) { releaseTx(); releaseTx = null; }
-                    });
+                    db.run("ROLLBACK");
                     return res.status(500).json({ error: "Failed to delete account" });
                 }
                 db.run("COMMIT", function(err) {
-                    if (releaseTx) { releaseTx(); releaseTx = null; }
                     if (err) return res.status(500).json({ error: "Failed to commit deletion" });
                     res.json({ success: true, message: "Account deleted successfully." });
                 });

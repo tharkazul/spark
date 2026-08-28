@@ -324,7 +324,7 @@ export default function ProfileScreen() {
               setSegmentedWidth(w);
             }
           }}
-          className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden"
+          className="relative flex-row bg-theme-card rounded-tile p-1 overflow-hidden"
         >
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
@@ -462,7 +462,7 @@ export default function ProfileScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
           className="flex-1 justify-end bg-black/50"
         >
-          <View className="bg-theme-bg px-6 pt-3 pb-6 rounded-t-3xl border-t border-theme-border">
+          <View className="bg-theme-bg px-6 pt-3 pb-6 rounded-t-card border-t border-theme-border">
             {/* TOP PULL HANDLE INDICATOR */}
             <View className="items-center pb-4">
               <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
@@ -514,7 +514,7 @@ export default function ProfileScreen() {
                 <View>
                   <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Username / Email</Text>
                   <TextInput
-                    className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
+                    className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
                     placeholder="email@example.com"
                     placeholderTextColor={theme.textSecondary}
                     value={garminUser}
@@ -527,7 +527,7 @@ export default function ProfileScreen() {
                 <View className="mt-3">
                   <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Password</Text>
                   <TextInput
-                    className="bg-theme-card border border-theme-border rounded-xl p-3.5 text-theme-text"
+                    className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
                     placeholder="••••••••"
                     placeholderTextColor={theme.textSecondary}
                     value={garminPass}

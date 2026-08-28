@@ -87,7 +87,7 @@ export function AdminTab() {
   return (
     <ScrollView className="flex-1 space-y-4">
       {/* System Actions Header */}
-      <View className="bg-theme-card p-4 rounded-2xl border border-theme-border">
+      <View className="bg-theme-card p-4 rounded-card border border-theme-border">
         <Text className="text-base font-extrabold text-theme-text mb-3">System Triggers</Text>
         <View className="flex-row gap-2">
           <TouchableOpacity
@@ -123,7 +123,7 @@ export function AdminTab() {
       </View>
 
       {/* User Management Section */}
-      <View className="bg-theme-card p-4 rounded-2xl border border-theme-border">
+      <View className="bg-theme-card p-4 rounded-card border border-theme-border">
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-base font-extrabold text-theme-text">User Management</Text>
           <TouchableOpacity onPress={fetchUsage} className="p-1">

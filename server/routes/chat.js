@@ -146,7 +146,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
   }
 
   db.get(
-    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, daily_image_count, last_image_reset_date FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, role, daily_image_count, last_image_reset_date FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -168,6 +168,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           last_token_reset_date: new Date().toISOString().split("T")[0],
           daily_token_limit: 50000,
           subscription_tier: 'rooka_plus',
+          role: 'user',
           daily_image_count: 0,
           last_image_reset_date: new Date().toISOString().split("T")[0]
         };
@@ -188,8 +189,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
         );
       }
 
-      // Image generation quota logic (Free = 0 images, Rooka+ / Admin = 1 image/day)
-      const isPaidTier = user.subscription_tier === 'rooka_plus' || user.subscription_tier === 'admin';
+      // Image generation quota logic (Admin tier only: 1 image/day)
+      const isAdminTier = user.subscription_tier === 'admin' || user.role === 'admin';
       let dailyImageCount = user.daily_image_count || 0;
       if (user.last_image_reset_date !== todayStr) {
         dailyImageCount = 0;
@@ -198,7 +199,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           [todayStr, req.user.id]
         );
       }
-      const canGenerateImage = isPaidTier && dailyImageCount < 1;
+      const canGenerateImage = isAdminTier && dailyImageCount < 1;
 
       if (currentDailyUsage > currentDailyLimit) {
         const replyText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]";
@@ -653,24 +654,27 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                      - Severity: integer from 1 (mild/twinge) to 5 (severe/cannot train). If the athlete mentions a 1-10 rating, convert to 1-5 (e.g. 3/10 -> 2 or 3, 6/10 -> 3, 10/10 -> 5).
                      - If the athlete reports that an injury/niggle has healed, resolved, or is pain-free (e.g. "my heel is completely recovered", "knee feels 100% now"):
                      \`\`\`json
-                     {
-                       "type": "resolve_niggle",
-                       "data": {
-                         "body_part": "left_ankle_foot"
-                       }
-                                         ${
-                        !isPaidTier
-                          ? `VISUAL COACHING & IMAGE STATUS: DISABLED FOR FREE TIER USERS.
+                      {
+                        "type": "resolve_niggle",
+                        "data": {
+                          "body_part": "left_ankle_foot"
+                        }
+                      }
+                      \`\`\`
+
+                      ${
+                        !isAdminTier
+                          ? `VISUAL COACHING & IMAGE STATUS: DISABLED (ADMIN ACCESS ONLY).
                       If the athlete asks you to generate, show, or draw an image, photograph, or visual guide:
-                      Politely explain the coaching cues and biomechanics in text and mention: "AI visual coaching guides and custom race artwork are a Rooka+ feature! Upgrade to Rooka+ to unlock daily visual guides."
-                      NEVER output a generate_image JSON block for free tier athletes.`
+                      Politely explain the coaching cues and biomechanics in text and mention: "AI visual coaching guides and custom race artwork are currently in testing for administrators."
+                      NEVER output a generate_image JSON block for non-admin athletes.`
                           : dailyImageCount >= 1
                           ? `VISUAL COACHING & IMAGE STATUS: DAILY LIMIT REACHED (1 of 1 visual credits used today).
                       If the athlete asks for an image/photo/visual guide:
                       Explain the coaching cues and biomechanics thoroughly in text and let them know: "You've used your 1 visual coaching credit for today (it resets tomorrow)!"
                       NEVER output a generate_image JSON block when the daily credit is already used.`
                           : `VISUAL COACHING & HIGH-FIDELITY IMAGE GENERATION DIRECTIVES (NANO BANANA ENGINE):
-                      You have 1 visual guide credit available for this Rooka+ athlete today.
+                      You have 1 visual guide credit available for this Admin athlete today.
                       When the athlete asks for a visual explanation or asks to generate an image:
                       Explain the concept clearly in text AND output a JSON block to generate the studio photograph following the Nano Banana 4-part formula:
                       \`\`\`json

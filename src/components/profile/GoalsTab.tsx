@@ -221,27 +221,27 @@ export const GoalsTab: React.FC = () => {
         {guideExpanded && (
           <View className="p-3 bg-theme-bg/60 rounded-xl mb-4 space-y-2">
             <View className="flex-row flex-wrap gap-2">
-              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-control bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">5K / Sprint Tri</Text>
                 <Text className="text-theme-muted text-xs">Target: 30 - 45 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-control bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">10K / Olympic Tri</Text>
                 <Text className="text-theme-muted text-xs">Target: 45 - 60 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-control bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">Half Marathon</Text>
                 <Text className="text-theme-muted text-xs">Target: 60 - 80 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-control bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">70.3 Half Ironman</Text>
                 <Text className="text-theme-muted text-xs">Target: 80 - 110 CTL</Text>
               </View>
-              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-control bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">Full Marathon</Text>
                 <Text className="text-theme-muted text-xs">Target: 80 - 100+ CTL</Text>
               </View>
-              <View className="w-[48%] p-2 rounded-lg bg-theme-card">
+              <View className="w-[48%] p-2 rounded-control bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">140.6 Full Ironman</Text>
                 <Text className="text-theme-muted text-xs">Target: 110 - 150+ CTL</Text>
               </View>
@@ -311,7 +311,7 @@ export const GoalsTab: React.FC = () => {
                         onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
                         placeholder="e.g. 5K park run, Amsterdam Marathon..."
                         placeholderTextColor={theme.textSecondary}
-                        className="bg-theme-card rounded-xl p-3 text-xs text-theme-text font-bold"
+                        className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold"
                       />
                     </View>
 
@@ -325,7 +325,7 @@ export const GoalsTab: React.FC = () => {
                         <TouchableOpacity
                           onPress={() => handleOpenDatePicker(row)}
                           activeOpacity={0.8}
-                          className="bg-theme-card rounded-xl p-3 flex-row items-center justify-between"
+                          className="bg-theme-card rounded-tile p-3 flex-row items-center justify-between"
                         >
                           <Text
                             className={`text-xs font-bold ${

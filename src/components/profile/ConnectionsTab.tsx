@@ -437,7 +437,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       {/* STRAVA AUTOMATIONS PER SPORT TYPE */}
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
-          <View className="w-2.5 h-2.5 rounded-full bg-[#ff6b6b]" />
+          <View className="w-2.5 h-2.5 rounded-full bg-[#FC4C02]" />
           <Text className="text-theme-text font-bold text-sm">Strava Automations</Text>
         </View>
 

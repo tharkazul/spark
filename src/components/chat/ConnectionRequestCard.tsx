@@ -156,7 +156,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
             onPress={handleDecline}
             disabled={loading !== null}
             activeOpacity={0.8}
-            className="flex-1 bg-theme-card border border-theme-border py-2 rounded-xl items-center justify-center flex-row"
+            className="flex-1 bg-theme-card border border-theme-border py-2 rounded-control items-center justify-center flex-row"
           >
             {loading === 'decline' ? (
               <ActivityIndicator size="small" color="#9CA3AF" />

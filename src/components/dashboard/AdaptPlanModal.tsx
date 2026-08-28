@@ -78,7 +78,7 @@ export function AdaptPlanModal({
                 transform: [{ translateY: Animated.add(slideAnim, dragY) }],
                 paddingBottom: Math.max(insets.bottom, 24),
               }}
-              className="bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl flex-col"
+              className="bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col"
               {...panHandlers}
             >
               {/* TOP PULL HANDLE INDICATOR */}

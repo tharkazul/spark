@@ -113,7 +113,7 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
           <Defs>
             <LinearGradient id="radarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
               <Stop offset="0%" stopColor={theme.tint} stopOpacity="0.5" />
-              <Stop offset="100%" stopColor="#FF8554" stopOpacity="0.2" />
+              <Stop offset="100%" stopColor={theme.tint} stopOpacity="0.2" />
             </LinearGradient>
           </Defs>
 

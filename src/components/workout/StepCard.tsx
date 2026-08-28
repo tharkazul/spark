@@ -221,7 +221,7 @@ const StepCardComponent = ({
         { marginLeft: isSubStep ? 24 : 0, marginBottom: 8 },
       ]}
     >
-      <View className="bg-white dark:bg-theme-card rounded-2xl border border-slate-200 dark:border-theme-border/70 overflow-hidden flex-row shadow-xs">
+      <View className="bg-white dark:bg-theme-card rounded-tile border border-slate-200 dark:border-theme-border/70 overflow-hidden flex-row shadow-xs">
         {/* Left Vertical Accent Bar & Drag Handle */}
         <View className="flex-row items-center w-9 bg-slate-50 dark:bg-theme-bg/60 border-r border-slate-100 dark:border-theme-border/50 justify-center">
           <View

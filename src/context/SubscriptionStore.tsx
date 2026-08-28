@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import Purchases, {
   CustomerInfo,
   PurchasesOffering,
@@ -147,6 +147,9 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
         setCustomerInfo(res.customerInfo);
       }
       setLoading(false);
+      if (res.error && !res.userCancelled) {
+        Alert.alert('Subscription', res.error);
+      }
       if (res.success) {
         await refreshUser?.();
       }
@@ -162,8 +165,13 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
       setCustomerInfo(res.customerInfo);
     }
     setLoading(false);
-    if (res.success) {
+    if (res.error) {
+      Alert.alert('Restore Purchases', res.error);
+    } else if (res.success) {
+      Alert.alert('Success', 'Your subscriptions have been restored.');
       await refreshUser?.();
+    } else {
+      Alert.alert('Restore Purchases', 'No active subscription was found for this account.');
     }
     return res.success;
   }, [refreshUser]);

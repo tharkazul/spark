@@ -4,6 +4,7 @@ import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { BrandColors } from '../constants/theme';
 import { useTabBar } from '../context/TabBarContext';
 import { useCoachChat } from '../context/CoachChatStore';
 import { usePhysique } from '../context/PhysiqueStore';
@@ -244,7 +245,7 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                   elevation: 8,
                 }}
               >
-                <Ionicons name="add-circle-outline" size={14} color={isDark ? '#FF6B35' : '#FF5F3B'} />
+                <Ionicons name="add-circle-outline" size={14} color={isDark ? BrandColors.accentDark : BrandColors.primary} />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Workout</Text>
               </TouchableOpacity>
 
@@ -438,7 +439,7 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                         width: 58,
                         height: 58,
                         borderRadius: 29,
-                        backgroundColor: isDark ? '#FF6B35' : '#FF5F3B',
+                        backgroundColor: isDark ? BrandColors.accentDark : BrandColors.primary,
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginTop: -22,
@@ -551,7 +552,7 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                         {(options.tabBarIcon as any) &&
                           (options.tabBarIcon as any)({
                             focused: true,
-                            color: isDark ? '#FF6B35' : '#FF5F3B',
+                            color: isDark ? BrandColors.accentDark : BrandColors.primary,
                             size: 22,
                           } as any)}
                       </RNAnimated.View>

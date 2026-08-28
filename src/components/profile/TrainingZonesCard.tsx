@@ -59,7 +59,7 @@ function ZoneTable({ title, unit, zones, onChange, disabled }: ZoneTableProps) {
               onChangeText={(v) => setBound(i, 'min', v)}
               keyboardType="number-pad"
               style={{ color: theme.tint }}
-              className="w-14 text-sm font-bold text-center bg-theme-card border border-theme-border rounded-lg py-1.5"
+              className="w-14 text-sm font-bold text-center bg-theme-card border border-theme-border rounded-control py-1.5"
             />
             <Text className="text-theme-muted text-sm">–</Text>
             <TextInput
@@ -70,7 +70,7 @@ function ZoneTable({ title, unit, zones, onChange, disabled }: ZoneTableProps) {
               placeholderTextColor={theme.textSecondary}
               keyboardType="number-pad"
               style={{ color: theme.tint }}
-              className="w-14 text-sm font-bold text-center bg-theme-card border border-theme-border rounded-lg py-1.5"
+              className="w-14 text-sm font-bold text-center bg-theme-card border border-theme-border rounded-control py-1.5"
             />
             <Text className="text-theme-muted text-sm ml-1 w-10">{unit}</Text>
           </View>

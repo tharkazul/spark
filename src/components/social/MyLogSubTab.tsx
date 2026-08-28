@@ -274,7 +274,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               setIsQuestModalOpen(true);
             }}
             activeOpacity={0.8}
-            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs"
+            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs"
           >
             <View>
               <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
@@ -300,7 +300,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
           </TouchableOpacity>
 
           {/* CARD 2: REAL STREAK */}
-          <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[26px] p-4 justify-between h-[152px] shadow-xs">
+          <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs">
             <View>
               <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
                 Streak
@@ -339,12 +339,12 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
         {/* Activity List Items */}
         {loading && activities.length === 0 ? (
-          <View className="items-center justify-center p-8 bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[24px]">
+          <View className="items-center justify-center p-8 bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card">
             <ActivityIndicator size="large" color={theme.tint} />
             <Text className="text-xs font-bold text-theme-muted mt-3">Loading activities...</Text>
           </View>
         ) : activities.length === 0 ? (
-          <View className="p-8 items-center justify-center bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[24px]">
+          <View className="p-8 items-center justify-center bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card">
             <Ionicons name="fitness-outline" size={32} color={theme.textSecondary} />
             <Text className="text-sm font-semibold text-theme-muted mt-2">No activity history recorded yet.</Text>
           </View>
@@ -367,7 +367,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                   key={`act-${idStr}`}
                   onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
                   activeOpacity={0.75}
-                  className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-[24px] p-3.5 flex-row items-center justify-between mb-2.5 shadow-xs"
+                  className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-3.5 flex-row items-center justify-between mb-2.5 shadow-xs"
                 >
                   {/* Left: Circular Icon & Titles */}
                   <View className="flex-row items-center flex-1 pr-3">
@@ -406,7 +406,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
         visible={isQuestModalOpen}
         onClose={() => setIsQuestModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[80%]"
+        contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[80%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">

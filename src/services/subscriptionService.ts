@@ -133,7 +133,7 @@ export async function purchasePackage(
     if (isCancelled) {
       return { success: false, userCancelled: true };
     }
-    console.error('[RevenueCat] Purchase error:', error);
+    console.warn('[RevenueCat] Purchase notice:', error?.message || error);
     return { success: false, error: error.message || 'Purchase failed.' };
   }
 }
@@ -173,8 +173,8 @@ export async function presentPaywall(): Promise<PAYWALL_RESULT> {
   try {
     const result = await RevenueCatUI.presentPaywall();
     return result;
-  } catch (error) {
-    console.error('[RevenueCatUI] Error presenting paywall:', error);
+  } catch (error: any) {
+    console.warn('[RevenueCatUI] Remote paywall unavailable in this environment:', error?.message || error);
     return PAYWALL_RESULT.ERROR;
   }
 }
@@ -192,8 +192,8 @@ export async function presentPaywallIfNeeded(): Promise<PAYWALL_RESULT> {
       requiredEntitlementIdentifier: ROOKA_ENTITLEMENT_ID,
     });
     return result;
-  } catch (error) {
-    console.error('[RevenueCatUI] Error presenting paywall if needed:', error);
+  } catch (error: any) {
+    console.warn('[RevenueCatUI] Remote paywall unavailable in this environment:', error?.message || error);
     return PAYWALL_RESULT.ERROR;
   }
 }
@@ -214,8 +214,8 @@ export async function presentCustomerCenter(): Promise<void> {
     } else {
       console.warn('[RevenueCatUI] presentCustomerCenter is not available in this build.');
     }
-  } catch (error) {
-    console.error('[RevenueCatUI] Error presenting Customer Center:', error);
+  } catch (error: any) {
+    console.warn('[RevenueCatUI] Error presenting Customer Center:', error?.message || error);
   }
 }
 

@@ -177,7 +177,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
             return (
               <View
                 key={`feed-req-${req.friend_id || req.user_id}`}
-                className="flex-row items-center justify-between bg-theme-card p-3 rounded-xl border border-theme-border/50 mb-1.5"
+                className="flex-row items-center justify-between bg-theme-card p-3 rounded-tile border border-theme-border/50 mb-1.5"
               >
                 <View className="flex-row items-center space-x-3">
                   {reqAvatarUri ? (
@@ -204,7 +204,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
       )}
 
       {groupedFeed.length === 0 ? (
-        <View className="items-center justify-center p-8 bg-theme-card border border-theme-border/60 rounded-2xl my-2">
+        <View className="items-center justify-center p-8 bg-theme-card border border-theme-border/60 rounded-card my-2">
           <Ionicons name="people-outline" size={36} color={theme.textSecondary} style={{ marginBottom: 8 }} />
           <Text className="text-sm font-bold text-theme-text text-center">No Recent Activity</Text>
           <Text className="text-xs text-theme-muted text-center mt-1 px-4 leading-relaxed">
@@ -222,7 +222,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
           return (
             <View
               key={`feed-group-${group.id}`}
-              className="bg-theme-card rounded-2xl p-4 shadow-sm mb-3.5 border border-slate-100 dark:border-slate-800/60"
+              className="bg-theme-card rounded-card p-4 shadow-sm mb-3.5 border border-slate-100 dark:border-slate-800/60"
             >
               {/* Tight Athlete Header */}
               <View className="flex-row justify-between items-center mb-2.5">

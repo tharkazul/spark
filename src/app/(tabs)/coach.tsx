@@ -562,7 +562,7 @@ export default function CoachScreen() {
             />
             <Text className="text-theme-accent font-extrabold text-xs mr-2">Rooka</Text>
           </View>
-          <View className="px-4 py-2.5 flex-row items-center bg-theme-card border border-theme-border rounded-2xl rounded-bl-sm shadow-xs">
+          <View className="px-4 py-2.5 flex-row items-center bg-theme-card border border-theme-border rounded-tile rounded-bl-sm shadow-xs">
             <ActivityIndicator size="small" color="#16ACBD" />
             <Text className="text-theme-accent text-xs font-semibold ml-2">
               {t('chat.thinking')}
@@ -687,7 +687,7 @@ export default function CoachScreen() {
         visible={isWorkoutModalOpen}
         onClose={() => setIsWorkoutModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
+        contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
@@ -794,7 +794,7 @@ export default function CoachScreen() {
         visible={isNutritionModalOpen}
         onClose={() => setIsNutritionModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
+        contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
@@ -864,7 +864,7 @@ export default function CoachScreen() {
         visible={isQuestModalOpen}
         onClose={() => setIsQuestModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
+        contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
@@ -963,7 +963,7 @@ export default function CoachScreen() {
             setIsWorkoutModalOpen(true);
           }}
           activeOpacity={0.75}
-          className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+          className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
         >
           <Ionicons
             name={getSportIconConfig(primaryWorkout?.sport).icon as any}
@@ -988,7 +988,7 @@ export default function CoachScreen() {
               setIsNutritionModalOpen(true);
             }}
             activeOpacity={0.75}
-            className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+            className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
           >
             <Ionicons name="nutrition-outline" size={14} color="#10B981" />
             <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
@@ -1005,7 +1005,7 @@ export default function CoachScreen() {
               setIsQuestModalOpen(true);
             }}
             activeOpacity={0.75}
-            className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+            className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
           >
             <Ionicons name="trophy" size={13} color={theme.tint} />
             <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
@@ -1124,7 +1124,7 @@ export default function CoachScreen() {
           </View>
         ) : null}
 
-        <View className="bg-theme-card rounded-3xl p-2.5 shadow-lg border border-theme-border">
+        <View className="bg-theme-card rounded-card p-2.5 shadow-lg border border-theme-border">
           {selectedImages.length > 0 ? (
             <View className="mb-2 flex-row gap-2 px-1">
               {selectedImages.map((imgUri, idx) => (

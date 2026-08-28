@@ -200,7 +200,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         showHandle={true}
-        contentClassName="bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 max-h-[85vh]"
+        contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 max-h-[85vh]"
       >
         <View className="flex-row justify-between items-center pb-4 mb-4">
           <View>

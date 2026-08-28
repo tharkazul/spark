@@ -21,14 +21,14 @@ export const NutritionTab: React.FC = () => {
 
   if (user?.subscription_tier === 'free') {
     return (
-      <View className="bg-theme-card border border-theme-border rounded-2xl p-6 items-center justify-center mt-4 shadow-sm">
+      <View className="bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center mt-4 shadow-sm">
         <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
         <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Nutrition Locked</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed">
           Upgrade to the Rooka+ subscription to unlock daily AI nutrition protocols.
         </Text>
         <TouchableOpacity 
-          onPress={() => presentPaywall()}
+          onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
           className="bg-theme-accent px-6 py-3 rounded-2xl w-full mt-6 shadow-sm shadow-theme-accent/30"
           activeOpacity={0.8}
         >

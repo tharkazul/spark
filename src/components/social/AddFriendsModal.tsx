@@ -190,7 +190,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
 
         <Animated.View
           style={{ transform: [{ translateY: dragY }] }}
-          className="bg-theme-card border-t border-theme-border rounded-t-3xl px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]"
+          className="bg-theme-card border-t border-theme-border rounded-t-card px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]"
         >
           {/* TOP PULL HANDLE INDICATOR */}
           <View {...panHandlers} className="items-center pb-4 pt-1">

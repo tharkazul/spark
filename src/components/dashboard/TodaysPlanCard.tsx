@@ -157,7 +157,7 @@ export function TodaysPlanCard({
           <TouchableOpacity
             onPress={handleAdd}
             activeOpacity={0.8}
-            className="w-full py-2.5 bg-theme-card/60 rounded-xl flex-row items-center justify-center gap-1.5"
+            className="w-full py-2.5 bg-theme-card/60 rounded-control flex-row items-center justify-center gap-1.5"
           >
             <Ionicons name="add-circle-outline" size={15} color={theme.tint} />
             <Text className="text-xs font-extrabold text-theme-accent">+ {t('dashboard.addExercise')}</Text>

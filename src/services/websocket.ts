@@ -38,11 +38,28 @@ class WebSocketService {
   private ws: WebSocket | null = null;
   private token: string | null = null;
   private reconnectTimer: any = null;
+  private pingInterval: any = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private isManuallyClosed = false;
   private listeners: Set<(data: any) => void> = new Set();
   public status: WSConnectionStatus = 'disconnected';
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.send({ type: 'ping' });
+      }
+    }, 20000);
+  }
+
+  private stopHeartbeat() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+  }
 
   connect(token?: string) {
     if (token) {
@@ -78,6 +95,7 @@ class WebSocketService {
         this.status = 'connected';
         this.reconnectAttempts = 0;
         console.log('Connected to Rooka WebSocket');
+        this.startHeartbeat();
         if (this.token) {
           this.send({ type: 'auth', token: this.token });
         }
@@ -99,6 +117,7 @@ class WebSocketService {
 
       this.ws.onclose = () => {
         this.status = 'disconnected';
+        this.stopHeartbeat();
         this.ws = null;
         console.log('WebSocket Disconnected.');
 
@@ -113,6 +132,7 @@ class WebSocketService {
       };
     } catch (err) {
       this.status = 'disconnected';
+      this.stopHeartbeat();
       console.log('[WebSocket] Instantiation notice:', err);
     }
   }
@@ -120,6 +140,7 @@ class WebSocketService {
   disconnect() {
     this.isManuallyClosed = true;
     this.reconnectAttempts = 0;
+    this.stopHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

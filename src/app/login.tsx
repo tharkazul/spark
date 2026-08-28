@@ -109,7 +109,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Mode Switcher */}
-          <View className="flex-row bg-theme-card p-1 rounded-xl mb-6">
+          <View className="flex-row bg-theme-card p-1 rounded-control mb-6">
             <TouchableOpacity
               onPress={() => {
                 setMode('login');
@@ -162,7 +162,7 @@ export default function LoginScreen() {
                 <Text className="text-xs font-semibold text-theme-muted mb-2">
                   {t('auth.chooseUsername')}
                 </Text>
-                <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
+                <View className="flex-row items-center bg-theme-card rounded-control px-4 min-h-[56px]">
                   <Ionicons name="person-outline" size={20} color={theme.textSecondary} />
                   <TextInput
                     placeholder="Athlete Username"
@@ -187,7 +187,7 @@ export default function LoginScreen() {
               <Text className="text-xs font-semibold text-theme-muted mb-2">
                 {mode === 'login' ? t('auth.signInIdentifier') : t('auth.enterEmail')}
               </Text>
-              <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
+              <View className="flex-row items-center bg-theme-card rounded-control px-4 min-h-[56px]">
                 <Ionicons
                   name={mode === 'login' ? 'person-outline' : 'mail-outline'}
                   size={20}
@@ -215,7 +215,7 @@ export default function LoginScreen() {
               <Text className="text-xs font-semibold text-theme-muted mb-2">
                 {t('auth.enterPassword')}
               </Text>
-              <View className="flex-row items-center bg-theme-card rounded-xl px-4 min-h-[56px]">
+              <View className="flex-row items-center bg-theme-card rounded-control px-4 min-h-[56px]">
                 <Ionicons name="lock-closed-outline" size={20} color={theme.textSecondary} />
                 <TextInput
                   placeholder="••••••••"

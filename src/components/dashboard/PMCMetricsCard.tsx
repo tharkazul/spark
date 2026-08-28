@@ -83,7 +83,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
       {/* 4 Grid Metric Cards with Sparklines */}
       <View className="flex-row flex-wrap gap-2.5">
         {/* CTL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted">
               {t('dashboard.fitness')}
@@ -116,7 +116,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         </View>
 
         {/* ATL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted">
               {t('dashboard.fatigue')}
@@ -147,7 +147,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         </View>
 
         {/* Readiness (TSB) Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted flex-1 mr-1.5" numberOfLines={1}>
               {t('dashboard.readiness')}
@@ -184,7 +184,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         </View>
 
         {/* Body Weight Trend Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-2xl p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted">
               {t('physique.weightInput')}

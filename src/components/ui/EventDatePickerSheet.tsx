@@ -150,7 +150,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
     <BottomSheetModal
       visible={visible}
       onClose={onClose}
-      contentClassName="bg-theme-bg px-5 pt-3 pb-5 rounded-t-3xl border-t border-theme-border max-h-[90%]"
+      contentClassName="bg-theme-bg px-5 pt-3 pb-5 rounded-t-card border-t border-theme-border max-h-[90%]"
     >
       {/* Header */}
       <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
@@ -161,7 +161,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       </View>
 
       {/* Formatted preview */}
-      <View className="p-3 bg-theme-card border border-theme-accent/30 rounded-xl mb-4 items-center">
+      <View className="p-3 bg-theme-card border border-theme-accent/30 rounded-control mb-4 items-center">
         <Text className="text-xs font-bold text-theme-muted">{previewLabel}</Text>
         <Text className="text-lg font-extrabold text-theme-accent mt-0.5">
           {formatDateDisplay(selectedDateStr)}
@@ -182,7 +182,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
           <TouchableOpacity
             key={preset.label}
             onPress={() => applyPreset(preset.months)}
-            className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-lg"
+            className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-control"
           >
             <Text className="text-xs font-bold text-theme-text">{preset.label}</Text>
           </TouchableOpacity>
@@ -190,7 +190,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       </View>
 
       {/* Year stepper */}
-      <View className="flex-row items-center justify-between mb-3 bg-theme-card p-2 rounded-xl">
+      <View className="flex-row items-center justify-between mb-3 bg-theme-card p-2 rounded-control">
         <Text className="text-xs font-bold text-theme-muted">Year</Text>
         <View className="flex-row items-center gap-3">
           <TouchableOpacity

@@ -106,7 +106,7 @@ async function resolveZonesForUser(userId, sport = "default") {
 
   if (!hrZones) {
     const age = zones.ageFromDateOfBirth(user && user.date_of_birth);
-    const maxHr = metrics.max_hr || zones.maxHrFromAge(age);
+    const maxHr = metrics.max_hr || zones.maxHrFromAge(age) || 190;
     hrZones = zones.buildHrZones(maxHr);
   }
   if (!powerZones) {

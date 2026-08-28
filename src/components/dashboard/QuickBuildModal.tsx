@@ -26,7 +26,7 @@ export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalPr
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity activeOpacity={1} onPress={onClose} style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 24 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <TouchableOpacity activeOpacity={1} className="bg-theme-card rounded-3xl p-6">
+          <TouchableOpacity activeOpacity={1} className="bg-theme-card rounded-card p-6">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-xl font-extrabold text-theme-text">Quick Build</Text>
               <TouchableOpacity onPress={onClose}>

@@ -21,7 +21,7 @@ export function CoachHighlightCard({
   };
 
   return (
-    <View className="p-0 overflow-hidden mb-4 rounded-3xl bg-theme-card/80 shadow-sm">
+    <View className="p-0 overflow-hidden mb-4 rounded-card bg-theme-card/80 shadow-sm">
       {/* Header Bar */}
       <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/40">
         <View className="flex-row items-center gap-2">

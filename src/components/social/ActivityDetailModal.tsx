@@ -1005,7 +1005,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
             <View style={{ width: SCREEN_WIDTH }} className="px-6 space-y-4">
               {/* BEST EFFORTS & MILESTONES TABLE */}
               {setsOrEfforts.length > 0 && (
-                <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-4">
+                <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-4">
                   <View className="flex-row justify-between items-center mb-3">
                     <Text className="text-xs font-extrabold text-theme-muted">
                       {hasMilestones ? 'Best Efforts & Milestones' : 'Strength Sets Breakdown'}
@@ -1078,7 +1078,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
 
               {/* LAP SPLITS TABLE */}
               {laps.length > 0 && (
-                <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-2xl p-4">
+                <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-4">
                   <View className="flex-row justify-between items-center mb-3">
                     <Text className="text-xs font-extrabold text-theme-muted">
                       {isCycling ? 'Speed by Lap' : 'Lap Splits Table'} ({laps.length})

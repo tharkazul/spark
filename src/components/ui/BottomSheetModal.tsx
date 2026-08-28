@@ -26,7 +26,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   visible,
   onClose,
   children,
-  contentClassName = 'bg-theme-card rounded-t-3xl px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]',
+  contentClassName = 'bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]',
   style,
   showHandle = false,
 }) => {

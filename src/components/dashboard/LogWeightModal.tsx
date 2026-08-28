@@ -70,7 +70,7 @@ export function LogWeightModal({
               transform: [{ translateY: Animated.add(slideAnim, dragY) }],
               paddingBottom: Math.max(insets.bottom, 24),
             }}
-            className="bg-theme-card rounded-t-[32px] px-6 pt-3 shadow-2xl"
+            className="bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl"
           >
             {/* TOP PULL HANDLE INDICATOR */}
             <View {...panHandlers} className="items-center pb-4 pt-1">
@@ -110,7 +110,7 @@ export function LogWeightModal({
               <View className="flex-row items-center gap-3 mt-6">
                 <TouchableOpacity
                   onPress={() => adjustWeight(-1.0)}
-                  className="px-3.5 py-2 rounded-xl bg-theme-card"
+                  className="px-3.5 py-2 rounded-control bg-theme-card"
                 >
                   <Text className="text-xs font-mono font-bold text-theme-text">-1.0 kg</Text>
                 </TouchableOpacity>
@@ -131,7 +131,7 @@ export function LogWeightModal({
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(1.0)}
-                  className="px-3.5 py-2 rounded-xl bg-theme-card"
+                  className="px-3.5 py-2 rounded-control bg-theme-card"
                 >
                   <Text className="text-xs font-mono font-bold text-theme-text">+1.0 kg</Text>
                 </TouchableOpacity>

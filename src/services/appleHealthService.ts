@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { requireOptionalNativeModule } from 'expo';
 import type ReactNativeWorkouts from 'react-native-workouts';
 import type {
   ActivityType,
@@ -33,9 +34,13 @@ function getWorkoutKit(): WorkoutKitModule | null {
   }
 
   try {
-    cachedModule = (require('react-native-workouts').default as WorkoutKitModule) ?? null;
+    const nativeModule = requireOptionalNativeModule('ReactNativeWorkouts');
+    if (nativeModule) {
+      cachedModule = (require('react-native-workouts').default as WorkoutKitModule) ?? (nativeModule as WorkoutKitModule);
+    } else {
+      cachedModule = null;
+    }
   } catch (err) {
-    console.log('[WorkoutKit] native module unavailable:', describeError(err));
     cachedModule = null;
   }
   return cachedModule;

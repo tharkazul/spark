@@ -106,7 +106,7 @@ export default function ProgressScreen() {
         <ScreenHeaderTitleRow title="Progress" />
 
         {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
-        <View className="relative flex-row bg-theme-card rounded-2xl p-1 overflow-hidden">
+        <View className="relative flex-row bg-theme-card rounded-tile p-1 overflow-hidden">
           <Animated.View
             className="absolute top-1 bottom-1 bg-theme-accent rounded-xl"
             style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }}
