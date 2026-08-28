@@ -8,6 +8,7 @@ import { NutritionProtocolCard } from '../dashboard/NutritionProtocolCard';
 import { useLanguage } from '../../context/LanguageContext';
 
 import { useUser } from '../../context/UserStore';
+import { useSubscription } from '../../context/SubscriptionStore';
 import { useRouter } from 'expo-router';
 
 export const NutritionTab: React.FC = () => {
@@ -15,6 +16,7 @@ export const NutritionTab: React.FC = () => {
   const { t } = useLanguage();
   const { nutrition } = usePhysique();
   const { user } = useUser();
+  const { presentPaywall } = useSubscription();
   const router = useRouter();
 
   if (user?.subscription_tier === 'free') {
@@ -26,7 +28,7 @@ export const NutritionTab: React.FC = () => {
           Upgrade to the Rooka+ subscription to unlock daily AI nutrition protocols.
         </Text>
         <TouchableOpacity 
-          onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
+          onPress={() => presentPaywall()}
           className="bg-theme-accent px-6 py-3 rounded-2xl w-full mt-6 shadow-sm shadow-theme-accent/30"
           activeOpacity={0.8}
         >

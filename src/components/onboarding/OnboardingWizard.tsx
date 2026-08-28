@@ -34,6 +34,7 @@ import { API_BASE_URL } from '../../constants/api';
 import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
 import { dictionaries, useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
+import { useSubscription } from '../../context/SubscriptionStore';
 import { apiClient } from '../../services/apiClient';
 import { discountApi, integrationsApi } from '../../services/apiServices';
 import { DiscountValidationResult, PricingBreakdown } from '../../types/discount';
@@ -129,6 +130,7 @@ export default function OnboardingWizard() {
     const theme = useTheme();
 
   const { user, refreshUser, updateUser } = useUser();
+  const { packages, purchasePackage } = useSubscription();
   const { t, language, setLanguage } = useLanguage();
 
   // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Gender, 4 = Context/Event, 5 = Schedule, 6 = Integrations, 7 = Paywall)
@@ -825,6 +827,19 @@ export default function OnboardingWizard() {
   const handleCompleteSetup = async (isTrial: boolean) => {
     setIsSubmitting(true);
     try {
+      // If user chooses trial/subscription, prompt RevenueCat Apple in-app purchase
+      if (isTrial) {
+        const targetPkg = selectedPlan === 'annual' ? packages.yearly : packages.monthly;
+        if (targetPkg && Platform.OS !== 'web') {
+          const purchaseSuccess = await purchasePackage(targetPkg);
+          if (!purchaseSuccess) {
+            // User cancelled or purchase failed
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const formattedMetricsContext = metrics
         .filter((m) => m.label.trim() && m.value.trim())
         .map((m) => `${m.label}: ${m.value}`)

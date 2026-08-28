@@ -10,6 +10,7 @@ import { discountApi, userApi } from '../../services/apiServices';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { useCoachChatStore } from '../../context/CoachChatStore';
+import { useSubscription } from '../../context/SubscriptionStore';
 import { AppliedDiscount, DiscountValidationResult, PricingBreakdown } from '../../types/discount';
 import { DiscountCodeField } from '../subscription/DiscountCodeField';
 import { formatDate, formatDiscountSummary } from '../../utils/discountFormat';
@@ -23,6 +24,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
     const theme = useTheme();
   const { t } = useLanguage();
   const { user, refreshUser } = useUser();
+  const { isSubscribed, presentPaywall, presentCustomerCenter, presentCodeRedemptionSheet } = useSubscription();
   const { tokenUsage } = useCoachChatStore();
   const [trackingUpgrade, setTrackingUpgrade] = useState(false);
   const [email, setEmail] = useState(user?.email || '');
@@ -79,9 +81,14 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
     setTrackingUpgrade(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      await userApi.trackRookaPlusClick();
+      if (isMember) {
+        await presentCustomerCenter();
+      } else {
+        userApi.trackRookaPlusClick().catch(() => {});
+        await presentPaywall();
+      }
     } catch (err) {
-      // silent catch
+      console.error('Subscription UI error:', err);
     } finally {
       setTrackingUpgrade(false);
     }
@@ -207,14 +214,18 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
     );
   };
 
-  const handleManageSubscription = () => {
+  const handleManageSubscription = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const url = Platform.OS === 'ios'
-      ? 'https://apps.apple.com/account/subscriptions'
-      : 'https://play.google.com/store/account/subscriptions';
-    Linking.openURL(url).catch(() => {
-      Alert.alert("Manage Subscription", `Please manage your subscription directly in your ${Platform.OS === 'ios' ? 'Apple ID' : 'Google Play Store'} account settings.`);
-    });
+    try {
+      await presentCustomerCenter();
+    } catch (err) {
+      const url = Platform.OS === 'ios'
+        ? 'https://apps.apple.com/account/subscriptions'
+        : 'https://play.google.com/store/account/subscriptions';
+      Linking.openURL(url).catch(() => {
+        Alert.alert("Manage Subscription", `Please manage your subscription directly in your ${Platform.OS === 'ios' ? 'Apple ID' : 'Google Play Store'} account settings.`);
+      });
+    }
   };
 
   const handleOpenPrivacyPolicy = () => {
@@ -354,17 +365,36 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
 
         <TouchableOpacity
           onPress={handleManageSubscription}
-          className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
+          className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between mb-2"
         >
           <View className="flex-row items-center">
             <Ionicons name="card-outline" size={18} color={theme.textSecondary} />
             <View className="ml-3">
               <Text className="text-theme-text font-bold text-xs">Manage or Cancel Subscription</Text>
-              <Text className="text-theme-muted text-xs mt-0.5">1-Click cancel via {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'}</Text>
+              <Text className="text-theme-muted text-xs mt-0.5">Customer center, plan switch & cancel</Text>
             </View>
           </View>
-          <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
+          <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
         </TouchableOpacity>
+
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await presentCodeRedemptionSheet();
+            }}
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between mb-2"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="gift-outline" size={18} color={theme.textSecondary} />
+              <View className="ml-3">
+                <Text className="text-theme-text font-bold text-xs">Redeem Apple Promo Code</Text>
+                <Text className="text-theme-muted text-xs mt-0.5">Redeem official App Store offer code</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </TouchableOpacity>
+        )}
 
         {/* MANAGE DISCOUNT CODE */}
         <View className="mt-3 p-3 bg-theme-bg rounded-xl">

@@ -8,24 +8,27 @@ import { PhysiqueStore } from './PhysiqueStore';
 import { GamificationStore } from './GamificationStore';
 import { HealthStore } from './HealthStore';
 import { CoachChatStore } from './CoachChatStore';
+import { SubscriptionStore } from './SubscriptionStore';
 
 export const AppProviders: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <LanguageProvider>
       <UserStore>
-        <ActivityStore>
-          <PlanStore>
-            <PhysiqueStore>
-              <GamificationStore>
-                <HealthStore>
-                  <CoachChatStore>
-                    <TabBarProvider>{children}</TabBarProvider>
-                  </CoachChatStore>
-                </HealthStore>
-              </GamificationStore>
-            </PhysiqueStore>
-          </PlanStore>
-        </ActivityStore>
+        <SubscriptionStore>
+          <ActivityStore>
+            <PlanStore>
+              <PhysiqueStore>
+                <GamificationStore>
+                  <HealthStore>
+                    <CoachChatStore>
+                      <TabBarProvider>{children}</TabBarProvider>
+                    </CoachChatStore>
+                  </HealthStore>
+                </GamificationStore>
+              </PhysiqueStore>
+            </PlanStore>
+          </ActivityStore>
+        </SubscriptionStore>
       </UserStore>
     </LanguageProvider>
   );
