@@ -35,7 +35,9 @@ import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
 import { dictionaries, useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { apiClient } from '../../services/apiClient';
-import { integrationsApi } from '../../services/apiServices';
+import { discountApi, integrationsApi } from '../../services/apiServices';
+import { DiscountValidationResult, PricingBreakdown } from '../../types/discount';
+import { DiscountCodeField } from '../subscription/DiscountCodeField';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { MarkdownText } from '../chat/MarkdownText';
 import { DurationRoller } from '../ui/DurationRoller';
@@ -288,7 +290,7 @@ export default function OnboardingWizard() {
 
   const [metrics, setMetrics] = useState<{ label: string; value: string }[]>([
     { label: 'FTP (Watts)', value: user?.athlete_metrics?.ftp?.toString() || '' },
-    { label: 'Max HR', value: user?.athlete_metrics?.max_hr?.toString() || '' },
+    { label: '5k PB Time', value: (user?.athlete_metrics as any)?.five_k?.toString() || (user?.athlete_metrics as any)?.['5k']?.toString() || '' },
     { label: 'Resting HR', value: user?.athlete_metrics?.resting_hr?.toString() || '' },
   ]);
 
@@ -791,6 +793,35 @@ export default function OnboardingWizard() {
     }
   };
 
+  /* --- Paywall pricing -----------------------------------------------------
+   * Every number in the two price boxes comes from the server, so the discount
+   * code field only has to hand over the breakdown it was given and the boxes
+   * follow. `pricing === null` means it has not arrived yet, and the boxes fall
+   * back to the static locale strings for that moment.
+   * ---------------------------------------------------------------------- */
+  const [basePricing, setBasePricing] = useState<PricingBreakdown | null>(null);
+  const [discountResult, setDiscountResult] = useState<DiscountValidationResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    discountApi
+      .mine()
+      .then((res) => {
+        if (!cancelled) setBasePricing(res.pricing);
+      })
+      .catch(() => {
+        // Offline or an older server build: the boxes keep their locale strings.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const validDiscount = discountResult?.valid ? discountResult : null;
+  const pricing = validDiscount?.pricing || basePricing;
+  const money = (amount: number) =>
+    `${pricing?.currency || '€'}${amount.toFixed(2)}`;
+
   const handleCompleteSetup = async (isTrial: boolean) => {
     setIsSubmitting(true);
     try {
@@ -844,6 +875,23 @@ export default function OnboardingWizard() {
           target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
           onboarding_completed: true,
         } as any);
+      }
+
+      // Commit the discount code now that the athlete has actually signed up.
+      // Applying it earlier — while they were still typing it — would consume a
+      // one-time code for somebody who never finished onboarding.
+      if (isTrial && validDiscount?.code?.code) {
+        try {
+          await discountApi.apply(validDiscount.code.code);
+        } catch (err: any) {
+          // Losing the discount must not lose the whole onboarding. The code can
+          // be entered again under Account -> Subscription.
+          console.warn('Could not apply discount code during onboarding:', err);
+          Alert.alert(
+            t('onboarding.discountFailedTitle'),
+            err?.data?.error || err?.message || t('onboarding.discountFailedBody')
+          );
+        }
       }
 
       if (showGarmin && garminEmail && garminPassword && !isGarminSaved) {
@@ -1684,7 +1732,11 @@ export default function OnboardingWizard() {
                       </Text>
                     </View>
 
-                    {/* Pricing Tiers */}
+                    {/* Pricing Tiers — every figure below comes from the server
+                        (see server/services/pricing.js), so entering a discount
+                        code re-renders these boxes with the real charge rather
+                        than an estimate computed here. The locale strings are
+                        the fallback for the moment before pricing arrives. */}
                     <View className="flex-row gap-3">
                       <Pressable
                         onPress={() => setSelectedPlan('annual')}
@@ -1695,14 +1747,32 @@ export default function OnboardingWizard() {
                             : undefined
                         }
                       >
-                        <View className="self-start px-2 py-0.5 bg-theme-accent rounded-full mb-1.5">
-                          <Text className="text-white font-bold text-xs">{t('onboarding.savePercent')}</Text>
-                        </View>
+                        {!pricing || pricing.annualSavingsPercent > 0 ? (
+                          <View className="self-start px-2 py-0.5 bg-theme-accent rounded-full mb-1.5">
+                            <Text className="text-white font-bold text-xs">
+                              {pricing
+                                ? t('onboarding.savePercentValue', { percent: pricing.annualSavingsPercent })
+                                : t('onboarding.savePercent')}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View className="mb-1.5 h-[19px]" />
+                        )}
                         <Text className="text-theme-text font-bold text-sm">{t('onboarding.annual')}</Text>
                         <Text className="text-theme-accent font-bold text-lg mt-0.5">
-                          {t('onboarding.annualPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.annualPeriod')}</Text>
+                          {pricing ? money(pricing.yearly.perMonth) : t('onboarding.annualPrice')}
+                          <Text className="text-xs text-theme-muted">{t('onboarding.annualPeriod')}</Text>
                         </Text>
-                        <Text className="text-theme-muted text-xs mt-0.5">{t('onboarding.annualBilled')}</Text>
+                        {pricing?.yearly.discounted ? (
+                          <Text className="text-theme-muted text-xs line-through">
+                            {money(pricing.yearly.originalPerMonth)}{t('onboarding.annualPeriod')}
+                          </Text>
+                        ) : null}
+                        <Text className="text-theme-muted text-xs mt-0.5">
+                          {pricing
+                            ? t('onboarding.annualBilledValue', { price: money(pricing.yearly.final) })
+                            : t('onboarding.annualBilled')}
+                        </Text>
                       </Pressable>
 
                       <Pressable
@@ -1714,12 +1784,38 @@ export default function OnboardingWizard() {
                             : undefined
                         }
                       >
-                        <Text className="text-theme-text font-bold text-sm mt-4">{t('onboarding.monthly')}</Text>
+                        <View className="mb-1.5 h-[19px]" />
+                        <Text className="text-theme-text font-bold text-sm">{t('onboarding.monthly')}</Text>
                         <Text className="text-theme-text font-bold text-lg mt-0.5">
-                          {t('onboarding.monthlyPrice')}<Text className="text-xs text-theme-muted">{t('onboarding.monthlyPeriod')}</Text>
+                          {pricing ? money(pricing.monthly.final) : t('onboarding.monthlyPrice')}
+                          <Text className="text-xs text-theme-muted">{t('onboarding.monthlyPeriod')}</Text>
                         </Text>
+                        {pricing?.monthly.discounted ? (
+                          <Text className="text-theme-muted text-xs line-through">
+                            {money(pricing.monthly.original)}{t('onboarding.monthlyPeriod')}
+                          </Text>
+                        ) : null}
                         <Text className="text-theme-muted text-xs mt-0.5">{t('onboarding.monthlyBilled')}</Text>
                       </Pressable>
+                    </View>
+
+                    {/* Discount code — validated live, committed only when the
+                        athlete finishes setup, so an abandoned onboarding never
+                        burns a one-time code. */}
+                    <View>
+                      <DiscountCodeField
+                        label={t('onboarding.discountLabel')}
+                        placeholder={t('onboarding.discountPlaceholder')}
+                        disabled={isSubmitting}
+                        onResult={setDiscountResult}
+                      />
+                      {validDiscount?.code?.durationMonths ? (
+                        <Text className="text-[11px] text-theme-muted mt-1.5">
+                          {t('onboarding.discountDuration', {
+                            months: validDiscount.code.durationMonths,
+                          })}
+                        </Text>
+                      ) : null}
                     </View>
 
                     {/* Feature Checklist */}

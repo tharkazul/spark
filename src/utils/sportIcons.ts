@@ -60,9 +60,9 @@ export function getSportIconConfig(
     name.includes('swimming')
   ) {
     return {
-      name: 'swimmer',
-      outlineName: 'swimmer',
-      family: 'FontAwesome5',
+      name: 'water',
+      outlineName: 'water-outline',
+      family: 'Ionicons',
       color: sportColor('SWIM', scheme),
       bgColor: 'bg-[#2E8FE0]/15',
       label: 'SWIM',

@@ -46,6 +46,7 @@ export function LogActivityModal({
   const [sport, setSport] = useState('RUN');
   const [duration, setDuration] = useState('30');
   const [distance, setDistance] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(400)).current;
   const { dragY, panHandlers } = useSheetDismiss(onClose);
@@ -62,7 +63,7 @@ export function LogActivityModal({
     }
   }, [visible, slideAnim]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const defaultSportLabel = SPORTS.find(s => s.id === sport)?.label || 'Activity';
     const finalTitle = title.trim() || `Manual ${defaultSportLabel}`;
     
@@ -70,26 +71,36 @@ export function LogActivityModal({
     const durNum = parseInt(duration, 10) || 30;
     const distNum = distance ? parseFloat(distance) : undefined;
     
-    addManualActivity({
-      name: finalTitle,
-      type: sport,
-      moving_time: durNum * 60,
-      distance: distNum ? distNum * 1000 : 0,
-    });
-
-    if (onSaveActivity) {
-      onSaveActivity({
-        title: finalTitle,
-        sport,
-        durationMin: durNum,
-        distanceKm: distNum,
+    setIsSaving(true);
+    try {
+      await addManualActivity({
+        name: finalTitle,
+        type: sport,
+        sport_type: sport,
+        moving_time: durNum * 60,
+        moving_time_min: durNum,
+        distance: distNum ? distNum * 1000 : 0,
+        distance_km: distNum || 0,
       });
+
+      if (onSaveActivity) {
+        onSaveActivity({
+          title: finalTitle,
+          sport,
+          durationMin: durNum,
+          distanceKm: distNum,
+        });
+      }
+      
+      setTitle('');
+      setDuration('30');
+      setDistance('');
+      onClose();
+    } catch (err) {
+      console.error('Error saving manual activity:', err);
+    } finally {
+      setIsSaving(false);
     }
-    
-    setTitle('');
-    setDuration('30');
-    setDistance('');
-    onClose();
   };
 
   return (
@@ -222,7 +233,7 @@ export function LogActivityModal({
                     <Button label="Cancel" variant="outline" onPress={onClose} />
                   </View>
                   <View className="flex-1">
-                    <Button label="Save Activity" variant="primary" onPress={handleSave} />
+                    <Button label="Save Activity" variant="primary" isLoading={isSaving} onPress={handleSave} />
                   </View>
                 </View>
               </ScrollView>

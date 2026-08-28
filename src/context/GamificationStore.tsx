@@ -26,13 +26,26 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshGamification = async () => {
+  const refreshGamification = React.useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
       const data = await gamificationApi.getGamificationData();
       if (data && data.quests && Array.isArray(data.quests)) {
-        setQuests(data.quests);
+        const normalizedQuests = data.quests.map((q: Quest) => {
+          const currentVal = q.current_value !== undefined ? q.current_value : (q.progress ?? 0);
+          const targetVal = q.target_value || 1;
+          const progressPercent = q.progress_percent !== undefined
+            ? q.progress_percent
+            : Math.min(100, Math.round((currentVal / targetVal) * 100));
+          return {
+            ...q,
+            current_value: currentVal,
+            progress: currentVal,
+            progress_percent: progressPercent,
+          };
+        });
+        setQuests(normalizedQuests);
       }
       if (data && data.titles) {
         setTitles(data.titles);
@@ -43,43 +56,23 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  const generateQuest = async () => {
-    setLoading(true);
-    try {
-      // Check if user already has an active quest; if so, swap/refresh it instead of failing
-      const activeQuest = quests.find((q) => q.status === 'active');
-      if (activeQuest) {
-        await swapQuest(activeQuest.id);
-        return;
-      }
-
-      const res = await gamificationApi.generateQuest();
-      if (res && res.quest) {
-        setQuests((prev) => [res.quest, ...prev.filter((q) => q.id !== res.quest.id)]);
-      }
-      await refreshGamification();
-    } catch (err: any) {
-      console.error('Generate quest error:', err.message || err);
-      // If error indicates active quest exists, fallback to refresh
-      const activeQuest = quests.find((q) => q.status === 'active');
-      if (activeQuest && err.message?.includes('already have an active quest')) {
-        await swapQuest(activeQuest.id);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const swapQuest = async (questId?: number | string) => {
+  const swapQuest = React.useCallback(async (questId?: number | string) => {
     setLoading(true);
     try {
       const activeQ = quests.find((q) => q.status === 'active');
       const targetId = questId || activeQ?.id || 0;
       const res = await gamificationApi.refreshQuest(targetId);
       if (res && res.quest) {
-        setQuests((prev) => [res.quest, ...prev.filter((q) => q.id !== res.quest.id && q.id !== targetId)]);
+        const currentVal = res.quest.current_value !== undefined ? res.quest.current_value : (res.quest.progress ?? 0);
+        const normalized = {
+          ...res.quest,
+          current_value: currentVal,
+          progress: currentVal,
+          progress_percent: res.quest.progress_percent ?? 0,
+        };
+        setQuests((prev) => [normalized, ...prev.filter((q) => q.id !== normalized.id && q.id !== targetId)]);
       }
       await refreshGamification();
     } catch (err: any) {
@@ -94,13 +87,47 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  };
+  }, [quests, refreshGamification]);
 
-  const claimQuest = (id: number | string) => {
+  const generateQuest = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      // Check if user already has an active quest; if so, swap/refresh it instead of failing
+      const activeQuest = quests.find((q) => q.status === 'active');
+      if (activeQuest) {
+        await swapQuest(activeQuest.id);
+        return;
+      }
+
+      const res = await gamificationApi.generateQuest();
+      if (res && res.quest) {
+        const currentVal = res.quest.current_value !== undefined ? res.quest.current_value : (res.quest.progress ?? 0);
+        const normalized = {
+          ...res.quest,
+          current_value: currentVal,
+          progress: currentVal,
+          progress_percent: res.quest.progress_percent ?? 0,
+        };
+        setQuests((prev) => [normalized, ...prev.filter((q) => q.id !== normalized.id)]);
+      }
+      await refreshGamification();
+    } catch (err: any) {
+      console.error('Generate quest error:', err.message || err);
+      // If error indicates active quest exists, fallback to refresh
+      const activeQuest = quests.find((q) => q.status === 'active');
+      if (activeQuest && err.message?.includes('already have an active quest')) {
+        await swapQuest(activeQuest.id);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [quests, refreshGamification, swapQuest]);
+
+  const claimQuest = React.useCallback((id: number | string) => {
     setQuests((prev) =>
       prev.map((q) => (q.id === id ? { ...q, status: 'claimed' } : q))
     );
-  };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -109,11 +136,15 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
     const unsubQuestUpdated = wsService.subscribeToEvent('quest_updated', () => refreshGamification());
     const unsubQuestCompleted = wsService.subscribeToEvent('quest_completed', () => refreshGamification());
     const unsubTitleUnlocked = wsService.subscribeToEvent('title_unlocked', () => refreshGamification());
+    const unsubActivityLogged = wsService.subscribeToEvent('activity_logged', () => refreshGamification());
+    const unsubActivitySynced = wsService.subscribeToEvent('activity_synced', () => refreshGamification());
 
     return () => {
       unsubQuestUpdated();
       unsubQuestCompleted();
       unsubTitleUnlocked();
+      unsubActivityLogged();
+      unsubActivitySynced();
     };
   }, [isAuthenticated]);
 

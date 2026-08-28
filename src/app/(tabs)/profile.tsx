@@ -3,11 +3,13 @@ import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  InteractionManager,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -41,18 +43,41 @@ export type ProfileSubTab = 'profile' | 'goals' | 'connections' | 'account';
 const TABS: ProfileSubTab[] = ['profile', 'goals', 'connections', 'account'];
 
 export default function ProfileScreen() {
-    const theme = useTheme();
+  const theme = useTheme();
   const { user, logout, refreshUser } = useUser();
   const { t } = useLanguage();
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
   const { notifyScroll, tabBarOccupied } = useTabBar();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ subtab?: string }>();
 
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const [activeTab, setActiveTab] = useState<ProfileSubTab>('profile');
+
+  useFocusEffect(
+    useCallback(() => {
+      if (params.subtab && TABS.includes(params.subtab as ProfileSubTab)) {
+        const targetTab = params.subtab as ProfileSubTab;
+        const index = TABS.indexOf(targetTab);
+        if (index !== -1) {
+          setActiveTab(targetTab);
+          const task = InteractionManager.runAfterInteractions(() => {
+            scrollViewRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: false });
+          });
+          const timer = setTimeout(() => {
+            scrollViewRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: false });
+          }, 60);
+          return () => {
+            task.cancel();
+            clearTimeout(timer);
+          };
+        }
+      }
+    }, [params.subtab, SCREEN_WIDTH])
+  );
 
   // Garmin Form State
   const [garminModalVisible, setGarminModalVisible] = useState(false);
@@ -421,7 +446,7 @@ export default function ProfileScreen() {
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}
           >
-            <AccountTab onLogout={logout} isRookaPlus={isRookaPlus} />
+            <AccountTab onLogout={() => logout()} isRookaPlus={isRookaPlus} />
           </ScrollView>
         </View>
       </ScrollView>

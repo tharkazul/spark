@@ -82,6 +82,25 @@ const geminiConfigs = [
   },
 ];
 
+// The fallback chain below moves on when a model *errors*, but a request that
+// simply never answers used to hang the whole call forever - and everything
+// awaiting it with it. Bounding each attempt turns a stall into just another
+// failure the chain already knows how to handle.
+const AI_ATTEMPT_TIMEOUT_MS = Number(process.env.AI_ATTEMPT_TIMEOUT_MS) || 90000;
+
+function withAttemptTimeout(promise, controller, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      try {
+        controller.abort();
+      } catch (_) {}
+      reject(new Error(`timed out after ${AI_ATTEMPT_TIMEOUT_MS}ms`));
+    }, AI_ATTEMPT_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function generateWithFallback(
   prompt,
   systemInstruction = null,
@@ -104,7 +123,8 @@ async function generateWithFallback(
       const ai = new GoogleGenAI({ apiKey: config.apiKey });
 
       // Build model options
-      const genConfig = {};
+      const controller = new AbortController();
+      const genConfig = { abortSignal: controller.signal };
       if (systemInstruction) {
         genConfig.systemInstruction = systemInstruction;
       }
@@ -129,14 +149,22 @@ async function generateWithFallback(
             config: genConfig,
             history: chatHistory
         });
-        result = await chat.sendMessage({ message: promptContent });
+        result = await withAttemptTimeout(
+          chat.sendMessage({ message: promptContent }),
+          controller,
+          config.name,
+        );
       } else {
         // Otherwise, use a standard single-shot prompt
-        result = await ai.models.generateContent({
+        result = await withAttemptTimeout(
+          ai.models.generateContent({
             model: config.model,
             contents: promptContent,
             config: genConfig
-        });
+          }),
+          controller,
+          config.name,
+        );
       }
 
       // Log Token Usage to terminal for monitoring

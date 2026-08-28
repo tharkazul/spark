@@ -23,6 +23,7 @@ const {
   getStravaTokenForUser,
   getRookaLevelInfo,
   calculateRookaScore,
+  calculateRookaScoreZoned,
   mapStravaSportToRooka,
   formatStepsForStrava,
   extractStravaPolyline,
@@ -33,7 +34,11 @@ const {
   updateUserRookaAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
-  evaluateQuestsAgainstActivity
+  evaluateQuestsAgainstActivity,
+  normalizeShareSettings,
+  canHideRookaLink,
+  STRAVA_SHARE_SPORTS,
+  STRAVA_SHARE_FLAGS
 } = require('../services/utils');
 const muscleLoad = require('../services/muscleLoad');
 
@@ -161,23 +166,87 @@ router.post("/api/user/strava-opt-out", authenticateToken, (req, res) => {
   );
 });
 
+// What the app shows on the Connections tab. `linkIsOptional` tells the client
+// whether the rooka.io toggle is theirs to change - free accounts always carry
+// the credit, and the server enforces that on write and on read regardless.
+router.get("/api/user/strava-share-settings", authenticateToken, (req, res) => {
+  db.get(
+    `SELECT subscription_tier FROM users WHERE id = ?`,
+    [req.user.id],
+    (tierErr, userRow) => {
+      const linkIsOptional = canHideRookaLink(userRow && userRow.subscription_tier);
+
+      db.get(
+        `SELECT value FROM athlete_metrics WHERE user_id = ? AND metric = 'strava_share_settings'`,
+        [req.user.id],
+        (err, row) => {
+          let stored = {};
+          if (row && row.value) {
+            try {
+              stored = JSON.parse(row.value) || {};
+            } catch (_) {}
+          }
+
+          const shareSettings = {};
+          for (const sport of STRAVA_SHARE_SPORTS) {
+            const entry = normalizeShareSettings(stored[sport]);
+            if (!linkIsOptional) entry.shareLink = true;
+            shareSettings[sport] = entry;
+          }
+
+          res.json({ shareSettings, linkIsOptional });
+        },
+      );
+    },
+  );
+});
+
 router.post("/api/user/strava-share-settings", authenticateToken, (req, res) => {
   const { shareSettings } = req.body;
-  if (!shareSettings || typeof shareSettings !== "object") {
+  if (!shareSettings || typeof shareSettings !== "object" || Array.isArray(shareSettings)) {
     return res.status(400).json({ error: "shareSettings must be an object" });
   }
-  const val = JSON.stringify(shareSettings);
 
-  db.run(
-    `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'strava_share_settings', ?) 
-            ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
-    [req.user.id, val],
-    (err) => {
-      if (err)
+  db.get(
+    `SELECT subscription_tier FROM users WHERE id = ?`,
+    [req.user.id],
+    (tierErr, userRow) => {
+      const linkIsOptional = canHideRookaLink(userRow && userRow.subscription_tier);
+
+      // Store only sports and flags we recognise, as real booleans. The value
+      // goes straight back out to Strava captions, so it is not a free-form
+      // blob to be written back verbatim.
+      const clean = {};
+      for (const sport of STRAVA_SHARE_SPORTS) {
+        const incoming = shareSettings[sport];
+        if (!incoming || typeof incoming !== "object") continue;
+
+        const entry = {};
+        for (const flag of STRAVA_SHARE_FLAGS) {
+          if (flag in incoming) entry[flag] = !!incoming[flag];
+        }
+        if (!linkIsOptional) entry.shareLink = true;
+        if (Object.keys(entry).length > 0) clean[sport] = entry;
+      }
+
+      if (Object.keys(clean).length === 0) {
         return res
-          .status(500)
-          .json({ error: "Failed to update Strava share settings." });
-      res.json({ success: true });
+          .status(400)
+          .json({ error: "No recognised sport settings in payload." });
+      }
+
+      db.run(
+        `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'strava_share_settings', ?) 
+            ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
+        [req.user.id, JSON.stringify(clean)],
+        (err) => {
+          if (err)
+            return res
+              .status(500)
+              .json({ error: "Failed to update Strava share settings." });
+          res.json({ success: true, shareSettings: clean, linkIsOptional });
+        },
+      );
     },
   );
 });
@@ -348,6 +417,129 @@ router.get("/api/history", authenticateToken, (req, res) => {
       res.json(rows || []);
     },
   );
+});
+
+router.post("/api/activities", authenticateToken, async (req, res) => {
+  try {
+    const {
+      name,
+      sport_type,
+      type,
+      distance_km,
+      distance,
+      moving_time_min,
+      moving_time,
+      start_date,
+      elevation_m,
+      total_elevation_gain,
+      average_heartrate,
+      sets,
+    } = req.body;
+
+    const rawSport = sport_type || type || "Run";
+    const finalSport = mapStravaSportToRooka(rawSport) || rawSport;
+    const finalMovingTimeMin =
+      moving_time_min !== undefined
+        ? parseFloat(moving_time_min)
+        : moving_time !== undefined
+          ? parseFloat(moving_time) / 60
+          : 30;
+    const finalDistanceKm =
+      distance_km !== undefined
+        ? parseFloat(distance_km)
+        : distance !== undefined
+          ? parseFloat(distance) / 1000
+          : 0;
+    const finalElevation =
+      elevation_m !== undefined
+        ? parseInt(elevation_m, 10)
+        : total_elevation_gain !== undefined
+          ? parseInt(total_elevation_gain, 10)
+          : 0;
+    const finalAvgHr = average_heartrate ? parseFloat(average_heartrate) : 0;
+    const finalStartDate = start_date || new Date().toISOString();
+    const manualId = -Date.now();
+
+    const rookaScore = await calculateRookaScoreZoned({
+      userId: req.user.id,
+      movingTimeMin: finalMovingTimeMin,
+      avgHr: finalAvgHr,
+      sport: finalSport,
+    });
+
+    await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO activities (id, user_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, start_date, rooka_score, sets_json) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          manualId,
+          req.user.id,
+          name || `Manual ${finalSport}`,
+          finalSport,
+          finalDistanceKm,
+          finalElevation,
+          finalMovingTimeMin,
+          finalAvgHr,
+          finalStartDate,
+          rookaScore,
+          JSON.stringify(sets || []),
+        ],
+        function (err) {
+          if (err) return reject(err);
+          resolve(this);
+        }
+      );
+    });
+
+    // Update user's total Rooka & level
+    updateUserRookaAndCheckLevel(req.user.id);
+
+    // Invalidate today's nutrition cache so it incorporates the new workout
+    const todayStr = finalStartDate.split("T")[0];
+    db.run(
+      `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
+      [req.user.id, todayStr],
+    );
+
+    // Evaluate active quests
+    let completedQuests = [];
+    try {
+      completedQuests = await evaluateQuestsAgainstActivity(req.user.id, {
+        distance_km: finalDistanceKm,
+        moving_time_min: finalMovingTimeMin,
+        rooka_score: rookaScore,
+        sport_type: finalSport,
+      });
+    } catch (questErr) {
+      console.error("Error evaluating quests after manual activity log:", questErr);
+    }
+
+    sendSSEEvent(req.user.id, "activity_logged", { activityId: manualId });
+    sendSSEEvent(req.user.id, "activity_synced", { activityId: manualId });
+    sendSSEEvent(req.user.id, "quest_updated", {});
+
+    const activityObj = {
+      id: manualId,
+      user_id: req.user.id,
+      name: name || `Manual ${finalSport}`,
+      sport_type: finalSport,
+      distance_km: finalDistanceKm,
+      elevation_m: finalElevation,
+      moving_time_min: finalMovingTimeMin,
+      average_heartrate: finalAvgHr,
+      start_date: finalStartDate,
+      rooka_score: rookaScore,
+    };
+
+    res.json({
+      success: true,
+      activity: activityObj,
+      completedQuests: completedQuests || [],
+    });
+  } catch (error) {
+    console.error("POST /api/activities error:", error);
+    res.status(500).json({ error: "Failed to log activity", details: error.message });
+  }
 });
 
 router.post("/api/micro-plan", authenticateToken, (req, res) => {

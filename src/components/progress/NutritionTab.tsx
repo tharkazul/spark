@@ -1,16 +1,40 @@
 import React from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { NutritionProtocolCard } from '../dashboard/NutritionProtocolCard';
 import { useLanguage } from '../../context/LanguageContext';
 
+import { useUser } from '../../context/UserStore';
+import { useRouter } from 'expo-router';
+
 export const NutritionTab: React.FC = () => {
-    const theme = useTheme();
+  const theme = useTheme();
   const { t } = useLanguage();
   const { nutrition } = usePhysique();
+  const { user } = useUser();
+  const router = useRouter();
+
+  if (user?.subscription_tier === 'free') {
+    return (
+      <View className="bg-theme-card border border-theme-border rounded-2xl p-6 items-center justify-center mt-4 shadow-sm">
+        <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
+        <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Nutrition Locked</Text>
+        <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed">
+          Upgrade to the Rooka+ subscription to unlock daily AI nutrition protocols.
+        </Text>
+        <TouchableOpacity 
+          onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
+          className="bg-theme-accent px-6 py-3 rounded-2xl w-full mt-6 shadow-sm shadow-theme-accent/30"
+          activeOpacity={0.8}
+        >
+          <Text className="text-white font-black text-center">Upgrade to Rooka+</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View className="space-y-4">

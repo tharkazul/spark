@@ -7,6 +7,11 @@ import { Quest, UserTitle } from '../types/gamification';
 import { Niggle } from '../types/health';
 import { ChatMessage, TokenUsage } from '../types/chat';
 import { SocialFeedActivity, ActivityComment, SocialConnection, LeaderboardResponse, PublicAthleteProfile } from '../types/social';
+import {
+  ApplyDiscountResponse,
+  DiscountValidationResult,
+  MyDiscountResponse,
+} from '../types/discount';
 
 export const authApi = {
   login: (credentials: { email?: string; username?: string; password: string }) =>
@@ -38,6 +43,11 @@ export const userApi = {
         gender: data.gender,
       }),
       skipAuthInterceptor: true,
+    }),
+  updateAccountDetails: (data: { email?: string; username?: string }) =>
+    apiClient<{ success: boolean; message: string }>('/api/user/settings/account', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
   uploadProfilePicture: async (fileUri: string) => {
     const formData = new FormData();
@@ -77,6 +87,11 @@ export const userApi = {
 export const activitiesApi = {
   getActivities: () => apiClient<Activity[]>('/api/history'),
   getActivityDetail: (id: string | number) => apiClient<Activity>(`/api/activity/${id}`),
+  logActivity: (data: Partial<Activity>) =>
+    apiClient<{ success: boolean; activity?: Activity; completedQuests?: any[] }>('/api/activities', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   getDashboardData: () => apiClient<any>('/api/dashboard-data'),
   syncGarmin: (workouts?: any[]) => apiClient<{ success: boolean; message?: string }>('/api/sync-garmin', { method: 'POST', body: JSON.stringify({ workouts }) }),
   syncStrava: () => apiClient<{ success: boolean; message?: string; count?: number }>('/api/sync-strava', { method: 'POST' }),
@@ -91,6 +106,21 @@ export const activitiesApi = {
       method: 'DELETE',
     }),
 };
+
+// Keyed by Rooka sport bucket ('Run' | 'Bike' | 'Swim' | 'Strength') to match
+// STRAVA_SHARE_SPORTS in server/services/utils.js.
+export interface StravaShareFlags {
+  shareName: boolean;
+  shareScore: boolean;
+  shareStructure: boolean;
+  shareLink: boolean;
+}
+
+export interface StravaShareSettingsResponse {
+  shareSettings: Record<string, StravaShareFlags>;
+  // False on free accounts, where the rooka.io credit is always posted.
+  linkIsOptional: boolean;
+}
 
 export const integrationsApi = {
   saveGarminCredentials: (credentials: { garminUsername: string; garminPassword: string }) =>
@@ -127,6 +157,13 @@ export const integrationsApi = {
     apiClient<{ success: boolean; message?: string; count?: number }>('/api/sync-strava', {
       method: 'POST',
     }),
+  getStravaShareSettings: () =>
+    apiClient<StravaShareSettingsResponse>('/api/user/strava-share-settings'),
+  saveStravaShareSettings: (shareSettings: Record<string, StravaShareFlags>) =>
+    apiClient<StravaShareSettingsResponse & { success: boolean }>(
+      '/api/user/strava-share-settings',
+      { method: 'POST', body: JSON.stringify({ shareSettings }) },
+    ),
 };
 
 export const planApi = {
@@ -261,6 +298,28 @@ export const adminApi = {
     }),
   deleteUser: (targetUsername: string) =>
     apiClient<{ success: boolean; message?: string }>(`/api/admin/delete-user/${encodeURIComponent(targetUsername)}`, {
+      method: 'DELETE',
+    }),
+};
+
+export const discountApi = {
+  /**
+   * Price preview with no side effects — safe to call on every keystroke, and
+   * it will not burn a one-time code before the athlete commits.
+   */
+  validate: (code: string) =>
+    apiClient<DiscountValidationResult>('/api/discounts/validate', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  apply: (code: string) =>
+    apiClient<ApplyDiscountResponse>('/api/discounts/apply', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  mine: () => apiClient<MyDiscountResponse>('/api/discounts/mine'),
+  remove: () =>
+    apiClient<{ success: boolean; removed: boolean } & MyDiscountResponse>('/api/discounts/mine', {
       method: 'DELETE',
     }),
 };

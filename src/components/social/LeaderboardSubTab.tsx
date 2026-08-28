@@ -203,7 +203,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
           Upgrade to the Rooka+ subscription to unlock global leaderboards and rank against your friends.
         </Text>
         <TouchableOpacity
-          onPress={() => router.navigate('/profile')}
+          onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
           className="mt-6 bg-theme-accent px-6 py-3 rounded-full shadow-md"
         >
           <Text className="text-white font-extrabold text-center">Upgrade to Rooka+</Text>

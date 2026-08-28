@@ -218,6 +218,7 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             localStorage.setItem('nana_token', data.token);
             document.getElementById('loginModal').classList.add('hidden');
             fetchUsage();
+            fetchDiscounts();
         } else {
             err.innerText = data.error || 'Login failed';
             err.classList.remove('hidden');
@@ -231,5 +232,342 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
     }
 });
 
+/* ===========================================================================
+ * Discount codes
+ *
+ * A code is three independent choices: what it does to the price
+ * (percent / fixed yearly / fixed monthly / fixed both), how long it keeps
+ * doing it (forever or X months), and how many athletes may redeem it
+ * (one time / limited / unlimited).
+ *
+ * Every price shown here is computed by the server (server/services/pricing.js)
+ * and returned with each code, so this table shows exactly what the athlete
+ * will be charged rather than a second copy of the same arithmetic.
+ * ======================================================================== */
+
+let discountBasePricing = { currency: '€', monthly: 6.99, yearly: 69.99 };
+
+function authHeaders(json) {
+    const h = { 'Authorization': `Bearer ${localStorage.getItem('nana_token')}` };
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+}
+
+function esc(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+
+function money(amount) {
+    return `${discountBasePricing.currency}${Number(amount).toFixed(2)}`;
+}
+
+function formatDate(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** What the code does to the price, in words. */
+function discountEffect(c) {
+    switch (c.discountType) {
+        case 'percent': return `${c.percentOff ?? 0}% off`;
+        case 'fixed_yearly': return `${money(c.fixedYearlyPrice ?? 0)}/year`;
+        case 'fixed_monthly': return `${money(c.fixedMonthlyPrice ?? 0)}/month`;
+        case 'fixed_both': return `${money(c.fixedMonthlyPrice ?? 0)}/mo &middot; ${money(c.fixedYearlyPrice ?? 0)}/yr`;
+        default: return '&mdash;';
+    }
+}
+
+function usageLabel(c) {
+    if (c.redemptionType === 'unlimited') return `Unlimited &middot; ${c.redemptionCount} used`;
+    if (c.redemptionType === 'one_time') return c.redemptionCount > 0 ? 'One time &middot; used' : 'One time &middot; available';
+    return `Limited &middot; ${c.redemptionCount} of ${c.maxRedemptions ?? 0} used`;
+}
+
+async function fetchDiscounts() {
+    try {
+        const token = localStorage.getItem('nana_token');
+        if (!token) { showLoginModal(); return; }
+
+        const response = await fetch('/api/admin/discounts', { headers: authHeaders() });
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) { showLoginModal(); return; }
+            throw new Error(`Failed to fetch: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.basePricing) {
+            discountBasePricing = data.basePricing;
+            document.querySelectorAll('.dc-base-monthly').forEach((el) => { el.innerText = money(discountBasePricing.monthly); });
+            document.querySelectorAll('.dc-base-yearly').forEach((el) => { el.innerText = money(discountBasePricing.yearly); });
+        }
+        renderDiscountTable(data.codes || []);
+    } catch (err) {
+        showError('Could not load discount codes.');
+        console.error(err);
+    }
+}
+
+function renderDiscountTable(codes) {
+    window.__discountCodes = codes;
+    const tbody = document.getElementById('discountTableBody');
+    const summary = document.getElementById('discountSummary');
+    const activeCount = codes.filter((c) => c.active).length;
+    summary.innerText = codes.length
+        ? `${codes.length} code${codes.length === 1 ? '' : 's'} · ${activeCount} active · list price ${money(discountBasePricing.monthly)}/mo, ${money(discountBasePricing.yearly)}/yr`
+        : `No codes yet · list price ${money(discountBasePricing.monthly)}/mo, ${money(discountBasePricing.yearly)}/yr`;
+
+    tbody.innerHTML = '';
+    if (!codes.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-gray-400">No discount codes yet. Create one to offer a percentage off, a fixed price, or a limited-time deal.</td></tr>';
+        return;
+    }
+
+    codes.forEach((c) => {
+        const p = c.pricing;
+        const strike = (plan) => plan.discounted
+            ? ` <span class="text-gray-400 line-through text-xs">${money(plan.original)}</span>`
+            : '';
+
+        const from = formatDate(c.validFrom);
+        const until = formatDate(c.validUntil);
+        let window_ = '<span class="text-gray-400 text-xs">Always</span>';
+        if (from || until) {
+            window_ = `<span class="text-xs text-gray-600">${from ? esc(from) : 'now'} &rarr; ${until ? esc(until) : '&infin;'}</span>`;
+        }
+
+        const remaining = c.remainingUses === null
+            ? ''
+            : `<div class="text-xs mt-0.5 ${c.remainingUses === 0 ? 'text-red-600 font-bold' : 'text-gray-500'}">${c.remainingUses} left</div>`;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 transition' + (c.active ? '' : ' opacity-60');
+        tr.innerHTML = `
+            <td class="p-4">
+                <div class="font-bold text-gray-900 tracking-wider">${esc(c.code)}</div>
+                ${c.description ? `<div class="text-xs text-gray-500 mt-0.5">${esc(c.description)}</div>` : ''}
+                ${c.createdBy ? `<div class="text-xs text-gray-400 mt-0.5">by ${esc(c.createdBy)}</div>` : ''}
+            </td>
+            <td class="p-4"><span class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-semibold whitespace-nowrap">${discountEffect(c)}</span></td>
+            <td class="p-4 text-gray-600 whitespace-nowrap">${c.durationMonths ? `${c.durationMonths} mo` : 'Forever'}</td>
+            <td class="p-4 text-gray-600">
+                <div class="whitespace-nowrap">${usageLabel(c)}</div>
+                ${remaining}
+                <div class="text-xs text-gray-400 mt-0.5">${c.activeHolders} on it now</div>
+            </td>
+            <td class="p-4 whitespace-nowrap">
+                <div class="text-gray-900"><span class="text-xs text-gray-400 uppercase">mo</span> <strong>${money(p.monthly.final)}</strong>${strike(p.monthly)}</div>
+                <div class="text-gray-900 mt-0.5"><span class="text-xs text-gray-400 uppercase">yr</span> <strong>${money(p.yearly.final)}</strong>${strike(p.yearly)}</div>
+            </td>
+            <td class="p-4">${window_}</td>
+            <td class="p-4">
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleDiscountActive(${c.id})" class="w-4 h-4">
+                    <span class="text-xs font-semibold ${c.active ? 'text-green-600' : 'text-gray-400'}">${c.active ? 'Active' : 'Off'}</span>
+                </label>
+            </td>
+            <td class="p-4 text-right whitespace-nowrap">
+                <button onclick="openDiscountModal(${c.id})" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-1 rounded transition">Edit</button>
+                <button onclick="deleteDiscount(${c.id})" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition ml-2">${c.redemptionCount > 0 ? 'Disable' : 'Delete'}</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+/* --- form ---------------------------------------------------------------- */
+
+function setRadio(name, value) {
+    const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+    if (el) el.checked = true;
+}
+
+function getRadio(name) {
+    const el = document.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : null;
+}
+
+/** Only the inputs the chosen type/duration/usage actually needs stay visible. */
+function syncDiscountForm() {
+    const type = getRadio('dcType');
+    document.getElementById('dcPercentWrap').classList.toggle('hidden', type !== 'percent');
+    document.getElementById('dcMonthlyWrap').classList.toggle('hidden', !(type === 'fixed_monthly' || type === 'fixed_both'));
+    document.getElementById('dcYearlyWrap').classList.toggle('hidden', !(type === 'fixed_yearly' || type === 'fixed_both'));
+
+    const forMonths = getRadio('dcDur') === 'months';
+    document.getElementById('dcMonthsWrap').classList.toggle('hidden', !forMonths);
+    document.getElementById('dcForeverNote').classList.toggle('hidden', forMonths);
+
+    const use = getRadio('dcUse');
+    document.getElementById('dcMaxWrap').classList.toggle('hidden', use !== 'limited');
+    const note = document.getElementById('dcUseNote');
+    note.classList.toggle('hidden', use === 'limited');
+    note.innerText = use === 'one_time'
+        ? 'Exactly one athlete can ever redeem this code.'
+        : 'Any number of athletes can redeem this code.';
+}
+
+function openDiscountModal(id) {
+    const code = id != null ? (window.__discountCodes || []).find((c) => c.id === id) : null;
+
+    document.getElementById('dcError').classList.add('hidden');
+    document.getElementById('dcId').value = code ? code.id : '';
+    document.getElementById('dcCode').value = code ? code.code : '';
+    document.getElementById('dcDescription').value = code && code.description ? code.description : '';
+    document.getElementById('dcPercentOff').value = code && code.percentOff != null ? code.percentOff : '';
+    document.getElementById('dcFixedMonthly').value = code && code.fixedMonthlyPrice != null ? code.fixedMonthlyPrice : '';
+    document.getElementById('dcFixedYearly').value = code && code.fixedYearlyPrice != null ? code.fixedYearlyPrice : '';
+    document.getElementById('dcDurationMonths').value = code && code.durationMonths != null ? code.durationMonths : '';
+    document.getElementById('dcMaxRedemptions').value = code && code.maxRedemptions != null ? code.maxRedemptions : '';
+    document.getElementById('dcValidFrom').value = code && code.validFrom ? code.validFrom.slice(0, 10) : '';
+    document.getElementById('dcValidUntil').value = code && code.validUntil ? code.validUntil.slice(0, 10) : '';
+    document.getElementById('dcActive').checked = code ? !!code.active : true;
+
+    setRadio('dcType', code ? code.discountType : 'percent');
+    setRadio('dcDur', code && code.durationMonths ? 'months' : 'forever');
+    setRadio('dcUse', code ? code.redemptionType : 'unlimited');
+    syncDiscountForm();
+
+    document.getElementById('discountModalTitle').innerText = code ? `Edit ${code.code}` : 'New Discount Code';
+    document.getElementById('dcSaveBtn').innerText = code ? 'Save Changes' : 'Create Code';
+    document.getElementById('discountModal').classList.remove('hidden');
+}
+
+function closeDiscountModal() {
+    document.getElementById('discountModal').classList.add('hidden');
+}
+
+/** Blank must travel as null, not 0 — 0 is a legitimate fixed price. */
+function numOrNull(id) {
+    const v = document.getElementById(id).value.trim();
+    if (!v) return null;
+    const n = Number(v.replace(',', '.'));
+    return isNaN(n) ? null : n;
+}
+
+async function saveDiscount(e) {
+    e.preventDefault();
+    const id = document.getElementById('dcId').value;
+    const err = document.getElementById('dcError');
+    const btn = document.getElementById('dcSaveBtn');
+    const original = btn.innerText;
+
+    const payload = {
+        code: document.getElementById('dcCode').value.trim().toUpperCase().replace(/\s+/g, ''),
+        description: document.getElementById('dcDescription').value.trim() || null,
+        discountType: getRadio('dcType'),
+        percentOff: numOrNull('dcPercentOff'),
+        fixedMonthlyPrice: numOrNull('dcFixedMonthly'),
+        fixedYearlyPrice: numOrNull('dcFixedYearly'),
+        durationMonths: getRadio('dcDur') === 'months' ? numOrNull('dcDurationMonths') : null,
+        redemptionType: getRadio('dcUse'),
+        maxRedemptions: getRadio('dcUse') === 'limited' ? numOrNull('dcMaxRedemptions') : null,
+        validFrom: document.getElementById('dcValidFrom').value || null,
+        validUntil: document.getElementById('dcValidUntil').value || null,
+        active: document.getElementById('dcActive').checked,
+    };
+
+    err.classList.add('hidden');
+    btn.disabled = true;
+    btn.innerText = 'Saving…';
+
+    try {
+        const response = await fetch(id ? `/api/admin/discounts/${id}` : '/api/admin/discounts', {
+            method: id ? 'PUT' : 'POST',
+            headers: authHeaders(true),
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (response.ok) {
+            closeDiscountModal();
+            fetchDiscounts();
+        } else {
+            // The server is the authority on what a valid code is, so show its
+            // message rather than re-implementing the rules here.
+            err.innerText = data.error || 'Could not save this code.';
+            err.classList.remove('hidden');
+        }
+    } catch (_) {
+        err.innerText = 'Network error occurred.';
+        err.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerText = original;
+    }
+}
+
+async function toggleDiscountActive(id) {
+    const code = (window.__discountCodes || []).find((c) => c.id === id);
+    if (!code) return;
+
+    try {
+        const response = await fetch(`/api/admin/discounts/${id}`, {
+            method: 'PUT',
+            headers: authHeaders(true),
+            body: JSON.stringify({
+                code: code.code,
+                description: code.description,
+                discountType: code.discountType,
+                percentOff: code.percentOff,
+                fixedMonthlyPrice: code.fixedMonthlyPrice,
+                fixedYearlyPrice: code.fixedYearlyPrice,
+                durationMonths: code.durationMonths,
+                redemptionType: code.redemptionType,
+                maxRedemptions: code.maxRedemptions,
+                validFrom: code.validFrom,
+                validUntil: code.validUntil,
+                active: !code.active,
+            }),
+        });
+        const data = await response.json();
+        if (!response.ok) showError(data.error || 'Failed to update the code.');
+        fetchDiscounts();
+    } catch (_) {
+        showError('Network error occurred.');
+        fetchDiscounts();
+    }
+}
+
+async function deleteDiscount(id) {
+    const code = (window.__discountCodes || []).find((c) => c.id === id);
+    if (!code) return;
+
+    // A redeemed code cannot be deleted without orphaning the athletes on it,
+    // so the server deactivates it instead. Say which will happen up front.
+    const redeemed = code.redemptionCount > 0;
+    const message = redeemed
+        ? `${code.code} has ${code.redemptionCount} redemption(s), so it cannot be deleted. It will be switched off instead — including for the ${code.activeHolders} athlete(s) currently on it, who go back to full price.\n\nContinue?`
+        : `${code.code} has never been redeemed and will be permanently removed.\n\nContinue?`;
+    if (!confirm(message)) return;
+
+    try {
+        const response = await fetch(`/api/admin/discounts/${id}`, { method: 'DELETE', headers: authHeaders() });
+        const data = await response.json();
+        if (response.ok) {
+            if (!data.deleted) showError(data.message);
+            fetchDiscounts();
+        } else {
+            showError(data.error || 'Failed to remove the code.');
+        }
+    } catch (_) {
+        showError('Network error occurred.');
+    }
+}
+
+document.getElementById('discountForm')?.addEventListener('submit', saveDiscount);
+document.getElementById('discountModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'discountModal') closeDiscountModal();
+});
+['dcType', 'dcDur', 'dcUse'].forEach((name) => {
+    document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
+        el.addEventListener('change', syncDiscountForm);
+    });
+});
+
 // Init
-document.addEventListener('DOMContentLoaded', fetchUsage);
+document.addEventListener('DOMContentLoaded', () => {
+    fetchUsage();
+    fetchDiscounts();
+});

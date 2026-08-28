@@ -35,8 +35,14 @@ const {
   updateUserRookaAndCheckLevel,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
-  evaluateQuestsAgainstActivity
+  evaluateQuestsAgainstActivity,
+  processActivityCoachAnalysis
 } = require('../services/utils');
+
+// How far ahead an unfiltered "sync everything" push reaches. Each workout is
+// two Garmin calls, so this is the difference between a handful of requests and
+// a plan-sized burst.
+const SYNC_HORIZON_DAYS = 7;
 
 const SPORT_MAP = {
   run: { sportTypeId: 1, sportTypeKey: "running" },
@@ -359,6 +365,17 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
         // fired: minutes after a sync that appeared to add nothing new.
         updateUserRookaAndCheckLevel(req.user.id);
 
+        // Check if any recent unanalyzed activity (past 48h) needs coach feedback
+        db.all(
+          `SELECT * FROM activities WHERE user_id = ? AND (coach_analyzed = 0 OR coach_analyzed IS NULL) AND datetime(start_date) >= datetime('now', '-2 days') ORDER BY start_date DESC LIMIT 1`,
+          [req.user.id],
+          async (unErr, unRows) => {
+            if (!unErr && unRows && unRows.length > 0) {
+              await processActivityCoachAnalysis(req.user.id, unRows[0]);
+            }
+          }
+        );
+
         // Report what was actually stored for this athlete, never the raw count
         // returned by Strava.
         res.json({
@@ -543,39 +560,24 @@ router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
   );
 });
 
-/**
- * Returns a logged-in GarminConnect client for a user, reusing a cached
- * OAuth session whenever possible instead of authenticating with
- * username/password on every call. Garmin rate-limits (429) accounts that
- * log in too frequently, so a fresh username/password login only happens
- * when there's no cached session or the cached one no longer works.
- */
-async function getGarminClient(user, userId) {
-  const decryptedPassword = decrypt(user.garmin_password);
-  const GCClient = new GarminConnect({
-    username: user.garmin_username,
-    password: decryptedPassword,
-  });
+// Only the SSO login endpoint is really rate-limited by Garmin, and once it
+// starts answering 429 it keeps doing so for hours. Every extra login attempt
+// while throttled extends that window, so a 429 must never be retried by
+// logging in again.
+function isGarminRateLimited(err) {
+  if (err?.response?.status === 429) return true;
+  return /\(429\)|Too Many Requests/i.test(err?.message || "");
+}
 
-  if (user.garmin_oauth1_token && user.garmin_oauth2_token) {
-    try {
-      const oauth1 = JSON.parse(decrypt(user.garmin_oauth1_token));
-      const oauth2 = JSON.parse(decrypt(user.garmin_oauth2_token));
-      GCClient.loadToken(oauth1, oauth2);
-      await GCClient.getUserProfile(); // cheap call to confirm the restored session actually works
-      console.log("DEBUG: Reused cached Garmin session for", user.garmin_username);
-      return GCClient;
-    } catch (e) {
-      console.log(
-        "DEBUG: Cached Garmin session rejected, falling back to full login:",
-        e.message,
-      );
-    }
-  }
+// A session Garmin no longer accepts - as opposed to one we simply couldn't
+// reach. Only this warrants spending a fresh username/password login.
+function isGarminAuthRejected(err) {
+  const status = err?.response?.status;
+  if (status === 401 || status === 403) return true;
+  return /\((401|403)\)/.test(err?.message || "");
+}
 
-  console.log("DEBUG: Attempting fresh Garmin login for user:", user.garmin_username);
-  await GCClient.login(user.garmin_username, decryptedPassword);
-
+function storeGarminSession(GCClient, userId) {
   try {
     const { oauth1, oauth2 } = GCClient.exportToken();
     db.run(
@@ -585,6 +587,74 @@ async function getGarminClient(user, userId) {
   } catch (e) {
     console.error("Failed to cache Garmin session tokens:", e.message);
   }
+}
+
+function clearGarminSession(userId) {
+  db.run(
+    `UPDATE users SET garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
+    [userId],
+  );
+}
+
+/**
+ * Returns a logged-in GarminConnect client for a user, reusing a cached
+ * OAuth session whenever possible instead of authenticating with
+ * username/password on every call. Garmin rate-limits (429) accounts that
+ * log in too frequently, so a fresh username/password login only happens
+ * when there's no cached session or the cached one no longer works.
+ *
+ * The OAuth2 access token lives about an hour, the OAuth1 token about a year.
+ * As long as the OAuth1 token holds we can mint a new OAuth2 token without
+ * going anywhere near the SSO endpoint that does the throttling.
+ */
+async function getGarminClient(user, userId, { forceLogin = false } = {}) {
+  const decryptedPassword = decrypt(user.garmin_password);
+  const GCClient = new GarminConnect({
+    username: user.garmin_username,
+    password: decryptedPassword,
+  });
+
+  let session = null;
+  if (!forceLogin && user.garmin_oauth1_token && user.garmin_oauth2_token) {
+    try {
+      session = {
+        oauth1: JSON.parse(decrypt(user.garmin_oauth1_token)),
+        oauth2: JSON.parse(decrypt(user.garmin_oauth2_token)),
+      };
+    } catch (e) {
+      // Unreadable rather than rejected: drop it so we don't re-parse the same
+      // garbage on every sync.
+      console.log("DEBUG: Stored Garmin session unreadable, discarding:", e.message);
+      clearGarminSession(userId);
+    }
+  }
+
+  if (session) {
+    GCClient.loadToken(session.oauth1, session.oauth2);
+
+    const expiresAt = Number(session.oauth2?.expires_at) || 0;
+    if (expiresAt - Date.now() / 1000 > 60) {
+      console.log("DEBUG: Reused cached Garmin session for", user.garmin_username);
+      return GCClient;
+    }
+
+    try {
+      await GCClient.client.refreshOauth2Token();
+      storeGarminSession(GCClient, userId);
+      console.log("DEBUG: Refreshed Garmin OAuth2 token for", user.garmin_username);
+      return GCClient;
+    } catch (e) {
+      if (isGarminRateLimited(e)) throw e;
+      console.log(
+        "DEBUG: Garmin token refresh failed, falling back to full login:",
+        e.message,
+      );
+    }
+  }
+
+  console.log("DEBUG: Attempting fresh Garmin login for user:", user.garmin_username);
+  await GCClient.login(user.garmin_username, decryptedPassword);
+  storeGarminSession(GCClient, userId);
 
   return GCClient;
 }
@@ -609,8 +679,8 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Garmin credentials not connected." });
     }
 
-    const GCClient = await getGarminClient(user, req.user.id);
-    const client = GCClient.client || GCClient.http;
+    let GCClient = await getGarminClient(user, req.user.id);
+    let client = GCClient.client || GCClient.http;
     if (!client) throw new Error("Garmin client initialization failed.");
 
     const todayStr = getAMSDateString();
@@ -653,7 +723,19 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
         );
       }
     } else {
-      workoutsToSync = workouts;
+      // No explicit selection: push the coming week, not the whole plan. Each
+      // workout costs two Garmin calls, and firing a few dozen of them off one
+      // button press is what earns the account a 429.
+      const horizon = new Date(`${todayStr}T00:00:00Z`);
+      horizon.setUTCDate(horizon.getUTCDate() + SYNC_HORIZON_DAYS);
+      const horizonStr = horizon.toISOString().split("T")[0];
+      workoutsToSync = workouts.filter((w) => String(w.date) <= horizonStr);
+      if (workouts.length > workoutsToSync.length) {
+        console.log(
+          `DEBUG: Garmin sync limited to the next ${SYNC_HORIZON_DAYS} days ` +
+            `(${workoutsToSync.length} of ${workouts.length} planned workouts).`,
+        );
+      }
     }
 
     if (!workoutsToSync || workoutsToSync.length === 0) {
@@ -664,6 +746,8 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
 
     let syncedCount = 0;
     let lastError = null;
+    let rateLimited = false;
+    let reloggedIn = false;
 
     for (const workout of workoutsToSync) {
       if (workout.sport === "Rest" || workout.sport === "REST") continue;
@@ -900,29 +984,79 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
         wkt.poolLengthUnit = { unitId: 1, unitKey: "meter", factor: 100 };
       }
 
-      try {
+      const pushWorkout = async () => {
         const response = await client.post(
           "https://connectapi.garmin.com/workout-service/workout",
           wkt,
         );
         const workoutId = response?.workoutId || response?.data?.workoutId;
-        if (workoutId) {
-          await client.post(
-            `https://connectapi.garmin.com/workout-service/schedule/${workoutId}`,
-            { date: workout.date },
-          );
-          syncedCount++;
-        } else {
+        if (!workoutId) {
           console.warn("Garmin workout creation returned no workoutId:", response);
+          return;
         }
-      } catch (err) {
-        lastError = err?.response?.data?.message || err?.message || "Garmin API rejected workout";
-        console.error(
-          `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
-          err?.response?.data || err.message,
+        await client.post(
+          `https://connectapi.garmin.com/workout-service/schedule/${workoutId}`,
+          { date: workout.date },
         );
+        syncedCount++;
+      };
+
+      try {
+        await pushWorkout();
+      } catch (err) {
+        if (isGarminRateLimited(err)) {
+          // Garmin is throttling this account. Walking the rest of the list
+          // would only add to the pile, so stop here.
+          rateLimited = true;
+          lastError = err?.message || "Garmin rate limit";
+          console.error(`❌ Garmin rate-limited during sync:`, lastError);
+          break;
+        }
+
+        // The cached session can be revoked server-side (password change,
+        // session revoked) while still looking valid by its own clock. That is
+        // the one case worth spending a fresh login on, and only once.
+        if (isGarminAuthRejected(err) && !reloggedIn) {
+          reloggedIn = true;
+          console.log("DEBUG: Cached Garmin session rejected, re-authenticating once.");
+          clearGarminSession(req.user.id);
+          try {
+            GCClient = await getGarminClient(user, req.user.id, { forceLogin: true });
+            client = GCClient.client || GCClient.http;
+            await pushWorkout();
+          } catch (retryErr) {
+            if (isGarminRateLimited(retryErr)) {
+              rateLimited = true;
+              lastError = retryErr?.message || "Garmin rate limit";
+              break;
+            }
+            lastError =
+              retryErr?.response?.data?.message ||
+              retryErr?.message ||
+              "Garmin API rejected workout";
+            console.error(
+              `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
+              retryErr?.response?.data || retryErr.message,
+            );
+          }
+        } else {
+          lastError = err?.response?.data?.message || err?.message || "Garmin API rejected workout";
+          console.error(
+            `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
+            err?.response?.data || err.message,
+          );
+        }
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    if (rateLimited) {
+      return res.status(429).json({
+        error:
+          "Garmin is rate-limiting this account. Wait an hour or so before syncing again.",
+        details: lastError,
+        syncedCount,
+      });
     }
 
     if (syncedCount === 0 && workoutsToSync.length > 0) {
@@ -939,6 +1073,13 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error("CRITICAL ERROR in sync-garmin:", err);
+    if (isGarminRateLimited(err)) {
+      return res.status(429).json({
+        error:
+          "Garmin is rate-limiting this account. Wait an hour or so before syncing again.",
+        details: err.message,
+      });
+    }
     return res
       .status(500)
       .json({ error: "Server sync failed", details: err.message });

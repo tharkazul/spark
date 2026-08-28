@@ -35,7 +35,8 @@ export default function LoginScreen() {
   // unreachable) the store records why. Without surfacing it here the user
   // just lands on a bare login screen with no explanation for why they were
   // signed out — which reads as "the app is broken".
-  const notice = errorMessage ?? sessionError;
+  const rawNotice = errorMessage ?? sessionError;
+  const notice = typeof rawNotice === 'string' ? rawNotice : null;
 
   const handleSubmit = async () => {
     setErrorMessage(null);

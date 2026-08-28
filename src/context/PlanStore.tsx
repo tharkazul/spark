@@ -26,7 +26,7 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshPlan = async () => {
+  const refreshPlan = React.useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
@@ -40,9 +40,9 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  const addWorkout = async (workout: Partial<PlannedWorkout>) => {
+  const addWorkout = React.useCallback(async (workout: Partial<PlannedWorkout>) => {
     try {
       await planApi.addWorkout(workout);
       await refreshPlan();
@@ -52,33 +52,33 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       const localId = `w-${Date.now()}`;
       setPlan((prev) => [...prev, { id: localId, isCompleted: false, ...workout } as PlannedWorkout]);
     }
-  };
+  }, [refreshPlan]);
 
-  const updateWorkout = async (id: string | number, workout: Partial<PlannedWorkout>) => {
+  const updateWorkout = React.useCallback(async (id: string | number, workout: Partial<PlannedWorkout>) => {
     setPlan((prev) => prev.map((w) => (w.id === id ? { ...w, ...workout } : w)));
     try {
       await planApi.updateWorkout(id, workout);
     } catch (err: any) {
       console.error('Failed to update workout:', err);
     }
-  };
+  }, []);
 
-  const deleteWorkout = async (id: string | number) => {
+  const deleteWorkout = React.useCallback(async (id: string | number) => {
     setPlan((prev) => prev.filter((w) => w.id !== id));
     try {
       await planApi.deleteWorkout(id);
     } catch (err: any) {
       console.error('Failed to delete workout:', err);
     }
-  };
+  }, []);
 
-  const toggleComplete = (id: string | number) => {
+  const toggleComplete = React.useCallback((id: string | number) => {
     setPlan((prev) =>
       prev.map((w) => (w.id === id ? { ...w, isCompleted: !w.isCompleted } : w))
     );
-  };
+  }, []);
 
-  const adaptPlan = async (params: any) => {
+  const adaptPlan = React.useCallback(async (params: any) => {
     setLoading(true);
     try {
       await planApi.generatePlan(params);
@@ -88,9 +88,9 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshPlan]);
 
-  const pushForward = async (dateStr: string) => {
+  const pushForward = React.useCallback(async (dateStr: string) => {
     setLoading(true);
     try {
       await planApi.pushForward(dateStr);
@@ -100,7 +100,7 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshPlan]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

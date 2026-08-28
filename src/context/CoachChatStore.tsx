@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { ChatMessage, TokenUsage, ProposedWorkoutItem } from '../types/chat';
 import { chatApi, planApi, socialApi } from '../services/apiServices';
 import { chatStorage, chatReadStorage } from '../services/storage';
@@ -8,6 +8,7 @@ import { useUser } from './UserStore';
 import { useActivities } from './ActivityStore';
 import { usePhysique } from './PhysiqueStore';
 import { useHealth } from './HealthStore';
+import { setBadgeCountAsync, clearBadgeCountAsync } from '../services/notificationService';
 
 interface CoachChatContextType {
   messages: ChatMessage[];
@@ -108,24 +109,29 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const { refreshActivities } = useActivities();
   const { user, isAuthenticated, refreshUser } = useUser();
 
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // Load last read timestamp from persistent storage (scoped per user)
   useEffect(() => {
     if (user?.id) {
       chatReadStorage.getLastReadTimestamp(user.id).then((ts) => {
         setLastReadTimestamp(ts || 0);
       });
-      refreshMessages();
     } else {
       chatReadStorage.getLastReadTimestamp().then((ts) => {
         setLastReadTimestamp(ts || 0);
       });
     }
-  }, [user?.id, isAuthenticated]);
+  }, [user?.id]);
 
   // Compute unread count whenever messages or lastReadTimestamp change
   useEffect(() => {
     if (!messages || messages.length === 0) {
       setUnreadCount(0);
+      clearBadgeCountAsync();
       return;
     }
     const unread = messages.filter((m) => {
@@ -134,32 +140,35 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       return msgTime > lastReadTimestamp;
     }).length;
     setUnreadCount(unread);
+    if (unread === 0) {
+      clearBadgeCountAsync();
+    } else {
+      setBadgeCountAsync(unread);
+    }
   }, [messages, lastReadTimestamp]);
 
   const markAsRead = useCallback(async () => {
     let maxMsgTime = 0;
-    setMessagesState(prev => {
-      prev.forEach(m => {
-        const t = new Date(m.timestamp || 0).getTime();
-        if (t > maxMsgTime) maxMsgTime = t;
-      });
-      return prev;
-    });
+    for (const m of messagesRef.current) {
+      const t = new Date(m.timestamp || 0).getTime();
+      if (t > maxMsgTime) maxMsgTime = t;
+    }
     const now = Math.max(Date.now(), maxMsgTime + 1000);
-    setLastReadTimestamp(now);
+    setLastReadTimestamp((prev) => (now > prev ? now : prev));
     setUnreadCount(0);
     await chatReadStorage.setLastReadTimestamp(now, user?.id);
+    await clearBadgeCountAsync();
   }, [user?.id]);
 
-  const setMessages = (action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+  const setMessages = useCallback((action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     setMessagesState((prev) => {
       const next = typeof action === 'function' ? action(prev) : action;
       chatStorage.setChatHistory(next);
       return next;
     });
-  };
+  }, []);
 
-  const processMessageItem = (msg: ChatMessage): ChatMessage => {
+  const processMessageItem = useCallback((msg: ChatMessage): ChatMessage => {
     let images: string[] = [];
     if ((msg as any).image_path) {
       try {
@@ -188,14 +197,16 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       proposalStatus: msg.proposalStatus || (proposedPlan ? 'pending' : undefined),
       payload_json: payload || (typeof msg.payload_json === 'object' ? msg.payload_json : undefined),
     };
-  };
+  }, []);
 
-  const refreshMessages = async () => {
-    // 1. Immediately load local cached messages from storage so history is remembered on reboot
+  const refreshMessages = useCallback(async () => {
+    // 1. Immediately load local cached messages from storage if in-memory state is empty
     try {
-      const local = await chatStorage.getChatHistory();
-      if (local && Array.isArray(local) && local.length > 0) {
-        setMessagesState(local.map(processMessageItem));
+      if (messagesRef.current.length === 0) {
+        const local = await chatStorage.getChatHistory();
+        if (local && Array.isArray(local) && local.length > 0) {
+          setMessagesState(local.map(processMessageItem));
+        }
       }
     } catch (_) {}
 
@@ -229,45 +240,36 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, processMessageItem, setMessages]);
 
   const streamCoachMessage = (fullMessage: ChatMessage): Promise<void> => {
     const fullText = fullMessage.content || '';
-    if (!fullText) {
+    if (!fullText || fullText.length < 50) {
       setMessages((prev) => [...prev, fullMessage]);
       setSending(false);
       return Promise.resolve();
     }
 
-    // Break text into words/tokens with trailing spaces
-    const tokens: string[] = fullText.match(/\S+\s*/g) || [fullText];
+    // Determine 6-10 progressive slices of fullText to animate smoothly without Hermes GC churn
+    const totalSteps = Math.min(10, Math.max(4, Math.floor(fullText.length / 50)));
+    const stepLength = Math.ceil(fullText.length / totalSteps);
     
-    // Group into phrase chunks of 2 to 4 words, breaking naturally on punctuation
-    const chunks: string[] = [];
-    let currentChunk = '';
-    let wordsInChunk = 0;
-
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
-      currentChunk += token;
-      wordsInChunk++;
-
-      const isPunctuationBreak = /[.,!?:;\n]/.test(token);
-      if (wordsInChunk >= 3 || isPunctuationBreak || i === tokens.length - 1) {
-        chunks.push(currentChunk);
-        currentChunk = '';
-        wordsInChunk = 0;
+    const slices: string[] = [];
+    for (let i = 1; i <= totalSteps; i++) {
+      if (i === totalSteps) {
+        slices.push(fullText);
+      } else {
+        const cut = Math.min(fullText.length, i * stepLength);
+        const spaceIdx = fullText.indexOf(' ', cut);
+        const actualCut = spaceIdx !== -1 && spaceIdx - cut < 25 ? spaceIdx : cut;
+        slices.push(fullText.substring(0, actualCut));
       }
-    }
-    if (currentChunk) {
-      chunks.push(currentChunk);
     }
 
     return new Promise<void>((resolve) => {
-      let revealedText = chunks[0] || '';
       const initialMsg: ChatMessage = {
         ...fullMessage,
-        content: revealedText,
+        content: slices[0] || fullText,
         isStreaming: true,
       };
 
@@ -275,54 +277,42 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       setMessagesState((prev) => [...prev, initialMsg]);
       setSending(false);
 
-      let chunkIdx = 1;
+      let stepIdx = 1;
 
       const step = () => {
-        if (chunkIdx >= chunks.length) {
+        if (stepIdx >= slices.length) {
           // Final state: persist to storage ONCE
-          setMessages((prev) =>
-            prev.map((m) =>
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last && (last.id === fullMessage.id || last.clientId === fullMessage.clientId)) {
+              return [...prev.slice(0, -1), { ...fullMessage, isStreaming: false }];
+            }
+            return prev.map((m) =>
               (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
                 ? { ...fullMessage, isStreaming: false }
                 : m
-            )
-          );
+            );
+          });
           resolve();
           return;
         }
 
-        const nextChunk = chunks[chunkIdx];
-        revealedText += nextChunk;
-        chunkIdx++;
+        const currentText = slices[stepIdx];
+        stepIdx++;
 
-        // In-memory update only during streaming (avoids AsyncStorage bottleneck)
-        setMessagesState((prev) =>
-          prev.map((m) =>
-            (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
-              ? { ...m, content: revealedText, isStreaming: true }
-              : m
-          )
-        );
+        // Fast in-memory update targeting only the last message
+        setMessagesState((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && (last.id === fullMessage.id || last.clientId === fullMessage.clientId)) {
+            return [...prev.slice(0, -1), { ...last, content: currentText, isStreaming: true }];
+          }
+          return prev;
+        });
 
-        const hasSentenceEnd = /[.!?\n]/.test(nextChunk);
-        const hasSoftPunctuation = /[,;:]/.test(nextChunk);
-        const delay = hasSentenceEnd ? 50 : hasSoftPunctuation ? 30 : 15;
-
-        setTimeout(step, delay);
+        setTimeout(step, 45);
       };
 
-      if (chunks.length > 1) {
-        setTimeout(step, 30);
-      } else {
-        setMessages((prev) =>
-          prev.map((m) =>
-            (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
-              ? { ...fullMessage, isStreaming: false }
-              : m
-          )
-        );
-        resolve();
-      }
+      setTimeout(step, 45);
     });
   };
 
@@ -673,12 +663,17 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     });
 
+    const unsubUnreadMessage = wsService.subscribeToEvent('unread_message', (_data: any) => {
+      refreshMessages();
+    });
+
     return () => {
       unsubCoachResponse();
       unsubChatMessage();
       unsubStreamChunk();
       unsubChatImageReady();
       unsubChatImageFailed();
+      unsubUnreadMessage();
     };
   }, [isAuthenticated]);
 

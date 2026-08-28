@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
+import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
+import { canHideRookaLink } from '../../utils/permissions';
 
 interface ConnectionsTabProps {
   onOpenGarminModal: () => void;
@@ -15,29 +16,49 @@ interface ConnectionsTabProps {
   stravaLoading?: boolean;
 }
 
-export type SportType = 'running' | 'cycling' | 'swimming' | 'strength';
+// Rooka's sport buckets, matching STRAVA_SHARE_SPORTS on the server. Strava's
+// own sport_type list is much longer; the server collapses it onto these four.
+export type SportType = 'Run' | 'Bike' | 'Swim' | 'Strength';
 
-export interface StravaSportToggles {
-  captionRookaScore: boolean;
-  titleSummary: boolean;
-  includeMuscleStrain: boolean;
-  includeFueling: boolean;
-}
+const ALL_ON: StravaShareFlags = {
+  shareName: true,
+  shareScore: true,
+  shareStructure: true,
+  shareLink: true,
+};
 
-const STORAGE_KEY_AUTOMATIONS = 'rooka_strava_automations_by_sport';
-
-const DEFAULT_TOGGLES: Record<SportType, StravaSportToggles> = {
-  running: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
-  cycling: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: true },
-  swimming: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: false, includeFueling: false },
-  strength: { captionRookaScore: true, titleSummary: true, includeMuscleStrain: true, includeFueling: false },
+const DEFAULT_TOGGLES: Record<SportType, StravaShareFlags> = {
+  Run: { ...ALL_ON },
+  Bike: { ...ALL_ON },
+  Swim: { ...ALL_ON },
+  Strength: { ...ALL_ON },
 };
 
 const SPORT_OPTIONS: { id: SportType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { id: 'running', label: 'Run', icon: 'walk-outline' },
-  { id: 'cycling', label: 'Cycle', icon: 'bicycle-outline' },
-  { id: 'swimming', label: 'Swim', icon: 'water-outline' },
-  { id: 'strength', label: 'Strength', icon: 'barbell-outline' },
+  { id: 'Run', label: 'Run', icon: 'walk-outline' },
+  { id: 'Bike', label: 'Cycle', icon: 'bicycle-outline' },
+  { id: 'Swim', label: 'Swim', icon: 'water-outline' },
+  { id: 'Strength', label: 'Strength', icon: 'barbell-outline' },
+];
+
+// `shareStructure` has no toggle: the planned steps go out whenever there is a
+// plan. It rides along in the payload so saving never clears it.
+const TOGGLE_ROWS: { key: keyof StravaShareFlags; title: string; subtitle: string }[] = [
+  {
+    key: 'shareScore',
+    title: 'Include Rooka Score in Caption',
+    subtitle: 'Add calculated XP and TSS to caption',
+  },
+  {
+    key: 'shareName',
+    title: 'Post AI Workout Summary Title',
+    subtitle: 'Auto-generate catchy workout title',
+  },
+  {
+    key: 'shareLink',
+    title: 'Include rooka.io Link',
+    subtitle: 'Credit Rooka at the end of the caption',
+  },
 ];
 
 export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
@@ -57,28 +78,55 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [stravaSyncing, setStravaSyncing] = useState(false);
   const [appleSyncing, setAppleSyncing] = useState(false);
   const [isAppleConnected, setIsAppleConnected] = useState(false);
+  const [appleSupported, setAppleSupported] = useState(false);
 
   // Strava Automation Toggles per sport type
-  const [selectedSport, setSelectedSport] = useState<SportType>('running');
-  const [sportToggles, setSportToggles] = useState<Record<SportType, StravaSportToggles>>(DEFAULT_TOGGLES);
+  const [selectedSport, setSelectedSport] = useState<SportType>('Run');
+  const [sportToggles, setSportToggles] = useState<Record<SportType, StravaShareFlags>>(DEFAULT_TOGGLES);
+  const [togglesLoading, setTogglesLoading] = useState(true);
+  // The server is the authority here; this is the optimistic local view of it.
+  const [linkIsOptional, setLinkIsOptional] = useState(canHideRookaLink(user?.subscription_tier));
 
-  // Load Apple Health connection state on mount
+  // iOS is the authority on whether Rooka may schedule workouts, so the badge
+  // reads the live WorkoutKit status rather than a flag we wrote ourselves.
   useEffect(() => {
-    AsyncStorage.getItem('apple_health_connected').then((val) => {
-      if (val === 'true') {
-        setIsAppleConnected(true);
-      }
+    let cancelled = false;
+    const {
+      isWorkoutKitSupported,
+      getWorkoutKitAuthorizationStatus,
+    } = require('../../services/appleHealthService');
+
+    setAppleSupported(isWorkoutKitSupported());
+    getWorkoutKitAuthorizationStatus().then((status: string) => {
+      if (!cancelled) setIsAppleConnected(status === 'authorized');
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleSyncAppleHealth = async () => {
+  // Granting happens in the Watch app, outside Rooka, so there has to be a way
+  // back here to re-read the status once the athlete has done it.
+  const handleRefreshAppleStatus = async () => {
     setAppleSyncing(true);
     try {
-      const { syncAppleHealthActivities } = require('../../services/appleHealthService');
-      await syncAppleHealthActivities();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const {
+        isWorkoutKitSupported,
+        getWorkoutKitAuthorizationStatus,
+      } = require('../../services/appleHealthService');
+
+      setAppleSupported(isWorkoutKitSupported());
+      const status = await getWorkoutKitAuthorizationStatus();
+      const authorized = status === 'authorized';
+      setIsAppleConnected(authorized);
+      Haptics.notificationAsync(
+        authorized
+          ? Haptics.NotificationFeedbackType.Success
+          : Haptics.NotificationFeedbackType.Warning
+      );
     } catch (err: any) {
-      console.error('Apple Health sync error:', err);
+      console.error('Apple Watch status refresh error:', err);
     } finally {
       setAppleSyncing(false);
     }
@@ -86,46 +134,82 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
   const handleConnectAppleHealth = async () => {
     try {
-      const { requestAppleHealthPermissions } = require('../../services/appleHealthService');
-      const granted = await requestAppleHealthPermissions();
-      if (granted) {
-        setIsAppleConnected(true);
-        await AsyncStorage.setItem('apple_health_connected', 'true');
+      const {
+        isWorkoutKitSupported,
+        requestWorkoutKitAuthorization,
+        WORKOUT_KIT_DENIED_MESSAGE,
+      } = require('../../services/appleHealthService');
+
+      if (!isWorkoutKitSupported()) {
+        Alert.alert(
+          'Not Supported',
+          'Sending workouts to an Apple Watch needs an iPhone running iOS 17 or newer. It is also unavailable in the Simulator.'
+        );
+        return;
+      }
+
+      const status = await requestWorkoutKitAuthorization();
+      setIsAppleConnected(status === 'authorized');
+
+      if (status === 'authorized') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        Alert.alert(
-          'Permission Required',
-          'Apple Health access could not be granted. Please open the Apple Settings or Health app on your iPhone to manually allow Rooka to access WorkoutKit.'
-        );
+        // The scheduling permission lives in the Watch app under Rooka, not in
+        // Settings or the Health app, so point people at the right place.
+        Alert.alert('Permission Required', WORKOUT_KIT_DENIED_MESSAGE);
       }
     } catch (err: any) {
       console.error('Apple Health connect error:', err);
-      Alert.alert('Error', 'Failed to request Apple Health permissions.');
+      Alert.alert('Error', err?.message || 'Failed to request Apple Watch permissions.');
     }
   };
 
+  // These used to live in AsyncStorage only, under different names, so nothing
+  // the athlete set here ever reached the captions the server writes.
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY_AUTOMATIONS).then((stored) => {
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          setSportToggles((prev) => ({ ...prev, ...parsed }));
-        } catch (_) {}
-      }
-    });
+    let cancelled = false;
+    integrationsApi
+      .getStravaShareSettings()
+      .then((res) => {
+        if (cancelled) return;
+        setSportToggles((prev) => {
+          const next = { ...prev };
+          for (const sport of SPORT_OPTIONS) {
+            const fromServer = res.shareSettings?.[sport.id];
+            if (fromServer) next[sport.id] = { ...ALL_ON, ...fromServer };
+          }
+          return next;
+        });
+        setLinkIsOptional(!!res.linkIsOptional);
+      })
+      .catch((err) => {
+        console.log('Strava share settings load failed:', err?.message || err);
+      })
+      .finally(() => {
+        if (!cancelled) setTogglesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleToggleChange = (toggleKey: keyof StravaSportToggles, value: boolean) => {
-    setSportToggles((prev) => {
-      const updated = {
-        ...prev,
-        [selectedSport]: {
-          ...prev[selectedSport],
-          [toggleKey]: value,
-        },
-      };
-      AsyncStorage.setItem(STORAGE_KEY_AUTOMATIONS, JSON.stringify(updated));
-      return updated;
+  const handleToggleChange = (toggleKey: keyof StravaShareFlags, value: boolean) => {
+    if (toggleKey === 'shareLink' && !linkIsOptional) return;
+
+    const previous = sportToggles;
+    const updated = {
+      ...previous,
+      [selectedSport]: { ...previous[selectedSport], [toggleKey]: value },
+    };
+    setSportToggles(updated);
+    Haptics.selectionAsync();
+
+    integrationsApi.saveStravaShareSettings(updated).catch((err) => {
+      // Put the switch back rather than leaving the UI claiming a setting the
+      // server never accepted.
+      console.log('Strava share settings save failed:', err?.message || err);
+      setSportToggles(previous);
+      Alert.alert('Could not save', 'Your Strava caption settings were not updated. Please try again.');
     });
   };
 
@@ -180,13 +264,15 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 isAppleConnected ? 'text-green-500' : 'text-red-500'
               }`}
             >
-              {isAppleConnected ? 'Active' : 'Disconnected'}
+              {isAppleConnected ? 'Active' : appleSupported ? 'Disconnected' : 'Unavailable'}
             </Text>
           </View>
         </View>
 
         <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
-          Syncs structured workouts directly to your Apple Watch Workout app using WorkoutKit and imports completed activities from Apple Health.
+          Sends your planned Rooka sessions — warmup, intervals, targets and cooldown — straight
+          into the Workout app on your Apple Watch. Needs iPhone on iOS 17 or newer with a paired
+          Watch. Completed sessions still come back to Rooka through Strava.
         </Text>
 
         <View className="flex-row flex-wrap gap-2">
@@ -201,7 +287,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleSyncAppleHealth}
+            onPress={handleRefreshAppleStatus}
             disabled={appleSyncing}
             className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
           >
@@ -210,7 +296,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             ) : (
               <>
                 <Ionicons name="sync-outline" size={16} color={theme.textSecondary} />
-                <Text className="text-theme-text font-bold text-xs ml-2">Sync Apple Health</Text>
+                <Text className="text-theme-text font-bold text-xs ml-2">Refresh Status</Text>
               </>
             )}
           </TouchableOpacity>
@@ -389,55 +475,46 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </View>
 
         {/* TOGGLES FOR SELECTED SPORT */}
-        <View className="space-y-3">
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
-            <View className="flex-1 pr-3">
-              <Text className="text-theme-text font-bold text-xs">Include Rooka Score in Caption</Text>
-              <Text className="text-theme-muted text-xs">Add calculated XP and TSS to caption</Text>
-            </View>
-            <Switch
-              value={currentToggles.captionRookaScore}
-              onValueChange={(val) => handleToggleChange('captionRookaScore', val)}
-              trackColor={{ false: '#DDE3E9', true: theme.tint }}
-            />
+        {togglesLoading ? (
+          <View className="py-6 items-center">
+            <ActivityIndicator size="small" color={theme.tint} />
           </View>
-
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
-            <View className="flex-1 pr-3">
-              <Text className="text-theme-text font-bold text-xs">Post AI Workout Summary Title</Text>
-              <Text className="text-theme-muted text-xs">Auto-generate catchy workout title</Text>
-            </View>
-            <Switch
-              value={currentToggles.titleSummary}
-              onValueChange={(val) => handleToggleChange('titleSummary', val)}
-              trackColor={{ false: '#DDE3E9', true: theme.tint }}
-            />
+        ) : (
+          <View className="space-y-3">
+            {TOGGLE_ROWS.map((row, index) => {
+              const isLocked = row.key === 'shareLink' && !linkIsOptional;
+              const isLast = index === TOGGLE_ROWS.length - 1;
+              return (
+                <View
+                  key={row.key}
+                  className={`flex-row items-center justify-between py-2 ${
+                    isLast ? '' : 'border-b border-theme-border'
+                  }`}
+                >
+                  <View className="flex-1 pr-3">
+                    <View className="flex-row items-center gap-1">
+                      <Text className="text-theme-text font-bold text-xs">{row.title}</Text>
+                      {isLocked && (
+                        <View className="px-1.5 py-0.5 rounded bg-theme-accent/10">
+                          <Text className="text-theme-accent text-[10px] font-bold">rooka+</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text className="text-theme-muted text-xs">
+                      {isLocked ? 'Upgrade to rooka+ to remove the credit' : row.subtitle}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={currentToggles[row.key]}
+                    disabled={isLocked}
+                    onValueChange={(val) => handleToggleChange(row.key, val)}
+                    trackColor={{ false: '#DDE3E9', true: theme.tint }}
+                  />
+                </View>
+              );
+            })}
           </View>
-
-          <View className="flex-row items-center justify-between py-2 border-b border-theme-border">
-            <View className="flex-1 pr-3">
-              <Text className="text-theme-text font-bold text-xs">Include Muscle Strain Metrics</Text>
-              <Text className="text-theme-muted text-xs">Share affected muscle group load</Text>
-            </View>
-            <Switch
-              value={currentToggles.includeMuscleStrain}
-              onValueChange={(val) => handleToggleChange('includeMuscleStrain', val)}
-              trackColor={{ false: '#DDE3E9', true: theme.tint }}
-            />
-          </View>
-
-          <View className="flex-row items-center justify-between py-2">
-            <View className="flex-1 pr-3">
-              <Text className="text-theme-text font-bold text-xs">Include Fueling Recommendations</Text>
-              <Text className="text-theme-muted text-xs">Post carb/protein intake advice</Text>
-            </View>
-            <Switch
-              value={currentToggles.includeFueling}
-              onValueChange={(val) => handleToggleChange('includeFueling', val)}
-              trackColor={{ false: '#DDE3E9', true: theme.tint }}
-            />
-          </View>
-        </View>
+        )}
       </Card>
     </View>
   );

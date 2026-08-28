@@ -64,7 +64,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const loggingOutRef = useRef<boolean>(false);
 
 
-  const logout = async (reason?: string) => {
+  const logout = React.useCallback(async (reason?: string) => {
     // A 401 arriving while we are already tearing the session down must not
     // start a second logout.
     if (loggingOutRef.current) return;
@@ -88,11 +88,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     if (briefingStorage.clearBriefing) await briefingStorage.clearBriefing();
     setUser(null);
     setIsAuthenticated(false);
-    setError(reason ?? null);
+    setError(typeof reason === 'string' ? reason : null);
     loggingOutRef.current = false;
-  };
+  }, []);
 
-  const login = async (emailOrUsername: string, password: string) => {
+  const login = React.useCallback(async (emailOrUsername: string, password: string) => {
     setLoading(true);
     setError(null);
     const identifier = emailOrUsername.trim();
@@ -130,17 +130,15 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const register = async (email: string, password: string, username?: string) => {
+  const register = React.useCallback(async (email: string, password: string, username?: string) => {
     setLoading(true);
     setError(null);
-    // Whatever the athlete typed is what they will sign in with. Previously an
-    // email was truncated to its local part ('foo@bar.com' became 'foo'), so
-    // signing in with the address they just registered failed with "not found".
-    const targetUsername = (username || email).trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = (username || email).trim();
     try {
-      await authApi.register({ username: targetUsername, password });
+      await authApi.register({ username: cleanUsername, email: cleanEmail, password });
     } catch (err: any) {
       // Only an existing username falls through to sign-in. A network failure
       // must surface as a failed registration rather than silently attempting a
@@ -155,16 +153,16 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     }
 
     try {
-      await login(targetUsername, password);
+      await login(cleanEmail || cleanUsername, password);
     } catch (loginErr: any) {
       setError(loginErr.message || 'Auto-login failed.');
       throw loginErr;
     } finally {
       setLoading(false);
     }
-  };
+  }, [login]);
 
-  const refreshUser = async () => {
+  const refreshUser = React.useCallback(async () => {
     try {
       const data = await userApi.getProfile();
       if (data) {
@@ -177,24 +175,24 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       // back to false and make live connections look disconnected.
       console.log('UserStore refreshUser info:', err.message || err);
     }
-  };
+  }, []);
 
-  const updateUser = async (data: Partial<UserProfile>) => {
+  const updateUser = React.useCallback(async (data: Partial<UserProfile>) => {
     setUser((prev) => (prev ? { ...prev, ...data } : prev));
     try {
       await userApi.updateSettings(data);
     } catch (err: any) {
       console.warn('Failed to sync user settings:', err?.message || err);
     }
-  };
+  }, []);
 
-  const trackRookaPlus = async () => {
+  const trackRookaPlus = React.useCallback(async () => {
     try {
       await userApi.trackRookaPlusClick();
     } catch (err) {
       console.log('Track Rooka+ error:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Only a genuine rejection of the session ends it. Anything else (server

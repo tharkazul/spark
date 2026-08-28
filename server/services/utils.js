@@ -877,42 +877,90 @@ function formatStepsForStrava(stepsJson) {
   }
 }
 
+// Share settings are stored per Rooka sport bucket, not per Strava sport_type:
+// one "Run" entry has to cover Run, TrailRun, VirtualRun and the rest of
+// Strava's list, which `mapStravaSportToRooka` already collapses for us.
+const STRAVA_SHARE_SPORTS = ["Run", "Bike", "Swim", "Strength"];
+
+// `shareStructure` has no toggle in the app - the planned steps always go out
+// when there is a plan. It stays in the model because buildStravaUpdatePayload
+// reads it, and because normalizeShareSettings defaults absent flags to on.
+const STRAVA_SHARE_FLAGS = ["shareName", "shareScore", "shareStructure", "shareLink"];
+
+const ALL_SHARING_ON = { shareName: true, shareScore: true, shareStructure: true, shareLink: true };
+const ALL_SHARING_OFF = { shareName: false, shareScore: false, shareStructure: false, shareLink: false };
+
+/**
+ * The rooka.io credit is only optional from Rooka+ upwards; free accounts
+ * always carry it. Enforced server-side rather than in the UI so neither a
+ * stale stored setting nor a hand-rolled request can drop it.
+ */
+function canHideRookaLink(subscriptionTier) {
+  return ["subscription", "rooka_plus", "premium", "admin"].includes(
+    String(subscriptionTier || "free"),
+  );
+}
+
+/**
+ * A stored entry only records what the athlete turned *off*. Anything absent -
+ * a flag with no toggle in the app, or one added after they last saved - stays
+ * on, so adding a flag never silently switches it off for existing athletes.
+ */
+function normalizeShareSettings(raw) {
+  const out = { ...ALL_SHARING_ON };
+  if (raw && typeof raw === "object") {
+    for (const flag of STRAVA_SHARE_FLAGS) {
+      if (flag in raw) out[flag] = !!raw[flag];
+    }
+  }
+  return out;
+}
+
 function getStravaShareSettings(userId, sportType) {
+  const bucket = mapStravaSportToRooka(sportType);
+
   return new Promise((resolve) => {
-    db.all(
-      "SELECT metric, value FROM athlete_metrics WHERE user_id = ? AND metric IN ('strava_share_settings', 'strava_opt_out_activities')",
+    db.get(
+      `SELECT subscription_tier FROM users WHERE id = ?`,
       [userId],
-      (err, rows) => {
-        if (err || !rows || rows.length === 0) {
-          return resolve({ shareName: true, shareScore: true, shareStructure: true, shareLink: true });
-        }
-        const shareRow = rows.find(r => r.metric === 'strava_share_settings');
-        const optOutRow = rows.find(r => r.metric === 'strava_opt_out_activities');
+      (userErr, userRow) => {
+        const linkIsOptional = canHideRookaLink(userRow && userRow.subscription_tier);
+        const finish = (settings) =>
+          resolve(linkIsOptional ? settings : { ...settings, shareLink: true });
 
-        if (shareRow && shareRow.value) {
-          try {
-            const settings = JSON.parse(shareRow.value);
-            if (settings[sportType]) {
-              return resolve({
-                shareName: !!settings[sportType].shareName,
-                shareScore: !!settings[sportType].shareScore,
-                shareStructure: !!settings[sportType].shareStructure,
-                shareLink: !!settings[sportType].shareLink,
-              });
+        db.all(
+          "SELECT metric, value FROM athlete_metrics WHERE user_id = ? AND metric IN ('strava_share_settings', 'strava_opt_out_activities')",
+          [userId],
+          (err, rows) => {
+            if (err || !rows || rows.length === 0) return finish({ ...ALL_SHARING_ON });
+
+            const shareRow = rows.find((r) => r.metric === 'strava_share_settings');
+            const optOutRow = rows.find((r) => r.metric === 'strava_opt_out_activities');
+
+            if (shareRow && shareRow.value) {
+              try {
+                const settings = JSON.parse(shareRow.value);
+                // `settings[sportType]` is the pre-bucket key the old PWA wrote.
+                const forSport = settings[bucket] || settings[sportType];
+                if (forSport) return finish(normalizeShareSettings(forSport));
+              } catch (e) {}
             }
-          } catch (e) {}
-        }
 
-        if (optOutRow && optOutRow.value) {
-          try {
-            const optOutList = JSON.parse(optOutRow.value);
-            if (Array.isArray(optOutList) && optOutList.includes(sportType)) {
-              return resolve({ shareName: false, shareScore: false, shareStructure: false, shareLink: false });
+            if (optOutRow && optOutRow.value) {
+              try {
+                const optOutList = JSON.parse(optOutRow.value);
+                if (Array.isArray(optOutList) && optOutList.includes(sportType)) {
+                  // An explicit opt-out means nothing is posted for this sport
+                  // at all. Forcing a link onto an activity the athlete asked
+                  // Rooka to stay off would be worse than dropping the credit.
+                  return resolve({ ...ALL_SHARING_OFF });
+                }
+              } catch (e) {}
             }
-          } catch (e) {}
-        }
 
-        resolve({ shareName: true, shareScore: true, shareStructure: true, shareLink: true });
+            finish({ ...ALL_SHARING_ON });
+          }
+        );
       }
     );
   });
@@ -998,12 +1046,17 @@ async function tagStravaActivity(userId, activity, token) {
   const rookaSport = mapStravaSportToRooka(activityType);
 
   db.get(
-    "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND LOWER(sport) = LOWER(?)",
-    [userId, activityDate, rookaSport],
+    // Same loose sport match the webhook path uses: an exact-equality match
+    // missed plans stored as e.g. "Run - intervals", so a planned session came
+    // back untagged depending on which path imported it.
+    "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
+    [userId, activityDate, rookaSport, rookaSport.slice(0, 5)],
     async (err, plan) => {
-      if (err || !plan) return;
-
-      const payload = buildStravaUpdatePayload(activity.description, plan, tss, shareSettings);
+      // A missing plan is not a reason to skip: an unplanned activity still
+      // gets its score and the Rooka link, which is what the webhook path has
+      // always done. This used to `return` here, so an unplanned run synced
+      // with the Sync button was never tagged at all.
+      const payload = buildStravaUpdatePayload(activity.description, err ? null : plan, tss, shareSettings);
       if (!payload) return;
 
       try {
@@ -1045,6 +1098,176 @@ function getStravaUserIdsForAthlete(stravaAthleteId) {
         WHERE CAST(t.strava_id AS TEXT) = ? AND u.deleted_at IS NULL`,
       [lookupVal],
       (err, rows) => resolve(err || !rows ? [] : rows.map((r) => r.user_id)),
+    );
+  });
+}
+
+/**
+ * Automatically evaluates an activity, checks quests, runs AI muscle impact,
+ * generates a personalized coach reaction in chat_history, and dispatches a
+ * push notification (with badge: 1) and WebSocket event to the athlete.
+ */
+async function processActivityCoachAnalysis(internalUserId, activityData, options = {}) {
+  if (!internalUserId || !activityData) return null;
+
+  const activityId = activityData.strava_activity_id || activityData.id;
+  const rawSport = activityData.sport_type || activityData.sport || "Workout";
+  const rookaSport = mapStravaSportToRooka(rawSport);
+  const activityName = activityData.name || `${rookaSport} Session`;
+
+  // Normalize distance (km) and moving time (minutes)
+  let distanceKm = 0;
+  if (activityData.distance_km !== undefined && activityData.distance_km !== null) {
+    distanceKm = Number(activityData.distance_km) || 0;
+  } else if (activityData.distance !== undefined && activityData.distance !== null) {
+    distanceKm = (Number(activityData.distance) || 0) / 1000;
+  }
+
+  let movingTimeMin = 0;
+  if (activityData.moving_time_min !== undefined && activityData.moving_time_min !== null) {
+    movingTimeMin = Number(activityData.moving_time_min) || 0;
+  } else if (activityData.moving_time !== undefined && activityData.moving_time !== null) {
+    movingTimeMin = (Number(activityData.moving_time) || 0) / 60;
+  }
+
+  const rookaScore = Number(activityData.rooka_score || activityData.rookaScore || 0);
+
+  const rawDate = activityData.start_date_local || activityData.start_date || new Date().toISOString();
+  const activityDate = rawDate.includes("T") ? rawDate.split("T")[0] : rawDate.split(" ")[0];
+
+  return new Promise((resolve) => {
+    // Check if activity was already analyzed
+    db.get(
+      `SELECT id, coach_analyzed FROM activities WHERE user_id = ? AND (strava_activity_id = ? OR id = ?)`,
+      [internalUserId, String(activityId), String(activityId)],
+      async (err, actRow) => {
+        if (actRow && actRow.coach_analyzed === 1) {
+          console.log(`ℹ️ Activity ${activityId} for user ${internalUserId} already analyzed. Skipping.`);
+          return resolve(null);
+        }
+
+        // Muscle impact analysis
+        try {
+          analyzeMuscleImpact(internalUserId, activityData, rookaSport, activityDate);
+        } catch (e) {
+          console.error("AI Muscle Impact Analysis failed:", e);
+        }
+
+        // Invalidate today's nutrition cache if activity happened today
+        const todayStr = getAMSDateString();
+        if (activityDate === todayStr) {
+          db.run(
+            `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
+            [internalUserId, todayStr],
+          );
+        }
+
+        // Find micro plan for the activity's date and sport
+        db.get(
+          "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
+          [internalUserId, activityDate, rookaSport, rookaSport.slice(0, 5)],
+          async (planErr, plan) => {
+            // Fetch user context & coach tone
+            db.get(
+              "SELECT coach_name, coach_tone, coach_context FROM users WHERE id = ?",
+              [internalUserId],
+              async (userErr, userRow) => {
+                const coachName = userRow?.coach_name || "Rooka";
+                let tone = userRow?.coach_tone || "Friendly and motivating";
+                if (tone === "custom" || tone === "Configure own coach") {
+                  tone = userRow?.coach_context ? `Custom tone: ${userRow.coach_context}` : "Custom coach persona";
+                }
+
+                let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". They covered ${distanceKm.toFixed(1)}km in ${Math.round(movingTimeMin)} minutes, generating ${Math.round(rookaScore)} Rooka. `;
+
+                if (plan) {
+                  let stepsContent = formatStepsForStrava(plan.steps_json);
+                  const workoutContent = stepsContent
+                    ? stepsContent
+                    : plan.details && plan.details.trim().length > 0
+                      ? plan.details
+                      : plan.description;
+                  prompt += `The planned workout for today was: "${workoutContent}" with a target of ${plan.target_rooka} Rooka. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}). Praise them if they hit the target or give constructive advice if they missed it.`;
+                } else {
+                  prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).`;
+                }
+
+                // Quest evaluation
+                try {
+                  const completedQuests = await evaluateQuestsAgainstActivity(
+                    internalUserId,
+                    {
+                      distance_km: distanceKm,
+                      moving_time_min: movingTimeMin,
+                      rooka_score: rookaScore,
+                    },
+                  );
+
+                  if (completedQuests && completedQuests.length > 0) {
+                    const newQuest = await generateQuestForUser(internalUserId);
+                    updateUserRookaAndCheckLevel(internalUserId);
+
+                    prompt += `\n\nCRITICAL INFO: The user ALSO just completed their active quest: "${completedQuests[0].description}" and earned ${completedQuests[0].reward_points} Rooka points! `;
+                    if (newQuest) {
+                      prompt += `I (the system) have automatically assigned them a NEW quest: "${newQuest.description}" (Target: ${newQuest.target_value} ${newQuest.target_metric}, Reward: ${newQuest.reward_points} Rooka). You MUST enthusiastically celebrate their completed quest AND announce their brand new quest to keep them motivated!`;
+                    } else {
+                      prompt += `You MUST enthusiastically celebrate their completed quest!`;
+                    }
+                  }
+                } catch (e) {
+                  console.error("Quest evaluation failed during activity analysis:", e);
+                }
+
+                prompt += ` Keep it under 3 sentences. DO NOT wrap it in JSON.`;
+
+                const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${tone}. ${userRow?.coach_context ? `Coach Custom Context: ${userRow.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
+
+                try {
+                  const aiReply = await generateWithFallback(prompt, systemPrompt);
+
+                  // Insert into chat_history
+                  db.run(
+                    `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
+                    [internalUserId, aiReply],
+                    (insertErr) => {
+                      if (insertErr) {
+                        console.error("Error inserting coach activity analysis:", insertErr);
+                        return resolve(null);
+                      }
+
+                      // Mark activity as coach_analyzed = 1
+                      db.run(
+                        `UPDATE activities SET coach_analyzed = 1 WHERE user_id = ? AND (strava_activity_id = ? OR id = ?)`,
+                        [internalUserId, String(activityId), String(activityId)],
+                      );
+
+                      // Send SSE / WebSocket event to frontend
+                      sendSSEEvent(internalUserId, "unread_message", {
+                        message: aiReply,
+                        mood: "hype",
+                      });
+
+                      // Send Push Notification with badge count
+                      sendPushToUser(internalUserId, {
+                        title: `${coachName} analyzed your ${rookaSport}! ⚡️`,
+                        body: aiReply,
+                        data: { url: "/(tabs)/coach", type: "coach" },
+                        badge: 1,
+                      });
+
+                      console.log(`🤖 Sent proactive coach analysis for activity ${activityId} to user ${internalUserId}`);
+                      resolve(aiReply);
+                    }
+                  );
+                } catch (genErr) {
+                  console.error("Coach activity analysis AI generation failed:", genErr);
+                  resolve(null);
+                }
+              }
+            );
+          }
+        );
+      }
     );
   });
 }
@@ -1156,156 +1379,65 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
                 activityId: data.id,
               });
 
-              // Invalidate today's nutrition cache so it incorporates the new workout
-              const activityDateStr = data.start_date_local
-                ? data.start_date_local.split("T")[0]
-                : data.start_date.split("T")[0];
-              const todayStr = getAMSDateString();
-              if (activityDateStr === todayStr) {
-                db.run(
-                  `DELETE FROM nutrition_protocols WHERE user_id = ? AND date = ?`,
-                  [internalUserId, todayStr],
-                );
-              }
-              
+              // Update Strava first (title / description if enabled in settings).
+              // This used to run after the coach analysis below, which awaits up
+              // to three unbounded AI calls - a single stalled Gemini request
+              // left the athlete's title and description silently unwritten,
+              // with nothing in the logs to say so.
               const activityDate = data.start_date_local
                 ? data.start_date_local.split("T")[0]
                 : data.start_date.split("T")[0];
               const rookaSport = mapStravaSportToRooka(data.sport_type);
-              const shareSettings = await getStravaShareSettings(internalUserId, data.sport_type);
 
-              db.get(
-                "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
-                [internalUserId, activityDate, rookaSport, rookaSport.slice(0, 5)],
-                async (err, plan) => {
-                  // Fetch the coach tone
+              try {
+                const shareSettings = await getStravaShareSettings(internalUserId, data.sport_type);
+                const plan = await new Promise((resolve) =>
                   db.get(
-                    "SELECT coach_tone FROM users WHERE id = ?",
-                    [internalUserId],
-                    async (err, userRow) => {
-                      const tone = userRow
-                        ? userRow.coach_tone
-                        : "Friendly and motivating";
+                    "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
+                    [internalUserId, activityDate, rookaSport, rookaSport.slice(0, 5)],
+                    (planErr, row) => resolve(planErr ? null : row),
+                  ),
+                );
 
-                      let prompt = `The user just completed a ${rookaSport} activity: ${data.name}. They covered ${(data.distance / 1000).toFixed(1)}km in ${Math.round(data.moving_time / 60)} minutes, generating ${Math.round(rookaScore)} Rooka. `;
-                      const updatePayload = buildStravaUpdatePayload(data.description, plan, rookaScore, shareSettings);
-
-                      if (plan) {
-                        let stepsContent = formatStepsForStrava(plan.steps_json);
-                        const workoutContent = stepsContent
-                          ? stepsContent
-                          : plan.details && plan.details.trim().length > 0
-                            ? plan.details
-                            : plan.description;
-                        prompt += `The planned workout for today was: "${workoutContent}" with a target of ${plan.target_rooka} Rooka. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}). Praise them if they hit the target or give constructive advice if they missed it.`;
-                      } else {
-                        console.log(
-                          `⚠️ No matching ${rookaSport} plan found on ${activityDate}. Generating unplanned reaction.`,
-                        );
-                        prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).`;
-                      }
-
-                      // QUEST EVALUATION
-                      try {
-                        const completedQuests = await evaluateQuestsAgainstActivity(
-                          internalUserId,
-                          {
-                            distance_km: data.distance / 1000,
-                            moving_time_min: data.moving_time / 60,
-                            rooka_score: rookaScore,
-                          },
-                        );
-
-                        if (completedQuests && completedQuests.length > 0) {
-                          const newQuest = await generateQuestForUser(internalUserId);
-
-                          // The reward went to `bonus_points`, which is half of
-                          // `total_rooka`. The total was computed at insert time,
-                          // before this, so without recomputing it here the
-                          // reward — and any level-up it causes — surfaces at
-                          // some arbitrary later request instead.
-                          updateUserRookaAndCheckLevel(internalUserId);
-
-                          prompt += `\n\nCRITICAL INFO: The user ALSO just completed their active quest: "${completedQuests[0].description}" and earned ${completedQuests[0].reward_points} Rooka points! `;
-
-                          if (newQuest) {
-                            prompt += `I (the system) have automatically assigned them a NEW quest: "${newQuest.description}" (Target: ${newQuest.target_value} ${newQuest.target_metric}, Reward: ${newQuest.reward_points} Rooka). You MUST enthusiastically celebrate their completed quest AND announce their brand new quest to keep them motivated!`;
-                          } else {
-                            prompt += `You MUST enthusiastically celebrate their completed quest!`;
-                          }
-                        }
-                      } catch (e) {
-                        console.error(
-                          "Quest evaluation failed during Strava sync:",
-                          e,
-                        );
-                      }
-
-                      // AI MUSCLE IMPACT ANALYSIS
-                      try {
-                         analyzeMuscleImpact(internalUserId, data, rookaSport, activityDate);
-                      } catch(e) {
-                         console.error("AI Muscle Impact Analysis failed:", e);
-                      }
-
-                      // 1. Generate AI Coach Response
-                      try {
-                        const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
-                        const aiReply = await generateWithFallback(
-                          prompt,
-                          systemPrompt,
-                        );
-                        db.run(
-                          `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
-                          [internalUserId, aiReply],
-                          (err) => {
-                            if (err) {
-                              console.error("Error inserting proactive coach message:", err);
-                              return;
-                            }
-                            sendSSEEvent(internalUserId, "unread_message", {
-                              message: aiReply,
-                              mood: "hype",
-                            });
-                            console.log(
-                              `🤖 Sent proactive coach update for activity ${activityId}`,
-                            );
-                          }
-                        );
-                      } catch (e) {
-                        console.error("Proactive coach activity update failed:", e);
-                      }
-
-                      // 2. Update Strava Activity (title / description if enabled in settings)
-                      if (updatePayload) {
-                        const updateRes = await fetch(
-                          `https://www.strava.com/api/v3/activities/${activityId}`,
-                          {
-                            method: "PUT",
-                            headers: {
-                              Authorization: `Bearer ${accessToken}`,
-                              "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify(updatePayload),
-                          },
-                        );
-
-                        if (updateRes.ok) {
-                          console.log(
-                            `✅ Strava activity updated for activity ${activityId}!`,
-                          );
-                        } else {
-                          const errorData = await updateRes.json();
-                          console.error(
-                            `❌ Strava Activity Update Failed:`,
-                            errorData,
-                          );
-                        }
-                      }
+                const updatePayload = buildStravaUpdatePayload(data.description, plan, rookaScore, shareSettings);
+                if (updatePayload && accessToken) {
+                  const updateRes = await fetch(
+                    `https://www.strava.com/api/v3/activities/${activityId}`,
+                    {
+                      method: "PUT",
+                      headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify(updatePayload),
                     },
                   );
-                },
-              );
+
+                  if (updateRes.ok) {
+                    console.log(
+                      `✅ Strava activity updated for activity ${activityId}!`,
+                    );
+                  } else {
+                    const errorData = await updateRes.json().catch(() => ({}));
+                    console.error(
+                      `❌ Strava Activity Update Failed:`,
+                      errorData,
+                    );
+                  }
+                } else if (!updatePayload) {
+                  console.log(
+                    `ℹ️ Nothing to write back to Strava for activity ${activityId} (sharing off, or already tagged).`,
+                  );
+                }
+              } catch (updateErr) {
+                console.error("Strava activity update failed:", updateErr);
+              }
+
+              // Run unified post-workout coach analysis, quest checks & push notifications
+              await processActivityCoachAnalysis(internalUserId, {
+                ...data,
+                rooka_score: rookaScore,
+              });
             }
           },
         );
@@ -1410,6 +1542,17 @@ async function syncAllStravaUsersOnStartup() {
                 }
                 updateUserRookaAndCheckLevel(user.id);
                 console.log(`✅ Startup sync complete for user ${user.id}`);
+
+                // Check if the most recent activity (past 48h) needs coach analysis
+                db.all(
+                  `SELECT * FROM activities WHERE user_id = ? AND (coach_analyzed = 0 OR coach_analyzed IS NULL) AND datetime(start_date) >= datetime('now', '-2 days') ORDER BY start_date DESC LIMIT 1`,
+                  [user.id],
+                  async (unErr, unRows) => {
+                    if (!unErr && unRows && unRows.length > 0) {
+                      await processActivityCoachAnalysis(user.id, unRows[0]);
+                    }
+                  }
+                );
               } else {
                 console.error(
                   `❌ Startup sync failed for user ${user.id}: Response is not an array`,
@@ -1998,6 +2141,104 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
   });
 }
 
+function matchesSport(activitySport, targetSportStr) {
+  if (!targetSportStr || targetSportStr.trim() === "" || targetSportStr.toLowerCase() === "any" || targetSportStr.toLowerCase() === "all") {
+    return true;
+  }
+  if (!activitySport) return false;
+  
+  const actSport = activitySport.toLowerCase().replace(/[_\s-]/g, "");
+  const targetTokens = targetSportStr
+    .toLowerCase()
+    .split(/[,/|]+/)
+    .map((s) => s.trim().replace(/[_\s-]/g, ""))
+    .filter(Boolean);
+  
+  if (targetTokens.includes("any") || targetTokens.includes("all")) {
+    return true;
+  }
+
+  for (const token of targetTokens) {
+    if (token === actSport) return true;
+    // Cycling / Ride
+    if (["ride", "bike", "cycling", "virtualride", "ebikeride", "mountainbikeride", "gravelride"].includes(token)) {
+      if (["ride", "bike", "cycling", "virtualride", "ebikeride", "mountainbikeride", "gravelride", "indoorcycling", "handcycle"].includes(actSport)) return true;
+    }
+    // Running
+    if (["run", "running", "virtualrun", "trailrun", "treadmill"].includes(token)) {
+      if (["run", "running", "virtualrun", "trailrun", "treadmill"].includes(actSport)) return true;
+    }
+    // Swimming
+    if (["swim", "swimming", "openwaterswim", "poolswim"].includes(token)) {
+      if (["swim", "swimming", "openwaterswim", "poolswim"].includes(actSport)) return true;
+    }
+    // Strength / Gym / Weights / Workout
+    if (["strength", "weights", "weighttraining", "weightlifting", "gym", "workout", "crossfit", "hiit", "barbell"].includes(token)) {
+      if (["strength", "weights", "weighttraining", "weightlifting", "gym", "workout", "crossfit", "hiit", "barbell", "pilates", "yoga", "mobility"].includes(actSport)) return true;
+    }
+    // Walking / Hiking
+    if (["walk", "walking", "hike", "hiking"].includes(token)) {
+      if (["walk", "walking", "hike", "hiking"].includes(actSport)) return true;
+    }
+    if (actSport.includes(token) || token.includes(actSport)) return true;
+  }
+  return false;
+}
+
+function parseDateToTimestamp(dateStr) {
+  if (!dateStr) return 0;
+  const s = String(dateStr).trim();
+  const iso = s.includes("T") ? s : s.replace(" ", "T");
+  if (!iso.includes("Z") && !iso.includes("+") && !iso.slice(10).includes("-")) {
+    return new Date(iso + "Z").getTime();
+  }
+  return new Date(iso).getTime();
+}
+
+function computeQuestProgressValue(quest, activities) {
+  if (!quest) return 0;
+  const createdTs = parseDateToTimestamp(quest.created_at);
+  const cutoff = quest.completed_at || quest.expires_at;
+  const cutoffTs = cutoff ? parseDateToTimestamp(cutoff) : null;
+
+  // Filter activities matching time and sport (allow a 5-minute leeway before created_at for sync tolerances)
+  const matchingActivities = (activities || []).filter((a) => {
+    if (!a.start_date) return false;
+    const actTs = parseDateToTimestamp(a.start_date);
+    if (createdTs && actTs < (createdTs - 300000)) return false;
+    if (cutoffTs && actTs > cutoffTs) return false;
+    return matchesSport(a.sport_type, quest.target_sport);
+  });
+
+  let val = 0;
+  const targetMetric = (quest.target_metric || "").toLowerCase();
+
+  if (targetMetric === "unique_sports") {
+    const unique = new Set(
+      matchingActivities
+        .map((a) => (a.sport_type || "").toLowerCase().trim())
+        .filter(Boolean),
+    );
+    val = unique.size;
+  } else if (
+    ["activity_count", "workout_count", "sessions", "activities", "workouts"].includes(targetMetric)
+  ) {
+    val = matchingActivities.length;
+  } else {
+    const metricCol = ["moving_time_min", "rooka_score", "distance_km"].includes(targetMetric)
+      ? targetMetric
+      : "distance_km";
+
+    if (quest.is_accumulative) {
+      val = matchingActivities.reduce((sum, a) => sum + (parseFloat(a[metricCol]) || 0), 0);
+    } else {
+      val = matchingActivities.reduce((max, a) => Math.max(max, parseFloat(a[metricCol]) || 0), 0);
+    }
+  }
+
+  return Math.round(val * 100) / 100;
+}
+
 async function evaluateAndProgressQuests(userId) {
   // Ensure existing active quests without expires_at get a default expiration date
   await new Promise((resolve) => {
@@ -2020,6 +2261,7 @@ async function evaluateAndProgressQuests(userId) {
     const newQuest = await generateQuestForUser(userId, "common");
     if (newQuest) {
       newQuest.current_value = 0;
+      newQuest.progress = 0;
       return [newQuest];
     }
     return [];
@@ -2045,101 +2287,19 @@ async function evaluateAndProgressQuests(userId) {
         continue;
       }
       
-      const expiresAtStr = (q.expires_at || "").trim();
-      let isExpired = false;
-      let expiresTs = null;
-      if (expiresAtStr) {
-        const isoString =
-          expiresAtStr.replace(" ", "T") +
-          (expiresAtStr.includes("Z") || expiresAtStr.includes("+") ? "" : "Z");
-        expiresTs = new Date(isoString).getTime();
-        if (now >= expiresTs) {
-          isExpired = true;
-        }
-      }
-
-      if (isExpired) {
+      const expiresTs = q.expires_at ? parseDateToTimestamp(q.expires_at) : null;
+      if (expiresTs && now >= expiresTs) {
         q.status = "expired";
         db.run(`UPDATE user_quests SET status = 'expired' WHERE id = ?`, [q.id]);
         continue;
       }
 
-      let targetSports = q.target_sport
-        ? q.target_sport.split(",").map((s) => s.trim().toLowerCase())
-        : ["any"];
-      const sportsSet = new Set(targetSports);
-      if (sportsSet.has("ride") || sportsSet.has("bike") || sportsSet.has("cycling")) {
-        sportsSet.add("ride");
-        sportsSet.add("virtualride");
-        sportsSet.add("ebikeride");
-        sportsSet.add("mountainbikeride");
-        sportsSet.add("gravelride");
-      }
-      if (sportsSet.has("run") || sportsSet.has("running")) {
-        sportsSet.add("run");
-        sportsSet.add("virtualrun");
-        sportsSet.add("trailrun");
-        sportsSet.add("treadmill");
-      }
-      if (sportsSet.has("swim") || sportsSet.has("swimming")) {
-        sportsSet.add("swim");
-        sportsSet.add("openwaterswim");
-        sportsSet.add("poolswim");
-      }
-      targetSports = Array.from(sportsSet);
-      const isAnySport = targetSports.includes("any");
-
-      const createdStr = (q.created_at || "").trim();
-      const createdIso =
-        createdStr.replace(" ", "T") +
-        (createdStr.includes("Z") || createdStr.includes("+") ? "" : "Z");
-      const createdTs = new Date(createdIso).getTime();
-
-      const matchingActivities = activities.filter((a) => {
-        if (!a.start_date) return false;
-        const actStr = String(a.start_date).trim();
-        const actIso =
-          actStr.replace(" ", "T") +
-          (actStr.includes("Z") || actStr.includes("+") || actStr.includes("T") ? "" : "Z");
-        const actTs = new Date(actIso).getTime();
-
-        // Must be AFTER created_at AND BEFORE expires_at
-        if (actTs < createdTs) return false;
-        if (expiresTs && actTs > expiresTs) return false;
-
-        if (!isAnySport && a.sport_type) {
-          if (!targetSports.includes(a.sport_type.toLowerCase())) {
-            return false;
-          }
-        }
-        return true;
-      });
-
-      let val = 0;
-      if (q.target_metric === "unique_sports") {
-        const unique = new Set(matchingActivities.map((a) => (a.sport_type || "").toLowerCase()));
-        val = unique.size;
-      } else if (q.target_metric === "activity_count") {
-        val = matchingActivities.length;
-      } else {
-        const metricCol = ["distance_km", "moving_time_min", "rooka_score"].includes(q.target_metric)
-          ? q.target_metric
-          : "distance_km";
-        if (q.is_accumulative) {
-          val = matchingActivities.reduce((sum, a) => sum + (parseFloat(a[metricCol]) || 0), 0);
-        } else {
-          val = matchingActivities.reduce((max, a) => Math.max(max, parseFloat(a[metricCol]) || 0), 0);
-        }
-      }
-
-      val = Math.round(val * 100) / 100;
+      const val = computeQuestProgressValue(q, activities);
       q.current_value = val;
+      q.progress = val;
 
       if (val >= q.target_value) {
         q.status = "completed";
-        // Marks the transition that happened in *this* call. Callers that
-        // celebrate a completion or hand out a replacement quest must act on
-        // this and not on `status === "completed"`, which stays true forever.
         q.justCompleted = true;
         const completedAt = new Date().toISOString().replace("T", " ").substring(0, 19);
         q.completed_at = completedAt;
@@ -2151,12 +2311,19 @@ async function evaluateAndProgressQuests(userId) {
           `UPDATE user_quests SET status = 'completed', completed_at = ? WHERE id = ?`,
           [completedAt, q.id],
         );
+        sendSSEEvent(userId, "quest_completed", {
+          questId: q.id,
+          reward_points: q.reward_points,
+          description: q.description,
+        });
       } else {
         activeCount++;
       }
     } else {
-      if (q.status === "completed" && q.current_value === undefined) {
-        q.current_value = q.target_value;
+      if (q.status === "completed") {
+        const val = computeQuestProgressValue(q, activities);
+        q.current_value = val > 0 ? val : (q.target_value || 0);
+        q.progress = q.current_value;
       }
     }
   }
@@ -2166,6 +2333,7 @@ async function evaluateAndProgressQuests(userId) {
     const newQuest = await generateQuestForUser(userId, "common");
     if (newQuest) {
       newQuest.current_value = 0;
+      newQuest.progress = 0;
       quests.unshift(newQuest);
     }
   }
@@ -2175,13 +2343,6 @@ async function evaluateAndProgressQuests(userId) {
 
 /**
  * Quests that crossed their target during *this* evaluation.
- *
- * This used to return `status === "completed"`, which is every quest the athlete
- * has ever finished. Since a completion is permanent, one finished quest meant
- * this returned non-empty forever — so every synced activity re-celebrated a
- * quest completed days ago and minted a replacement quest, one AI call each,
- * against the quota that is already running out. `justCompleted` is set only on
- * the transition.
  */
 async function evaluateQuestsAgainstActivity(userId, activityData) {
   const allQuests = await evaluateAndProgressQuests(userId);
@@ -2189,91 +2350,14 @@ async function evaluateQuestsAgainstActivity(userId, activityData) {
 }
 
 async function calculateQuestProgress(userId, quest) {
-  return new Promise((resolve) => {
-    let targetSports = quest.target_sport
-      ? quest.target_sport.split(",").map((s) => s.trim().toLowerCase())
-      : ["any"];
-    const sportsSet = new Set(targetSports);
-    if (sportsSet.has("ride") || sportsSet.has("bike") || sportsSet.has("cycling")) {
-      sportsSet.add("ride");
-      sportsSet.add("virtualride");
-      sportsSet.add("ebikeride");
-      sportsSet.add("mountainbikeride");
-      sportsSet.add("gravelride");
-    }
-    if (sportsSet.has("run") || sportsSet.has("running")) {
-      sportsSet.add("run");
-      sportsSet.add("virtualrun");
-      sportsSet.add("trailrun");
-      sportsSet.add("treadmill");
-    }
-    if (sportsSet.has("swim") || sportsSet.has("swimming")) {
-      sportsSet.add("swim");
-      sportsSet.add("openwaterswim");
-      sportsSet.add("poolswim");
-    }
-    targetSports = Array.from(sportsSet);
-    const isAnySport = targetSports.includes("any");
-
-    let sportCondition = "";
-    if (!isAnySport) {
-      const sportIn = targetSports.map((s) => `'${s}'`).join(",");
-      sportCondition = `AND LOWER(sport_type) IN (${sportIn})`;
-    }
-
-    const cutoff = quest.completed_at || quest.expires_at;
-    let timeCondition = "";
-    let params = [userId, quest.created_at || '1970-01-01 00:00:00'];
-
-    if (cutoff) {
-      timeCondition = ` AND replace(start_date, 'T', ' ') <= replace(?, 'T', ' ')`;
-      params.push(cutoff);
-    }
-
-    if (quest.is_accumulative) {
-      if (quest.target_metric === "unique_sports") {
-        db.get(
-          `SELECT COUNT(DISTINCT LOWER(sport_type)) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
-          params,
-          (err, row) => resolve(row ? row.total || 0 : 0)
-        );
-      } else if (quest.target_metric === "activity_count") {
-        db.get(
-          `SELECT COUNT(id) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
-          params,
-          (err, row) => resolve(row ? row.total || 0 : 0)
-        );
-      } else {
-        const allowedMetrics = ["distance_km", "moving_time_min", "rooka_score"];
-        const metricCol = allowedMetrics.includes(quest.target_metric)
-          ? quest.target_metric
-          : "distance_km";
-        db.get(
-          `SELECT SUM(${metricCol}) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
-          params,
-          (err, row) => resolve(row ? (row.total ? parseFloat(row.total.toFixed(2)) : 0) : 0)
-        );
-      }
-    } else {
-      if (quest.target_metric === "unique_sports" || quest.target_metric === "activity_count") {
-        db.get(
-          `SELECT COUNT(id) as total FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
-          params,
-          (err, row) => resolve(row && row.total > 0 ? 1 : 0)
-        );
-      } else {
-        const allowedMetrics = ["distance_km", "moving_time_min", "rooka_score"];
-        const metricCol = allowedMetrics.includes(quest.target_metric)
-          ? quest.target_metric
-          : "distance_km";
-        db.get(
-          `SELECT MAX(${metricCol}) as max_val FROM activities WHERE user_id = ? AND replace(start_date, 'T', ' ') >= replace(?, 'T', ' ') ${timeCondition} ${sportCondition}`,
-          params,
-          (err, row) => resolve(row ? (row.max_val ? parseFloat(row.max_val.toFixed(2)) : 0) : 0)
-        );
-      }
-    }
+  const activities = await new Promise((resolve) => {
+    db.all(
+      `SELECT sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC`,
+      [userId],
+      (err, rows) => resolve(rows || []),
+    );
   });
+  return computeQuestProgressValue(quest, activities);
 }
 
 async function analyzeMuscleImpact(userId, activityData, rookaSport, activityDate) {
@@ -2486,6 +2570,10 @@ module.exports = {
   resetDailyTokensForAllUsers,
   resetDailyNutritionForAllUsers,
   getStravaShareSettings,
+  normalizeShareSettings,
+  canHideRookaLink,
+  STRAVA_SHARE_SPORTS,
+  STRAVA_SHARE_FLAGS,
   buildStravaUpdatePayload,
   runDailyRecoveryJob,
   calculateRookaScoreZoned,
@@ -2521,6 +2609,7 @@ module.exports = {
   getEffectiveTokenLimit,
   generateAthleteWeeklyDescription,
   generateWeeklyAthleteDescriptionsJob,
+  processActivityCoachAnalysis,
   sendMorningMessage: async () => {
     console.log("🌞 Running scheduled morning message job...");
     const todayStr = getAMSDateString();
@@ -2618,6 +2707,7 @@ module.exports = {
                    title: `Good morning from ${user.coach_name || 'Rooka'}! 🌅`,
                    body: aiReply,
                    data: { url: "/(tabs)/coach", type: "coach" },
+                   badge: 1,
                  });
                  console.log(`Sent morning message to user ${user.id}`);
               }

@@ -22,7 +22,7 @@ export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshNiggles = async () => {
+  const refreshNiggles = React.useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
@@ -36,13 +36,9 @@ export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  const saveNiggle = async (niggle: Partial<Niggle>) => {
-    const existingIndex = niggles.findIndex(
-      (n) => n.id === niggle.id || n.body_part === niggle.body_part
-    );
-
+  const saveNiggle = React.useCallback(async (niggle: Partial<Niggle>) => {
     const updatedNiggle: Niggle = {
       id: niggle.id || Date.now(),
       body_part: niggle.body_part || 'left_calf',
@@ -51,29 +47,31 @@ export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => 
       status: 'active',
     };
 
-    if (existingIndex >= 0) {
-      setNiggles((prev) =>
-        prev.map((n, idx) => (idx === existingIndex ? updatedNiggle : n))
+    setNiggles((prev) => {
+      const existingIndex = prev.findIndex(
+        (n) => n.id === niggle.id || n.body_part === niggle.body_part
       );
-    } else {
-      setNiggles((prev) => [...prev, updatedNiggle]);
-    }
+      if (existingIndex >= 0) {
+        return prev.map((n, idx) => (idx === existingIndex ? updatedNiggle : n));
+      }
+      return [...prev, updatedNiggle];
+    });
 
     try {
       await healthApi.saveNiggle(niggle);
     } catch (err) {
       console.error('Save niggle sync error:', err);
     }
-  };
+  }, []);
 
-  const resolveNiggle = async (id: number | string) => {
+  const resolveNiggle = React.useCallback(async (id: number | string) => {
     setNiggles((prev) => prev.filter((n) => n.id !== id));
     try {
       await healthApi.resolveNiggle(id);
     } catch (err) {
       console.error('Resolve niggle sync error:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return;

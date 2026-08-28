@@ -6,21 +6,24 @@ const db = require("../services/db");
 
 // Register a new friend
 router.post("/register", async (req, res) => {
-  const { username, password, context } = req.body;
+  const { username, email, password, context } = req.body;
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const nowIso = new Date().toISOString();
+    const cleanUsername = (username || email || "").trim();
+    const cleanEmail = (email || (cleanUsername.includes("@") ? cleanUsername : "")).trim().toLowerCase() || null;
+
     db.run(
       // coach_name is set explicitly: older databases still default this column
       // to the pre-rename value 'Spark'.
-      `INSERT INTO users (username, password_hash, athlete_context, rooka_start_date, coach_name) VALUES (?, ?, ?, ?, ?)`,
-      [username, hashedPassword, context || "New athlete.", nowIso, "Rooka"],
+      `INSERT INTO users (username, email, password_hash, athlete_context, rooka_start_date, coach_name) VALUES (?, ?, ?, ?, ?, ?)`,
+      [cleanUsername, cleanEmail, hashedPassword, context || "New athlete.", nowIso, "Rooka"],
       function (err) {
         if (err)
           return res
             .status(400)
-            .json({ error: "Username might already exist." });
+            .json({ error: "Username or email might already exist." });
         res
           .status(201)
           .json({
@@ -37,10 +40,18 @@ router.post("/register", async (req, res) => {
 // Login and get a token
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
+  const identifier = (username || "").trim().toLowerCase();
+
+  if (!identifier || !password) {
+    return res.status(400).json({ error: "Please enter your username/email and password." });
+  }
 
   db.get(
-    `SELECT * FROM users WHERE username = ? AND deleted_at IS NULL`,
-    [username],
+    `SELECT * FROM users 
+     WHERE (LOWER(username) = ? OR (email IS NOT NULL AND LOWER(email) = ?)) 
+       AND deleted_at IS NULL 
+     LIMIT 1`,
+    [identifier, identifier],
     async (err, user) => {
       if (err || !user)
         return res.status(400).json({

@@ -11,7 +11,7 @@ interface ActivityContextType {
   refreshActivities: () => Promise<void>;
   syncGarmin: () => Promise<void>;
   syncStrava: () => Promise<void>;
-  addManualActivity: (newAct: Partial<Activity>) => void;
+  addManualActivity: (newAct: Partial<Activity>) => Promise<void>;
 }
 
 const defaultActivities: Activity[] = [];
@@ -24,32 +24,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const addManualActivity = (newAct: Partial<Activity>) => {
-    const durSec = newAct.moving_time || (newAct.moving_time_min ? newAct.moving_time_min * 60 : 1800);
-    const distMeters = newAct.distance || (newAct.distance_km ? newAct.distance_km * 1000 : 0);
-    const nowIso = new Date().toISOString();
-    const formattedActivity: Activity = {
-      id: `manual_${Date.now()}`,
-      name: newAct.name || 'Manual Workout',
-      sport_type: newAct.sport_type || newAct.type || 'RUN',
-      type: newAct.type || newAct.sport_type || 'RUN',
-      distance_km: newAct.distance_km || (distMeters / 1000),
-      moving_time_min: newAct.moving_time_min || (durSec / 60),
-      start_date: newAct.start_date || nowIso,
-      start_date_local: newAct.start_date_local || nowIso,
-      moving_time: durSec,
-      elapsed_time: durSec,
-      distance: distMeters,
-      total_elevation_gain: newAct.total_elevation_gain || newAct.elevation_m || 0,
-      elevation_m: newAct.elevation_m || newAct.total_elevation_gain || 0,
-      average_speed: distMeters && durSec ? distMeters / durSec : 0,
-      source: 'manual',
-      ...newAct,
-    };
-    setActivities((prev) => [formattedActivity, ...prev]);
-  };
-
-  const refreshActivities = async () => {
+  const refreshActivities = React.useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
@@ -63,9 +38,50 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  const syncGarmin = async () => {
+  const addManualActivity = React.useCallback(async (newAct: Partial<Activity>) => {
+    const durSec = newAct.moving_time || (newAct.moving_time_min ? newAct.moving_time_min * 60 : 1800);
+    const distMeters = newAct.distance || (newAct.distance_km ? newAct.distance_km * 1000 : 0);
+    const nowIso = new Date().toISOString();
+    const formattedActivity: Activity = {
+      id: `manual_${Date.now()}`,
+      name: newAct.name || 'Manual Workout',
+      sport_type: newAct.sport_type || newAct.type || 'RUN',
+      type: newAct.type || newAct.sport_type || 'RUN',
+      distance_km: newAct.distance_km !== undefined ? newAct.distance_km : (distMeters / 1000),
+      moving_time_min: newAct.moving_time_min !== undefined ? newAct.moving_time_min : (durSec / 60),
+      start_date: newAct.start_date || nowIso,
+      start_date_local: newAct.start_date_local || nowIso,
+      moving_time: durSec,
+      elapsed_time: durSec,
+      distance: distMeters,
+      total_elevation_gain: newAct.total_elevation_gain || newAct.elevation_m || 0,
+      elevation_m: newAct.elevation_m || newAct.total_elevation_gain || 0,
+      average_speed: distMeters && durSec ? distMeters / durSec : 0,
+      source: 'manual',
+      ...newAct,
+    };
+    // Optimistic UI update
+    setActivities((prev) => [formattedActivity, ...prev]);
+
+    try {
+      await activitiesApi.logActivity({
+        name: formattedActivity.name,
+        sport_type: formattedActivity.sport_type,
+        distance_km: formattedActivity.distance_km,
+        moving_time_min: formattedActivity.moving_time_min,
+        start_date: formattedActivity.start_date,
+        elevation_m: formattedActivity.elevation_m,
+        average_heartrate: formattedActivity.average_heartrate,
+      });
+      await refreshActivities();
+    } catch (err: any) {
+      console.error('Failed to persist manual activity to server:', err);
+    }
+  }, [refreshActivities]);
+
+  const syncGarmin = React.useCallback(async () => {
     setLoading(true);
     try {
       await activitiesApi.syncGarmin();
@@ -78,9 +94,9 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshActivities]);
 
-  const syncStrava = async () => {
+  const syncStrava = React.useCallback(async () => {
     setLoading(true);
     try {
       await activitiesApi.syncStrava();
@@ -93,7 +109,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshActivities]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

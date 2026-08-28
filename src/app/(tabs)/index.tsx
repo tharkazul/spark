@@ -18,6 +18,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useTabBar } from '../../context/TabBarContext';
 import { usePlan } from '../../context/PlanStore';
+import { useActivities } from '../../context/ActivityStore';
 import { planApi } from '../../services/apiServices';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '../../components/ui/Card';
@@ -68,6 +69,7 @@ export default function PlanningHomeScreen() {
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
   const { plan, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
+  const { activities } = useActivities();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
@@ -275,7 +277,21 @@ export default function PlanningHomeScreen() {
           rookaPoints: w.target_rooka || 0,
           sparkPoints: w.target_spark || 0,
           isStructured: parsedSteps.length > 0,
-          isCompleted: w.isCompleted || false,
+          isCompleted: (() => {
+            if (w.isCompleted) return true;
+            const planSport = String(w.sport || (w as any).type).toUpperCase();
+            if (planSport === 'REST') return false;
+            // Check if there's any activity on this day of the same sport type
+            const actsOnDay = activities.filter(a => {
+              const d = a.start_date_local || a.start_date || (a as any).date;
+              return d?.startsWith(dateYYYYMMDD);
+            });
+            const isMatch = actsOnDay.some(a => {
+              const aSport = String(a.sport_type || (a as any).type).toUpperCase();
+              return aSport === planSport;
+            });
+            return isMatch;
+          })(),
           actualMetrics: w.actualMetrics,
           executionScore: w.executionScore,
           steps: parsedSteps,
@@ -348,6 +364,9 @@ export default function PlanningHomeScreen() {
 
   const handleSelectWorkoutForEdit = (workout: WorkoutItem) => {
     setSelectedWorkoutForEdit(workout);
+    if (workout.day && workout.dateStr) {
+      setTargetAddDay({ dayName: workout.day, dateStr: workout.dateStr });
+    }
     setIsAddModalOpen(true);
   };
 
@@ -368,8 +387,8 @@ export default function PlanningHomeScreen() {
         date: targetYYYYMMDD,
         day: workoutData.day,
         sport: workoutData.type,
-        title: workoutData.title,
-        description: workoutData.notes || '',
+        description: workoutData.title,
+        details: workoutData.notes || '',
         target_rooka: workoutData.rookaPoints || 0,
         steps_json: JSON.stringify(workoutData.steps || []),
       };

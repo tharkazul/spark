@@ -6,11 +6,15 @@ export interface Quest {
   target_metric: string;
   target_value: number;
   reward_points: number;
-  status: 'active' | 'completed' | 'claimed';
+  status: 'active' | 'completed' | 'claimed' | 'void' | 'expired' | 'closed';
   target_sport?: string;
   is_accumulative?: boolean;
   expires_at?: string;
   progress?: number;
+  current_value?: number;
+  progress_percent?: number;
+  time_remaining_str?: string;
+  unit?: string;
 }
 
 export interface UserTitle {

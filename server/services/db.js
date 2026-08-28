@@ -315,6 +315,9 @@ db.serialize(() => {
       },
     );
   });
+  db.run(`ALTER TABLE activities ADD COLUMN coach_analyzed INTEGER DEFAULT 0`, (err) => {
+    if (!err) console.log("Added coach_analyzed column to activities table.");
+  });
   db.run(
     `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, source TEXT DEFAULT 'coach', FOREIGN KEY(user_id) REFERENCES users(id))`,
   );
@@ -629,6 +632,57 @@ db.serialize(() => {
         coach_notes TEXT,
         completed_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+
+  // Discount codes. The three axes an admin sets are independent: what the code
+  // does to the price (discount_type), how long it keeps doing it
+  // (duration_months), and how many athletes may ever redeem it
+  // (redemption_type/max_redemptions). Codes are stored normalised (uppercase,
+  // no spaces) so UNIQUE is a case-insensitive match in practice.
+  db.run(`CREATE TABLE IF NOT EXISTS discount_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        description TEXT,
+        discount_type TEXT NOT NULL,
+        percent_off REAL,
+        fixed_monthly_price REAL,
+        fixed_yearly_price REAL,
+        duration_months INTEGER,
+        redemption_type TEXT NOT NULL DEFAULT 'unlimited',
+        max_redemptions INTEGER,
+        valid_from TEXT,
+        valid_until TEXT,
+        active INTEGER NOT NULL DEFAULT 1,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+  // Permanent redemption ledger, separate from user_discounts on purpose.
+  // Usage caps are counted here, so removing your own code and re-applying it
+  // does not consume a second slot, while a single-use code still cannot be
+  // handed round between athletes.
+  db.run(`CREATE TABLE IF NOT EXISTS discount_redemptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        first_redeemed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(code_id, user_id),
+        FOREIGN KEY(code_id) REFERENCES discount_codes(id),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+
+  // The code an athlete currently holds. user_id is the primary key: one active
+  // discount each, which is what the account screen lets them edit or remove.
+  // expires_at is materialised at apply time from duration_months so that
+  // changing a code's duration later cannot retroactively move somebody's
+  // already-running discount window.
+  db.run(`CREATE TABLE IF NOT EXISTS user_discounts (
+        user_id INTEGER PRIMARY KEY,
+        code_id INTEGER NOT NULL,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at TEXT,
+        FOREIGN KEY(code_id) REFERENCES discount_codes(id),
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 });

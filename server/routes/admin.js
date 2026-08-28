@@ -254,4 +254,199 @@ router.get("/api/admin/onboarding-status/:userId", authenticateToken, async (req
   );
 });
 
+/* ---------------------------------------------------------------------------
+ * Discount codes
+ *
+ * The list is the admin's Discount page: every code with a live count of how
+ * many athletes have redeemed it and how many hold it right now. Counts are
+ * queried rather than kept in a column so they cannot drift out of step with
+ * the ledger they are derived from.
+ * ------------------------------------------------------------------------- */
+
+const pricing = require("../services/pricing");
+
+const DISCOUNT_LIST_QUERY = `
+    SELECT c.*,
+           (SELECT COUNT(*) FROM discount_redemptions r WHERE r.code_id = c.id) AS redemption_count,
+           (SELECT COUNT(*) FROM user_discounts u WHERE u.code_id = c.id) AS active_holders
+      FROM discount_codes c
+     ORDER BY c.active DESC, c.created_at DESC
+`;
+
+function serializeDiscount(row) {
+  const cap = pricing.redemptionCap(row);
+  return {
+    id: row.id,
+    code: row.code,
+    description: row.description || null,
+    discountType: row.discount_type,
+    percentOff: row.percent_off != null ? Number(row.percent_off) : null,
+    fixedMonthlyPrice:
+      row.fixed_monthly_price != null ? Number(row.fixed_monthly_price) : null,
+    fixedYearlyPrice:
+      row.fixed_yearly_price != null ? Number(row.fixed_yearly_price) : null,
+    durationMonths: row.duration_months != null ? Number(row.duration_months) : null,
+    redemptionType: row.redemption_type,
+    maxRedemptions: row.max_redemptions != null ? Number(row.max_redemptions) : null,
+    validFrom: row.valid_from || null,
+    validUntil: row.valid_until || null,
+    active: !!row.active,
+    createdBy: row.created_by || null,
+    createdAt: row.created_at || null,
+    redemptionCount: row.redemption_count || 0,
+    activeHolders: row.active_holders || 0,
+    remainingUses: cap === Infinity ? null : Math.max(0, cap - (row.redemption_count || 0)),
+    // What the two paywall boxes look like under this code, so the admin sees
+    // the same numbers the athlete will.
+    pricing: pricing.computePricing(row),
+  };
+}
+
+router.get("/api/admin/discounts", authenticateToken, (req, res) => {
+  db.all(DISCOUNT_LIST_QUERY, [], (err, rows) => {
+    if (err) {
+      console.error("Failed to list discount codes:", err.message);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json({
+      basePricing: pricing.BASE_PRICING,
+      codes: (rows || []).map(serializeDiscount),
+    });
+  });
+});
+
+function respondWithSingleDiscount(res, id, extra = {}) {
+  db.get(
+    `SELECT c.*,
+            (SELECT COUNT(*) FROM discount_redemptions r WHERE r.code_id = c.id) AS redemption_count,
+            (SELECT COUNT(*) FROM user_discounts u WHERE u.code_id = c.id) AS active_holders
+       FROM discount_codes c WHERE c.id = ?`,
+    [id],
+    (err, row) => {
+      if (err || !row) {
+        return res.status(500).json({ error: "Failed to load saved code" });
+      }
+      res.json({ success: true, code: serializeDiscount(row), ...extra });
+    },
+  );
+}
+
+router.post("/api/admin/discounts", authenticateToken, (req, res) => {
+  const parsed = pricing.validateCodeDefinition(req.body || {});
+  if (parsed.errors) return res.status(400).json({ error: parsed.errors.join(" ") });
+  const v = parsed.value;
+
+  db.run(
+    `INSERT INTO discount_codes
+       (code, description, discount_type, percent_off, fixed_monthly_price, fixed_yearly_price,
+        duration_months, redemption_type, max_redemptions, valid_from, valid_until, active, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      v.code, v.description, v.discountType, v.percentOff, v.fixedMonthlyPrice,
+      v.fixedYearlyPrice, v.durationMonths, v.redemptionType, v.maxRedemptions,
+      v.validFrom, v.validUntil, v.active, req.user.username,
+    ],
+    function (err) {
+      if (err) {
+        if (/UNIQUE/i.test(err.message)) {
+          return res.status(409).json({ error: `Code ${v.code} already exists.` });
+        }
+        console.error("Failed to create discount code:", err.message);
+        return res.status(500).json({ error: "Database error" });
+      }
+      db.run(
+        `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'discount_create', NULL, ?)`,
+        [req.user.username, `Created code ${v.code} (${v.discountType})`],
+      );
+      respondWithSingleDiscount(res, this.lastID);
+    },
+  );
+});
+
+router.put("/api/admin/discounts/:id", authenticateToken, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  const parsed = pricing.validateCodeDefinition(req.body || {});
+  if (parsed.errors) return res.status(400).json({ error: parsed.errors.join(" ") });
+  const v = parsed.value;
+
+  db.run(
+    `UPDATE discount_codes SET
+        code = ?, description = ?, discount_type = ?, percent_off = ?,
+        fixed_monthly_price = ?, fixed_yearly_price = ?, duration_months = ?,
+        redemption_type = ?, max_redemptions = ?, valid_from = ?, valid_until = ?, active = ?
+      WHERE id = ?`,
+    [
+      v.code, v.description, v.discountType, v.percentOff, v.fixedMonthlyPrice,
+      v.fixedYearlyPrice, v.durationMonths, v.redemptionType, v.maxRedemptions,
+      v.validFrom, v.validUntil, v.active, id,
+    ],
+    function (err) {
+      if (err) {
+        if (/UNIQUE/i.test(err.message)) {
+          return res.status(409).json({ error: `Code ${v.code} already exists.` });
+        }
+        console.error("Failed to update discount code:", err.message);
+        return res.status(500).json({ error: "Database error" });
+      }
+      if (this.changes === 0) return res.status(404).json({ error: "Code not found" });
+      db.run(
+        `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'discount_update', NULL, ?)`,
+        [req.user.username, `Updated code ${v.code}`],
+      );
+      respondWithSingleDiscount(res, id);
+    },
+  );
+});
+
+/**
+ * Deleting a code that athletes are already on would leave user_discounts
+ * pointing at nothing, so a redeemed code is deactivated instead — it stops
+ * working for everyone, including its current holders, and stays visible in the
+ * list. Only never-redeemed codes are actually removed.
+ */
+router.delete("/api/admin/discounts/:id", authenticateToken, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  db.get(
+    `SELECT c.code,
+            (SELECT COUNT(*) FROM discount_redemptions r WHERE r.code_id = c.id) AS redemption_count
+       FROM discount_codes c WHERE c.id = ?`,
+    [id],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (!row) return res.status(404).json({ error: "Code not found" });
+
+      const finish = (action, message) => {
+        db.run(
+          `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, ?, NULL, ?)`,
+          [req.user.username, action, `${message} (${row.code})`],
+        );
+        res.json({ success: true, deleted: action === "discount_delete", message });
+      };
+
+      if (row.redemption_count > 0) {
+        return db.run(
+          `UPDATE discount_codes SET active = 0 WHERE id = ?`,
+          [id],
+          (deactErr) => {
+            if (deactErr) return res.status(500).json({ error: "Database error" });
+            finish(
+              "discount_deactivate",
+              `Code has ${row.redemption_count} redemption(s) — deactivated instead of deleted`,
+            );
+          },
+        );
+      }
+
+      db.run(`DELETE FROM discount_codes WHERE id = ?`, [id], (delErr) => {
+        if (delErr) return res.status(500).json({ error: "Database error" });
+        finish("discount_delete", "Code deleted");
+      });
+    },
+  );
+});
+
 module.exports = router;

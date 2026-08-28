@@ -3,7 +3,7 @@ const db = require("./db");
 /**
  * Dispatches push notification to Expo Push API
  */
-async function sendExpoPushNotification({ to, title, body, data = {}, sound = "default", badge }) {
+async function sendExpoPushNotification({ to, title, body, data = {}, sound = "default", badge = 1 }) {
   if (!to) return;
   const tokens = Array.isArray(to) ? to : [to];
   const validTokens = tokens.filter(
@@ -20,7 +20,7 @@ async function sendExpoPushNotification({ to, title, body, data = {}, sound = "d
     title,
     body,
     data,
-    badge,
+    badge: badge !== undefined && badge !== null ? badge : 1,
   }));
 
   try {
@@ -43,7 +43,7 @@ async function sendExpoPushNotification({ to, title, body, data = {}, sound = "d
 /**
  * Look up all registered push tokens for a given user ID and send push notification
  */
-async function sendPushToUser(userId, { title, body, data = {}, sound = "default", badge }) {
+async function sendPushToUser(userId, { title, body, data = {}, sound = "default", badge = 1 }) {
   if (!userId) return null;
   return new Promise((resolve) => {
     db.all(

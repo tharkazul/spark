@@ -48,6 +48,10 @@ export default function TabLayout() {
     }
   }, [isAuthenticated, loading, user?.onboarding_completed, user?.needsZoneSetup]);
 
+  if (loading || !isAuthenticated) {
+    return null;
+  }
+
   return (
     <HeaderLayoutProvider>
       <Tabs

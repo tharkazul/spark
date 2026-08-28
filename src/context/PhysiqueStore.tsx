@@ -34,7 +34,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshPhysique = async () => {
+  const refreshPhysique = React.useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
     try {
@@ -89,9 +89,9 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  const logPhysique = async (entry: Partial<PhysiqueEntry>) => {
+  const logPhysique = React.useCallback(async (entry: Partial<PhysiqueEntry>) => {
     const newEntry: PhysiqueEntry = {
       id: Date.now(),
       date: new Date().toISOString().split('T')[0],
@@ -104,16 +104,16 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
     } catch (err) {
       console.error('Log physique sync error:', err);
     }
-  };
+  }, []);
 
-  const clearLoggedNutrition = async () => {
+  const clearLoggedNutrition = React.useCallback(async () => {
     try {
       await physiqueApi.clearLoggedNutrition();
       await refreshPhysique();
     } catch (err) {
       console.error('Failed to clear logged nutrition:', err);
     }
-  };
+  }, [refreshPhysique]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

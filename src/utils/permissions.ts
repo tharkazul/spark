@@ -23,3 +23,10 @@ export const canAccessQuests = (tier?: SubscriptionTier): boolean => {
 export const canConfigureCoach = (tier?: SubscriptionTier): boolean => {
   return hasPremiumTier(tier);
 };
+
+// The rooka.io credit in Strava captions is only optional from Rooka+ upwards;
+// free accounts always carry it. Mirrors canHideRookaLink in server/services/utils.js
+// — the server enforces this on read and write, this only drives the UI.
+export const canHideRookaLink = (tier?: SubscriptionTier): boolean => {
+  return hasSubscriptionTier(tier);
+};

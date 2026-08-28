@@ -10,6 +10,34 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
+
+        /* Radio groups rendered as selectable chips. */
+        .dc-chip>span {
+            display: inline-block;
+            padding: 0.5rem 0.85rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #4b5563;
+            cursor: pointer;
+            user-select: none;
+            transition: all .12s ease;
+        }
+
+        .dc-chip>span:hover {
+            background: #f9fafb;
+        }
+
+        .dc-chip>input:checked+span {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: #fff;
+        }
+
+        #discountModal:not(.hidden) {
+            display: flex;
+        }
     </style>
 </head>
 
@@ -71,6 +99,167 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+    <!-- Discount Codes -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mt-8">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <div>
+                    <h2 class="text-xl font-semibold">Discount Codes</h2>
+                    <p class="text-sm text-gray-500 mt-0.5" id="discountSummary">Loading…</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="fetchDiscounts()"
+                        class="text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 shadow-sm transition">↻
+                        Refresh</button>
+                    <button onclick="openDiscountModal()"
+                        class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 shadow-sm transition font-semibold">+
+                        New Code</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Code</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Discount</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Usage</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Athlete Pays</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Window</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="text-right p-4 font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="discountTableBody" class="text-sm divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-gray-400">Loading discount codes...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discount Create / Edit Modal -->
+    <div id="discountModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 items-center justify-center hidden z-50 overflow-y-auto p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl my-8">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-xl font-bold" id="discountModalTitle">New Discount Code</h2>
+                <button onclick="closeDiscountModal()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+            </div>
+
+            <form id="discountForm" class="px-6 py-5">
+                <input type="hidden" id="dcId">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Code</label>
+                        <input id="dcCode" type="text" required placeholder="SUMMER2026" autocomplete="off"
+                            class="w-full border rounded px-3 py-2 font-bold tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Description <span class="font-normal text-gray-400">(internal)</span></label>
+                        <input id="dcDescription" type="text" placeholder="Launch promo for the newsletter"
+                            class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- 1. What it does to the price -->
+                <fieldset class="border-t border-gray-200 pt-4 mb-5">
+                    <legend class="text-sm font-bold text-gray-900 mb-2">1 &middot; Discount type</legend>
+                    <div class="flex flex-wrap gap-2 mb-3" id="dcTypeGroup">
+                        <label class="dc-chip"><input type="radio" name="dcType" value="percent" class="sr-only" checked><span>% off</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcType" value="fixed_yearly" class="sr-only"><span>Fixed yearly price</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcType" value="fixed_monthly" class="sr-only"><span>Fixed monthly price</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcType" value="fixed_both" class="sr-only"><span>Fixed both prices</span></label>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div id="dcPercentWrap">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Percent off</label>
+                            <input id="dcPercentOff" type="number" step="0.01" min="0" max="100" placeholder="25"
+                                class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-400 mt-1">Applied to both plans</p>
+                        </div>
+                        <div id="dcMonthlyWrap" class="hidden">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Monthly price</label>
+                            <input id="dcFixedMonthly" type="number" step="0.01" min="0" placeholder="3.99"
+                                class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-400 mt-1">Replaces <span class="dc-base-monthly">…</span></p>
+                        </div>
+                        <div id="dcYearlyWrap" class="hidden">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Yearly price</label>
+                            <input id="dcFixedYearly" type="number" step="0.01" min="0" placeholder="49.00"
+                                class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-400 mt-1">Replaces <span class="dc-base-yearly">…</span></p>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- 2. How long it lasts -->
+                <fieldset class="border-t border-gray-200 pt-4 mb-5">
+                    <legend class="text-sm font-bold text-gray-900 mb-2">2 &middot; Duration</legend>
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <label class="dc-chip"><input type="radio" name="dcDur" value="forever" class="sr-only" checked><span>Forever</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcDur" value="months" class="sr-only"><span>For X months</span></label>
+                    </div>
+                    <div id="dcMonthsWrap" class="hidden max-w-xs">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Discounted months</label>
+                        <input id="dcDurationMonths" type="number" min="1" step="1" placeholder="3"
+                            class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-400 mt-1">Then the price returns to normal</p>
+                    </div>
+                    <p id="dcForeverNote" class="text-xs text-gray-400">Applies for as long as the athlete stays subscribed.</p>
+                </fieldset>
+
+                <!-- 3. How many can use it -->
+                <fieldset class="border-t border-gray-200 pt-4 mb-5">
+                    <legend class="text-sm font-bold text-gray-900 mb-2">3 &middot; Usage limit</legend>
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <label class="dc-chip"><input type="radio" name="dcUse" value="one_time" class="sr-only"><span>One time</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcUse" value="limited" class="sr-only"><span>Limited use</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcUse" value="unlimited" class="sr-only" checked><span>Unlimited use</span></label>
+                    </div>
+                    <div id="dcMaxWrap" class="hidden max-w-xs">
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Max uses</label>
+                        <input id="dcMaxRedemptions" type="number" min="1" step="1" placeholder="100"
+                            class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-xs text-gray-400 mt-1">Counted per athlete, not per attempt</p>
+                    </div>
+                    <p id="dcUseNote" class="text-xs text-gray-400">Any number of athletes can redeem this code.</p>
+                </fieldset>
+
+                <!-- Optional redemption window -->
+                <fieldset class="border-t border-gray-200 pt-4 mb-5">
+                    <legend class="text-sm font-bold text-gray-900 mb-2">Redemption window <span class="font-normal text-gray-400">(optional)</span></legend>
+                    <div class="grid grid-cols-2 gap-4 max-w-md">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">From</label>
+                            <input id="dcValidFrom" type="date" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Until</label>
+                            <input id="dcValidUntil" type="date" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Limits when the code can be redeemed — separate from how long the discount then lasts.</p>
+                </fieldset>
+
+                <label class="flex items-center gap-2 border-t border-gray-200 pt-4 mb-2 cursor-pointer">
+                    <input id="dcActive" type="checkbox" checked class="w-4 h-4">
+                    <span class="text-sm font-bold text-gray-700">Active</span>
+                    <span class="text-xs text-gray-400">— switching a code off also stops it for athletes already on it</span>
+                </label>
+
+                <p id="dcError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded px-3 py-2 my-3"></p>
+
+                <div class="flex justify-end gap-2 border-t border-gray-200 pt-4 mt-4">
+                    <button type="button" onclick="closeDiscountModal()"
+                        class="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition">Cancel</button>
+                    <button type="submit" id="dcSaveBtn"
+                        class="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 transition">Create Code</button>
+                </div>
+            </form>
         </div>
     </div>
 

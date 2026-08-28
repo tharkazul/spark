@@ -257,6 +257,7 @@ export default function CoachScreen() {
   const { t } = useLanguage();
   const {
     messages,
+    refreshMessages,
     sendMessage,
     resendMessage,
     sending,
@@ -980,37 +981,41 @@ export default function CoachScreen() {
         </TouchableOpacity>
 
         {/* 2. Nutrition Micro-Pill */}
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.selectionAsync();
-            setIsNutritionModalOpen(true);
-          }}
-          activeOpacity={0.75}
-          className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
-        >
-          <Ionicons name="nutrition-outline" size={14} color="#10B981" />
-          <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
-            Nutrition
-          </Text>
-        </TouchableOpacity>
+        {user?.subscription_tier !== 'free' && (
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsNutritionModalOpen(true);
+            }}
+            activeOpacity={0.75}
+            className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+          >
+            <Ionicons name="nutrition-outline" size={14} color="#10B981" />
+            <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
+              Nutrition
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* 3. Quest Micro-Pill */}
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.selectionAsync();
-            setIsQuestModalOpen(true);
-          }}
-          activeOpacity={0.75}
-          className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
-        >
-          <Ionicons name="trophy" size={13} color={theme.tint} />
-          <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
-            Quest
-          </Text>
-          <Text className="text-xs font-mono font-extrabold text-amber-500">
-            {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
-          </Text>
-        </TouchableOpacity>
+        {user?.subscription_tier !== 'free' && (
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              setIsQuestModalOpen(true);
+            }}
+            activeOpacity={0.75}
+            className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-xl flex-row items-center justify-center gap-1.5 shadow-xs"
+          >
+            <Ionicons name="trophy" size={13} color={theme.tint} />
+            <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
+              Quest
+            </Text>
+            <Text className="text-xs font-mono font-extrabold text-amber-500">
+              {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Low Token Budget Warning Banner */}
@@ -1065,12 +1070,12 @@ export default function CoachScreen() {
             renderItem={renderItem}
             inverted
             onScroll={handleScroll}
-            scrollEventThrottle={16}
+            scrollEventThrottle={32}
             onScrollBeginDrag={handleScrollBeginDrag}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={11}
-            removeClippedSubviews={false}
+            initialNumToRender={12}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             contentContainerStyle={listContentStyle}

@@ -94,6 +94,19 @@ export async function unregisterPushNotificationsAsync(): Promise<void> {
   }
 }
 
+export async function setBadgeCountAsync(count: number): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    await Notifications.setBadgeCountAsync(Math.max(0, count));
+  } catch (e) {
+    console.log('Failed to set badge count:', e);
+  }
+}
+
+export async function clearBadgeCountAsync(): Promise<void> {
+  await setBadgeCountAsync(0);
+}
+
 export function setupNotificationListeners(
   onNotificationReceived?: (notification: Notifications.Notification) => void,
   onNotificationResponse?: (response: Notifications.NotificationResponse) => void

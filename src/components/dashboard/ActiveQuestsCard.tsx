@@ -33,8 +33,14 @@ export function ActiveQuestsCard() {
     }
   };
 
+  const currentVal = activeQuest
+    ? Math.round(activeQuest.current_value !== undefined ? activeQuest.current_value : (activeQuest.progress || 0))
+    : 0;
+  const targetVal = activeQuest ? Math.round(activeQuest.target_value || 1) : 1;
   const progressPercent = activeQuest
-    ? Math.min(100, Math.round(((activeQuest.progress || 0) / (activeQuest.target_value || 1)) * 100))
+    ? (activeQuest.progress_percent !== undefined
+        ? activeQuest.progress_percent
+        : Math.min(100, Math.round((currentVal / targetVal) * 100)))
     : 0;
 
   return (
@@ -61,7 +67,7 @@ export function ActiveQuestsCard() {
                   </Text>
                 </View>
                 <Text className="text-xs text-theme-muted font-bold mt-0.5 font-rajdhani">
-                  {Math.round(activeQuest.progress || 0)} of {Math.round(activeQuest.target_value || 0)} done · {progressPercent}%
+                  {currentVal} of {targetVal} done · {progressPercent}%
                 </Text>
               </View>
             </View>
@@ -138,7 +144,7 @@ export function ActiveQuestsCard() {
         <View className="mb-6">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-xs font-bold text-theme-muted">
-              Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
+              Progress ({currentVal} / {targetVal})
             </Text>
             <Text className="text-sm font-mono font-bold text-amber-500">
               {progressPercent}%

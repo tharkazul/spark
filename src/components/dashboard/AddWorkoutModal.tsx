@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -108,7 +107,6 @@ export function AddWorkoutModal({
   const { t } = useLanguage();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   const [selectedSport, setSelectedSport] = useState<SportType>('RUN');
   const [title, setTitle] = useState('');
@@ -122,8 +120,6 @@ export function AddWorkoutModal({
   const [isGarminSyncing, setIsGarminSyncing] = useState(false);
   const [isAppleWatchSynced, setIsAppleWatchSynced] = useState(false);
   const [isAppleWatchSyncing, setIsAppleWatchSyncing] = useState(false);
-
-  const slideAnim = useRef(new Animated.Value(400)).current;
   const prevVisibleRef = useRef(false);
 
   // Preset quick duration options in minutes
@@ -131,13 +127,7 @@ export function AddWorkoutModal({
 
   useEffect(() => {
     if (visible && !prevVisibleRef.current) {
-      slideAnim.setValue(400);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 70,
-      }).start();
+
 
       setIsGarminSynced(false);
       setIsAppleWatchSynced(false);
@@ -220,8 +210,8 @@ export function AddWorkoutModal({
     const finalTitle = title.trim() || `${selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()} Workout`;
     onSave(
       {
-        day: targetDayName,
-        dateStr: targetDateStr,
+        day: initialWorkout?.day || targetDayName,
+        dateStr: initialWorkout?.dateStr || targetDateStr,
         type: selectedSport,
         title: finalTitle,
         duration: `${durationMinutes} mins`,
@@ -280,21 +270,52 @@ export function AddWorkoutModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsAppleWatchSyncing(true);
     try {
-      const { deployWorkoutToAppleWatch } = require('../../services/appleHealthService');
-      await deployWorkoutToAppleWatch({
+      const {
+        deployWorkoutToAppleWatch,
+        previewWorkoutOnAppleWatch,
+      } = require('../../services/appleHealthService');
+
+      const payload = {
         id: initialWorkout?.id || '1',
         date: targetDateStr || new Date().toISOString().split('T')[0],
         sport: selectedSport,
         description: title || `${selectedSport} Workout`,
         target_rooka: calculatedRooka,
         steps_json: steps,
-      });
-      setIsAppleWatchSynced(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      };
+      const result = await deployWorkoutToAppleWatch(payload);
+
+      // The checkbox only ticks when WorkoutKit actually accepted the plan; it
+      // used to tick on failure too, which read as a successful push.
+      setIsAppleWatchSynced(result.success);
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (result.degraded) Alert.alert('Sent to Apple Watch', result.message);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // Apple's own preview sheet has an "Add to Watch" button and does not
+        // need the scheduling permission, so it still gets the session across
+        // when automatic scheduling is turned off.
+        Alert.alert('Apple Watch Sync Failed', result.message, [
+          { text: 'OK', style: 'cancel' },
+          {
+            text: 'Add Manually',
+            onPress: () => {
+              previewWorkoutOnAppleWatch(payload).then((preview: { success: boolean; message: string }) => {
+                if (!preview.success) Alert.alert('Apple Watch', preview.message);
+              });
+            },
+          },
+        ]);
+      }
     } catch (err: any) {
-      console.log('Apple Watch sync completed:', err?.message || err);
-      setIsAppleWatchSynced(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      console.log('Apple Watch sync failed:', err?.message || err);
+      setIsAppleWatchSynced(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        'Apple Watch Sync Failed',
+        err?.message || 'Could not send this workout to your Apple Watch. Please try again.'
+      );
     } finally {
       setIsAppleWatchSyncing(false);
     }
@@ -374,25 +395,12 @@ export function AddWorkoutModal({
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1"
+          className="flex-1 bg-theme-card"
         >
-          {/* The sheet used to be flex-1 on an opaque background, so there was
-              no dark area to tap and the backdrop below it was unreachable.
-              It now stops short of the top, leaving a real dimmed backdrop. */}
-          <View className="flex-1 justify-end bg-black/60">
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={onClose}
-            style={StyleSheet.absoluteFillObject}
-          />
-
-          {/* Bottom Sheet Modal View */}
-          <Animated.View
-            style={{ transform: [{ translateY: Animated.add(slideAnim, dragY) }] }}
-            className="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 h-[93%] shadow-2xl"
-          >
-            {/* TOP PULL HANDLE INDICATOR — also the drag-to-dismiss grab area */}
-            <View {...panHandlers} className="items-center pb-4 pt-1">
+          <View className="flex-1 px-6 pt-5">
+            {/* Native page sheets have a built-in drag handle indicator on iOS 15+ in some cases,
+                but we can just render a static one here if we want the visual affordance. */}
+            <View className="items-center pb-4 -mt-2">
               <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
             </View>
 
@@ -411,7 +419,7 @@ export function AddWorkoutModal({
                 <View>
                   {/* Header */}
                   <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/40 mb-2">
-                    <View className="flex-row items-center gap-2">
+                    <View className="flex-row items-center gap-2 flex-1 pr-4">
                       {isEditingTitle ? (
                         <TextInput
                           autoFocus
@@ -421,11 +429,12 @@ export function AddWorkoutModal({
                           onSubmitEditing={() => setIsEditingTitle(false)}
                           placeholder="Workout Title"
                           placeholderTextColor={theme.textSecondary}
-                          className="text-lg font-extrabold text-theme-text p-0 m-0 min-w-[200px]"
+                          className="text-lg font-extrabold text-theme-text p-0 m-0 flex-1"
+                          multiline
                         />
                       ) : (
                         <>
-                          <Text className="text-lg font-extrabold text-theme-text">
+                          <Text className="text-lg font-extrabold text-theme-text flex-shrink">
                             {title || (initialWorkout ? 'Edit Workout' : 'Add Workout')}
                           </Text>
                           <TouchableOpacity onPress={() => setIsEditingTitle(true)} className="p-1">
@@ -530,11 +539,10 @@ export function AddWorkoutModal({
                   </View>
                   </View>
                 </View>
-              ), [selectedSport, title, durationMinutes, calculatedRooka, initialWorkout])}
+              ), [selectedSport, title, durationMinutes, calculatedRooka, initialWorkout, isEditingTitle])}
               ListFooterComponent={React.useMemo(() => renderFooter(), [insets.bottom, isGarminSynced, isGarminSyncing, isAppleWatchSynced, isAppleWatchSyncing, initialWorkout, title, durationMinutes, calculatedRooka, steps])}
             />
-          </Animated.View>
-        </View>
+          </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
       <QuickBuildModal

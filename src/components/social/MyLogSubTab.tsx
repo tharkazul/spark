@@ -220,10 +220,14 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
   // Active Quest Data
   const activeQuest = quests?.find((q) => q.status === 'active') || quests?.[0] || null;
-  const currentProgress = activeQuest ? Math.round(activeQuest.progress || 0) : 0;
+  const currentProgress = activeQuest
+    ? Math.round(activeQuest.current_value !== undefined ? activeQuest.current_value : (activeQuest.progress || 0))
+    : 0;
   const targetVal = activeQuest ? Math.round(activeQuest.target_value || 1) : 1;
   const questProgressPercent = activeQuest
-    ? Math.min(100, Math.round((currentProgress / targetVal) * 100))
+    ? (activeQuest.progress_percent !== undefined
+        ? activeQuest.progress_percent
+        : Math.min(100, Math.round((currentProgress / targetVal) * 100)))
     : 0;
 
   // Real Streak Calculation

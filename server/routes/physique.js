@@ -490,9 +490,19 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
           const phase = await getUserMacroPhase(req.user.id);
 
           db.get(
-            `SELECT athlete_context, long_term_memory FROM users WHERE id = ?`,
+            `SELECT subscription_tier, athlete_context, long_term_memory FROM users WHERE id = ?`,
             [req.user.id],
             (err, userRow) => {
+              if (userRow && userRow.subscription_tier === 'free') {
+                return sendNutritionResponse({
+                  title: "Nutrition Locked",
+                  rationale: "Upgrade to Rooka+ to unlock daily AI nutrition protocols.",
+                  carbs: 0,
+                  protein: 0,
+                  fat: 0
+                });
+              }
+
               const athleteContext = userRow ? userRow.athlete_context : "";
               const longTermMemory = userRow ? userRow.long_term_memory : "";
 

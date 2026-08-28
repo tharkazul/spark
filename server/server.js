@@ -34,6 +34,7 @@ const activitiesRoutes = require("./routes/activities");
 const settingsRoutes = require("./routes/settings");
 const adminRoutes = require("./routes/admin");
 const notificationsRoutes = require("./routes/notifications");
+const discountsRoutes = require("./routes/discounts");
 const onboardingRoutes = require("./routes/onboarding");
 
 app.use("/api/auth", authRoutes);
@@ -48,6 +49,7 @@ app.use("/", activitiesRoutes);
 app.use("/", settingsRoutes);
 app.use("/", adminRoutes);
 app.use("/", notificationsRoutes);
+app.use("/", discountsRoutes);
 
 // Utilities and cron jobs
 const {

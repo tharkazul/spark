@@ -116,7 +116,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, cycle_tracking_enabled, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err) {
@@ -164,6 +164,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             needsZoneSetup,
             id: row.id,
             username: row.username,
+            email: row.email || null,
             hasStrava: !!row.strava_refresh_token,
             hasGarmin: !!row.garmin_username,
             garminUsername: row.garmin_username,
@@ -398,6 +399,27 @@ router.post('/api/request-account-data', authenticateToken, (req, res) => {
             res.json({ success: true, message: 'Account data request recorded.' });
         }
     );
+});
+
+router.post('/api/user/settings/account', authenticateToken, (req, res) => {
+  const { email, username } = req.body || {};
+  const cleanEmail = email ? email.trim().toLowerCase() : null;
+  const cleanUsername = username ? username.trim() : null;
+
+  db.run(
+    `UPDATE users SET 
+      email = COALESCE(?, email),
+      username = COALESCE(?, username)
+    WHERE id = ?`,
+    [cleanEmail, cleanUsername, req.user.id],
+    function(err) {
+      if (err) {
+        console.error('Update account details error:', err);
+        return res.status(500).json({ error: 'Failed to update account details.' });
+      }
+      res.json({ success: true, message: 'Account details updated successfully.' });
+    }
+  );
 });
 
 router.delete('/api/user/account', authenticateToken, (req, res) => {

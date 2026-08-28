@@ -160,6 +160,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
                 // Calculate progress for active or completed quests
                 const currentVal = await calculateQuestProgress(userId, qObj);
                 qObj.current_value = currentVal;
+                qObj.progress = currentVal;
                 qObj.progress_percent = Math.min(100, Math.round((currentVal / (qObj.target_value || 1)) * 100));
                 qObj.time_remaining_str = qObj.status === "active" ? getTimeRemainingStr(qObj.expires_at) : null;
 
@@ -213,6 +214,11 @@ router.post(
         
         try {
           const questData = await generateQuestForUser(userId, "common");
+          if (questData) {
+            questData.current_value = 0;
+            questData.progress = 0;
+            questData.progress_percent = 0;
+          }
           res.json({ success: true, quest: questData });
         } catch (e) {
           console.error("Failed to generate quest:", e);
@@ -246,6 +252,11 @@ router.post(
               // No active quest to void; generate a new quest directly
               try {
                 const newQuest = await generateQuestForUser(userId, "common");
+                if (newQuest) {
+                  newQuest.current_value = 0;
+                  newQuest.progress = 0;
+                  newQuest.progress_percent = 0;
+                }
                 return res.json({ success: true, quest: newQuest });
               } catch (e) {
                 return res.status(500).json({ error: "Failed to generate replacement quest" });
@@ -260,6 +271,11 @@ router.post(
         // No active quest found; generate a new quest directly
         try {
           const newQuest = await generateQuestForUser(userId, "common");
+          if (newQuest) {
+            newQuest.current_value = 0;
+            newQuest.progress = 0;
+            newQuest.progress_percent = 0;
+          }
           return res.json({ success: true, quest: newQuest });
         } catch (e) {
           return res.status(500).json({ error: "Failed to generate replacement quest" });
@@ -276,6 +292,8 @@ router.post(
             return res.status(500).json({ error: "Failed to generate replacement quest" });
           }
           newQuest.current_value = 0;
+          newQuest.progress = 0;
+          newQuest.progress_percent = 0;
           res.json({ success: true, quest: newQuest });
         } catch (e) {
           console.error("Failed to refresh quest:", e);
