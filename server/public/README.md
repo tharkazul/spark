@@ -40,6 +40,42 @@ The pages in this folder have also been mirrored to `server/public/`. When your 
 
 ---
 
+## 🔐 Admin Dashboard (`/admin.html`)
+
+`admin.html` + `admin.js` are the admin-only dashboard (user management and
+discount codes). It is not part of the promotional site and is served by the
+Node backend, gated by `/api/admin/*` which requires an admin account.
+
+### Styling
+
+The page uses **pre-compiled Tailwind** in `admin.css`, not `cdn.tailwindcss.com`
+— the CDN build is an in-browser compiler that logs *"should not be used in
+production"* on every load. After adding or changing utility classes in
+`admin.html` or `admin.js`, regenerate it:
+
+```bash
+npx tailwindcss -c server/tailwind.admin.config.js -i server/tailwind.admin.input.css -o server/public/admin.css --minify
+```
+
+Two caveats:
+
+- The config lists `admin.html` and `admin.js` **explicitly**. An
+  `admin.{html,js}` brace glob silently matches only the HTML, which drops every
+  class used solely from JS (`line-through` on the struck-through original
+  prices, the Strava/Garmin badge colours) — the stylesheet then looks complete
+  but is not.
+- Classes assembled at runtime must appear as complete literal strings in those
+  files, or Tailwind's scanner will not emit them.
+
+### Cache busting
+
+`rooka.io` is served through a Cloudflare tunnel, which caches `.js`/`.css` more
+aggressively than `.html`. That can pair a fresh `admin.html` with a stale
+`admin.js` — the new sections then render but never populate. Both tags carry a
+`?v=` query; **bump it whenever you change those files**.
+
+---
+
 ## 📱 App Store Connect & TestFlight URLs
 
 When filling out App Store Connect or TestFlight metadata:

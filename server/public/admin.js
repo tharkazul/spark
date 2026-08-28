@@ -286,17 +286,69 @@ function usageLabel(c) {
     return `Limited &middot; ${c.redemptionCount} of ${c.maxRedemptions ?? 0} used`;
 }
 
+/**
+ * Puts the discount table into a terminal state.
+ *
+ * The table must never be left showing its "Loading…" placeholder. The error
+ * toast fades after four seconds, so a failed load that only toasted was
+ * indistinguishable from a request that never came back — it just read as
+ * "forever loading".
+ */
+function showDiscountMessage(message, options) {
+    const { summary, isError = false, retry = false } = options || {};
+    document.getElementById('discountSummary').innerText = summary || (isError ? 'Could not load codes' : '');
+    document.getElementById('discountTableBody').innerHTML = `
+        <tr><td colspan="8" class="p-8 text-center ${isError ? 'text-red-600' : 'text-gray-400'}">
+            <div>${esc(message)}</div>
+            ${retry ? '<button onclick="fetchDiscounts()" class="mt-3 text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 shadow-sm transition">&#8635; Try again</button>' : ''}
+        </td></tr>`;
+}
+
+/** Says what actually went wrong, so a stuck table is self-diagnosing. */
+function discountFailureDetail(status, serverMessage) {
+    if (!status) return 'Could not reach the server.';
+    if (status === 404) {
+        return 'This server has no /api/admin/discounts endpoint — it is probably running a build from before discount codes were added, and needs a restart or redeploy.';
+    }
+    if (serverMessage) return `${serverMessage} (HTTP ${status})`;
+    return `The server returned HTTP ${status}.`;
+}
+
 async function fetchDiscounts() {
+    const token = localStorage.getItem('nana_token');
+    if (!token) {
+        showLoginModal();
+        showDiscountMessage('Sign in as an admin to manage discount codes.', { summary: 'Not signed in' });
+        return;
+    }
+
+    let response;
     try {
-        const token = localStorage.getItem('nana_token');
-        if (!token) { showLoginModal(); return; }
+        response = await fetch('/api/admin/discounts', { headers: authHeaders() });
+    } catch (err) {
+        console.error('Discount fetch failed:', err);
+        const detail = discountFailureDetail(0);
+        showError(`Could not load discount codes. ${detail}`);
+        showDiscountMessage(detail, { isError: true, retry: true });
+        return;
+    }
 
-        const response = await fetch('/api/admin/discounts', { headers: authHeaders() });
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) { showLoginModal(); return; }
-            throw new Error(`Failed to fetch: ${response.status}`);
+    if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+            showLoginModal();
+            showDiscountMessage('Sign in as an admin to manage discount codes.', { summary: 'Not signed in' });
+            return;
         }
+        let serverMessage = '';
+        try { serverMessage = (await response.json()).error || ''; } catch (_) { /* not JSON */ }
+        const detail = discountFailureDetail(response.status, serverMessage);
+        console.error('Discount fetch failed:', response.status, serverMessage);
+        showError(`Could not load discount codes. ${detail}`);
+        showDiscountMessage(detail, { isError: true, retry: true });
+        return;
+    }
 
+    try {
         const data = await response.json();
         if (data.basePricing) {
             discountBasePricing = data.basePricing;
@@ -305,8 +357,9 @@ async function fetchDiscounts() {
         }
         renderDiscountTable(data.codes || []);
     } catch (err) {
+        console.error('Discount response was not valid JSON:', err);
         showError('Could not load discount codes.');
-        console.error(err);
+        showDiscountMessage('The server sent a response this page could not read.', { isError: true, retry: true });
     }
 }
 
