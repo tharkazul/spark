@@ -5,7 +5,7 @@ const fs = require("fs");
 const multer = require("multer");
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
-const { getSparkLevelInfo } = require("../services/utils");
+const { getRookaLevelInfo } = require("../services/utils");
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -141,7 +141,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
           availability = JSON.parse(row.training_availability);
         } catch (e) {}
       }
-      const sparkLevelInfo = getSparkLevelInfo(row.total_rooka);
+      const sparkLevelInfo = getRookaLevelInfo(row.total_rooka);
       
       const { getEffectiveTokenLimit, getAMSDateString } = require('../services/utils');
       const currentLimit = getEffectiveTokenLimit(row);
