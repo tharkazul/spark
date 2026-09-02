@@ -508,7 +508,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     0. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
                     1. Act like a real human in a continuous text message thread: keep your responses concise, focused, and natural.
                     2. NEVER repeat your previous greetings, praises, or paragraphs verbatim. Do not bring up old topics unless the athlete explicitly mentions them.
-                    3. Always use metric measurements exclusively (meters for distance, km/h for speed, min/km for pace). Never use imperial units.
+                    3. Always use metric measurements exclusively (meters for distance, km/h for speed, min/km for pace). Never use imperial units. IMPORTANT: For 'distance' condition_type in the JSON steps, the condition_value MUST be in pure METERS (e.g., use 5000 for a 5km interval, NOT 5).
                     4. Respond directly with your conversational text. Do not wrap your main reply in JSON.
                     5. CRITICAL DATE CONTEXT: If an activity in the user's recent history is tagged with [TODAY], you MUST refer to it as happening "today". NEVER refer to a [TODAY] activity as "yesterday" or "last night".
                     6. INJURY GUARDRAILS:
@@ -519,7 +519,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                          * Severity 5: Schedule complete rest for the affected area.
                          * Explain any substitution made due to an active injury.
                     5. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout (e.g., Bike + Run), you MUST create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
-                    6. INTERVALS: To create a repeating block (e.g., 8x 3min fast, 1min rest), use a "repeat" object in steps_json with "iterations" and an array of "steps".
+                    6. INTERVALS: To create a repeating block (e.g., 8x 1000m fast, 1min rest), use a "repeat" object in steps_json with "iterations" and an array of "steps".
                     7. SENTIMENT & SUPPORT: Pay close attention to the athlete's physical and mental state. If they mention soreness, exhaustion, poor sleep, or lack of motivation, immediately prioritize empathy and recovery. Strongly advise them to rest or dial back intensity, even if it means modifying the plan.
                     8. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array, NOT in the 'details' text! Use "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and try to prescribe slight progressive overload (e.g., +2.5kg).
                     9. TARGETS: If a workout step requires a specific pace or power target:
@@ -534,6 +534,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         - The athlete has earned a total of ${gamification.bonusPoints} bonus rooka points.
                         - The athlete's latest earned title/badge is: "${gamification.latestTitle}".
                         - Mention their streak or title occasionally to motivate them, especially if their streak is high (e.g., "You're on a ${gamification.streak} day streak, keep the momentum going!"). Do NOT mention it every single time.
+                        - IMPORTANT: Warmup and Cooldown steps MUST ALWAYS be at least heart rate Zone 2 (never Zone 1). Rest and Recovery steps can be Zone 1.
 
                     WORKOUT PLANNING (CRITICAL):
                     If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 
@@ -547,7 +548,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "description": "5k Speed Intervals",
                         "target_rooka": 80,
                         "details": "Push hard on the intervals, recover fully on the rests.",
-                        "steps": [{"type": "warmup", "condition_type": "time", "condition_value": 15, "target_type": "heart.rate.zone", "zone": 1}, {"type": "repeat", "iterations": 8, "steps": [{"type": "interval", "condition_type": "time", "condition_value": 3, "target_type": "heart.rate.zone", "zone": 4}, {"type": "rest", "condition_type": "time", "condition_value": 1, "target_type": "heart.rate.zone", "zone": 1}]}, {"type": "cooldown", "condition_type": "time", "condition_value": 10, "target_type": "heart.rate.zone", "zone": 1}]
+                        "steps": [{"type": "warmup", "condition_type": "time", "condition_value": 15, "target_type": "heart.rate.zone", "zone": 2}, {"type": "repeat", "iterations": 8, "steps": [{"type": "interval", "condition_type": "distance", "condition_value": 1000, "target_type": "heart.rate.zone", "zone": 4}, {"type": "rest", "condition_type": "time", "condition_value": 1, "target_type": "heart.rate.zone", "zone": 1}]}, {"type": "cooldown", "condition_type": "time", "condition_value": 10, "target_type": "heart.rate.zone", "zone": 2}]
                       },
                       {
                         "date": "YYYY-MM-DD",

@@ -61,7 +61,7 @@ export default function LoginScreen() {
       } else {
         await register(email, password, username || undefined);
       }
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/coach');
     } catch (err: any) {
       setErrorMessage(err.message || (mode === 'login' ? 'Failed to sign in.' : 'Failed to create account.'));
     } finally {
