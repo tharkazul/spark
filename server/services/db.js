@@ -474,9 +474,6 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id),
         FOREIGN KEY(friend_id) REFERENCES users(id)
     )`);
-  db.run(
-    `DELETE FROM connections WHERE user_id IN (SELECT id FROM users WHERE username = 'rutger' OR username LIKE '%rutger%') OR friend_id IN (SELECT id FROM users WHERE username = 'rutger' OR username LIKE '%rutger%')`
-  );
   db.run(`CREATE TABLE IF NOT EXISTS kudos (
         activity_id INTEGER,
         user_id INTEGER,
