@@ -131,7 +131,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, coach_avatar_horny, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_spark, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -141,7 +141,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
           availability = JSON.parse(row.training_availability);
         } catch (e) {}
       }
-      const sparkLevelInfo = getSparkLevelInfo(row.total_spark);
+      const sparkLevelInfo = getSparkLevelInfo(row.total_rooka);
       
       const { getEffectiveTokenLimit, getAMSDateString } = require('../services/utils');
       const currentLimit = getEffectiveTokenLimit(row);
@@ -161,7 +161,6 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
         coachAvatarNeutral: row.coach_avatar_neutral || null,
         coachAvatarHype: row.coach_avatar_hype || null,
         coachAvatarDisappointed: row.coach_avatar_disappointed || null,
-        coachAvatarHorny: row.coach_avatar_horny || null,
         athleteContext: row.athlete_context,
         gender: row.gender,
         language: row.language || 'en',

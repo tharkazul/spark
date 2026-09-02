@@ -964,7 +964,7 @@ export default function OnboardingWizard() {
               />
             </View>
             <View>
-              <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">ROOKA</Text>
+              <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">rooka</Text>
               <Text className="text-theme-muted text-xs">
                 {currentStep === 0 ? 'AI Endurance Coach' : t('onboarding.stepOf', { current: currentStep, total: totalSteps })}
               </Text>

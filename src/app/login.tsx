@@ -102,7 +102,7 @@ export default function LoginScreen() {
                 accessibilityLabel="rooka"
               />
             </View>
-            <Text className="text-3xl font-extrabold text-theme-text tracking-tight">ROOKA</Text>
+            <Text className="text-3xl font-extrabold text-theme-text tracking-tight">rooka</Text>
             <Text className="text-sm font-medium text-theme-muted mt-1">
               {t('auth.subtitle')}
             </Text>
