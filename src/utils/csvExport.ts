@@ -15,7 +15,7 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
   }
 
   // Generate CSV rows
-  let csvContent = 'ID,Date,Sport,Title,Distance_km,Duration_mins,Rooka_Score,Avg_HR,Max_HR,Elevation_m\n';
+  let csvContent = 'ID,Date,Sport,Title,Distance_km,Duration_mins,rooka_Score,Avg_HR,Max_HR,Elevation_m\n';
 
   activities.forEach((act) => {
     const id = act.id || '';
@@ -45,7 +45,7 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
     if (canShare) {
       await Sharing.shareAsync(file.uri, {
         mimeType: 'text/csv',
-        dialogTitle: 'Export Rooka Workout History',
+        dialogTitle: 'Export rooka Workout History',
         UTI: 'public.comma-separated-values-text',
       });
       return true;

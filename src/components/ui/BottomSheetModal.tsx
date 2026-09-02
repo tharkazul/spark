@@ -1,3 +1,4 @@
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
@@ -114,7 +115,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
                 is the only region that claims the drag gesture, so content
                 inside the sheet still scrolls normally. */}
             <View {...panHandlers} className="items-center pb-4 pt-1 -mt-3">
-              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+              <SheetGrabber />
             </View>
             {children}
           </Animated.View>

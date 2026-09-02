@@ -169,9 +169,9 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       </View>
 
       {isInPast && (
-        <View className="mb-4 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex-row items-center justify-center gap-2">
+        <View className="mb-4 p-2 bg-semantic-error/10 border border-semantic-error/30 rounded-lg flex-row items-center justify-center gap-2">
           <Ionicons name="warning-outline" size={16} color="#ef4444" />
-          <Text className="text-red-500 text-xs font-bold text-center">{pastWarning}</Text>
+          <Text className="text-semantic-error text-xs font-bold text-center">{pastWarning}</Text>
         </View>
       )}
 

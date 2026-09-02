@@ -57,7 +57,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
   return (
     <View className="my-3 bg-theme-card/90 border border-theme-border rounded-tile p-4 shadow-sm">
       <View className="flex-row items-center gap-3 mb-3">
-        <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center">
+        <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center">
           <Ionicons name={getSportIcon(payload.sport)} size={20} color={theme.tint} />
         </View>
         <View className="flex-1">
@@ -114,7 +114,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
         <View className="pt-2 border-t border-theme-border/60 flex-row items-center gap-2">
           <View
             className={`px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 ${
-              status === 'accepted' ? 'bg-emerald-500/15' : 'bg-red-500/15'
+              status === 'accepted' ? 'bg-semantic-success/15' : 'bg-semantic-error/15'
             }`}
           >
             <Ionicons
@@ -124,7 +124,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
             />
             <Text
               className={`text-xs font-bold ${
-                status === 'accepted' ? 'text-emerald-400' : 'text-red-400'
+                status === 'accepted' ? 'text-semantic-success' : 'text-semantic-error'
               }`}
             >
               {status === 'accepted' ? 'Invitation Accepted' : 'Invitation Declined'}

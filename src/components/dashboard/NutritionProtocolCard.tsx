@@ -39,7 +39,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
       {/* Header Bar matching Quest Card header design */}
       <View className="px-4 py-3 flex-row justify-between items-center bg-theme-bg/50 border-b border-theme-border/30">
         <View className="flex-row items-center gap-2.5">
-          <View className="w-8 h-8 rounded-xl bg-emerald-500/15 items-center justify-center">
+          <View className="w-8 h-8 rounded-xl bg-semantic-success/15 items-center justify-center">
             <Ionicons name="restaurant-outline" size={16} color="#10B981" />
           </View>
           <View>
@@ -63,8 +63,8 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
       <View className="p-3.5">
         <View className="p-4 bg-theme-bg/60 rounded-2xl border border-theme-border/40">
           {/* Rationale Banner */}
-          <View className="p-3.5 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-xl mb-4 border border-emerald-500/20">
-            <Text className="text-xs font-extrabold text-emerald-500 dark:text-emerald-400 mb-1">{nutrition.focusTitle}</Text>
+          <View className="p-3.5 bg-semantic-success/10 dark:bg-semantic-success/15 rounded-xl mb-4 border border-semantic-success/20">
+            <Text className="text-xs font-extrabold text-semantic-success mb-1">{nutrition.focusTitle}</Text>
             <Text className="text-xs text-theme-text font-medium leading-relaxed">{nutrition.rationale}</Text>
           </View>
 
@@ -96,7 +96,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
           {loggedItems.length > 0 && (
             <View className="mt-4 pt-3 border-t border-theme-border/30">
               <Text className="text-xs font-extrabold text-theme-text mb-2">Logged Foods Today</Text>
-              <View className="space-y-1.5">
+              <View className="gap-y-1.5">
                 {loggedItems.map((item: any, idx: number) => (
                   <View
                     key={`${item.name || item}-${idx}`}

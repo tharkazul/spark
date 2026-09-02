@@ -1,3 +1,5 @@
+import { BrandColors } from '@/constants/theme';
+import { RookaMark } from '../ui/RookaPoints';
 import React from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
@@ -53,29 +55,29 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
     ? readinessScore 
     : Math.max(0, Math.min(100, Math.round(50 + Math.max(-20, Math.min(20, tsb * 0.5)))));
 
-  let readinessBadge = { text: t('dashboard.optimalBuilding'), color: 'text-emerald-500', bg: 'bg-emerald-500/10', border: '' };
+  let readinessBadge = { text: t('dashboard.optimalBuilding'), color: 'text-semantic-success', bg: 'bg-semantic-success/10', border: '' };
   if (computedReadiness < 40 || tsb < -30) {
-    readinessBadge = { text: t('dashboard.highFatigueRest'), color: 'text-red-500', bg: 'bg-red-500/10', border: '' };
+    readinessBadge = { text: t('dashboard.highFatigueRest'), color: 'text-semantic-error', bg: 'bg-semantic-error/10', border: '' };
   } else if (computedReadiness < 65 || tsb < -10) {
     readinessBadge = { text: t('dashboard.productiveBuild'), color: 'text-theme-accent', bg: 'bg-theme-accent/10', border: '' };
   } else if (tsb > 10) {
-    readinessBadge = { text: t('dashboard.raceReadyFresh'), color: 'text-emerald-400', bg: 'bg-emerald-400/10', border: '' };
+    readinessBadge = { text: t('dashboard.raceReadyFresh'), color: 'text-semantic-success', bg: 'bg-semantic-success/10', border: '' };
   }
 
   return (
     <View className="mb-4">
       {/* Metric Section Header */}
       <View className="flex-row items-center justify-between mb-3 px-1">
-        <View className="flex-row items-center space-x-2">
+        <View className="flex-row items-center gap-x-2">
           <Ionicons name="pulse-outline" size={18} color={theme.tint} />
           <Text className="text-xs font-bold text-theme-text">
             {t('dashboard.performanceManagement')}
           </Text>
         </View>
         {tier === 'rooka_plus' && (
-          <View className="bg-amber-500/15 px-2 py-0.5 rounded-full flex-row items-center">
-            <Ionicons name="flash" size={10} color="#f59e0b" className="mr-1" />
-            <Text className="text-xs text-amber-500 font-bold">Rooka+ AI</Text>
+          <View className="bg-semantic-warning/15 px-2 py-0.5 rounded-full flex-row items-center gap-x-1">
+            <RookaMark size={12} color="#F5A623" />
+            <Text className="text-xs text-semantic-warning font-bold">rooka+ AI</Text>
           </View>
         )}
       </View>
@@ -91,9 +93,9 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             {/* A "+0.0" under an up-arrow is decoration dressed as a
                 measurement. Show a delta only when one actually exists. */}
             {Math.abs(ctlDelta) >= 0.05 && (
-              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${ctlDelta > 0 ? 'bg-emerald-500/10' : 'bg-slate-500/10'}`}>
+              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${ctlDelta > 0 ? 'bg-semantic-success/10' : 'bg-slate-500/10'}`}>
                 <Ionicons name={ctlDelta > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={ctlDelta > 0 ? '#10b981' : '#64748b'} />
-                <Text className={`text-xs font-bold ml-0.5 ${ctlDelta > 0 ? 'text-emerald-500' : 'text-theme-muted'}`}>
+                <Text className={`text-xs font-bold ml-0.5 ${ctlDelta > 0 ? 'text-semantic-success' : 'text-theme-muted'}`}>
                   {ctlDelta > 0 ? '+' : ''}{ctlDelta.toFixed(1)}
                 </Text>
               </View>
@@ -122,9 +124,9 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
               {t('dashboard.fatigue')}
             </Text>
             {Math.abs(atlDelta) >= 0.05 && (
-              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${atlDelta > 0 ? 'bg-amber-500/10' : 'bg-slate-500/10'}`}>
+              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${atlDelta > 0 ? 'bg-semantic-warning/10' : 'bg-slate-500/10'}`}>
                 <Ionicons name={atlDelta > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={atlDelta > 0 ? '#f59e0b' : '#64748b'} />
-                <Text className={`text-xs font-bold ml-0.5 ${atlDelta > 0 ? 'text-amber-500' : 'text-theme-muted'}`}>
+                <Text className={`text-xs font-bold ml-0.5 ${atlDelta > 0 ? 'text-semantic-warning' : 'text-theme-muted'}`}>
                   {atlDelta > 0 ? '+' : ''}{atlDelta.toFixed(1)}
                 </Text>
               </View>
@@ -155,7 +157,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             {/* Label and chip previously overlapped: both were unconstrained in
                 one row, and the chip repeated "TSB" already in the label. */}
             {hasTrainingData && (
-              <Text className={`text-xs font-bold shrink-0 ${tsb >= 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+              <Text className={`text-xs font-bold shrink-0 ${tsb >= 0 ? 'text-semantic-success' : 'text-semantic-warning'}`}>
                 TSB {tsb > 0 ? `+${tsb.toFixed(1)}` : tsb.toFixed(1)}
               </Text>
             )}
@@ -202,8 +204,8 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
               <Sparkline
                 data={weightHistory}
                 color={theme.tint}
-                gradientFrom="#FF5F3B44"
-                gradientTo="#FF5F3B00"
+                gradientFrom={`${BrandColors.primary}44`}
+                gradientTo={`${BrandColors.primary}00`}
                 height={32}
                 width={120}
               />

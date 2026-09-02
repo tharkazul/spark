@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useActivities } from '../context/ActivityStore';
 import { useLanguage } from '../context/LanguageContext';
 import { getSportFilledIcon } from '../utils/sportIcons';
+import { formatPaceOrSpeed } from '../utils/paceFormat';
 
 export default function ActivitiesScreen() {
     const theme = useTheme();
@@ -20,6 +21,8 @@ export default function ActivitiesScreen() {
     type: act.sport_type,
     distance: `${act.distance_km} km`,
     duration: `${act.moving_time_min} mins`,
+    // Was a literal '5:07/km' for every run, printed beside two real metrics.
+    pace: formatPaceOrSpeed(act.distance_km, act.moving_time_min, act.sport_type, act.name),
     date: act.start_date,
   }));
 
@@ -62,10 +65,12 @@ export default function ActivitiesScreen() {
                 <Text className="text-theme-muted text-xs font-bold mb-1">Time</Text>
                 <Text className="text-theme-text font-bold">{item.duration}</Text>
               </View>
-              <View>
-                <Text className="text-theme-muted text-xs font-bold mb-1">Pace</Text>
-                <Text className="text-theme-text font-bold">{item.type === 'Run' ? '5:07/km' : '20 km/u'}</Text>
-              </View>
+              {item.pace ? (
+                <View>
+                  <Text className="text-theme-muted text-xs font-bold mb-1">Pace</Text>
+                  <Text className="text-theme-text font-bold">{item.pace}</Text>
+                </View>
+              ) : null}
             </View>
           </Card>
         )}

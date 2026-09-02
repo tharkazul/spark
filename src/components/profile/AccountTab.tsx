@@ -1,3 +1,5 @@
+import { BrandColors } from '@/constants/theme';
+import { RookaMark } from '../ui/RookaPoints';
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Platform, TextInput } from 'react-native';
@@ -243,15 +245,15 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
   };
 
   return (
-    <View className="space-y-6">
+    <View className="gap-y-6">
       {/* ACCOUNT INFORMATION */}
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
-          <View className="w-2.5 h-2.5 rounded-full bg-blue-500 mr-2" />
+          <View className="w-2.5 h-2.5 rounded-full bg-semantic-info mr-2" />
           <Text className="text-theme-text font-bold text-sm">Account Information</Text>
         </View>
 
-        <View className="space-y-4">
+        <View className="gap-y-4">
           <View>
             <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Username (Read-Only)</Text>
             <View className="bg-theme-bg rounded-xl p-3 border border-theme-border/30 opacity-70">
@@ -315,18 +317,18 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
         className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-theme-border/30"
       >
         <LinearGradient
-          colors={isMember ? ['#1E293B', '#0F172A'] : ['#FF5F3B', '#7C3AED']}
+          colors={isMember ? ['#1E293B', '#0F172A'] : [BrandColors.primary, '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{ padding: 22, borderRadius: 16 }}
         >
           <View className="flex-row items-center justify-between mb-2.5">
             <View className="flex-row items-center">
-              <Ionicons name="flash" size={24} color="#FFF" />
+              <RookaMark size={24} color="#FFFFFF" />
               <Text className="text-white text-xl font-extrabold tracking-tight ml-2">
                 {isMember
-                  ? (tier === 'admin' ? '⚡ Rooka Admin Access' : '⚡ Rooka+ Active')
-                  : 'Upgrade to Rooka+'}
+                  ? (tier === 'admin' ? 'rooka Admin Access' : 'rooka+ Active')
+                  : 'Upgrade to rooka+'}
               </Text>
             </View>
             <View className="px-2.5 py-1 bg-white/20 rounded-full">
@@ -359,7 +361,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       {/* SUBSCRIPTIONS */}
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
-          <View className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2" />
+          <View className="w-2.5 h-2.5 rounded-full bg-semantic-success mr-2" />
           <Text className="text-theme-text font-bold text-sm">Subscription Management</Text>
         </View>
 
@@ -412,21 +414,21 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               <View
                 className={`p-3 rounded-xl border mb-2 ${
                   discount.active
-                    ? 'bg-emerald-500/10 border-emerald-500/30'
-                    : 'bg-amber-500/10 border-amber-500/30'
+                    ? 'bg-semantic-success/10 border-semantic-success/30'
+                    : 'bg-semantic-warning/10 border-semantic-warning/30'
                 }`}
               >
                 <View className="flex-row items-center justify-between">
                   <Text
                     className={`font-extrabold text-sm tracking-wider ${
-                      discount.active ? 'text-emerald-500' : 'text-amber-500'
+                      discount.active ? 'text-semantic-success' : 'text-semantic-warning'
                     }`}
                   >
                     {discount.code}
                   </Text>
                   <Text
                     className={`text-[10px] font-extrabold uppercase ${
-                      discount.active ? 'text-emerald-500' : 'text-amber-500'
+                      discount.active ? 'text-semantic-success' : 'text-semantic-warning'
                     }`}
                   >
                     {discount.active ? 'Active' : discount.expired ? 'Expired' : 'Inactive'}
@@ -491,12 +493,12 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                 <TouchableOpacity
                   onPress={handleRemoveDiscount}
                   disabled={savingDiscount}
-                  className="flex-1 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 items-center"
+                  className="flex-1 py-2.5 rounded-xl bg-semantic-error/10 border border-semantic-error/30 items-center"
                 >
                   {savingDiscount ? (
                     <ActivityIndicator size="small" color="#EF4444" />
                   ) : (
-                    <Text className="text-red-500 font-bold text-xs">Remove</Text>
+                    <Text className="text-semantic-error font-bold text-xs">Remove</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -548,11 +550,11 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       {/* LEGAL & PRIVACY */}
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
-          <View className="w-2.5 h-2.5 rounded-full bg-blue-500 mr-2" />
+          <View className="w-2.5 h-2.5 rounded-full bg-semantic-info mr-2" />
           <Text className="text-theme-text font-bold text-sm">Legal & Privacy Disclosures</Text>
         </View>
 
-        <View className="space-y-3">
+        <View className="gap-y-3">
           <TouchableOpacity
             onPress={handleOpenPrivacyPolicy}
             className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
@@ -602,7 +604,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               ) : (
                 <Ionicons name="trash-outline" size={18} color="#EF4444" />
               )}
-              <Text className="text-red-500 font-bold text-xs ml-3">Delete Account & Purge Data</Text>
+              <Text className="text-semantic-error font-bold text-xs ml-3">Delete Account & Purge Data</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#EF4444" />
           </TouchableOpacity>
@@ -612,9 +614,9 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       {/* LOG OUT BUTTON */}
       <TouchableOpacity
         onPress={() => onLogout()}
-        className="p-4 bg-red-500/10 rounded-xl items-center mb-6"
+        className="p-4 bg-semantic-error/10 rounded-xl items-center mb-6"
       >
-        <Text className="text-red-500 font-bold text-base">{t('profile.logout')}</Text>
+        <Text className="text-semantic-error font-bold text-base">{t('profile.logout')}</Text>
       </TouchableOpacity>
     </View>
   );

@@ -83,7 +83,7 @@ export async function getWorkoutKitAuthorizationStatus(): Promise<AuthorizationS
 /**
  * Prompts for the WorkoutKit scheduling permission. Note this is *not* the Health
  * app permission sheet: the athlete grants and revokes it in the Watch app on the
- * iPhone, under Rooka.
+ * iPhone, under rooka.
  */
 export async function requestWorkoutKitAuthorization(): Promise<AuthorizationStatus> {
   const kit = getWorkoutKit();
@@ -121,7 +121,7 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
     return {
       success: false,
       message:
-        'This build of Rooka does not include Apple Watch support. Reinstall the latest build and try again.',
+        'This build of rooka does not include Apple Watch support. Reinstall the latest build and try again.',
     };
   }
   if (kit.isAvailable !== true) {
@@ -143,7 +143,7 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
   if (!config) {
     return {
       success: false,
-      message: `Rooka cannot send "${workout.sport}" sessions to Apple Watch.`,
+      message: `rooka cannot send "${workout.sport}" sessions to Apple Watch.`,
     };
   }
 
@@ -175,7 +175,7 @@ export async function previewWorkoutOnAppleWatch(workout: PlannedWorkout): Promi
 
   const config = buildCustomWorkoutConfig(workout);
   if (!config) {
-    return { success: false, message: `Rooka cannot preview "${workout.sport}" sessions on Apple Watch.` };
+    return { success: false, message: `rooka cannot preview "${workout.sport}" sessions on Apple Watch.` };
   }
 
   const kit = getWorkoutKit();
@@ -194,16 +194,16 @@ export async function previewWorkoutOnAppleWatch(workout: PlannedWorkout): Promi
 }
 
 export const WORKOUT_KIT_DENIED_MESSAGE =
-  'Rooka is not allowed to schedule workouts yet. Open the Watch app on your iPhone, tap Rooka, and turn on workout scheduling.';
+  'rooka is not allowed to schedule workouts yet. Open the Watch app on your iPhone, tap rooka, and turn on workout scheduling.';
 
 // -----------------------------------------------------------------------------
-// Rooka steps -> WorkoutKit CustomWorkout
+// rooka steps -> WorkoutKit CustomWorkout
 // -----------------------------------------------------------------------------
 
 /**
  * A WorkoutKit CustomWorkout is a single optional warmup, a list of interval
- * blocks, and a single optional cooldown — not the flat list Rooka stores. A
- * Rooka `repeat` step becomes a block with iterations; every other step becomes a
+ * blocks, and a single optional cooldown — not the flat list rooka stores. A
+ * rooka `repeat` step becomes a block with iterations; every other step becomes a
  * one-iteration block of its own.
  */
 export function buildCustomWorkoutConfig(workout: PlannedWorkout): CustomWorkoutConfig | null {
@@ -277,7 +277,7 @@ function toKitStep(step: WorkoutStep, activityType: ActivityType): KitWorkoutSte
 }
 
 /**
- * Rooka's units, matching the Garmin exporter on the server: `time` is minutes,
+ * rooka's units, matching the Garmin exporter on the server: `time` is minutes,
  * `time_sec` is seconds, `distance` is metres and `distance_km` is kilometres.
  */
 function toGoal(step: WorkoutStep): WorkoutGoal {
@@ -354,7 +354,7 @@ function getAppleActivity(sport: string): { activityType: ActivityType; location
       return { activityType: 'running', locationType: 'outdoor' };
     case 'BIKE':
       return { activityType: 'cycling', locationType: 'outdoor' };
-    // WorkoutKit reads `indoor` as pool swimming, which is what Rooka's
+    // WorkoutKit reads `indoor` as pool swimming, which is what rooka's
     // metre-based swim steps describe.
     case 'SWIM':
       return { activityType: 'swimming', locationType: 'indoor' };
@@ -432,7 +432,7 @@ function toDateComponents(dateStr: string): DateComponents {
         return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
       })();
 
-  // Rooka plans days, not clock times. Scheduling at 06:00 keeps the session at
+  // rooka plans days, not clock times. Scheduling at 06:00 keeps the session at
   // the top of the Watch's Workout list for the whole training day.
   return { ...base, hour: 6, minute: 0 };
 }
@@ -442,7 +442,7 @@ function estimateMinutes(workout: PlannedWorkout): number {
   return Math.max(5, Math.round((points / 55) * 60));
 }
 
-/** Rooka stores exact paces as "M:SS" per kilometre, with no unit suffix. */
+/** rooka stores exact paces as "M:SS" per kilometre, with no unit suffix. */
 function parsePaceMinutes(value?: string): number | null {
   if (!value) return null;
   const match = /(\d+):(\d{1,2})/.exec(value);

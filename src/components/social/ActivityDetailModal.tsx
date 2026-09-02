@@ -861,13 +861,6 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
           >
             {/* PAGE 1: DETAILS */}
             <View style={{ width: SCREEN_WIDTH }} className="px-6 space-y-5">
-              {/* Device Info Row */}
-              <View className="pb-3 border-b border-theme-border dark:border-slate-800">
-                <View className="flex-row items-center gap-2.5">
-                  <Ionicons name="watch-outline" size={17} color={isDark ? '#94A3B8' : '#64748B'} />
-                  <Text className="text-sm font-semibold text-theme-text">Apple Watch</Text>
-                </View>
-              </View>
 
               {/* 2x3 TELEMETRY STATS GRID */}
               <View className="py-2 space-y-4">
@@ -950,7 +943,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                   <View className="flex-row items-center gap-1.5">
                     <Ionicons name="sparkles" size={16} color={theme.tint} />
                     <Text className="text-sm font-bold text-theme-text font-mono">
-                      +{rookaScore} Rooka
+                      +{rookaScore} rooka
                     </Text>
                   </View>
                   <View className="flex-row items-center gap-1">

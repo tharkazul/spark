@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { RookaMark } from '../ui/RookaPoints';
+import { BrandColors, accentAlpha } from '@/constants/theme';
 import { View, Text, StyleSheet, Platform, useColorScheme, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
@@ -107,12 +109,12 @@ const LoadingImagePlaceholder: React.FC<{
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-        <Ionicons name="sparkles" size={16} color="#FF5F3B" style={{ marginRight: 6 }} />
+        <RookaMark size={16} color={BrandColors.primary} />
         <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>
           Developing Visual Coaching Guide...
         </Text>
       </View>
-      <ActivityIndicator size="small" color="#FF5F3B" style={{ marginVertical: 8 }} />
+      <ActivityIndicator size="small" color={BrandColors.primary} style={{ marginVertical: 8 }} />
       <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center' }}>
         {alt || 'High-resolution technique photo is generating in the background...'}
       </Text>
@@ -146,7 +148,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
 
   const defaultCoachColor = isDark ? '#F8FAFC' : '#0F172A';
   const textColor = textColorOverride || (isUser ? '#FFFFFF' : defaultCoachColor);
-  const accentColor = isUser ? '#FFFFFF' : '#FF5F3B';
+  const accentColor = isUser ? '#FFFFFF' : BrandColors.primary;
   const mutedColor = isUser ? 'rgba(255,255,255,0.7)' : isDark ? '#94A3B8' : '#64748B';
 
   const markdownRules = useMemo(() => ({
@@ -289,7 +291,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
       marginVertical: 6,
     },
     tableHeader: {
-      backgroundColor: isUser ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 90, 31, 0.15)',
+      backgroundColor: isUser ? 'rgba(255, 255, 255, 0.15)' : accentAlpha(0.15),
     },
     tableRow: {
       borderBottomWidth: 1,

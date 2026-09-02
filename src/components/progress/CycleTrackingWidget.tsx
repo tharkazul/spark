@@ -105,7 +105,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
     return (
       <Card className="mb-4 bg-theme-card p-4">
         <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center space-x-3">
+          <View className="flex-row items-center gap-x-3">
             <View className="w-9 h-9 rounded-full bg-theme-bg items-center justify-center mr-3">
               <Ionicons name="sparkles-outline" size={18} color="#8E9BA4" />
             </View>
@@ -132,7 +132,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
     <Card className="mb-4 bg-theme-card">
       {/* Header */}
       <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center space-x-2">
+        <View className="flex-row items-center gap-x-2">
           <View className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: phaseColor }} />
           <Text className="text-xs font-bold text-theme-muted">
             Cycle Tracking & Coach Sync
@@ -183,7 +183,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
 
         {/* Details */}
         <View className="flex-1">
-          <View className="flex-row items-center space-x-1.5 mb-1">
+          <View className="flex-row items-center gap-x-1.5 mb-1">
             <Ionicons name={phaseIcon as any} size={15} color={phaseColor} style={{ marginRight: 4 }} />
             <Text className="text-sm font-extrabold text-theme-text">{phaseName}</Text>
           </View>
@@ -192,7 +192,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           <TouchableOpacity
             onPress={handleLogPeriodToday}
             disabled={loading}
-            className="self-start px-3 py-1.5 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center space-x-1"
+            className="self-start px-3 py-1.5 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center gap-x-1"
           >
             <Ionicons name="add-circle-outline" size={14} color={theme.tint} style={{ marginRight: 4 }} />
             <Text className="text-xs font-bold text-theme-accent">Log Period Start Today</Text>
@@ -201,10 +201,10 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
       </View>
 
       {/* AI Coach Integration Banner */}
-      <View className="flex-row items-center bg-emerald-500/10 p-2.5 rounded-xl">
+      <View className="flex-row items-center bg-semantic-success/10 p-2.5 rounded-xl">
         <Ionicons name="analytics-outline" size={16} color="#10B981" style={{ marginRight: 6 }} />
-        <Text className="text-xs font-semibold text-emerald-400 flex-1 ml-1">
-          Synced to Coach Knowledge: Rooka AI automatically adjusts training volume and intensity for optimal recovery.
+        <Text className="text-xs font-semibold text-semantic-success flex-1 ml-1">
+          Synced to Coach Knowledge: rooka AI automatically adjusts training volume and intensity for optimal recovery.
         </Text>
       </View>
     </Card>

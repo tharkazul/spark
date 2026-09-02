@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Animated, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Modal, TouchableOpacity, Animated, KeyboardAvoidingView, Platform, ScrollView, Dimensions, StyleSheet } from 'react-native';
 import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +11,8 @@ import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface AdaptPlanModalProps {
   visible: boolean;
@@ -35,20 +38,48 @@ export function AdaptPlanModal({
   
   const atl = pmcMetrics.atl.toFixed(1);
 
-  const slideAnim = useRef(new Animated.Value(600)).current;
+  const [showModal, setShowModal] = useState(visible);
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   useEffect(() => {
     if (visible) {
-      slideAnim.setValue(600);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 80,
-      }).start();
+      setShowModal(true);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      backdropOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 24,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowModal(false);
+      });
     }
-  }, [visible, slideAnim]);
+  }, [visible]);
 
   const handleOption = (type: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -56,38 +87,51 @@ export function AdaptPlanModal({
     onClose();
   };
 
+  if (!showModal) return null;
+
   return (
     <Modal
-      visible={visible}
+      visible={showModal}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
     >
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onClose}
-        style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ width: '100%' }}
-        >
-          <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
-            <Animated.View
-              style={{
+        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+          {/* Static Fullscreen Backdrop: Fades In/Out Simultaneously */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={onClose}
+              style={{ flex: 1 }}
+            />
+          </Animated.View>
+
+          {/* Bottom Sheet Modal Container */}
+          <Animated.View
+            style={[
+              {
                 transform: [{ translateY: Animated.add(slideAnim, dragY) }],
                 paddingBottom: Math.max(insets.bottom, 24),
-              }}
-              className="bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col"
-              {...panHandlers}
-            >
-              {/* TOP PULL HANDLE INDICATOR */}
-              <View className="items-center pb-4">
-                <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-              </View>
+              },
+            ]}
+            className="w-full bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col"
+          >
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View {...panHandlers} className="items-center pb-4 pt-1">
+              <SheetGrabber />
+            </View>
 
               {/* Top Icon */}
-              <View className="w-12 h-12 rounded-full bg-theme-accent/15 items-center justify-center self-center mb-3 shadow-md">
+              <View className="w-12 h-12 rounded-full bg-theme-accent/20 items-center justify-center self-center mb-3 shadow-md">
                 <Ionicons name="flash" size={24} color="#16ACBD" />
               </View>
 
@@ -96,12 +140,12 @@ export function AdaptPlanModal({
               </Text>
 
               <Text className="text-xs text-theme-muted text-center mb-5 leading-relaxed">
-                Your recent fatigue score is <Text className="font-bold text-theme-accent">{atl} ATL</Text>. Would you like Rooka AI to optimize today's schedule for maximum adaptation?
+                Your recent fatigue score is <Text className="font-bold text-theme-accent">{atl} ATL</Text>. Would you like rooka AI to optimize today's schedule for maximum adaptation?
               </Text>
 
               {/* Adaptation Suggestions */}
               <ScrollView showsVerticalScrollIndicator={false} className="mb-6 max-h-[350px]">
-                <View className="space-y-2.5">
+                <View className="gap-y-2.5">
                   <TouchableOpacity
                     onPress={() => handleOption('TIME_CRUNCH')}
                     className="p-3.5 bg-theme-bg rounded-xl flex-row items-center gap-3 border border-theme-border/40"
@@ -154,10 +198,9 @@ export function AdaptPlanModal({
                   <Button label="Keep Current" variant="outline" onPress={onClose} />
                 </View>
               </View>
-            </Animated.View>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -1,3 +1,4 @@
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +22,7 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../../constants/api';
@@ -47,7 +49,7 @@ export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
   const { t } = useLanguage();
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
-  const { notifyScroll, tabBarOccupied } = useTabBar();
+  const { notifyScroll, notifyScrollEnd, tabBarOccupied } = useTabBar();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ subtab?: string }>();
@@ -79,11 +81,54 @@ export default function ProfileScreen() {
     }, [params.subtab, SCREEN_WIDTH])
   );
 
+  const { height: SCREEN_HEIGHT } = useWindowDimensions();
+
   // Garmin Form State
   const [garminModalVisible, setGarminModalVisible] = useState(false);
+  const [showGarminModal, setShowGarminModal] = useState(false);
+  const garminSlideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const garminBackdropOpacity = useRef(new Animated.Value(0)).current;
   const [garminUser, setGarminUser] = useState('');
   const [garminPass, setGarminPass] = useState('');
   const [garminLoading, setGarminLoading] = useState(false);
+
+  useEffect(() => {
+    if (garminModalVisible) {
+      setShowGarminModal(true);
+      garminSlideAnim.setValue(SCREEN_HEIGHT);
+      garminBackdropOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(garminBackdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(garminSlideAnim, {
+          toValue: 0,
+          damping: 24,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(garminBackdropOpacity, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(garminSlideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowGarminModal(false);
+      });
+    }
+  }, [garminModalVisible]);
 
   // Strava State
   const [stravaLoading, setStravaLoading] = useState(false);
@@ -154,7 +199,7 @@ export default function ProfileScreen() {
   const handleDisconnectGarmin = async () => {
     Alert.alert(
       'Disconnect Garmin',
-      'Are you sure you want to disconnect Garmin? This will stop Rooka from pushing structured workouts to your watch.',
+      'Are you sure you want to disconnect Garmin? This will stop rooka from pushing structured workouts to your watch.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -398,7 +443,7 @@ export default function ProfileScreen() {
             className="flex-1 px-4 pt-4"
             contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <ProfileTab
               username={username}
@@ -415,7 +460,7 @@ export default function ProfileScreen() {
             className="flex-1 px-4 pt-4"
             contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <GoalsTab />
           </ScrollView>
@@ -427,7 +472,7 @@ export default function ProfileScreen() {
             className="flex-1 px-4 pt-4"
             contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <ConnectionsTab
               onOpenGarminModal={() => setGarminModalVisible(true)}
@@ -444,7 +489,7 @@ export default function ProfileScreen() {
             className="flex-1 px-4 pt-4"
             contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <AccountTab onLogout={() => logout()} isRookaPlus={isRookaPlus} />
           </ScrollView>
@@ -452,106 +497,130 @@ export default function ProfileScreen() {
       </ScrollView>
 
       {/* GARMIN CONNECTION MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={garminModalVisible}
-        onRequestClose={() => setGarminModalVisible(false)}
-      >
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-          className="flex-1 justify-end bg-black/50"
+      {showGarminModal && (
+        <Modal
+          animationType="none"
+          transparent={true}
+          visible={showGarminModal}
+          onRequestClose={() => setGarminModalVisible(false)}
         >
-          <View className="bg-theme-bg px-6 pt-3 pb-6 rounded-t-card border-t border-theme-border">
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View className="items-center pb-4">
-              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+            style={{ flex: 1 }}
+          >
+            <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+              {/* Static Fullscreen Backdrop: Fades In/Out Simultaneously */}
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  { backgroundColor: 'rgba(0,0,0,0.6)', opacity: garminBackdropOpacity },
+                ]}
+              >
+                <TouchableOpacity
+                  activeOpacity={1}
+                  onPress={() => setGarminModalVisible(false)}
+                  style={{ flex: 1 }}
+                />
+              </Animated.View>
+
+              {/* Bottom Sheet Modal Container */}
+              <Animated.View
+                style={{
+                  transform: [{ translateY: garminSlideAnim }],
+                }}
+                className="w-full bg-theme-bg px-6 pt-3 pb-6 rounded-t-card border-t border-theme-border"
+              >
+                {/* TOP PULL HANDLE INDICATOR */}
+                <View className="items-center pb-4">
+                  <SheetGrabber />
+                </View>
+
+                <View className="flex-row items-center justify-between mb-4">
+                  <View className="flex-row items-center">
+                    <Ionicons name="watch-outline" size={24} color={theme.tint} />
+                    <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
+                  </View>
+                </View>
+
+                <Text className="text-sm text-theme-muted mb-6">
+                  Connect your Garmin account to automatically push structured micro-plan workouts directly to your Garmin watch.
+                </Text>
+
+                {isGarminConnected ? (
+                  <View className="gap-y-4 mb-4">
+                    <View className="p-4 rounded-xl bg-semantic-success/10 border border-semantic-success/30 flex-row items-center mb-2">
+                      <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+                      <Text className="text-semantic-success font-bold ml-2">Garmin is connected</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={handleSyncGarmin}
+                      disabled={garminLoading}
+                      className="bg-theme-accent py-3.5 rounded-xl items-center flex-row justify-center mb-3"
+                    >
+                      {garminLoading ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="sync" size={18} color="#FFF" />
+                          <Text className="text-white font-bold text-base ml-2">Sync Workouts to Garmin</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleDisconnectGarmin}
+                      disabled={garminLoading}
+                      className="border border-semantic-error/40 bg-semantic-error/10 py-3.5 rounded-xl items-center"
+                    >
+                      <Text className="text-semantic-error font-bold text-base">Disconnect Garmin</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View className="gap-y-4 mb-4">
+                    <View>
+                      <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Username / Email</Text>
+                      <TextInput
+                        className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
+                        placeholder="email@example.com"
+                        placeholderTextColor={theme.textSecondary}
+                        value={garminUser}
+                        onChangeText={setGarminUser}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                      />
+                    </View>
+
+                    <View className="mt-3">
+                      <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Password</Text>
+                      <TextInput
+                        className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
+                        placeholder="••••••••"
+                        placeholderTextColor={theme.textSecondary}
+                        value={garminPass}
+                        onChangeText={setGarminPass}
+                        secureTextEntry
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={handleConnectGarmin}
+                      disabled={garminLoading}
+                      className="bg-theme-accent py-4 rounded-xl items-center mt-4"
+                    >
+                      {garminLoading ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text className="text-white font-bold text-base">Save & Connect Garmin</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </Animated.View>
             </View>
-
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center">
-                <Ionicons name="watch-outline" size={24} color={theme.tint} />
-                <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
-              </View>
-            </View>
-
-            <Text className="text-sm text-theme-muted mb-6">
-              Connect your Garmin account to automatically push structured micro-plan workouts directly to your Garmin watch.
-            </Text>
-
-            {isGarminConnected ? (
-              <View className="space-y-4 mb-4">
-                <View className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex-row items-center mb-2">
-                  <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-                  <Text className="text-green-500 font-bold ml-2">Garmin is connected</Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleSyncGarmin}
-                  disabled={garminLoading}
-                  className="bg-theme-accent py-3.5 rounded-xl items-center flex-row justify-center mb-3"
-                >
-                  {garminLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="sync" size={18} color="#FFF" />
-                      <Text className="text-white font-bold text-base ml-2">Sync Workouts to Garmin</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleDisconnectGarmin}
-                  disabled={garminLoading}
-                  className="border border-red-500/40 bg-red-500/10 py-3.5 rounded-xl items-center"
-                >
-                  <Text className="text-red-500 font-bold text-base">Disconnect Garmin</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View className="space-y-4 mb-4">
-                <View>
-                  <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Username / Email</Text>
-                  <TextInput
-                    className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
-                    placeholder="email@example.com"
-                    placeholderTextColor={theme.textSecondary}
-                    value={garminUser}
-                    onChangeText={setGarminUser}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                </View>
-
-                <View className="mt-3">
-                  <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Password</Text>
-                  <TextInput
-                    className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
-                    placeholder="••••••••"
-                    placeholderTextColor={theme.textSecondary}
-                    value={garminPass}
-                    onChangeText={setGarminPass}
-                    secureTextEntry
-                  />
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleConnectGarmin}
-                  disabled={garminLoading}
-                  className="bg-theme-accent py-4 rounded-xl items-center mt-4"
-                >
-                  {garminLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text className="text-white font-bold text-base">Save & Connect Garmin</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
     </View>
   );
 }

@@ -65,7 +65,7 @@ router.post("/api/social/search", authenticateToken, (req, res) => {
   if (!searchTerm) return res.json({ found: false, users: [] });
 
   db.all(
-    `SELECT u.id, u.username, u.profile_picture_url,
+    `SELECT u.id, u.username, u.profile_picture_url, u.subscription_tier, u.role,
             (SELECT status FROM connections WHERE user_id = ? AND friend_id = u.id) as status
      FROM users u
      WHERE LOWER(u.username) LIKE LOWER(?) 
@@ -82,6 +82,8 @@ router.post("/api/social/search", authenticateToken, (req, res) => {
         id: u.id,
         username: u.username,
         profile_picture_url: u.profile_picture_url,
+        subscription_tier: u.subscription_tier || 'free',
+        role: u.role || 'user',
         status: u.id === req.user.id ? 'self' : (u.status || null),
       }));
       res.json({
@@ -264,7 +266,7 @@ router.post(["/api/social/decline", "/api/social/reject"], authenticateToken, (r
 router.get("/api/social/connections", authenticateToken, (req, res) => {
   db.all(
     `
-        SELECT c.friend_id, c.status, u.username, u.profile_picture_url
+        SELECT c.friend_id, c.status, u.username, u.profile_picture_url, u.subscription_tier, u.role
         FROM connections c
         JOIN users u ON c.friend_id = u.id
         WHERE c.user_id = ?

@@ -1,4 +1,5 @@
 import React from 'react';
+import { RookaPoints } from '../ui/RookaPoints';
 import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import { View, Text, TouchableOpacity, useColorScheme } from 'react-native';
@@ -84,7 +85,7 @@ export function TodaysPlanCard({
             </View>
           </View>
           <View className="items-end gap-1">
-            <Text className="text-sm font-mono font-extrabold text-theme-muted">0 ⚡</Text>
+            <RookaPoints value={0} signed={false} size="md" color={theme.textSecondary} />
             <TouchableOpacity
               onPress={handleAdd}
               className="px-2.5 py-1 rounded-lg bg-theme-accent/15"
@@ -94,7 +95,7 @@ export function TodaysPlanCard({
           </View>
         </Card>
       ) : (
-        <View className="space-y-2.5">
+        <View className="gap-y-2.5">
           {workouts.map((workout) => {
             const isRest = workout.type === 'REST' || 
                            (workout.title || '').toLowerCase().includes('rest') || 
@@ -134,15 +135,17 @@ export function TodaysPlanCard({
                     </View>
                   </View>
 
-                  {/* Right: Rooka Points + Status */}
+                  {/* Right: rooka points + Status */}
                   <View className="items-end gap-1">
-                    <Text className={`text-sm font-mono font-extrabold ${rookaVal > 0 ? 'text-theme-accent' : 'text-theme-muted'}`}>
-                      +{rookaVal} ⚡
-                    </Text>
+                    <RookaPoints
+                      value={rookaVal}
+                      size="md"
+                      color={rookaVal > 0 ? theme.tint : theme.textSecondary}
+                    />
                     {workout.isCompleted ? (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={10} color="#10B981" />
-                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
                       </View>
                     ) : (
                       <Text className="text-xs text-theme-muted font-bold">{t('dashboard.tapToEdit')}</Text>

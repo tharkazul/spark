@@ -1,3 +1,4 @@
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -7,6 +8,8 @@ import {
   ScrollView,
   Animated,
   KeyboardAvoidingView,
+  Dimensions,
+  StyleSheet,
   Platform,
   useColorScheme,
 } from 'react-native';
@@ -17,6 +20,8 @@ import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useActivities } from '../../context/ActivityStore';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface LogActivityModalProps {
   visible: boolean;
@@ -48,20 +53,48 @@ export function LogActivityModal({
   const [distance, setDistance] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const slideAnim = useRef(new Animated.Value(400)).current;
+  const [showModal, setShowModal] = useState(visible);
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   useEffect(() => {
     if (visible) {
-      slideAnim.setValue(400);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 80,
-      }).start();
+      setShowModal(true);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      backdropOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 24,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowModal(false);
+      });
     }
-  }, [visible, slideAnim]);
+  }, [visible]);
 
   const handleSave = async () => {
     const defaultSportLabel = SPORTS.find(s => s.id === sport)?.label || 'Activity';
@@ -103,40 +136,53 @@ export function LogActivityModal({
     }
   };
 
+  if (!showModal) return null;
+
   return (
     <Modal
-      visible={visible}
+      visible={showModal}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
     >
-      {/* Full-screen Dark Backdrop */}
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onClose}
-        style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ width: '100%' }}
-        >
-          <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
-            <Animated.View
-              style={{
+        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+          {/* Static Fullscreen Backdrop: Fades In/Out Simultaneously */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={onClose}
+              style={{ flex: 1 }}
+            />
+          </Animated.View>
+
+          {/* Bottom Sheet Modal Container */}
+          <Animated.View
+            style={[
+              {
                 transform: [{ translateY: Animated.add(slideAnim, dragY) }],
                 paddingBottom: Math.max(insets.bottom, 24),
-              }}
-              className="bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col"
-            >
-              {/* TOP PULL HANDLE INDICATOR */}
-              <View {...panHandlers} className="items-center pb-4 pt-1">
-                <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-              </View>
+              },
+            ]}
+            className="w-full bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col"
+          >
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View {...panHandlers} className="items-center pb-4 pt-1">
+              <SheetGrabber />
+            </View>
 
               {/* Header */}
               <View className="flex-row items-center justify-between pb-3.5 mb-2 border-b border-theme-border/50">
                 <View className="flex-row items-center gap-2.5">
-                  <View className="w-9 h-9 rounded-xl bg-emerald-500/15 items-center justify-center">
+                  <View className="w-9 h-9 rounded-xl bg-semantic-success/15 items-center justify-center">
                     <Ionicons name="fitness-outline" size={18} color="#10B981" />
                   </View>
                   <View>
@@ -167,7 +213,7 @@ export function LogActivityModal({
                           }}
                           className={`flex-1 py-2.5 rounded-xl items-center justify-center border ${
                             isSelected
-                              ? 'bg-emerald-500/15 border-emerald-500'
+                              ? 'bg-semantic-success/15 border-semantic-success'
                               : 'bg-theme-bg border-theme-border/60'
                           }`}
                         >
@@ -178,7 +224,7 @@ export function LogActivityModal({
                           />
                           <Text
                             className={`text-xs font-bold mt-1 ${
-                              isSelected ? 'text-emerald-500' : 'text-theme-muted'
+                              isSelected ? 'text-semantic-success' : 'text-theme-muted'
                             }`}
                           >
                             {s.label}
@@ -237,10 +283,9 @@ export function LogActivityModal({
                   </View>
                 </View>
               </ScrollView>
-            </Animated.View>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -9,7 +9,7 @@ import { zonesApi, ZoneBandDto } from '../../services/apiServices';
 /**
  * Editor for the athlete's heart-rate and power zones.
  *
- * Every Rooka score is minutes x a zone multiplier, so these boundaries are the
+ * Every rooka score is minutes x a zone multiplier, so these boundaries are the
  * one input the whole scoring model rests on. They are seeded from 220 - age
  * (and FTP) during onboarding, and can be overridden here — per sport, because
  * heart rate in the water sits well below the same effort on the bike.
@@ -193,7 +193,7 @@ export function TrainingZonesCard() {
       </View>
 
       <Text className="text-xs text-theme-muted mb-3">
-        Every Rooka score is your time multiplied by the zone you trained in, so these
+        Every rooka score is your time multiplied by the zone you trained in, so these
         boundaries decide what a session is worth.
         {maxHr ? ` Max HR ${maxHr} bpm.` : ''}
         {ftp ? ` FTP ${ftp} W.` : ''}
@@ -252,7 +252,7 @@ export function TrainingZonesCard() {
             No zones yet
           </Text>
           <Text className="text-theme-muted text-xs mt-1 text-center">
-            Add your age and FTP to your athlete details and Rooka will build these for you.
+            Add your age and FTP to your athlete details and rooka will build these for you.
           </Text>
         </View>
       ) : (

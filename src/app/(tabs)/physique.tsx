@@ -27,7 +27,7 @@ type TabType = typeof TABS[number];
 
 export default function ProgressScreen() {
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const { notifyScroll, tabBarOccupied } = useTabBar();
+  const { notifyScroll, notifyScrollEnd, tabBarOccupied } = useTabBar();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
 
@@ -119,10 +119,10 @@ export default function ProgressScreen() {
           >
             <View className="relative items-center justify-center">
               <Animated.Text style={{ opacity: rookaWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
-                Rooka
+                rooka
               </Animated.Text>
               <Animated.Text style={{ opacity: rookaGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
-                Rooka
+                rooka
               </Animated.Text>
             </View>
           </TouchableOpacity>
@@ -187,7 +187,7 @@ export default function ProgressScreen() {
             className="flex-1 px-5 pt-0"
             contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <RookaTab />
           </ScrollView>
@@ -199,7 +199,7 @@ export default function ProgressScreen() {
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <NutritionTab />
           </ScrollView>
@@ -211,7 +211,7 @@ export default function ProgressScreen() {
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <HealthTab />
           </ScrollView>

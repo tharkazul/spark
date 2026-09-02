@@ -69,7 +69,7 @@ const parseWorkoutProposals = (content: string): ProposedWorkoutItem[] | undefin
 
 const parseConnectionRequestFromContent = (content?: string): any | undefined => {
   if (!content) return undefined;
-  const match = content.match(/(.+?)\s+wants to connect with you on Rooka!/i);
+  const match = content.match(/(.+?)\s+wants to connect with you on rooka!/i);
   if (match && match[1]) {
     return {
       type: 'connection_request',
@@ -349,7 +349,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         if (res.planUpdated) {
           refreshPlan();
           refreshNiggles();
-          // The coach can log an activity, which also awards Rooka points and
+          // The coach can log an activity, which also awards rooka points and
           // can level the athlete up. Neither the activity list nor the header
           // total was refreshed here, so a session logged in chat stayed
           // invisible on the dashboard until the app was relaunched.

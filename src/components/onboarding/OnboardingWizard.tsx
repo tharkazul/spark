@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import { RookaMark } from '../ui/RookaPoints';
+import { accentAlpha } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -356,7 +358,7 @@ export default function OnboardingWizard() {
   });
   const [targetCtl, setTargetCtl] = useState(user?.target_ctl?.toString() || '75');
   // Age drives max HR (220 - age) and therefore the whole heart-rate zone
-  // table, which is what every Rooka score is now weighted by.
+  // table, which is what every rooka score is now weighted by.
   const [age, setAge] = useState('');
 
   // The three-column month/day/year roller that used to live here has been
@@ -958,7 +960,7 @@ export default function OnboardingWizard() {
               <Image
                 source={require('../../../assets/images/logo-mark.png')}
                 className="w-full h-full"
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </View>
             <View>
@@ -978,7 +980,7 @@ export default function OnboardingWizard() {
                     idx + 1 === currentStep
                       ? { backgroundColor: theme.tint }
                       : idx + 1 < currentStep
-                        ? { backgroundColor: 'rgba(255, 90, 31, 0.5)' }
+                        ? { backgroundColor: accentAlpha(0.5) }
                         : undefined
                   }
                   className={`h-2 rounded-full bg-theme-border ${idx + 1 === currentStep ? 'w-6' : 'w-2'
@@ -1079,7 +1081,7 @@ export default function OnboardingWizard() {
                     </View>
                     <View className="flex-1 mt-1 justify-center min-h-[40px]">
                       <View className="flex-row items-center gap-1.5 mb-1">
-                        <Text className="text-theme-text font-extrabold text-xs">Rooka</Text>
+                        <Text className="text-theme-text font-extrabold text-xs">rooka</Text>
                       </View>
                       <TypingDots />
                     </View>
@@ -1099,7 +1101,7 @@ export default function OnboardingWizard() {
                     </View>
                     <View className="flex-1 mt-1">
                       <View className="flex-row items-center gap-1.5 mb-1">
-                        <Text className="text-theme-text font-extrabold text-xs">Rooka</Text>
+                        <Text className="text-theme-text font-extrabold text-xs">rooka</Text>
                       </View>
                       <MarkdownText content={node.text || ''} isUser={false} />
                     </View>
@@ -1127,7 +1129,7 @@ export default function OnboardingWizard() {
                   <View
                     key={node.id}
                     className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
-                    style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                    style={!isSelected ? { borderColor: accentAlpha(0.5) } : undefined}
                   >
                     <View className="flex-row items-center gap-2">
                       <Ionicons name="language" size={20} color={theme.tint} />
@@ -1181,7 +1183,7 @@ export default function OnboardingWizard() {
                   <View
                     key={node.id}
                     className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
-                    style={!isSelected ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                    style={!isSelected ? { borderColor: accentAlpha(0.5) } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.chooseToneTitle')}</Text>
 
@@ -1196,7 +1198,7 @@ export default function OnboardingWizard() {
                       className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                       style={
                         node.data?.selected === t('onboarding.toneEmpatheticShort')
-                          ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
                           : undefined
                       }
                     >
@@ -1227,7 +1229,7 @@ export default function OnboardingWizard() {
                       className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                       style={
                         node.data?.selected === t('onboarding.toneStrictShort')
-                          ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
                           : undefined
                       }
                     >
@@ -1258,7 +1260,7 @@ export default function OnboardingWizard() {
                       className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                       style={
                         node.data?.selected === t('onboarding.toneCheerleaderShort')
-                          ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                          ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
                           : undefined
                       }
                     >
@@ -1306,12 +1308,12 @@ export default function OnboardingWizard() {
                           className="p-3.5 rounded-xl border border-theme-border bg-theme-bg"
                           style={
                             selectedGender === opt.val
-                              ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                              ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
                               : undefined
                           }
                         >
                           <View className="flex-row items-center">
-                            <View className="w-9 h-9 rounded-full bg-theme-accent/15 items-center justify-center mr-3">
+                            <View className="w-9 h-9 rounded-full bg-theme-accent/20 items-center justify-center mr-3">
                               <Ionicons name={opt.icon as any} size={18} color={theme.tint} />
                             </View>
                             <View className="flex-1">
@@ -1335,7 +1337,7 @@ export default function OnboardingWizard() {
                   <View
                     key={node.id}
                     className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-4 shadow-sm"
-                    style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                    style={!isCompleted ? { borderColor: accentAlpha(0.5) } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.contextTitle')}</Text>
 
@@ -1471,7 +1473,7 @@ export default function OnboardingWizard() {
                   <View
                     key={node.id}
                     className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
-                    style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                    style={!isCompleted ? { borderColor: accentAlpha(0.5) } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.scheduleTitle')}</Text>
                     <Text className="text-theme-muted text-xs">
@@ -1525,7 +1527,7 @@ export default function OnboardingWizard() {
                   <View
                     key={node.id}
                     className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
-                    style={!isCompleted ? { borderColor: 'rgba(255, 90, 31, 0.5)' } : undefined}
+                    style={!isCompleted ? { borderColor: accentAlpha(0.5) } : undefined}
                   >
                     <Text className="text-theme-text font-bold text-sm">{t('onboarding.integrationsTitle')}</Text>
 
@@ -1538,9 +1540,9 @@ export default function OnboardingWizard() {
                             <View className="flex-row items-center gap-1.5 flex-wrap">
                               <Text className="text-theme-text font-bold text-xs">{t('onboarding.garminTitle')}</Text>
                               {isGarminActive && (
-                                <View className="bg-green-500/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
+                                <View className="bg-semantic-success/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
                                   <Ionicons name="checkmark-circle" size={10} color="#22C55E" />
-                                  <Text className="text-green-500 text-xs font-bold">
+                                  <Text className="text-semantic-success text-xs font-bold">
                                     {t('onboarding.garminConnectedBadge')}
                                   </Text>
                                 </View>
@@ -1562,11 +1564,11 @@ export default function OnboardingWizard() {
                       {showGarmin && (
                         <View className="pt-2 gap-2 border-t border-theme-border">
                           {isGarminActive && (
-                            <View className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5 flex-row items-center justify-between">
+                            <View className="bg-semantic-success/10 border border-semantic-success/20 rounded-lg p-2.5 flex-row items-center justify-between">
                               <View className="flex-row items-center gap-2 flex-1 mr-2">
                                 <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                                 <View className="flex-1">
-                                  <Text className="text-green-400 font-bold text-xs">
+                                  <Text className="text-semantic-success font-bold text-xs">
                                     {garminSaveSuccessMsg || t('onboarding.garminSavedSuccess')}
                                   </Text>
                                   <Text className="text-theme-muted text-xs" numberOfLines={1}>
@@ -1579,7 +1581,7 @@ export default function OnboardingWizard() {
                                 onPress={handleDisconnectGarmin}
                                 className="px-2 py-1 bg-theme-bg/60 rounded border border-theme-border"
                               >
-                                <Text className="text-red-400 font-medium text-xs">
+                                <Text className="text-semantic-error font-medium text-xs">
                                   {t('onboarding.garminDisconnectBtn')}
                                 </Text>
                               </Pressable>
@@ -1619,7 +1621,7 @@ export default function OnboardingWizard() {
                           {garminError && (
                             <View className="flex-row items-center gap-1.5 px-1">
                               <Ionicons name="alert-circle" size={13} color="#EF4444" />
-                              <Text className="text-red-400 text-xs flex-1">{garminError}</Text>
+                              <Text className="text-semantic-error text-xs flex-1">{garminError}</Text>
                             </View>
                           )}
 
@@ -1656,9 +1658,9 @@ export default function OnboardingWizard() {
                             <View className="flex-row items-center gap-1.5 flex-wrap">
                               <Text className="text-theme-text font-bold text-xs">{t('onboarding.stravaTitle')}</Text>
                               {isStravaActive && (
-                                <View className="bg-green-500/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
+                                <View className="bg-semantic-success/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
                                   <Ionicons name="checkmark-circle" size={10} color="#22C55E" />
-                                  <Text className="text-green-500 text-xs font-bold">
+                                  <Text className="text-semantic-success text-xs font-bold">
                                     {t('onboarding.stravaConnectedBadge')}
                                   </Text>
                                 </View>
@@ -1688,7 +1690,7 @@ export default function OnboardingWizard() {
                               onPress={handleDisconnectStrava}
                               className="px-2 py-1.5 bg-theme-card border border-theme-border rounded-control"
                             >
-                              <Text className="text-red-400 font-medium text-xs">
+                              <Text className="text-semantic-error font-medium text-xs">
                                 {t('onboarding.stravaDisconnectBtn')}
                               </Text>
                             </Pressable>
@@ -1716,9 +1718,9 @@ export default function OnboardingWizard() {
                       </View>
 
                       {stravaSuccessMsg && isStravaActive && (
-                        <View className="bg-green-500/10 border border-green-500/20 rounded-lg p-2 flex-row items-center gap-1.5 mt-1">
+                        <View className="bg-semantic-success/10 border border-semantic-success/20 rounded-lg p-2 flex-row items-center gap-1.5 mt-1">
                           <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-                          <Text className="text-green-400 font-semibold text-xs flex-1">
+                          <Text className="text-semantic-success font-semibold text-xs flex-1">
                             {stravaSuccessMsg}
                           </Text>
                         </View>
@@ -1743,7 +1745,7 @@ export default function OnboardingWizard() {
                   <View key={node.id} className="bg-theme-card border border-theme-border rounded-card p-5 mb-6 gap-4 shadow-sm">
                     <View className="items-center my-1">
                       <View className="w-12 h-12 rounded-2xl bg-theme-accent items-center justify-center mb-2 shadow-lg">
-                        <Ionicons name="flash" size={24} color="#FFFFFF" />
+                        <RookaMark size={24} color="#FFFFFF" />
                       </View>
                       <Text className="text-theme-text font-extrabold text-lg text-center">{t('onboarding.paywallTitle')}</Text>
                       <Text className="text-theme-muted text-xs text-center mt-1">
@@ -1762,7 +1764,7 @@ export default function OnboardingWizard() {
                         className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
                         style={
                           selectedPlan === 'annual'
-                            ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                            ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
                             : undefined
                         }
                       >
@@ -1799,7 +1801,7 @@ export default function OnboardingWizard() {
                         className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
                         style={
                           selectedPlan === 'monthly'
-                            ? { borderColor: theme.tint, backgroundColor: 'rgba(255, 90, 31, 0.1)' }
+                            ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
                             : undefined
                         }
                       >

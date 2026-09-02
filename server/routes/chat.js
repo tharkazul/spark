@@ -444,6 +444,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     Name coach: ${coachName}
                     Tone: ${coachToneText}
                     ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
+                    
+                    PERSONA & TONE ENFORCEMENT (CRITICAL):
+                    - Your active voice, vocabulary, and personality MUST STRICTLY match 'Tone: ${coachToneText}'.
+                    - DO NOT let previous message history bleed into your active tone. If previous conversation turns used flirty language, pet names (e.g. "babe", "my love"), or cheerleader hype that contradicts your current assigned Tone, you MUST DISREGARD that style completely.
+                    - Adopt your assigned tone with 100% fidelity on every single response.
                     Current Training Phase: ${phase || user.training_phase || "Base/General"}
                     
                     TIME CONTEXT:

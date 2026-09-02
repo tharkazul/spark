@@ -1,3 +1,4 @@
+import { BrandColors } from '@/constants/theme';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useColorScheme } from 'nativewind';
@@ -62,7 +63,7 @@ export function DurationRoller({
   // Colours are set explicitly rather than through utility classes: these sit
   // on a surface that flips with the theme, and an unresolved text colour here
   // renders invisible.
-  const selectedColor = '#FF5F3B';
+  const selectedColor = BrandColors.primary;
   const idleColor = isDark ? '#64748B' : '#94A3B8';
   const trackColor = isDark ? 'rgba(255,95,59,0.12)' : 'rgba(255,95,59,0.08)';
   const trackBorder = 'rgba(255,95,59,0.45)';

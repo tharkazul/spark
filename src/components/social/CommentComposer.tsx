@@ -110,7 +110,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
     <View className="relative z-50">
       {/* MENTION AUTOCOMPLETE POPUP */}
       {showMentionList && filteredConnections.length > 0 && (
-        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-theme-border dark:border-slate-800 rounded-tile p-2 shadow-lg max-h-48 z-50">
+        <View className="absolute bottom-14 left-0 right-0 bg-theme-card border border-theme-border rounded-tile p-2 shadow-lg max-h-48 z-50">
           <Text className="text-xs font-extrabold text-theme-accent px-2 py-1">
             Mention Connection
           </Text>
@@ -123,7 +123,7 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
               return (
                 <TouchableOpacity
                   onPress={() => handleSelectMention(item.username)}
-                  className="flex-row items-center space-x-2.5 p-2 rounded-xl active:bg-theme-accent/15"
+                  className="flex-row items-center gap-x-2.5 p-2 rounded-xl active:bg-theme-accent/15"
                 >
                   {mentionAvatarUri ? (
                     <Image source={{ uri: mentionAvatarUri }} className="w-7 h-7 rounded-full" />

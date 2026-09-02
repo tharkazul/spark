@@ -107,7 +107,7 @@ export const activitiesApi = {
     }),
 };
 
-// Keyed by Rooka sport bucket ('Run' | 'Bike' | 'Swim' | 'Strength') to match
+// Keyed by rooka sport bucket ('Run' | 'Bike' | 'Swim' | 'Strength') to match
 // STRAVA_SHARE_SPORTS in server/services/utils.js.
 export interface StravaShareFlags {
   shareName: boolean;
@@ -133,7 +133,7 @@ export const integrationsApi = {
       method: 'POST',
     }),
   // allowShared confirms connecting a Strava account that is already linked to
-  // another Rooka account. Each account keeps its own copy of the activities.
+  // another rooka account. Each account keeps its own copy of the activities.
   exchangeStravaCode: (code: string, allowShared: boolean = false) =>
     apiClient<{ success?: boolean; message: string }>('/api/user/settings/strava-exchange', {
       method: 'POST',
@@ -336,8 +336,8 @@ export const socialApi = {
   searchUser: (username: string) =>
     apiClient<{
       found: boolean;
-      user?: { id: number; username: string; profile_picture_url?: string; status?: string };
-      users?: Array<{ id: number; username: string; profile_picture_url?: string; status?: string }>;
+      user?: { id: number; username: string; profile_picture_url?: string; subscription_tier?: string; role?: string; status?: string };
+      users?: Array<{ id: number; username: string; profile_picture_url?: string; subscription_tier?: string; role?: string; status?: string }>;
     }>('/api/social/search', {
       method: 'POST',
       body: JSON.stringify({ username }),

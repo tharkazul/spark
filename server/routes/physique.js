@@ -456,6 +456,7 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
               loggedProtein,
               loggedFat,
               loggedItems,
+              timing: protocol.timing || [],
               suggested: protocol,
               intake: {
                 carbs: loggedCarbs,
@@ -572,14 +573,22 @@ Based on today's completed activities (if any), planned training load, macro pha
 - For rest / low Rooka Points days, prescribe lower carbohydrates and higher protein/fat.
 - Protein should always be kept very high (1.8g - 2.2g per kg of bodyweight, which is roughly ${Math.round(weight * 1.8)}g - ${Math.round(weight * 2.2)}g for this athlete) to preserve and build muscle mass.
 - Ensure total calories make sense for an endurance athlete of their weight and align with any weight loss/gain goals mentioned in their notes.
+- In "timing", provide 3 distinct, actionable meal/fueling recommendations tailored directly to today's schedule (e.g. if Rest/Race Eve: Morning Carb-Load, Afternoon Electrolyte Grazing, Evening Digestible Dinner; if Active Workout: Pre-Workout, Intra-Workout, Post-Workout Recovery).
 
 Please respond using this JSON schema:
 {
-  "title": "String (e.g. 'High Carb / Big Session')",
-  "rationale": "String (1-2 sentences explaining why, referencing the specific exercise name and type if completed)",
+  "title": "String (e.g. 'High Carb / Big Session' or 'Race Eve Carb-Load & Rest')",
+  "rationale": "String (1-2 sentences explaining why, referencing the specific exercise name and type if completed or planned)",
   "carbs": Number (grams),
   "protein": Number (grams),
-  "fat": Number (grams)
+  "fat": Number (grams),
+  "timing": [
+    {
+      "phase": "String (e.g. 'Morning / Carb-Load', 'Pre-Workout (60m prior)', 'Intra-Workout', 'Midday Grazing', 'Post-Workout Recovery', or 'Evening Dinner')",
+      "detail": "String (Actionable food/hydration recommendations tailored to today's workouts or rest/race demands)",
+      "type": "pre" | "intra" | "post" | "morning" | "midday" | "evening" | "meal" | "rest"
+    }
+  ]
 }`;
 
                   try {

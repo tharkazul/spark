@@ -1,10 +1,13 @@
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Animated, Dimensions, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { Button } from '../ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface LogWeightModalProps {
   visible: boolean;
@@ -21,20 +24,48 @@ export function LogWeightModal({
 }: LogWeightModalProps) {
   const insets = useSafeAreaInsets();
   const [weight, setWeight] = useState<number>(previousWeight || 70.0);
-  const slideAnim = useRef(new Animated.Value(400)).current;
+  const [showModal, setShowModal] = useState(visible);
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const { dragY, panHandlers } = useSheetDismiss(onClose);
 
   useEffect(() => {
     if (visible) {
-      slideAnim.setValue(400);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 70,
-      }).start();
+      setShowModal(true);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      backdropOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 24,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowModal(false);
+      });
     }
-  }, [visible, slideAnim]);
+  }, [visible]);
 
   const adjustWeight = (amount: number) => {
     Haptics.selectionAsync();
@@ -51,31 +82,44 @@ export function LogWeightModal({
 
   const diff = parseFloat((weight - previousWeight).toFixed(1));
 
+  if (!showModal) return null;
+
   return (
     <Modal
-      visible={visible}
+      visible={showModal}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
     >
-      {/* Full-screen Dark Backdrop */}
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={onClose}
-        style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' }}
-      >
-        <TouchableOpacity activeOpacity={1} style={{ width: '100%' }}>
-          <Animated.View
-            style={{
+      <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+        {/* Static Fullscreen Backdrop: Fades In/Out Simultaneously */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+          ]}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={onClose}
+            style={{ flex: 1 }}
+          />
+        </Animated.View>
+
+        {/* Bottom Sheet Modal Container */}
+        <Animated.View
+          style={[
+            {
               transform: [{ translateY: Animated.add(slideAnim, dragY) }],
               paddingBottom: Math.max(insets.bottom, 24),
-            }}
-            className="bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl"
-          >
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View {...panHandlers} className="items-center pb-4 pt-1">
-              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-            </View>
+            },
+          ]}
+          className="w-full bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl"
+        >
+          {/* TOP PULL HANDLE INDICATOR */}
+          <View {...panHandlers} className="items-center pb-4 pt-1">
+            <SheetGrabber />
+          </View>
 
             {/* Header */}
             <View className="flex-row items-center justify-between pb-4 mb-5">
@@ -97,8 +141,8 @@ export function LogWeightModal({
               </Text>
 
               {diff !== 0 ? (
-                <View className={`px-3 py-1 rounded-full ${diff > 0 ? 'bg-amber-500/15' : 'bg-emerald-500/15'}`}>
-                  <Text className={`text-xs font-mono font-bold ${diff > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                <View className={`px-3 py-1 rounded-full ${diff > 0 ? 'bg-semantic-warning/15' : 'bg-semantic-success/15'}`}>
+                  <Text className={`text-xs font-mono font-bold ${diff > 0 ? 'text-semantic-warning' : 'text-semantic-success'}`}>
                     {diff > 0 ? `+${diff} kg vs last log` : `${diff} kg vs last log`}
                   </Text>
                 </View>
@@ -117,14 +161,14 @@ export function LogWeightModal({
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(-0.1)}
-                  className="w-10 h-10 rounded-xl bg-rose-500/15 items-center justify-center"
+                  className="w-10 h-10 rounded-xl bg-semantic-error/15 items-center justify-center"
                 >
                   <Ionicons name="remove" size={20} color="#F43F5E" />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => adjustWeight(0.1)}
-                  className="w-10 h-10 rounded-xl bg-emerald-500/15 items-center justify-center"
+                  className="w-10 h-10 rounded-xl bg-semantic-success/15 items-center justify-center"
                 >
                   <Ionicons name="add" size={20} color="#10B981" />
                 </TouchableOpacity>
@@ -148,8 +192,7 @@ export function LogWeightModal({
               </View>
             </View>
           </Animated.View>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
+        </View>
+      </Modal>
   );
 }

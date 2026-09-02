@@ -78,11 +78,11 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   };
 
   const getSeverityBadge = (sev: number) => {
-    let bg = 'bg-amber-500/15 text-amber-500';
+    let bg = 'bg-semantic-warning/15 text-semantic-warning';
     let text = 'Severity 1 (Twinge)';
 
     if (sev >= 4) {
-      bg = 'bg-red-500/15 text-red-500';
+      bg = 'bg-semantic-error/15 text-semantic-error';
       text = `Severity ${sev} (Severe)`;
     } else if (sev >= 2) {
       bg = 'bg-theme-accent/15 text-theme-accent';
@@ -97,7 +97,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   };
 
   return (
-    <View className="space-y-4">
+    <View className="gap-y-4">
       {/* TRAINING READINESS GAUGE WIDGET */}
       <TrainingReadinessWidget />
 
@@ -107,7 +107,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       {/* INJURY TRACKER CARD */}
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center gap-x-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
             <Text className="text-xs font-bold text-theme-muted">
               Injury & Soreness Heatmap
@@ -134,7 +134,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
           </Text>
           <TouchableOpacity
             onPress={() => handleSelectBodyPart('left_calf', 'Left Calf')}
-            className="flex-row items-center space-x-1"
+            className="flex-row items-center gap-x-1"
           >
             <Ionicons name="add-circle-outline" size={16} color={theme.tint} />
             <Text className="text-xs font-bold text-theme-accent">Log New</Text>
@@ -154,7 +154,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
               className="bg-theme-bg/70 rounded-xl p-4 mb-3"
             >
               <View className="flex-row justify-between items-start mb-2">
-                <View className="flex-row items-center space-x-2">
+                <View className="flex-row items-center gap-x-2">
                   <Ionicons name="fitness" size={18} color="#E3494F" />
                   <Text className="text-sm font-extrabold text-theme-text capitalize">
                     {BODY_PARTS_LOOKUP[item.body_part] || item.body_part.replace('_', ' ')}
@@ -169,7 +169,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
                 </Text>
               ) : null}
 
-              <View className="flex-row justify-end space-x-2 pt-2">
+              <View className="flex-row justify-end gap-x-2 pt-2">
                 <TouchableOpacity
                   onPress={() =>
                     handleSelectBodyPart(
@@ -184,7 +184,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
                 <TouchableOpacity
                   onPress={() => item.id && handleResolve(item.id)}
-                  className="px-3 py-1.5 bg-emerald-500/15 rounded-lg flex-row items-center space-x-1"
+                  className="px-3 py-1.5 bg-semantic-success/15 rounded-lg flex-row items-center gap-x-1"
                 >
                   <Ionicons name="checkmark" size={14} color="#34C759" />
                   <Text className="text-xs font-bold text-[#34C759]">Mark Resolved</Text>
@@ -264,7 +264,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
           />
 
           {/* Buttons */}
-          <View className="space-y-3 mb-4">
+          <View className="gap-y-3 mb-4">
             <Button label="Save Issue" onPress={handleSave} className="bg-theme-accent mb-2" />
 
             {editingNiggleId ? (
@@ -272,7 +272,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
                 label="Mark as Resolved"
                 onPress={() => handleResolve(editingNiggleId)}
                 variant="outline"
-                className="border-emerald-500 text-emerald-500"
+                className="border-semantic-success text-semantic-success"
               />
             ) : null}
           </View>

@@ -36,8 +36,10 @@ const adminRoutes = require("./routes/admin");
 const notificationsRoutes = require("./routes/notifications");
 const discountsRoutes = require("./routes/discounts");
 const onboardingRoutes = require("./routes/onboarding");
+const webhooksRoutes = require("./routes/webhooks");
 
 app.use("/api/auth", authRoutes);
+app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 app.use("/", onboardingRoutes);
 app.use("/", chatRoutes);
@@ -117,6 +119,15 @@ cron.schedule('0 10 * * 0', () => {
 // Schedule weekly public athlete description generator on Sunday nights at 23:00 (Europe/Amsterdam timezone)
 cron.schedule('0 23 * * 0', () => {
   generateWeeklyAthleteDescriptionsJob();
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Schedule automated daily database snapshot at 03:00 AM (Europe/Amsterdam timezone)
+const { createSnapshot } = require("./services/backup");
+cron.schedule('0 3 * * *', () => {
+  createSnapshot('daily_auto').catch(err => console.error('[BACKUP] Daily snapshot failed:', err));
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"

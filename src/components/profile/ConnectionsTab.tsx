@@ -16,7 +16,7 @@ interface ConnectionsTabProps {
   stravaLoading?: boolean;
 }
 
-// Rooka's sport buckets, matching STRAVA_SHARE_SPORTS on the server. Strava's
+// rooka's sport buckets, matching STRAVA_SHARE_SPORTS on the server. Strava's
 // own sport_type list is much longer; the server collapses it onto these four.
 export type SportType = 'Run' | 'Bike' | 'Swim' | 'Strength';
 
@@ -46,8 +46,8 @@ const SPORT_OPTIONS: { id: SportType; label: string; icon: keyof typeof Ionicons
 const TOGGLE_ROWS: { key: keyof StravaShareFlags; title: string; subtitle: string }[] = [
   {
     key: 'shareScore',
-    title: 'Include Rooka Score in Caption',
-    subtitle: 'Add calculated XP and TSS to caption',
+    title: 'Include rooka score in Caption',
+    subtitle: 'Add calculated rooka and TSS to caption',
   },
   {
     key: 'shareName',
@@ -57,7 +57,7 @@ const TOGGLE_ROWS: { key: keyof StravaShareFlags; title: string; subtitle: strin
   {
     key: 'shareLink',
     title: 'Include rooka.io Link',
-    subtitle: 'Credit Rooka at the end of the caption',
+    subtitle: 'Credit rooka at the end of the caption',
   },
 ];
 
@@ -87,7 +87,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   // The server is the authority here; this is the optimistic local view of it.
   const [linkIsOptional, setLinkIsOptional] = useState(canHideRookaLink(user?.subscription_tier));
 
-  // iOS is the authority on whether Rooka may schedule workouts, so the badge
+  // iOS is the authority on whether rooka may schedule workouts, so the badge
   // reads the live WorkoutKit status rather than a flag we wrote ourselves.
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +106,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     };
   }, []);
 
-  // Granting happens in the Watch app, outside Rooka, so there has to be a way
+  // Granting happens in the Watch app, outside rooka, so there has to be a way
   // back here to re-read the status once the athlete has done it.
   const handleRefreshAppleStatus = async () => {
     setAppleSyncing(true);
@@ -154,7 +154,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       if (status === 'authorized') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } else {
-        // The scheduling permission lives in the Watch app under Rooka, not in
+        // The scheduling permission lives in the Watch app under rooka, not in
         // Settings or the Health app, so point people at the right place.
         Alert.alert('Permission Required', WORKOUT_KIT_DENIED_MESSAGE);
       }
@@ -244,7 +244,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const currentToggles = sportToggles[selectedSport] || DEFAULT_TOGGLES[selectedSport];
 
   return (
-    <View className="space-y-6">
+    <View className="gap-y-6">
       {/* APPLE HEALTH & WORKOUTKIT INTEGRATION */}
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-3">
@@ -255,13 +255,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           <View
             className={`px-2 py-0.5 rounded ${
               isAppleConnected
-                ? 'bg-green-500/10'
-                : 'bg-red-500/10'
+                ? 'bg-semantic-success/10'
+                : 'bg-semantic-error/10'
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                isAppleConnected ? 'text-green-500' : 'text-red-500'
+                isAppleConnected ? 'text-semantic-success' : 'text-semantic-error'
               }`}
             >
               {isAppleConnected ? 'Active' : appleSupported ? 'Disconnected' : 'Unavailable'}
@@ -270,15 +270,15 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </View>
 
         <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
-          Sends your planned Rooka sessions — warmup, intervals, targets and cooldown — straight
+          Sends your planned rooka sessions — warmup, intervals, targets and cooldown — straight
           into the Workout app on your Apple Watch. Needs iPhone on iOS 17 or newer with a paired
-          Watch. Completed sessions still come back to Rooka through Strava.
+          Watch. Completed sessions still come back to rooka through Strava.
         </Text>
 
         <View className="flex-row flex-wrap gap-2">
           <TouchableOpacity
             onPress={handleConnectAppleHealth}
-            className="bg-red-600 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+            className="bg-semantic-error px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
           >
             <Ionicons name="shield-checkmark-outline" size={16} color="#FFF" />
             <Text className="text-white font-bold text-xs ml-2">
@@ -313,13 +313,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           <View
             className={`px-2 py-0.5 rounded ${
               isGarminConnected
-                ? 'bg-green-500/10'
-                : 'bg-red-500/10'
+                ? 'bg-semantic-success/10'
+                : 'bg-semantic-error/10'
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                isGarminConnected ? 'text-green-500' : 'text-red-500'
+                isGarminConnected ? 'text-semantic-success' : 'text-semantic-error'
               }`}
             >
               {isGarminConnected ? 'Connected' : 'Disconnected'}
@@ -334,7 +334,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         <View className="flex-row flex-wrap gap-2">
           <TouchableOpacity
             onPress={onOpenGarminModal}
-            className="bg-blue-600 px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+            className="bg-semantic-info px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
           >
             <Ionicons name="settings-outline" size={16} color="#FFF" />
             <Text className="text-white font-bold text-xs ml-2">
@@ -371,13 +371,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           <View
             className={`px-2 py-0.5 rounded ${
               isStravaConnected
-                ? 'bg-green-500/10'
-                : 'bg-red-500/10'
+                ? 'bg-semantic-success/10'
+                : 'bg-semantic-error/10'
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                isStravaConnected ? 'text-green-500' : 'text-red-500'
+                isStravaConnected ? 'text-semantic-success' : 'text-semantic-error'
               }`}
             >
               {isStravaConnected ? 'Connected' : 'Disconnected'}
@@ -425,9 +425,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <TouchableOpacity
                 onPress={onDisconnectStrava}
                 disabled={stravaLoading}
-                className="bg-red-500/10 border border-red-500/30 px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+                className="bg-semantic-error/10 border border-semantic-error/30 px-4 py-2.5 rounded-xl flex-row items-center justify-center"
               >
-                <Text className="text-red-500 font-bold text-xs">Disconnect</Text>
+                <Text className="text-semantic-error font-bold text-xs">Disconnect</Text>
               </TouchableOpacity>
             </>
           )}
@@ -442,7 +442,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </View>
 
         <Text className="text-theme-muted text-xs mb-3 leading-relaxed">
-          Customize what details Rooka AI Coach posts to your Strava captions for each individual sport type.
+          Customize what details rooka AI Coach posts to your Strava captions for each individual sport type.
         </Text>
 
         {/* SPORT SELECTOR TABS */}
@@ -480,7 +480,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <ActivityIndicator size="small" color={theme.tint} />
           </View>
         ) : (
-          <View className="space-y-3">
+          <View className="gap-y-3">
             {TOGGLE_ROWS.map((row, index) => {
               const isLocked = row.key === 'shareLink' && !linkIsOptional;
               const isLast = index === TOGGLE_ROWS.length - 1;

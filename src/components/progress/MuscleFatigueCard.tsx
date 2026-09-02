@@ -18,7 +18,7 @@ export const MuscleFatigueCard: React.FC = () => {
   // Per-muscle load from the shared model in domain/muscleLoad.ts. What used to
   // be here counted activities and clamped at 95, which put an ordinary week at
   // 95/91/86 on the three leg groups — three muscles hitting one ceiling rather
-  // than three measurements. The model measures Rooka, decays it by age and
+  // than three measurements. The model measures rooka, decays it by age and
   // saturates smoothly instead.
   const scores = React.useMemo(
     () => fatiguePercentages(activities as any),
@@ -36,15 +36,15 @@ export const MuscleFatigueCard: React.FC = () => {
 
   // Helper for color badge
   const getFatigueStyle = (pct: number) => {
-    if (pct >= 65) return { color: '#EF4444', bg: 'bg-red-500/15', label: 'High Fatigue' };
+    if (pct >= 65) return { color: '#EF4444', bg: 'bg-semantic-error/15', label: 'High Fatigue' };
     if (pct >= 35) return { color: '#F98845', bg: 'bg-theme-accent/15', label: 'Moderate' };
-    return { color: '#10B981', bg: 'bg-emerald-500/15', label: 'Fresh / Low' };
+    return { color: '#10B981', bg: 'bg-semantic-success/15', label: 'Fresh / Low' };
   };
 
   return (
     <Card className="mb-4 bg-theme-card">
       <View className="flex-row items-center justify-between mb-3">
-        <View className="flex-row items-center space-x-2">
+        <View className="flex-row items-center gap-x-2">
           <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
           <Text className="text-xs font-bold text-theme-muted">
             Muscle Fatigue & Breakdown
@@ -53,13 +53,13 @@ export const MuscleFatigueCard: React.FC = () => {
         <Text className="text-xs font-semibold text-theme-muted">7-Day Workload Model</Text>
       </View>
 
-      <View className="space-y-3">
+      <View className="gap-y-3">
         {muscles.map((m) => {
           const style = getFatigueStyle(m.fatiguePct);
           return (
             <View key={m.key} className="bg-theme-bg/60 p-3 rounded-xl mb-2">
               <View className="flex-row justify-between items-center mb-1.5">
-                <View className="flex-row items-center space-x-2">
+                <View className="flex-row items-center gap-x-2">
                   <Ionicons name={m.icon} size={15} color="#8E9BA4" style={{ marginRight: 6 }} />
                   <Text className="text-xs font-extrabold text-theme-text">{m.name}</Text>
                 </View>

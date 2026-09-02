@@ -38,6 +38,8 @@ export interface SocialConnection {
   username: string;
   status: 'pending' | 'pending_received' | 'accepted';
   profile_picture_url?: string;
+  subscription_tier?: string;
+  role?: string;
 }
 
 export interface LeaderboardEntry {

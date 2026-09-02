@@ -1,3 +1,4 @@
+import { BrandColors } from '@/constants/theme';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,21 +85,21 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
           <View
             className={`w-9 h-9 rounded-full items-center justify-center border ${
               isAccepted
-                ? 'bg-emerald-500/20 border-emerald-500/40'
+                ? 'bg-semantic-success/20 border-semantic-success/40'
                 : isDeclined
-                ? 'bg-red-500/20 border-red-500/40'
+                ? 'bg-semantic-error/20 border-semantic-error/40'
                 : 'bg-theme-accent/20 border-theme-accent/40'
             }`}
           >
             <Ionicons
               name={isAccepted ? 'checkmark-circle' : isDeclined ? 'close-circle' : 'person-add'}
               size={18}
-              color={isAccepted ? '#10B981' : isDeclined ? '#EF4444' : '#FF5F3B'}
+              color={isAccepted ? '#10B981' : isDeclined ? '#EF4444' : BrandColors.primary}
             />
           </View>
           <View className="ml-2.5 flex-1">
             <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
-              {payload.username || 'Rooka Athlete'}
+              {payload.username || 'rooka Athlete'}
             </Text>
             <Text className="text-xs text-theme-muted font-medium">
               {isAccepted
@@ -114,8 +115,8 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
           <View
             className={`flex-row items-center px-2.5 py-1 rounded-full border ${
               isAccepted
-                ? 'bg-emerald-500/15 border-emerald-500/30'
-                : 'bg-red-500/15 border-red-500/30'
+                ? 'bg-semantic-success/15 border-semantic-success/30'
+                : 'bg-semantic-error/15 border-semantic-error/30'
             }`}
           >
             <Ionicons
@@ -125,7 +126,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
             />
             <Text
               className={`text-xs font-extrabold ml-1 ${
-                isAccepted ? 'text-emerald-500' : 'text-red-400'
+                isAccepted ? 'text-semantic-success' : 'text-semantic-error'
               }`}
             >
               {isAccepted ? 'Connected' : 'Declined'}
@@ -140,7 +141,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
             onPress={handleAccept}
             disabled={loading !== null}
             activeOpacity={0.8}
-            className="flex-1 bg-emerald-500 py-2 rounded-xl items-center justify-center flex-row shadow-xs"
+            className="flex-1 bg-semantic-success py-2 rounded-xl items-center justify-center flex-row shadow-xs"
           >
             {loading === 'accept' ? (
               <ActivityIndicator size="small" color="#FFFFFF" />

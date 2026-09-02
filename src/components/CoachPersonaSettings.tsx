@@ -1,3 +1,5 @@
+import { BrandColors } from '@/constants/theme';
+import { RookaMark } from './ui/RookaPoints';
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
@@ -30,7 +32,7 @@ export const CoachPersonaSettings: React.FC = () => {
   const { user, refreshUser, updateUser } = useUser();
 
   const [selectedTone, setSelectedTone] = useState<string>('Empathetic but demanding elite endurance coach.');
-  const [coachName, setCoachName] = useState<string>('Rooka');
+  const [coachName, setCoachName] = useState<string>('rooka');
   const [coachContext, setCoachContext] = useState<string>('');
   const [athleteContext, setAthleteContext] = useState<string>('');
   const [gender, setGender] = useState<string>(user?.gender || 'Prefer not to share');
@@ -45,7 +47,7 @@ export const CoachPersonaSettings: React.FC = () => {
       const toneVal = user.coach_tone || 'Empathetic but demanding elite endurance coach.';
       const isCustom = toneVal === 'custom' || toneVal === 'Configure own coach' || !TONE_OPTIONS.some(o => o.value === toneVal);
       setSelectedTone(isCustom ? 'custom' : toneVal);
-      setCoachName(user.coach_name || 'Rooka');
+      setCoachName(user.coach_name || 'rooka');
       setCoachContext(user.coach_context || '');
       setAthleteContext(user.athlete_context || '');
       setGender(user.gender || 'Prefer not to share');
@@ -117,9 +119,9 @@ export const CoachPersonaSettings: React.FC = () => {
   const isCustomSelected = selectedTone === 'custom' && hasPremium;
 
   return (
-    <Card className="p-4 mb-6 space-y-4">
+    <Card className="p-4 mb-6 gap-y-4">
       <View className="flex-row items-center pb-3 mb-2">
-        <Ionicons name="sparkles" size={20} color={theme.tint} />
+        <RookaMark size={20} color={theme.tint} />
         <Text className="text-base font-bold text-theme-text ml-2">Coach Persona & Settings</Text>
       </View>
 
@@ -128,7 +130,7 @@ export const CoachPersonaSettings: React.FC = () => {
         <Text className="text-xs font-bold text-theme-muted mb-2">
           Coach Tone & Style
         </Text>
-        <View className="space-y-2">
+        <View className="gap-y-2">
           {TONE_OPTIONS.map((opt) => {
             const isPremiumOption = (opt as any).premium;
             if (isPremiumOption && !hasPremium) {
@@ -163,7 +165,7 @@ export const CoachPersonaSettings: React.FC = () => {
                     </View>
                   ) : (
                     <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isSelected ? 'bg-white/20' : 'bg-theme-accent/20'}`}>
-                      <Ionicons name="sparkles" size={16} color={isSelected ? '#FFFFFF' : '#FF5F3B'} />
+                      <RookaMark size={16} color={isSelected ? '#FFFFFF' : BrandColors.primary} />
                     </View>
                   )}
                   <Text className={`text-sm flex-1 ${isSelected ? 'font-bold text-white' : 'text-theme-text font-medium'}`}>
@@ -181,7 +183,7 @@ export const CoachPersonaSettings: React.FC = () => {
 
       {/* Custom Coach Fields */}
       {isCustomSelected && (
-        <View className="p-3 bg-theme-bg opacity-60 rounded-xl space-y-3 mb-3">
+        <View className="p-3 bg-theme-bg opacity-60 rounded-xl gap-y-3 mb-3">
           <View>
             <Text className="text-xs font-bold text-theme-muted mb-1">Coach Name</Text>
             <TextInput
@@ -308,7 +310,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   updateUser({ gender: opt.value }).catch(() => {});
                 }}
                 activeOpacity={0.7}
-                className={`flex-1 p-3 rounded-xl flex-row items-center justify-center space-x-1.5 ${
+                className={`flex-1 p-3 rounded-xl flex-row items-center justify-center gap-x-1.5 ${
                   isSelected
                     ? 'bg-theme-accent'
                     : 'bg-theme-bg opacity-60'

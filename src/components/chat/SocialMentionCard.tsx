@@ -17,7 +17,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
   return (
     <View className="my-3 bg-theme-card/90 border border-theme-border rounded-tile p-4 shadow-sm">
       <View className="flex-row items-center gap-2.5 mb-2">
-        <View className="w-8 h-8 rounded-full bg-amber-500/20 items-center justify-center">
+        <View className="w-8 h-8 rounded-full bg-semantic-warning/20 items-center justify-center">
           <Ionicons name="chatbubble-ellipses" size={16} color="#F59E0B" />
         </View>
         <View className="flex-1">

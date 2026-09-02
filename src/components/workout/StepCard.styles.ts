@@ -1,3 +1,4 @@
+import { BrandColors } from '@/constants/theme';
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
@@ -37,10 +38,10 @@ export const CARD_COLORS = {
     badgeBg: 'rgba(139, 92, 246, 0.15)',
   },
   repeat: {
-    bar: '#FF5F3B', // Theme Accent
+    bar: BrandColors.primary, // Theme Accent
     bg: 'rgba(255, 95, 59, 0.05)',
     border: 'rgba(255, 95, 59, 0.3)',
-    text: '#FF5F3B',
+    text: BrandColors.primary,
     badgeBg: 'rgba(255, 95, 59, 0.15)',
   },
   default: {

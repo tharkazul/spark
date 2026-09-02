@@ -39,7 +39,7 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     data.dailyTokenLimit ?? data.daily_token_limit ?? prev?.daily_token_limit ?? 50000,
   athlete_context: data.athleteContext ?? data.athlete_context ?? prev?.athlete_context,
   coach_tone: data.coachTone ?? data.coach_tone ?? prev?.coach_tone,
-  coach_name: data.coachName ?? data.coach_name ?? 'Rooka',
+  coach_name: data.coachName ?? data.coach_name ?? 'rooka',
   coach_context: data.coachContext ?? data.coach_context ?? '',
   coach_avatar_neutral: data.coachAvatarNeutral ?? data.coach_avatar_neutral,
   coach_avatar_hype: data.coachAvatarHype ?? data.coach_avatar_hype,
@@ -190,7 +190,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       await userApi.trackRookaPlusClick();
     } catch (err) {
-      console.log('Track Rooka+ error:', err);
+      console.log('Track rooka+ error:', err);
     }
   }, []);
 
@@ -260,7 +260,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           // inventing a profile with every integration reported as missing.
           console.log('Auth initialization deferred (server unreachable):', err?.message || err);
           setAuthToken(null);
-          setError('Could not reach Rooka. Check your connection and try again.');
+          setError('Could not reach rooka. Check your connection and try again.');
         }
       } catch (err) {
         console.log('Auth initialization failed:', err);

@@ -10,10 +10,13 @@ ios/
 .env.*
 *.env
 
-# SQLite databases
+# SQLite databases & backups
 *.db
+*.db-journal
+*.db-wal
 *.sqlite
 *.sqlite3
+backups/
 
 # Swap & system files
 *.swp

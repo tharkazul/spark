@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Pressable, StyleSheet, DeviceEventEmitter, Modal, Animated as RNAnimated } from 'react-native';
 import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { BrandColors } from '../constants/theme';
+import { BrandColors, accentAlpha } from '../constants/theme';
 import { useTabBar } from '../context/TabBarContext';
 import { useCoachChat } from '../context/CoachChatStore';
 import { usePhysique } from '../context/PhysiqueStore';
@@ -29,7 +29,7 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { registerScrollListener, setTabBarOccupied } = useTabBar();
+  const { registerScrollListener, registerScrollEndListener, setTabBarOccupied } = useTabBar();
   const { unreadCount, sendMessage } = useCoachChat();
   const { logPhysique } = usePhysique();
   const { addWorkout } = usePlan();
@@ -65,14 +65,14 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
     menuTranslateY.value = withSpring(0, { damping: 22, stiffness: 320, mass: 0.7 });
   };
 
-  const closeQuickMenu = () => {
+  const closeQuickMenu = useCallback(() => {
     menuScale.value = withSpring(0.7, { damping: 20, stiffness: 300 });
     menuOpacity.value = withTiming(0, { duration: 120 });
     menuTranslateY.value = withSpring(15, { damping: 20, stiffness: 300 });
     setTimeout(() => {
       setIsQuickMenuOpen(false);
     }, 120);
-  };
+  }, [menuScale, menuOpacity, menuTranslateY]);
 
   const handleQuickAction = (actionType: 'weight' | 'workout' | 'activity' | 'injury') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -93,30 +93,62 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
 
   const scaleAnim = useSharedValue(1);
   const opacityAnim = useSharedValue(1);
+  const hideAnim = useSharedValue(0);
 
-  const expandBar = () => {
-    scaleAnim.value = withSpring(1, { damping: 15, stiffness: 200 });
-    opacityAnim.value = withTiming(1, { duration: 180 });
-  };
+  /**
+   * Come back once the list settles.
+   *
+   * Deliberately asymmetric with shrinkBar: leaving should be quick, arriving
+   * should not draw the eye. Both of these springs used to be underdamped --
+   * damping 18 against stiffness 220 is a ratio of 0.61, and the scale spring
+   * was 0.53 -- so the bar overshot and wobbled every single time scrolling
+   * stopped, which is a lot of wobble for something you are not looking at.
+   *
+   * Critical damping for stiffness 130 (mass 1) is 2*sqrt(130) ~= 22.8, so
+   * damping 26 puts these just past it: no overshoot at all, and the softer
+   * stiffness makes the travel slower and calmer than the exit.
+   */
+  const expandBar = useCallback(() => {
+    scaleAnim.value = withSpring(1, { damping: 26, stiffness: 130 });
+    opacityAnim.value = withTiming(1, { duration: 260 });
+    hideAnim.value = withSpring(0, { damping: 26, stiffness: 130 });
+  }, [scaleAnim, opacityAnim, hideAnim]);
 
-  const shrinkBar = () => {
-    scaleAnim.value = withSpring(0.9, { damping: 15, stiffness: 200 });
-    opacityAnim.value = withTiming(0.88, { duration: 220 });
+  /**
+   * Get out of the way while the list moves.
+   *
+   * This used to drop opacity to 0.88 and leave it there: the bar became MORE
+   * see-through at exactly the moment content was passing underneath it, and
+   * nothing restored it, because expandBar() only ran on tap. The result was a
+   * permanently milky bar with half-legible text bleeding through on every
+   * scrolling screen. Translating it clear of the content is the honest fix --
+   * either the bar is there and opaque, or it is gone.
+   */
+  const shrinkBar = useCallback(() => {
+    scaleAnim.value = withSpring(0.96, { damping: 15, stiffness: 200 });
+    hideAnim.value = withSpring(1, { damping: 18, stiffness: 220 });
     if (isQuickMenuOpen) {
       closeQuickMenu();
     }
-  };
+  }, [scaleAnim, hideAnim, isQuickMenuOpen, closeQuickMenu]);
 
   useEffect(() => {
     const unsubscribe = registerScrollListener(() => {
       shrinkBar();
     });
     return unsubscribe;
-  }, [registerScrollListener]);
+  }, [registerScrollListener, shrinkBar]);
 
-  const bgColor = isDark ? 'rgba(30, 41, 59, 0.92)' : 'rgba(255, 255, 255, 0.95)';
+  useEffect(() => {
+    const unsubscribe = registerScrollEndListener(() => {
+      expandBar();
+    });
+    return unsubscribe;
+  }, [registerScrollEndListener, expandBar]);
+
+  const bgColor = isDark ? 'rgba(30, 41, 59, 0.98)' : 'rgba(255, 255, 255, 0.98)';
   const borderColor = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.08)';
-  const activeBlobBg = isDark ? 'rgba(255, 107, 53, 0.20)' : 'rgba(255, 90, 31, 0.15)';
+  const activeBlobBg = isDark ? accentAlpha(0.20, true) : accentAlpha(0.15);
 
   const bubbleBg = isDark ? '#1E293B' : '#FFFFFF';
   const bubbleBorder = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.12)';
@@ -139,7 +171,10 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
     return {
       transform: [
         { scale: scaleAnim.value },
-        { translateY: progress.value * totalOffset }
+        // Two independent reasons to be off-screen: the keyboard is up
+        // (`progress`), or the user is scrolling (`hideAnim`). Summed, so
+        // whichever is further wins and neither cancels the other out.
+        { translateY: progress.value * totalOffset + hideAnim.value * totalOffset },
       ],
       opacity: opacityAnim.value * (1 - progress.value),
     };

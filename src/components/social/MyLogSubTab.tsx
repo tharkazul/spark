@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
+import { RookaPoints } from '../ui/RookaPoints';
+import { BrandColors, Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo, useState } from 'react';
@@ -120,7 +121,7 @@ function getSportVisuals(sportType?: string, name?: string, accent = Colors.ligh
 function CircularProgressChamber({
   progress = 0.75,
   icon,
-  iconColor = '#FF5F3B',
+  iconColor = BrandColors.primary,
   size = 54,
   strokeWidth = 3,
 }: {
@@ -253,7 +254,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
   };
 
   return (
-    <View className="space-y-5 pb-6">
+    <View className="gap-y-5 pb-6">
       {/* SECTION 1: GOAL CRUSHER CARDS */}
       <View>
         <View className="flex-row justify-between items-center mb-3 px-0.5">
@@ -286,7 +287,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             </View>
 
             <View className="flex-row items-end justify-between">
-              <View className="bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-full border border-slate-200/80 dark:border-white/10">
+              <View className="bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-full border border-theme-border/80 dark:border-white/10">
                 <Text className="text-xs font-bold text-theme-text font-mono">
                   {questProgressPercent}%
                 </Text>
@@ -311,7 +312,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             </View>
 
             <View className="flex-row items-end justify-between">
-              <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-slate-200/80 dark:border-white/10">
+              <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-theme-border/80 dark:border-white/10">
                 <Text className="text-xs font-bold text-theme-text">
                   {realStreak > 0 ? 'Keep it up!' : 'Start today!'}
                 </Text>
@@ -349,7 +350,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             <Text className="text-sm font-semibold text-theme-muted mt-2">No activity history recorded yet.</Text>
           </View>
         ) : (
-          <View className="space-y-2.5">
+          <View className="gap-y-2.5">
             {activities.map((act) => {
               const idStr = String(act.id);
               const visuals = getSportVisuals(act.sport_type, act.name, theme.tint);
@@ -358,9 +359,10 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               const primaryStat = hasDistance
                 ? `${act.distance_km!.toFixed(1)}km`
                 : `${Math.round(act.moving_time_min || 0)} mins`;
-              const secondaryStat = hasDistance
-                ? formatDuration(act.moving_time_min)
-                : `+${Math.round(act.rooka_score || act.tss || 0)}⚡`;
+              const secondaryStat = hasDistance ? formatDuration(act.moving_time_min) : null;
+              const secondaryPoints = hasDistance
+                ? null
+                : Math.round(act.rooka_score || act.tss || 0);
 
               return (
                 <TouchableOpacity
@@ -371,7 +373,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                 >
                   {/* Left: Circular Icon & Titles */}
                   <View className="flex-row items-center flex-1 pr-3">
-                    <View className="w-12 h-12 rounded-full items-center justify-center bg-slate-100 dark:bg-white/10 border border-slate-200/60 dark:border-white/15 mr-3.5">
+                    <View className="w-12 h-12 rounded-full items-center justify-center bg-slate-100 dark:bg-white/10 border border-theme-border/60 dark:border-white/15 mr-3.5">
                       <Ionicons name={visuals.icon} size={22} color={visuals.color} />
                     </View>
 
@@ -379,7 +381,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                       <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
                         {act.name || visuals.label}
                       </Text>
-                      <Text className="text-xs font-medium text-theme-muted dark:text-slate-400 mt-0.5">
+                      <Text className="text-xs font-medium text-theme-muted mt-0.5">
                         {dateStr}
                       </Text>
                     </View>
@@ -390,9 +392,15 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                     <Text className="text-base font-extrabold text-theme-text font-mono">
                       {primaryStat}
                     </Text>
-                    <Text className="text-xs font-medium text-theme-muted dark:text-slate-400 font-mono mt-0.5">
-                      {secondaryStat}
-                    </Text>
+                    {secondaryStat !== null ? (
+                      <Text className="text-xs font-medium text-theme-muted font-mono mt-0.5">
+                        {secondaryStat}
+                      </Text>
+                    ) : (
+                      <View className="mt-0.5">
+                        <RookaPoints value={secondaryPoints ?? 0} color={theme.textSecondary} />
+                      </View>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -410,7 +418,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
-            <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
+            <View className="w-12 h-12 rounded-2xl bg-semantic-warning/15 items-center justify-center">
               <Ionicons name="trophy" size={26} color={theme.tint} />
             </View>
             <View>
@@ -419,9 +427,9 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             </View>
           </View>
           {activeQuest?.reward_points ? (
-            <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
-              <Text className="text-sm font-mono font-extrabold text-amber-500">
-                +{Math.round(activeQuest.reward_points)} Rooka
+            <View className="bg-semantic-warning/15 px-3 py-1.5 rounded-full">
+              <Text className="text-sm font-mono font-extrabold text-semantic-warning">
+                +{Math.round(activeQuest.reward_points)} rooka
               </Text>
             </View>
           ) : null}
@@ -429,7 +437,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
         <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
           <Text className="text-sm font-bold text-theme-text leading-relaxed">
-            {activeQuest?.description || 'Complete your active challenges this week to earn bonus Rooka points.'}
+            {activeQuest?.description || 'Complete your active challenges this week to earn bonus rooka points.'}
           </Text>
         </View>
 
@@ -438,13 +446,13 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             <Text className="text-xs font-bold text-theme-muted">
               Progress ({currentProgress} / {targetVal})
             </Text>
-            <Text className="text-sm font-mono font-bold text-amber-500">
+            <Text className="text-sm font-mono font-bold text-semantic-warning">
               {questProgressPercent}%
             </Text>
           </View>
           <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
             <View
-              className="h-full bg-amber-500 rounded-full"
+              className="h-full bg-semantic-warning rounded-full"
               style={{ width: `${questProgressPercent}%` }}
             />
           </View>

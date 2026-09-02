@@ -1,19 +1,18 @@
 import { Platform } from 'react-native';
 import Purchases, {
   CustomerInfo,
-  PurchasesOffering,
-  PurchasesPackage,
   LOG_LEVEL,
-  PurchasesError,
   PURCHASES_ERROR_CODE,
+  PurchasesOffering,
+  PurchasesPackage
 } from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 // RevenueCat Public API Keys
-export const REVENUECAT_APPLE_KEY = 'test_ncoYEuNlgOotwSTOKwfVQvBPYxF';
+export const REVENUECAT_APPLE_KEY = 'appl_xahgRkiLzkQGFIEoOtlnxhMZDEO';
 export const REVENUECAT_GOOGLE_KEY = 'test_ncoYEuNlgOotwSTOKwfVQvBPYxF';
 
-// Key Entitlement identifier for Rooka subscription
+// Key Entitlement identifier for rooka subscription
 export const ROOKA_ENTITLEMENT_ID = 'rooka';
 
 let isConfigured = false;
@@ -35,14 +34,21 @@ export async function initializeRevenueCat(appUserID?: string | number): Promise
   }
 
   try {
-    if (__DEV__) {
+    if (!Purchases) {
+      console.warn('[RevenueCat] Native module unavailable (likely running in Expo Go). Skipping init.');
+      return;
+    }
+
+    if (__DEV__ && typeof Purchases.setLogLevel === 'function') {
       await Purchases.setLogLevel(LOG_LEVEL.DEBUG);
     }
 
-    Purchases.configure({
-      apiKey,
-      appUserID: appUserID ? String(appUserID) : undefined,
-    });
+    if (typeof Purchases.configure === 'function') {
+      Purchases.configure({
+        apiKey,
+        appUserID: appUserID ? String(appUserID) : undefined,
+      });
+    }
 
     isConfigured = true;
     console.log('[RevenueCat] SDK configured successfully.');

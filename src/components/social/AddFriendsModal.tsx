@@ -1,3 +1,4 @@
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -11,6 +12,7 @@ import {
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
+  Dimensions,
   Platform,
   Image,
 } from 'react-native';
@@ -19,6 +21,8 @@ import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface AddFriendsModalProps {
   visible: boolean;
@@ -31,8 +35,31 @@ interface SearchUserResult {
   id: number;
   username: string;
   profile_picture_url?: string;
+  subscription_tier?: string;
+  role?: string;
   status: 'none' | 'pending' | 'pending_received' | 'accepted' | 'self' | null;
 }
+
+export const formatTierLabel = (tier?: string | null, role?: string | null): string => {
+  const normalizedTier = (tier || '').toLowerCase().trim();
+  const normalizedRole = (role || '').toLowerCase().trim();
+
+  if (normalizedTier === 'admin' || normalizedRole === 'admin') {
+    return 'rooka admin';
+  }
+  if (normalizedTier === 'premium') {
+    return 'rooka premium user';
+  }
+  if (
+    normalizedTier === 'rooka_plus' ||
+    normalizedTier === 'subscription' ||
+    normalizedTier === 'rooka+' ||
+    normalizedTier === 'plus'
+  ) {
+    return 'rooka+ user';
+  }
+  return 'rooka free user';
+};
 
 export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   visible,
@@ -40,8 +67,11 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   onConnectionsUpdated,
   onOpenAthleteProfile,
 }) => {
-    const theme = useTheme();
+  const theme = useTheme();
+  const [showModal, setShowModal] = useState(visible);
   const [searchQuery, setSearchQuery] = useState('');
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
   const { dragY, panHandlers } = useSheetDismiss(onClose);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchUserResult[]>([]);
@@ -54,12 +84,46 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      setShowModal(true);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      backdropOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 24,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
       setSearchQuery('');
       setSearchResults([]);
       setHasSearched(false);
       lastSearchIdRef.current = 0;
       latestDisplayedSearchIdRef.current = 0;
       fetchPendingRequests();
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowModal(false);
+      });
     }
   }, [visible]);
 
@@ -106,6 +170,8 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
               id: u.id,
               username: u.username,
               profile_picture_url: u.profile_picture_url,
+              subscription_tier: u.subscription_tier,
+              role: u.role,
               status: (u.status as any) || 'none',
             }));
           } else if (res.user) {
@@ -114,6 +180,8 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                 id: res.user.id,
                 username: res.user.username,
                 profile_picture_url: (res.user as any).profile_picture_url,
+                subscription_tier: res.user.subscription_tier,
+                role: res.user.role,
                 status: (res.user.status as any) || 'none',
               },
             ];
@@ -174,33 +242,52 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
     }
   };
 
+  if (!showModal) return null;
+
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
+      visible={showModal}
+      transparent
+      animationType="none"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 justify-end bg-black/60"
+        style={{ flex: 1 }}
       >
-        {/* The dimmed area had no press target, so tapping it did nothing. */}
-        <TouchableOpacity activeOpacity={1} onPress={onClose} style={StyleSheet.absoluteFillObject} />
+        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+          {/* Static Fullscreen Backdrop: Fades In Simultaneously */}
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={onClose}
+              style={{ flex: 1 }}
+            />
+          </Animated.View>
 
-        <Animated.View
-          style={{ transform: [{ translateY: dragY }] }}
-          className="bg-theme-card border-t border-theme-border rounded-t-card px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]"
-        >
-          {/* TOP PULL HANDLE INDICATOR */}
-          <View {...panHandlers} className="items-center pb-4 pt-1">
-            <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
-          </View>
+          {/* Bottom Sheet Modal Container */}
+          <Animated.View
+            style={[
+              {
+                transform: [{ translateY: Animated.add(slideAnim, dragY) }],
+              },
+            ]}
+            className="w-full bg-theme-card border-t border-theme-border rounded-t-card px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]"
+          >
+            {/* TOP PULL HANDLE INDICATOR */}
+            <View {...panHandlers} className="items-center pb-4 pt-1">
+              <SheetGrabber />
+            </View>
 
           {/* Header */}
           <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/50">
-            <View className="flex-row items-center space-x-2">
-              <View className="w-8 h-8 rounded-full bg-theme-accent/15 items-center justify-center">
+            <View className="flex-row items-center gap-x-2">
+              <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
                 <Ionicons name="person-add" size={16} color={theme.tint} />
               </View>
               <Text className="text-lg font-extrabold text-theme-text">Find & Add Friends</Text>
@@ -255,7 +342,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                 </View>
 
                 {searchResults.length > 0 ? (
-                  <View className="space-y-2">
+                  <View className="gap-y-2">
                     {searchResults.map((item) => {
                       const isConnecting = connectingId === item.id;
                       return (
@@ -278,7 +365,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                                     }, 150);
                                   }
                                 }}
-                                className="flex-row items-center space-x-3 flex-1 mr-2"
+                                className="flex-row items-center gap-x-3 flex-1 mr-2"
                               >
                                 {searchAvatarUri ? (
                                   <Image
@@ -297,7 +384,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                                     {item.username}
                                   </Text>
                                   <Text className="text-xs text-theme-muted font-medium">
-                                    Rooka Athlete
+                                    {formatTierLabel(item.subscription_tier, item.role)}
                                   </Text>
                                 </View>
                               </TouchableOpacity>
@@ -310,9 +397,9 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               <Text className="text-xs font-bold text-theme-accent">You</Text>
                             </View>
                           ) : item.status === 'accepted' ? (
-                            <View className="flex-row items-center bg-emerald-500/15 px-3 py-1.5 rounded-full border border-emerald-500/30">
+                            <View className="flex-row items-center bg-semantic-success/15 px-3 py-1.5 rounded-full border border-semantic-success/30">
                               <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                              <Text className="text-xs font-bold text-emerald-500 ml-1">Connected</Text>
+                              <Text className="text-xs font-bold text-semantic-success ml-1">Connected</Text>
                             </View>
                           ) : item.status === 'pending' ? (
                             <View className="bg-theme-border/30 px-3 py-1.5 rounded-full border border-theme-border">
@@ -322,27 +409,20 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                             <TouchableOpacity
                               onPress={() => handleAccept(item.id)}
                               disabled={isConnecting}
-                              className="bg-emerald-500 px-3.5 py-1.5 rounded-xl shadow-xs"
+                              className="bg-semantic-success px-3.5 py-1.5 rounded-xl"
                             >
-                              {isConnecting ? (
-                                <ActivityIndicator size="small" color="#FFFFFF" />
-                              ) : (
-                                <Text className="text-xs font-extrabold text-white">Accept</Text>
-                              )}
+                              <Text className="text-xs font-extrabold text-white">Accept</Text>
                             </TouchableOpacity>
                           ) : (
                             <TouchableOpacity
                               onPress={() => handleConnect(item.id)}
                               disabled={isConnecting}
-                              className="bg-theme-accent px-3.5 py-1.5 rounded-xl shadow-xs flex-row items-center space-x-1"
+                              className="bg-theme-accent px-3.5 py-1.5 rounded-xl"
                             >
                               {isConnecting ? (
-                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                <ActivityIndicator size="small" color="#FFF" />
                               ) : (
-                                <>
-                                  <Ionicons name="person-add" size={13} color="#FFFFFF" />
-                                  <Text className="text-xs font-extrabold text-white ml-1">Connect</Text>
-                                </>
+                                <Text className="text-xs font-extrabold text-white">+ Add</Text>
                               )}
                             </TouchableOpacity>
                           )}
@@ -371,17 +451,22 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                     key={`req-${req.friend_id || req.user_id}`}
                     className="flex-row items-center justify-between p-3.5 bg-theme-bg border border-theme-border/60 rounded-2xl mb-2"
                   >
-                    <View className="flex-row items-center space-x-3">
+                    <View className="flex-row items-center gap-x-3 flex-1 mr-2">
                       <View className="w-9 h-9 rounded-full bg-theme-accent/20 items-center justify-center">
                         <Text className="text-xs font-extrabold text-theme-accent">
                           {(req.username || 'A').charAt(0).toUpperCase()}
                         </Text>
                       </View>
-                      <Text className="text-sm font-extrabold text-theme-text">{req.username}</Text>
+                      <View className="flex-1">
+                        <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>{req.username}</Text>
+                        <Text className="text-xs text-theme-muted font-medium">
+                          {formatTierLabel(req.subscription_tier, req.role)}
+                        </Text>
+                      </View>
                     </View>
                     <TouchableOpacity
                       onPress={() => handleAccept(req.friend_id || req.user_id)}
-                      className="bg-emerald-500 px-3.5 py-1.5 rounded-xl"
+                      className="bg-semantic-success px-3.5 py-1.5 rounded-xl"
                     >
                       <Text className="text-xs font-extrabold text-white">Accept</Text>
                     </TouchableOpacity>
@@ -391,7 +476,8 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             )}
           </ScrollView>
         </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
+      </View>
+    </KeyboardAvoidingView>
+  </Modal>
   );
 };

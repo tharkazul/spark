@@ -1,4 +1,5 @@
 import { TouchableOpacity, Text, TouchableOpacityProps, ActivityIndicator } from 'react-native';
+import { BrandColors } from '@/constants/theme';
 
 interface ButtonProps extends TouchableOpacityProps {
   label: string;
@@ -41,12 +42,12 @@ export function Button({
 
   return (
     <TouchableOpacity 
-      className={`py-3.5 px-6 rounded-xl flex-row items-center justify-center border ${getVariantClasses()} ${className}`}
+      className={`py-3.5 px-6 rounded-control flex-row items-center justify-center border ${getVariantClasses()} ${className}`}
       disabled={isLoading || props.disabled}
       {...props}
     >
       {isLoading ? (
-        <ActivityIndicator color={variant === 'primary' ? 'white' : '#FF5F3B'} />
+        <ActivityIndicator color={variant === 'primary' ? 'white' : BrandColors.primary} />
       ) : (
         <Text className={`text-base text-center ${getTextClasses()}`}>{label}</Text>
       )}

@@ -14,6 +14,27 @@ export const BrandColors = {
   accentDark: '#FF6B45',
 } as const;
 
+/**
+ * Channel triplets for the brand accents, and the only way to write a
+ * translucent accent in a StyleSheet or inline style.
+ *
+ * React Native can't read the `--accent` CSS variable the NativeWind classes
+ * use, so every `rgba()` tint here was hand-typed -- and three different bases
+ * drifted into circulation: 255,90,31 (#FF5A1F) and 255,107,53 (#FF6B35)
+ * alongside the real 255,95,59. They were close enough to look intentional and
+ * far enough to never quite line up: OnboardingWizard had style objects setting
+ * `borderColor: theme.tint` next to `backgroundColor: 'rgba(255, 90, 31, 0.1)'`
+ * -- two different oranges on the same element. Call accentAlpha() instead.
+ */
+export const BrandRgb = {
+  primary: '255, 95, 59',     // #FF5F3B
+  accentDark: '255, 107, 69', // #FF6B45
+} as const;
+
+/** Brand accent at `alpha`. Pass dark=true on a dark canvas. */
+export const accentAlpha = (alpha: number, dark = false) =>
+  `rgba(${dark ? BrandRgb.accentDark : BrandRgb.primary}, ${alpha})`;
+
 export const NeutralColors = {
   50: '#F7F7F9',
   100: '#EAEAED',
@@ -48,8 +69,8 @@ export const SportColors = {
     CARDIO: '#E0625A', HIIT: '#E0625A', STRENGTH: '#B36AE0', YOGA: '#2EBFAF',
     MOBILITY: '#2EBFAF', WALK: '#8FA82E', HIKE: '#8FA82E', REST: '#6F6F79',
     ROWING: '#0284C7', WINTER: '#38BDF8', RACQUET: '#84CC16', SOCCER: '#10B981',
-    BASKETBALL: '#FF5F3B', GOLF: '#22C55E', COMBAT: '#EF4444', FITNESS: '#F43F5E',
-    DEFAULT: '#FF5F3B',
+    BASKETBALL: BrandColors.primary, GOLF: '#22C55E', COMBAT: '#EF4444', FITNESS: '#F43F5E',
+    DEFAULT: BrandColors.primary,
   },
   dark: {
     SWIM: '#5BA8E8', BIKE: '#6FC48A', RIDE: '#6FC48A', RUN: '#E0B94F',
@@ -57,7 +78,7 @@ export const SportColors = {
     MOBILITY: '#4FD1C0', WALK: '#A8C24F', HIKE: '#A8C24F', REST: '#9A9AA2',
     ROWING: '#3CA0D4', WINTER: '#66CCFA', RACQUET: '#A0D84B', SOCCER: '#47C99E',
     BASKETBALL: '#FF8468', GOLF: '#55D283', COMBAT: '#F36F6F', FITNESS: '#F76B83',
-    DEFAULT: '#FF6B45',
+    DEFAULT: BrandColors.accentDark,
   },
 } as const;
 
@@ -92,7 +113,7 @@ export const Colors = {
     background: '#F8FAFC',         // --bg-main
     card: '#FFFFFF',               // --bg-card
     border: '#E2E8F0',             // --border-color
-    tint: '#FF5F3B',               // --accent
+    tint: BrandColors.primary,               // --accent
     backgroundElement: '#F1F5F9',  // --gray-100
     backgroundSelected: '#E2E8F0', // --gray-200
   },
@@ -102,7 +123,7 @@ export const Colors = {
     background: '#0F172A',
     card: '#1E293B',
     border: '#334155',
-    tint: '#FF5F3B',
+    tint: BrandColors.primary,
     backgroundElement: '#1E293B',
     backgroundSelected: '#334155',
   },

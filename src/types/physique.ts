@@ -13,6 +13,14 @@ export interface PhysiqueEntry {
   created_at?: string;
 }
 
+export interface FuelingTimingItem {
+  phase: string;
+  detail: string;
+  type?: 'pre' | 'intra' | 'post' | 'morning' | 'midday' | 'evening' | 'meal' | 'rest' | 'hydration';
+  icon?: string;
+  badge?: string;
+}
+
 export interface NutritionProtocol {
   title?: string;
   focusTitle: string;
@@ -27,5 +35,6 @@ export interface NutritionProtocol {
   loggedFat: number;
   fatTarget: number;
   loggedItems?: string[];
+  timing?: FuelingTimingItem[];
 }
 

@@ -1,3 +1,4 @@
+import { BrandColors } from '@/constants/theme';
 import React, { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, LayoutAnimation } from 'react-native';
@@ -221,9 +222,9 @@ const StepCardComponent = ({
         { marginLeft: isSubStep ? 24 : 0, marginBottom: 8 },
       ]}
     >
-      <View className="bg-white dark:bg-theme-card rounded-tile border border-slate-200 dark:border-theme-border/70 overflow-hidden flex-row shadow-xs">
+      <View className="bg-white dark:bg-theme-card rounded-tile border border-theme-border dark:border-theme-border/70 overflow-hidden flex-row shadow-xs">
         {/* Left Vertical Accent Bar & Drag Handle */}
-        <View className="flex-row items-center w-9 bg-slate-50 dark:bg-theme-bg/60 border-r border-slate-100 dark:border-theme-border/50 justify-center">
+        <View className="flex-row items-center w-9 bg-theme-bg dark:bg-theme-bg/60 border-r border-slate-100 dark:border-theme-border/50 justify-center">
           <View
             className="absolute left-0 top-0 bottom-0 w-1.5"
             style={{ backgroundColor: colorConfig.bar }}
@@ -250,7 +251,7 @@ const StepCardComponent = ({
           {/* Step Header */}
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-1.5">
-              <Text className="text-xs font-extrabold text-slate-800 dark:text-theme-text">
+              <Text className="text-xs font-extrabold text-theme-text">
                 {/* Was rendered via `uppercase`; the raw value is lowercase
                     ("warmup", "interval"), so capitalise it at the source. */}
                 {step.type ? step.type.charAt(0).toUpperCase() + step.type.slice(1) : ''}
@@ -275,7 +276,7 @@ const StepCardComponent = ({
           {/* Step Config Row */}
           {step.type === 'repeat' ? (
             <View className="flex-row items-center gap-2">
-              <View className="flex-row items-center bg-slate-50 dark:bg-theme-bg/80 border border-slate-200 dark:border-theme-border/60 rounded-xl px-3 py-1.5">
+              <View className="flex-row items-center bg-theme-bg dark:bg-theme-bg/80 border border-theme-border dark:border-theme-border/60 rounded-xl px-3 py-1.5">
                 <TextInput
                   value={step.iterations !== undefined ? String(step.iterations) : ''}
                   onChangeText={(text) => {
@@ -290,7 +291,7 @@ const StepCardComponent = ({
                   style={{ color: inputTextColor }}
                   className="w-10 text-sm font-extrabold text-center p-0"
                 />
-                <Text className="text-xs font-bold text-slate-500 dark:text-theme-muted ml-1">times</Text>
+                <Text className="text-xs font-bold text-theme-muted dark:text-theme-muted ml-1">times</Text>
               </View>
             </View>
           ) : (
@@ -305,13 +306,13 @@ const StepCardComponent = ({
                   placeholder="Exercise name (e.g. Core Plank / Squats)"
                   placeholderTextColor={theme.textSecondary}
                   style={{ color: inputTextColor }}
-                  className="w-full h-9 bg-slate-50 dark:bg-theme-bg/70 border border-slate-200 dark:border-theme-border/60 rounded-xl px-3 text-xs font-bold"
+                  className="w-full h-9 bg-theme-bg dark:bg-theme-bg/70 border border-theme-border dark:border-theme-border/60 rounded-xl px-3 text-xs font-bold"
                 />
               )}
 
               <View className="flex-row flex-wrap items-center gap-2">
                 {/* Condition Box (Duration/Distance/Reps) matching Image 1 & 2 */}
-                <View className="flex-row items-center bg-slate-50 dark:bg-theme-bg/80 border border-slate-200 dark:border-theme-border/60 rounded-xl h-9 px-2.5">
+                <View className="flex-row items-center bg-theme-bg dark:bg-theme-bg/80 border border-theme-border dark:border-theme-border/60 rounded-xl h-9 px-2.5">
                   <TextInput
                     value={step.condition_value !== undefined ? String(step.condition_value) : ''}
                     onChangeText={handleValueChange}
@@ -321,9 +322,9 @@ const StepCardComponent = ({
                   />
                   <TouchableOpacity
                     onPress={handleUnitToggle}
-                    className="flex-row items-center ml-1 pl-1.5 border-l border-slate-200 dark:border-theme-border/60"
+                    className="flex-row items-center ml-1 pl-1.5 border-l border-theme-border dark:border-theme-border/60"
                   >
-                    <Text className="text-xs font-extrabold text-slate-500 dark:text-theme-muted uppercase">
+                    <Text className="text-xs font-extrabold text-theme-muted dark:text-theme-muted uppercase">
                       {unitDisplay}
                     </Text>
                     <Ionicons name="chevron-down" size={10} color={theme.textSecondary} style={{ marginLeft: 2 }} />
@@ -340,11 +341,11 @@ const StepCardComponent = ({
                     setIsExpanded(!isExpanded);
                   }}
                   activeOpacity={0.75}
-                  className="h-9 px-3 bg-slate-50 dark:bg-theme-bg/80 border border-slate-200 dark:border-theme-border/60 rounded-xl flex-row items-center gap-1.5"
+                  className="h-9 px-3 bg-theme-bg dark:bg-theme-bg/80 border border-theme-border dark:border-theme-border/60 rounded-xl flex-row items-center gap-1.5"
                 >
-                  <Text className="text-xs font-bold text-slate-500 dark:text-theme-muted">
+                  <Text className="text-xs font-bold text-theme-muted dark:text-theme-muted">
                     Target:{' '}
-                    <Text className="text-slate-900 dark:text-theme-text font-extrabold">
+                    <Text className="text-theme-text font-extrabold">
                       {targetDisplay}
                     </Text>
                   </Text>
@@ -358,8 +359,8 @@ const StepCardComponent = ({
 
               {/* Clean, Spacious Collapsible Target Picker Panel */}
               {isExpanded && (
-                <View className="mt-1 p-3 bg-slate-50 dark:bg-theme-bg/90 border border-slate-200/80 dark:border-theme-border/60 rounded-xl flex-col gap-2.5">
-                  <Text className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
+                <View className="mt-1 p-3 bg-theme-bg dark:bg-theme-bg/90 border border-theme-border/80 dark:border-theme-border/60 rounded-xl flex-col gap-2.5">
+                  <Text className="text-xs font-extrabold text-theme-muted">
                     Target Type
                   </Text>
 
@@ -373,13 +374,13 @@ const StepCardComponent = ({
                           onPress={() => handleTargetTypeSelect(t.key)}
                           activeOpacity={0.75}
                           style={{
-                            backgroundColor: isSelected ? '#FF5F3B' : undefined,
-                            borderColor: isSelected ? '#FF5F3B' : undefined,
+                            backgroundColor: isSelected ? BrandColors.primary : undefined,
+                            borderColor: isSelected ? BrandColors.primary : undefined,
                           }}
                           className={`px-3 py-1.5 rounded-xl border ${
                             isSelected
                               ? 'shadow-xs'
-                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                              : 'bg-white dark:bg-slate-800 border-theme-border'
                           }`}
                         >
                           <Text
@@ -396,8 +397,8 @@ const StepCardComponent = ({
 
                   {/* Sub-Selection: Zone Pills or Exact Values */}
                   {isZoneTarget && (
-                    <View className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-theme-border/40">
-                      <Text className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
+                    <View className="flex-col gap-1.5 pt-1.5 border-t border-theme-border/60 dark:border-theme-border/40">
+                      <Text className="text-xs font-extrabold text-theme-muted">
                         Select Zone
                       </Text>
                       <View className="flex-row flex-wrap items-center gap-1.5">
@@ -412,13 +413,13 @@ const StepCardComponent = ({
                                 updateFn('zone', z);
                               }}
                               style={{
-                                backgroundColor: isZoneSelected ? '#FF5F3B' : undefined,
-                                borderColor: isZoneSelected ? '#FF5F3B' : undefined,
+                                backgroundColor: isZoneSelected ? BrandColors.primary : undefined,
+                                borderColor: isZoneSelected ? BrandColors.primary : undefined,
                               }}
                               className={`w-9 h-9 rounded-xl items-center justify-center border ${
                                 isZoneSelected
                                   ? 'shadow-xs'
-                                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                                  : 'bg-white dark:bg-slate-800 border-theme-border'
                               }`}
                             >
                               <Text
@@ -436,8 +437,8 @@ const StepCardComponent = ({
                   )}
 
                   {(isPaceExact || isExactPowerTarget || isWeightTarget) && (
-                    <View className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-theme-border/40">
-                      <Text className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
+                    <View className="flex-col gap-1.5 pt-1.5 border-t border-theme-border/60 dark:border-theme-border/40">
+                      <Text className="text-xs font-extrabold text-theme-muted">
                         {isWeightTarget ? 'Target Weight' : isExactPowerTarget ? 'Target Power' : 'Target Pace'}
                       </Text>
                       <View className="flex-row items-center gap-2">
@@ -465,7 +466,7 @@ const StepCardComponent = ({
                           }
                           placeholderTextColor={theme.textSecondary}
                           style={{ color: inputTextColor }}
-                          className="flex-1 h-9 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 text-xs font-extrabold"
+                          className="flex-1 h-9 bg-white dark:bg-slate-800 border border-theme-border rounded-xl px-3 text-xs font-extrabold"
                         />
                         <Text className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
                           {isWeightTarget

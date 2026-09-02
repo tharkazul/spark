@@ -94,7 +94,7 @@ class WebSocketService {
       this.ws.onopen = () => {
         this.status = 'connected';
         this.reconnectAttempts = 0;
-        console.log('Connected to Rooka WebSocket');
+        console.log('Connected to rooka WebSocket');
         this.startHeartbeat();
         if (this.token) {
           this.send({ type: 'auth', token: this.token });

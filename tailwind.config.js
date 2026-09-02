@@ -86,17 +86,25 @@ module.exports = {
           text: '#F5F5F7',
           muted: '#9A9AA2',
         },
+        // Channel triplets + <alpha-value> on the four base roles, for the same
+        // reason `theme` below carries them: with a plain `var(--x)` holding a
+        // hex, Tailwind emits NO rule for `bg-semantic-success/15`. That is why
+        // these tokens had zero usages while 241 raw `emerald-500/15`-style
+        // classes did the job instead -- the semantic set was unusable the
+        // moment anyone wanted a tint, which is nearly always.
+        // The -bg / -text stops stay plain: they're opaque, and the dark-mode
+        // -bg values now derive from the base in global.css.
         semantic: {
-          success: 'var(--color-success)',
+          success: 'rgb(var(--color-success) / <alpha-value>)',
           'success-bg': 'var(--color-success-bg)',
           'success-text': 'var(--color-success-text)',
-          warning: 'var(--color-warning)',
+          warning: 'rgb(var(--color-warning) / <alpha-value>)',
           'warning-bg': 'var(--color-warning-bg)',
           'warning-text': 'var(--color-warning-text)',
-          error: 'var(--color-error)',
+          error: 'rgb(var(--color-error) / <alpha-value>)',
           'error-bg': 'var(--color-error-bg)',
           'error-text': 'var(--color-error-text)',
-          info: 'var(--color-info)',
+          info: 'rgb(var(--color-info) / <alpha-value>)',
           'info-bg': 'var(--color-info-bg)',
           'info-text': 'var(--color-info-text)',
         },
@@ -124,6 +132,15 @@ module.exports = {
           'accent-hover': 'rgb(var(--accent-hover) / <alpha-value>)',
           'accent-soft': 'var(--accent-soft)',
           'accent-border': 'var(--accent-border)'
+        },
+        // Podium ranks. These had no home, so the leaderboard borrowed
+        // `semantic-warning` for 1st AND 3rd -- two of the three medals were
+        // the same colour -- and a raw `slate-300` for 2nd. A medal is its own
+        // role, not a warning.
+        medal: {
+          gold: '#E6A817',
+          silver: '#A8B2BD',
+          bronze: '#C77B45',
         },
         focus: 'var(--color-focus)',
         metric: 'var(--color-metric)',

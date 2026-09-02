@@ -7,6 +7,7 @@ import {
   ScrollView,
   useWindowDimensions,
   DeviceEventEmitter,
+  Alert,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -102,7 +103,7 @@ export default function PlanningHomeScreen() {
     }, [refreshPlan])
   );
 
-  const { tabBarOccupied, notifyScroll } = useTabBar();
+  const { tabBarOccupied, notifyScroll, notifyScrollEnd } = useTabBar();
 
   const part3ScrollViewRef = useRef<ScrollView>(null);
   const hasScrolledToTodayRef = useRef(false);
@@ -421,9 +422,24 @@ export default function PlanningHomeScreen() {
     });
   };
 
-  const handleDeleteWorkout = async (workoutId: string) => {
+  /**
+   * Deleting a planned workout is permanent and there is no undo, yet the only
+   * thing standing between a mis-tap and a lost session was a 12pt trash icon
+   * sitting flush beside "Invite". One confirmation step.
+   */
+  const handleDeleteWorkout = (workoutId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    
+    Alert.alert(
+      'Delete this workout?',
+      'It will be removed from your plan. This cannot be undone.',
+      [
+        { text: 'Keep it', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void deleteWorkoutConfirmed(workoutId) },
+      ],
+    );
+  };
+
+  const deleteWorkoutConfirmed = async (workoutId: string) => {
     try {
       if (!workoutId.startsWith('w-')) {
         await deleteWorkout(workoutId);
@@ -534,7 +550,7 @@ export default function PlanningHomeScreen() {
           className="flex-1"
           contentContainerStyle={{ paddingBottom: tabBarOccupied + 20, gap: 12 }}
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={notifyScroll}
+          onScrollBeginDrag={notifyScroll}          onScrollEndDrag={notifyScrollEnd}          onMomentumScrollEnd={notifyScrollEnd}
         >
           {weeklyAgenda.map((day, idx) => (
             <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {

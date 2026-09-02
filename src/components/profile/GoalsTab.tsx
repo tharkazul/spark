@@ -182,12 +182,12 @@ export const GoalsTab: React.FC = () => {
   };
 
   return (
-    <View className="space-y-6">
+    <View className="gap-y-6">
       {/* RACE CALENDAR & GOALS CARD */}
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-4 border-b border-theme-border/50">
           <View className="flex-row items-center gap-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+            <View className="w-2.5 h-2.5 rounded-full bg-semantic-warning" />
             <Text className="text-theme-text font-bold text-sm">Race Calendar & Goals</Text>
           </View>
           <TouchableOpacity
@@ -219,7 +219,7 @@ export const GoalsTab: React.FC = () => {
         </TouchableOpacity>
 
         {guideExpanded && (
-          <View className="p-3 bg-theme-bg/60 rounded-xl mb-4 space-y-2">
+          <View className="p-3 bg-theme-bg/60 rounded-xl mb-4 gap-y-2">
             <View className="flex-row flex-wrap gap-2">
               <View className="w-[48%] p-2 rounded-control bg-theme-card">
                 <Text className="text-theme-text font-bold text-xs">5K / Sprint Tri</Text>
@@ -264,18 +264,18 @@ export const GoalsTab: React.FC = () => {
             </Text>
           </View>
         ) : (
-          <View className="space-y-3">
+          <View className="gap-y-3">
             {milestones.map((row) => {
               return (
                 <View
                   key={row.id}
-                  className="p-3 bg-theme-bg rounded-xl space-y-3"
+                  className="p-3 bg-theme-bg rounded-xl gap-y-3"
                 >
                   <View className="flex-row items-center justify-between">
                     <TouchableOpacity
                       onPress={() => handleToggleARace(row.id)}
                       className={`px-2.5 py-1 rounded-full flex-row items-center ${
-                        row.isARace ? 'bg-yellow-500/20' : 'bg-theme-card'
+                        row.isARace ? 'bg-semantic-warning/20' : 'bg-theme-card'
                       }`}
                     >
                       <Ionicons
@@ -285,7 +285,7 @@ export const GoalsTab: React.FC = () => {
                       />
                       <Text
                         className={`text-xs font-bold ml-1 ${
-                          row.isARace ? 'text-yellow-500' : 'text-theme-muted'
+                          row.isARace ? 'text-semantic-warning' : 'text-theme-muted'
                         }`}
                       >
                         {row.isARace ? 'A-RACE (MAIN)' : 'B/C RACE'}
@@ -300,7 +300,7 @@ export const GoalsTab: React.FC = () => {
                     </TouchableOpacity>
                   </View>
 
-                  <View className="space-y-2.5">
+                  <View className="gap-y-2.5">
                     {/* EVENT NAME INPUT */}
                     <View>
                       <Text className="text-xs font-bold text-theme-muted mb-1">
@@ -357,8 +357,8 @@ export const GoalsTab: React.FC = () => {
         </TouchableOpacity>
 
         {savedSuccess && (
-          <View className="p-3 bg-green-500/10 rounded-xl mt-3 items-center">
-            <Text className="text-green-500 font-bold text-xs">
+          <View className="p-3 bg-semantic-success/10 rounded-xl mt-3 items-center">
+            <Text className="text-semantic-success font-bold text-xs">
               Calendar saved successfully!
             </Text>
           </View>

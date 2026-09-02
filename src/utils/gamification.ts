@@ -7,8 +7,8 @@ export interface RookaLevelInfo {
 }
 
 /**
- * Calculates Rooka Level and progress based on total Rooka points accumulated.
- * Standard Rooka Level logarithmic curve:
+ * Calculates rooka Level and progress based on total rooka points accumulated.
+ * Standard rooka Level logarithmic curve:
  * Level 1 starts at 0 XP (range 0 to ~78 XP).
  * Level formula: level = Math.floor(8.5 * Math.log10(rooka / 250 + 1)) + 1
  */

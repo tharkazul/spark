@@ -1,3 +1,6 @@
+import { BrandColors } from '@/constants/theme';
+import { RookaMark } from '../ui/RookaPoints';
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -336,10 +339,10 @@ export function AddWorkoutModal({
             activeOpacity={0.7}
             className="flex-row items-center gap-2.5"
           >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isGarminSynced ? 'bg-theme-accent border-theme-accent' : 'bg-slate-50 border-slate-300'}`}>
+            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isGarminSynced ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'}`}>
               {isGarminSynced && <Ionicons name="checkmark" size={14} color="white" />}
             </View>
-            <Text className="text-sm font-bold text-slate-700">Garmin</Text>
+            <Text className="text-sm font-bold text-theme-text">Garmin</Text>
             {isGarminSyncing && <ActivityIndicator size="small" color={theme.tint} />}
           </TouchableOpacity>
 
@@ -349,10 +352,10 @@ export function AddWorkoutModal({
             activeOpacity={0.7}
             className="flex-row items-center gap-2.5"
           >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isAppleWatchSynced ? 'bg-theme-accent border-theme-accent' : 'bg-slate-50 border-slate-300'}`}>
+            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isAppleWatchSynced ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'}`}>
               {isAppleWatchSynced && <Ionicons name="checkmark" size={14} color="white" />}
             </View>
-            <Text className="text-sm font-bold text-slate-700">Apple Watch</Text>
+            <Text className="text-sm font-bold text-theme-text">Apple Watch</Text>
             {isAppleWatchSyncing && <ActivityIndicator size="small" color={theme.tint} />}
           </TouchableOpacity>
         </View>
@@ -369,7 +372,7 @@ export function AddWorkoutModal({
            </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} className="py-2 px-6">
-          <Text className="text-slate-500 font-bold text-sm">{t('common.cancel')}</Text>
+          <Text className="text-theme-muted font-bold text-sm">{t('common.cancel')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -377,9 +380,9 @@ export function AddWorkoutModal({
       {initialWorkout && (
         <TouchableOpacity
           onPress={handleDelete}
-          className="py-2.5 items-center justify-center bg-rose-500/10 rounded-xl mt-4"
+          className="py-2.5 items-center justify-center bg-semantic-error/10 rounded-xl mt-4"
         >
-          <Text className="text-xs font-extrabold text-rose-500">{t('common.delete')}</Text>
+          <Text className="text-xs font-extrabold text-semantic-error">{t('common.delete')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -401,7 +404,7 @@ export function AddWorkoutModal({
             {/* Native page sheets have a built-in drag handle indicator on iOS 15+ in some cases,
                 but we can just render a static one here if we want the visual affordance. */}
             <View className="items-center pb-4 -mt-2">
-              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+              <SheetGrabber />
             </View>
 
             {/* STRUCTURED ACTIVITY BUILDER */}
@@ -445,7 +448,7 @@ export function AddWorkoutModal({
                     </View>
                   </View>
 
-                  <View className="space-y-6">
+                  <View className="gap-y-6">
                     {/* Discipline Selector - Horizontal Icon Strip */}
                     <View>
                       <View className="flex-row items-center justify-between">
@@ -457,7 +460,7 @@ export function AddWorkoutModal({
                         { type: 'MOBILITY' as SportType, label: 'Mobility', icon: 'body', isFa: false },
                       ].map((item) => {
                         const isSelected = selectedSport === item.type;
-                        const iconColor = isSelected ? '#FF5F3B' : '#64748B';
+                        const iconColor = isSelected ? BrandColors.primary : '#64748B';
                         return (
                           <TouchableOpacity
                             key={item.type}
@@ -485,7 +488,7 @@ export function AddWorkoutModal({
                             )}
                             <Text
                               className={`text-xs font-bold mt-1 ${
-                                isSelected ? 'text-theme-accent' : 'text-slate-500'
+                                isSelected ? 'text-theme-accent' : 'text-theme-muted'
                               }`}
                             >
                               {item.label}
@@ -520,7 +523,7 @@ export function AddWorkoutModal({
                     </View>
                   )}
 
-                  {/* Quick Build & Calculated Rooka row */}
+                  {/* Quick Build & Calculated rooka row */}
                   <View className="flex-row items-center gap-3">
                     <TouchableOpacity
                       onPress={() => setIsQuickBuildOpen(true)}
@@ -531,9 +534,9 @@ export function AddWorkoutModal({
                     </TouchableOpacity>
 
                     <View className="flex-1 bg-theme-accent-soft border border-theme-accent-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2">
-                      <Ionicons name="sparkles" size={14} color={theme.tint} />
+                      <RookaMark size={15} color={theme.tint} />
                       <Text className="text-sm font-bold text-theme-accent">
-                        +{calculatedRooka} Rooka <Text className="text-xs text-theme-accent/70">· Auto</Text>
+                        +{calculatedRooka} rooka <Text className="text-xs text-theme-accent/70">· Auto</Text>
                       </Text>
                     </View>
                   </View>

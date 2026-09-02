@@ -131,11 +131,11 @@ export function DiscountCodeField({
       </View>
 
       {showValid ? (
-        <Text className="text-[11px] font-bold text-emerald-500 mt-1.5">
+        <Text className="text-[11px] font-bold text-semantic-success mt-1.5">
           {result?.code?.description || `${result?.code?.code} applied`}
         </Text>
       ) : showInvalid ? (
-        <Text className="text-[11px] font-bold text-red-500 mt-1.5">
+        <Text className="text-[11px] font-bold text-semantic-error mt-1.5">
           {networkError || result?.message || DISCOUNT_ERROR_FALLBACK}
         </Text>
       ) : null}

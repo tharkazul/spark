@@ -1,5 +1,5 @@
 /**
- * Rooka scoring multipliers — the client half of the model.
+ * rooka scoring multipliers — the client half of the model.
  *
  * These tables MUST stay identical to `server/services/zones.js`. The workout
  * builder shows the athlete a number before anything is saved, and the server

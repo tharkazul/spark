@@ -21,7 +21,7 @@ export interface LeaderboardTypeSwitcherProps {
 }
 
 /**
- * The [Rooka Score | 7-Day Quests] switcher.
+ * The [rooka score | 7-Day Quests] switcher.
  *
  * Lives outside the pager. It used to be rendered inside each of the two
  * leaderboard pages, so swiping between them slid two copies of the header
@@ -56,7 +56,7 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
   return (
     <View
       style={{ height: LEADERBOARD_SWITCHER_HEIGHT }}
-      className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden border border-theme-border dark:border-slate-700"
+      className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden border border-theme-border"
     >
       <Animated.View
         className="absolute top-1 bottom-1 bg-theme-accent rounded-lg shadow-xs"
@@ -76,13 +76,13 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
             style={{ opacity: track(1, 0) }}
             className="text-xs font-extrabold text-white absolute"
           >
-            ⚡️ Rooka Score
+            rooka score
           </Animated.Text>
           <Animated.Text
             style={{ opacity: track(0, 1) }}
-            className="text-xs font-extrabold text-theme-muted dark:text-slate-400"
+            className="text-xs font-extrabold text-theme-muted"
           >
-            ⚡️ Rooka Score
+            rooka score
           </Animated.Text>
         </View>
       </TouchableOpacity>
@@ -96,13 +96,13 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
             style={{ opacity: track(0, 1) }}
             className="text-xs font-extrabold text-white absolute"
           >
-            🏆 7-Day Quests
+            7-Day Quests
           </Animated.Text>
           <Animated.Text
             style={{ opacity: track(1, 0) }}
-            className="text-xs font-extrabold text-theme-muted dark:text-slate-400"
+            className="text-xs font-extrabold text-theme-muted"
           >
-            🏆 7-Day Quests
+            7-Day Quests
           </Animated.Text>
         </View>
       </TouchableOpacity>
@@ -203,20 +203,20 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
         <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
         <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Leaderboard Locked</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed">
-          Upgrade to the Rooka+ subscription to unlock global leaderboards and rank against your friends.
+          Upgrade to the rooka+ subscription to unlock global leaderboards and rank against your friends.
         </Text>
         <TouchableOpacity
           onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
           className="mt-6 bg-theme-accent px-6 py-3 rounded-full shadow-md"
         >
-          <Text className="text-white font-extrabold text-center">Upgrade to Rooka+</Text>
+          <Text className="text-white font-extrabold text-center">Upgrade to rooka+</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View className="space-y-4 mb-8">
+    <View className="gap-y-4 mb-8">
       {showSwitcher && (
         <View className="mb-4">
           <LeaderboardTypeSwitcher
@@ -252,15 +252,15 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                 isCurrentUser ? 'border-theme-accent bg-theme-accent/5' : 'border-theme-border'
               }`}
             >
-              <View className="flex-row items-center space-x-3">
+              <View className="flex-row items-center gap-x-3">
                 <View
                   className={`w-9 h-9 rounded-full items-center justify-center ${
                     item.rank === 1
-                      ? 'bg-amber-400 border border-amber-500'
+                      ? 'bg-medal-gold border border-medal-gold'
                       : item.rank === 2
-                      ? 'bg-slate-300 border border-slate-400'
+                      ? 'bg-medal-silver border border-medal-silver'
                       : item.rank === 3
-                      ? 'bg-amber-700 border border-amber-800'
+                      ? 'bg-medal-bronze border border-medal-bronze'
                       : 'bg-theme-bg border border-theme-border'
                   }`}
                 >
@@ -274,7 +274,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                 </View>
 
                 <View>
-                  <View className="flex-row items-center space-x-1.5">
+                  <View className="flex-row items-center gap-x-1.5">
                     <Text className="text-sm font-extrabold text-theme-text">{item.username}</Text>
                     {isCurrentUser && (
                       <View className="bg-theme-accent px-1.5 py-0.5 rounded">
@@ -283,7 +283,8 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                     )}
                   </View>
                   <Text className="text-xs text-theme-muted font-medium">
-                    Lvl {item.rooka_level || 1} · {questsCount} Quests Completed
+                    Lvl {item.rooka_level || 1} · {questsCount}{' '}
+                    {questsCount === 1 ? 'Quest' : 'Quests'} Completed
                   </Text>
                 </View>
               </View>
@@ -299,6 +300,29 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
             </TouchableOpacity>
           );
         })
+      )}
+
+      {/* A three-person board left roughly two thirds of the screen empty with
+          nothing to do in it. The board is only interesting once you have
+          people on it, so the empty space carries the action that fills it. */}
+      {!loading && activeList.length < 5 && (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'connections' } })}
+          className="mt-2 items-center bg-theme-card border border-dashed border-theme-border rounded-card p-6"
+        >
+          <Ionicons name="people-outline" size={28} color={theme.tint} />
+          <Text className="text-sm font-extrabold text-theme-text mt-3 text-center">
+            {activeList.length === 0 ? 'No one on the board yet' : 'Add more athletes'}
+          </Text>
+          <Text className="text-xs text-theme-muted mt-1 text-center leading-relaxed">
+            A leaderboard needs rivals. Connect with athletes to see how your
+            week stacks up.
+          </Text>
+          <View className="mt-4 px-4 py-2 bg-theme-accent rounded-control">
+            <Text className="text-xs font-extrabold text-white">Find athletes</Text>
+          </View>
+        </TouchableOpacity>
       )}
     </View>
   );

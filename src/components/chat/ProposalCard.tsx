@@ -30,7 +30,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
           <Ionicons name="calendar-outline" size={18} color={theme.tint} />
         </View>
         <View className="flex-1">
-          <Text className="text-theme-text font-bold text-sm">Rooka Workout Proposal</Text>
+          <Text className="text-theme-text font-bold text-sm">rooka Workout Proposal</Text>
           <Text className="text-theme-muted text-xs">{plan.length} workout change{plan.length > 1 ? 's' : ''} suggested</Text>
         </View>
       </View>
@@ -43,8 +43,8 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
               <Text className="text-theme-text text-xs font-medium" numberOfLines={1}>{item.description}</Text>
             </View>
             {item.target_rooka ? (
-              <View className="bg-amber-500/20 px-2 py-1 rounded-md">
-                <Text className="text-amber-400 font-bold font-rajdhani text-xs">+{Math.round(item.target_rooka)} Rooka</Text>
+              <View className="bg-semantic-warning/20 px-2 py-1 rounded-md">
+                <Text className="text-semantic-warning font-bold font-rajdhani text-xs">+{Math.round(item.target_rooka)} rooka</Text>
               </View>
             ) : null}
           </View>
@@ -52,14 +52,14 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
       </View>
 
       {isAccepted ? (
-        <View className="flex-row items-center justify-center p-2 rounded-lg bg-emerald-500/20">
+        <View className="flex-row items-center justify-center p-2 rounded-lg bg-semantic-success/20">
           <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-          <Text className="text-emerald-400 font-bold text-xs ml-2">Plan Proposal Accepted</Text>
+          <Text className="text-semantic-success font-bold text-xs ml-2">Plan Proposal Accepted</Text>
         </View>
       ) : isRejected ? (
-        <View className="flex-row items-center justify-center p-2 rounded-lg bg-red-500/20">
+        <View className="flex-row items-center justify-center p-2 rounded-lg bg-semantic-error/20">
           <Ionicons name="close-circle" size={18} color="#EF4444" />
-          <Text className="text-red-400 font-bold text-xs ml-2">Proposal Rejected</Text>
+          <Text className="text-semantic-error font-bold text-xs ml-2">Proposal Rejected</Text>
         </View>
       ) : (
         <View className="flex-row gap-2">

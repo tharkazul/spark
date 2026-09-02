@@ -1,3 +1,5 @@
+import { BrandColors } from '@/constants/theme';
+import { RookaMark } from '../ui/RookaPoints';
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
@@ -125,18 +127,22 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   const profilePicUrl = localPhotoUri || getFullPhotoUrl(user?.profile_picture_url || (user as any)?.profilePictureUrl);
 
+  // The ⚡ used to be baked into these strings, which put an emoji (in its own
+  // yellow, on an orange chip) into a UI that otherwise uses Ionicons
+  // throughout. It is now the rooka R mark, rendered beside the label.
   const tier = user?.subscription_tier;
   let tierLabel = 'Free Member';
   if (tier === 'admin') {
-    tierLabel = '⚡ Admin Member';
+    tierLabel = 'Admin Member';
   } else if (tier === 'premium') {
-    tierLabel = '⚡ Rooka+ Premium';
+    tierLabel = 'rooka+ Premium';
   } else if (tier === 'rooka_plus' || tier === 'subscription') {
-    tierLabel = '⚡ Rooka+ Member';
+    tierLabel = 'rooka+ Member';
   }
+  const isPaidTier = tier === 'admin' || tier === 'premium' || tier === 'rooka_plus' || tier === 'subscription';
 
   return (
-    <View className="space-y-6">
+    <View className="gap-y-6">
       {/* USER PROFILE HEADER */}
       <View className="items-center my-4">
         <View className="relative mb-3">
@@ -171,7 +177,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
         <Text className="text-theme-text text-2xl font-bold">{username}</Text>
         {email ? <Text className="text-theme-muted text-sm mt-0.5">{email}</Text> : null}
-        <View className="mt-2 px-3 py-1 bg-theme-accent/10 rounded-full">
+        <View className="mt-2 px-3 py-1 bg-theme-accent/10 rounded-full flex-row items-center gap-x-1">
+          {isPaidTier ? <RookaMark size={13} color={theme.tint} /> : null}
           <Text className="text-theme-accent text-xs font-bold">
             {tierLabel}
           </Text>
@@ -182,12 +189,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       <Text className="text-theme-muted font-bold text-xs mb-2 ml-1">
         Personal Titles & Accolades
       </Text>
+      {/* No internal header row: the section label above already says
+          "Personal Titles & Accolades", and the Language / Preferences cards
+          below carry no internal title either. This card was the only one
+          repeating its own section name. */}
       <Card className="p-4 mb-6">
-        <View className="flex-row items-center pb-3 mb-3 border-b border-theme-border/20">
-          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
-          <Text className="text-theme-text font-bold text-sm">Personal Titles</Text>
-        </View>
-
         {loadingTitles ? (
           <Text className="text-theme-muted text-xs italic text-center py-2">Loading titles...</Text>
         ) : titles.length === 0 ? (
@@ -198,7 +204,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             </Text>
           </View>
         ) : (
-          <View className="space-y-2">
+          <View className="gap-y-2">
             {titles.map((item) => (
               <TouchableOpacity
                 key={item.id}
@@ -209,11 +215,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                     : 'bg-theme-bg'
                 }`}
               >
-                <View className="flex-row items-center space-x-2">
+                <View className="flex-row items-center gap-x-2">
                   <Ionicons
                     name={item.is_equipped ? 'ribbon' : 'ribbon-outline'}
                     size={18}
-                    color={item.is_equipped ? '#FF5F3B' : '#8E9BA4'}
+                    color={item.is_equipped ? BrandColors.primary : '#8E9BA4'}
                     style={{ marginRight: 6 }}
                   />
                   <Text className="text-theme-text font-bold text-sm">{item.title_name}</Text>
@@ -246,7 +252,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       {/* COACH PERSONA SETTINGS */}
       <CoachPersonaSettings />
 
-      {/* Zones drive every Rooka score, so they sit with the athlete's
+      {/* Zones drive every rooka score, so they sit with the athlete's
           own details rather than in a settings sub-menu. */}
       <TrainingZonesCard />
 

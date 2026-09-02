@@ -39,7 +39,7 @@ type TabType = typeof TABS[number];
 export default function SocialScreen() {
     const theme = useTheme();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const { notifyScroll, tabBarOccupied } = useTabBar();
+  const { notifyScroll, notifyScrollEnd, tabBarOccupied } = useTabBar();
   const { t } = useLanguage();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
@@ -235,7 +235,7 @@ export default function SocialScreen() {
         />
 
         {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
-        <View className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-theme-border dark:border-slate-700">
+        <View className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-theme-border">
           <Animated.View
             className="absolute top-1 bottom-1 bg-theme-accent rounded-lg shadow-xs"
             style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }}
@@ -255,7 +255,7 @@ export default function SocialScreen() {
               </Animated.Text>
               <Animated.Text
                 style={{ opacity: feedGreyOpacity }}
-                className="text-xs font-medium text-theme-muted dark:text-slate-400"
+                className="text-xs font-medium text-theme-muted"
               >
                 Feed
               </Animated.Text>
@@ -276,7 +276,7 @@ export default function SocialScreen() {
               </Animated.Text>
               <Animated.Text
                 style={{ opacity: logGreyOpacity }}
-                className="text-xs font-medium text-theme-muted dark:text-slate-400"
+                className="text-xs font-medium text-theme-muted"
               >
                 My Log
               </Animated.Text>
@@ -297,7 +297,7 @@ export default function SocialScreen() {
               </Animated.Text>
               <Animated.Text
                 style={{ opacity: leaderboardGreyOpacity }}
-                className="text-xs font-medium text-theme-muted dark:text-slate-400"
+                className="text-xs font-medium text-theme-muted"
               >
                 Leaderboard
               </Animated.Text>
@@ -305,7 +305,7 @@ export default function SocialScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* The leaderboard's [Rooka Score | 7-Day Quests] switcher, pinned.
+        {/* The leaderboard's [rooka score | 7-Day Quests] switcher, pinned.
             It used to sit inside each of the two leaderboard pages, so swiping
             between them dragged two copies of the header across the screen.
             Height and opacity are driven off the same scrollX as the pill, so it
@@ -357,7 +357,7 @@ export default function SocialScreen() {
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <FeedSubTab
               onOpenActivityModal={handleOpenActivityModal}
@@ -372,7 +372,7 @@ export default function SocialScreen() {
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <MyLogSubTab onOpenActivityModal={handleOpenActivityModal} />
           </ScrollView>
@@ -384,7 +384,7 @@ export default function SocialScreen() {
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <LeaderboardSubTab
               type="rooka"
@@ -406,7 +406,7 @@ export default function SocialScreen() {
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
             <LeaderboardSubTab
               type="quests"

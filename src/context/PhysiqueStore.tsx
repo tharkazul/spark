@@ -68,6 +68,9 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
                   .filter(Boolean)
               : []);
 
+        const rawTiming = suggested.timing || p.timing || suggested.fueling_schedule || p.fueling_schedule;
+        const timing = Array.isArray(rawTiming) ? rawTiming : undefined;
+
         setNutrition({
           focusTitle: suggested.title || p.title || p.focusTitle || 'Daily Endurance Protocol',
           rationale: suggested.rationale || p.rationale || 'Tailored to your body mass and today\'s training load.',
@@ -81,6 +84,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
           loggedProtein,
           loggedFat,
           loggedItems,
+          timing,
         });
       }
       setError(null);

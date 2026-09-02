@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Card } from '../ui/Card';
+import { RookaMark } from '../ui/RookaPoints';
 import { AthleteRadarChart } from './AthleteRadarChart';
 import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
@@ -101,15 +102,15 @@ export const RookaTab: React.FC<RookaTabProps> = ({
       );
 
   return (
-    <View className="space-y-4">
+    <View className="gap-y-4">
       {/* ROOKA LEVEL CARD */}
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center space-x-2">
+          <View className="flex-row items-center gap-x-2">
             <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-              <Ionicons name="flash" size={18} color={theme.tint} />
+              <RookaMark size={18} />
             </View>
-            <View className="flex-row items-baseline space-x-1.5">
+            <View className="flex-row items-baseline gap-x-1.5">
               <Text className="text-xs font-bold text-theme-muted">
                 {t('dashboard.sparkLevel')}
               </Text>
@@ -198,7 +199,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
       {canAccessQuests(user?.subscription_tier) && (
         <Card className="mb-6 bg-theme-card">
           <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-row items-center space-x-2">
+            <View className="flex-row items-center gap-x-2">
               <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
               <Text className="text-xs font-bold text-theme-muted">
                 {t('dashboard.questsLog')}
@@ -222,10 +223,13 @@ export const RookaTab: React.FC<RookaTabProps> = ({
                 <Text className="text-sm font-bold text-theme-text flex-1 mr-2" numberOfLines={2}>
                   {activeQuest.description || 'Active Weekly Quest'}
                 </Text>
-                <View className="bg-amber-500/15 px-2 py-0.5 rounded-md">
-                  <Text className="text-[11px] font-mono font-bold text-amber-500">
-                    +{Math.round(activeQuest.reward_points || 0)} ⚡
-                  </Text>
+                <View className="bg-semantic-warning/15 px-2 py-0.5 rounded-md">
+                  <View className="flex-row items-center gap-x-1">
+                    <Text className="text-[11px] font-mono font-bold text-semantic-warning">
+                      +{Math.round(activeQuest.reward_points || 0)}
+                    </Text>
+                    <RookaMark size={11} color="#F5A623" />
+                  </View>
                 </View>
               </View>
 
@@ -248,7 +252,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
               </View>
 
               <View className="flex-row justify-between items-center pt-1">
-                <View className="flex-row items-center space-x-1">
+                <View className="flex-row items-center gap-x-1">
                   <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
                   <Text className="text-[11px] font-medium text-theme-muted">
                     {activeQuest.time_remaining_str || 'Expires Sunday midnight'}
@@ -296,7 +300,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">
-            <View className="w-12 h-12 rounded-2xl bg-amber-500/15 items-center justify-center">
+            <View className="w-12 h-12 rounded-2xl bg-semantic-warning/15 items-center justify-center">
               <Ionicons name="trophy" size={26} color={theme.tint} />
             </View>
             <View>
@@ -305,9 +309,9 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             </View>
           </View>
           {activeQuest?.reward_points ? (
-            <View className="bg-amber-500/15 px-3 py-1.5 rounded-full">
-              <Text className="text-sm font-mono font-extrabold text-amber-500">
-                +{Math.round(activeQuest.reward_points)} Rooka
+            <View className="bg-semantic-warning/15 px-3 py-1.5 rounded-full">
+              <Text className="text-sm font-mono font-extrabold text-semantic-warning">
+                +{Math.round(activeQuest.reward_points)} rooka
               </Text>
             </View>
           ) : null}
@@ -315,7 +319,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
 
         <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
           <Text className="text-sm font-bold text-theme-text leading-relaxed">
-            {activeQuest?.description || 'Complete your active challenges this week to earn bonus Rooka points.'}
+            {activeQuest?.description || 'Complete your active challenges this week to earn bonus rooka points.'}
           </Text>
         </View>
 
@@ -324,13 +328,13 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             <Text className="text-xs font-bold text-theme-muted">
               Progress ({currentVal} / {targetVal} {activeQuest?.unit || ''})
             </Text>
-            <Text className="text-sm font-mono font-bold text-amber-500">
+            <Text className="text-sm font-mono font-bold text-semantic-warning">
               {progressPercent}%
             </Text>
           </View>
           <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden">
             <View
-              className="h-full bg-amber-500 rounded-full"
+              className="h-full bg-semantic-warning rounded-full"
               style={{ width: `${progressPercent}%` }}
             />
           </View>

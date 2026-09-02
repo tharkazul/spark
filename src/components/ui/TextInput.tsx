@@ -21,7 +21,7 @@ export function TextInput({ label, error, className = '', ...props }: Props) {
         {...props}
       />
       {error && (
-        <Text className="text-red-500 text-xs mt-1">{error}</Text>
+        <Text className="text-semantic-error text-xs mt-1">{error}</Text>
       )}
     </View>
   );

@@ -1,3 +1,4 @@
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
@@ -197,9 +198,9 @@ export function LogNiggleModal({
   };
 
   const getSeverityBadge = (level: number) => {
-    if (level <= 3) return { label: 'Mild / Stiffness', color: 'text-emerald-500', bg: 'bg-emerald-500/15' };
-    if (level <= 6) return { label: 'Moderate Discomfort', color: 'text-amber-500', bg: 'bg-amber-500/15' };
-    return { label: 'Severe Pain / Injury', color: 'text-rose-500', bg: 'bg-rose-500/15' };
+    if (level <= 3) return { label: 'Mild / Stiffness', color: 'text-semantic-success', bg: 'bg-semantic-success/15' };
+    if (level <= 6) return { label: 'Moderate Discomfort', color: 'text-semantic-warning', bg: 'bg-semantic-warning/15' };
+    return { label: 'Severe Pain / Injury', color: 'text-semantic-error', bg: 'bg-semantic-error/15' };
   };
 
   const badge = getSeverityBadge(severity);
@@ -244,18 +245,18 @@ export function LogNiggleModal({
           >
             {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
             <View {...panHandlers} className="items-center pb-3 pt-1">
-              <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+              <SheetGrabber />
             </View>
 
             {/* Header */}
             <View className="flex-row items-center justify-between pb-3 mb-2 border-b border-theme-border/50">
               <View className="flex-row items-center gap-2.5">
-                <View className="w-9 h-9 rounded-xl bg-rose-500/15 items-center justify-center">
+                <View className="w-9 h-9 rounded-xl bg-semantic-error/15 items-center justify-center">
                   <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
                 </View>
                 <View>
                   <Text className="text-lg font-bold text-theme-text">Report Injury / Niggle</Text>
-                  <Text className="text-xs text-theme-muted">Records to Health Tracker & alerts Rooka Coach</Text>
+                  <Text className="text-xs text-theme-muted">Records to Health Tracker & alerts rooka Coach</Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -336,12 +337,12 @@ export function LogNiggleModal({
                           setIsManuallySelected(true);
                         }}
                         className={`px-3 py-1.5 rounded-xl border ${isSelected
-                            ? 'bg-rose-500/15 border-rose-500'
+                            ? 'bg-semantic-error/15 border-semantic-error'
                             : 'bg-theme-bg border-theme-border/60'
                           }`}
                       >
                         <Text
-                          className={`text-xs font-semibold ${isSelected ? 'text-rose-500 font-bold' : 'text-theme-text'
+                          className={`text-xs font-semibold ${isSelected ? 'text-semantic-error font-bold' : 'text-theme-text'
                             }`}
                         >
                           {region.name}
@@ -376,10 +377,10 @@ export function LogNiggleModal({
                         }}
                         className={`flex-1 py-2 rounded-xl items-center justify-center ${isSelected
                             ? num <= 3
-                              ? 'bg-emerald-500'
+                              ? 'bg-semantic-success'
                               : num <= 6
-                                ? 'bg-amber-500'
-                                : 'bg-rose-500'
+                                ? 'bg-semantic-warning'
+                                : 'bg-semantic-error'
                             : 'bg-theme-bg'
                           }`}
                       >

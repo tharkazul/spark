@@ -1,3 +1,5 @@
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
+import { RookaMark } from '../ui/RookaPoints';
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -183,7 +185,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
       <View className="flex-1 bg-theme-bg">
         {/* Top Pull Handle (Pill Tab) */}
         <View className="items-center pt-2.5 pb-1">
-          <View className="w-11 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+          <SheetGrabber />
         </View>
 
         {loading ? (
@@ -211,7 +213,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
           >
             {/* HERO / IDENTITY CARD */}
             <Card className="mb-4 bg-theme-card p-5">
-              <View className="flex-row items-center space-x-4">
+              <View className="flex-row items-center gap-x-4">
                 {(() => {
                   const avatarUri = getFullProfilePhotoUrl(
                     profile.profilePictureUrl || (profile as any).profile_picture_url
@@ -231,16 +233,16 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                 })()}
 
                 <View className="flex-1">
-                  <View className="flex-row items-center space-x-2">
+                  <View className="flex-row items-center gap-x-2">
                     <Text className="text-lg font-extrabold text-theme-text" numberOfLines={1}>
                       {profile.username}
                     </Text>
                   </View>
 
                   {profile.activeTitle && (
-                    <View className="self-start px-2 py-0.5 mt-1 bg-amber-500/15 border border-amber-500/30 rounded-md">
-                      <Text className="text-xs font-extrabold text-amber-500">
-                        ⚡️ {profile.activeTitle.title}
+                    <View className="self-start px-2 py-0.5 mt-1 bg-semantic-warning/15 border border-semantic-warning/30 rounded-md">
+                      <Text className="text-xs font-extrabold text-semantic-warning">
+                        {profile.activeTitle.title}
                       </Text>
                     </View>
                   )}
@@ -269,13 +271,13 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                   <TouchableOpacity
                     onPress={handleConnect}
                     disabled={connecting || profile.connectionStatus === 'accepted' || profile.connectionStatus === 'pending'}
-                    className={`px-4 py-2 rounded-xl flex-row items-center space-x-1.5 ${
+                    className={`px-4 py-2 rounded-xl flex-row items-center gap-x-1.5 ${
                       profile.connectionStatus === 'accepted'
-                        ? 'bg-emerald-500/15 border border-emerald-500/30'
+                        ? 'bg-semantic-success/15 border border-semantic-success/30'
                         : profile.connectionStatus === 'pending'
                         ? 'bg-theme-bg border border-theme-border'
                         : profile.connectionStatus === 'pending_received'
-                        ? 'bg-emerald-500'
+                        ? 'bg-semantic-success'
                         : 'bg-theme-accent'
                     }`}
                   >
@@ -305,7 +307,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                         <Text
                           className={`text-xs font-extrabold ${
                             profile.connectionStatus === 'accepted'
-                              ? 'text-emerald-500'
+                              ? 'text-semantic-success'
                               : profile.connectionStatus === 'pending'
                               ? 'text-theme-muted'
                               : 'text-white'
@@ -329,11 +331,11 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
             {/* SPARK LEVEL CARD (Identical to Progress tab) */}
             <Card className="mb-4 bg-theme-card">
               <View className="flex-row items-center justify-between mb-2">
-                <View className="flex-row items-center space-x-2">
+                <View className="flex-row items-center gap-x-2">
                   <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-                    <Ionicons name="flash" size={18} color={theme.tint} />
+                    <RookaMark size={18} />
                   </View>
-                  <View className="flex-row items-baseline space-x-1.5">
+                  <View className="flex-row items-baseline gap-x-1.5">
                     <Text className="text-xs font-bold text-theme-muted uppercase">
                       ROOKA LEVEL
                     </Text>
@@ -402,14 +404,14 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
             {/* PMC TELEMETRY SPARKLINES (NO NUMBERS - PRIVATE) */}
             {hasActivities && (
               <Card className="mb-4 bg-theme-card p-4">
-                <View className="flex-row items-center space-x-2 mb-3 px-1">
+                <View className="flex-row items-center gap-x-2 mb-3 px-1">
                   <Ionicons name="pulse-outline" size={16} color={theme.tint} />
                   <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
                     Performance Telemetry
                   </Text>
                 </View>
 
-                <View className="space-y-3.5">
+                <View className="gap-y-3.5">
                   {/* Fitness (CTL) Sparkline - Green / Emerald */}
                   <View className="bg-theme-bg p-3.5 rounded-2xl flex-row items-center justify-between">
                     <View className="flex-1 pr-3">
@@ -484,7 +486,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                       }}
                       className="bg-theme-card border border-theme-border rounded-tile p-4 mb-2.5 flex-row items-center justify-between shadow-xs"
                     >
-                      <View className="flex-row items-center space-x-3 flex-1 pr-2">
+                      <View className="flex-row items-center gap-x-3 flex-1 pr-2">
                         <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
                           <Ionicons name={sportIcon as any} size={20} color={theme.tint} />
                         </View>
@@ -506,7 +508,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
 
                       {act.rooka_score || act.spark_score ? (
                         <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
-                          <Ionicons name="flash" size={11} color={theme.tint} />
+                          <RookaMark size={11} color={theme.tint} />
                           <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">
                             +{Math.round(act.rooka_score || act.spark_score || 0)}
                           </Text>

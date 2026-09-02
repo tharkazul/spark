@@ -252,7 +252,7 @@ export function getSportIconConfig(
       name: 'basketball',
       outlineName: 'basketball-outline',
       color: sportColor('BASKETBALL', scheme),
-      bgColor: 'bg-[#FF5F3B]/15',
+      bgColor: 'bg-theme-accent/15',
       label: 'BASKETBALL',
     };
   }

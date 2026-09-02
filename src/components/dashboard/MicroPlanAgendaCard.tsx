@@ -154,7 +154,7 @@ export function MicroPlanAgendaCard({
       </View>
 
       {/* 7-Day Agenda List */}
-      <View className="p-4 space-y-3.5">
+      <View className="p-4 gap-y-3.5">
         {agenda.map((day) => {
           const expanded = isDayExpanded(day);
           const hasWorkouts = day.workouts.length > 0;
@@ -206,9 +206,9 @@ export function MicroPlanAgendaCard({
 
                   <View className="flex-row items-center gap-2 shrink-0">
                     {hasWorkouts && day.workouts.every((w) => w.isCompleted) && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
-                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
                       </View>
                     )}
 
@@ -233,7 +233,7 @@ export function MicroPlanAgendaCard({
                     activeOpacity={0.75}
                     className={`px-3.5 py-2.5 flex-row items-center justify-between ${
                       day.isToday
-                        ? 'bg-theme-accent-soft/20'
+                        ? 'bg-theme-accent-soft'
                         : 'bg-theme-bg/60'
                     }`}
                   >
@@ -270,7 +270,7 @@ export function MicroPlanAgendaCard({
                   </TouchableOpacity>
 
                   {/* Day Workouts Container */}
-                  <View className="p-3 bg-theme-bg/30 space-y-2.5">
+                  <View className="p-3 bg-theme-bg/30 gap-y-2.5">
                     {!hasWorkouts ? (
                       <View className="py-3 px-3.5 bg-theme-bg/40 rounded-xl flex-row items-center gap-2">
                         <Ionicons name="moon-outline" size={16} color={theme.textSecondary} />
@@ -291,7 +291,7 @@ export function MicroPlanAgendaCard({
                             style={{ borderLeftColor: cfg.color }}
                             className="p-3.5 rounded-tile border-l-4 bg-theme-card/80 flex-col gap-2 active:bg-theme-accent/5"
                           >
-                            {/* Top Line: Discipline Tag & Rooka Score */}
+                            {/* Top Line: Discipline Tag & rooka score */}
                             <View className="flex-row items-center justify-between">
                               <View
                                 style={{ backgroundColor: cfg.tint }}
@@ -305,13 +305,13 @@ export function MicroPlanAgendaCard({
 
                               <View className="flex-row items-center gap-2">
                                 <Text className="text-xs font-mono font-bold text-theme-accent">
-                                  +{Math.round(workout.rookaPoints || 0)} Rooka
+                                  +{Math.round(workout.rookaPoints || 0)} rooka
                                 </Text>
 
                                 {workout.isCompleted && (
-                                  <View className="flex-row items-center gap-1 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                                  <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                                     <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                                    <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
+                                    <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
                                   </View>
                                 )}
                               </View>
@@ -325,11 +325,11 @@ export function MicroPlanAgendaCard({
                             {/* Subline: Human Duration & Chevron */}
                             <View className="flex-row items-center justify-between pt-1">
                               <Text className="text-xs text-theme-muted font-medium">
-                                {workout.duration || '45 min'} session · +{Math.round(workout.rookaPoints || 0)} Rooka
+                                {workout.duration || '45 min'} session · +{Math.round(workout.rookaPoints || 0)} rooka
                               </Text>
 
                               {workout.actualMetrics ? (
-                                <Text className="text-xs font-mono font-bold text-emerald-500">
+                                <Text className="text-xs font-mono font-bold text-semantic-success">
                                   {workout.actualMetrics}
                                 </Text>
                               ) : (

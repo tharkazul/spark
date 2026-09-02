@@ -92,14 +92,14 @@ export default function LoginScreen() {
         >
           {/* Header branding */}
           <View className="items-center mb-8">
-            {/* The Rooka mark, matching the app icon and the onboarding
+            {/* The rooka mark, matching the app icon and the onboarding
                 header — was a generic Ionicons lightning bolt. */}
             <View className="w-16 h-16 rounded-2xl overflow-hidden items-center justify-center mb-3 bg-white border border-theme-border/60 shadow-lg">
               <Image
                 source={require('../../assets/images/logo-mark.png')}
                 className="w-full h-full"
-                resizeMode="cover"
-                accessibilityLabel="Rooka"
+                resizeMode="contain"
+                accessibilityLabel="rooka"
               />
             </View>
             <Text className="text-3xl font-extrabold text-theme-text tracking-tight">ROOKA</Text>
@@ -149,14 +149,14 @@ export default function LoginScreen() {
 
           {/* Error / session notice */}
           {notice && (
-            <View className="bg-red-500/10 rounded-xl p-3 mb-4 flex-row items-center">
+            <View className="bg-semantic-error/10 rounded-xl p-3 mb-4 flex-row items-center">
               <Ionicons name="alert-circle" size={20} color="#EF4444" className="mr-2" />
-              <Text className="text-red-500 text-xs font-medium flex-1 ml-2">{notice}</Text>
+              <Text className="text-semantic-error text-xs font-medium flex-1 ml-2">{notice}</Text>
             </View>
           )}
 
           {/* Form Fields */}
-          <View className="space-y-4">
+          <View className="gap-y-4">
             {mode === 'register' && (
               <View className="mb-4">
                 <Text className="text-xs font-semibold text-theme-muted mb-2">

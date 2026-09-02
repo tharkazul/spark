@@ -32,7 +32,19 @@ export function DetailedDayCard({
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
 
 
-  const hasWorkouts = day.workouts.length > 0;
+  const isRest = (sport?: SportType | string) => String(sport).toUpperCase() === 'REST';
+
+  /**
+   * A REST entry is a placeholder for "nothing planned", so it stops being true
+   * the moment something is planned. Adding a session to a rest day used to
+   * leave both on the card -- a workout sitting directly beneath a badge saying
+   * the day was a rest day. The placeholder now yields to real sessions.
+   */
+  const visibleWorkouts = day.workouts.some((w) => !isRest(w.type))
+    ? day.workouts.filter((w) => !isRest(w.type))
+    : day.workouts;
+
+  const hasWorkouts = visibleWorkouts.length > 0;
 
   const formatHumanDuration = (durationStr?: string, sport?: SportType | string) => {
     if (String(sport).toUpperCase() === 'REST') return 'Rest day';
@@ -77,7 +89,7 @@ export function DetailedDayCard({
 
             <Text className="text-sm text-theme-muted">
               {weatherTemp}
-              {dayTotalRooka > 0 ? ` · ${dayTotalRooka} total Rooka` : ''}
+              {dayTotalRooka > 0 ? ` · ${dayTotalRooka} total rooka` : ''}
             </Text>
           </View>
         </View>
@@ -89,10 +101,10 @@ export function DetailedDayCard({
             onAdaptPress();
           }}
           activeOpacity={0.7}
-          className="bg-theme-card border border-amber-500/40 px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
+          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
         >
           <Ionicons name="flash-outline" size={13} color={theme.tint} />
-          <Text className="text-xs font-bold text-amber-500">ADAPT</Text>
+          <Text className="text-xs font-bold text-semantic-warning">ADAPT</Text>
         </TouchableOpacity>
       </View>
 
@@ -115,9 +127,10 @@ export function DetailedDayCard({
         </View>
       ) : (
         <View>
-          {day.workouts.map((workout, wIndex) => {
+          {visibleWorkouts.map((workout, wIndex) => {
             const cfg = getDisciplineConfig(workout.type, scheme);
             const humanDuration = formatHumanDuration(workout.duration, workout.type);
+            const isRestPlaceholder = isRest(workout.type);
 
             return (
               <TouchableOpacity
@@ -137,7 +150,7 @@ export function DetailedDayCard({
                    unconditionally it also fired after the last workout, boxing
                    in the Add button for no reason. */
                 className={`py-3.5 flex-col gap-2 ${
-                  wIndex < day.workouts.length - 1 ? 'border-b border-theme-border/40' : ''
+                  wIndex < visibleWorkouts.length - 1 ? 'border-b border-theme-border/40' : ''
                 }`}
               >
                 {/* Top Discipline Line */}
@@ -152,16 +165,16 @@ export function DetailedDayCard({
                     </Text>
                   </View>
 
-                  <View className="flex-row items-center gap-2">
+                  <View className="flex-row items-center gap-2 ml-2">
                     <Text className="text-sm font-mono font-bold text-theme-accent">
-                      +{Math.round(workout.rookaPoints || 0)} Rooka
+                      +{Math.round(workout.rookaPoints || 0)} rooka
                     </Text>
 
 
                     {workout.isCompleted && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
                       </View>
                     )}
                   </View>
@@ -190,15 +203,21 @@ export function DetailedDayCard({
                   </View>
                 )}
 
-                {/* Clean Subline & Quick Actions Bar */}
+                {/* Clean Subline & Quick Actions Bar
+                    Skipped entirely for a REST placeholder: "Rest day" merely
+                    restated the REST badge above it, and neither inviting a
+                    partner to a rest day nor deleting one is a thing anyone
+                    wants to do -- the placeholder clears itself as soon as a
+                    real session lands on the day. */}
+                {!isRestPlaceholder && (
                 <View className="flex-row items-center justify-between pt-1">
-                  {/* The badge above already states this workout's Rooka; the
+                  {/* The badge above already states this workout's rooka; the
                       figure was simply printed twice on the same card. */}
                   <Text className="text-sm text-theme-muted">
                     {humanDuration}
                   </Text>
 
-                  <View className="flex-row items-center gap-2">
+                  <View className="flex-row items-center gap-2 ml-2">
                     <TouchableOpacity
                       onPress={(e) => {
                         e.stopPropagation();
@@ -215,12 +234,13 @@ export function DetailedDayCard({
                         e.stopPropagation();
                         onDeleteWorkout(workout.id);
                       }}
-                      className="flex-row items-center gap-1 px-2 py-1 bg-rose-500/10 border border-rose-500/30 rounded-lg"
+                      className="flex-row items-center gap-1 px-2 py-1 ml-1.5 bg-semantic-error/10 border border-semantic-error/30 rounded-control"
                     >
                       <Ionicons name="trash-outline" size={12} color="#F43F5E" />
                     </TouchableOpacity>
                   </View>
                 </View>
+                )}
               </TouchableOpacity>
             );
           })}

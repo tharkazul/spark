@@ -449,4 +449,45 @@ router.delete("/api/admin/discounts/:id", authenticateToken, (req, res) => {
   );
 });
 
+// Snapshot & Database Backup Endpoints
+const backupService = require("../services/backup");
+
+router.get("/api/admin/snapshots", authenticateToken, (req, res) => {
+  try {
+    const snapshots = backupService.listSnapshots();
+    res.json({ snapshots });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/api/admin/snapshots", authenticateToken, async (req, res) => {
+  const { tag } = req.body;
+  try {
+    const result = await backupService.createSnapshot(tag || "admin_manual");
+    db.run(
+      `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'create_snapshot', NULL, ?)`,
+      [req.user.username, `Created snapshot: ${result.filename}`]
+    );
+    res.json({ success: true, snapshot: result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/api/admin/snapshots/restore", authenticateToken, async (req, res) => {
+  const { filename } = req.body;
+  if (!filename) return res.status(400).json({ error: "Missing filename parameter" });
+  try {
+    const result = await backupService.restoreSnapshot(filename);
+    db.run(
+      `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'restore_snapshot', NULL, ?)`,
+      [req.user.username, `Restored snapshot: ${filename}`]
+    );
+    res.json({ success: true, ...result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

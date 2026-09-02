@@ -1,3 +1,4 @@
+import { BrandColors } from '@/constants/theme';
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLanguage, Language } from '../context/LanguageContext';
@@ -69,12 +70,12 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
               styles.optionButton,
               {
                 backgroundColor: active
-                  ? '#FF5F3B'
+                  ? BrandColors.primary
                   : isDark
                   ? 'rgba(30, 41, 59, 0.7)'
                   : '#F1F5F9',
                 borderColor: active
-                  ? '#FF5F3B'
+                  ? BrandColors.primary
                   : isDark
                   ? 'rgba(51, 65, 85, 0.6)'
                   : 'rgba(226, 232, 240, 0.8)',
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   activeButton: {
-    backgroundColor: '#FF5F3B',
+    backgroundColor: BrandColors.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
@@ -141,8 +142,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
+    // These used to size to their label, so five chips of five different word
+    // lengths wrapped 2-then-3 with a ragged right edge. Basis + grow tiles
+    // them three-up, then two-up, with each row flush to the container.
+    flexBasis: '30%',
+    flexGrow: 1,
+    minWidth: 0,
   },
   optionFlag: {
     fontSize: 14,

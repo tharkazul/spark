@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { RookaMark } from '../ui/RookaPoints';
 import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import { View, Text, TouchableOpacity, useColorScheme, LayoutChangeEvent } from 'react-native';
@@ -131,7 +132,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                 )}
               </View>
 
-              {/* Rooka points or Completion Check */}
+              {/* rooka points or Completion Check */}
               <View className="items-center justify-center pt-1 pb-1 border-t border-theme-border/40 w-full h-[24px]">
                 {hasWorkouts && day.workouts.every((w) => w.isCompleted) ? (
                   <Ionicons name="checkmark-circle" size={12} color="#10B981" />
@@ -140,7 +141,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                     <Text className="text-[10px] font-mono font-extrabold text-theme-accent">
                       {totalRooka}
                     </Text>
-                    <Ionicons name="sparkles" size={10} color={theme.tint} />
+                    <RookaMark size={12} color={theme.tint} />
                   </View>
                 ) : (
                   <Text className="text-[10px] font-mono font-extrabold text-theme-accent">

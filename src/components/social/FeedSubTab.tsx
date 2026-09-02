@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { RookaMark } from '../ui/RookaPoints';
+import { formatPaceOrSpeed } from '../../utils/paceFormat';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -162,11 +164,11 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
   }
 
   return (
-    <View className="space-y-3.5 pb-4">
+    <View className="gap-y-3.5 pb-4">
       {/* PENDING FRIEND REQUESTS BANNER */}
       {pendingRequests.length > 0 && (
         <View className="bg-theme-accent/10 border border-theme-accent/30 rounded-2xl p-3.5 mb-3">
-          <View className="flex-row items-center space-x-2 mb-2.5">
+          <View className="flex-row items-center gap-x-2 mb-2.5">
             <Ionicons name="person-add" size={16} color={theme.tint} />
             <Text className="text-xs font-extrabold text-theme-accent">
               Friend Requests ({pendingRequests.length})
@@ -179,7 +181,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                 key={`feed-req-${req.friend_id || req.user_id}`}
                 className="flex-row items-center justify-between bg-theme-card p-3 rounded-tile border border-theme-border/50 mb-1.5"
               >
-                <View className="flex-row items-center space-x-3">
+                <View className="flex-row items-center gap-x-3">
                   {reqAvatarUri ? (
                     <Image source={{ uri: reqAvatarUri }} className="w-8 h-8 rounded-full border border-theme-accent/40" />
                   ) : (
@@ -193,7 +195,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                 </View>
                 <TouchableOpacity
                   onPress={() => handleAcceptRequest(req.friend_id || req.user_id)}
-                  className="bg-emerald-500 px-3.5 py-1.5 rounded-lg"
+                  className="bg-semantic-success px-3.5 py-1.5 rounded-lg"
                 >
                   <Text className="text-xs font-extrabold text-white">Accept</Text>
                 </TouchableOpacity>
@@ -215,6 +217,12 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
         groupedFeed.map((group) => {
           const itemAvatarUri = getFullProfilePhotoUrl(group.profile_picture_url);
           const primaryActivity = group.activities[0];
+          const primaryPace = formatPaceOrSpeed(
+            primaryActivity.distance_km,
+            primaryActivity.moving_time_min,
+            primaryActivity.sport_type,
+            primaryActivity.name || primaryActivity.title,
+          );
           const hasKudosed = group.activities.some((a) => a.has_kudosed);
           const totalKudos = group.activities.reduce((sum, a) => sum + (a.kudos_count || 0), 0);
           const totalComments = group.activities.reduce((sum, a) => sum + (a.comments_count || 0), 0);
@@ -245,7 +253,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                     </View>
                   )}
                   <View className="flex-1">
-                    <View className="flex-row items-center space-x-1.5 flex-wrap">
+                    <View className="flex-row items-center gap-x-1.5 flex-wrap">
                       <Text className="text-sm font-extrabold text-theme-text">{group.username}</Text>
                       {group.rooka_level ? (
                         <View className="px-1.5 py-0.2 bg-theme-accent/15 rounded">
@@ -253,8 +261,8 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                         </View>
                       ) : null}
                       {group.isMultiSport && (
-                        <View className="px-1.5 py-0.2 bg-amber-500/15 rounded">
-                          <Text className="text-xs font-extrabold text-amber-500">⚡️ Brick ({group.activities.length})</Text>
+                        <View className="px-1.5 py-0.2 bg-semantic-warning/15 rounded">
+                          <Text className="text-xs font-extrabold text-semantic-warning">Brick ({group.activities.length})</Text>
                         </View>
                       )}
                     </View>
@@ -265,9 +273,9 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                 </TouchableOpacity>
 
                 <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
-                  <Ionicons name="flash" size={11} color={theme.tint} />
+                  <RookaMark size={11} />
                   <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">
-                    +{group.totalRooka} Rooka
+                    +{group.totalRooka} rooka
                   </Text>
                 </View>
               </View>
@@ -281,7 +289,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                   className="bg-theme-bg p-3.5 rounded-xl mb-2.5"
                 >
                   <View className="flex-row items-center justify-between mb-2">
-                    <View className="flex-row items-center space-x-2 flex-1 pr-2">
+                    <View className="flex-row items-center gap-x-2 flex-1 pr-2">
                       {(() => {
                         const iconConfig = getSportIconConfig(primaryActivity.sport_type, primaryActivity.name || primaryActivity.title);
                         return (
@@ -297,7 +305,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                     <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
                   </View>
 
-                  <View className="flex-row items-center space-x-4 pt-1.5 border-t border-slate-200/50 dark:border-slate-800/50">
+                  <View className="flex-row items-center gap-x-4 pt-1.5 border-t border-theme-border/50">
                     {typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 && (
                       <View>
                         <Text className="text-xs text-theme-muted font-bold uppercase">Distance</Text>
@@ -305,16 +313,26 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                       </View>
                     )}
                     {typeof primaryActivity.moving_time_min === 'number' && primaryActivity.moving_time_min > 0 && (
-                      <View className={typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 ? 'pl-4 border-l border-slate-200/60 dark:border-slate-800/60' : ''}>
+                      <View className={typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 ? 'pl-4 border-l border-theme-border/60' : ''}>
                         <Text className="text-xs text-theme-muted font-bold uppercase">Duration</Text>
                         <Text className="text-sm font-extrabold font-mono text-theme-text">{Math.round(primaryActivity.moving_time_min)} mins</Text>
+                      </View>
+                    )}
+                    {/* Distance and duration alone told a runner nothing about
+                        how the session actually went. Unit follows the sport. */}
+                    {primaryPace && (
+                      <View className="pl-4 border-l border-theme-border/60">
+                        <Text className="text-xs text-theme-muted font-bold uppercase">
+                          {primaryPace.endsWith('km/h') ? 'Speed' : 'Pace'}
+                        </Text>
+                        <Text className="text-sm font-extrabold font-mono text-theme-text">{primaryPace}</Text>
                       </View>
                     )}
                   </View>
                 </TouchableOpacity>
               ) : (
                 // Multi-Activity Stack (Brick Session / Triathlons)
-                <View className="space-y-1.5 mb-2.5">
+                <View className="gap-y-1.5 mb-2.5">
                   {group.activities.map((act, actIdx) => {
                     const iconConfig = getSportIconConfig(act.sport_type, act.name || act.title);
                     return (
@@ -324,7 +342,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                         onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
                         className="bg-theme-bg p-2.5 rounded-xl flex-row items-center justify-between"
                       >
-                        <View className="flex-row items-center space-x-2.5 flex-1 pr-2">
+                        <View className="flex-row items-center gap-x-2.5 flex-1 pr-2">
                           <View className={`w-7 h-7 rounded-lg items-center justify-center ${iconConfig.bgColor}`}>
                             <Ionicons name={iconConfig.name as any} size={15} color={iconConfig.color} />
                           </View>
@@ -333,13 +351,30 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                               {act.name || act.title || 'Workout'}
                             </Text>
                             <Text className="text-xs text-theme-muted font-medium">
-                              {typeof act.distance_km === 'number' && act.distance_km > 0 ? `${act.distance_km.toFixed(1)} km · ` : ''}
-                              {typeof act.moving_time_min === 'number' && act.moving_time_min > 0 ? `${Math.round(act.moving_time_min)} mins` : ''}
+                              {[
+                                typeof act.distance_km === 'number' && act.distance_km > 0
+                                  ? `${act.distance_km.toFixed(1)} km`
+                                  : null,
+                                typeof act.moving_time_min === 'number' && act.moving_time_min > 0
+                                  ? `${Math.round(act.moving_time_min)} mins`
+                                  : null,
+                                // Pace was missing entirely, which for a runner
+                                // is the one number that matters. Unit follows
+                                // the sport; omitted when it has no meaning.
+                                formatPaceOrSpeed(
+                                  act.distance_km,
+                                  act.moving_time_min,
+                                  act.sport_type,
+                                  act.name || act.title,
+                                ),
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
                             </Text>
                           </View>
                         </View>
 
-                        <View className="flex-row items-center space-x-1.5">
+                        <View className="flex-row items-center gap-x-1.5">
                           <Text className="text-xs font-extrabold font-rajdhani text-theme-accent">
                             +{Math.round(act.rooka_score || 0)}
                           </Text>
@@ -355,8 +390,8 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
               <View className="flex-row items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
                 <TouchableOpacity
                   onPress={() => handleToggleKudos(primaryActivity)}
-                  className={`flex-row items-center space-x-1.5 px-3 py-1.5 rounded-full ${
-                    hasKudosed ? 'bg-rose-500/15' : 'bg-theme-bg'
+                  className={`flex-row items-center gap-x-1.5 px-3 py-1.5 rounded-full ${
+                    hasKudosed ? 'bg-semantic-error/15' : 'bg-theme-bg'
                   }`}
                 >
                   <Ionicons
@@ -364,17 +399,23 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                     size={15}
                     color={hasKudosed ? '#F43F5E' : '#6F6F79'}
                   />
-                  <Text className={`text-xs font-extrabold font-mono ${hasKudosed ? 'text-rose-500' : 'text-theme-muted'}`}>
+                  <Text className={`text-xs font-extrabold font-mono ${hasKudosed ? 'text-semantic-error' : 'text-theme-muted'}`}>
                     {totalKudos}
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => onOpenActivityModal && onOpenActivityModal(primaryActivity.id, primaryActivity)}
-                  className="flex-row items-center space-x-1.5 px-3 py-1.5 rounded-full bg-theme-bg"
+                  className="flex-row items-center gap-x-1.5 px-3 py-1.5 rounded-full bg-theme-bg"
                 >
                   <Ionicons name="chatbubble-outline" size={15} color={theme.textSecondary} />
-                  <Text className="text-xs font-bold text-theme-muted">{totalComments} Comments</Text>
+                  {/* "0 Comments" as a button label read as a broken counter.
+                      Show the count only once there is one, and pluralise it. */}
+                  <Text className="text-xs font-bold text-theme-muted">
+                    {totalComments > 0
+                      ? `${totalComments} ${totalComments === 1 ? 'Comment' : 'Comments'}`
+                      : 'Comment'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>

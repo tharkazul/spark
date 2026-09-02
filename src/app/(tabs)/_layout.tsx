@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { RookaMark } from '../../components/ui/RookaPoints';
 import { ParamListBase, TabNavigationState } from '@react-navigation/native';
 import {
   createMaterialTopTabNavigator,
@@ -86,14 +87,14 @@ export default function TabLayout() {
           options={{
             title: 'Coach',
             tabBarIcon: ({ color, size = 22 }: { color: string; size?: number }) => (
-              <Ionicons name="sparkles-outline" size={size} color={color} />
+              <RookaMark size={size} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="social"
           options={{
-            title: 'Activities',
+            title: 'Social',
             tabBarIcon: ({ color, size = 22 }: { color: string; size?: number }) => (
               <Ionicons name="people-outline" size={size} color={color} />
             ),

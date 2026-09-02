@@ -1,3 +1,4 @@
+import { BrandColors } from '@/constants/theme';
 import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,7 +51,7 @@ const MemoizedHeader = React.memo(({
         <View className="flex-row items-center justify-between pb-2.5 border-b border-theme-border/60">
           <View className="flex-row items-center gap-2">
             <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
-              <Ionicons name="layers-outline" size={16} color="#FF5F3B" />
+              <Ionicons name="layers-outline" size={16} color={BrandColors.primary} />
             </View>
             <View>
               <Text className="text-xs font-extrabold text-theme-text">
@@ -65,7 +66,7 @@ const MemoizedHeader = React.memo(({
 
         {/* Add Interval Blocks */}
         <View>
-          <Text className="text-xs font-bold text-slate-500 dark:text-theme-muted mb-2">
+          <Text className="text-xs font-bold text-theme-muted dark:text-theme-muted mb-2">
             Add Interval Blocks:
           </Text>
 
@@ -73,31 +74,31 @@ const MemoizedHeader = React.memo(({
             <TouchableOpacity
               onPress={() => handleAddStep('warmup')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
-              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400">+ Warmup</Text>
+              <Text className="text-xs font-bold text-semantic-success">+ Warmup</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('interval')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
-              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">+ Interval</Text>
+              <Text className="text-xs font-bold text-semantic-info">+ Interval</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('recovery')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
-              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400">+ Recovery</Text>
+              <Text className="text-xs font-bold text-semantic-warning">+ Recovery</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => handleAddStep('cooldown')}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
             >
               <Text className="text-xs font-bold text-purple-600 dark:text-purple-400">+ Cooldown</Text>
             </TouchableOpacity>
@@ -105,9 +106,9 @@ const MemoizedHeader = React.memo(({
             <TouchableOpacity
               onPress={handleAddRepeat}
               activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-slate-200 dark:border-theme-border rounded-control flex-row items-center gap-1.5 shadow-xs"
+              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1.5 shadow-xs"
             >
-              <Ionicons name="repeat" size={13} color="#FF5F3B" />
+              <Ionicons name="repeat" size={13} color={BrandColors.primary} />
               <Text className="text-xs font-bold text-theme-accent">Repeat</Text>
             </TouchableOpacity>
           </View>

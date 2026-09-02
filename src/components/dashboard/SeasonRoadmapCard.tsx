@@ -125,7 +125,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           </View>
 
           {/* Phase Cards List */}
-          <View className="space-y-2.5">
+          <View className="gap-y-2.5">
             {info.phases.map((phase) => {
               const isCompleted = phase.status === 'completed';
               const isActive = phase.status === 'active';
@@ -135,7 +135,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                   key={phase.name}
                   className={`p-3 rounded-2xl border ${
                     isActive
-                      ? 'bg-theme-accent-soft/30 border-theme-accent'
+                      ? 'bg-theme-accent-soft border-theme-accent'
                       : isCompleted
                       ? 'bg-theme-bg/50 border-theme-border/60'
                       : 'bg-theme-bg/30 border-theme-border/40 opacity-70'
@@ -154,9 +154,9 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                     </View>
 
                     {isCompleted && (
-                      <View className="flex-row items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
-                        <Text className="text-xs font-extrabold text-emerald-500">DONE</Text>
+                        <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
                       </View>
                     )}
 

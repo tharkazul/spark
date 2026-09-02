@@ -19,7 +19,7 @@
  *      quadriceps 95% and hamstrings 95% simultaneously.
  *
  * The model here keeps the ranking (the sport-to-muscle mapping was the part
- * that was right) and fixes the magnitude: load is measured in Rooka, the
+ * that was right) and fixes the magnitude: load is measured in rooka, the
  * app's own unit of training load, it decays with age, and it saturates on a
  * smooth curve instead of hitting a wall.
  */
@@ -87,7 +87,7 @@ export function retentionAt(age: number): number {
 }
 
 /**
- * Decayed Rooka load at which a muscle reads ~63%.
+ * Decayed rooka load at which a muscle reads ~63%.
  *
  * Calibrated against the bands the card itself draws — under 35 "Fresh / Low",
  * 35-64 "Moderate", 65+ "High Fatigue" — so that:
@@ -107,9 +107,9 @@ export function retentionAt(age: number): number {
 export const REFERENCE_LOAD = 185;
 
 /**
- * Per-sport scaling of Rooka into mechanical muscle load.
+ * Per-sport scaling of rooka into mechanical muscle load.
  *
- * Rooka is a cardiovascular currency: it is minutes weighted by heart-rate or
+ * rooka is a cardiovascular currency: it is minutes weighted by heart-rate or
  * power zone. That undercounts resistance work badly — a hard set of squats
  * barely moves the heart rate but is the single largest mechanical stimulus a
  * quadriceps gets all week. Scaling strength up keeps the two comparable
@@ -150,12 +150,12 @@ export function sportKeyFor(activity: MuscleLoadActivity): keyof typeof SPORT_MU
 }
 
 /**
- * Training load of one activity, in Rooka.
+ * Training load of one activity, in rooka.
  *
  * `rooka_score` is the zone-weighted figure the rest of Progress already shows,
  * so the card agrees with the numbers next to it. Activities predating the
  * rescore have none; those fall back to duration at the Zone-2 rate of 1.2
- * Rooka per minute rather than being dropped, so history still counts.
+ * rooka per minute rather than being dropped, so history still counts.
  */
 export function loadOf(activity: MuscleLoadActivity): number {
   const scored = Number(activity.rooka_score);
@@ -175,7 +175,7 @@ export function ageInDays(startDate: string | null | undefined, now: Date): numb
 }
 
 /**
- * Load per muscle group, decayed by age, in Rooka.
+ * Load per muscle group, decayed by age, in rooka.
  *
  * Returned before saturation so a caller can inspect the raw figure — the
  * percentages the card shows come from `fatiguePercentages`.
