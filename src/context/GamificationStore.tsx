@@ -130,7 +130,11 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setQuests(defaultQuests);
+      setTitles([]);
+      return;
+    }
     refreshGamification();
 
     const unsubQuestUpdated = wsService.subscribeToEvent('quest_updated', () => refreshGamification());
@@ -146,7 +150,7 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
       unsubActivityLogged();
       unsubActivitySynced();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshGamification]);
 
   return (
     <GamificationContext.Provider

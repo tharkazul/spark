@@ -29,30 +29,33 @@ interface UserContextType {
  * strava_connected/garmin_connected forced to false and a hardcoded id, which
  * is what made working integrations look like they had vanished after a reboot.
  */
-const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => ({
-  ...(data as UserProfile),
-  total_rooka: data.total_rooka ?? data.totalRooka ?? prev?.total_rooka ?? 0,
-  subscription_tier:
-    data.subscriptionTier ?? data.subscription_tier ?? prev?.subscription_tier ?? 'free',
-  daily_token_usage: data.dailyTokenUsage ?? data.daily_token_usage ?? prev?.daily_token_usage ?? 0,
-  daily_token_limit:
-    data.dailyTokenLimit ?? data.daily_token_limit ?? prev?.daily_token_limit ?? 50000,
-  athlete_context: data.athleteContext ?? data.athlete_context ?? prev?.athlete_context,
-  coach_tone: data.coachTone ?? data.coach_tone ?? prev?.coach_tone,
-  coach_name: data.coachName ?? data.coach_name ?? 'rooka',
-  coach_context: data.coachContext ?? data.coach_context ?? '',
-  coach_avatar_neutral: data.coachAvatarNeutral ?? data.coach_avatar_neutral,
-  coach_avatar_hype: data.coachAvatarHype ?? data.coach_avatar_hype,
-  coach_avatar_disappointed: data.coachAvatarDisappointed ?? data.coach_avatar_disappointed,
-  profile_picture_url:
-    data.profilePictureUrl ?? data.profile_picture_url ?? prev?.profile_picture_url,
-  garmin_connected: data.hasGarmin ?? data.garmin_connected ?? false,
-  strava_connected: data.hasStrava ?? data.strava_connected ?? false,
-  onboarding_completed: Boolean(
-    data.onboardingCompleted ?? data.onboarding_completed ?? prev?.onboarding_completed ?? true
-  ),
-  needsZoneSetup: Boolean(data.needsZoneSetup ?? prev?.needsZoneSetup ?? false),
-});
+const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => {
+  const isSameUser = Boolean(prev && data && prev.id === data.id);
+  const onboardingVal = data?.onboardingCompleted ?? data?.onboarding_completed ?? (isSameUser ? prev?.onboarding_completed : false);
+
+  return {
+    ...(data as UserProfile),
+    total_rooka: data?.total_rooka ?? data?.totalRooka ?? (isSameUser ? prev?.total_rooka : 0) ?? 0,
+    subscription_tier:
+      data?.subscriptionTier ?? data?.subscription_tier ?? (isSameUser ? prev?.subscription_tier : 'free') ?? 'free',
+    daily_token_usage: data?.dailyTokenUsage ?? data?.daily_token_usage ?? (isSameUser ? prev?.daily_token_usage : 0) ?? 0,
+    daily_token_limit:
+      data?.dailyTokenLimit ?? data?.daily_token_limit ?? (isSameUser ? prev?.daily_token_limit : 50000) ?? 50000,
+    athlete_context: data?.athleteContext ?? data?.athlete_context ?? (isSameUser ? prev?.athlete_context : undefined),
+    coach_tone: data?.coachTone ?? data?.coach_tone ?? (isSameUser ? prev?.coach_tone : undefined),
+    coach_name: data?.coachName ?? data?.coach_name ?? 'Rooka',
+    coach_context: data?.coachContext ?? data?.coach_context ?? '',
+    coach_avatar_neutral: data?.coachAvatarNeutral ?? data?.coach_avatar_neutral,
+    coach_avatar_hype: data?.coachAvatarHype ?? data?.coach_avatar_hype,
+    coach_avatar_disappointed: data?.coachAvatarDisappointed ?? data?.coach_avatar_disappointed,
+    profile_picture_url:
+      data?.profilePictureUrl ?? data?.profile_picture_url ?? (isSameUser ? prev?.profile_picture_url : undefined),
+    garmin_connected: data?.hasGarmin ?? data?.garmin_connected ?? false,
+    strava_connected: data?.hasStrava ?? data?.strava_connected ?? false,
+    onboarding_completed: onboardingVal === true || onboardingVal === 1,
+    needsZoneSetup: Boolean(data?.needsZoneSetup ?? (isSameUser ? prev?.needsZoneSetup : false)),
+  };
+};
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
@@ -81,16 +84,17 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       ]);
     } catch (_) {}
 
+    const currentUserId = user?.id;
     wsService.disconnect();
     setAuthToken(null);
     await tokenStorage.removeToken();
-    if (chatStorage.clearChatHistory) await chatStorage.clearChatHistory();
+    if (chatStorage.clearChatHistory) await chatStorage.clearChatHistory(currentUserId);
     if (briefingStorage.clearBriefing) await briefingStorage.clearBriefing();
     setUser(null);
     setIsAuthenticated(false);
     setError(typeof reason === 'string' ? reason : null);
     loggingOutRef.current = false;
-  }, []);
+  }, [user?.id]);
 
   const login = React.useCallback(async (emailOrUsername: string, password: string) => {
     setLoading(true);

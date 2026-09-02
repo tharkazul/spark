@@ -114,18 +114,32 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     messagesRef.current = messages;
   }, [messages]);
 
-  // Load last read timestamp from persistent storage (scoped per user)
+  // Load last read timestamp and chat history when user changes or signs out
   useEffect(() => {
-    if (user?.id) {
-      chatReadStorage.getLastReadTimestamp(user.id).then((ts) => {
-        setLastReadTimestamp(ts || 0);
-      });
-    } else {
-      chatReadStorage.getLastReadTimestamp().then((ts) => {
-        setLastReadTimestamp(ts || 0);
-      });
+    if (!isAuthenticated || !user?.id) {
+      setMessagesState([defaultWelcomeMessage]);
+      messagesRef.current = [defaultWelcomeMessage];
+      setLastReadTimestamp(0);
+      setUnreadCount(0);
+      setTokenUsage(null);
+      setError(null);
+      clearBadgeCountAsync();
+      return;
     }
-  }, [user?.id]);
+
+    // A valid user is logged in
+    setMessagesState([defaultWelcomeMessage]);
+    messagesRef.current = [defaultWelcomeMessage];
+    chatReadStorage.getLastReadTimestamp(user.id).then((ts) => {
+      setLastReadTimestamp(ts || 0);
+    });
+    chatStorage.getChatHistory(user.id).then((local) => {
+      if (local && Array.isArray(local) && local.length > 0) {
+        setMessagesState(local.map(processMessageItem));
+      }
+    });
+    refreshMessages();
+  }, [user?.id, isAuthenticated]);
 
   // Compute unread count whenever messages or lastReadTimestamp change
   useEffect(() => {
@@ -163,10 +177,12 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const setMessages = useCallback((action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     setMessagesState((prev) => {
       const next = typeof action === 'function' ? action(prev) : action;
-      chatStorage.setChatHistory(next);
+      if (user?.id) {
+        chatStorage.setChatHistory(next, user.id);
+      }
       return next;
     });
-  }, []);
+  }, [user?.id]);
 
   const processMessageItem = useCallback((msg: ChatMessage): ChatMessage => {
     let images: string[] = [];
@@ -200,17 +216,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
 
   const refreshMessages = useCallback(async () => {
-    // 1. Immediately load local cached messages from storage if in-memory state is empty
-    try {
-      if (messagesRef.current.length === 0) {
-        const local = await chatStorage.getChatHistory();
-        if (local && Array.isArray(local) && local.length > 0) {
-          setMessagesState(local.map(processMessageItem));
-        }
-      }
-    } catch (_) {}
-
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !user?.id) return;
     setLoading(true);
     try {
       const response = await chatApi.getHistory();
@@ -232,6 +238,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           if (response.tokenUsage) {
             setTokenUsage(response.tokenUsage);
           }
+        } else {
+          setMessagesState([defaultWelcomeMessage]);
         }
       }
       setError(null);
@@ -240,7 +248,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, processMessageItem, setMessages]);
+  }, [isAuthenticated, user?.id, processMessageItem, setMessages]);
 
   const streamCoachMessage = (fullMessage: ChatMessage): Promise<void> => {
     const fullText = fullMessage.content || '';

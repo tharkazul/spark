@@ -103,9 +103,12 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   }, [refreshPlan]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setPlan(defaultPlan);
+      return;
+    }
     refreshPlan();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshPlan]);
 
   return (
     <PlanContext.Provider

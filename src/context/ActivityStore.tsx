@@ -112,7 +112,10 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshActivities]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setActivities([]);
+      return;
+    }
     refreshActivities();
 
     const unsubActivity = wsService.subscribeToEvent('activity_synced', () => refreshActivities());
@@ -124,7 +127,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
       unsubStrava();
       unsubGarmin();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshActivities]);
 
   return (
     <ActivityContext.Provider

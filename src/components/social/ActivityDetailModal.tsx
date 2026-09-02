@@ -12,8 +12,22 @@ import {
   Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Platform,
 } from 'react-native';
-import MapView, { Polyline, Marker } from 'react-native-maps';
+
+let MapView: any = View;
+let Polyline: any = View;
+let Marker: any = View;
+
+if (Platform.OS !== 'web') {
+  try {
+    const Maps = require('react-native-maps');
+    MapView = Maps.default || Maps;
+    Polyline = Maps.Polyline;
+    Marker = Maps.Marker;
+  } catch (_) {}
+}
+
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';

@@ -120,9 +120,13 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [refreshPhysique]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setPhysiqueLogs([]);
+      setNutrition(defaultNutrition);
+      return;
+    }
     refreshPhysique();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshPhysique]);
 
   return (
     <PhysiqueContext.Provider

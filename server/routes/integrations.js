@@ -39,37 +39,12 @@ const {
   processActivityCoachAnalysis
 } = require('../services/utils');
 
-// How far ahead an unfiltered "sync everything" push reaches. Each workout is
-// two Garmin calls, so this is the difference between a handful of requests and
-// a plan-sized burst.
-const SYNC_HORIZON_DAYS = 7;
-
 const SPORT_MAP = {
-  run: { sportTypeId: 1, sportTypeKey: "running" },
-  running: { sportTypeId: 1, sportTypeKey: "running" },
-  bike: { sportTypeId: 2, sportTypeKey: "cycling" },
-  cycling: { sportTypeId: 2, sportTypeKey: "cycling" },
-  ride: { sportTypeId: 2, sportTypeKey: "cycling" },
-  swim: { sportTypeId: 4, sportTypeKey: "swimming" },
-  swimming: { sportTypeId: 4, sportTypeKey: "swimming" },
-  strength: { sportTypeId: 5, sportTypeKey: "strength_training" },
-  strength_training: { sportTypeId: 5, sportTypeKey: "strength_training" },
-  gym: { sportTypeId: 5, sportTypeKey: "strength_training" },
-  cardio: { sportTypeId: 6, sportTypeKey: "cardio_training" },
-  cardio_training: { sportTypeId: 6, sportTypeKey: "cardio_training" },
-  hiit: { sportTypeId: 6, sportTypeKey: "cardio_training" },
-  walk: { sportTypeId: 7, sportTypeKey: "walking" },
-  walking: { sportTypeId: 7, sportTypeKey: "walking" },
-  mobility: { sportTypeId: 8, sportTypeKey: "flexibility_training" },
-  yoga: { sportTypeId: 8, sportTypeKey: "flexibility_training" },
-  flexibility: { sportTypeId: 8, sportTypeKey: "flexibility_training" },
+  Run: { sportTypeId: 1, sportTypeKey: "running" },
+  Bike: { sportTypeId: 2, sportTypeKey: "cycling" },
+  Swim: { sportTypeId: 4, sportTypeKey: "swimming" },
+  Strength: { sportTypeId: 5, sportTypeKey: "strength_training" },
 };
-
-function getSportDefinition(sport) {
-  if (!sport) return null;
-  const key = sport.toString().toLowerCase().trim();
-  return SPORT_MAP[key] || { sportTypeId: 1, sportTypeKey: "running" };
-}
 
 const STEP_TYPE_MAP = {
   warmup: { id: 1, key: "warmup" },
@@ -183,7 +158,7 @@ router.post("/api/user/settings/garmin", authenticateToken, (req, res) => {
   const encryptedPassword = encrypt(garminPassword);
 
   db.run(
-    `UPDATE users SET garmin_username = ?, garmin_password = ?, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
+    `UPDATE users SET garmin_username = ?, garmin_password = ? WHERE id = ?`,
     [garminUsername, encryptedPassword, req.user.id],
     function (err) {
       if (err)
@@ -550,7 +525,7 @@ router.post("/api/user/disconnect/strava", authenticateToken, (req, res) => {
 
 router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
   db.run(
-    `UPDATE users SET garmin_username = NULL, garmin_password = NULL, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
+    `UPDATE users SET garmin_username = NULL, garmin_password = NULL WHERE id = ?`,
     [req.user.id],
     (err) => {
       if (err)
@@ -560,113 +535,18 @@ router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
   );
 });
 
-// Only the SSO login endpoint is really rate-limited by Garmin, and once it
-// starts answering 429 it keeps doing so for hours. Every extra login attempt
-// while throttled extends that window, so a 429 must never be retried by
-// logging in again.
-function isGarminRateLimited(err) {
-  if (err?.response?.status === 429) return true;
-  return /\(429\)|Too Many Requests/i.test(err?.message || "");
-}
-
-// A session Garmin no longer accepts - as opposed to one we simply couldn't
-// reach. Only this warrants spending a fresh username/password login.
-function isGarminAuthRejected(err) {
-  const status = err?.response?.status;
-  if (status === 401 || status === 403) return true;
-  return /\((401|403)\)/.test(err?.message || "");
-}
-
-function storeGarminSession(GCClient, userId) {
-  try {
-    const { oauth1, oauth2 } = GCClient.exportToken();
-    db.run(
-      `UPDATE users SET garmin_oauth1_token = ?, garmin_oauth2_token = ? WHERE id = ?`,
-      [encrypt(JSON.stringify(oauth1)), encrypt(JSON.stringify(oauth2)), userId],
-    );
-  } catch (e) {
-    console.error("Failed to cache Garmin session tokens:", e.message);
-  }
-}
-
-function clearGarminSession(userId) {
-  db.run(
-    `UPDATE users SET garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
-    [userId],
-  );
-}
-
-/**
- * Returns a logged-in GarminConnect client for a user, reusing a cached
- * OAuth session whenever possible instead of authenticating with
- * username/password on every call. Garmin rate-limits (429) accounts that
- * log in too frequently, so a fresh username/password login only happens
- * when there's no cached session or the cached one no longer works.
- *
- * The OAuth2 access token lives about an hour, the OAuth1 token about a year.
- * As long as the OAuth1 token holds we can mint a new OAuth2 token without
- * going anywhere near the SSO endpoint that does the throttling.
- */
-async function getGarminClient(user, userId, { forceLogin = false } = {}) {
-  const decryptedPassword = decrypt(user.garmin_password);
-  const GCClient = new GarminConnect({
-    username: user.garmin_username,
-    password: decryptedPassword,
-  });
-
-  let session = null;
-  if (!forceLogin && user.garmin_oauth1_token && user.garmin_oauth2_token) {
-    try {
-      session = {
-        oauth1: JSON.parse(decrypt(user.garmin_oauth1_token)),
-        oauth2: JSON.parse(decrypt(user.garmin_oauth2_token)),
-      };
-    } catch (e) {
-      // Unreadable rather than rejected: drop it so we don't re-parse the same
-      // garbage on every sync.
-      console.log("DEBUG: Stored Garmin session unreadable, discarding:", e.message);
-      clearGarminSession(userId);
-    }
-  }
-
-  if (session) {
-    GCClient.loadToken(session.oauth1, session.oauth2);
-
-    const expiresAt = Number(session.oauth2?.expires_at) || 0;
-    if (expiresAt - Date.now() / 1000 > 60) {
-      console.log("DEBUG: Reused cached Garmin session for", user.garmin_username);
-      return GCClient;
-    }
-
-    try {
-      await GCClient.client.refreshOauth2Token();
-      storeGarminSession(GCClient, userId);
-      console.log("DEBUG: Refreshed Garmin OAuth2 token for", user.garmin_username);
-      return GCClient;
-    } catch (e) {
-      if (isGarminRateLimited(e)) throw e;
-      console.log(
-        "DEBUG: Garmin token refresh failed, falling back to full login:",
-        e.message,
-      );
-    }
-  }
-
-  console.log("DEBUG: Attempting fresh Garmin login for user:", user.garmin_username);
-  await GCClient.login(user.garmin_username, decryptedPassword);
-  storeGarminSession(GCClient, userId);
-
-  return GCClient;
-}
-
 router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
   console.log("DEBUG: Sync route triggered for user:", req.user.id);
   const selectedWorkouts = req.body.workouts;
 
+  if (!selectedWorkouts || selectedWorkouts.length === 0) {
+    return res.status(400).json({ error: "No workouts selected for sync." });
+  }
+
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT garmin_username, garmin_password, garmin_oauth1_token, garmin_oauth2_token FROM users WHERE id = ?`,
+        `SELECT garmin_username, garmin_password FROM users WHERE id = ?`,
         [req.user.id],
         (err, row) => {
           if (err || !row) reject(new Error("User credentials not found"));
@@ -675,18 +555,21 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       );
     });
 
-    if (!user.garmin_username || !user.garmin_password) {
-      return res.status(400).json({ error: "Garmin credentials not connected." });
-    }
+    const decryptedPassword = decrypt(user.garmin_password);
+    const GCClient = new GarminConnect({
+      username: user.garmin_username,
+      password: decryptedPassword,
+    });
 
-    let GCClient = await getGarminClient(user, req.user.id);
-    let client = GCClient.client || GCClient.http;
+    console.log("DEBUG: Attempting login for user:", user.garmin_username);
+    await GCClient.login(user.garmin_username, decryptedPassword);
+    const client = GCClient.client || GCClient.http;
     if (!client) throw new Error("Garmin client initialization failed.");
 
     const todayStr = getAMSDateString();
     const workouts = await new Promise((resolve, reject) => {
       db.all(
-        `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ? ORDER BY date ASC`,
+        `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
         [req.user.id, todayStr],
         (err, rows) => {
           if (err) reject(err);
@@ -695,77 +578,32 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       );
     });
 
-    let workoutsToSync = [];
-    if (Array.isArray(selectedWorkouts) && selectedWorkouts.length > 0) {
-      const hasDirectSteps = selectedWorkouts.some((sw) => sw.steps || sw.steps_json);
-      if (hasDirectSteps) {
-        workoutsToSync = selectedWorkouts.map((sw) => ({
-          date: sw.date || todayStr,
-          sport: sw.sport,
-          description: sw.title || sw.description || `${sw.sport} Workout`,
-          target_rooka: sw.rookaPoints || sw.target_rooka || 55,
-          steps_json: sw.steps
-            ? typeof sw.steps === "string"
-              ? sw.steps
-              : JSON.stringify(sw.steps)
-            : sw.steps_json,
-        }));
-      } else {
-        workoutsToSync = workouts.filter((w) =>
-          selectedWorkouts.some((sw) => {
-            const dateMatch = String(sw.date).trim() === String(w.date).trim();
-            const sportMatch =
-              !sw.sport ||
-              String(sw.sport).toLowerCase().trim() ===
-                String(w.sport || "").toLowerCase().trim();
-            return dateMatch && sportMatch;
-          }),
-        );
-      }
-    } else {
-      // No explicit selection: push the coming week, not the whole plan. Each
-      // workout costs two Garmin calls, and firing a few dozen of them off one
-      // button press is what earns the account a 429.
-      const horizon = new Date(`${todayStr}T00:00:00Z`);
-      horizon.setUTCDate(horizon.getUTCDate() + SYNC_HORIZON_DAYS);
-      const horizonStr = horizon.toISOString().split("T")[0];
-      workoutsToSync = workouts.filter((w) => String(w.date) <= horizonStr);
-      if (workouts.length > workoutsToSync.length) {
-        console.log(
-          `DEBUG: Garmin sync limited to the next ${SYNC_HORIZON_DAYS} days ` +
-            `(${workoutsToSync.length} of ${workouts.length} planned workouts).`,
-        );
-      }
-    }
+    const workoutsToSync = workouts.filter((w) =>
+      selectedWorkouts.some((sw) => sw.date === w.date && sw.sport === w.sport),
+    );
 
-    if (!workoutsToSync || workoutsToSync.length === 0) {
+    if (workoutsToSync.length === 0)
       return res
         .status(400)
-        .json({ error: "No scheduled workouts found to sync." });
-    }
+        .json({ error: "No valid workouts found to sync." });
 
     let syncedCount = 0;
-    let lastError = null;
-    let rateLimited = false;
-    let reloggedIn = false;
 
     for (const workout of workoutsToSync) {
-      if (workout.sport === "Rest" || workout.sport === "REST") continue;
+      if (workout.sport === "Rest" || !SPORT_MAP[workout.sport]) continue;
 
-      const sportDef = getSportDefinition(workout.sport);
-      if (!sportDef) continue;
-
+      const sportDef = SPORT_MAP[workout.sport];
       let stepsArray = [];
       try {
-        stepsArray = typeof workout.steps_json === 'string' ? JSON.parse(workout.steps_json) : (workout.steps_json || []);
+        stepsArray = JSON.parse(workout.steps_json);
       } catch (e) {
         stepsArray = [];
       }
 
-      if (!Array.isArray(stepsArray) || stepsArray.length === 0) {
+      if (stepsArray.length === 0) {
         let durationMins = Math.max(
           5,
-          Math.round(((workout.target_rooka || 55) / 55) * 60),
+          Math.round((workout.target_rooka / 55) * 60),
         );
         stepsArray = [
           {
@@ -786,7 +624,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
             numberOfIterations: step.iterations || 1,
             workoutSteps: (step.steps || []).map((subStep, subIndex) => {
               const nType =
-                subStep.type === "drill" ? "interval" : (subStep.type || "interval");
+                subStep.type === "drill" ? "interval" : subStep.type;
               const sDef = STEP_TYPE_MAP[nType] || STEP_TYPE_MAP["interval"];
               const tDef =
                 TARGET_TYPE_MAP[subStep.target_type] ||
@@ -805,8 +643,8 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
                 },
                 endConditionValue:
                   subStep.condition_type === "time"
-                    ? (subStep.condition_value || 1) * 60
-                    : (subStep.condition_value || 1),
+                    ? subStep.condition_value * 60
+                    : subStep.condition_value,
                 targetType: {
                   workoutTargetTypeId: tDef.id,
                   workoutTargetTypeKey: tDef.key,
@@ -863,23 +701,16 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
                 if (match) {
                   sDTO.category = match.category_key;
                   sDTO.exerciseName = match.exercise_key;
-                } else if (sportDef.sportTypeKey === "strength_training") {
-                  sDTO.category = "CARDIO";
-                  sDTO.exerciseName = "CARDIO";
-                  sDTO.description = subStep.exerciseName;
                 } else {
-                  sDTO.description = subStep.exerciseName;
+                  sDTO.description = subStep.exerciseName; // Fallback to notes if no match
                 }
-              } else if (sportDef.sportTypeKey === "strength_training") {
-                sDTO.category = "CARDIO";
-                sDTO.exerciseName = "CARDIO";
               }
               return sDTO;
             }),
           };
         }
 
-        const normalizedType = step.type === "drill" ? "interval" : (step.type || "interval");
+        const normalizedType = step.type === "drill" ? "interval" : step.type;
         const stepDef =
           STEP_TYPE_MAP[normalizedType] || STEP_TYPE_MAP["interval"];
         const targetDef =
@@ -897,8 +728,8 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
           },
           endConditionValue:
             step.condition_type === "time"
-              ? (step.condition_value || 1) * 60
-              : (step.condition_value || 1),
+              ? step.condition_value * 60
+              : step.condition_value,
           targetType: {
             workoutTargetTypeId: targetDef.id,
             workoutTargetTypeKey: targetDef.key,
@@ -955,131 +786,55 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
           if (match) {
             stepDTO.category = match.category_key;
             stepDTO.exerciseName = match.exercise_key;
-          } else if (sportDef.sportTypeKey === "strength_training") {
-            stepDTO.category = "CARDIO";
-            stepDTO.exerciseName = "CARDIO";
-            stepDTO.description = step.exerciseName;
           } else {
-            stepDTO.description = step.exerciseName;
+            stepDTO.description = step.exerciseName; // Fallback to notes if no match
           }
-        } else if (sportDef.sportTypeKey === "strength_training") {
-          stepDTO.category = "CARDIO";
-          stepDTO.exerciseName = "CARDIO";
         }
         return stepDTO;
       });
 
-      const cleanTitle = (workout.description || `${workout.sport} Workout`).slice(0, 45);
       const wkt = {
-        workoutName: `Rooka: ${cleanTitle}`,
-        description: workout.description || "",
+        workoutName: `Rooka: ${workout.sport}`,
+        description: workout.description,
         sportType: sportDef,
         workoutSegments: [
           { segmentOrder: 1, sportType: sportDef, workoutSteps: garminSteps },
         ],
       };
 
-      if (sportDef.sportTypeKey === "swimming") {
+      if (workout.sport === "Swim") {
         wkt.poolLength = 25;
         wkt.poolLengthUnit = { unitId: 1, unitKey: "meter", factor: 100 };
       }
 
-      const pushWorkout = async () => {
+      try {
         const response = await client.post(
           "https://connectapi.garmin.com/workout-service/workout",
           wkt,
         );
         const workoutId = response?.workoutId || response?.data?.workoutId;
-        if (!workoutId) {
-          console.warn("Garmin workout creation returned no workoutId:", response);
-          return;
-        }
-        await client.post(
-          `https://connectapi.garmin.com/workout-service/schedule/${workoutId}`,
-          { date: workout.date },
-        );
-        syncedCount++;
-      };
-
-      try {
-        await pushWorkout();
-      } catch (err) {
-        if (isGarminRateLimited(err)) {
-          // Garmin is throttling this account. Walking the rest of the list
-          // would only add to the pile, so stop here.
-          rateLimited = true;
-          lastError = err?.message || "Garmin rate limit";
-          console.error(`❌ Garmin rate-limited during sync:`, lastError);
-          break;
-        }
-
-        // The cached session can be revoked server-side (password change,
-        // session revoked) while still looking valid by its own clock. That is
-        // the one case worth spending a fresh login on, and only once.
-        if (isGarminAuthRejected(err) && !reloggedIn) {
-          reloggedIn = true;
-          console.log("DEBUG: Cached Garmin session rejected, re-authenticating once.");
-          clearGarminSession(req.user.id);
-          try {
-            GCClient = await getGarminClient(user, req.user.id, { forceLogin: true });
-            client = GCClient.client || GCClient.http;
-            await pushWorkout();
-          } catch (retryErr) {
-            if (isGarminRateLimited(retryErr)) {
-              rateLimited = true;
-              lastError = retryErr?.message || "Garmin rate limit";
-              break;
-            }
-            lastError =
-              retryErr?.response?.data?.message ||
-              retryErr?.message ||
-              "Garmin API rejected workout";
-            console.error(
-              `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
-              retryErr?.response?.data || retryErr.message,
-            );
-          }
-        } else {
-          lastError = err?.response?.data?.message || err?.message || "Garmin API rejected workout";
-          console.error(
-            `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
-            err?.response?.data || err.message,
+        if (workoutId) {
+          await client.post(
+            `https://connectapi.garmin.com/workout-service/schedule/${workoutId}`,
+            { date: workout.date },
           );
+          syncedCount++;
         }
+      } catch (err) {
+        console.error(
+          `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
+          err.message,
+        );
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    if (rateLimited) {
-      return res.status(429).json({
-        error:
-          "Garmin is rate-limiting this account. Wait an hour or so before syncing again.",
-        details: lastError,
-        syncedCount,
-      });
-    }
-
-    if (syncedCount === 0 && workoutsToSync.length > 0) {
-      return res.status(400).json({
-        error: "Failed to push workouts to Garmin Connect.",
-        details: lastError || "Garmin API rejected the workout payload.",
-      });
-    }
-
     res.json({
       success: true,
-      message: `Successfully pushed ${syncedCount} structured workout(s) to Garmin!`,
-      syncedCount,
+      message: `Successfully pushed ${syncedCount} structured workouts!`,
     });
   } catch (err) {
     console.error("CRITICAL ERROR in sync-garmin:", err);
-    if (isGarminRateLimited(err)) {
-      return res.status(429).json({
-        error:
-          "Garmin is rate-limiting this account. Wait an hour or so before syncing again.",
-        details: err.message,
-      });
-    }
     return res
       .status(500)
       .json({ error: "Server sync failed", details: err.message });

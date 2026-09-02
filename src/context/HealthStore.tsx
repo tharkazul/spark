@@ -74,9 +74,12 @@ export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setNiggles(defaultNiggles);
+      return;
+    }
     refreshNiggles();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, refreshNiggles]);
 
   return (
     <HealthContext.Provider

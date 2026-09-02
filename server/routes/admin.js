@@ -151,7 +151,7 @@ router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req,
           db.run(`DELETE FROM push_tokens WHERE user_id = ?`, [deletedUser.id]);
           db.run(`DELETE FROM strava_tokens WHERE user_id = ?`, [deletedUser.id]);
           db.run(
-            `UPDATE users SET strava_refresh_token = NULL, garmin_username = NULL, garmin_password = NULL, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
+            `UPDATE users SET strava_refresh_token = NULL, garmin_username = NULL, garmin_password = NULL WHERE id = ?`,
             [deletedUser.id]
           );
         }

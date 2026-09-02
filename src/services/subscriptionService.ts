@@ -7,6 +7,7 @@ import Purchases, {
   PurchasesPackage
 } from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 // RevenueCat Public API Keys
 export const REVENUECAT_APPLE_KEY = 'appl_xahgRkiLzkQGFIEoOtlnxhMZDEO';
@@ -34,8 +35,9 @@ export async function initializeRevenueCat(appUserID?: string | number): Promise
   }
 
   try {
-    if (!Purchases) {
-      console.warn('[RevenueCat] Native module unavailable (likely running in Expo Go). Skipping init.');
+    const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+    if (!Purchases || isExpoGo) {
+      console.warn('[RevenueCat] Native module unavailable (running in Expo Go). Skipping init.');
       return;
     }
 

@@ -82,16 +82,17 @@ export const languageStorage = {
 const CHAT_KEY = 'rooka_chat_history';
 
 export const chatStorage = {
-  async getChatHistory(): Promise<any[] | null> {
+  async getChatHistory(userId?: string | number): Promise<any[] | null> {
+    const key = userId ? `${CHAT_KEY}_${userId}` : CHAT_KEY;
     try {
       let raw: string | null = null;
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.localStorage) {
-          raw = window.localStorage.getItem(CHAT_KEY);
+          raw = window.localStorage.getItem(key);
         }
       } else {
-        raw = await AsyncStorage.getItem(CHAT_KEY);
-        if (!raw) {
+        raw = await AsyncStorage.getItem(key);
+        if (!raw && !userId) {
           // Fallback check legacy SecureStore key and migrate
           raw = await SecureStore.getItemAsync(CHAT_KEY).catch(() => null);
           if (raw) {
@@ -106,28 +107,32 @@ export const chatStorage = {
     }
   },
 
-  async setChatHistory(messages: any[]): Promise<void> {
+  async setChatHistory(messages: any[], userId?: string | number): Promise<void> {
+    const key = userId ? `${CHAT_KEY}_${userId}` : CHAT_KEY;
     try {
       const recentMessages = Array.isArray(messages) ? messages.slice(-50) : [];
       const data = JSON.stringify(recentMessages);
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(CHAT_KEY, data);
+          window.localStorage.setItem(key, data);
         }
       } else {
-        await AsyncStorage.setItem(CHAT_KEY, data);
+        await AsyncStorage.setItem(key, data);
       }
     } catch (e) {}
   },
 
-  async clearChatHistory(): Promise<void> {
+  async clearChatHistory(userId?: string | number): Promise<void> {
+    const key = userId ? `${CHAT_KEY}_${userId}` : CHAT_KEY;
     try {
       if (Platform.OS === 'web') {
         if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.removeItem(CHAT_KEY);
+          window.localStorage.removeItem(key);
+          if (userId) window.localStorage.removeItem(CHAT_KEY);
         }
       } else {
-        await AsyncStorage.removeItem(CHAT_KEY);
+        await AsyncStorage.removeItem(key);
+        if (userId) await AsyncStorage.removeItem(CHAT_KEY);
         await SecureStore.deleteItemAsync(CHAT_KEY).catch(() => {});
       }
     } catch (e) {}
