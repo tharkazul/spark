@@ -559,6 +559,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           return msg;
         })
       );
+      await socialApi.acceptInvite(inviteId);
     } catch (e) {
       console.error('Failed to accept invite:', e);
     }
@@ -578,6 +579,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           return msg;
         })
       );
+      await socialApi.declineInvite(inviteId);
     } catch (e) {
       console.error('Failed to decline invite:', e);
     }

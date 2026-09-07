@@ -511,4 +511,213 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
   );
 });
 
+router.post("/api/social/invite", authenticateToken, (req, res) => {
+  const { micro_plan_id, invitee_ids, location, time } = req.body;
+  if (!micro_plan_id || !invitee_ids || !Array.isArray(invitee_ids) || !invitee_ids.length) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  // Look up the micro_plan item
+  db.get(
+    `SELECT * FROM micro_plan WHERE id = ? AND user_id = ?`,
+    [micro_plan_id, req.user.id],
+    (err, plan) => {
+      if (err || !plan) {
+        console.error("Workout not found in DB for invite. ID:", micro_plan_id, "user:", req.user.id);
+        return res.status(404).json({ error: "Workout not found" });
+      }
+
+      db.get(
+        `SELECT username, profile_picture_url FROM users WHERE id = ?`,
+        [req.user.id],
+        (err, inviterUser) => {
+          const inviterName = inviterUser?.username || req.user.username || "Friend";
+          const inviterAvatar = inviterUser?.profile_picture_url || null;
+
+          invitee_ids.forEach((inviteeId) => {
+            db.run(
+              `INSERT INTO event_invitations (inviter_id, invitee_id, micro_plan_id, location, time) VALUES (?, ?, ?, ?, ?)`,
+              [req.user.id, inviteeId, micro_plan_id, location || '', time || ''],
+              function (err) {
+                if (err) {
+                  console.error("Error creating event_invitations:", err);
+                  return;
+                }
+                const inviteId = this.lastID;
+
+                const payloadObj = {
+                  type: 'event_invite',
+                  invite_id: inviteId,
+                  micro_plan_id: micro_plan_id,
+                  sport: plan.sport,
+                  date: plan.date,
+                  description: plan.description || 'Workout',
+                  inviter_name: inviterName,
+                  inviter_avatar: inviterAvatar,
+                  location: location || '',
+                  time: time || '',
+                  status: 'pending',
+                };
+
+                const locStr = location ? `\n📍 Location: ${location}` : '';
+                const timeStr = time ? `\n🕒 Time: ${time}` : '';
+                const inviteeMsg = `Hey! **${inviterName}** has invited you to join their upcoming **${plan.sport}** workout: **${plan.description || 'Workout'}**.\n\n📅 Date: ${plan.date}${locStr}${timeStr}\n\nDo you want to accept this invitation and add it to your plan?`;
+
+                db.run(
+                  `INSERT INTO chat_history (user_id, role, content, mood, payload_json) VALUES (?, 'coach', ?, 'support', ?)`,
+                  [inviteeId, inviteeMsg, JSON.stringify(payloadObj)],
+                  (err) => {
+                    if (!err) {
+                      sendSSEEvent(inviteeId, "unread_message", {
+                        message: inviteeMsg,
+                        mood: "support",
+                        payload_json: payloadObj,
+                      });
+                      sendPushToUser(inviteeId, {
+                        title: "Workout Invitation! 🏃",
+                        body: `${inviterName} invited you to a ${plan.sport} workout on ${plan.date}!`,
+                        data: { url: "/(tabs)/coach", type: "event_invite" },
+                      });
+                    }
+                  }
+                );
+              }
+            );
+          });
+
+          res.json({ success: true });
+        }
+      );
+    }
+  );
+});
+
+router.get("/api/social/invite/:plan_id", authenticateToken, (req, res) => {
+  db.all(
+    `SELECT invitee_id, status FROM event_invitations WHERE micro_plan_id = ? AND inviter_id = ?`,
+    [req.params.plan_id, req.user.id],
+    (err, invites) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ invites: invites || [] });
+    }
+  );
+});
+
+router.post("/api/social/invite/:id/accept", authenticateToken, (req, res) => {
+  const inviteId = req.params.id;
+  db.get(
+    `SELECT * FROM event_invitations WHERE id = ? AND invitee_id = ?`,
+    [inviteId, req.user.id],
+    (err, invite) => {
+      if (err || !invite) return res.status(404).json({ error: "Invite not found" });
+      if (invite.status !== 'pending') return res.status(400).json({ error: "Invite already processed" });
+
+      db.run(`UPDATE event_invitations SET status = 'accepted' WHERE id = ?`, [inviteId]);
+
+      // Update invitee's chat history payload to 'accepted'
+      db.all(
+        `SELECT id, payload_json FROM chat_history WHERE user_id = ? AND role = 'coach' AND payload_json LIKE '%event_invite%'`,
+        [req.user.id],
+        (err, rows) => {
+          if (rows) {
+            rows.forEach((row) => {
+              try {
+                const parsed = JSON.parse(row.payload_json);
+                if (parsed && (String(parsed.invite_id) === String(inviteId) || String(parsed.id) === String(inviteId))) {
+                  parsed.status = 'accepted';
+                  db.run(
+                    `UPDATE chat_history SET payload_json = ? WHERE id = ?`,
+                    [JSON.stringify(parsed), row.id]
+                  );
+                }
+              } catch (e) {}
+            });
+          }
+        }
+      );
+
+      // Copy workout to invitee's micro_plan
+      db.get(`SELECT * FROM micro_plan WHERE id = ?`, [invite.micro_plan_id], (err, plan) => {
+        if (plan) {
+          db.run(
+            `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) VALUES (?, ?, ?, ?, ?, ?, ?, 'user')`,
+            [
+              req.user.id,
+              plan.date,
+              plan.sport,
+              plan.description,
+              plan.target_rooka || 0,
+              plan.details || '',
+              plan.steps_json || '[]',
+            ],
+            (err) => {
+              if (!err) {
+                sendSSEEvent(req.user.id, "plan_updated", {});
+              }
+            }
+          );
+
+          // Notify inviter
+          db.get(`SELECT username FROM users WHERE id = ?`, [req.user.id], (err, acceptor) => {
+            const acceptorName = acceptor ? acceptor.username : 'Someone';
+            const inviterMsg = `${acceptorName} accepted your invitation for the ${plan.sport} workout on ${plan.date}!`;
+            db.run(
+              `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
+              [invite.inviter_id, inviterMsg],
+              () => {
+                sendSSEEvent(invite.inviter_id, "unread_message", { message: inviterMsg, mood: "hype" });
+                sendPushToUser(invite.inviter_id, {
+                  title: "Invite Accepted! 🎉",
+                  body: `${acceptorName} joined your ${plan.sport} workout on ${plan.date}!`,
+                  data: { url: "/(tabs)/coach", type: "invite_accepted" },
+                });
+              }
+            );
+          });
+        }
+      });
+
+      res.json({ success: true });
+    }
+  );
+});
+
+router.post("/api/social/invite/:id/decline", authenticateToken, (req, res) => {
+  const inviteId = req.params.id;
+  db.get(
+    `SELECT * FROM event_invitations WHERE id = ? AND invitee_id = ?`,
+    [inviteId, req.user.id],
+    (err, invite) => {
+      if (err || !invite) return res.status(404).json({ error: "Invite not found" });
+      if (invite.status !== 'pending') return res.status(400).json({ error: "Invite already processed" });
+
+      db.run(`UPDATE event_invitations SET status = 'declined' WHERE id = ?`, [inviteId]);
+
+      // Update invitee's chat history payload to 'declined'
+      db.all(
+        `SELECT id, payload_json FROM chat_history WHERE user_id = ? AND role = 'coach' AND payload_json LIKE '%event_invite%'`,
+        [req.user.id],
+        (err, rows) => {
+          if (rows) {
+            rows.forEach((row) => {
+              try {
+                const parsed = JSON.parse(row.payload_json);
+                if (parsed && (String(parsed.invite_id) === String(inviteId) || String(parsed.id) === String(inviteId))) {
+                  parsed.status = 'declined';
+                  db.run(
+                    `UPDATE chat_history SET payload_json = ? WHERE id = ?`,
+                    [JSON.stringify(parsed), row.id]
+                  );
+                }
+              } catch (e) {}
+            });
+          }
+        }
+      );
+
+      res.json({ success: true });
+    }
+  );
+});
+
 module.exports = router;

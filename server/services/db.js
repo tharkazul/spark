@@ -488,6 +488,20 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS event_invitations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        inviter_id INTEGER NOT NULL,
+        invitee_id INTEGER NOT NULL,
+        micro_plan_id INTEGER NOT NULL,
+        location TEXT,
+        time TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(inviter_id) REFERENCES users(id),
+        FOREIGN KEY(invitee_id) REFERENCES users(id),
+        FOREIGN KEY(micro_plan_id) REFERENCES micro_plan(id)
+    )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS public_profile_cache (
         user_id INTEGER PRIMARY KEY,
         data TEXT,
