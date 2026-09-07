@@ -339,6 +339,11 @@ export const socialApi = {
     }),
   getLeaderboard: () => apiClient<LeaderboardResponse>('/api/social/leaderboard'),
   getConnections: () => apiClient<{ connections: SocialConnection[] }>('/api/social/connections'),
+  invite: (micro_plan_id: string | number, invitee_ids: number[], location?: string, time?: string) =>
+    apiClient('/api/social/invite', {
+      method: 'POST',
+      body: JSON.stringify({ micro_plan_id, invitee_ids, location, time }),
+    }),
   searchUser: (username: string) =>
     apiClient<{
       found: boolean;

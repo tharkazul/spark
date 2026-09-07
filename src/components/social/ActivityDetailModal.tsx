@@ -729,8 +729,8 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
       : undefined);
 
   const fadeGradientColors = isDark
-    ? ['rgba(18, 18, 20, 0)', 'rgba(18, 18, 20, 0.65)', '#121214']
-    : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.75)', '#FFFFFF'];
+    ? ['rgba(18, 18, 20, 0)', 'rgba(18, 18, 20, 1)']
+    : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)'];
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -774,7 +774,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: 110,
+                height: 140,
               }}
               pointerEvents="none"
             />
