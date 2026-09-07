@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,13 +6,18 @@ import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
 import { useUser } from '../../context/UserStore';
-import { userApi } from '../../services/apiServices';
+import { userApi, gamificationApi } from '../../services/apiServices';
 
-interface MilestoneRow {
+export interface MilestoneRow {
   id: string;
-  isARace: boolean;
+  isARace: boolean; // Primary (Main) vs Secondary
+  goalType: 'race' | 'physiological'; // Goal type: Race / Physiological
   eventName: string;
   eventDate: string; // YYYY-MM-DD
+  targetMode: 'finish' | 'time'; // Target mode for race
+  targetValue: string; // e.g. "03:45:00" for time goal
+  targetWeight: string; // e.g. "72" for weight
+  targetVo2max: string; // e.g. "55" for vo2max
 }
 
 // Auto-calculate Target CTL based on Event Title and Distance Keywords
@@ -42,49 +47,66 @@ export function calculateTargetCTL(eventName: string): number {
 }
 
 export const GoalsTab: React.FC = () => {
-    const theme = useTheme();
+  const theme = useTheme();
   const { user, refreshUser } = useUser();
 
   const [guideExpanded, setGuideExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Date Selector Sheet state. The year/month/day selection lives inside
-  // EventDatePickerSheet, which onboarding shares.
   const [dateModalVisible, setDateModalVisible] = useState(false);
   const [activeMilestoneId, setActiveMilestoneId] = useState<string | null>(null);
   const [pickerInitialDate, setPickerInitialDate] = useState<string>('');
 
-  const [milestones, setMilestones] = useState<MilestoneRow[]>(() => {
-    if (user?.target_event) {
-      return [
-        {
-          id: '1',
-          isARace: true,
-          eventName: user.target_event,
-          eventDate: user.event_date || new Date().toISOString().split('T')[0],
-        },
-      ];
-    }
-    return [];
-  });
+  const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
 
-  const isInitialized = React.useRef(false);
-  React.useEffect(() => {
-    if (user && !isInitialized.current) {
-      isInitialized.current = true;
-      if (user.target_event) {
+  useEffect(() => {
+    let isMounted = true;
+    const loadMilestones = async () => {
+      try {
+        const rows = await gamificationApi.getMilestones();
+        if (isMounted && rows && rows.length > 0) {
+          setMilestones(
+            rows.map((m: any) => ({
+              id: m.id?.toString() || Date.now().toString() + Math.random(),
+              isARace: m.is_main === 1,
+              goalType: (m.goal_type || 'race') as 'race' | 'physiological',
+              eventName: m.name || '',
+              eventDate: m.date || new Date().toISOString().split('T')[0],
+              targetMode: (m.target_mode || 'finish') as 'finish' | 'time',
+              targetValue: m.target_value || '',
+              targetWeight: m.target_weight ? m.target_weight.toString() : '',
+              targetVo2max: m.target_vo2max ? m.target_vo2max.toString() : '',
+            }))
+          );
+          return;
+        }
+      } catch (err) {
+        console.log('Failed to fetch milestones from server, fallback to user profile:', err);
+      }
+
+      if (isMounted && user?.target_event) {
         setMilestones([
           {
             id: '1',
             isARace: true,
+            goalType: 'race',
             eventName: user.target_event,
             eventDate: user.event_date || new Date().toISOString().split('T')[0],
+            targetMode: 'finish',
+            targetValue: '',
+            targetWeight: '',
+            targetVo2max: '',
           },
         ]);
       }
-    }
-  }, [user]);
+    };
+
+    loadMilestones();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
 
   const handleAddMilestone = () => {
     Haptics.selectionAsync();
@@ -92,8 +114,13 @@ export const GoalsTab: React.FC = () => {
     const newRow: MilestoneRow = {
       id: Date.now().toString(),
       isARace: milestones.length === 0,
+      goalType: 'race',
       eventName: '',
       eventDate: todayStr,
+      targetMode: 'finish',
+      targetValue: '',
+      targetWeight: '',
+      targetVo2max: '',
     };
     setMilestones((prev) => [...prev, newRow]);
   };
@@ -136,8 +163,24 @@ export const GoalsTab: React.FC = () => {
     setSaving(true);
     setSavedSuccess(false);
 
-    const mainARace = milestones.find((m) => m.isARace) || milestones[0];
+    const payload = milestones.map((m) => ({
+      id: m.id,
+      name: m.eventName,
+      date: m.eventDate,
+      target_ctl: calculateTargetCTL(m.eventName),
+      is_main: m.isARace ? 1 : 0,
+      goal_type: m.goalType,
+      target_mode: m.targetMode,
+      target_value: m.targetValue,
+      target_weight: m.targetWeight ? parseFloat(m.targetWeight) : null,
+      target_vo2max: m.targetVo2max ? parseFloat(m.targetVo2max) : null,
+    }));
+
+    const mainARace = milestones.find((m) => m.isARace && m.goalType === 'race') || milestones.find((m) => m.isARace) || milestones[0];
+
     try {
+      await gamificationApi.saveMilestones(payload);
+
       if (mainARace) {
         const calculatedCTL = calculateTargetCTL(mainARace.eventName);
         await userApi.updateSettings({
@@ -152,18 +195,18 @@ export const GoalsTab: React.FC = () => {
           target_ctl: 70,
         });
       }
+
       await refreshUser();
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
-      console.error('Failed to save race calendar:', err);
+      console.error('Failed to save goals & calendar:', err);
     } finally {
       setSaving(false);
     }
   };
 
-  // Helper to format YYYY-MM-DD nicely for display
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return 'Select Date';
     try {
@@ -188,14 +231,14 @@ export const GoalsTab: React.FC = () => {
         <View className="flex-row justify-between items-center pb-3 mb-4 border-b border-theme-border/50">
           <View className="flex-row items-center gap-2">
             <View className="w-2.5 h-2.5 rounded-full bg-semantic-warning" />
-            <Text className="text-theme-text font-bold text-sm">Race Calendar & Goals</Text>
+            <Text className="text-theme-text font-bold text-sm">Goals & Race Calendar</Text>
           </View>
           <TouchableOpacity
             onPress={handleAddMilestone}
             className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
           >
             <Ionicons name="add" size={14} color={theme.tint} />
-            <Text className="text-theme-accent font-bold text-xs ml-1">+ Add Race</Text>
+            <Text className="text-theme-accent font-bold text-xs ml-1">+ Add Goal</Text>
           </TouchableOpacity>
         </View>
 
@@ -252,25 +295,27 @@ export const GoalsTab: React.FC = () => {
           </View>
         )}
 
-        {/* MILESTONES LIST */}
+        {/* GOALS LIST */}
         {milestones.length === 0 ? (
           <View className="p-4 bg-theme-bg/60 rounded-xl items-center justify-center my-2">
             <Ionicons name="flag-outline" size={24} color={theme.textSecondary} />
             <Text className="text-theme-text font-bold text-xs mt-2 text-center">
-              No upcoming races or milestones set
+              No active goals or milestones set
             </Text>
             <Text className="text-theme-muted text-xs mt-1 text-center">
-              Tap "+ Add Race" above to add your target event and structure your fitness progression.
+              Tap "+ Add Goal" above to add your primary race or physiological target.
             </Text>
           </View>
         ) : (
-          <View className="gap-y-3">
+          <View className="gap-y-4">
             {milestones.map((row) => {
+              const isRace = row.goalType === 'race';
               return (
                 <View
                   key={row.id}
-                  className="p-3 bg-theme-bg rounded-xl gap-y-3"
+                  className="p-3 bg-theme-bg rounded-xl gap-y-3 border border-theme-border/40"
                 >
+                  {/* HEADER ROW: MAIN vs SECONDARY BADGE & DELETE BUTTON */}
                   <View className="flex-row items-center justify-between">
                     <TouchableOpacity
                       onPress={() => handleToggleARace(row.id)}
@@ -288,7 +333,7 @@ export const GoalsTab: React.FC = () => {
                           row.isARace ? 'text-semantic-warning' : 'text-theme-muted'
                         }`}
                       >
-                        {row.isARace ? 'A-RACE (MAIN)' : 'B/C RACE'}
+                        {row.isARace ? 'PRIMARY (MAIN GOAL)' : 'SECONDARY GOAL'}
                       </Text>
                     </TouchableOpacity>
 
@@ -300,44 +345,207 @@ export const GoalsTab: React.FC = () => {
                     </TouchableOpacity>
                   </View>
 
-                  <View className="gap-y-2.5">
-                    {/* EVENT NAME INPUT */}
-                    <View>
-                      <Text className="text-xs font-bold text-theme-muted mb-1">
-                        Event Name
+                  {/* GOAL TYPE SELECTOR: RACE vs PHYSIOLOGICAL */}
+                  <View className="flex-row bg-theme-card p-1 rounded-xl border border-theme-border/40">
+                    <TouchableOpacity
+                      onPress={() => handleUpdateMilestone(row.id, 'goalType', 'race')}
+                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
+                        isRace ? 'bg-theme-accent' : 'bg-transparent'
+                      }`}
+                    >
+                      <Ionicons name="flag-outline" size={13} color={isRace ? '#FFFFFF' : theme.textSecondary} />
+                      <Text className={`text-xs font-bold ml-1.5 ${isRace ? 'text-white' : 'text-theme-muted'}`}>
+                        Race Goal
                       </Text>
-                      <TextInput
-                        value={row.eventName}
-                        onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
-                        placeholder="e.g. 5K park run, Amsterdam Marathon..."
-                        placeholderTextColor={theme.textSecondary}
-                        className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold"
-                      />
-                    </View>
+                    </TouchableOpacity>
 
-                    {/* EVENT DATE ROW */}
-                    <View className="flex-row gap-2">
-                      {/* DATE SELECTOR BUTTON (OPENS MODAL) */}
-                      <View className="flex-1">
-                        <Text className="text-xs font-bold text-theme-muted mb-1">
-                          Event Date
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => handleOpenDatePicker(row)}
-                          activeOpacity={0.8}
-                          className="bg-theme-card rounded-tile p-3 flex-row items-center justify-between"
-                        >
-                          <Text
-                            className={`text-xs font-bold ${
-                              row.eventDate ? 'text-theme-text' : 'text-theme-muted'
-                            }`}
-                          >
-                            {formatDateDisplay(row.eventDate)}
+                    <TouchableOpacity
+                      onPress={() => handleUpdateMilestone(row.id, 'goalType', 'physiological')}
+                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
+                        !isRace ? 'bg-theme-accent' : 'bg-transparent'
+                      }`}
+                    >
+                      <Ionicons name="fitness-outline" size={13} color={!isRace ? '#FFFFFF' : theme.textSecondary} />
+                      <Text className={`text-xs font-bold ml-1.5 ${!isRace ? 'text-white' : 'text-theme-muted'}`}>
+                        Physiological
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* FORM FIELDS BASED ON GOAL TYPE */}
+                  <View className="gap-y-3">
+                    {isRace ? (
+                      /* RACE GOAL FIELDS */
+                      <>
+                        <View>
+                          <Text className="text-xs font-bold text-theme-muted mb-1">
+                            Race Event Name
                           </Text>
-                          <Ionicons name="calendar-outline" size={15} color={theme.tint} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                          <TextInput
+                            value={row.eventName}
+                            onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
+                            placeholder="e.g. Amsterdam Marathon, 70.3 Ironman..."
+                            placeholderTextColor={theme.textSecondary}
+                            className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
+                          />
+                        </View>
+
+                        {/* EVENT DATE */}
+                        <View>
+                          <Text className="text-xs font-bold text-theme-muted mb-1">
+                            Race Date
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => handleOpenDatePicker(row)}
+                            activeOpacity={0.8}
+                            className="bg-theme-card rounded-tile p-3 flex-row items-center justify-between border border-theme-border/50"
+                          >
+                            <Text
+                              className={`text-xs font-bold ${
+                                row.eventDate ? 'text-theme-text' : 'text-theme-muted'
+                              }`}
+                            >
+                              {formatDateDisplay(row.eventDate)}
+                            </Text>
+                            <Ionicons name="calendar-outline" size={15} color={theme.tint} />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* TARGET SELECTION: FINISH RACE vs TIME GOAL */}
+                        <View>
+                          <Text className="text-xs font-bold text-theme-muted mb-1.5">
+                            Race Target
+                          </Text>
+                          <View className="flex-row gap-2">
+                            <TouchableOpacity
+                              onPress={() => handleUpdateMilestone(row.id, 'targetMode', 'finish')}
+                              className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${
+                                row.targetMode === 'finish'
+                                  ? 'bg-theme-accent/15 border-theme-accent'
+                                  : 'bg-theme-card border-theme-border/50'
+                              }`}
+                            >
+                              <Ionicons
+                                name="checkmark-circle-outline"
+                                size={14}
+                                color={row.targetMode === 'finish' ? theme.tint : theme.textSecondary}
+                              />
+                              <Text
+                                className={`text-xs font-bold ml-1.5 ${
+                                  row.targetMode === 'finish' ? 'text-theme-accent' : 'text-theme-muted'
+                                }`}
+                              >
+                                Finish the Race
+                              </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              onPress={() => handleUpdateMilestone(row.id, 'targetMode', 'time')}
+                              className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${
+                                row.targetMode === 'time'
+                                  ? 'bg-theme-accent/15 border-theme-accent'
+                                  : 'bg-theme-card border-theme-border/50'
+                              }`}
+                            >
+                              <Ionicons
+                                name="time-outline"
+                                size={14}
+                                color={row.targetMode === 'time' ? theme.tint : theme.textSecondary}
+                              />
+                              <Text
+                                className={`text-xs font-bold ml-1.5 ${
+                                  row.targetMode === 'time' ? 'text-theme-accent' : 'text-theme-muted'
+                                }`}
+                              >
+                                Time Goal
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        {/* IF TIME GOAL IS SELECTED */}
+                        {row.targetMode === 'time' && (
+                          <View>
+                            <Text className="text-xs font-bold text-theme-muted mb-1">
+                              Target Time
+                            </Text>
+                            <TextInput
+                              value={row.targetValue}
+                              onChangeText={(val) => handleUpdateMilestone(row.id, 'targetValue', val)}
+                              placeholder="e.g. 03:45:00 or 3h 45m"
+                              placeholderTextColor={theme.textSecondary}
+                              className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
+                            />
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      /* PHYSIOLOGICAL GOAL FIELDS */
+                      <>
+                        <View>
+                          <Text className="text-xs font-bold text-theme-muted mb-1">
+                            Goal Title
+                          </Text>
+                          <TextInput
+                            value={row.eventName}
+                            onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
+                            placeholder="e.g. Body Composition & VO2 Max Target"
+                            placeholderTextColor={theme.textSecondary}
+                            className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
+                          />
+                        </View>
+
+                        <View>
+                          <Text className="text-xs font-bold text-theme-muted mb-1">
+                            Target Date
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => handleOpenDatePicker(row)}
+                            activeOpacity={0.8}
+                            className="bg-theme-card rounded-tile p-3 flex-row items-center justify-between border border-theme-border/50"
+                          >
+                            <Text
+                              className={`text-xs font-bold ${
+                                row.eventDate ? 'text-theme-text' : 'text-theme-muted'
+                              }`}
+                            >
+                              {formatDateDisplay(row.eventDate)}
+                            </Text>
+                            <Ionicons name="calendar-outline" size={15} color={theme.tint} />
+                          </TouchableOpacity>
+                        </View>
+
+                        <View className="flex-row gap-2">
+                          <View className="flex-1">
+                            <Text className="text-xs font-bold text-theme-muted mb-1">
+                              Goal Weight (kg)
+                            </Text>
+                            <TextInput
+                              value={row.targetWeight}
+                              onChangeText={(val) => handleUpdateMilestone(row.id, 'targetWeight', val)}
+                              placeholder="e.g. 72"
+                              placeholderTextColor={theme.textSecondary}
+                              keyboardType="numeric"
+                              className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
+                            />
+                          </View>
+
+                          <View className="flex-1">
+                            <Text className="text-xs font-bold text-theme-muted mb-1">
+                              Goal VO2 Max
+                            </Text>
+                            <TextInput
+                              value={row.targetVo2max}
+                              onChangeText={(val) => handleUpdateMilestone(row.id, 'targetVo2max', val)}
+                              placeholder="e.g. 55"
+                              placeholderTextColor={theme.textSecondary}
+                              keyboardType="numeric"
+                              className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
+                            />
+                          </View>
+                        </View>
+                      </>
+                    )}
                   </View>
                 </View>
               );
@@ -352,20 +560,19 @@ export const GoalsTab: React.FC = () => {
           className="bg-theme-accent py-3.5 rounded-xl items-center mt-5 shadow-sm"
         >
           <Text className="text-white font-bold text-sm">
-            {saving ? 'Saving Calendar...' : 'Save Calendar'}
+            {saving ? 'Saving Goals...' : 'Save Goals & Calendar'}
           </Text>
         </TouchableOpacity>
 
         {savedSuccess && (
           <View className="p-3 bg-semantic-success/10 rounded-xl mt-3 items-center">
             <Text className="text-semantic-success font-bold text-xs">
-              Calendar saved successfully!
+              Goals saved successfully!
             </Text>
           </View>
         )}
       </Card>
 
-      {/* Shared with the onboarding wizard — one date sheet, not two. */}
       <EventDatePickerSheet
         visible={dateModalVisible}
         value={pickerInitialDate}

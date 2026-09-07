@@ -72,9 +72,13 @@
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <h2 class="text-xl font-semibold">User Management</h2>
-                <button onclick="fetchUsage()"
-                    class="text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 shadow-sm transition">↻
-                    Refresh</button>
+                <div class="flex items-center gap-2">
+                    <button onclick="triggerWeeklyPlanning()"
+                        class="text-sm bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 shadow-sm transition font-medium">🗓️ Trigger Weekly Planning</button>
+                    <button onclick="fetchUsage()"
+                        class="text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 shadow-sm transition">↻
+                        Refresh</button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">

@@ -42,3 +42,26 @@ export interface UserProfile {
   streak_days?: number;
 }
 
+export interface GoalMilestone {
+  id: string;
+  name: string;
+  eventName?: string;
+  date: string;
+  eventDate?: string;
+  target_ctl?: number;
+  targetCtl?: number;
+  is_main: boolean;
+  isARace?: boolean;
+  goal_type: 'race' | 'physiological';
+  goalType?: 'race' | 'physiological';
+  target_mode: 'finish' | 'time' | 'weight' | 'vo2max' | 'custom';
+  targetMode?: 'finish' | 'time' | 'weight' | 'vo2max' | 'custom';
+  target_value?: string;
+  targetValue?: string;
+  target_weight?: number | string;
+  targetWeight?: number | string;
+  target_vo2max?: number | string;
+  targetVo2max?: number | string;
+  artwork_url?: string;
+}
+

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { AppState, DeviceEventEmitter } from 'react-native';
 import { ChatMessage, TokenUsage, ProposedWorkoutItem } from '../types/chat';
 import { chatApi, planApi, socialApi } from '../services/apiServices';
 import { chatStorage, chatReadStorage } from '../services/storage';
@@ -47,7 +48,7 @@ Before we dial in high-load workouts, we need to calibrate your baseline fitness
 2. Connect your heart rate monitor or smartwatch before starting.
 3. Complete the assessment effort so I can analyze your metrics and calculate your training zones!`,
   role: 'coach',
-  timestamp: new Date().toISOString(),
+  timestamp: '2024-01-01T00:00:00.000Z',
   mood: 'motivated',
 };
 
@@ -100,6 +101,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
+  const [isReadInitialized, setIsReadInitialized] = useState<boolean>(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null);
 
@@ -114,12 +116,23 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     messagesRef.current = messages;
   }, [messages]);
 
+  // Synchronize chat messages and unread state when the app returns to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && isAuthenticated && user?.id) {
+        refreshMessages();
+      }
+    });
+    return () => sub.remove();
+  }, [isAuthenticated, user?.id]);
+
   // Load last read timestamp and chat history when user changes or signs out
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
       setMessagesState([defaultWelcomeMessage]);
       messagesRef.current = [defaultWelcomeMessage];
       setLastReadTimestamp(0);
+      setIsReadInitialized(false);
       setUnreadCount(0);
       setTokenUsage(null);
       setError(null);
@@ -130,9 +143,21 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     // A valid user is logged in
     setMessagesState([defaultWelcomeMessage]);
     messagesRef.current = [defaultWelcomeMessage];
-    chatReadStorage.getLastReadTimestamp(user.id).then((ts) => {
-      setLastReadTimestamp(ts || 0);
+    setIsReadInitialized(false);
+
+    chatReadStorage.getLastReadTimestamp(user.id).then((savedTs) => {
+      if (!savedTs || savedTs === 0) {
+        // First run on this device: seed baseline timestamp to now so historical
+        // messages don't suddenly trigger ghost unread badges
+        const seedTs = Date.now();
+        chatReadStorage.setLastReadTimestamp(seedTs, user.id);
+        setLastReadTimestamp(seedTs);
+      } else {
+        setLastReadTimestamp(savedTs);
+      }
+      setIsReadInitialized(true);
     });
+
     chatStorage.getChatHistory(user.id).then((local) => {
       if (local && Array.isArray(local) && local.length > 0) {
         setMessagesState(local.map(processMessageItem));
@@ -141,31 +166,37 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     refreshMessages();
   }, [user?.id, isAuthenticated]);
 
-  // Compute unread count whenever messages or lastReadTimestamp change
+  // Compute unread count whenever messages or lastReadTimestamp change (once initialized)
   useEffect(() => {
+    if (!isReadInitialized) {
+      return;
+    }
     if (!messages || messages.length === 0) {
       setUnreadCount(0);
       clearBadgeCountAsync();
       return;
     }
     const unread = messages.filter((m) => {
+      if (m.id === 'welcome-msg') return false;
       if (m.role !== 'coach' && m.role !== 'assistant') return false;
       const msgTime = new Date(m.timestamp || 0).getTime();
-      return msgTime > lastReadTimestamp;
+      return !isNaN(msgTime) && msgTime > lastReadTimestamp;
     }).length;
+
     setUnreadCount(unread);
     if (unread === 0) {
       clearBadgeCountAsync();
     } else {
       setBadgeCountAsync(unread);
     }
-  }, [messages, lastReadTimestamp]);
+  }, [messages, lastReadTimestamp, isReadInitialized]);
 
   const markAsRead = useCallback(async () => {
     let maxMsgTime = 0;
     for (const m of messagesRef.current) {
+      if (m.id === 'welcome-msg') continue;
       const t = new Date(m.timestamp || 0).getTime();
-      if (t > maxMsgTime) maxMsgTime = t;
+      if (!isNaN(t) && t > maxMsgTime) maxMsgTime = t;
     }
     const now = Math.max(Date.now(), maxMsgTime + 1000);
     setLastReadTimestamp((prev) => (now > prev ? now : prev));
@@ -548,10 +579,11 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const checkin = async () => {
     try {
       const res = await chatApi.checkin();
-      if (res && res.message) {
+      const msgContent = (res as any)?.reply || (res as any)?.message;
+      if (msgContent) {
         const coachMsg: ChatMessage = processMessageItem({
           id: `coach-checkin-${Date.now()}`,
-          content: res.message,
+          content: msgContent,
           role: 'coach',
           timestamp: new Date().toISOString(),
         });
@@ -561,6 +593,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       console.error('Checkin error:', err);
     }
   };
+
+  const lastCheckinAttemptRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -574,6 +608,13 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
   useEffect(() => {
     refreshMessages();
+
+    // Check once per day to catch up on morning message if 08:00 cron was missed
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (lastCheckinAttemptRef.current !== todayStr) {
+      lastCheckinAttemptRef.current = todayStr;
+      checkin();
+    }
 
     const unsubCoachResponse = wsService.subscribeToEvent('coach_response', (data: any) => {
       const content = typeof data === 'string' ? data : data.content || data.reply || data.message;
@@ -675,6 +716,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       refreshMessages();
     });
 
+    const subNotification = DeviceEventEmitter.addListener('COACH_NOTIFICATION_RECEIVED', () => {
+      refreshMessages();
+    });
+
     return () => {
       unsubCoachResponse();
       unsubChatMessage();
@@ -682,6 +727,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       unsubChatImageReady();
       unsubChatImageFailed();
       unsubUnreadMessage();
+      subNotification.remove();
     };
   }, [isAuthenticated]);
 

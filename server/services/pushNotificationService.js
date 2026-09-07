@@ -3,7 +3,7 @@ const db = require("./db");
 /**
  * Dispatches push notification to Expo Push API
  */
-async function sendExpoPushNotification({ to, title, body, data = {}, sound = "default", badge = 1 }) {
+async function sendExpoPushNotification({ to, title, body, data = {}, sound = "default", badge }) {
   if (!to) return;
   const tokens = Array.isArray(to) ? to : [to];
   const validTokens = tokens.filter(
@@ -14,14 +14,19 @@ async function sendExpoPushNotification({ to, title, body, data = {}, sound = "d
 
   if (validTokens.length === 0) return;
 
-  const messages = validTokens.map((token) => ({
-    to: token,
-    sound,
-    title,
-    body,
-    data,
-    badge: badge !== undefined && badge !== null ? badge : 1,
-  }));
+  const messages = validTokens.map((token) => {
+    const msg = {
+      to: token,
+      sound,
+      title,
+      body,
+      data,
+    };
+    if (typeof badge === "number") {
+      msg.badge = badge;
+    }
+    return msg;
+  });
 
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -43,7 +48,7 @@ async function sendExpoPushNotification({ to, title, body, data = {}, sound = "d
 /**
  * Look up all registered push tokens for a given user ID and send push notification
  */
-async function sendPushToUser(userId, { title, body, data = {}, sound = "default", badge = 1 }) {
+async function sendPushToUser(userId, { title, body, data = {}, sound = "default", badge }) {
   if (!userId) return null;
   return new Promise((resolve) => {
     db.all(

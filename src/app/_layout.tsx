@@ -4,7 +4,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme, View, ActivityIndicator } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, DeviceEventEmitter } from 'react-native';
 import React, { useEffect } from 'react';
 import { AppProviders } from '../context/AppProviders';
 import { useUser } from '../context/UserStore';
@@ -33,7 +33,16 @@ function PushNotificationListener() {
   useEffect(() => {
     if (isAuthenticated) {
       registerForPushNotificationsAsync();
-      const cleanup = setupNotificationListeners();
+      const cleanup = setupNotificationListeners((notification) => {
+        const data = notification?.request?.content?.data;
+        if (
+          data?.type === 'coach' ||
+          data?.type === 'message' ||
+          (typeof data?.url === 'string' && data.url.includes('coach'))
+        ) {
+          DeviceEventEmitter.emit('COACH_NOTIFICATION_RECEIVED');
+        }
+      });
       return cleanup;
     }
   }, [isAuthenticated]);

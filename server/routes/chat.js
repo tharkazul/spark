@@ -45,6 +45,7 @@ const {
   getUserLeaderboardString,
   getWeatherContext,
   getUserMacroPhase,
+  getUserGoalsContext,
   generatePublicProfile,
   processTokenRefresh,
   getStravaTokenForUser,
@@ -292,19 +293,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                 .join("\n                    ")
                             : "No upcoming workouts scheduled.";
 
-                        db.all(
-                          `SELECT name, date, target_ctl FROM milestones WHERE user_id = ? AND date >= ? ORDER BY date ASC LIMIT 3`,
-                          [req.user.id, todayStr],
-                          async (err, milestoneRows) => {
-                            const milestonesText =
-                              milestoneRows && milestoneRows.length > 0
-                                ? milestoneRows
-                                    .map(
-                                      (m) =>
-                                        `- ${m.date}: ${m.name} (Target CTL: ${m.target_ctl})`,
-                                    )
-                                    .join("\n                    ")
-                                : "No upcoming events/milestones.";
+                        const milestonesText = await getUserGoalsContext(req.user.id);
 
                             db.all(
                               `SELECT body_part, severity, notes, status FROM athlete_niggles WHERE user_id = ?`,
@@ -1368,19 +1357,17 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                     },
                                   ); // End muscle status
                                 },
-                              ); // End niggles fetch
-                            },
-                          ); // End milestones
-                        },
-                      ); // End microplan
-                    },
-                  ); // End recent sets
-                },
-              ); // End recent activities
-            } catch (err) {
-              console.error("Error building context:", err);
-              res.status(500).json({ error: "Context building failed." });
-            }
+                               ); // End niggles fetch
+                             },
+                           ); // End microplan
+                         },
+                       ); // End recent sets
+                     },
+                     );
+                 } catch (err) {
+                   console.error("Error building context:", err);
+                   res.status(500).json({ error: "Context building failed." });
+                 }
         },
       ); // End metrics
     },
@@ -1404,6 +1391,19 @@ router.get("/api/chat/briefing", authenticateToken, (req, res) => {
 });
 
 router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
+  const { sendMorningMessageForUser } = require("../services/utils");
+  try {
+    const morningResult = await sendMorningMessageForUser(req.user.id);
+    if (morningResult && morningResult.success) {
+      return res.json({ reply: morningResult.message, message: morningResult.message, mood: "hype" });
+    }
+    if (morningResult && morningResult.skipped) {
+      return res.json({ alreadySent: true });
+    }
+  } catch (mErr) {
+    console.warn("sendMorningMessageForUser error during checkin:", mErr);
+  }
+
   db.get(
     `SELECT coach_tone, coach_name, coach_context, athlete_context, gender FROM users WHERE id = ?`,
     [req.user.id],
@@ -1485,6 +1485,7 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
                   if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
                     coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
                   }
+                  const goalsText = await getUserGoalsContext(req.user.id);
                   let systemPrompt = `You are ${coachName}, an elite endurance coach.
 Today is ${todayStr}.
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ""}
@@ -1494,6 +1495,8 @@ ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gen
 Key Physiological Metrics:
 ${metricsText}
 Current Macro Phase: ${phase}
+Athlete Goals (Primary & Secondary):
+${goalsText}
 Recent Completed Workouts:
 ${recentActivitiesText}
 Upcoming Workouts (Next 2 days):

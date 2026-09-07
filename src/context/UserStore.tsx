@@ -54,6 +54,9 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     strava_connected: data?.hasStrava ?? data?.strava_connected ?? false,
     onboarding_completed: onboardingVal === true || onboardingVal === 1,
     needsZoneSetup: Boolean(data?.needsZoneSetup ?? (isSameUser ? prev?.needsZoneSetup : false)),
+    target_event: data?.targetEvent ?? data?.target_event ?? (isSameUser ? prev?.target_event : undefined),
+    event_date: data?.eventDate ?? data?.event_date ?? (isSameUser ? prev?.event_date : undefined),
+    target_ctl: data?.targetCtl ?? data?.target_ctl ?? (isSameUser ? prev?.target_ctl : undefined),
   };
 };
 

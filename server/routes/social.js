@@ -133,6 +133,7 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
                 title: "New Connection Request! 🏃",
                 body: `${req.user.username} sent you a connection request on Rooka.`,
                 data: { url: "/(tabs)/coach", type: "connection" },
+                badge: 1,
               });
             }
           );

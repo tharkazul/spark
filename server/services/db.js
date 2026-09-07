@@ -436,6 +436,11 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
   db.run(`ALTER TABLE milestones ADD COLUMN artwork_url TEXT`, (err) => {});
+  db.run(`ALTER TABLE milestones ADD COLUMN goal_type TEXT DEFAULT 'race'`, (err) => {});
+  db.run(`ALTER TABLE milestones ADD COLUMN target_mode TEXT DEFAULT 'finish'`, (err) => {});
+  db.run(`ALTER TABLE milestones ADD COLUMN target_value TEXT`, (err) => {});
+  db.run(`ALTER TABLE milestones ADD COLUMN target_weight REAL`, (err) => {});
+  db.run(`ALTER TABLE milestones ADD COLUMN target_vo2max REAL`, (err) => {});
   db.run(`CREATE TABLE IF NOT EXISTS nutrition_protocols (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,

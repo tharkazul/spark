@@ -30,6 +30,9 @@ const EVENT_ALIASES: Record<string, string[]> = {
   rooka_updated: ['rooka_updated', 'points_updated'],
   level_up: ['level_up', 'level_updated'],
   quest_completed: ['quest_completed', 'quest_updated'],
+
+  // Planning.
+  plan_updated: ['plan_updated'],
 };
 
 export type WSConnectionStatus = 'disconnected' | 'connecting' | 'connected';

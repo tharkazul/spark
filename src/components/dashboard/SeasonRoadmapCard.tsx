@@ -48,10 +48,23 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
               ran off the card and "Marathon des Sables" would be far worse.
               This is the same title-over-meta shape DetailedDayCard uses. */}
           <Text className="text-sm text-theme-muted">
-            <Text className="font-extrabold text-theme-accent">
-              {info.daysRemaining} {info.daysRemaining === 1 ? 'day' : 'days'}
-            </Text>
-            {' to '}
+            {info.daysRemaining === 0 ? (
+              <Text className="font-extrabold text-semantic-warning">
+                TODAY IS RACE DAY! 🔥
+              </Text>
+            ) : info.daysRemaining < 0 ? (
+              <Text className="font-extrabold text-theme-accent">
+                Race Completed 🎉
+              </Text>
+            ) : (
+              <>
+                <Text className="font-extrabold text-theme-accent">
+                  {info.daysRemaining} {info.daysRemaining === 1 ? 'day' : 'days'}
+                </Text>
+                {' to '}
+              </>
+            )}
+            {info.daysRemaining === 0 ? ' — ' : info.daysRemaining < 0 ? ' — ' : ''}
             {info.raceTargetName}
           </Text>
         </View>

@@ -176,13 +176,22 @@ async function getUserMacroPhase(userId) {
       (err, rows) => {
         let phase = "BASE";
         if (!err && rows && rows.length > 0) {
-          const today = new Date();
-          let nextRace = rows.find((m) => new Date(m.date) >= today);
+          const todayStr = getAMSDateString();
+          // 1. Check if TODAY is race day
+          const raceToday = rows.find((m) => m.date === todayStr);
+          if (raceToday) {
+            return resolve("RACE DAY");
+          }
+          // 2. Next upcoming race (strictly in the future)
+          let nextRace = rows.find((m) => m.date > todayStr);
           if (nextRace) {
-            let daysUntil = Math.floor(
-              (new Date(nextRace.date) - today) / (1000 * 60 * 60 * 24),
+            const todayDate = new Date(todayStr + "T00:00:00Z");
+            const raceDate = new Date(nextRace.date.split("T")[0] + "T00:00:00Z");
+            let daysUntil = Math.round(
+              (raceDate - todayDate) / (1000 * 60 * 60 * 24),
             );
-            if (daysUntil <= 14) phase = "TAPER";
+            if (daysUntil <= 7) phase = "RACE WEEK";
+            else if (daysUntil <= 14) phase = "TAPER";
             else if (daysUntil <= 28) phase = "PEAK";
             else if (daysUntil <= 70) phase = "BUILD";
           }
@@ -2565,7 +2574,59 @@ function extractAndCleanFoodItems(data) {
   return cleanedItems;
 }
 
+async function getUserGoalsContext(userId) {
+  return new Promise((resolve) => {
+    const todayStr = getAMSDateString();
+    db.all(
+      `SELECT name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max 
+       FROM milestones WHERE user_id = ? AND (date >= ? OR date IS NULL OR date = '') 
+       ORDER BY is_main DESC, date ASC`,
+      [userId, todayStr],
+      (err, rows) => {
+        if (err || !rows || rows.length === 0) {
+          db.get(`SELECT target_event, event_date, target_ctl FROM users WHERE id = ?`, [userId], (uErr, user) => {
+            if (!uErr && user && user.target_event) {
+              resolve(`- PRIMARY GOAL [RACE]: ${user.target_event} on ${user.event_date || 'TBD'} | Target: Finish the race | Target CTL: ${user.target_ctl || 70}`);
+            } else {
+              resolve("No specific active goals set.");
+            }
+          });
+          return;
+        }
+
+        const lines = rows.map((m) => {
+          const mainTag = m.is_main ? "PRIMARY GOAL" : "SECONDARY GOAL";
+          const typeTag = (m.goal_type || "race").toUpperCase();
+
+          if ((m.goal_type || "race") === "physiological") {
+            const targets = [];
+            if (m.target_weight) targets.push(`Goal Weight: ${m.target_weight} kg`);
+            if (m.target_vo2max) targets.push(`Goal VO2 Max: ${m.target_vo2max} ml/kg/min`);
+            if (m.target_value && !m.target_weight && !m.target_vo2max) targets.push(`Target: ${m.target_value}`);
+            const targetText = targets.length > 0 ? targets.join(" | ") : "Physiological health goal";
+            return `- ${mainTag} [${typeTag}]: ${m.name || "Physiological Goal"} by ${m.date || "Target Date"} | ${targetText}`;
+          } else {
+            // Race Goal
+            let targetDetail = "Target: Finish the race";
+            if (m.target_mode === "time" && m.target_value) {
+              targetDetail = `Target: Time Goal (${m.target_value})`;
+            } else if (m.target_value) {
+              targetDetail = `Target: ${m.target_value}`;
+            }
+            const isToday = m.date === todayStr;
+            const raceDayAlert = isToday ? "🔥 [CRITICAL: TODAY IS RACE DAY! High-energy encouragement, wish them luck, confidence boost!] " : "";
+            return `- ${raceDayAlert}${mainTag} [${typeTag}]: ${m.name || "Race Event"} on ${m.date || "TBD"} | ${targetDetail} | Target CTL: ${m.target_ctl || 70}`;
+          }
+        });
+
+        resolve(lines.join("\n                    "));
+      }
+    );
+  });
+}
+
 module.exports = {
+  getUserGoalsContext,
   extractAndCleanFoodItems,
   resetDailyTokensForAllUsers,
   resetDailyNutritionForAllUsers,
@@ -2610,113 +2671,162 @@ module.exports = {
   generateAthleteWeeklyDescription,
   generateWeeklyAthleteDescriptionsJob,
   processActivityCoachAnalysis,
+  sendMorningMessageForUser,
   sendMorningMessage: async () => {
     console.log("🌞 Running scheduled morning message job...");
-    const todayStr = getAMSDateString();
-    
-    // Find every *live* user and any workouts they have planned for today.
-    // Deleted accounts and accounts that never finished onboarding must be
-    // excluded, otherwise every account that has ever been used on a device
-    // keeps firing an 08:00 notification at that device.
     db.all(
-      `SELECT u.id, u.coach_tone, u.coach_name, u.coach_context, m.sport, m.description, m.details 
-       FROM users u 
-       LEFT JOIN micro_plan m ON u.id = m.user_id AND m.date = ?
-       WHERE u.deleted_at IS NULL
-         AND u.onboarding_completed = 1`,
-      [todayStr],
+      `SELECT id FROM users WHERE deleted_at IS NULL AND onboarding_completed = 1`,
+      [],
       async (err, rows) => {
         if (err || !rows) return;
-        
-        // Group by user
-        const usersMap = new Map();
-        for (const r of rows) {
-          if (!usersMap.has(r.id)) {
-            usersMap.set(r.id, {
-              id: r.id,
-              coach_tone: r.coach_tone,
-              coach_name: r.coach_name,
-              coach_context: r.coach_context,
-              workouts: []
-            });
-          }
-          if (r.sport) {
-            usersMap.get(r.id).workouts.push({
-              sport: r.sport,
-              description: r.description,
-              details: r.details
-            });
-          }
-        }
-
-        for (const user of usersMap.values()) {
+        for (const row of rows) {
           try {
-            // Ground the message in what the athlete actually did. Without this
-            // the model is asked to "acknowledge their recent work" with no data
-            // and invents sessions that never happened.
-            const recent = await new Promise((resolve) => {
-              db.all(
-                `SELECT name, sport_type, distance_km, moving_time_min, start_date
-                   FROM activities
-                  WHERE user_id = ? AND date(start_date) >= date('now', '-7 days')
-                  ORDER BY start_date DESC
-                  LIMIT 10`,
-                [user.id],
-                (actErr, actRows) => resolve(actErr || !actRows ? [] : actRows),
-              );
-            });
-
-            let prompt = `It is morning (${todayStr}). You are the athlete's coach. Write a short, proactive, energetic morning message. `;
-
-            if (recent.length > 0) {
-              prompt += `Here is EVERY session they actually completed in the last 7 days: ${JSON.stringify(recent)}. You may reference these specific sessions. `;
-            } else {
-              prompt += `IMPORTANT: they have logged NO training at all in the last 7 days. Do NOT congratulate them on recent work, a "great block", or any session — none happened. Do not invent any training. Simply greet them and look ahead. `;
-            }
-            prompt += `Never mention a workout, distance, or achievement that is not listed above. `;
-
-            if (user.workouts.length > 0) {
-              prompt += `They have the following workouts planned for today: ${JSON.stringify(user.workouts)}. Get them pumped up for it! `;
-            } else {
-              prompt += `They have a REST DAY today (no workouts planned). Encourage them to recover well and enjoy the day. `;
-            }
-            prompt += `Keep it under 3 sentences. DO NOT wrap it in JSON.`;
-            
-            const coachName = user.coach_name || "Rooka";
-            let toneText = user.coach_tone || "Friendly";
-            if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
-              toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
-            }
-            const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
-            
-            // Generate the message
-            const aiReply = await generateWithFallback(prompt, systemPrompt);
-            
-            // Insert into history
-            db.run(
-              `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
-              [user.id, aiReply],
-              (err) => {
-                 if (err) { console.error(err); return; }
-                 // Push notification bubble to frontend
-                 sendSSEEvent(user.id, "unread_message", {
-                   message: aiReply,
-                   mood: "hype"
-                 });
-                 sendPushToUser(user.id, {
-                   title: `Good morning from ${user.coach_name || 'Rooka'}! 🌅`,
-                   body: aiReply,
-                   data: { url: "/(tabs)/coach", type: "coach" },
-                   badge: 1,
-                 });
-                 console.log(`Sent morning message to user ${user.id}`);
-              }
-            );
+            await sendMorningMessageForUser(row.id);
+            console.log(`Sent scheduled morning message to user ${row.id}`);
           } catch (e) {
-            console.error(`Failed to send morning message to user ${user.id}:`, e);
+            console.error(`Failed to send morning message to user ${row.id}:`, e);
           }
         }
       }
     );
   }
 };
+
+async function sendMorningMessageForUser(userId, { force = false } = {}) {
+  const todayStr = getAMSDateString();
+
+  // 1. Check if a morning message was already sent today
+  if (!force) {
+    const alreadySent = await new Promise((resolve) => {
+      db.get(
+        `SELECT id FROM chat_history 
+         WHERE user_id = ? 
+           AND role = 'coach' 
+           AND mood = 'hype' 
+           AND date(timestamp) = date('now') 
+         LIMIT 1`,
+        [userId],
+        (err, row) => resolve(!!row)
+      );
+    });
+    if (alreadySent) {
+      return { skipped: true, reason: "Already sent today" };
+    }
+  }
+
+  // 2. Load user details
+  const user = await new Promise((resolve) => {
+    db.get(
+      `SELECT u.id, u.coach_tone, u.coach_name, u.coach_context, u.athlete_context, u.gender 
+       FROM users u 
+       WHERE u.id = ? AND u.deleted_at IS NULL AND u.onboarding_completed = 1`,
+      [userId],
+      (err, row) => resolve(err || !row ? null : row)
+    );
+  });
+
+  if (!user) return { skipped: true, reason: "User not found or not onboarded" };
+
+  // 3. Load today's planned workouts (independent of whether user has goals)
+  const workouts = await new Promise((resolve) => {
+    db.all(
+      `SELECT sport, description, details FROM micro_plan WHERE user_id = ? AND date = ?`,
+      [userId, todayStr],
+      (err, rows) => resolve(err || !rows ? [] : rows)
+    );
+  });
+
+  // 4. Load milestones & check for race days (today, yesterday, or upcoming)
+  const milestones = await new Promise((resolve) => {
+    db.all(
+      `SELECT name, date, target_ctl, is_main, goal_type, target_mode, target_value 
+       FROM milestones 
+       WHERE user_id = ? 
+       ORDER BY date ASC`,
+      [userId],
+      (err, rows) => resolve(err || !rows ? [] : rows)
+    );
+  });
+
+  const raceToday = milestones.find((m) => m.date === todayStr && (m.goal_type || 'race') === 'race');
+
+  const nowAMS = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
+  nowAMS.setDate(nowAMS.getDate() - 1);
+  const yesterdayStr = `${nowAMS.getFullYear()}-${String(nowAMS.getMonth() + 1).padStart(2, '0')}-${String(nowAMS.getDate()).padStart(2, '0')}`;
+  const raceYesterday = milestones.find((m) => m.date === yesterdayStr && (m.goal_type || 'race') === 'race');
+
+  const upcomingRace = milestones.find((m) => m.date > todayStr && (m.goal_type || 'race') === 'race');
+  let daysUntilRace = null;
+  if (upcomingRace) {
+    const d1 = new Date(todayStr + "T00:00:00Z");
+    const d2 = new Date(upcomingRace.date.split("T")[0] + "T00:00:00Z");
+    daysUntilRace = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+  }
+
+  // 5. Recent completed activities
+  const recent = await new Promise((resolve) => {
+    db.all(
+      `SELECT name, sport_type, distance_km, moving_time_min, start_date
+       FROM activities
+       WHERE user_id = ? AND date(start_date) >= date('now', '-7 days')
+       ORDER BY start_date DESC
+       LIMIT 10`,
+      [userId],
+      (actErr, actRows) => resolve(actErr || !actRows ? [] : actRows)
+    );
+  });
+
+  let prompt = `It is morning (${todayStr}). You are the athlete's coach. Write a short, proactive, energetic morning message. `;
+
+  if (raceToday) {
+    prompt += `🚨 CRITICAL - TODAY IS RACE DAY: "${raceToday.name}"! This is the big target event the athlete has trained for over months! Write an inspiring, electrifying, confident race-day coach message. Wish them good luck, tell them to trust their training, stick to their hydration and pacing strategy, and leave everything on the course! `;
+  } else if (raceYesterday) {
+    prompt += `🏁 CRITICAL - YESTERDAY WAS RACE DAY: "${raceYesterday.name}"! Greet them warmly and congratulate them on conquering race day. Ask how the race went, how their body feels, and remind them that today is 100% about recovery, good food, and celebrating what they achieved! `;
+  } else if (upcomingRace && daysUntilRace !== null && daysUntilRace <= 3) {
+    prompt += `Their goal race "${upcomingRace.name}" is in only ${daysUntilRace} day${daysUntilRace === 1 ? '' : 's'}! Keep them calm, confident, and focused on final taper details, rest, and mental readiness. `;
+  } else if (workouts.length > 0) {
+    prompt += `They have the following workouts planned for today: ${JSON.stringify(workouts)}. Get them pumped up for it! `;
+  } else {
+    prompt += `They have a REST DAY today (no workouts planned). Encourage them to recover well and enjoy the day. `;
+  }
+
+  if (recent.length > 0) {
+    prompt += `Here is EVERY session they actually completed in the last 7 days: ${JSON.stringify(recent)}. You may reference these specific sessions. `;
+  } else {
+    prompt += `IMPORTANT: they have logged NO training at all in the last 7 days. Do NOT congratulate them on recent work, a "great block", or any session — none happened. Do not invent any training. Simply greet them and look ahead. `;
+  }
+  prompt += `Never mention a workout, distance, or achievement that is not listed above. `;
+  prompt += `Keep it under 3 sentences. DO NOT wrap it in JSON.`;
+
+  const coachName = user.coach_name || "Rooka";
+  let toneText = user.coach_tone || "Friendly";
+  if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
+    toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
+  }
+  const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
+
+  const aiReply = await generateWithFallback(prompt, systemPrompt);
+
+  await new Promise((resolve, reject) => {
+    db.run(
+      `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
+      [user.id, aiReply],
+      (err) => {
+        if (err) return reject(err);
+        sendSSEEvent(user.id, "unread_message", {
+          message: aiReply,
+          mood: "hype"
+        });
+        sendPushToUser(user.id, {
+          title: raceToday ? `🔥 RACE DAY: Good luck from ${coachName}!` : `Good morning from ${coachName}! 🌅`,
+          body: aiReply,
+          data: { url: "/(tabs)/coach", type: "coach" },
+          badge: 1,
+        });
+        resolve();
+      }
+    );
+  });
+
+  return { success: true, message: aiReply };
+}

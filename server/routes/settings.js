@@ -148,35 +148,47 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
       const todayStr = getAMSDateString();
       const dailyUsage = (row.last_token_reset_date === todayStr) ? (row.daily_token_usage || 0) : 0;
 
-      res.json({
-        id: row.id,
-        username: row.username,
-        email: row.email,
-        hasStrava: !!row.strava_refresh_token,
-        hasGarmin: !!row.garmin_username,
-        garminUsername: row.garmin_username,
-        coachTone: row.coach_tone,
-        coachName: row.coach_name || 'Rooka',
-        coachContext: row.coach_context || '',
-        coachAvatarNeutral: row.coach_avatar_neutral || null,
-        coachAvatarHype: row.coach_avatar_hype || null,
-        coachAvatarDisappointed: row.coach_avatar_disappointed || null,
-        athleteContext: row.athlete_context,
-        gender: row.gender,
-        language: row.language || 'en',
-        lastCycleStart: row.last_cycle_start,
-        averageCycleLength: row.average_cycle_length || 28,
-        searchPrivacy: row.search_privacy === 1,
-        profilePictureUrl: row.profile_picture_url,
-        trainingAvailability: availability,
-        sparkLevel: sparkLevelInfo,
-        dailyTokenUsage: dailyUsage,
-        dailyTokenLimit: currentLimit,
-        subscriptionTier: row.subscription_tier || 'free',
-        subscription_tier: row.subscription_tier || 'free',
-        onboardingCompleted: row.onboarding_completed === 1,
-        onboarding_completed: row.onboarding_completed === 1,
-      });
+      db.get(
+        `SELECT name, date, target_ctl FROM milestones WHERE user_id = ? AND is_main = 1 ORDER BY date DESC LIMIT 1`,
+        [req.user.id],
+        (mErr, mRow) => {
+          res.json({
+            id: row.id,
+            username: row.username,
+            email: row.email,
+            hasStrava: !!row.strava_refresh_token,
+            hasGarmin: !!row.garmin_username,
+            garminUsername: row.garmin_username,
+            coachTone: row.coach_tone,
+            coachName: row.coach_name || 'Rooka',
+            coachContext: row.coach_context || '',
+            coachAvatarNeutral: row.coach_avatar_neutral || null,
+            coachAvatarHype: row.coach_avatar_hype || null,
+            coachAvatarDisappointed: row.coach_avatar_disappointed || null,
+            athleteContext: row.athlete_context,
+            gender: row.gender,
+            language: row.language || 'en',
+            lastCycleStart: row.last_cycle_start,
+            averageCycleLength: row.average_cycle_length || 28,
+            searchPrivacy: row.search_privacy === 1,
+            profilePictureUrl: row.profile_picture_url,
+            trainingAvailability: availability,
+            sparkLevel: sparkLevelInfo,
+            dailyTokenUsage: dailyUsage,
+            dailyTokenLimit: currentLimit,
+            subscriptionTier: row.subscription_tier || 'free',
+            subscription_tier: row.subscription_tier || 'free',
+            onboardingCompleted: row.onboarding_completed === 1,
+            onboarding_completed: row.onboarding_completed === 1,
+            target_event: mRow?.name || null,
+            event_date: mRow?.date || null,
+            target_ctl: mRow?.target_ctl || null,
+            targetEvent: mRow?.name || null,
+            eventDate: mRow?.date || null,
+            targetCtl: mRow?.target_ctl || null,
+          });
+        }
+      );
     },
   );
 });
@@ -217,6 +229,27 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     const availabilityStr = req.body.trainingAvailability !== undefined
       ? JSON.stringify(req.body.trainingAvailability)
       : row.training_availability;
+
+    const targetEvent = req.body.targetEvent !== undefined ? req.body.targetEvent : req.body.target_event;
+    const eventDate = req.body.eventDate !== undefined ? req.body.eventDate : req.body.event_date;
+    const targetCtl = req.body.targetCtl !== undefined ? req.body.targetCtl : req.body.target_ctl;
+
+    if (targetEvent !== undefined && eventDate !== undefined) {
+      if (targetEvent) {
+        db.run(
+          `DELETE FROM milestones WHERE user_id = ? AND is_main = 1`,
+          [req.user.id],
+          () => {
+            db.run(
+              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type) VALUES (?, ?, ?, ?, 1, 'race')`,
+              [req.user.id, targetEvent, eventDate, targetCtl ? parseFloat(targetCtl) : 75],
+            );
+          }
+        );
+      } else {
+        db.run(`DELETE FROM milestones WHERE user_id = ? AND is_main = 1`, [req.user.id]);
+      }
+    }
 
     let finalTone = reqTone;
     let finalName = reqName;

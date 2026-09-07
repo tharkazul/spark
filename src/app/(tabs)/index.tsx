@@ -66,7 +66,7 @@ export default function PlanningHomeScreen() {
     const theme = useTheme();
   const router = useRouter();
   const { user } = useUser();
-  const { sendMessage } = useCoachChat();
+  const { sendMessage, unreadCount } = useCoachChat();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
   const { plan, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
@@ -157,25 +157,25 @@ export default function PlanningHomeScreen() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekRangeLabel = `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
 
-  // The season roadmap only means anything once the athlete has actually set a
-  // target event. Without one it used to render an invented "Park 5k" 181 days
-  // out, which reads as real planning the athlete never asked for.
-  const hasSeasonGoal = Boolean(user?.target_event && user?.event_date);
-  const mainRaceName = user?.target_event ?? '';
-
   const calculateDaysRemaining = (eventDateStr?: string): number => {
     if (!eventDateStr) return 0;
     try {
-      const targetDate = new Date(eventDateStr);
-      const diffTime = targetDate.getTime() - now.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays > 0 ? diffDays : 0;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const cleanEventDate = eventDateStr.split('T')[0];
+      if (cleanEventDate === todayStr) return 0;
+      const todayDate = new Date(todayStr + 'T00:00:00Z');
+      const targetDate = new Date(cleanEventDate + 'T00:00:00Z');
+      const diffTime = targetDate.getTime() - todayDate.getTime();
+      return Math.round(diffTime / (1000 * 60 * 60 * 24));
     } catch {
       return 0;
     }
   };
 
   const daysRemaining = calculateDaysRemaining(user?.event_date);
+  // Keep the roadmap visible throughout race day (daysRemaining === 0) and 1 day post-race for celebration
+  const hasSeasonGoal = Boolean(user?.target_event && user?.event_date && daysRemaining >= -1);
+  const mainRaceName = user?.target_event ?? '';
 
   const seasonInfo: MacroPeriodInfo = {
     raceTargetName: mainRaceName,
@@ -500,7 +500,11 @@ export default function PlanningHomeScreen() {
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
       {/* HEADER WITH TITLE */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
-        <ScreenHeaderTitleRow title="Planning" />
+        <ScreenHeaderTitleRow
+          title="Planning"
+          unreadCount={unreadCount}
+          onCoachPress={() => router.push('/(tabs)/coach')}
+        />
       </View>
 
       <View className="flex-1 px-5 pt-2">

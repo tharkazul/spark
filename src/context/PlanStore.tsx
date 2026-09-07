@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { PlannedWorkout } from '../types/plan';
 import { planApi } from '../services/apiServices';
 import { useUser } from './UserStore';
+import { wsService } from '../services/websocket';
 
 interface PlanContextType {
   plan: PlannedWorkout[];
@@ -108,6 +109,14 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       return;
     }
     refreshPlan();
+
+    const unsubPlan = wsService.subscribeToEvent('plan_updated', () => {
+      refreshPlan();
+    });
+
+    return () => {
+      unsubPlan();
+    };
   }, [isAuthenticated, refreshPlan]);
 
   return (

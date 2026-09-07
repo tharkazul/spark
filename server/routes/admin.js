@@ -219,6 +219,22 @@ router.post("/api/admin/trigger-weekly-onboarding", authenticateToken, async (re
   }
 });
 
+router.post("/api/admin/trigger-weekly-planning", authenticateToken, async (req, res) => {
+  const { runWeeklyWorkoutPlanningJob } = require("../services/workoutPlanning");
+  console.log(`🤖 Admin triggering weekly workout planning job (Common token budget)...`);
+  try {
+    const summary = await runWeeklyWorkoutPlanningJob();
+    res.json({
+      success: true,
+      message: "Weekly workout planning job triggered successfully!",
+      summary,
+    });
+  } catch (e) {
+    console.error("Admin trigger weekly planning failed:", e);
+    res.status(500).json({ error: "Failed to trigger weekly planning job" });
+  }
+});
+
 router.get("/api/admin/onboarding-status/:userId", authenticateToken, async (req, res) => {
   const { evaluateUserFeatureUsage, FEATURES_REGISTRY } = require("../services/onboarding");
   const userId = parseInt(req.params.userId, 10);

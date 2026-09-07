@@ -62,18 +62,43 @@ router.get("/api/milestones", authenticateToken, (req, res) => {
 router.post("/api/milestones", authenticateToken, (req, res) => {
   const { milestones } = req.body;
 
+  if (!Array.isArray(milestones)) {
+    return res.status(400).json({ error: "milestones must be an array" });
+  }
+
   db.serialize(() => {
     db.run(`DELETE FROM milestones WHERE user_id = ?`, [req.user.id]);
 
     const stmt = db.prepare(
-      `INSERT INTO milestones (user_id, name, date, target_ctl, is_main) VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     milestones.forEach((m) => {
-      stmt.run(req.user.id, m.name, m.date, m.target_ctl, m.is_main ? 1 : 0);
+      const goalName = m.name || m.eventName || '';
+      const goalDate = m.date || m.eventDate || '';
+      const targetCtl = m.target_ctl || m.targetCtl || 70;
+      const isMain = (m.is_main || m.isARace) ? 1 : 0;
+      const goalType = m.goal_type || m.goalType || 'race';
+      const targetMode = m.target_mode || m.targetMode || 'finish';
+      const targetValue = m.target_value || m.targetValue || '';
+      const targetWeight = (m.target_weight || m.targetWeight) ? parseFloat(m.target_weight || m.targetWeight) : null;
+      const targetVo2max = (m.target_vo2max || m.targetVo2max) ? parseFloat(m.target_vo2max || m.targetVo2max) : null;
+
+      stmt.run(
+        req.user.id,
+        goalName,
+        goalDate,
+        targetCtl,
+        isMain,
+        goalType,
+        targetMode,
+        targetValue,
+        targetWeight,
+        targetVo2max,
+      );
     });
     stmt.finalize();
 
-    res.json({ success: true, message: "Calendar updated!" });
+    res.json({ success: true, message: "Goals and calendar updated!" });
   });
 });
 

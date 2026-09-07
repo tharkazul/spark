@@ -65,6 +65,7 @@ const {
 
 const { sseClients, initWebSocketServer } = require("./services/sse");
 const { runWeeklyFeatureOnboardingJob } = require("./services/onboarding");
+const { runWeeklyWorkoutPlanningJob } = require("./services/workoutPlanning");
 const cron = require('node-cron');
 
 // Initialize WebSocket server attached to HTTP server
@@ -111,6 +112,16 @@ cron.schedule('5 0 * * *', () => {
 // Schedule weekly feature onboarding check on Sundays at 10:00 AM (Europe/Amsterdam timezone)
 cron.schedule('0 10 * * 0', () => {
   runWeeklyFeatureOnboardingJob();
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Schedule weekly workout plan generation for coming week (Mon-Sun) on Sundays at 20:00 (Europe/Amsterdam timezone)
+cron.schedule('0 20 * * 0', () => {
+  runWeeklyWorkoutPlanningJob().catch((err) =>
+    console.error('[CRON] Weekly workout planning job failed:', err)
+  );
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"

@@ -619,6 +619,32 @@ document.getElementById('discountModal')?.addEventListener('click', (e) => {
     });
 });
 
+async function triggerWeeklyPlanning() {
+    if (!confirm('Run the Sunday weekly workout planning job for all accounts now? This will generate Monday-Sunday schedules on the Common token budget.')) {
+        return;
+    }
+    const token = localStorage.getItem('nana_token');
+    if (!token) return showLoginModal();
+
+    try {
+        const res = await fetch('/api/admin/trigger-weekly-planning', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`Weekly planning job triggered successfully!\nProcessed: ${data.summary?.total || 0} accounts\nTarget week: ${data.summary?.targetDates?.[0]} to ${data.summary?.targetDates?.[6]}`);
+            fetchUsage();
+        } else {
+            alert(`Failed: ${data.error || 'Unknown error'}`);
+        }
+    } catch (e) {
+        alert(`Error triggering weekly planning: ${e.message}`);
+    }
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     fetchUsage();

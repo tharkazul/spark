@@ -239,6 +239,12 @@ export const physiqueApi = {
 
 export const gamificationApi = {
   getGamificationData: () => apiClient<{ quests: Quest[]; titles: UserTitle[]; total_rooka: number }>('/api/gamification'),
+  getMilestones: () => apiClient<any[]>('/api/milestones'),
+  saveMilestones: (milestones: any[]) =>
+    apiClient<{ success: boolean; message: string }>('/api/milestones', {
+      method: 'POST',
+      body: JSON.stringify({ milestones }),
+    }),
   generateQuest: () => apiClient<{ success: boolean; quest: Quest }>('/api/gamification/generate_quest', { method: 'POST' }),
   refreshQuest: (quest_id: number | string) =>
     apiClient<{ success: boolean; quest: Quest }>('/api/gamification/refresh_quest', {

@@ -37,7 +37,7 @@ import { Activity, ActivityLap } from '../../types/activity';
 import { ActivityComment } from '../../types/social';
 import { activitiesApi, socialApi } from '../../services/apiServices';
 import { decodePolyline, Coordinate } from '../../utils/polyline';
-import { getSportFilledIcon } from '../../utils/sportIcons';
+import { getSportFilledIcon, getSportIconConfig, getSportPlaceholderImage } from '../../utils/sportIcons';
 import { CommentComposer } from './CommentComposer';
 import { useUser } from '../../context/UserStore';
 
@@ -333,7 +333,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
   const [hasKudosed, setHasKudosed] = useState<boolean>(false);
   const [isLapsExpanded, setIsLapsExpanded] = useState<boolean>(false);
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
 
   // Tab calculations matching Progress layout
   const tabContentWidth = SCREEN_WIDTH - 48;
@@ -759,12 +759,11 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                 {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
               </MapView>
             ) : (
-              <View className="w-full h-full items-center justify-center gap-2 px-8">
-                <Ionicons name="map-outline" size={26} color="#8E9BA4" />
-                <Text className="text-xs font-bold text-theme-muted text-center">
-                  No route recorded for this activity
-                </Text>
-              </View>
+              <Image
+                source={getSportPlaceholderImage(getSportIconConfig(activity?.sport_type, activity?.name).label)}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
             )}
 
             {/* Fading Gradient Overlay */}

@@ -333,3 +333,26 @@ export function getSportOutlineIcon(sportType?: string, activityName?: string): 
 export function getSportFilledIcon(sportType?: string, activityName?: string): IoniconsName {
   return getSportIconConfig(sportType, activityName).name as IoniconsName;
 }
+
+/**
+ * Returns the placeholder image for a given sport label.
+ */
+export function getSportPlaceholderImage(sportLabel?: string) {
+  switch (sportLabel) {
+    case 'BIKE': return require('../../assets/images/placeholders/bike-placeholder.png');
+    case 'SWIM': return require('../../assets/images/placeholders/swim-placeholder.png');
+    case 'STRENGTH': return require('../../assets/images/placeholders/strength-placeholder.png');
+    case 'MOBILITY': return require('../../assets/images/placeholders/mobility-placeholder.png');
+    case 'WALK': return require('../../assets/images/placeholders/walk-placeholder.png');
+    case 'RUN': return require('../../assets/images/placeholders/run-placeholder.png');
+    case 'ROWING': return require('../../assets/images/placeholders/rowing-placeholder.png');
+    case 'WINTER': return require('../../assets/images/placeholders/winter-placeholder.png');
+    case 'RACQUET': return require('../../assets/images/placeholders/racquet-placeholder.png');
+    case 'SOCCER': return require('../../assets/images/placeholders/soccer-placeholder.png');
+    case 'BASKETBALL': return require('../../assets/images/placeholders/basketball-placeholder.png');
+    case 'GOLF': return require('../../assets/images/placeholders/golf-placeholder.png');
+    case 'COMBAT': return require('../../assets/images/placeholders/combat-placeholder.png');
+    case 'FITNESS': return require('../../assets/images/placeholders/fitness-placeholder.png');
+    default: return require('../../assets/images/placeholders/default-placeholder.png');
+  }
+}
