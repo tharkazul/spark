@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import React, { useEffect, useState } from 'react';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useUser } from '../../context/UserStore';
+import { gamificationApi, userApi } from '../../services/apiServices';
 import { Card } from '../ui/Card';
 import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
-import { useUser } from '../../context/UserStore';
-import { userApi, gamificationApi } from '../../services/apiServices';
 
 export interface MilestoneRow {
   id: string;
@@ -64,21 +65,43 @@ export const GoalsTab: React.FC = () => {
     let isMounted = true;
     const loadMilestones = async () => {
       try {
+        const cachedRaw = await AsyncStorage.getItem('rooka_user_goals');
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (isMounted && Array.isArray(cached) && cached.length > 0) {
+            setMilestones(
+              cached.map((m: any) => ({
+                id: m.id?.toString() || Date.now().toString() + Math.random(),
+                isARace: m.is_main === 1 || Boolean(m.isARace),
+                goalType: (m.goal_type || m.goalType || 'physiological') as 'race' | 'physiological',
+                eventName: m.name || m.eventName || '',
+                eventDate: m.date || m.eventDate || new Date().toISOString().split('T')[0],
+                targetMode: (m.target_mode || m.targetMode || 'finish') as 'finish' | 'time',
+                targetValue: m.target_value || m.targetValue || '',
+                targetWeight: m.target_weight ? m.target_weight.toString() : m.targetWeight ? m.targetWeight.toString() : '',
+                targetVo2max: m.target_vo2max ? m.target_vo2max.toString() : m.targetVo2max ? m.targetVo2max.toString() : '',
+              }))
+            );
+          }
+        }
+      } catch (_) {}
+
+      try {
         const rows = await gamificationApi.getMilestones();
         if (isMounted && rows && rows.length > 0) {
-          setMilestones(
-            rows.map((m: any) => ({
-              id: m.id?.toString() || Date.now().toString() + Math.random(),
-              isARace: m.is_main === 1,
-              goalType: (m.goal_type || 'race') as 'race' | 'physiological',
-              eventName: m.name || '',
-              eventDate: m.date || new Date().toISOString().split('T')[0],
-              targetMode: (m.target_mode || 'finish') as 'finish' | 'time',
-              targetValue: m.target_value || '',
-              targetWeight: m.target_weight ? m.target_weight.toString() : '',
-              targetVo2max: m.target_vo2max ? m.target_vo2max.toString() : '',
-            }))
-          );
+          const mapped = rows.map((m: any) => ({
+            id: m.id?.toString() || Date.now().toString() + Math.random(),
+            isARace: m.is_main === 1,
+            goalType: (m.goal_type || m.goalType || 'physiological') as 'race' | 'physiological',
+            eventName: m.name || '',
+            eventDate: m.date || new Date().toISOString().split('T')[0],
+            targetMode: (m.target_mode || 'finish') as 'finish' | 'time',
+            targetValue: m.target_value || '',
+            targetWeight: m.target_weight ? m.target_weight.toString() : '',
+            targetVo2max: m.target_vo2max ? m.target_vo2max.toString() : '',
+          }));
+          setMilestones(mapped);
+          await AsyncStorage.setItem('rooka_user_goals', JSON.stringify(rows));
           return;
         }
       } catch (err) {
@@ -90,7 +113,7 @@ export const GoalsTab: React.FC = () => {
           {
             id: '1',
             isARace: true,
-            goalType: 'race',
+            goalType: ((user as any)?.goal_type || (user as any)?.goalType || 'physiological') as 'race' | 'physiological',
             eventName: user.target_event,
             eventDate: user.event_date || new Date().toISOString().split('T')[0],
             targetMode: 'finish',
@@ -176,23 +199,28 @@ export const GoalsTab: React.FC = () => {
       target_vo2max: m.targetVo2max ? parseFloat(m.targetVo2max) : null,
     }));
 
-    const mainARace = milestones.find((m) => m.isARace && m.goalType === 'race') || milestones.find((m) => m.isARace) || milestones[0];
+    const primaryGoal = milestones.find((m) => m.isARace) || milestones[0];
 
     try {
       await gamificationApi.saveMilestones(payload);
+      await AsyncStorage.setItem('rooka_user_goals', JSON.stringify(payload));
 
-      if (mainARace) {
-        const calculatedCTL = calculateTargetCTL(mainARace.eventName);
+      if (primaryGoal) {
+        const calculatedCTL = calculateTargetCTL(primaryGoal.eventName);
         await userApi.updateSettings({
-          target_event: mainARace.eventName,
-          event_date: mainARace.eventDate,
+          target_event: primaryGoal.eventName,
+          event_date: primaryGoal.eventDate,
           target_ctl: calculatedCTL,
+          goal_type: primaryGoal.goalType,
+          goalType: primaryGoal.goalType,
         });
       } else {
         await userApi.updateSettings({
           target_event: '',
           event_date: '',
           target_ctl: 70,
+          goal_type: 'physiological',
+          goalType: 'physiological',
         });
       }
 
@@ -220,7 +248,7 @@ export const GoalsTab: React.FC = () => {
           year: 'numeric',
         });
       }
-    } catch (e) {}
+    } catch (e) { }
     return dateStr;
   };
 
@@ -238,7 +266,7 @@ export const GoalsTab: React.FC = () => {
             className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
           >
             <Ionicons name="add" size={14} color={theme.tint} />
-            <Text className="text-theme-accent font-bold text-xs ml-1">+ Add Goal</Text>
+            <Text className="text-theme-accent font-bold text-xs ml-1">Add Goal</Text>
           </TouchableOpacity>
         </View>
 
@@ -319,9 +347,8 @@ export const GoalsTab: React.FC = () => {
                   <View className="flex-row items-center justify-between">
                     <TouchableOpacity
                       onPress={() => handleToggleARace(row.id)}
-                      className={`px-2.5 py-1 rounded-full flex-row items-center ${
-                        row.isARace ? 'bg-semantic-warning/20' : 'bg-theme-card'
-                      }`}
+                      className={`px-2.5 py-1 rounded-full flex-row items-center ${row.isARace ? 'bg-semantic-warning/20' : 'bg-theme-card'
+                        }`}
                     >
                       <Ionicons
                         name={row.isARace ? 'trophy' : 'trophy-outline'}
@@ -329,9 +356,8 @@ export const GoalsTab: React.FC = () => {
                         color={row.isARace ? '#EAB308' : '#8E8E93'}
                       />
                       <Text
-                        className={`text-xs font-bold ml-1 ${
-                          row.isARace ? 'text-semantic-warning' : 'text-theme-muted'
-                        }`}
+                        className={`text-xs font-bold ml-1 ${row.isARace ? 'text-semantic-warning' : 'text-theme-muted'
+                          }`}
                       >
                         {row.isARace ? 'PRIMARY (MAIN GOAL)' : 'SECONDARY GOAL'}
                       </Text>
@@ -349,9 +375,8 @@ export const GoalsTab: React.FC = () => {
                   <View className="flex-row bg-theme-card p-1 rounded-xl border border-theme-border/40">
                     <TouchableOpacity
                       onPress={() => handleUpdateMilestone(row.id, 'goalType', 'race')}
-                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
-                        isRace ? 'bg-theme-accent' : 'bg-transparent'
-                      }`}
+                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${isRace ? 'bg-theme-accent' : 'bg-transparent'
+                        }`}
                     >
                       <Ionicons name="flag-outline" size={13} color={isRace ? '#FFFFFF' : theme.textSecondary} />
                       <Text className={`text-xs font-bold ml-1.5 ${isRace ? 'text-white' : 'text-theme-muted'}`}>
@@ -361,9 +386,8 @@ export const GoalsTab: React.FC = () => {
 
                     <TouchableOpacity
                       onPress={() => handleUpdateMilestone(row.id, 'goalType', 'physiological')}
-                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
-                        !isRace ? 'bg-theme-accent' : 'bg-transparent'
-                      }`}
+                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${!isRace ? 'bg-theme-accent' : 'bg-transparent'
+                        }`}
                     >
                       <Ionicons name="fitness-outline" size={13} color={!isRace ? '#FFFFFF' : theme.textSecondary} />
                       <Text className={`text-xs font-bold ml-1.5 ${!isRace ? 'text-white' : 'text-theme-muted'}`}>
@@ -401,9 +425,8 @@ export const GoalsTab: React.FC = () => {
                             className="bg-theme-card rounded-tile p-3 flex-row items-center justify-between border border-theme-border/50"
                           >
                             <Text
-                              className={`text-xs font-bold ${
-                                row.eventDate ? 'text-theme-text' : 'text-theme-muted'
-                              }`}
+                              className={`text-xs font-bold ${row.eventDate ? 'text-theme-text' : 'text-theme-muted'
+                                }`}
                             >
                               {formatDateDisplay(row.eventDate)}
                             </Text>
@@ -419,11 +442,10 @@ export const GoalsTab: React.FC = () => {
                           <View className="flex-row gap-2">
                             <TouchableOpacity
                               onPress={() => handleUpdateMilestone(row.id, 'targetMode', 'finish')}
-                              className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${
-                                row.targetMode === 'finish'
+                              className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${row.targetMode === 'finish'
                                   ? 'bg-theme-accent/15 border-theme-accent'
                                   : 'bg-theme-card border-theme-border/50'
-                              }`}
+                                }`}
                             >
                               <Ionicons
                                 name="checkmark-circle-outline"
@@ -431,9 +453,8 @@ export const GoalsTab: React.FC = () => {
                                 color={row.targetMode === 'finish' ? theme.tint : theme.textSecondary}
                               />
                               <Text
-                                className={`text-xs font-bold ml-1.5 ${
-                                  row.targetMode === 'finish' ? 'text-theme-accent' : 'text-theme-muted'
-                                }`}
+                                className={`text-xs font-bold ml-1.5 ${row.targetMode === 'finish' ? 'text-theme-accent' : 'text-theme-muted'
+                                  }`}
                               >
                                 Finish the Race
                               </Text>
@@ -441,11 +462,10 @@ export const GoalsTab: React.FC = () => {
 
                             <TouchableOpacity
                               onPress={() => handleUpdateMilestone(row.id, 'targetMode', 'time')}
-                              className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${
-                                row.targetMode === 'time'
+                              className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${row.targetMode === 'time'
                                   ? 'bg-theme-accent/15 border-theme-accent'
                                   : 'bg-theme-card border-theme-border/50'
-                              }`}
+                                }`}
                             >
                               <Ionicons
                                 name="time-outline"
@@ -453,9 +473,8 @@ export const GoalsTab: React.FC = () => {
                                 color={row.targetMode === 'time' ? theme.tint : theme.textSecondary}
                               />
                               <Text
-                                className={`text-xs font-bold ml-1.5 ${
-                                  row.targetMode === 'time' ? 'text-theme-accent' : 'text-theme-muted'
-                                }`}
+                                className={`text-xs font-bold ml-1.5 ${row.targetMode === 'time' ? 'text-theme-accent' : 'text-theme-muted'
+                                  }`}
                               >
                                 Time Goal
                               </Text>
@@ -489,7 +508,7 @@ export const GoalsTab: React.FC = () => {
                           <TextInput
                             value={row.eventName}
                             onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
-                            placeholder="e.g. Body Composition & VO2 Max Target"
+                            placeholder="e.g. Body Composition & Target Weight"
                             placeholderTextColor={theme.textSecondary}
                             className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
                           />
@@ -505,9 +524,8 @@ export const GoalsTab: React.FC = () => {
                             className="bg-theme-card rounded-tile p-3 flex-row items-center justify-between border border-theme-border/50"
                           >
                             <Text
-                              className={`text-xs font-bold ${
-                                row.eventDate ? 'text-theme-text' : 'text-theme-muted'
-                              }`}
+                              className={`text-xs font-bold ${row.eventDate ? 'text-theme-text' : 'text-theme-muted'
+                                }`}
                             >
                               {formatDateDisplay(row.eventDate)}
                             </Text>
@@ -515,34 +533,18 @@ export const GoalsTab: React.FC = () => {
                           </TouchableOpacity>
                         </View>
 
-                        <View className="flex-row gap-2">
-                          <View className="flex-1">
-                            <Text className="text-xs font-bold text-theme-muted mb-1">
-                              Goal Weight (kg)
-                            </Text>
-                            <TextInput
-                              value={row.targetWeight}
-                              onChangeText={(val) => handleUpdateMilestone(row.id, 'targetWeight', val)}
-                              placeholder="e.g. 72"
-                              placeholderTextColor={theme.textSecondary}
-                              keyboardType="numeric"
-                              className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
-                            />
-                          </View>
-
-                          <View className="flex-1">
-                            <Text className="text-xs font-bold text-theme-muted mb-1">
-                              Goal VO2 Max
-                            </Text>
-                            <TextInput
-                              value={row.targetVo2max}
-                              onChangeText={(val) => handleUpdateMilestone(row.id, 'targetVo2max', val)}
-                              placeholder="e.g. 55"
-                              placeholderTextColor={theme.textSecondary}
-                              keyboardType="numeric"
-                              className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
-                            />
-                          </View>
+                        <View>
+                          <Text className="text-xs font-bold text-theme-muted mb-1">
+                            Goal Weight (kg)
+                          </Text>
+                          <TextInput
+                            value={row.targetWeight}
+                            onChangeText={(val) => handleUpdateMilestone(row.id, 'targetWeight', val)}
+                            placeholder="e.g. 72"
+                            placeholderTextColor={theme.textSecondary}
+                            keyboardType="numeric"
+                            className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
+                          />
                         </View>
                       </>
                     )}

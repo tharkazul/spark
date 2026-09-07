@@ -57,6 +57,8 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     target_event: data?.targetEvent ?? data?.target_event ?? (isSameUser ? prev?.target_event : undefined),
     event_date: data?.eventDate ?? data?.event_date ?? (isSameUser ? prev?.event_date : undefined),
     target_ctl: data?.targetCtl ?? data?.target_ctl ?? (isSameUser ? prev?.target_ctl : undefined),
+    goal_type: data?.goalType ?? data?.goal_type ?? (isSameUser ? prev?.goal_type : undefined),
+    goalType: data?.goalType ?? data?.goal_type ?? (isSameUser ? prev?.goalType : undefined),
   };
 };
 

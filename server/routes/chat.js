@@ -64,6 +64,15 @@ const {
   getEffectiveTokenLimit
 } = require('../services/utils');
 
+function splitCoachReply(text) {
+  if (!text) return [];
+  const parts = text
+    .split(/(?:\r?\n)?(?:---(?:MSG|SPLIT|BREAK)---|\[\[SPLIT\]\]|<break\s*\/?>|<br\s*\/?>)(?:\r?\n)?/gi)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  return parts.length > 0 ? parts : [text.trim()];
+}
+
 router.get("/api/events", authenticateToken, (req, res) => {
   const userId = req.user.id;
 
@@ -219,21 +228,58 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
         );
       }
 
+      // Check if the athlete recently sent this exact message (within the last 3 minutes)
+      // and we already generated a coach response in a previous attempt (e.g. client connection dropped).
       db.all(
-        `SELECT metric, value FROM athlete_metrics WHERE user_id = ?`,
+        `SELECT id, role, content, mood, timestamp FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 6`,
         [req.user.id],
-        async (err, metricsRows) => {
-          const metricsText =
-            metricsRows && metricsRows.length > 0
-              ? metricsRows.map((m) => `${m.metric}: ${m.value}`).join(", ")
-              : "None explicitly recorded yet.";
+        async (historyCheckErr, recentRows) => {
+          if (!historyCheckErr && recentRows && recentRows.length > 0) {
+            const userMsgTrimmed = (message || '').trim();
+            const latestUserRow = recentRows.find((r) => r.role === 'user');
 
-          const phase = await getUserMacroPhase(req.user.id);
-          try {
-            db.all(
-              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
-              [req.user.id],
-              async (err, recentActivities) => {
+            if (latestUserRow && latestUserRow.content && latestUserRow.content.trim() === userMsgTrimmed) {
+              const rawTs = latestUserRow.timestamp;
+              const msgAgeMs = rawTs 
+                ? (Date.now() - new Date(typeof rawTs === 'string' && (rawTs.includes('Z') || rawTs.includes('T')) ? rawTs : String(rawTs).replace(' ', 'T') + 'Z').getTime())
+                : 0;
+
+              // If sent within the last 3 minutes (180,000 ms) or fresh timestamp
+              if (msgAgeMs >= 0 && msgAgeMs < 180000) {
+                const matchedCoachRows = recentRows.filter((r) => r.role === 'coach' && r.id > latestUserRow.id);
+                if (matchedCoachRows.length > 0) {
+                  matchedCoachRows.reverse(); // chronological ASC
+                  const existingReplies = matchedCoachRows.map((r) => r.content);
+                  const existingReply = existingReplies.join('\n\n');
+                  const mood = matchedCoachRows[0].mood || 'default';
+                  console.log(`⚡️ Replaying existing coach response for retried message (User ${req.user.id})`);
+                  return res.json({
+                    reply: existingReply,
+                    replies: existingReplies,
+                    mood: mood,
+                    planUpdated: false,
+                    replayed: true,
+                  });
+                }
+              }
+            }
+          }
+
+          db.all(
+            `SELECT metric, value FROM athlete_metrics WHERE user_id = ?`,
+            [req.user.id],
+            async (err, metricsRows) => {
+              const metricsText =
+                metricsRows && metricsRows.length > 0
+                  ? metricsRows.map((m) => `${m.metric}: ${m.value}`).join(", ")
+                  : "None explicitly recorded yet.";
+
+              const phase = await getUserMacroPhase(req.user.id);
+              try {
+                db.all(
+                  `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
+                  [req.user.id],
+                  async (err, recentActivities) => {
                 const recentActivitiesText =
                   recentActivities && recentActivities.length > 0
                     ? recentActivities
@@ -408,6 +454,24 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         cleanHistory.pop();
                                       }
 
+                                      // Deduplicate: If previous turn in cleanHistory answered this exact message,
+                                      // strip it out so Gemini treats this message fresh without repetition.
+                                      const incomingTrimmed = (message || "").trim();
+                                      if (cleanHistory.length >= 2) {
+                                        const lastTurnUser = cleanHistory[cleanHistory.length - 2];
+                                        if (
+                                          lastTurnUser &&
+                                          lastTurnUser.role === "user" &&
+                                          lastTurnUser.parts &&
+                                          lastTurnUser.parts[0] &&
+                                          lastTurnUser.parts[0].text &&
+                                          lastTurnUser.parts[0].text.trim() === incomingTrimmed
+                                        ) {
+                                          cleanHistory.pop();
+                                          cleanHistory.pop();
+                                        }
+                                      }
+
                                       const todayStr = getAMSDateString();
                                       const next7Days = Array.from(
                                         { length: 7 },
@@ -438,6 +502,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     - Your active voice, vocabulary, and personality MUST STRICTLY match 'Tone: ${coachToneText}'.
                     - DO NOT let previous message history bleed into your active tone. If previous conversation turns used flirty language, pet names (e.g. "babe", "my love"), or cheerleader hype that contradicts your current assigned Tone, you MUST DISREGARD that style completely.
                     - Adopt your assigned tone with 100% fidelity on every single response.
+                    - CONCISE CHAT APP COMMUNICATION (MANDATORY): You are texting inside a mobile chat application (like WhatsApp or iMessage). Formulate all responses to be concise, punchy, and direct. Keep regular turns compact (typically 1 to 3 short sentences/paragraphs max). Never output long monolithic walls of text.
+                    - MULTI-MESSAGE SPLITTING (<br> or ---MSG---): If you want to send multiple separate messages (e.g. to convey distinct thoughts, convey a larger message, or text more naturally in separate consecutive bubbles), separate each message with \`<br>\` or \`---MSG---\`. The app will automatically split and render them into separate consecutive chat bubbles in the exact right order.
                     Current Training Phase: ${phase || user.training_phase || "Base/General"}
                     
                     TIME CONTEXT:
@@ -495,12 +561,13 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                     CRITICAL RULES:
                     0. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
-                    1. Act like a real human in a continuous text message thread: keep your responses concise, focused, and natural.
-                    2. NEVER repeat your previous greetings, praises, or paragraphs verbatim. Do not bring up old topics unless the athlete explicitly mentions them.
-                    3. Always use metric measurements exclusively (meters for distance, km/h for speed, min/km for pace). Never use imperial units. IMPORTANT: For 'distance' condition_type in the JSON steps, the condition_value MUST be in pure METERS (e.g., use 5000 for a 5km interval, NOT 5).
-                    4. Respond directly with your conversational text. Do not wrap your main reply in JSON.
-                    5. CRITICAL DATE CONTEXT: If an activity in the user's recent history is tagged with [TODAY], you MUST refer to it as happening "today". NEVER refer to a [TODAY] activity as "yesterday" or "last night".
-                    6. INJURY GUARDRAILS:
+                    1. CONCISE CHAT APPLICATION STYLE & MULTI-MESSAGE BREAKS (CRITICAL): Act like a real coach texting in a mobile chat app (such as WhatsApp or iMessage). Keep your conversational text formulated concisely, punchily, directly, and naturally (typically 1-3 short sentences or paragraphs). If you need to send multiple distinct messages or break up a larger thought into separate chat bubbles, use \`<br>\` or \`---MSG---\` between each message. The app will split them and display them in the exact right order.
+                    2. RETRIES & REPEATED MESSAGES (CRITICAL): If the athlete's message seems repeated or identical to a previous message (which happens when a mobile user retries after a connection error), NEVER say things like "did you want to tell me this twice?" or "you already said that". Treat it naturally and helpfully as a single message, and NEVER duplicate activity or diet logs.
+                    3. NEVER repeat your previous greetings, praises, or paragraphs verbatim. Do not bring up old topics unless the athlete explicitly mentions them.
+                    4. Always use metric measurements exclusively (meters for distance, km/h for speed, min/km for pace). Never use imperial units. IMPORTANT: For 'distance' condition_type in the JSON steps, the condition_value MUST be in pure METERS (e.g., use 5000 for a 5km interval, NOT 5).
+                    5. Respond directly with your conversational text. Do not wrap your main reply in JSON.
+                    6. CRITICAL DATE CONTEXT: If an activity in the user's recent history is tagged with [TODAY], you MUST refer to it as happening "today". NEVER refer to a [TODAY] activity as "yesterday" or "last night".
+                    7. INJURY GUARDRAILS:
                        - If ACTIVE INJURIES lists "No active injuries or niggles reported", treat the athlete as 100% healthy with ZERO physical restrictions.
                        - Only if an injury is currently active:
                          * Lower Body (Severity 3+): Avoid high-impact running. Substitute with swimming or indoor cycling.
@@ -1208,10 +1275,14 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         `INSERT INTO chat_history (user_id, role, content, image_path) VALUES (?, 'user', ?, ?)`,
                                         [req.user.id, message, imagePathValue],
                                       );
-                                      db.run(
-                                        `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, ?)`,
-                                        [req.user.id, aiReply, mood],
-                                      );
+
+                                      const messageParts = splitCoachReply(aiReply);
+                                      messageParts.forEach((part) => {
+                                        db.run(
+                                          `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, ?)`,
+                                          [req.user.id, part, mood],
+                                        );
+                                      });
 
                                       db.get(
                                         `SELECT COUNT(*) as count FROM chat_history WHERE user_id = ?`,
@@ -1256,9 +1327,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             );
                                             if (coachAddendum) {
                                               aiReply += "\n\n" + coachAddendum;
+                                              messageParts.push(coachAddendum);
                                               db.run(
-                                                `UPDATE chat_history SET content = ? WHERE id = (SELECT MAX(id) FROM chat_history WHERE user_id = ? AND role = 'coach')`,
-                                                [aiReply, req.user.id],
+                                                `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
+                                                [req.user.id, coachAddendum],
                                               );
                                             }
                                           } catch (celebrationErr) {
@@ -1268,7 +1340,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                         // 1. Send the instant response to the client immediately!
                                         res.json({
-                                          reply: aiReply,
+                                          reply: messageParts.join('\n\n'),
+                                          replies: messageParts,
                                           mood: mood,
                                           planUpdated: planUpdated,
                                         });
@@ -1371,7 +1444,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
         },
       ); // End metrics
     },
-  ); // End user fetch
+  ); // End recent history check
+},
+); // End user fetch
 });
 
 router.get("/api/chat/briefing", authenticateToken, (req, res) => {
@@ -1532,13 +1607,14 @@ CRITICAL RULES:
                       .replace(/```json[\s\S]*?```/gi, "")
                       .trim();
                       
-                    aiReply = aiReply.replace(/[^.!?\n]*:\s*$/i, "").trim();
-
-                    db.run(
-                      `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'default')`,
-                      [req.user.id, aiReply],
-                    );
-                    res.json({ reply: aiReply, mood: "default" });
+                    const messageParts = splitCoachReply(aiReply);
+                    messageParts.forEach((part) => {
+                      db.run(
+                        `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'default')`,
+                        [req.user.id, part],
+                      );
+                    });
+                    res.json({ reply: messageParts.join('\n\n'), replies: messageParts, mood: "default" });
                   } catch (e) {
                     console.error("Checkin Server Error:", e);
                     res.status(500).json({ error: "AI failed to respond." });

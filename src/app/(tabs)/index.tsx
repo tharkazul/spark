@@ -1,46 +1,47 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '@/hooks/use-theme';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
+  Alert,
+  DeviceEventEmitter,
+  ScrollView,
   Text,
   TouchableOpacity,
-  ScrollView,
-  useWindowDimensions,
-  DeviceEventEmitter,
-  Alert,
+  View
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
 
-import { useUser } from '../../context/UserStore';
-import { useCoachChat } from '../../context/CoachChatStore';
-import { useLanguage } from '../../context/LanguageContext';
-import { useHeaderLayout } from '../../context/HeaderLayoutContext';
-import { useTabBar } from '../../context/TabBarContext';
-import { usePlan } from '../../context/PlanStore';
-import { useActivities } from '../../context/ActivityStore';
-import { planApi } from '../../services/apiServices';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { calculateTargetCTL } from '../../components/profile/GoalsTab';
 import { Card } from '../../components/ui/Card';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
+import { useActivities } from '../../context/ActivityStore';
+import { useCoachChat } from '../../context/CoachChatStore';
+import { useHeaderLayout } from '../../context/HeaderLayoutContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { usePlan } from '../../context/PlanStore';
+import { useTabBar } from '../../context/TabBarContext';
+import { useUser } from '../../context/UserStore';
+import { gamificationApi, planApi } from '../../services/apiServices';
 
+import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
-import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 
 
+import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
 import { InvitePartnerModal } from '../../components/dashboard/InvitePartnerModal';
-import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
-import { LogWeightModal } from '../../components/dashboard/LogWeightModal';
-import { LogNiggleModal } from '../../components/dashboard/LogNiggleModal';
 import { LogActivityModal } from '../../components/dashboard/LogActivityModal';
+import { LogNiggleModal } from '../../components/dashboard/LogNiggleModal';
+import { LogWeightModal } from '../../components/dashboard/LogWeightModal';
 
 import {
-  WorkoutItem,
-  MacroPeriodInfo,
   DayAgenda,
+  MacroPeriodInfo,
+  WorkoutItem,
 } from '../../types/dashboard';
 
 // Date Helpers (Fixed to use local timezone date components instead of UTC ISO string)
@@ -64,7 +65,7 @@ function formatShortDate(d: Date): string {
 }
 
 export default function PlanningHomeScreen() {
-    const theme = useTheme();
+  const theme = useTheme();
   const router = useRouter();
   const { user } = useUser();
   const { sendMessage, unreadCount } = useCoachChat();
@@ -113,7 +114,6 @@ export default function PlanningHomeScreen() {
 
   const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 0);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
-  const [customWorkoutsByDate, setCustomWorkoutsByDate] = useState<Record<string, WorkoutItem[]>>({});
 
   // Selected week start date (defaults to Monday of current week)
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
@@ -175,52 +175,225 @@ export default function PlanningHomeScreen() {
     }
   };
 
-  const daysRemaining = calculateDaysRemaining(user?.event_date);
-  // Keep the roadmap visible throughout race day (daysRemaining === 0) and 1 day post-race for celebration
-  const hasSeasonGoal = Boolean(user?.target_event && user?.event_date && daysRemaining >= -1);
-  const mainRaceName = user?.target_event ?? '';
+  const [activeGoals, setActiveGoals] = useState<Array<{
+    name: string;
+    date: string;
+    isMain: boolean;
+    goalType: 'race' | 'physiological';
+    targetCTL?: number;
+  }>>([]);
 
-  const seasonInfo: MacroPeriodInfo = {
-    raceTargetName: mainRaceName,
-    daysRemaining: daysRemaining,
-    currentPhaseIndex: 1,
-    targetCTL: user?.target_ctl || 35,
-    currentCTL: user?.current_ctl || 68,
-    phases: [
-      {
-        name: 'BASE PHASE',
-        weeks: 'Weeks 1-6',
-        focus: 'Aerobic Volume & Technic',
-        description: 'Building mitochondrial density & base aerobic capacity with low HR long rides and CSS swim threshold sets.',
-        status: 'completed',
-        achievementLabel: 'Done at 94% Target CTL',
-        targetCTL: 52,
-        achievedCTL: 49,
-      },
-      {
-        name: 'BUILD PHASE',
-        weeks: 'Weeks 7-12',
-        focus: 'Threshold Velocity & Power',
-        description: 'High aerobic intervals, threshold swim pace, VO2 max bike intervals, and Saturday brick runs.',
-        status: 'active',
-        progressPercent: 55,
-      },
-      {
-        name: 'PEAK PHASE',
-        weeks: 'Weeks 13-14',
-        focus: 'Race Pace Intervals',
-        description: 'Race-specific pacing simulation, sharp interval efforts, and high-intensity micro efforts.',
-        status: 'upcoming',
-      },
-      {
-        name: 'TAPER PHASE',
-        weeks: 'Weeks 15-16',
-        focus: 'Glycogen Supercompensation',
-        description: 'Volume reduction by 50% while maintaining sharp stride frequency to arrive fresh on race day.',
-        status: 'upcoming',
-      },
-    ],
-  };
+  useEffect(() => {
+    let isMounted = true;
+    const loadGoals = async () => {
+      try {
+        const cachedRaw = await AsyncStorage.getItem('rooka_user_goals');
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw);
+          if (isMounted && Array.isArray(cached) && cached.length > 0) {
+            setActiveGoals(
+              cached.map((m: any) => ({
+                name: m.name || m.eventName || 'Goal',
+                date: m.date || m.eventDate || new Date().toISOString().split('T')[0],
+                isMain: m.is_main === 1 || Boolean(m.isARace),
+                goalType: (m.goal_type || m.goalType || 'physiological') as 'race' | 'physiological',
+                targetCTL: m.target_ctl || m.targetCtl || (m.name ? calculateTargetCTL(m.name) : 70),
+              }))
+            );
+          }
+        }
+      } catch (_) { }
+
+      try {
+        const milestones = await gamificationApi.getMilestones();
+        if (isMounted && milestones && milestones.length > 0) {
+          const mapped = milestones.map((m: any) => ({
+            name: m.name || m.eventName || 'Goal',
+            date: m.date || m.eventDate || new Date().toISOString().split('T')[0],
+            isMain: m.is_main === 1 || Boolean(m.isARace),
+            goalType: (m.goal_type || m.goalType || 'physiological') as 'race' | 'physiological',
+            targetCTL: m.target_ctl || m.targetCtl || (m.name ? calculateTargetCTL(m.name) : 70),
+          }));
+          setActiveGoals(mapped);
+          await AsyncStorage.setItem('rooka_user_goals', JSON.stringify(milestones));
+          return;
+        }
+      } catch (e) {
+        console.log('Failed to fetch milestones in Planning screen:', e);
+      }
+
+      if (isMounted && (user?.target_event || user?.event_date)) {
+        setActiveGoals([
+          {
+            name: user?.target_event || 'Target Goal',
+            date: user?.event_date || new Date().toISOString().split('T')[0],
+            isMain: true,
+            goalType: ((user as any)?.goal_type || (user as any)?.goalType || 'physiological') as 'race' | 'physiological',
+            targetCTL: user?.target_ctl || 70,
+          },
+        ]);
+      }
+    };
+
+    loadGoals();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, user?.target_event, user?.event_date]);
+
+  const nearestGoalInfo = useMemo(() => {
+    if (!activeGoals || activeGoals.length === 0) {
+      if (user?.target_event || user?.event_date) {
+        const gDate = user.event_date || new Date().toISOString().split('T')[0];
+        return {
+          name: user.target_event || 'Target Goal',
+          date: gDate,
+          isMain: true,
+          goalType: ((user as any)?.goal_type || (user as any)?.goalType || 'race') as 'race' | 'physiological',
+          targetCTL: user.target_ctl || 70,
+          daysRemaining: calculateDaysRemaining(gDate),
+        };
+      }
+      return null;
+    }
+
+    const goalsWithDays = activeGoals.map((g) => ({
+      ...g,
+      daysRemaining: calculateDaysRemaining(g.date),
+    }));
+
+    const upcomingGoals = goalsWithDays.filter((g) => g.daysRemaining >= -1);
+    const pool = upcomingGoals.length > 0 ? upcomingGoals : goalsWithDays;
+
+    pool.sort((a, b) => {
+      const aFuture = a.daysRemaining >= -1;
+      const bFuture = b.daysRemaining >= -1;
+      if (aFuture && !bFuture) return -1;
+      if (!aFuture && bFuture) return 1;
+
+      if (Math.abs(a.daysRemaining) !== Math.abs(b.daysRemaining)) {
+        return Math.abs(a.daysRemaining) - Math.abs(b.daysRemaining);
+      }
+      return a.isMain === b.isMain ? 0 : a.isMain ? -1 : 1;
+    });
+
+    return pool[0] || null;
+  }, [activeGoals, user?.target_event, user?.event_date, user?.target_ctl]);
+
+  const hasSeasonGoal = Boolean(nearestGoalInfo && nearestGoalInfo.name);
+  const isPhysiologicalGoal = nearestGoalInfo?.goalType === 'physiological';
+
+  const seasonInfo: MacroPeriodInfo = useMemo(() => {
+    const goalName = nearestGoalInfo?.name || user?.target_event || 'Training Goal';
+    const targetCtl = nearestGoalInfo?.targetCTL || user?.target_ctl || 70;
+    const currentCtl = user?.current_ctl || 45;
+    const daysLeft = nearestGoalInfo ? nearestGoalInfo.daysRemaining : 60;
+
+    const totalCycleDays = Math.max(112, daysLeft > 0 ? daysLeft : 112);
+    const elapsedTotalDays = Math.max(0, totalCycleDays - Math.max(0, daysLeft));
+    const progressRatio = Math.min(1, Math.max(0, elapsedTotalDays / totalCycleDays));
+
+    const phaseLengthDays = totalCycleDays / 4;
+    const currentPhaseIndex = Math.min(3, Math.floor(progressRatio * 4));
+    const phaseElapsedDays = Math.max(0, elapsedTotalDays - currentPhaseIndex * phaseLengthDays);
+    const activePhaseProgress = Math.min(100, Math.max(0, Math.round((phaseElapsedDays / phaseLengthDays) * 100)));
+
+    const goalLabel = nearestGoalInfo?.isMain
+      ? isPhysiologicalGoal ? 'PRIMARY' : 'RACE'
+      : isPhysiologicalGoal ? 'SECONDARY' : 'RACE';
+
+    if (isPhysiologicalGoal) {
+      return {
+        raceTargetName: goalName,
+        daysRemaining: daysLeft,
+        currentPhaseIndex,
+        targetCTL: targetCtl,
+        currentCTL: currentCtl,
+        goalType: 'physiological',
+        isPrimaryGoal: nearestGoalInfo?.isMain,
+        goalLabel,
+        phases: [
+          {
+            name: 'ADAPT',
+            weeks: 'Weeks 1-4',
+            focus: 'Neuromuscular & Movement Baseline',
+            description: 'Building workout consistency, structural integrity, and foundational movement efficiency with steady volume.',
+            status: currentPhaseIndex > 0 ? 'completed' : currentPhaseIndex === 0 ? 'active' : 'upcoming',
+            progressPercent: currentPhaseIndex === 0 ? activePhaseProgress : undefined,
+          },
+          {
+            name: 'DEVELOP',
+            weeks: 'Weeks 5-8',
+            focus: 'Targeted Load & Volume',
+            description: 'Incremental load increase, target energy system stimulus, and progressive overload across target disciplines.',
+            status: currentPhaseIndex > 1 ? 'completed' : currentPhaseIndex === 1 ? 'active' : 'upcoming',
+            progressPercent: currentPhaseIndex === 1 ? activePhaseProgress : undefined,
+          },
+          {
+            name: 'CRUNCH',
+            weeks: 'Weeks 9-12',
+            focus: 'High-Efficiency Output',
+            description: 'Stabilizing physiological adaptations, expanding threshold capacity, and performance benchmark assessments.',
+            status: currentPhaseIndex > 2 ? 'completed' : currentPhaseIndex === 2 ? 'active' : 'upcoming',
+            progressPercent: currentPhaseIndex === 2 ? activePhaseProgress : undefined,
+          },
+          {
+            name: 'SUSTAIN',
+            weeks: 'Weeks 13-16',
+            focus: 'Continuous Growth & Maintenance',
+            description: 'Sustaining peak fitness gains, long-term habit strength, and resilient baseline fitness maintenance.',
+            status: currentPhaseIndex === 3 ? 'active' : 'upcoming',
+            progressPercent: currentPhaseIndex === 3 ? activePhaseProgress : undefined,
+          },
+        ],
+      };
+    }
+
+    return {
+      raceTargetName: goalName,
+      daysRemaining: daysLeft,
+      currentPhaseIndex,
+      targetCTL: targetCtl,
+      currentCTL: currentCtl,
+      goalType: 'race',
+      isPrimaryGoal: nearestGoalInfo?.isMain,
+      goalLabel,
+      phases: [
+        {
+          name: 'BASE PHASE',
+          weeks: 'Weeks 1-6',
+          focus: 'Aerobic Volume & Technique',
+          description: 'Building mitochondrial density & base aerobic capacity with low HR long rides and CSS swim threshold sets.',
+          status: currentPhaseIndex > 0 ? 'completed' : currentPhaseIndex === 0 ? 'active' : 'upcoming',
+          progressPercent: currentPhaseIndex === 0 ? activePhaseProgress : undefined,
+        },
+        {
+          name: 'BUILD PHASE',
+          weeks: 'Weeks 7-12',
+          focus: 'Threshold Velocity & Power',
+          description: 'High aerobic intervals, threshold swim pace, VO2 max bike intervals, and Saturday brick runs.',
+          status: currentPhaseIndex > 1 ? 'completed' : currentPhaseIndex === 1 ? 'active' : 'upcoming',
+          progressPercent: currentPhaseIndex === 1 ? activePhaseProgress : undefined,
+        },
+        {
+          name: 'PEAK PHASE',
+          weeks: 'Weeks 13-14',
+          focus: 'Race Pace Intervals',
+          description: 'Race-specific pacing simulation, sharp interval efforts, and high-intensity micro efforts.',
+          status: currentPhaseIndex > 2 ? 'completed' : currentPhaseIndex === 2 ? 'active' : 'upcoming',
+          progressPercent: currentPhaseIndex === 2 ? activePhaseProgress : undefined,
+        },
+        {
+          name: 'TAPER PHASE',
+          weeks: 'Weeks 15-16',
+          focus: 'Glycogen Supercompensation',
+          description: 'Volume reduction by 50% while maintaining sharp stride frequency to arrive fresh on race day.',
+          status: currentPhaseIndex === 3 ? 'active' : 'upcoming',
+          progressPercent: currentPhaseIndex === 3 ? activePhaseProgress : undefined,
+        },
+      ],
+    };
+  }, [nearestGoalInfo, user?.target_event, user?.target_ctl, user?.current_ctl, isPhysiologicalGoal]);
 
   // Compute 7-Day Agenda Dynamically from weekStart
   const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -234,12 +407,11 @@ export default function PlanningHomeScreen() {
     const isToday = dateYYYYMMDD === todayYYYYMMDD;
     const isPast = dayDate < todayMidnight;
 
-    const customWorkouts = customWorkoutsByDate[dateYYYYMMDD];
-    let workouts = customWorkouts !== undefined ? customWorkouts : [];
+    let workouts: WorkoutItem[] = [];
 
     if (plan && plan.length > 0) {
       const dbWorkouts = plan.filter((w) => w.date === dateYYYYMMDD);
-      const mappedDbWorkouts = dbWorkouts.map((w) => {
+      workouts = dbWorkouts.map((w) => {
         // calculate duration from steps_json if possible
         let durStr = '45 mins';
         if (w.steps_json && typeof w.steps_json === 'string' && w.steps_json !== '[]') {
@@ -247,28 +419,28 @@ export default function PlanningHomeScreen() {
             const steps = JSON.parse(w.steps_json);
             let totalMins = 0;
             const parseSteps = (sArr: any[]) => {
-               for (const s of sArr) {
-                 if (s.condition_type === 'time' && s.condition_value) totalMins += s.condition_value;
-                 if (s.condition_type === 'time_sec' && s.condition_value) totalMins += s.condition_value / 60;
-                 if (s.type === 'repeat' && s.iterations && s.steps) {
-                    let iterMins = 0;
-                    for (const rs of s.steps) {
-                      if (rs.condition_type === 'time' && rs.condition_value) iterMins += rs.condition_value;
-                      if (rs.condition_type === 'time_sec' && rs.condition_value) iterMins += rs.condition_value / 60;
-                    }
-                    totalMins += (iterMins * s.iterations);
-                 }
-                 if (s.steps) parseSteps(s.steps);
-               }
+              for (const s of sArr) {
+                if (s.condition_type === 'time' && s.condition_value) totalMins += s.condition_value;
+                if (s.condition_type === 'time_sec' && s.condition_value) totalMins += s.condition_value / 60;
+                if (s.type === 'repeat' && s.iterations && s.steps) {
+                  let iterMins = 0;
+                  for (const rs of s.steps) {
+                    if (rs.condition_type === 'time' && rs.condition_value) iterMins += rs.condition_value;
+                    if (rs.condition_type === 'time_sec' && rs.condition_value) iterMins += rs.condition_value / 60;
+                  }
+                  totalMins += (iterMins * s.iterations);
+                }
+                if (s.steps) parseSteps(s.steps);
+              }
             };
             parseSteps(steps);
             if (totalMins > 0) durStr = `${Math.round(totalMins)} mins`;
-          } catch(e) {}
+          } catch (e) { }
         }
-        
+
         let parsedSteps = [];
         if (w.steps_json && typeof w.steps_json === 'string') {
-           try { parsedSteps = JSON.parse(w.steps_json); } catch(e){}
+          try { parsedSteps = JSON.parse(w.steps_json); } catch (e) { }
         }
 
         return {
@@ -312,7 +484,6 @@ export default function PlanningHomeScreen() {
               : undefined,
         } as WorkoutItem;
       });
-      workouts = [...mappedDbWorkouts, ...(customWorkouts || [])];
     }
 
 
@@ -385,7 +556,7 @@ export default function PlanningHomeScreen() {
     if (dayIdx >= 0) targetDate.setDate(targetDate.getDate() + dayIdx);
     const targetYYYYMMDD = formatDateToYYYYMMDD(targetDate);
 
-    // Save to DB via usePlan if available
+    // Save to DB via usePlan
     try {
       const plannedWorkout = {
         date: targetYYYYMMDD,
@@ -396,7 +567,7 @@ export default function PlanningHomeScreen() {
         target_rooka: workoutData.rookaPoints || 0,
         steps_json: JSON.stringify(workoutData.steps || []),
       };
-      
+
       if (existingId && !existingId.startsWith('w-')) {
         await updateWorkout(existingId, plannedWorkout);
       } else {
@@ -406,23 +577,6 @@ export default function PlanningHomeScreen() {
     } catch (err) {
       console.error('Failed to save workout to DB', err);
     }
-
-    setCustomWorkoutsByDate((prev) => {
-      const existing = prev[targetYYYYMMDD] || [];
-      let updated: WorkoutItem[];
-
-      if (existingId) {
-        updated = existing.map((w) => (w.id === existingId ? { ...w, ...workoutData } : w));
-      } else {
-        const newWorkout: WorkoutItem = { ...workoutData, id: `w-${Date.now()}` };
-        updated = [...existing, newWorkout];
-      }
-
-      return {
-        ...prev,
-        [targetYYYYMMDD]: updated,
-      };
-    });
   };
 
   /**
@@ -444,21 +598,11 @@ export default function PlanningHomeScreen() {
 
   const deleteWorkoutConfirmed = async (workoutId: string) => {
     try {
-      if (!workoutId.startsWith('w-')) {
-        await deleteWorkout(workoutId);
-        await refreshPlan();
-      }
+      await deleteWorkout(workoutId);
+      await refreshPlan();
     } catch (err) {
       console.error('Failed to delete workout from DB', err);
     }
-    
-    setCustomWorkoutsByDate((prev) => {
-      const nextState = { ...prev };
-      Object.keys(nextState).forEach((key) => {
-        nextState[key] = nextState[key].filter((w) => w.id !== workoutId);
-      });
-      return nextState;
-    });
   };
 
   const handleInvitePartner = (workout: WorkoutItem) => {
@@ -481,7 +625,7 @@ export default function PlanningHomeScreen() {
       if (type === 'TIME_CRUNCH') prompt = 'I only have 30 minutes today, please adapt my workout to a time crunch.';
       if (type === 'MOVE_INDOORS') prompt = 'I need to move my workout indoors today. Please adapt it for the trainer/treadmill.';
       if (type === 'CANCEL_COMPLETELY') prompt = 'I want to cancel my workout completely today. I need to rest.';
-      
+
       if (prompt) {
         sendMessage(prompt);
       }
@@ -558,7 +702,7 @@ export default function PlanningHomeScreen() {
           className="flex-1"
           contentContainerStyle={{ paddingBottom: tabBarOccupied + 20, gap: 12 }}
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={notifyScroll}          onScrollEndDrag={notifyScrollEnd}          onMomentumScrollEnd={notifyScrollEnd}
+          onScrollBeginDrag={notifyScroll} onScrollEndDrag={notifyScrollEnd} onMomentumScrollEnd={notifyScrollEnd}
         >
           {weeklyAgenda.map((day, idx) => (
             <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {

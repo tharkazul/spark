@@ -88,24 +88,38 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     return (
       <TouchableOpacity
         onPress={() => toggleSelection(item.friend_id)}
-        className={`flex-row items-center p-3 mb-2 rounded-xl border ${isSelected ? 'border-theme-tint bg-theme-tint/10' : 'border-theme-border/50 bg-theme-bg'}`}
+        activeOpacity={0.75}
+        className={`flex-row items-center p-3.5 mb-2.5 rounded-2xl border ${
+          isSelected
+            ? 'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10'
+            : 'border-slate-200 dark:border-theme-border/50 bg-slate-50/60 dark:bg-theme-bg'
+        }`}
       >
-        
         {item.profile_picture_url ? (
-          <Image source={{ uri: getFullProfilePhotoUrl(item.profile_picture_url) || undefined }} className="w-10 h-10 rounded-full mr-3" />
+          <Image
+            source={{ uri: getFullProfilePhotoUrl(item.profile_picture_url) || undefined }}
+            className="w-10 h-10 rounded-full mr-3"
+          />
         ) : (
-          <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center">
-            <Text className="text-sm font-extrabold text-theme-accent">
+          <View className="w-10 h-10 rounded-full bg-emerald-500/15 items-center justify-center">
+            <Text className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
               {item.username.charAt(0).toUpperCase()}
             </Text>
           </View>
         )}
 
         <View className="flex-1 ml-3">
-          <Text className="text-theme-text font-bold text-base">{item.username}</Text>
+          <Text className="text-slate-900 dark:text-theme-text font-bold text-base">{item.username}</Text>
         </View>
-        <View className={`w-6 h-6 rounded-full border items-center justify-center ${isSelected ? 'border-theme-tint bg-theme-tint' : 'border-theme-border/70'}`}>
-          {isSelected && <Ionicons name="checkmark" size={16} color="#FFF" />}
+
+        <View
+          className={`w-6 h-6 rounded-full border items-center justify-center ${
+            isSelected
+              ? 'bg-[#10B981] border-[#10B981] shadow-xs'
+              : 'bg-white dark:bg-theme-card border-slate-300 dark:border-theme-border/70'
+          }`}
+        >
+          {isSelected && <Ionicons name="checkmark" size={15} color="#FFFFFF" />}
         </View>
       </TouchableOpacity>
     );

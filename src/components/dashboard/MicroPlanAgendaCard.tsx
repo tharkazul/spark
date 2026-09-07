@@ -328,7 +328,7 @@ export function MicroPlanAgendaCard({
                                 {workout.duration || '45 min'} session · +{Math.round(workout.rookaPoints || 0)} rooka
                               </Text>
 
-                              {workout.actualMetrics ? (
+                              {typeof workout.actualMetrics === 'string' && workout.actualMetrics ? (
                                 <Text className="text-xs font-mono font-bold text-semantic-success">
                                   {workout.actualMetrics}
                                 </Text>

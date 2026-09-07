@@ -277,7 +277,7 @@ export const healthApi = {
 export const chatApi = {
   getHistory: () => apiClient<ChatMessage[] | { history: ChatMessage[]; tokenUsage?: TokenUsage }>('/api/chat/history'),
   sendMessage: (message: string, imagesBase64?: string[]) =>
-    apiClient<{ reply: string; mood?: string; planUpdated?: boolean; tokenUsage?: TokenUsage }>('/api/chat', {
+    apiClient<{ reply: string; replies?: string[]; mood?: string; planUpdated?: boolean; tokenUsage?: TokenUsage }>('/api/chat', {
       method: 'POST',
       body: JSON.stringify({ message, imagesBase64 }),
     }),

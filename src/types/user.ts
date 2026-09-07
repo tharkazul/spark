@@ -25,6 +25,8 @@ export interface UserProfile {
   event_date?: string;
   target_ctl?: number;
   current_ctl?: number;
+  goal_type?: 'race' | 'physiological';
+  goalType?: 'race' | 'physiological';
   daily_availability?: Record<string, number>; // e.g. { MON: 45, TUE: 45, WED: 60, THU: 45, FRI: 60, SAT: 90, SUN: 45 }
   athlete_metrics?: {
     max_hr?: number;

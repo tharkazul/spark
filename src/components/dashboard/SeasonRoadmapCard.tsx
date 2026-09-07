@@ -10,16 +10,23 @@ interface SeasonRoadmapCardProps {
 }
 
 export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
-    const theme = useTheme();
+  const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const totalPhases = info.phases.length || 4;
-  const progressPercent = ((info.currentPhaseIndex + 0.55) / totalPhases) * 100;
+  const activePhase = info.phases[info.currentPhaseIndex];
+  const activePhaseProgress = activePhase?.progressPercent ?? 0;
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, ((info.currentPhaseIndex + activePhaseProgress / 100) / totalPhases) * 100)
+  );
 
   const toggleExpand = () => {
     Haptics.selectionAsync();
     setIsExpanded((prev) => !prev);
   };
+
+  const isPhysiological = info.goalType === 'physiological';
 
   return (
     <View>
@@ -30,31 +37,41 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
         className="flex-row items-center gap-3 pb-3 mb-3.5 border-b border-theme-border/50"
       >
         <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-          <Ionicons name="compass-outline" size={20} color={theme.tint} />
+          <Ionicons
+            name={isPhysiological ? 'pulse-outline' : 'compass-outline'}
+            size={20}
+            color={theme.tint}
+          />
         </View>
 
         <View className="flex-1">
-          <View className="flex-row items-center gap-1.5">
-            <Text className="text-lg font-extrabold text-theme-text">Training Phase</Text>
-            <Ionicons
-              name={isExpanded ? 'chevron-up' : 'chevron-down'}
-              size={15}
-              color={theme.tint}
-            />
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-lg font-extrabold text-theme-text">Training Phase</Text>
+              <Ionicons
+                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                size={15}
+                color={theme.tint}
+              />
+            </View>
+
+            {info.goalLabel && (
+              <View className="bg-theme-accent/15 px-2 py-0.5 rounded-full border border-theme-accent/30">
+                <Text className="text-[10px] font-extrabold uppercase tracking-wider text-theme-accent">
+                  {info.goalLabel}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {/* The countdown reads as a line of text rather than a pill beside
-              the title. A pill cannot grow or wrap, so "Ironman 70.3" already
-              ran off the card and "Marathon des Sables" would be far worse.
-              This is the same title-over-meta shape DetailedDayCard uses. */}
-          <Text className="text-sm text-theme-muted">
+          <Text className="text-sm text-theme-muted mt-0.5">
             {info.daysRemaining === 0 ? (
               <Text className="font-extrabold text-semantic-warning">
-                TODAY IS RACE DAY! 🔥
+                {isPhysiological ? `TARGET DAY FOR ${info.raceTargetName.toUpperCase()}! 🔥` : 'TODAY IS RACE DAY! 🔥'}
               </Text>
             ) : info.daysRemaining < 0 ? (
               <Text className="font-extrabold text-theme-accent">
-                Race Completed 🎉
+                {isPhysiological ? 'Target Reached 🎉' : 'Race Completed 🎉'}
               </Text>
             ) : (
               <>
@@ -74,7 +91,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
       <TouchableOpacity
         onPress={toggleExpand}
         activeOpacity={0.85}
-        className="relative w-full h-11 rounded-2xl flex-row bg-theme-bg overflow-hidden"
+        className="relative w-full h-11 rounded-2xl flex-row bg-theme-bg overflow-hidden border border-theme-border/40"
       >
         {/* Progress Fill Layer */}
         <View
@@ -90,10 +107,11 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           return (
             <View
               key={phase.name}
-              className="flex-1 items-center justify-center z-10 bg-transparent"
+              className="flex-1 items-center justify-center z-10 bg-transparent px-0.5"
             >
               <Text
-                className={`text-xs font-extrabold ${
+                numberOfLines={1}
+                className={`text-[11px] font-extrabold text-center ${
                   isCurrent
                     ? 'text-theme-accent font-extrabold'
                     : isCompleted
@@ -132,7 +150,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
             <View className="w-full h-2 bg-theme-bg/80 rounded-full overflow-hidden">
               <View
                 className="h-full bg-theme-accent rounded-full"
-                style={{ width: `${Math.min(100, (info.currentCTL / info.targetCTL) * 100)}%` }}
+                style={{ width: `${Math.min(100, (info.currentCTL / Math.max(1, info.targetCTL)) * 100)}%` }}
               />
             </View>
           </View>

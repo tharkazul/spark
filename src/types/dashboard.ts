@@ -1,27 +1,50 @@
-export type SportType = 'SWIM' | 'BIKE' | 'RUN' | 'STRENGTH' | 'MOBILITY' | 'REST';
+export type SportType = 'RUN' | 'BIKE' | 'SWIM' | 'STRENGTH' | 'MOBILITY' | 'REST';
+
+export interface WorkoutStep {
+  id?: string;
+  type: 'warmup' | 'interval' | 'recovery' | 'cooldown' | 'repeat' | 'rest';
+  condition_type?: 'time' | 'time_sec' | 'distance' | 'distance_km' | 'reps';
+  condition_value?: number;
+  target_type?: 'no.target' | 'heart.rate.zone' | 'power.zone' | 'power.exact' | 'pace.zone' | 'pace.exact' | 'speed.zone' | 'speed.exact' | 'weight';
+  zone?: number;
+  weight?: number;
+  exerciseName?: string;
+  garmin_exercise_name?: string;
+  garmin_category_key?: string;
+  garmin_exercise_key?: string;
+  iterations?: number;
+  steps?: WorkoutStep[];
+  target_value?: string;
+  notes?: string;
+}
 
 export interface WorkoutItem {
   id: string;
-  day: string; // e.g. 'MON', 'TUE', 'FRI'
-  dateStr: string; // e.g. 'Jul 24'
+  day?: string;
+  dateStr?: string;
   type: SportType;
+  sport?: SportType | string;
   title: string;
-  duration?: string;
-  rookaPoints?: number;
+  duration: string;
+  rookaPoints: number;
   sparkPoints?: number;
-  isStructured?: boolean;
-  isCompleted?: boolean;
-  actualDuration?: string;
-  actualMetrics?: string; // e.g. "158 avg bpm · 245W · 4:12/km"
-  executionScore?: number; // e.g. 98 (% target hit)
+  isStructured: boolean;
+  steps?: WorkoutStep[];
+  isCompleted: boolean;
+  actualMetrics?: string | {
+    avgHr?: number;
+    maxHr?: number;
+    avgPower?: number;
+    normalizedPower?: number;
+    distanceKm?: number;
+    durationMins?: number;
+    calories?: number;
+  };
+  executionScore?: number;
   notes?: string;
-  steps?: any[];
-  /**
-   * The coach's description of the session, in their words. Reached Strava and
-   * nowhere else until now. Only set on coach-written sessions.
-   */
   coachNote?: string;
   isCoachCreated?: boolean;
+  source?: string;
 }
 
 export interface NutritionMacro {
@@ -66,6 +89,7 @@ export interface MacroPeriodInfo {
   targetCTL: number;
   currentCTL: number;
   phases: TrainingPhaseDetail[];
+  goalType?: 'race' | 'physiological';
+  isPrimaryGoal?: boolean;
+  goalLabel?: string;
 }
-
-

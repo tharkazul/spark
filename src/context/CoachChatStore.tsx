@@ -52,6 +52,15 @@ Before we dial in high-load workouts, we need to calibrate your baseline fitness
   mood: 'motivated',
 };
 
+const splitCoachReply = (text?: string): string[] => {
+  if (!text) return [];
+  const parts = text
+    .split(/(?:\r?\n)?(?:---(?:MSG|SPLIT|BREAK)---|\[\[SPLIT\]\]|<break\s*\/?>|<br\s*\/?>)(?:\r?\n)?/gi)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  return parts.length > 0 ? parts : [text.trim()];
+};
+
 const parseWorkoutProposals = (content: string): ProposedWorkoutItem[] | undefined => {
   if (!content) return undefined;
   const jsonMatch = content.match(/```json\n?([\s\S]*?)```/i);
@@ -253,18 +262,56 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       const response = await chatApi.getHistory();
       if (response) {
         if (Array.isArray(response) && response.length > 0) {
-          const processed = response.map(m => processMessageItem({
-            ...m,
-            id: m.id?.toString(),
-            timestamp: m.timestamp || (m as any).created_at || new Date().toISOString()
-          }));
+          const processed: ChatMessage[] = [];
+          response.forEach((m) => {
+            const parts = splitCoachReply(m.content);
+            if (parts.length > 1 && (m.role === 'coach' || m.role === 'assistant')) {
+              parts.forEach((part, idx) => {
+                processed.push(
+                  processMessageItem({
+                    ...m,
+                    id: `${m.id}-${idx}`,
+                    content: part,
+                    timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
+                  })
+                );
+              });
+            } else {
+              processed.push(
+                processMessageItem({
+                  ...m,
+                  id: m.id?.toString(),
+                  timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
+                })
+              );
+            }
+          });
           setMessages(processed);
         } else if ('history' in response && response.history && Array.isArray(response.history) && response.history.length > 0) {
-          const processed = response.history.map(m => processMessageItem({
-            ...m,
-            id: m.id?.toString(),
-            timestamp: m.timestamp || (m as any).created_at || new Date().toISOString()
-          }));
+          const processed: ChatMessage[] = [];
+          response.history.forEach((m) => {
+            const parts = splitCoachReply(m.content);
+            if (parts.length > 1 && (m.role === 'coach' || m.role === 'assistant')) {
+              parts.forEach((part, idx) => {
+                processed.push(
+                  processMessageItem({
+                    ...m,
+                    id: `${m.id}-${idx}`,
+                    content: part,
+                    timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
+                  })
+                );
+              });
+            } else {
+              processed.push(
+                processMessageItem({
+                  ...m,
+                  id: m.id?.toString(),
+                  timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
+                })
+              );
+            }
+          });
           setMessages(processed);
           if (response.tokenUsage) {
             setTokenUsage(response.tokenUsage);
@@ -372,15 +419,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
     try {
       const res = await chatApi.sendMessage(text, imagesBase64);
-      if (res && res.reply) {
-        const coachMsg: ChatMessage = processMessageItem({
-          id: `coach-${Date.now()}`,
-          clientId: `c-coach-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          content: res.reply,
-          role: 'coach',
-          mood: res.mood || 'default',
-          timestamp: new Date().toISOString(),
-        });
+      if (res && (res.replies || res.reply)) {
+        const rawReplies: string[] = res.replies && res.replies.length > 0
+          ? res.replies
+          : splitCoachReply(res.reply);
 
         if (res.tokenUsage) {
           setTokenUsage(res.tokenUsage);
@@ -398,7 +440,21 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         refreshPhysique();
         refreshNiggles();
 
-        await streamCoachMessage(coachMsg);
+        const baseTimestamp = Date.now();
+        for (let i = 0; i < rawReplies.length; i++) {
+          const replyPart = rawReplies[i];
+          const partId = `coach-${baseTimestamp}-${i}`;
+          const coachMsg: ChatMessage = processMessageItem({
+            id: partId,
+            clientId: `c-coach-${baseTimestamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+            content: replyPart,
+            role: 'coach',
+            mood: res.mood || 'default',
+            timestamp: new Date(baseTimestamp + i * 500).toISOString(),
+          });
+
+          await streamCoachMessage(coachMsg);
+        }
       } else {
         setSending(false);
       }
@@ -406,20 +462,23 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       console.error('Send message error:', err);
       setError(null);
       setMessages((prev) => 
-        prev.map(m => m.id === userMsg.id ? { ...m, isError: true } : m)
+        prev.map(m => (m.id === userMsg.id || m.clientId === userMsg.clientId) ? { ...m, isError: true } : m)
       );
-      const fallbackCoachMsg: ChatMessage = processMessageItem({
-        id: `coach-fallback-${Date.now()}`,
-        clientId: `c-fallback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        content: err.status === 429 
-          ? "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]"
-          : (err.message && err.message !== "Failed to generate response." && !err.message.includes("Network response") && !err.message.includes("HTTP 500")
-              ? `I couldn't process that: ${err.message}` 
-              : `I got your message! I'm processing your workout data right now. Feel free to ask me anything else about your training or recovery! 🚀`),
-        role: 'coach',
-        timestamp: new Date().toISOString(),
-      });
-      await streamCoachMessage(fallbackCoachMsg);
+      if (err.status === 429) {
+        const fallbackText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]";
+        const fallbackParts = splitCoachReply(fallbackText);
+        const baseErrTimestamp = Date.now();
+        for (let i = 0; i < fallbackParts.length; i++) {
+          const fallbackCoachMsg: ChatMessage = processMessageItem({
+            id: `coach-fallback-${baseErrTimestamp}-${i}`,
+            clientId: `c-fallback-${baseErrTimestamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+            content: fallbackParts[i],
+            role: 'coach',
+            timestamp: new Date(baseErrTimestamp + i * 500).toISOString(),
+          });
+          await streamCoachMessage(fallbackCoachMsg);
+        }
+      }
     } finally {
       setSending(false);
     }
@@ -581,13 +640,17 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       const res = await chatApi.checkin();
       const msgContent = (res as any)?.reply || (res as any)?.message;
       if (msgContent) {
-        const coachMsg: ChatMessage = processMessageItem({
-          id: `coach-checkin-${Date.now()}`,
-          content: msgContent,
-          role: 'coach',
-          timestamp: new Date().toISOString(),
-        });
-        setMessages((prev) => [...prev, coachMsg]);
+        const parts = splitCoachReply(msgContent);
+        const baseTs = Date.now();
+        const newMsgs = parts.map((part, idx) =>
+          processMessageItem({
+            id: `coach-checkin-${baseTs}-${idx}`,
+            content: part,
+            role: 'coach',
+            timestamp: new Date(baseTs + idx * 500).toISOString(),
+          })
+        );
+        setMessages((prev) => [...prev, ...newMsgs]);
       }
     } catch (err: any) {
       console.error('Checkin error:', err);
@@ -620,27 +683,35 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     const unsubCoachResponse = wsService.subscribeToEvent('coach_response', (data: any) => {
       const content = typeof data === 'string' ? data : data.content || data.reply || data.message;
       if (content) {
-        const coachMsg = processMessageItem({
-          id: (data.id || Date.now()).toString(),
-          content,
-          role: 'coach',
-          timestamp: data.timestamp || new Date().toISOString(),
-          payload_json: data.payload_json,
-        });
-        setMessages((prev) => [...prev, coachMsg]);
+        const parts = splitCoachReply(content);
+        const baseTs = Date.now();
+        const newMsgs = parts.map((part, idx) =>
+          processMessageItem({
+            id: (data.id ? `${data.id}-${idx}` : `coach-ws-${baseTs}-${idx}`).toString(),
+            content: part,
+            role: 'coach',
+            timestamp: data.timestamp || new Date(baseTs + idx * 500).toISOString(),
+            payload_json: data.payload_json,
+          })
+        );
+        setMessages((prev) => [...prev, ...newMsgs]);
       }
     });
 
     const unsubChatMessage = wsService.subscribeToEvent('chat_message', (data: any) => {
       if (data && data.content && data.role) {
-        const item = processMessageItem({
-          id: (data.id || Date.now()).toString(),
-          content: data.content,
-          role: data.role === 'user' ? 'user' : 'coach',
-          timestamp: data.timestamp || new Date().toISOString(),
-          payload_json: data.payload_json,
-        });
-        setMessages((prev) => [...prev, item]);
+        const parts = data.role === 'coach' || data.role === 'assistant' ? splitCoachReply(data.content) : [data.content];
+        const baseTs = Date.now();
+        const newMsgs = parts.map((part, idx) =>
+          processMessageItem({
+            id: (data.id ? `${data.id}-${idx}` : `chat-ws-${baseTs}-${idx}`).toString(),
+            content: part,
+            role: data.role === 'user' ? 'user' : 'coach',
+            timestamp: data.timestamp || new Date(baseTs + idx * 500).toISOString(),
+            payload_json: data.payload_json,
+          })
+        );
+        setMessages((prev) => [...prev, ...newMsgs]);
       }
     });
 
