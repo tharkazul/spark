@@ -2695,8 +2695,13 @@ module.exports = {
 async function sendMorningMessageForUser(userId, { force = false } = {}) {
   const todayStr = getAMSDateString();
 
-  // 1. Check if a morning message was already sent today
+  // 1. Check if a morning message was already sent today or if morning window has passed
   if (!force) {
+    const nowAMS = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
+    if (nowAMS.getHours() >= 13) {
+      return { skipped: true, reason: "Morning window has passed" };
+    }
+
     const alreadySent = await new Promise((resolve) => {
       db.get(
         `SELECT id FROM chat_history 

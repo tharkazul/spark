@@ -1,17 +1,16 @@
-import React from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { useLanguage } from '../../context/LanguageContext';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { usePlan } from '../../context/PlanStore';
-import { NutritionProtocolCard } from '../dashboard/NutritionProtocolCard';
-import { useLanguage } from '../../context/LanguageContext';
 import { NutritionProtocol } from '../../types/physique';
+import { NutritionProtocolCard } from '../dashboard/NutritionProtocolCard';
+import { Card } from '../ui/Card';
 
-import { useUser } from '../../context/UserStore';
-import { useSubscription } from '../../context/SubscriptionStore';
 import { useRouter } from 'expo-router';
+import { useUser } from '../../context/UserStore';
 
 interface TimingCardItem {
   phase: string;
@@ -312,22 +311,6 @@ export const NutritionTab: React.FC = () => {
         </View>
       </Card>
 
-      {/* HYDRATION STATUS */}
-      <Card className="mb-6 bg-theme-card border-theme-border">
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center gap-x-2">
-            <Ionicons name="water" size={18} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-muted">
-              {t('dashboard.hydrationTarget')}
-            </Text>
-          </View>
-          <Text className="text-xs font-bold text-theme-accent">2.4 / 3.2 L</Text>
-        </View>
-
-        <View className="w-full h-2.5 bg-theme-bg rounded-full overflow-hidden border border-theme-border/50 my-1">
-          <View style={{ width: '75%' }} className="h-full bg-theme-accent rounded-full" />
-        </View>
-      </Card>
     </View>
   );
 };

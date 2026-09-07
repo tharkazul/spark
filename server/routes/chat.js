@@ -1476,6 +1476,9 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
 
                   const phase = await getUserMacroPhase(req.user.id);
                   const todayStr = getAMSDateString();
+                  const nowAMS = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
+                  const amsHour = nowAMS.getHours();
+                  const timeOfDayGreeting = amsHour < 12 ? "morning" : amsHour < 18 ? "afternoon" : "evening";
                   const weatherContext = await getWeatherContext();
                   const gamification = await getUserGamificationContext(
                     req.user.id,
@@ -1487,7 +1490,7 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
                   }
                   const goalsText = await getUserGoalsContext(req.user.id);
                   let systemPrompt = `You are ${coachName}, an elite endurance coach.
-Today is ${todayStr}.
+Today is ${todayStr}. It is currently ${timeOfDayGreeting} (${nowAMS.toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}).
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ""}
 Athlete Context: ${user.athlete_context || "General endurance athlete"}
 Gender: ${user.gender || "Prefer not to share"}
@@ -1512,7 +1515,7 @@ MACRO BLOCK FOCUS RULES:
 - If phase is TAPER: Focus heavily on recovery and shedding fatigue. Ensure they rest up for the race.
 
 CRITICAL RULES:
-1. Generate a single, highly personalized, proactive 1-2 sentence greeting for the athlete who just opened the app.
+1. Generate a single, highly personalized, proactive 1-2 sentence greeting for the athlete who just opened the app. Acknowledge the time of day naturally (${timeOfDayGreeting}). If it's evening, check in on how today's efforts felt or help them wind down; if morning, look ahead to the day.
 2. Analyze their fitness (CTL), fatigue (ATL), and readiness (TSB) from their Key Physiological Metrics. Reference these trends to steer the user towards action (e.g., prioritize recovery if TSB is very negative, or push hard if TSB is positive). You can also reference a recent/upcoming workout.
 3. Keep it brief, extremely human, and supportive. 
 4. DO NOT generate any JSON or workout plan updates. Just the greeting.

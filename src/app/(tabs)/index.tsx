@@ -31,6 +31,7 @@ import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 
 
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
+import { InvitePartnerModal } from '../../components/dashboard/InvitePartnerModal';
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
 import { LogWeightModal } from '../../components/dashboard/LogWeightModal';
 import { LogNiggleModal } from '../../components/dashboard/LogNiggleModal';
@@ -77,6 +78,8 @@ export default function PlanningHomeScreen() {
   const [isWeightModalOpen, setIsWeightModalOpen] = useState(false);
   const [isNiggleModalOpen, setIsNiggleModalOpen] = useState(false);
   const [isLogActivityOpen, setIsLogActivityOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [workoutToInvite, setWorkoutToInvite] = useState<WorkoutItem | null>(null);
 
   useEffect(() => {
     refreshPlan();
@@ -459,7 +462,8 @@ export default function PlanningHomeScreen() {
   };
 
   const handleInvitePartner = (workout: WorkoutItem) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setWorkoutToInvite(workout);
+    setIsInviteModalOpen(true);
   };
 
   const handleConfirmAdaptation = async (type: string) => {
@@ -589,6 +593,7 @@ export default function PlanningHomeScreen() {
       <LogWeightModal visible={isWeightModalOpen} previousWeight={recordedWeight} onClose={() => setIsWeightModalOpen(false)} onSaveWeight={handleSaveWeight} />
       <LogNiggleModal visible={isNiggleModalOpen} onClose={() => setIsNiggleModalOpen(false)} onSendToCoach={handleSendInjuryToCoach} />
       <LogActivityModal visible={isLogActivityOpen} onClose={() => setIsLogActivityOpen(false)} />
+      <InvitePartnerModal visible={isInviteModalOpen} onClose={() => { setIsInviteModalOpen(false); setWorkoutToInvite(null); }} workout={workoutToInvite} />
     </View>
   );
 }

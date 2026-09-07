@@ -609,9 +609,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     refreshMessages();
 
-    // Check once per day to catch up on morning message if 08:00 cron was missed
+    // Check once per day to catch up on morning message if 08:00 cron was missed (morning only)
     const todayStr = new Date().toISOString().split('T')[0];
-    if (lastCheckinAttemptRef.current !== todayStr) {
+    const currentHour = new Date().getHours();
+    if (lastCheckinAttemptRef.current !== todayStr && currentHour < 13) {
       lastCheckinAttemptRef.current = todayStr;
       checkin();
     }
