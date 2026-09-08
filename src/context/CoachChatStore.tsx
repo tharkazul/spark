@@ -1,15 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, DeviceEventEmitter } from 'react-native';
-import { ChatMessage, TokenUsage, ProposedWorkoutItem } from '../types/chat';
 import { chatApi, planApi, socialApi } from '../services/apiServices';
-import { chatStorage, chatReadStorage } from '../services/storage';
+import { clearBadgeCountAsync, setBadgeCountAsync } from '../services/notificationService';
+import { chatReadStorage, chatStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
+import { ChatMessage, ProposedWorkoutItem, TokenUsage } from '../types/chat';
+import { useActivities } from './ActivityStore';
+import { useHealth } from './HealthStore';
+import { usePhysique } from './PhysiqueStore';
 import { usePlan } from './PlanStore';
 import { useUser } from './UserStore';
-import { useActivities } from './ActivityStore';
-import { usePhysique } from './PhysiqueStore';
-import { useHealth } from './HealthStore';
-import { setBadgeCountAsync, clearBadgeCountAsync } from '../services/notificationService';
 
 interface CoachChatContextType {
   messages: ChatMessage[];
@@ -102,6 +102,46 @@ const parsePayloadJson = (msg: ChatMessage): any | undefined => {
   return parseConnectionRequestFromContent(msg.content);
 };
 
+export const sortMessagesChronological = (messagesList: ChatMessage[]): ChatMessage[] => {
+  if (!messagesList || messagesList.length <= 1) return messagesList || [];
+
+  return [...messagesList].sort((a, b) => {
+    // welcome-msg is always pinned to the very beginning
+    if (a.id === 'welcome-msg') return -1;
+    if (b.id === 'welcome-msg') return 1;
+
+    const timeA = new Date(a.timestamp || 0).getTime();
+    const timeB = new Date(b.timestamp || 0).getTime();
+
+    // If more than 1 second apart, sort chronologically by timestamp
+    if (!isNaN(timeA) && !isNaN(timeB) && Math.abs(timeA - timeB) >= 1000) {
+      return timeA - timeB;
+    }
+
+    // Secondary sort: if both have database IDs (e.g. 25, 26 or "25-0", "25-1")
+    const numIdA = parseFloat(String(a.id).replace('-', '.'));
+    const numIdB = parseFloat(String(b.id).replace('-', '.'));
+    if (!isNaN(numIdA) && !isNaN(numIdB) && numIdA !== numIdB) {
+      return numIdA - numIdB;
+    }
+
+    // Strict tie-breaker for same second: user prompt always precedes coach response
+    if (a.role === 'user' && (b.role === 'coach' || b.role === 'assistant')) {
+      return -1;
+    }
+    if ((a.role === 'coach' || a.role === 'assistant') && b.role === 'user') {
+      return 1;
+    }
+
+    // Sub-part tie-breaker for coach parts with same id or timestamp
+    if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    return 0;
+  });
+};
+
 const CoachChatContext = createContext<CoachChatContextType | undefined>(undefined);
 
 export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -169,7 +209,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
     chatStorage.getChatHistory(user.id).then((local) => {
       if (local && Array.isArray(local) && local.length > 0) {
-        setMessagesState(local.map(processMessageItem));
+        setMessagesState(sortMessagesChronological(local.map(processMessageItem)));
       }
     });
     refreshMessages();
@@ -216,11 +256,12 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const setMessages = useCallback((action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     setMessagesState((prev) => {
-      const next = typeof action === 'function' ? action(prev) : action;
+      const raw = typeof action === 'function' ? action(prev) : action;
+      const sorted = sortMessagesChronological(raw);
       if (user?.id) {
-        chatStorage.setChatHistory(next, user.id);
+        chatStorage.setChatHistory(sorted, user.id);
       }
-      return next;
+      return sorted;
     });
   }, [user?.id]);
 
@@ -238,7 +279,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     }
     const proposedPlan = parseWorkoutProposals(msg.content);
     const payload = parsePayloadJson(msg);
-    
+
     // Ensure SQLite timestamp is parsed as UTC
     let safeTimestamp = msg.timestamp || new Date().toISOString();
     if (safeTimestamp && typeof safeTimestamp === 'string' && !safeTimestamp.includes('Z') && !safeTimestamp.includes('T')) {
@@ -286,7 +327,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
               );
             }
           });
-          setMessages(processed);
+          setMessages(sortMessagesChronological(processed));
         } else if ('history' in response && response.history && Array.isArray(response.history) && response.history.length > 0) {
           const processed: ChatMessage[] = [];
           response.history.forEach((m) => {
@@ -312,7 +353,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
               );
             }
           });
-          setMessages(processed);
+          setMessages(sortMessagesChronological(processed));
           if (response.tokenUsage) {
             setTokenUsage(response.tokenUsage);
           }
@@ -336,10 +377,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       return Promise.resolve();
     }
 
-    // Determine 6-10 progressive slices of fullText to animate smoothly without Hermes GC churn
-    const totalSteps = Math.min(10, Math.max(4, Math.floor(fullText.length / 50)));
+    // Determine 5-12 progressive slices of fullText to animate smoothly without Hermes GC churn
+    const totalSteps = Math.min(14, Math.max(6, Math.floor(fullText.length / 30)));
     const stepLength = Math.ceil(fullText.length / totalSteps);
-    
+
     const slices: string[] = [];
     for (let i = 1; i <= totalSteps; i++) {
       if (i === totalSteps) {
@@ -395,10 +436,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           return prev;
         });
 
-        setTimeout(step, 45);
+        setTimeout(step, 85);
       };
 
-      setTimeout(step, 45);
+      setTimeout(step, 85);
     });
   };
 
@@ -443,6 +484,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         const baseTimestamp = Date.now();
         for (let i = 0; i < rawReplies.length; i++) {
           const replyPart = rawReplies[i];
+
+          // If this is a subsequent bubble (2nd, 3rd, etc.), pause and show the typing indicator
+          // so the user has time to read the preceding message and sees the coach "typing..." the next part.
+          if (i > 0) {
+            setSending(true);
+            const typingDelay = Math.min(2800, Math.max(900, Math.round(replyPart.length * 14)));
+            await new Promise((resolve) => setTimeout(resolve, typingDelay));
+          }
+
           const partId = `coach-${baseTimestamp}-${i}`;
           const coachMsg: ChatMessage = processMessageItem({
             id: partId,
@@ -450,7 +500,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
             content: replyPart,
             role: 'coach',
             mood: res.mood || 'default',
-            timestamp: new Date(baseTimestamp + i * 500).toISOString(),
+            timestamp: new Date(baseTimestamp + (i + 1) * 1000).toISOString(),
           });
 
           await streamCoachMessage(coachMsg);
@@ -461,7 +511,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } catch (err: any) {
       console.error('Send message error:', err);
       setError(null);
-      setMessages((prev) => 
+      setMessages((prev) =>
         prev.map(m => (m.id === userMsg.id || m.clientId === userMsg.clientId) ? { ...m, isError: true } : m)
       );
       if (err.status === 429) {
@@ -469,12 +519,17 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         const fallbackParts = splitCoachReply(fallbackText);
         const baseErrTimestamp = Date.now();
         for (let i = 0; i < fallbackParts.length; i++) {
+          if (i > 0) {
+            setSending(true);
+            const typingDelay = Math.min(2800, Math.max(900, Math.round(fallbackParts[i].length * 14)));
+            await new Promise((resolve) => setTimeout(resolve, typingDelay));
+          }
           const fallbackCoachMsg: ChatMessage = processMessageItem({
             id: `coach-fallback-${baseErrTimestamp}-${i}`,
             clientId: `c-fallback-${baseErrTimestamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
             content: fallbackParts[i],
             role: 'coach',
-            timestamp: new Date(baseErrTimestamp + i * 500).toISOString(),
+            timestamp: new Date(baseErrTimestamp + (i + 1) * 1000).toISOString(),
           });
           await streamCoachMessage(fallbackCoachMsg);
         }
@@ -487,9 +542,9 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const resendMessage = async (messageId: string | number) => {
     const msgIndex = messages.findIndex(m => m.id === messageId);
     if (msgIndex === -1) return;
-    
+
     const msgToResend = messages[msgIndex];
-    
+
     setMessages((prev) => {
       const idx = prev.findIndex(m => m.id === messageId);
       if (idx === -1) return prev;

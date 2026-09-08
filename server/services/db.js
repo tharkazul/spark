@@ -126,6 +126,28 @@ db.serialize(() => {
     `UPDATE users SET coach_name = 'Rooka' WHERE coach_name IS NULL OR coach_name = '' OR coach_name = 'Spark'`,
     (err) => {},
   );
+  // Ensure every athlete has a rooka_start_date so historical activities are not counted as Rooka XP
+  db.run(
+    `UPDATE users 
+     SET rooka_start_date = COALESCE(
+       (SELECT MIN(start_date) FROM activities WHERE user_id = users.id AND rooka_score > 0),
+       CURRENT_TIMESTAMP
+     ) 
+     WHERE rooka_start_date IS NULL OR rooka_start_date = ''`,
+    (err) => {},
+  );
+  // Activities prior to joining Rooka must score 0
+  db.run(
+    `UPDATE activities
+     SET rooka_score = 0
+     WHERE EXISTS (
+       SELECT 1 FROM users u
+       WHERE u.id = activities.user_id
+         AND u.rooka_start_date IS NOT NULL
+         AND substr(activities.start_date, 1, 10) < substr(u.rooka_start_date, 1, 10)
+     ) AND rooka_score > 0`,
+    (err) => {},
+  );
   db.run(`ALTER TABLE users ADD COLUMN coach_context TEXT DEFAULT ''`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_neutral TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_avatar_hype TEXT`, (err) => {});
@@ -207,7 +229,8 @@ db.serialize(() => {
       (err, rows) => {
         const syncUserRooka = () => {
           db.all(
-            `SELECT u.id as user_id, COALESCE(SUM(a.rooka_score), 0) as total 
+            `SELECT u.id as user_id, 
+                    COALESCE(SUM(a.rooka_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND (u.rooka_start_date IS NULL OR substr(created_at, 1, 10) >= substr(u.rooka_start_date, 1, 10))), 0) as total 
              FROM users u 
              LEFT JOIN activities a ON a.user_id = u.id AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10)) 
              GROUP BY u.id`,
@@ -216,10 +239,11 @@ db.serialize(() => {
                 const uStmt = db.prepare(
                   `UPDATE users SET total_rooka = ? WHERE id = ?`,
                 );
-                userRows.forEach((r) => uStmt.run(r.total || 0, r.user_id));
-                uStmt.finalize(() =>
-                  console.log("total_rooka synchronization complete."),
-                );
+                userRows.forEach((r) => uStmt.run(Math.round((r.total || 0) * 10) / 10, r.user_id));
+                uStmt.finalize(() => {
+                  console.log("total_rooka synchronization complete.");
+                  db.run(`DELETE FROM public_profile_cache`, () => {});
+                });
               }
             },
           );

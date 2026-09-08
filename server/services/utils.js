@@ -337,7 +337,7 @@ async function generateWeeklyAthleteDescriptionsJob() {
 function generatePublicProfile(targetUserId, viewerUserId = null) {
   return new Promise((resolve) => {
     db.get(
-      `SELECT u.id, u.username, u.public_description, u.profile_picture_url, u.total_rooka,
+      `SELECT u.id, u.username, u.public_description, u.profile_picture_url, u.total_rooka, u.rooka_start_date,
               (SELECT status FROM connections WHERE user_id = ? AND friend_id = u.id) as connection_status
        FROM users u
        WHERE (u.id = ? OR u.username = ?) AND u.deleted_at IS NULL`,
@@ -346,14 +346,7 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
         if (err || !user) return resolve(null);
         const targetId = user.id;
 
-        let publicBio = user.public_description;
-        if (!publicBio) {
-          try {
-            publicBio = await generateAthleteWeeklyDescription(targetId);
-          } catch (e) {
-            publicBio = null;
-          }
-        }
+        let publicBio = user.public_description || 'Dedicated endurance athlete building consistent training volume and aerobic fitness on Rooka.';
 
         db.get(
           `SELECT ftp, weight_kg, max_hr FROM athlete_metrics WHERE user_id = ?`,
@@ -368,7 +361,7 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
             db.all(
               `SELECT id, name, distance_km, moving_time_min, start_date, sport_type,
                       average_heartrate, average_watts, sets_json,
-                      COALESCE(rooka_score, tss, 0) as rooka_score, tss, elevation_m
+                      COALESCE(rooka_score, 0) as rooka_score, tss, elevation_m
                FROM activities
                WHERE user_id = ?
                ORDER BY start_date DESC`,
@@ -456,14 +449,17 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
                       });
                     } catch (e) {}
 
+                    const userStartDate = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;
                     const computedTotalRooka =
                       typeof user.total_rooka === "number" && user.total_rooka > 0
                         ? user.total_rooka
                         : Math.round(
-                            activities.reduce(
-                              (sum, a) => sum + (a.rooka_score || 0),
-                              0,
-                            ),
+                            activities
+                              .filter((a) => !userStartDate || !a.start_date || a.start_date.substring(0, 10) >= userStartDate)
+                              .reduce(
+                                (sum, a) => sum + (a.rooka_score || 0),
+                                0,
+                              ),
                           );
                     const levelInfo = getRookaLevelInfo(computedTotalRooka);
                     const isSelf =
@@ -1382,7 +1378,7 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
           ],
           async (err) => {
             if (!err) {
-              updateUserRookaAndCheckLevel(internalUserId);
+              updateUserRookaAndCheckLevel(internalUserId, { isRealtime: true });
               sendSSEEvent(internalUserId, "sync_complete", {
                 provider: "strava",
                 activityId: data.id,
@@ -1446,7 +1442,7 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
               await processActivityCoachAnalysis(internalUserId, {
                 ...data,
                 rooka_score: rookaScore,
-              });
+              }, { isRealtime: true });
             }
           },
         );
@@ -1549,19 +1545,8 @@ async function syncAllStravaUsersOnStartup() {
                     ],
                   );
                 }
-                updateUserRookaAndCheckLevel(user.id);
+                updateUserRookaAndCheckLevel(user.id, { isRealtime: false });
                 console.log(`✅ Startup sync complete for user ${user.id}`);
-
-                // Check if the most recent activity (past 48h) needs coach analysis
-                db.all(
-                  `SELECT * FROM activities WHERE user_id = ? AND (coach_analyzed = 0 OR coach_analyzed IS NULL) AND datetime(start_date) >= datetime('now', '-2 days') ORDER BY start_date DESC LIMIT 1`,
-                  [user.id],
-                  async (unErr, unRows) => {
-                    if (!unErr && unRows && unRows.length > 0) {
-                      await processActivityCoachAnalysis(user.id, unRows[0]);
-                    }
-                  }
-                );
               } else {
                 console.error(
                   `❌ Startup sync failed for user ${user.id}: Response is not an array`,
@@ -1666,7 +1651,7 @@ INSTRUCTIONS & CRITICAL RULES FOR INJURIES:
   );
 }
 
-function updateUserRookaAndCheckLevel(userId) {
+function updateUserRookaAndCheckLevel(userId, options = {}) {
   db.get(
     `SELECT total_rooka, rooka_start_date FROM users WHERE id = ?`,
     [userId],
@@ -1674,25 +1659,36 @@ function updateUserRookaAndCheckLevel(userId) {
       if (err || !userRow) return;
       const oldRooka = userRow.total_rooka || 0;
       const oldLevelInfo = getRookaLevelInfo(oldRooka);
-      const rookaStartDateDay = userRow.rooka_start_date ? userRow.rooka_start_date.substring(0, 10) : null;
 
-      const actQuery = rookaStartDateDay
-        ? `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`
-        : `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ?`;
-      const queryParams = rookaStartDateDay ? [userId, rookaStartDateDay] : [userId];
+      const resolveStartDate = (cb) => {
+        if (userRow.rooka_start_date) {
+          return cb(userRow.rooka_start_date.substring(0, 10));
+        }
+        db.get(
+          `SELECT MIN(start_date) as first_date FROM activities WHERE user_id = ? AND rooka_score > 0`,
+          [userId],
+          (eDate, dRow) => {
+            const dateVal = dRow?.first_date || new Date().toISOString();
+            db.run(`UPDATE users SET rooka_start_date = ? WHERE id = ?`, [dateVal, userId]);
+            cb(dateVal.substring(0, 10));
+          }
+        );
+      };
 
-      db.get(actQuery, queryParams, (err, actRow) => {
-        if (err) return;
-        const actTotal = actRow ? (actRow.act_total || 0) : 0;
+      resolveStartDate((rookaStartDateDay) => {
+        const actQuery = `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`;
+        const queryParams = [userId, rookaStartDateDay];
 
-        const bonusQuery = rookaStartDateDay
-          ? `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`
-          : `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ?`;
-
-        db.get(bonusQuery, queryParams, (err, bonusRow) => {
+        db.get(actQuery, queryParams, (err, actRow) => {
           if (err) return;
-          const bonusTotal = bonusRow ? (bonusRow.bonus_total || 0) : 0;
-          const newRooka = Math.round((actTotal + bonusTotal) * 10) / 10;
+          const actTotal = actRow ? (actRow.act_total || 0) : 0;
+
+          const bonusQuery = `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`;
+
+          db.get(bonusQuery, queryParams, (err, bonusRow) => {
+            if (err) return;
+            const bonusTotal = bonusRow ? (bonusRow.bonus_total || 0) : 0;
+            const newRooka = Math.round((actTotal + bonusTotal) * 10) / 10;
 
           db.run(
             `UPDATE users SET total_rooka = ? WHERE id = ?`,
@@ -1724,10 +1720,11 @@ function updateUserRookaAndCheckLevel(userId) {
               }
 
               // Background milestone check: 300+ in day, 2000+ in week, 6000+ in month
-              checkAndAwardRookaTitles(userId);
+              checkAndAwardRookaTitles(userId, options);
             },
           );
         });
+      });
       });
     },
   );
@@ -1789,8 +1786,12 @@ function parseTargetDistanceKm(targetValue, raceName = '') {
   return null;
 }
 
-async function checkAndAwardRookaTitles(userId) {
+async function checkAndAwardRookaTitles(userId, options = {}) {
+  const isRealtime = Boolean(options && options.isRealtime);
   return new Promise((resolve) => {
+    // ONLY check & award milestone titles on real-time workout arrivals; never scan historic data
+    if (!isRealtime) return resolve();
+
     // 1. Check user subscription tier - only Rooka+ members earn titles
     db.get(`SELECT subscription_tier FROM users WHERE id = ?`, [userId], async (errUser, userRow) => {
       if (errUser || !userRow) return resolve();
@@ -1806,12 +1807,16 @@ async function checkAndAwardRookaTitles(userId) {
           if (err) return resolve();
           const awardedKeys = new Set((titleRows || []).map((r) => r.milestone_key));
 
+          const actFilter = isRealtime ? " AND substr(start_date, 1, 10) >= date('now', '-1 day') " : "";
+          const weekFilter = isRealtime ? " AND strftime('%Y-W%W', start_date) = strftime('%Y-W%W', 'now') " : "";
+          const monthFilter = isRealtime ? " AND substr(start_date, 1, 7) = strftime('%Y-%m', 'now') " : "";
+
           // 2. Single Day 300+ Rooka Milestones
           const dayRows = await new Promise((res) => {
             db.all(
               `SELECT substr(start_date, 1, 10) as act_date, SUM(rooka_score) as day_rooka, COUNT(id) as count
                FROM activities
-               WHERE user_id = ?
+               WHERE user_id = ? ${actFilter}
                GROUP BY substr(start_date, 1, 10)
                HAVING SUM(rooka_score) >= 300
                ORDER BY act_date DESC`,
@@ -1830,7 +1835,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Single-Day Endurance Titan (${Math.round(row.day_rooka)} Rooka on ${row.act_date})`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
                 [userId, row.act_date],
-                `The athlete achieved a massive single-day milestone by earning ${Math.round(row.day_rooka)} Rooka points on ${row.act_date}!`
+                `The athlete achieved a massive single-day milestone by earning ${Math.round(row.day_rooka)} Rooka points on ${row.act_date}!`,
+                options
               );
             }
           }
@@ -1840,7 +1846,7 @@ async function checkAndAwardRookaTitles(userId) {
             db.all(
               `SELECT strftime('%Y-W%W', start_date) as act_week, SUM(rooka_score) as week_rooka, COUNT(id) as count
                FROM activities
-               WHERE user_id = ?
+               WHERE user_id = ? ${weekFilter}
                GROUP BY strftime('%Y-W%W', start_date)
                HAVING SUM(rooka_score) >= 2000
                ORDER BY act_week DESC`,
@@ -1859,7 +1865,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Weekly Volume Crusher (2,000+ Rooka in Week ${row.act_week}: ${Math.round(row.week_rooka)} pts)`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND strftime('%Y-W%W', start_date) = ?`,
                 [userId, row.act_week],
-                `The athlete completed a powerhouse training week, accumulating ${Math.round(row.week_rooka)} Rooka points in week ${row.act_week}!`
+                `The athlete completed a powerhouse training week, accumulating ${Math.round(row.week_rooka)} Rooka points in week ${row.act_week}!`,
+                options
               );
             }
           }
@@ -1869,7 +1876,7 @@ async function checkAndAwardRookaTitles(userId) {
             db.all(
               `SELECT substr(start_date, 1, 7) as act_month, SUM(rooka_score) as month_rooka, COUNT(id) as count
                FROM activities
-               WHERE user_id = ?
+               WHERE user_id = ? ${monthFilter}
                GROUP BY substr(start_date, 1, 7)
                HAVING SUM(rooka_score) >= 6000
                ORDER BY act_month DESC`,
@@ -1888,7 +1895,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Monthly Legend (6,000+ Rooka in ${row.act_month}: ${Math.round(row.month_rooka)} pts)`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 7) = ?`,
                 [userId, row.act_month],
-                `The athlete achieved legendary monthly consistency, amassing ${Math.round(row.month_rooka)} Rooka points during ${row.act_month}!`
+                `The athlete achieved legendary monthly consistency, amassing ${Math.round(row.month_rooka)} Rooka points during ${row.act_month}!`,
+                options
               );
             }
           }
@@ -1898,7 +1906,7 @@ async function checkAndAwardRookaTitles(userId) {
             db.all(
               `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
                FROM activities
-               WHERE user_id = ?
+               WHERE user_id = ? ${actFilter}
                  AND (
                    lower(name) LIKE '%70.3%'
                    OR lower(name) LIKE '%half iron%'
@@ -1927,7 +1935,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Half Ironman Conqueror`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
                 [row.id],
-                `The athlete completed a tremendous Half Ironman (70.3) triathlon event ("${row.name}")!`
+                `The athlete completed a tremendous Half Ironman (70.3) triathlon event ("${row.name}")!`,
+                options
               );
             }
           }
@@ -1940,7 +1949,7 @@ async function checkAndAwardRookaTitles(userId) {
                       SUM(moving_time_min) as total_moving_time,
                       COUNT(id) as act_count
                FROM activities
-               WHERE user_id = ?
+               WHERE user_id = ? ${actFilter}
                GROUP BY substr(start_date, 1, 10)
                HAVING (
                  SUM(CASE WHEN sport_type = 'Ride' AND distance_km >= 75 THEN 1 ELSE 0 END) >= 1
@@ -1962,7 +1971,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Half Ironman Conqueror`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
                 [userId, row.act_date],
-                `The athlete completed a full Half Ironman (70.3) distance on ${row.act_date} (${parseFloat(row.total_distance).toFixed(1)}km total across disciplines)!`
+                `The athlete completed a full Half Ironman (70.3) distance on ${row.act_date} (${parseFloat(row.total_distance).toFixed(1)}km total across disciplines)!`,
+                options
               );
             }
           }
@@ -1972,7 +1982,7 @@ async function checkAndAwardRookaTitles(userId) {
             db.all(
               `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
                FROM activities
-               WHERE user_id = ?
+               WHERE user_id = ? ${actFilter}
                  AND (
                    lower(name) LIKE '%140.6%'
                    OR (lower(name) LIKE '%ironman%' AND lower(name) NOT LIKE '%70.3%' AND lower(name) NOT LIKE '%half%')
@@ -1994,7 +2004,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Ironman Sovereign`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
                 [row.id],
-                `The athlete conquered an epic full Ironman (140.6) distance triathlon ("${row.name}")!`
+                `The athlete conquered an epic full Ironman (140.6) distance triathlon ("${row.name}")!`,
+                options
               );
             }
           }
@@ -2004,7 +2015,7 @@ async function checkAndAwardRookaTitles(userId) {
             db.all(
               `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
                FROM activities
-               WHERE user_id = ? AND sport_type = 'Run'
+               WHERE user_id = ? AND sport_type = 'Run' ${actFilter}
                  AND (distance_km >= 40.0 OR (lower(name) LIKE '%marathon%' AND lower(name) NOT LIKE '%half%'))
                ORDER BY start_date DESC`,
               [userId],
@@ -2022,7 +2033,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Marathon Conqueror`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
                 [row.id],
-                `The athlete finished a grueling Marathon distance run ("${row.name}" - ${parseFloat(row.distance_km).toFixed(1)}km)!`
+                `The athlete finished a grueling Marathon distance run ("${row.name}" - ${parseFloat(row.distance_km).toFixed(1)}km)!`,
+                options
               );
             }
           }
@@ -2032,7 +2044,7 @@ async function checkAndAwardRookaTitles(userId) {
             db.all(
               `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
                FROM activities
-               WHERE user_id = ? AND sport_type = 'Ride' AND distance_km >= 95.0
+               WHERE user_id = ? AND sport_type = 'Ride' AND distance_km >= 95.0 ${actFilter}
                ORDER BY start_date DESC`,
               [userId],
               (err7, rows) => res(rows || [])
@@ -2049,7 +2061,8 @@ async function checkAndAwardRookaTitles(userId) {
                 `Century Crusher`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
                 [row.id],
-                `The athlete conquered a Century ride ("${row.name}" - ${parseFloat(row.distance_km).toFixed(1)}km)!`
+                `The athlete conquered a Century ride ("${row.name}" - ${parseFloat(row.distance_km).toFixed(1)}km)!`,
+                options
               );
             }
           }
@@ -2062,7 +2075,7 @@ async function checkAndAwardRookaTitles(userId) {
                       SUM(distance_km) as total_km,
                       COUNT(id) as act_count
                FROM activities
-               WHERE user_id = ?
+               WHERE user_id = ? ${actFilter}
                GROUP BY substr(start_date, 1, 10)
                HAVING SUM(moving_time_min) >= 180
                ORDER BY act_date DESC`,
@@ -2082,17 +2095,19 @@ async function checkAndAwardRookaTitles(userId) {
                 `Triple-Hour Engine (${hoursVal}h on ${row.act_date})`,
                 `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
                 [userId, row.act_date],
-                `The athlete logged a massive ${hoursVal} hours (${Math.round(row.total_mins)} minutes) of total moving time on ${row.act_date} across ${row.act_count} workout(s) (${parseFloat(row.total_km || 0).toFixed(1)}km total)!`
+                `The athlete logged a massive ${hoursVal} hours (${Math.round(row.total_mins)} minutes) of total moving time on ${row.act_date} across ${row.act_count} workout(s) (${parseFloat(row.total_km || 0).toFixed(1)}km total)!`,
+                options
               );
             }
           }
 
           // 10. Goal Race Day Completed & Target Met (from milestones or users.target_event)
           const raceGoals = await new Promise((res) => {
+            const raceFilter = isRealtime ? " AND (date >= date('now', '-1 day') AND date <= date('now', '+1 day')) " : "";
             db.all(
               `SELECT id, name, date, target_ctl, is_main, goal_type, target_mode, target_value
                FROM milestones
-               WHERE user_id = ? AND (goal_type = 'race' OR goal_type IS NULL) AND date IS NOT NULL AND date != ''
+               WHERE user_id = ? AND (goal_type = 'race' OR goal_type IS NULL) AND date IS NOT NULL AND date != '' ${raceFilter}
                ORDER BY date DESC`,
               [userId],
               (errM, mRows) => {
@@ -2209,7 +2224,8 @@ async function checkAndAwardRookaTitles(userId) {
                    OR substr(start_date, 1, 10) = date(?, '+1 day')
                  )`,
                 [userId, raceDate, raceDate, raceDate],
-                `The athlete accomplished their official scheduled goal race "${goal.name}" on ${raceDate}! Target: ${targetVal || 'Finish the race'}. Result: ${successReason}`
+                `The athlete accomplished their official scheduled goal race "${goal.name}" on ${raceDate}! Target: ${targetVal || 'Finish the race'}. Result: ${successReason}`,
+                options
               );
             }
           }
@@ -2234,10 +2250,68 @@ async function checkAndAwardRookaTitles(userId) {
   });
 }
 
-async function generateAndSaveMilestoneTitle(userId, milestoneKey, milestoneName, activitiesQuery, queryParams, milestoneContext) {
+function saveMilestoneTitleRecord(userId, milestoneKey, title, description, resolve) {
+  db.get(
+    `SELECT id, milestone_key FROM user_titles WHERE user_id = ? AND is_active = 1 LIMIT 1`,
+    [userId],
+    (errActive, activeRow) => {
+      // If no active title or only default Rooka+ Athlete is active, equip this new earned title
+      const isDefaultActive = activeRow?.milestone_key === 'default_rooka_plus';
+      const shouldBeActive = !activeRow || isDefaultActive ? 1 : 0;
+
+      if (isDefaultActive && activeRow?.id) {
+        db.run(`UPDATE user_titles SET is_active = 0 WHERE id = ?`, [activeRow.id]);
+      }
+
+      db.run(
+        `INSERT INTO user_titles (user_id, title, description, is_active, milestone_key) VALUES (?, ?, ?, ?, ?)`,
+        [userId, title, description, shouldBeActive, milestoneKey],
+        function (errInsert) {
+          if (errInsert) {
+            console.error("Error saving earned milestone title:", errInsert);
+            return resolve();
+          }
+
+          // Award 50 bonus Rooka points for earning a milestone title
+          db.run(
+            `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
+            [userId, 50, `Earned Milestone Title: ${title}`]
+          );
+
+          // Clear public profile cache so changes reflect on social profile
+          db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
+
+          // Send SSE event if user is active
+          try {
+            const { sendSSEEvent } = require('./sse');
+            sendSSEEvent(userId, "title_unlocked", {
+              title: title,
+              description: description,
+              milestone: milestoneKey
+            });
+          } catch (eSse) {}
+
+          resolve();
+        }
+      );
+    }
+  );
+}
+
+async function generateAndSaveMilestoneTitle(userId, milestoneKey, milestoneName, activitiesQuery, queryParams, milestoneContext, options = {}) {
   return new Promise((resolve) => {
+    const fallbackTitle = milestoneName.split("(")[0].trim();
+    const fallbackDescription = milestoneContext;
+
+    // ONLY use AI for realtime achievements. Historic or background checks award titles statically with 0 AI calls
+    if (!options || !options.isRealtime) {
+      return saveMilestoneTitleRecord(userId, milestoneKey, fallbackTitle, fallbackDescription, resolve);
+    }
+
     db.all(activitiesQuery, queryParams, async (err, activities) => {
-      if (err || !activities || activities.length === 0) return resolve();
+      if (err || !activities || activities.length === 0) {
+        return saveMilestoneTitleRecord(userId, milestoneKey, fallbackTitle, fallbackDescription, resolve);
+      }
 
       const activitiesStr = activities
         .map(
@@ -2258,79 +2332,26 @@ Please respond using this JSON schema:
   "description": "A short, earned description of why they unlocked this milestone."
 }`;
 
+      let titleData = null;
       try {
-        let titleData = null;
-        try {
-          const aiReply = await generateWithFallback(
-            prompt,
-            "You are a sports gamification engine awarding earned athletic titles.",
-            null,
-            null,
-            userId,
-            "common",
-            true
-          );
-          titleData = typeof aiReply === 'string' ? JSON.parse(aiReply) : aiReply;
-        } catch (eAi) {
-          console.error("AI title generation error, using fallback title:", eAi);
-          titleData = {
-            title: milestoneName.split("(")[0].trim(),
-            description: milestoneContext
-          };
-        }
-
-        if (!titleData || !titleData.title) return resolve();
-
-        // Check if user has an active title
-        db.get(
-          `SELECT id, milestone_key FROM user_titles WHERE user_id = ? AND is_active = 1 LIMIT 1`,
-          [userId],
-          (errActive, activeRow) => {
-            // If no active title or only default Rooka+ Athlete is active, equip this new earned title
-            const isDefaultActive = activeRow?.milestone_key === 'default_rooka_plus';
-            const shouldBeActive = !activeRow || isDefaultActive ? 1 : 0;
-
-            if (isDefaultActive && activeRow?.id) {
-              db.run(`UPDATE user_titles SET is_active = 0 WHERE id = ?`, [activeRow.id]);
-            }
-
-            db.run(
-              `INSERT INTO user_titles (user_id, title, description, is_active, milestone_key) VALUES (?, ?, ?, ?, ?)`,
-              [userId, titleData.title, titleData.description, shouldBeActive, milestoneKey],
-              function (errInsert) {
-                if (errInsert) {
-                  console.error("Error saving earned milestone title:", errInsert);
-                  return resolve();
-                }
-
-                // Award 50 bonus Rooka points for earning a milestone title
-                db.run(
-                  `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
-                  [userId, 50, `Earned Milestone Title: ${titleData.title}`]
-                );
-
-                // Clear public profile cache so changes reflect on social profile
-                db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
-
-                // Send SSE event if user is active
-                try {
-                  const { sendSSEEvent } = require('./sse');
-                  sendSSEEvent(userId, "title_unlocked", {
-                    title: titleData.title,
-                    description: titleData.description,
-                    milestone: milestoneKey
-                  });
-                } catch (eSse) {}
-
-                resolve();
-              }
-            );
-          }
+        const aiReply = await generateWithFallback(
+          prompt,
+          "You are a sports gamification engine awarding earned athletic titles.",
+          null,
+          null,
+          userId,
+          "common",
+          true
         );
-      } catch (e) {
-        console.error("Failed to generate and save milestone title:", e);
-        resolve();
+        titleData = typeof aiReply === 'string' ? JSON.parse(aiReply) : aiReply;
+      } catch (eAi) {
+        console.error("AI title generation error, using fallback title:", eAi?.message || eAi);
       }
+
+      const finalTitle = (titleData && titleData.title) ? titleData.title : fallbackTitle;
+      const finalDesc = (titleData && titleData.description) ? titleData.description : fallbackDescription;
+
+      saveMilestoneTitleRecord(userId, milestoneKey, finalTitle, finalDesc, resolve);
     });
   });
 }

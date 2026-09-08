@@ -71,9 +71,11 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   };
 
   const activitiesTotalRooka = Math.round(
-    activities.reduce((sum, a) => sum + (a.rooka_score ?? a.tss ?? 0), 0)
+    activities.reduce((sum, a) => sum + (a.rooka_score || 0), 0)
   );
-  const effectiveTotalRooka = Math.max(user?.total_rooka ?? 0, activitiesTotalRooka);
+  const effectiveTotalRooka = (user?.total_rooka && user.total_rooka > 0)
+    ? user.total_rooka
+    : activitiesTotalRooka;
   const computedInfo = getRookaLevelInfo(effectiveTotalRooka);
   const activeLevelInfo = customLevelInfo || {
     level: computedInfo.level,

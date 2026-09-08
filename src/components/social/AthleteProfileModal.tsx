@@ -132,14 +132,19 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
   const hasActivities = activities.length > 0;
 
   const activitiesTotalRooka = Math.round(
-    activities.reduce((sum, a) => sum + (a.rooka_score ?? a.tss ?? 0), 0)
+    activities.reduce((sum, a) => sum + (a.rooka_score || 0), 0)
   );
 
-  const effectiveTotalRooka = isSelf
-    ? Math.max(currentUser?.total_rooka ?? 0, activitiesTotalRooka)
-    : Math.max(profile?.total_rooka ?? 0, activitiesTotalRooka);
+  const serverTotalRooka = isSelf
+    ? (currentUser?.total_rooka || profile?.total_rooka || 0)
+    : (profile?.total_rooka || 0);
+
+  const effectiveTotalRooka = serverTotalRooka > 0 ? serverTotalRooka : activitiesTotalRooka;
 
   const levelInfo = (() => {
+    if (profile?.levelInfo && !isSelf) {
+      return profile.levelInfo;
+    }
     const info = getRookaLevelInfo(effectiveTotalRooka);
     return {
       level: info.level,

@@ -40,7 +40,7 @@ import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownT
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
-import { useCoachChat } from '../../context/CoachChatStore';
+import { useCoachChat, sortMessagesChronological } from '../../context/CoachChatStore';
 import { useGamification } from '../../context/GamificationStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { usePhysique } from '../../context/PhysiqueStore';
@@ -324,7 +324,8 @@ export default function CoachScreen() {
 
   // 1. DATA: reverse the flattened array with thinking indicator at bottom if sending
   const flatItems = useMemo(() => {
-    const items = flattenMessagesChronological(messages).slice().reverse();
+    const sorted = sortMessagesChronological(messages);
+    const items = flattenMessagesChronological(sorted).slice().reverse();
     if (sending) {
       return [{ type: 'thinking' as const, id: 'pending-thinking' }, ...items];
     }

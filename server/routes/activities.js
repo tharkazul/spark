@@ -492,7 +492,7 @@ router.post("/api/activities", authenticateToken, async (req, res) => {
     });
 
     // Update user's total Rooka & level
-    updateUserRookaAndCheckLevel(req.user.id);
+    updateUserRookaAndCheckLevel(req.user.id, { isRealtime: true });
 
     // Invalidate today's nutrition cache so it incorporates the new workout
     const todayStr = finalStartDate.split("T")[0];

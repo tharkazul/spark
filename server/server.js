@@ -55,7 +55,6 @@ app.use("/", discountsRoutes);
 
 // Utilities and cron jobs
 const {
-  syncAllStravaUsersOnStartup,
   sendMorningMessage,
   runDailyRecoveryJob,
   resetDailyTokensForAllUsers,
@@ -74,9 +73,6 @@ initWebSocketServer(server);
 // Startup setup
 db.serialize(() => {
   console.log("Database initialized (schema from services/db.js).");
-
-  // Sync all Strava users on boot
-  syncAllStravaUsersOnStartup();
 
   // Reset tokens & nutrition for any overdue accounts on startup
   resetDailyTokensForAllUsers();

@@ -1262,81 +1262,114 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       } else if (
                                         disappointedKeywords.some((word) =>
                                           lowerReply.includes(word),
-                                        )
+                                         )
                                       ) {
                                         mood = "disappointed";
                                       }
 
-                                      const simulatedUserMessage = `Can you build my plan for next week, Rooka?`;
-                                      const coachAcknowledgement = `I've just crunched your latest numbers and pushed a fresh ${phase} phase plan to your dashboard. Go check it out—you're going to crush it!`;
+                                       const imagePathValue = imagePathsDB.length > 0 ? JSON.stringify(imagePathsDB) : null;
 
-                                      const imagePathValue = imagePathsDB.length > 0 ? JSON.stringify(imagePathsDB) : null;
-                                      db.run(
-                                        `INSERT INTO chat_history (user_id, role, content, image_path) VALUES (?, 'user', ?, ?)`,
-                                        [req.user.id, message, imagePathValue],
-                                      );
+                                       // 1. Insert user message first and await its completion to guarantee lower ID and earlier timestamp
+                                       try {
+                                         await new Promise((resolve, reject) => {
+                                           db.run(
+                                             `INSERT INTO chat_history (user_id, role, content, image_path, timestamp) VALUES (?, 'user', ?, ?, datetime('now'))`,
+                                             [req.user.id, message, imagePathValue],
+                                             function (err) {
+                                               if (err) return reject(err);
+                                               resolve(this.lastID);
+                                             }
+                                           );
+                                         });
+                                       } catch (userInsertErr) {
+                                         console.error("Failed to insert user chat message:", userInsertErr);
+                                       }
 
-                                      const messageParts = splitCoachReply(aiReply);
-                                      messageParts.forEach((part) => {
-                                        db.run(
-                                          `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, ?)`,
-                                          [req.user.id, part, mood],
-                                        );
-                                      });
+                                       // 2. Sequentially insert coach reply parts with ordered timestamps (+1s, +2s, etc.)
+                                       const messageParts = splitCoachReply(aiReply);
+                                       for (let i = 0; i < messageParts.length; i++) {
+                                         const part = messageParts[i];
+                                         try {
+                                           await new Promise((resolve, reject) => {
+                                             db.run(
+                                               `INSERT INTO chat_history (user_id, role, content, mood, timestamp) VALUES (?, 'coach', ?, ?, datetime('now', '+${i + 1} seconds'))`,
+                                               [req.user.id, part, mood],
+                                               function (err) {
+                                                 if (err) return reject(err);
+                                                 resolve(this.lastID);
+                                               }
+                                             );
+                                           });
+                                         } catch (partInsertErr) {
+                                           console.error(`Failed to insert coach reply part ${i}:`, partInsertErr);
+                                         }
+                                       }
 
-                                      db.get(
-                                        `SELECT COUNT(*) as count FROM chat_history WHERE user_id = ?`,
-                                        [req.user.id],
-                                        (err, row) => {
-                                          if (
-                                            row &&
-                                            row.count > 0 &&
-                                            row.count % 6 === 0
-                                          ) {
-                                            triggerBackgroundSummary(
-                                              req.user.id,
-                                            );
-                                          }
-                                        },
-                                      );
+                                       db.get(
+                                         `SELECT COUNT(*) as count FROM chat_history WHERE user_id = ?`,
+                                         [req.user.id],
+                                         (err, row) => {
+                                           if (
+                                             row &&
+                                             row.count > 0 &&
+                                             row.count % 6 === 0
+                                           ) {
+                                             triggerBackgroundSummary(
+                                               req.user.id,
+                                             );
+                                           }
+                                         },
+                                       );
 
-                                      db.run("COMMIT", async (commitErr) => {
-                                        if (releaseTx) {
-                                          releaseTx();
-                                          releaseTx = null;
-                                        }
-                                        if (commitErr) {
-                                          console.error(
-                                            "Failed to commit chat/plan transaction:",
-                                            commitErr,
-                                          );
-                                          return res.status(500).json({
-                                            error: "Failed to save chat and plan updates.",
-                                          });
-                                        }
-                                        // The celebration runs here, outside the transaction. The
-                                        // stored coach message is patched to match, so history and
-                                        // what the athlete sees do not diverge.
-                                        if (questCelebrationPrompt) {
-                                          try {
-                                            const coachAddendum = await generateWithFallback(
-                                              questCelebrationPrompt,
-                                              "You are a motivating elite coach.",
-                                              null,
-                                              base64DataArray,
-                                            );
-                                            if (coachAddendum) {
-                                              aiReply += "\n\n" + coachAddendum;
-                                              messageParts.push(coachAddendum);
-                                              db.run(
-                                                `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
-                                                [req.user.id, coachAddendum],
-                                              );
-                                            }
-                                          } catch (celebrationErr) {
-                                            console.error("Quest celebration generation failed:", celebrationErr.message);
-                                          }
-                                        }
+                                       try {
+                                         await new Promise((resolve, reject) => {
+                                           db.run("COMMIT", (err) => (err ? reject(err) : resolve()));
+                                         });
+                                       } catch (commitErr) {
+                                         if (releaseTx) {
+                                           releaseTx();
+                                           releaseTx = null;
+                                         }
+                                         console.error(
+                                           "Failed to commit chat/plan transaction:",
+                                           commitErr,
+                                         );
+                                         return res.status(500).json({
+                                           error: "Failed to save chat and plan updates.",
+                                         });
+                                       }
+
+                                       if (releaseTx) {
+                                         releaseTx();
+                                         releaseTx = null;
+                                       }
+
+                                       // The celebration runs here, outside the transaction. The
+                                       // stored coach message is patched to match, so history and
+                                       // what the athlete sees do not diverge.
+                                       if (questCelebrationPrompt) {
+                                         try {
+                                           const coachAddendum = await generateWithFallback(
+                                             questCelebrationPrompt,
+                                             "You are a motivating elite coach.",
+                                             null,
+                                             base64DataArray,
+                                           );
+                                           if (coachAddendum) {
+                                             aiReply += "\n\n" + coachAddendum;
+                                             messageParts.push(coachAddendum);
+                                             await new Promise((resolve) => {
+                                               db.run(
+                                                 `INSERT INTO chat_history (user_id, role, content, mood, timestamp) VALUES (?, 'coach', ?, 'hype', datetime('now', '+${messageParts.length + 1} seconds'))`,
+                                                 [req.user.id, coachAddendum],
+                                                 () => resolve()
+                                               );
+                                             });
+                                           }
+                                         } catch (celebrationErr) {
+                                           console.error("Quest celebration generation failed:", celebrationErr.message);
+                                         }
+                                       }
 
                                         // 1. Send the instant response to the client immediately!
                                         res.json({
@@ -1406,8 +1439,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             }
                                           }
                                         }
-                                      });
-                                    } catch (err) {
+                                      } catch (err) {
                                       console.error("Chat parsing error:", err);
                                       db.run("ROLLBACK", () => {
                                         if (releaseTx) {
@@ -1608,12 +1640,15 @@ CRITICAL RULES:
                       .trim();
                       
                     const messageParts = splitCoachReply(aiReply);
-                    messageParts.forEach((part) => {
-                      db.run(
-                        `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'default')`,
-                        [req.user.id, part],
-                      );
-                    });
+                    for (let i = 0; i < messageParts.length; i++) {
+                      await new Promise((resolve) => {
+                        db.run(
+                          `INSERT INTO chat_history (user_id, role, content, mood, timestamp) VALUES (?, 'coach', ?, 'default', datetime('now', '+${i} seconds'))`,
+                          [req.user.id, messageParts[i]],
+                          () => resolve()
+                        );
+                      });
+                    }
                     res.json({ reply: messageParts.join('\n\n'), replies: messageParts, mood: "default" });
                   } catch (e) {
                     console.error("Checkin Server Error:", e);
