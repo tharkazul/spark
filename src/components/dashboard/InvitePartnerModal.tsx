@@ -42,9 +42,14 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     setLoading(true);
     try {
       const res = await socialApi.getConnections();
-      setConnections(res.connections.filter(c => c.status === 'accepted'));
+      if (res && Array.isArray(res.connections)) {
+        setConnections(res.connections.filter((c: any) => c && c.status === 'accepted'));
+      } else {
+        setConnections([]);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Failed to load connections:", e);
+      setConnections([]);
     } finally {
       setLoading(false);
     }
