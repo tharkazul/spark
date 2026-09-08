@@ -129,7 +129,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     <BottomSheetModal
       visible={visible}
       onClose={onClose}
-      contentClassName="w-full bg-theme-card rounded-t-[32px] px-6 pt-3 h-[90%] shadow-2xl"
+      contentClassName="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 h-[90%] border-t border-theme-border/50 shadow-2xl"
       showHandle={true}
     >
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">

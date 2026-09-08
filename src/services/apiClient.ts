@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../constants/api';
+import { tokenStorage } from './storage';
 
 export class ApiError extends Error {
   status: number;
@@ -63,6 +64,16 @@ export async function apiClient<T>(
     delete headers['content-type'];
   }
 
+  // If authToken is not yet set in JS memory, attempt to load it from persistent storage
+  if (!authToken && !endpoint.includes('/api/auth/login') && !endpoint.includes('/api/auth/register')) {
+    try {
+      const persistedToken = await tokenStorage.getToken();
+      if (persistedToken) {
+        authToken = persistedToken;
+      }
+    } catch (_) {}
+  }
+
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
@@ -73,10 +84,10 @@ export async function apiClient<T>(
   });
 
   // Universal 401 interceptor (excluding login/register auth endpoints and requests with skipAuthInterceptor).
-  // A 401 here means the session itself is no longer usable — expired token,
-  // or an account that has been deleted — so the app must drop the session
-  // rather than keep pretending to be signed in.
-  if (response.status === 401 && !endpoint.includes('/api/auth/') && !skipAuthInterceptor) {
+  // A 401 here only triggers logout if an Authorization header was actually sent and the token was rejected.
+  // A request sent without a token must NEVER wipe the stored session!
+  const hadAuthHeader = Boolean(headers['Authorization']);
+  if (response.status === 401 && hadAuthHeader && !endpoint.includes('/api/auth/') && !skipAuthInterceptor) {
     let reason: string | undefined;
     try {
       const cloned = response.clone();
@@ -84,8 +95,11 @@ export async function apiClient<T>(
       reason = payload?.code || payload?.error;
     } catch (_) {}
 
-    if (onUnauthorizedCallback) {
-      onUnauthorizedCallback(reason);
+    // Never trigger session logout if the error was just NO_TOKEN
+    if (reason !== 'NO_TOKEN' && reason !== 'No token provided') {
+      if (onUnauthorizedCallback) {
+        onUnauthorizedCallback(reason);
+      }
     }
   }
 

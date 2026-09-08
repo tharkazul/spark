@@ -638,6 +638,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const checkin = async () => {
+    if (!isAuthenticated || !user?.id) return;
     try {
       const res = await chatApi.checkin();
       const msgContent = (res as any)?.reply || (res as any)?.message;
@@ -672,6 +673,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [user]);
 
   useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+
     refreshMessages();
 
     // Check once per day to catch up on morning message if 08:00 cron was missed (morning only)

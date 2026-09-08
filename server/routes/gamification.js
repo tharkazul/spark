@@ -201,11 +201,12 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
             responseData.quests = processedQuests;
           }
 
-          db.all(
-            `SELECT * FROM user_titles WHERE user_id = ? ORDER BY created_at DESC`,
-            [userId],
-            (err, titles) => {
-              if (!err && titles) responseData.titles = titles;
+          db.get(`SELECT subscription_tier FROM users WHERE id = ?`, [userId], async (errUser, uRow) => {
+            const tier = uRow?.subscription_tier;
+            const isPaid = tier === 'admin' || tier === 'premium' || tier === 'rooka_plus' || tier === 'subscription';
+
+            if (!isPaid) {
+              responseData.titles = [];
               db.all(
                 `SELECT * FROM bonus_points WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
                 [userId],
@@ -214,8 +215,57 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
                   res.json(responseData);
                 },
               );
-            },
-          );
+              return;
+            }
+
+            // Evaluate any newly completed milestones or races (e.g. Half Ironman)
+            try {
+              await checkAndAwardRookaTitles(userId);
+            } catch (eTitle) {
+              console.error("Error evaluating titles on get gamification:", eTitle);
+            }
+
+            db.all(
+              `SELECT * FROM user_titles WHERE user_id = ? ORDER BY is_active DESC, created_at DESC`,
+              [userId],
+              (err, titles) => {
+                if (!err && titles && titles.length > 0) {
+                  responseData.titles = titles.map((t) => ({
+                    ...t,
+                    title: t.title || t.title_name,
+                    title_name: t.title || t.title_name,
+                    is_equipped: t.is_active === 1 ? 1 : 0,
+                    is_active: t.is_active === 1 ? 1 : 0,
+                  }));
+                } else if (!err) {
+                  const defaultTitle = {
+                    id: 'default_rooka_plus',
+                    user_id: userId,
+                    title: 'Rooka+ Athlete',
+                    title_name: 'Rooka+ Athlete',
+                    description: 'Official member of the Rooka+ endurance squad.',
+                    is_active: 1,
+                    is_equipped: 1,
+                    milestone_key: 'default_rooka_plus',
+                  };
+                  responseData.titles = [defaultTitle];
+                  db.run(
+                    `INSERT OR IGNORE INTO user_titles (user_id, title, description, is_active, milestone_key) VALUES (?, ?, ?, 1, 'default_rooka_plus')`,
+                    [userId, defaultTitle.title, defaultTitle.description]
+                  );
+                }
+
+                db.all(
+                  `SELECT * FROM bonus_points WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`,
+                  [userId],
+                  (err, points) => {
+                    if (!err && points) responseData.bonus_points = points;
+                    res.json(responseData);
+                  },
+                );
+              },
+            );
+          });
         },
       );
     }
@@ -439,13 +489,14 @@ router.post(
     const titleId = req.params.id;
 
     db.get(
-      `SELECT is_active FROM user_titles WHERE id = ? AND user_id = ?`,
-      [titleId, userId],
+      `SELECT id, is_active FROM user_titles WHERE (id = ? OR milestone_key = ?) AND user_id = ?`,
+      [titleId, titleId, userId],
       (err, titleRow) => {
         if (err || !titleRow) {
-          return res.status(44).json({ error: "Title not found" });
+          return res.status(404).json({ error: "Title not found" });
         }
 
+        const realId = titleRow.id;
         const currentlyActive = titleRow.is_active === 1;
 
         // Reset all titles for this user to inactive first
@@ -461,10 +512,10 @@ router.post(
             if (!currentlyActive) {
               db.run(
                 `UPDATE user_titles SET is_active = 1 WHERE id = ? AND user_id = ?`,
-                [titleId, userId],
+                [realId, userId],
                 (errEquip) => {
                   db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
-                  res.json({ success: true, equipped: true, activeTitleId: titleId });
+                  res.json({ success: true, equipped: true, activeTitleId: realId });
                 }
               );
             } else {

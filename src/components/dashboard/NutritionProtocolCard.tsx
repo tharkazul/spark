@@ -94,7 +94,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
 
           {/* Logged Meal Items List */}
           {loggedItems.length > 0 && (
-            <View className="mt-4 pt-3 border-t border-theme-border/30">
+            <View className="mt-4 pt-3 border border-theme-border/30">
               <Text className="text-xs font-extrabold text-theme-text mb-2">Logged Foods Today</Text>
               <View className="gap-y-1.5">
                 {loggedItems.map((item: any, idx: number) => (

@@ -1562,7 +1562,7 @@ export default function OnboardingWizard() {
                       </View>
 
                       {showGarmin && (
-                        <View className="pt-2 gap-2 border-t border-theme-border">
+                        <View className="pt-2 gap-2 border border-theme-border">
                           {isGarminActive && (
                             <View className="bg-semantic-success/10 border border-semantic-success/20 rounded-lg p-2.5 flex-row items-center justify-between">
                               <View className="flex-row items-center gap-2 flex-1 mr-2">

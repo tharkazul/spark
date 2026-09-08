@@ -136,7 +136,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
       </View>
 
       {isPending && (
-        <View className="flex-row items-center gap-2 pt-2 border-t border-theme-border/50 mt-1">
+        <View className="flex-row items-center gap-2 pt-2 border border-theme-border/50 mt-1">
           <TouchableOpacity
             onPress={handleAccept}
             disabled={loading !== null}

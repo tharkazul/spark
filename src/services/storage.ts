@@ -13,7 +13,17 @@ export const tokenStorage = {
         }
         return null;
       }
-      return await SecureStore.getItemAsync(TOKEN_KEY);
+      // Check AsyncStorage first
+      let token = await AsyncStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        // Fallback: migrate from SecureStore if present
+        token = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
+        if (token) {
+          await AsyncStorage.setItem(TOKEN_KEY, token).catch(() => {});
+          await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+        }
+      }
+      return token;
     } catch (error) {
       console.error('Error reading auth token:', error);
       return null;
@@ -28,7 +38,7 @@ export const tokenStorage = {
         }
         return;
       }
-      await SecureStore.setItemAsync(TOKEN_KEY, token);
+      await AsyncStorage.setItem(TOKEN_KEY, token);
     } catch (error) {
       console.error('Error saving auth token:', error);
     }
@@ -42,10 +52,56 @@ export const tokenStorage = {
         }
         return;
       }
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      await AsyncStorage.removeItem(TOKEN_KEY);
+      await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
     } catch (error) {
       console.error('Error removing auth token:', error);
     }
+  },
+};
+
+const PROFILE_KEY = 'rooka_user_profile';
+
+export const profileStorage = {
+  async getProfile(): Promise<any | null> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const raw = window.localStorage.getItem(PROFILE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        }
+        return null;
+      }
+      const raw = await AsyncStorage.getItem(PROFILE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async setProfile(profile: any): Promise<void> {
+    try {
+      const data = JSON.stringify(profile);
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(PROFILE_KEY, data);
+        }
+        return;
+      }
+      await AsyncStorage.setItem(PROFILE_KEY, data);
+    } catch (e) {}
+  },
+
+  async removeProfile(): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(PROFILE_KEY);
+        }
+        return;
+      }
+      await AsyncStorage.removeItem(PROFILE_KEY);
+    } catch (e) {}
   },
 };
 

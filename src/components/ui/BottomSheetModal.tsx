@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -27,10 +28,11 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   visible,
   onClose,
   children,
-  contentClassName = 'bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]',
+  contentClassName = 'bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 max-h-[90%]',
   style,
   showHandle = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(visible);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -105,7 +107,10 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           {/* Bottom Sheet: Slides Up Simultaneously */}
           <Animated.View
             style={[
-              { transform: [{ translateY: Animated.add(translateY, dragY) }] },
+              {
+                transform: [{ translateY: Animated.add(translateY, dragY) }],
+                paddingBottom: Math.max(insets.bottom, 20),
+              },
               style,
             ]}
             className={contentClassName}

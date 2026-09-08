@@ -700,7 +700,6 @@ export default function CoachScreen() {
           visible={isWorkoutModalOpen}
           onClose={() => setIsWorkoutModalOpen(false)}
           showHandle
-          contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
         >
           <View className="flex-row items-center justify-between mb-4">
             <View className="flex-row items-center gap-3">
@@ -803,7 +802,6 @@ export default function CoachScreen() {
           visible={isNutritionModalOpen}
           onClose={() => setIsNutritionModalOpen(false)}
           showHandle
-          contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
         >
           <View className="flex-row items-center justify-between mb-4">
             <View className="flex-row items-center gap-3">
@@ -873,7 +871,6 @@ export default function CoachScreen() {
           visible={isQuestModalOpen}
           onClose={() => setIsQuestModalOpen(false)}
           showHandle
-          contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[85%]"
         >
           <View className="flex-row items-center justify-between mb-4">
             <View className="flex-row items-center gap-3">

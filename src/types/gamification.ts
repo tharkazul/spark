@@ -24,6 +24,8 @@ export interface UserTitle {
   description?: string;
   created_at?: string;
   is_equipped?: number | boolean;
+  is_active?: number | boolean;
+  milestone_key?: string;
   unlocked_at?: string;
 }
 

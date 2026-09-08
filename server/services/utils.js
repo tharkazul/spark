@@ -1733,105 +1733,504 @@ function updateUserRookaAndCheckLevel(userId) {
   );
 }
 
+function parseTargetTimeToMinutes(targetValue, raceName = '') {
+  if (!targetValue || typeof targetValue !== 'string') return null;
+  const str = targetValue.trim().toLowerCase();
+
+  // Check for "4h 30m" or "4h30" or "4.5h"
+  const hMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)/);
+  const mMatch = str.match(/(\d+)\s*(?:m|min|mins|minute|minutes)/);
+  if (hMatch || mMatch) {
+    const hours = hMatch ? parseFloat(hMatch[1]) : 0;
+    const mins = mMatch ? parseFloat(mMatch[1]) : 0;
+    return hours * 60 + mins;
+  }
+
+  // Check for colon format: "04:30:00" (hh:mm:ss) or "4:30"
+  if (str.includes(':')) {
+    const parts = str.split(':').map((p) => parseFloat(p.trim()) || 0);
+    if (parts.length === 3) {
+      return parts[0] * 60 + parts[1] + parts[2] / 60;
+    } else if (parts.length === 2) {
+      const isShortRace = /5k|5\s*km|10k|10\s*km|sprint/i.test(raceName);
+      if (isShortRace || parts[0] >= 15) {
+        return parts[0] + parts[1] / 60;
+      } else {
+        return parts[0] * 60 + parts[1];
+      }
+    }
+  }
+
+  const num = parseFloat(str);
+  if (!isNaN(num)) {
+    if (num > 15) return num;
+    return num * 60;
+  }
+
+  return null;
+}
+
+function parseTargetDistanceKm(targetValue, raceName = '') {
+  const combined = `${targetValue || ''} ${raceName || ''}`.toLowerCase();
+
+  if (combined.includes('140.6') || combined.includes('full ironman')) return 226;
+  if (combined.includes('70.3') || combined.includes('half ironman') || combined.includes('half-ironman')) return 113;
+  if (combined.includes('marathon') && !combined.includes('half')) return 42.195;
+  if (combined.includes('half marathon') || combined.includes('half-marathon')) return 21.097;
+  if (combined.includes('century')) return 100;
+  if (combined.includes('10k') || combined.includes('10 km')) return 10;
+  if (combined.includes('5k') || combined.includes('5 km')) return 5;
+
+  if (targetValue && typeof targetValue === 'string') {
+    const kmMatch = targetValue.match(/(\d+(?:\.\d+)?)\s*(?:km|k|kilometer|kilometers)/i);
+    if (kmMatch) return parseFloat(kmMatch[1]);
+  }
+
+  return null;
+}
+
 async function checkAndAwardRookaTitles(userId) {
   return new Promise((resolve) => {
-    db.all(
-      `SELECT milestone_key FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
-      [userId],
-      async (err, titleRows) => {
-        if (err) return resolve();
-        const awardedKeys = new Set((titleRows || []).map((r) => r.milestone_key));
+    // 1. Check user subscription tier - only Rooka+ members earn titles
+    db.get(`SELECT subscription_tier FROM users WHERE id = ?`, [userId], async (errUser, userRow) => {
+      if (errUser || !userRow) return resolve();
+      const tier = userRow.subscription_tier;
+      const isPaid = tier === 'admin' || tier === 'premium' || tier === 'rooka_plus' || tier === 'subscription';
 
-        // 1. Single Day 300+ Rooka Milestones
-        const dayRows = await new Promise((res) => {
-          db.all(
-            `SELECT substr(start_date, 1, 10) as act_date, SUM(rooka_score) as day_rooka, COUNT(id) as count
-             FROM activities
-             WHERE user_id = ?
-             GROUP BY substr(start_date, 1, 10)
-             HAVING SUM(rooka_score) >= 300
-             ORDER BY act_date DESC`,
-            [userId],
-            (err2, rows) => res(rows || [])
-          );
-        });
+      if (!isPaid) return resolve();
 
-        for (const row of dayRows) {
-          const key = `day_300_${row.act_date}`;
-          if (!awardedKeys.has(key)) {
-            awardedKeys.add(key);
-            await generateAndSaveMilestoneTitle(
-              userId,
-              key,
-              `Single-Day Endurance Titan (${Math.round(row.day_rooka)} Rooka on ${row.act_date})`,
-              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
-              [userId, row.act_date],
-              `The athlete achieved a massive single-day milestone by earning ${Math.round(row.day_rooka)} Rooka points on ${row.act_date}!`
+      db.all(
+        `SELECT milestone_key FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
+        [userId],
+        async (err, titleRows) => {
+          if (err) return resolve();
+          const awardedKeys = new Set((titleRows || []).map((r) => r.milestone_key));
+
+          // 2. Single Day 300+ Rooka Milestones
+          const dayRows = await new Promise((res) => {
+            db.all(
+              `SELECT substr(start_date, 1, 10) as act_date, SUM(rooka_score) as day_rooka, COUNT(id) as count
+               FROM activities
+               WHERE user_id = ?
+               GROUP BY substr(start_date, 1, 10)
+               HAVING SUM(rooka_score) >= 300
+               ORDER BY act_date DESC`,
+              [userId],
+              (err2, rows) => res(rows || [])
             );
+          });
+
+          for (const row of dayRows) {
+            const key = `day_300_${row.act_date}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Single-Day Endurance Titan (${Math.round(row.day_rooka)} Rooka on ${row.act_date})`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
+                [userId, row.act_date],
+                `The athlete achieved a massive single-day milestone by earning ${Math.round(row.day_rooka)} Rooka points on ${row.act_date}!`
+              );
+            }
           }
-        }
 
-        // 2. Weekly 2,000+ Rooka Milestones
-        const weekRows = await new Promise((res) => {
-          db.all(
-            `SELECT strftime('%Y-W%W', start_date) as act_week, SUM(rooka_score) as week_rooka, COUNT(id) as count
-             FROM activities
-             WHERE user_id = ?
-             GROUP BY strftime('%Y-W%W', start_date)
-             HAVING SUM(rooka_score) >= 2000
-             ORDER BY act_week DESC`,
-            [userId],
-            (err2, rows) => res(rows || [])
-          );
-        });
-
-        for (const row of weekRows) {
-          const key = `week_2000_${row.act_week}`;
-          if (!awardedKeys.has(key)) {
-            awardedKeys.add(key);
-            await generateAndSaveMilestoneTitle(
-              userId,
-              key,
-              `Weekly Volume Crusher (2,000+ Rooka in Week ${row.act_week}: ${Math.round(row.week_rooka)} pts)`,
-              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND strftime('%Y-W%W', start_date) = ?`,
-              [userId, row.act_week],
-              `The athlete completed a powerhouse training week, accumulating ${Math.round(row.week_rooka)} Rooka points in week ${row.act_week}!`
+          // 3. Weekly 2,000+ Rooka Milestones
+          const weekRows = await new Promise((res) => {
+            db.all(
+              `SELECT strftime('%Y-W%W', start_date) as act_week, SUM(rooka_score) as week_rooka, COUNT(id) as count
+               FROM activities
+               WHERE user_id = ?
+               GROUP BY strftime('%Y-W%W', start_date)
+               HAVING SUM(rooka_score) >= 2000
+               ORDER BY act_week DESC`,
+              [userId],
+              (err2, rows) => res(rows || [])
             );
+          });
+
+          for (const row of weekRows) {
+            const key = `week_2000_${row.act_week}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Weekly Volume Crusher (2,000+ Rooka in Week ${row.act_week}: ${Math.round(row.week_rooka)} pts)`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND strftime('%Y-W%W', start_date) = ?`,
+                [userId, row.act_week],
+                `The athlete completed a powerhouse training week, accumulating ${Math.round(row.week_rooka)} Rooka points in week ${row.act_week}!`
+              );
+            }
           }
-        }
 
-        // 3. Monthly 6,000+ Rooka Milestones
-        const monthRows = await new Promise((res) => {
-          db.all(
-            `SELECT substr(start_date, 1, 7) as act_month, SUM(rooka_score) as month_rooka, COUNT(id) as count
-             FROM activities
-             WHERE user_id = ?
-             GROUP BY substr(start_date, 1, 7)
-             HAVING SUM(rooka_score) >= 6000
-             ORDER BY act_month DESC`,
-            [userId],
-            (err2, rows) => res(rows || [])
-          );
-        });
-
-        for (const row of monthRows) {
-          const key = `month_6000_${row.act_month}`;
-          if (!awardedKeys.has(key)) {
-            awardedKeys.add(key);
-            await generateAndSaveMilestoneTitle(
-              userId,
-              key,
-              `Monthly Legend (6,000+ Rooka in ${row.act_month}: ${Math.round(row.month_rooka)} pts)`,
-              `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 7) = ?`,
-              [userId, row.act_month],
-              `The athlete achieved legendary monthly consistency, amassing ${Math.round(row.month_rooka)} Rooka points during ${row.act_month}!`
+          // 4. Monthly 6,000+ Rooka Milestones
+          const monthRows = await new Promise((res) => {
+            db.all(
+              `SELECT substr(start_date, 1, 7) as act_month, SUM(rooka_score) as month_rooka, COUNT(id) as count
+               FROM activities
+               WHERE user_id = ?
+               GROUP BY substr(start_date, 1, 7)
+               HAVING SUM(rooka_score) >= 6000
+               ORDER BY act_month DESC`,
+              [userId],
+              (err2, rows) => res(rows || [])
             );
-          }
-        }
+          });
 
-        resolve();
-      }
-    );
+          for (const row of monthRows) {
+            const key = `month_6000_${row.act_month}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Monthly Legend (6,000+ Rooka in ${row.act_month}: ${Math.round(row.month_rooka)} pts)`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 7) = ?`,
+                [userId, row.act_month],
+                `The athlete achieved legendary monthly consistency, amassing ${Math.round(row.month_rooka)} Rooka points during ${row.act_month}!`
+              );
+            }
+          }
+
+          // 5. Half Ironman / 70.3 Milestone
+          const halfIronmanRows = await new Promise((res) => {
+            db.all(
+              `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
+               FROM activities
+               WHERE user_id = ?
+                 AND (
+                   lower(name) LIKE '%70.3%'
+                   OR lower(name) LIKE '%half iron%'
+                   OR lower(name) LIKE '%half-iron%'
+                   OR lower(name) LIKE '%half im%'
+                   OR lower(name) LIKE '%half-im%'
+                   OR lower(name) LIKE '%middle distance%'
+                   OR lower(name) LIKE '%half triathlon%'
+                   OR (lower(name) LIKE '%triathlon%' AND (distance_km >= 50 OR moving_time_min >= 180))
+                   OR (sport_type IN ('Ride', 'Run') AND distance_km >= 85 AND moving_time_min >= 150)
+                   OR (moving_time_min >= 240 AND distance_km >= 60)
+                 )
+               ORDER BY start_date DESC`,
+              [userId],
+              (err4, rows) => res(rows || [])
+            );
+          });
+
+          for (const row of halfIronmanRows) {
+            const key = `half_ironman_${row.id}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Half Ironman Conqueror`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
+                [row.id],
+                `The athlete completed a tremendous Half Ironman (70.3) triathlon event ("${row.name}")!`
+              );
+            }
+          }
+
+          // Check for same-day Half Ironman split across multiple activities (e.g. 90k bike + 21k run)
+          const sameDayTriathlonRows = await new Promise((res) => {
+            db.all(
+              `SELECT substr(start_date, 1, 10) as act_date,
+                      SUM(distance_km) as total_distance,
+                      SUM(moving_time_min) as total_moving_time,
+                      COUNT(id) as act_count
+               FROM activities
+               WHERE user_id = ?
+               GROUP BY substr(start_date, 1, 10)
+               HAVING (
+                 SUM(CASE WHEN sport_type = 'Ride' AND distance_km >= 75 THEN 1 ELSE 0 END) >= 1
+                 AND SUM(CASE WHEN sport_type = 'Run' AND distance_km >= 15 THEN 1 ELSE 0 END) >= 1
+               )
+               ORDER BY act_date DESC`,
+              [userId],
+              (errBrick, bRows) => res(bRows || [])
+            );
+          });
+
+          for (const row of sameDayTriathlonRows) {
+            const key = `half_ironman_day_${row.act_date}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Half Ironman Conqueror`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
+                [userId, row.act_date],
+                `The athlete completed a full Half Ironman (70.3) distance on ${row.act_date} (${parseFloat(row.total_distance).toFixed(1)}km total across disciplines)!`
+              );
+            }
+          }
+
+          // 6. Full Ironman / 140.6 Milestone
+          const fullIronmanRows = await new Promise((res) => {
+            db.all(
+              `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
+               FROM activities
+               WHERE user_id = ?
+                 AND (
+                   lower(name) LIKE '%140.6%'
+                   OR (lower(name) LIKE '%ironman%' AND lower(name) NOT LIKE '%70.3%' AND lower(name) NOT LIKE '%half%')
+                   OR (sport_type = 'Ride' AND distance_km >= 170)
+                 )
+               ORDER BY start_date DESC`,
+              [userId],
+              (err5, rows) => res(rows || [])
+            );
+          });
+
+          for (const row of fullIronmanRows) {
+            const key = `full_ironman_${row.id}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Ironman Sovereign`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
+                [row.id],
+                `The athlete conquered an epic full Ironman (140.6) distance triathlon ("${row.name}")!`
+              );
+            }
+          }
+
+          // 7. Marathon Milestone (42.2k)
+          const marathonRows = await new Promise((res) => {
+            db.all(
+              `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
+               FROM activities
+               WHERE user_id = ? AND sport_type = 'Run'
+                 AND (distance_km >= 40.0 OR (lower(name) LIKE '%marathon%' AND lower(name) NOT LIKE '%half%'))
+               ORDER BY start_date DESC`,
+              [userId],
+              (err6, rows) => res(rows || [])
+            );
+          });
+
+          for (const row of marathonRows) {
+            const key = `marathon_${row.id}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Marathon Conqueror`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
+                [row.id],
+                `The athlete finished a grueling Marathon distance run ("${row.name}" - ${parseFloat(row.distance_km).toFixed(1)}km)!`
+              );
+            }
+          }
+
+          // 8. Century Ride Milestone (100km / 100mi)
+          const centuryRows = await new Promise((res) => {
+            db.all(
+              `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
+               FROM activities
+               WHERE user_id = ? AND sport_type = 'Ride' AND distance_km >= 95.0
+               ORDER BY start_date DESC`,
+              [userId],
+              (err7, rows) => res(rows || [])
+            );
+          });
+
+          for (const row of centuryRows) {
+            const key = `century_${row.id}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Century Crusher`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE id = ?`,
+                [row.id],
+                `The athlete conquered a Century ride ("${row.name}" - ${parseFloat(row.distance_km).toFixed(1)}km)!`
+              );
+            }
+          }
+
+          // 9. Single Day 3+ Hours Total Moving Time (>= 180 min across all activities on a single day)
+          const threeHourDayRows = await new Promise((res) => {
+            db.all(
+              `SELECT substr(start_date, 1, 10) as act_date,
+                      SUM(moving_time_min) as total_mins,
+                      SUM(distance_km) as total_km,
+                      COUNT(id) as act_count
+               FROM activities
+               WHERE user_id = ?
+               GROUP BY substr(start_date, 1, 10)
+               HAVING SUM(moving_time_min) >= 180
+               ORDER BY act_date DESC`,
+              [userId],
+              (err3h, rows) => res(rows || [])
+            );
+          });
+
+          for (const row of threeHourDayRows) {
+            const key = `session_3h_${row.act_date}`;
+            if (!awardedKeys.has(key)) {
+              awardedKeys.add(key);
+              const hoursVal = (row.total_mins / 60).toFixed(1);
+              await generateAndSaveMilestoneTitle(
+                userId,
+                key,
+                `Triple-Hour Engine (${hoursVal}h on ${row.act_date})`,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) = ?`,
+                [userId, row.act_date],
+                `The athlete logged a massive ${hoursVal} hours (${Math.round(row.total_mins)} minutes) of total moving time on ${row.act_date} across ${row.act_count} workout(s) (${parseFloat(row.total_km || 0).toFixed(1)}km total)!`
+              );
+            }
+          }
+
+          // 10. Goal Race Day Completed & Target Met (from milestones or users.target_event)
+          const raceGoals = await new Promise((res) => {
+            db.all(
+              `SELECT id, name, date, target_ctl, is_main, goal_type, target_mode, target_value
+               FROM milestones
+               WHERE user_id = ? AND (goal_type = 'race' OR goal_type IS NULL) AND date IS NOT NULL AND date != ''
+               ORDER BY date DESC`,
+              [userId],
+              (errM, mRows) => {
+                const list = mRows || [];
+                db.get(
+                  `SELECT target_event, event_date FROM users WHERE id = ? AND event_date IS NOT NULL AND event_date != ''`,
+                  [userId],
+                  (errU, uGoal) => {
+                    if (uGoal && uGoal.target_event && !list.some((m) => m.name === uGoal.target_event && m.date === uGoal.event_date)) {
+                      list.push({
+                        id: 'user_target_event',
+                        name: uGoal.target_event,
+                        date: uGoal.event_date,
+                        is_main: 1,
+                        goal_type: 'race',
+                        target_mode: 'finish',
+                        target_value: '',
+                      });
+                    }
+                    res(list);
+                  }
+                );
+              }
+            );
+          });
+
+          for (const goal of raceGoals) {
+            const raceDate = (goal.date || '').substring(0, 10);
+            if (!raceDate) continue;
+
+            const goalKey = `race_goal_${goal.id || 'race'}_${raceDate}`;
+            if (awardedKeys.has(goalKey)) continue;
+
+            // Fetch activities on that race day (+/- 1 day to account for timezones / weekend race logging)
+            const raceActivities = await new Promise((resActs) => {
+              db.all(
+                `SELECT id, name, sport_type, distance_km, moving_time_min, rooka_score, start_date
+                 FROM activities
+                 WHERE user_id = ?
+                   AND (
+                     substr(start_date, 1, 10) = ?
+                     OR substr(start_date, 1, 10) = date(?, '-1 day')
+                     OR substr(start_date, 1, 10) = date(?, '+1 day')
+                   )
+                 ORDER BY start_date ASC`,
+                [userId, raceDate, raceDate, raceDate],
+                (errA, aRows) => resActs(aRows || [])
+              );
+            });
+
+            if (raceActivities.length === 0) continue;
+
+            let totalMins = 0;
+            let totalKm = 0;
+            let maxKm = 0;
+            for (const a of raceActivities) {
+              totalMins += a.moving_time_min || 0;
+              totalKm += a.distance_km || 0;
+              if ((a.distance_km || 0) > maxKm) maxKm = a.distance_km || 0;
+            }
+
+            const targetMode = (goal.target_mode || 'finish').toLowerCase();
+            const targetVal = (goal.target_value || '').trim();
+            let targetMet = false;
+            let successReason = '';
+
+            const expectedKm = parseTargetDistanceKm(targetVal, goal.name);
+            const targetMins = parseTargetTimeToMinutes(targetVal, goal.name);
+
+            if (targetMode === 'time' && targetMins) {
+              const timeMet = totalMins <= (targetMins * 1.02);
+              const distanceFinished = !expectedKm || totalKm >= (expectedKm * 0.85) || maxKm >= (expectedKm * 0.85);
+
+              if (timeMet && distanceFinished) {
+                targetMet = true;
+                successReason = `Smashed the time goal of ${targetVal} with an official time of ${(totalMins / 60).toFixed(2)}h (${Math.round(totalMins)} min)!`;
+              } else if (distanceFinished && totalMins >= 20) {
+                targetMet = true;
+                successReason = `Conquered the race distance (${totalKm.toFixed(1)}km in ${(totalMins / 60).toFixed(2)}h), completing goal event "${goal.name}"!`;
+              }
+            } else if (targetMode === 'distance' && expectedKm) {
+              if (totalKm >= (expectedKm * 0.85) || maxKm >= (expectedKm * 0.85)) {
+                targetMet = true;
+                successReason = `Hit the target distance with ${totalKm.toFixed(1)}km completed on race day!`;
+              }
+            } else {
+              // 'finish' target mode (or default)
+              if (expectedKm) {
+                if (totalKm >= (expectedKm * 0.80) || maxKm >= (expectedKm * 0.80) || totalMins >= 90) {
+                  targetMet = true;
+                  successReason = `Officially finished the race: ${totalKm.toFixed(1)}km completed in ${(totalMins / 60).toFixed(1)}h on race day!`;
+                }
+              } else if (totalMins >= 25 || totalKm >= 3.0) {
+                targetMet = true;
+                successReason = `Officially finished the scheduled goal race on ${raceDate} (${totalKm.toFixed(1)}km, ${Math.round(totalMins)} min)!`;
+              }
+            }
+
+            if (targetMet) {
+              awardedKeys.add(goalKey);
+              const fallbackTitle = targetMode === 'time' && targetMins && totalMins <= (targetMins * 1.02)
+                ? `${goal.name} Target Smasher`
+                : `${goal.name} Finisher`;
+
+              await generateAndSaveMilestoneTitle(
+                userId,
+                goalKey,
+                fallbackTitle,
+                `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date
+                 FROM activities
+                 WHERE user_id = ? AND (
+                   substr(start_date, 1, 10) = ?
+                   OR substr(start_date, 1, 10) = date(?, '-1 day')
+                   OR substr(start_date, 1, 10) = date(?, '+1 day')
+                 )`,
+                [userId, raceDate, raceDate, raceDate],
+                `The athlete accomplished their official scheduled goal race "${goal.name}" on ${raceDate}! Target: ${targetVal || 'Finish the race'}. Result: ${successReason}`
+              );
+            }
+          }
+
+          // 11. Standard "Rooka+ Athlete" title if user has no titles yet
+          const realMilestones = Array.from(awardedKeys).filter((k) => k !== 'default_rooka_plus');
+          if (realMilestones.length === 0 && !awardedKeys.has('default_rooka_plus')) {
+            await new Promise((resDef) => {
+              db.run(
+                `INSERT OR IGNORE INTO user_titles (user_id, title, description, is_active, milestone_key) VALUES (?, ?, ?, 1, 'default_rooka_plus')`,
+                [userId, 'Rooka+ Athlete', 'Official member of the Rooka+ endurance squad.'],
+                () => resDef()
+              );
+            });
+            awardedKeys.add('default_rooka_plus');
+          }
+
+          resolve();
+        }
+      );
+    });
   });
 }
 
@@ -1884,10 +2283,16 @@ Please respond using this JSON schema:
 
         // Check if user has an active title
         db.get(
-          `SELECT COUNT(*) as active_count FROM user_titles WHERE user_id = ? AND is_active = 1`,
+          `SELECT id, milestone_key FROM user_titles WHERE user_id = ? AND is_active = 1 LIMIT 1`,
           [userId],
-          (errCount, countRow) => {
-            const shouldBeActive = !errCount && countRow && countRow.active_count === 0 ? 1 : 0;
+          (errActive, activeRow) => {
+            // If no active title or only default Rooka+ Athlete is active, equip this new earned title
+            const isDefaultActive = activeRow?.milestone_key === 'default_rooka_plus';
+            const shouldBeActive = !activeRow || isDefaultActive ? 1 : 0;
+
+            if (isDefaultActive && activeRow?.id) {
+              db.run(`UPDATE user_titles SET is_active = 0 WHERE id = ?`, [activeRow.id]);
+            }
 
             db.run(
               `INSERT INTO user_titles (user_id, title, description, is_active, milestone_key) VALUES (?, ?, ?, ?, ?)`,

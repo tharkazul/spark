@@ -257,7 +257,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
 
               {/* Connection Status / Action Button (Only show if NOT viewing self) */}
               {!isSelf && (
-                <View className="mt-4 pt-3 border-t border-theme-border/40 flex-row items-center justify-between">
+                <View className="mt-4 pt-3 border border-theme-border/40 flex-row items-center justify-between">
                   <Text className="text-xs font-bold text-theme-muted">
                     {profile.connectionStatus === 'accepted'
                       ? 'Connected Friends'
@@ -381,7 +381,7 @@ export const AthleteProfileModal: React.FC<AthleteProfileModalProps> = ({
                 <>
                   <AthleteRadarChart data={archetype} size={260} />
                   {archetype.description ? (
-                    <View className="mt-3 pt-3 border-t border-theme-border/40">
+                    <View className="mt-3 pt-3 border border-theme-border/40">
                       <Text className="text-xs text-theme-muted text-center leading-relaxed">
                         {archetype.description}
                       </Text>

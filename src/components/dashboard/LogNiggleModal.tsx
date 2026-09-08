@@ -241,7 +241,7 @@ export function LogNiggleModal({
                 paddingBottom: Math.max(insets.bottom, 20),
               },
             ]}
-            className="w-full bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col max-h-[85%]"
+            className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col max-h-[90%]"
           >
             {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
             <View {...panHandlers} className="items-center pb-3 pt-1">
@@ -398,7 +398,7 @@ export function LogNiggleModal({
             </ScrollView>
 
             {/* Pinned Action Buttons at Bottom */}
-            <View className="flex-row gap-3 pt-3 border-t border-theme-border/30">
+            <View className="flex-row gap-3 pt-3 border border-theme-border/30">
               <View className="flex-1">
                 <Button label="Cancel" variant="outline" onPress={onClose} />
               </View>

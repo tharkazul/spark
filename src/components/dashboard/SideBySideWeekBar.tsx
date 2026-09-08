@@ -133,7 +133,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
               </View>
 
               {/* rooka points or Completion Check */}
-              <View className="items-center justify-center pt-1 pb-1 border-t border-theme-border/40 w-full h-[24px]">
+              <View className="items-center justify-center pt-1 pb-1 border border-theme-border/40 w-full h-[24px]">
                 {hasWorkouts && day.workouts.every((w) => w.isCompleted) ? (
                   <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                 ) : totalRooka > 0 ? (

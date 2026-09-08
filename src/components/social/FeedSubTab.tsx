@@ -305,7 +305,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                     <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
                   </View>
 
-                  <View className="flex-row items-center gap-x-4 pt-1.5 border-t border-theme-border/50">
+                  <View className="flex-row items-center gap-x-4 pt-1.5 border border-theme-border/50">
                     {typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 && (
                       <View>
                         <Text className="text-xs text-theme-muted font-bold uppercase">Distance</Text>

@@ -155,7 +155,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
           <>
             <AthleteRadarChart data={activeArchetypeData} size={260} />
             {activeArchetypeData.description ? (
-              <View className="mt-3 pt-3 border-t border-theme-border/40">
+              <View className="mt-3 pt-3 border border-theme-border/40">
                 <Text className="text-xs text-theme-muted text-center leading-relaxed">
                   {activeArchetypeData.description}
                 </Text>
@@ -296,7 +296,6 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         visible={isQuestModalOpen}
         onClose={() => setIsQuestModalOpen(false)}
         showHandle
-        contentClassName="bg-theme-card rounded-t-card px-6 pt-3 pb-6 border-t border-theme-border/50 max-h-[80%]"
       >
         <View className="flex-row items-center justify-between mb-4">
           <View className="flex-row items-center gap-3">

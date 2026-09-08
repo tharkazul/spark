@@ -527,8 +527,9 @@ export default function ProfileScreen() {
               <Animated.View
                 style={{
                   transform: [{ translateY: garminSlideAnim }],
+                  paddingBottom: Math.max(insets.bottom, 24),
                 }}
-                className="w-full bg-theme-bg px-6 pt-3 pb-6 rounded-t-card border-t border-theme-border"
+                className="bg-theme-bg px-6 pt-3 rounded-t-[32px] rounded-b-none border-t border-theme-border shadow-2xl"
               >
                 {/* TOP PULL HANDLE INDICATOR */}
                 <View className="items-center pb-4">

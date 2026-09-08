@@ -5,22 +5,22 @@ const db = require("./db");
 const geminiConfigs = [
   {
     name: "Primary (Key 1)",
-    model: "gemini-3.5-flash",
+    model: "gemini-3.8-flash",
     apiKey: process.env.GEMINI_API_KEY, // Your main key
   },
   {
     name: "Primary (Key 2)",
-    model: "gemini-3.5-flash",
+    model: "gemini-3.8-flash",
     apiKey: process.env.GEMINI_API_KEY2 || process.env.GEMINI_API_KEY,
   },
   {
     name: "Backup (Key 1)",
-    model: "gemini-2.5-flash",
+    model: "gemini-3.5-flash",
     apiKey: process.env.GEMINI_API_KEY_BACKUP || process.env.GEMINI_API_KEY, // Uses backup key if it exists, otherwise re-uses the main one
   },
   {
     name: "Backup (Key 2)",
-    model: "gemini-2.5-flash",
+    model: "gemini-3.5-flash",
     apiKey: process.env.GEMINI_API_KEY2 || process.env.GEMINI_API_KEY_BACKUP || process.env.GEMINI_API_KEY,
   },
   {
@@ -94,7 +94,7 @@ function withAttemptTimeout(promise, controller, label) {
     timer = setTimeout(() => {
       try {
         controller.abort();
-      } catch (_) {}
+      } catch (_) { }
       reject(new Error(`timed out after ${AI_ATTEMPT_TIMEOUT_MS}ms`));
     }, AI_ATTEMPT_TIMEOUT_MS);
   });
@@ -145,9 +145,9 @@ async function generateWithFallback(
       if (chatHistory) {
         // If history is provided, use the Chat interface
         const chat = ai.chats.create({
-            model: config.model,
-            config: genConfig,
-            history: chatHistory
+          model: config.model,
+          config: genConfig,
+          history: chatHistory
         });
         result = await withAttemptTimeout(
           chat.sendMessage({ message: promptContent }),

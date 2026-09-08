@@ -17,6 +17,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
@@ -68,6 +69,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   onOpenAthleteProfile,
 }) => {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(visible);
   const [searchQuery, setSearchQuery] = useState('');
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -275,9 +277,10 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             style={[
               {
                 transform: [{ translateY: Animated.add(slideAnim, dragY) }],
+                paddingBottom: Math.max(insets.bottom, 20),
               },
             ]}
-            className="w-full bg-theme-card border-t border-theme-border rounded-t-card px-5 pt-3 pb-5 max-h-[85%] min-h-[460px]"
+            className="bg-theme-card border-t border-theme-border rounded-t-[32px] rounded-b-none px-5 pt-3 max-h-[90%] min-h-[460px]"
           >
             {/* TOP PULL HANDLE INDICATOR */}
             <View {...panHandlers} className="items-center pb-4 pt-1">

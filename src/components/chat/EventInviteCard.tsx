@@ -77,7 +77,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
       ) : null}
 
       {status === 'pending' ? (
-        <View className="flex-row items-center gap-2 pt-2 border-t border-theme-border/60">
+        <View className="flex-row items-center gap-2 pt-2 border border-theme-border/60">
           <TouchableOpacity
             onPress={handleAccept}
             disabled={loading !== null}
@@ -111,7 +111,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
           </TouchableOpacity>
         </View>
       ) : (
-        <View className="pt-2 border-t border-theme-border/60 flex-row items-center gap-2">
+        <View className="pt-2 border border-theme-border/60 flex-row items-center gap-2">
           <View
             className={`px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 ${
               status === 'accepted' ? 'bg-semantic-success/15' : 'bg-semantic-error/15'

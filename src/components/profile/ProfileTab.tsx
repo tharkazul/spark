@@ -112,10 +112,16 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const handleEquipTitle = async (id: number | string) => {
     try {
       setTitles((prev) =>
-        prev.map((t) => ({
-          ...t,
-          is_equipped: t.id === id ? (t.is_equipped ? 0 : 1) : 0,
-        }))
+        prev.map((t) => {
+          const isTarget = t.id === id;
+          const wasEquipped = Boolean(t.is_equipped || t.is_active);
+          const nextState = isTarget ? (wasEquipped ? 0 : 1) : 0;
+          return {
+            ...t,
+            is_equipped: nextState,
+            is_active: nextState,
+          };
+        })
       );
       await gamificationApi.equipTitle(id);
       await fetchTitles();
@@ -189,54 +195,89 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       <Text className="text-theme-muted font-bold text-xs mb-2 ml-1">
         Personal Titles & Accolades
       </Text>
-      {/* No internal header row: the section label above already says
-          "Personal Titles & Accolades", and the Language / Preferences cards
-          below carry no internal title either. This card was the only one
-          repeating its own section name. */}
-      <Card className="p-4 mb-6">
-        {loadingTitles ? (
-          <Text className="text-theme-muted text-xs italic text-center py-2">Loading titles...</Text>
-        ) : titles.length === 0 ? (
-          <View className="py-4 items-center justify-center">
-            <Ionicons name="ribbon-outline" size={24} color={theme.textSecondary} style={{ marginBottom: 6 }} />
-            <Text className="text-theme-muted text-xs italic text-center">
-              No titles earned yet
+      {!isPaidTier ? (
+        <Card className="p-5 mb-6 items-center text-center">
+          <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center mb-2.5">
+            <Ionicons name="ribbon-outline" size={20} color={theme.tint} />
+          </View>
+          <View className="flex-row items-center gap-x-1.5 mb-1">
+            <RookaMark size={14} color={theme.tint} />
+            <Text className="text-theme-text font-bold text-sm">
+              Rooka+ Exclusive
             </Text>
           </View>
-        ) : (
-          <View className="gap-y-2">
-            {titles.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => handleEquipTitle(item.id)}
-                className={`flex-row items-center justify-between p-3 rounded-xl mb-1.5 ${
-                  item.is_equipped
-                    ? 'bg-theme-accent/15 border border-theme-accent/40'
-                    : 'bg-theme-bg'
-                }`}
-              >
-                <View className="flex-row items-center gap-x-2">
-                  <Ionicons
-                    name={item.is_equipped ? 'ribbon' : 'ribbon-outline'}
-                    size={18}
-                    color={item.is_equipped ? BrandColors.primary : '#8E9BA4'}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text className="text-theme-text font-bold text-sm">{item.title_name}</Text>
-                </View>
-
-                {item.is_equipped ? (
-                  <View className="px-2.5 py-1 bg-theme-accent rounded-full">
-                    <Text className="text-white text-xs font-bold">Equipped</Text>
-                  </View>
-                ) : (
-                  <Text className="text-theme-muted text-xs font-semibold">Tap to Equip</Text>
-                )}
-              </TouchableOpacity>
-            ))}
+          <Text className="text-theme-muted text-xs text-center px-4 mb-3">
+            Earn custom athletic titles and accolades based on your races and endurance milestones.
+          </Text>
+          <View className="px-3 py-1 bg-theme-accent/10 rounded-full">
+            <Text className="text-theme-accent text-xs font-bold">Included with Rooka+</Text>
           </View>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <Card className="p-4 mb-6">
+          {loadingTitles ? (
+            <Text className="text-theme-muted text-xs italic text-center py-2">Loading titles...</Text>
+          ) : (
+            <View className="gap-y-2">
+              {(titles.length > 0
+                ? titles
+                : [
+                    {
+                      id: 'default_rooka_plus',
+                      title: 'Rooka+ Athlete',
+                      title_name: 'Rooka+ Athlete',
+                      description: 'Official member of the Rooka+ endurance squad.',
+                      is_equipped: 1,
+                      is_active: 1,
+                    },
+                  ]
+              ).map((item) => {
+                const titleName = item.title_name || item.title || 'Rooka+ Athlete';
+                const isEquipped = Boolean(item.is_equipped || item.is_active);
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => handleEquipTitle(item.id)}
+                    activeOpacity={0.7}
+                    className={`flex-row items-center justify-between p-3 rounded-xl mb-1.5 ${
+                      isEquipped
+                        ? 'bg-theme-accent/15 border border-theme-accent/40'
+                        : 'bg-theme-bg'
+                    }`}
+                  >
+                    <View className="flex-row items-center gap-x-2.5 flex-1 mr-2">
+                      <Ionicons
+                        name={isEquipped ? 'ribbon' : 'ribbon-outline'}
+                        size={18}
+                        color={isEquipped ? BrandColors.primary : '#8E9BA4'}
+                      />
+                      <View className="flex-1">
+                        <Text className="text-theme-text font-bold text-sm" numberOfLines={1}>
+                          {titleName}
+                        </Text>
+                        {item.description ? (
+                          <Text className="text-theme-muted text-[11px] mt-0.5" numberOfLines={2}>
+                            {item.description}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+
+                    {isEquipped ? (
+                      <View className="px-2.5 py-1 bg-theme-accent rounded-full">
+                        <Text className="text-white text-xs font-bold">Equipped</Text>
+                      </View>
+                    ) : (
+                      <Text className="text-theme-muted text-xs font-semibold">Tap to Equip</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </Card>
+      )}
 
       {/* LANGUAGE SETTINGS */}
       <Text className="text-theme-muted font-bold text-xs mb-2 ml-1">

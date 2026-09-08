@@ -397,7 +397,7 @@ const StepCardComponent = ({
 
                   {/* Sub-Selection: Zone Pills or Exact Values */}
                   {isZoneTarget && (
-                    <View className="flex-col gap-1.5 pt-1.5 border-t border-theme-border/60 dark:border-theme-border/40">
+                    <View className="flex-col gap-1.5 pt-1.5 border border-theme-border/60 dark:border-theme-border/40">
                       <Text className="text-xs font-extrabold text-theme-muted">
                         Select Zone
                       </Text>
@@ -437,7 +437,7 @@ const StepCardComponent = ({
                   )}
 
                   {(isPaceExact || isExactPowerTarget || isWeightTarget) && (
-                    <View className="flex-col gap-1.5 pt-1.5 border-t border-theme-border/60 dark:border-theme-border/40">
+                    <View className="flex-col gap-1.5 pt-1.5 border border-theme-border/60 dark:border-theme-border/40">
                       <Text className="text-xs font-extrabold text-theme-muted">
                         {isWeightTarget ? 'Target Weight' : isExactPowerTarget ? 'Target Power' : 'Target Pace'}
                       </Text>

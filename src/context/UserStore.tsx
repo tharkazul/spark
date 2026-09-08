@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { UserProfile } from '../types/user';
 import { userApi, authApi } from '../services/apiServices';
 import { ApiError, setAuthToken, setOnUnauthorizedHandler, setOnRateLimitHandler } from '../services/apiClient';
-import { tokenStorage, chatStorage, briefingStorage } from '../services/storage';
+import { tokenStorage, chatStorage, briefingStorage, profileStorage } from '../services/storage';
 import { unregisterPushNotificationsAsync } from '../services/notificationService';
 import { wsService } from '../services/websocket';
 import { realtimeEngine } from '../realtime/realtimeEngine';
@@ -93,6 +93,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     wsService.disconnect();
     setAuthToken(null);
     await tokenStorage.removeToken();
+    await profileStorage.removeProfile();
     if (chatStorage.clearChatHistory) await chatStorage.clearChatHistory(currentUserId);
     if (briefingStorage.clearBriefing) await briefingStorage.clearBriefing();
     setUser(null);
@@ -123,8 +124,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       // actually authenticate is never written to storage.
       const profileData = await userApi.getProfile();
       await tokenStorage.setToken(res.token);
+      
+      const normalizedProfile = normalizeProfile(profileData);
+      await profileStorage.setProfile(normalizedProfile);
 
-      setUser(normalizeProfile(profileData));
+      setUser(normalizedProfile);
       setIsAuthenticated(true);
     } catch (err: any) {
       // Never fabricate a session. A fake token guarantees a 401 on the next
@@ -175,7 +179,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       const data = await userApi.getProfile();
       if (data) {
-        setUser((prev) => normalizeProfile(data, prev));
+        setUser((prev) => {
+          const newProfile = normalizeProfile(data, prev);
+          profileStorage.setProfile(newProfile).catch(() => {});
+          return newProfile;
+        });
       }
       setError(null);
     } catch (err: any) {
@@ -187,7 +195,13 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   }, []);
 
   const updateUser = React.useCallback(async (data: Partial<UserProfile>) => {
-    setUser((prev) => (prev ? { ...prev, ...data } : prev));
+    setUser((prev) => {
+      const newProfile = prev ? { ...prev, ...data } : prev;
+      if (newProfile) {
+        profileStorage.setProfile(newProfile).catch(() => {});
+      }
+      return newProfile;
+    });
     try {
       await userApi.updateSettings(data);
     } catch (err: any) {
@@ -208,6 +222,9 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     // down, flaky network) must leave the stored token alone, otherwise a
     // single failed request signs the user out for good.
     setOnUnauthorizedHandler((reason) => {
+      if (reason === 'NO_TOKEN' || reason === 'No token provided') {
+        return;
+      }
       const message =
         reason === 'ACCOUNT_DELETED'
           ? 'This account has been deleted.'
@@ -228,11 +245,18 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         }
 
         setAuthToken(storedToken);
+        
+        // Immediately load the cached profile to unblock the UI
+        const cachedProfile = await profileStorage.getProfile();
+        if (cachedProfile) {
+          setUser(cachedProfile);
+          setIsAuthenticated(true);
+          setLoading(false); // Unblock the layout router immediately!
+        }
 
         try {
           // A cold start can race the network coming up. Retry transient
-          // failures a couple of times before giving up, so a slow first
-          // request does not drop the user back onto the login screen.
+          // failures a couple of times before giving up.
           let profile: UserProfile | null = null;
           let lastErr: any = null;
           for (let attempt = 0; attempt < 3; attempt++) {
@@ -242,20 +266,21 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
               break;
             } catch (attemptErr: any) {
               lastErr = attemptErr;
-              // An outright rejection by the server is final — do not retry it.
               if (attemptErr instanceof ApiError) break;
               await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
             }
           }
           if (lastErr) throw lastErr;
-
-          setUser(normalizeProfile(profile));
-          setIsAuthenticated(true);
+          
+          const normalizedProfile = normalizeProfile(profile, cachedProfile);
+          await profileStorage.setProfile(normalizedProfile);
+          setUser(normalizedProfile);
+          if (!cachedProfile) {
+            setIsAuthenticated(true);
+          }
         } catch (err: any) {
           if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
             // Session really is dead (expired, or the account was deleted).
-            // The 401 interceptor has already run logout(); this is just the
-            // explicit, readable path.
             await logout(
               err.data?.code === 'ACCOUNT_DELETED'
                 ? 'This account has been deleted.'
@@ -264,12 +289,12 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
             return;
           }
 
-          // Could not reach the server. Keep the token so the next launch can
-          // restore the session, and stay signed out for now instead of
-          // inventing a profile with every integration reported as missing.
           console.log('Auth initialization deferred (server unreachable):', err?.message || err);
-          setAuthToken(null);
-          setError('Could not reach rooka. Check your connection and try again.');
+          // If we had no cached profile, we can't let them in.
+          if (!cachedProfile) {
+            setAuthToken(null);
+            setError('Could not reach rooka. Check your connection and try again.');
+          }
         }
       } catch (err) {
         console.log('Auth initialization failed:', err);

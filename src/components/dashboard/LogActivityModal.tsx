@@ -172,7 +172,7 @@ export function LogActivityModal({
                 paddingBottom: Math.max(insets.bottom, 24),
               },
             ]}
-            className="w-full bg-theme-card rounded-t-card px-6 pt-3 shadow-2xl flex-col"
+            className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col"
           >
             {/* TOP PULL HANDLE INDICATOR */}
             <View {...panHandlers} className="items-center pb-4 pt-1">

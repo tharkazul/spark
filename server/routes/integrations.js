@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+// In-memory cache for active Garmin client sessions to avoid repeat logins/rate limits
+const garminSessionCache = new Map();
 const db = require('../services/db');
 const fs = require('fs');
 const path = require('path');
@@ -155,10 +157,13 @@ router.post("/api/user/settings/garmin", authenticateToken, (req, res) => {
       .json({ error: "Username and password are required." });
   }
 
+  // Clear in-memory session if previously cached
+  garminSessionCache.delete(req.user.id);
+
   const encryptedPassword = encrypt(garminPassword);
 
   db.run(
-    `UPDATE users SET garmin_username = ?, garmin_password = ? WHERE id = ?`,
+    `UPDATE users SET garmin_username = ?, garmin_password = ?, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
     [garminUsername, encryptedPassword, req.user.id],
     function (err) {
       if (err)
@@ -523,9 +528,113 @@ router.post("/api/user/disconnect/strava", authenticateToken, (req, res) => {
 });
 
 
+/**
+ * Obtains an authenticated GarminConnect client instance for a user.
+ * Tries:
+ *  1. In-memory active session cache
+ *  2. Saved OAuth tokens (OAuth1 + OAuth2) from SQLite database (completely skips login page!)
+ *  3. Full login via username/password, and automatically persists tokens to DB
+ */
+async function getAuthenticatedGarminClient(user) {
+  const userId = user.id;
+
+  // 1. In-memory active session check
+  const cached = garminSessionCache.get(userId);
+  if (cached?.client) {
+    try {
+      await cached.client.client.checkTokenVaild();
+      cached.lastUsed = Date.now();
+      console.log("DEBUG: Using active in-memory Garmin session for user:", user.garmin_username);
+      return cached.client;
+    } catch (err) {
+      console.warn("Cached in-memory Garmin session invalid/expired:", err.message);
+      garminSessionCache.delete(userId);
+    }
+  }
+
+  // 2. Persistent tokens from database
+  if (user.garmin_oauth1_token && user.garmin_oauth2_token) {
+    try {
+      const oauth1 = JSON.parse(decrypt(user.garmin_oauth1_token));
+      const oauth2 = JSON.parse(decrypt(user.garmin_oauth2_token));
+
+      if (oauth1 && oauth2) {
+        console.log("DEBUG: Loading stored Garmin OAuth tokens from database for user:", user.garmin_username);
+        const decryptedPassword = decrypt(user.garmin_password);
+        const GCClient = new GarminConnect({
+          username: user.garmin_username,
+          password: decryptedPassword,
+        });
+
+        GCClient.loadToken(oauth1, oauth2);
+
+        // checkTokenVaild() automatically refreshes oauth2 using oauth1 if expired
+        await GCClient.client.checkTokenVaild();
+
+        // If tokens were refreshed, save updated tokens to DB
+        try {
+          const updatedTokens = GCClient.exportToken();
+          if (updatedTokens?.oauth1 && updatedTokens?.oauth2) {
+            const enc1 = encrypt(JSON.stringify(updatedTokens.oauth1));
+            const enc2 = encrypt(JSON.stringify(updatedTokens.oauth2));
+            db.run(
+              `UPDATE users SET garmin_oauth1_token = ?, garmin_oauth2_token = ? WHERE id = ?`,
+              [enc1, enc2, userId]
+            );
+          }
+        } catch (exportErr) {
+          console.warn("Could not export refreshed Garmin tokens:", exportErr.message);
+        }
+
+        garminSessionCache.set(userId, { client: GCClient, lastUsed: Date.now() });
+        return GCClient;
+      }
+    } catch (tokenErr) {
+      console.warn("Stored Garmin OAuth tokens invalid or refresh failed, falling back to full login:", tokenErr.message);
+    }
+  }
+
+  // 3. Fallback: Full login
+  const decryptedPassword = decrypt(user.garmin_password);
+  if (!decryptedPassword) {
+    throw new Error("Unable to decrypt Garmin password");
+  }
+
+  const GCClient = new GarminConnect({
+    username: user.garmin_username,
+    password: decryptedPassword,
+  });
+
+  console.log("DEBUG: Attempting full Garmin login for user:", user.garmin_username);
+  await GCClient.login(user.garmin_username, decryptedPassword);
+
+  // Successfully logged in: export tokens and persist to SQLite database
+  try {
+    const tokens = GCClient.exportToken();
+    if (tokens?.oauth1 && tokens?.oauth2) {
+      const enc1 = encrypt(JSON.stringify(tokens.oauth1));
+      const enc2 = encrypt(JSON.stringify(tokens.oauth2));
+      db.run(
+        `UPDATE users SET garmin_oauth1_token = ?, garmin_oauth2_token = ? WHERE id = ?`,
+        [enc1, enc2, userId],
+        (err) => {
+          if (err) console.error("Error storing Garmin OAuth tokens:", err);
+          else console.log("DEBUG: Garmin OAuth tokens successfully stored in database for user:", user.garmin_username);
+        }
+      );
+    }
+  } catch (exportErr) {
+    console.warn("Could not export Garmin OAuth tokens after login:", exportErr.message);
+  }
+
+  garminSessionCache.set(userId, { client: GCClient, lastUsed: Date.now() });
+  return GCClient;
+}
+
 router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
+  garminSessionCache.delete(req.user.id);
   db.run(
-    `UPDATE users SET garmin_username = NULL, garmin_password = NULL WHERE id = ?`,
+    `UPDATE users SET garmin_username = NULL, garmin_password = NULL, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
     [req.user.id],
     (err) => {
       if (err)
@@ -546,41 +655,58 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT garmin_username, garmin_password FROM users WHERE id = ?`,
+        `SELECT id, garmin_username, garmin_password, garmin_oauth1_token, garmin_oauth2_token FROM users WHERE id = ?`,
         [req.user.id],
         (err, row) => {
-          if (err || !row) reject(new Error("User credentials not found"));
-          else resolve(row);
+          if (err || !row || !row.garmin_username || !row.garmin_password) {
+            reject(new Error("User Garmin credentials not found. Please connect your Garmin account first."));
+          } else {
+            resolve(row);
+          }
         },
       );
     });
 
-    const decryptedPassword = decrypt(user.garmin_password);
-    const GCClient = new GarminConnect({
-      username: user.garmin_username,
-      password: decryptedPassword,
-    });
-
-    console.log("DEBUG: Attempting login for user:", user.garmin_username);
-    await GCClient.login(user.garmin_username, decryptedPassword);
+    const GCClient = await getAuthenticatedGarminClient(user);
     const client = GCClient.client || GCClient.http;
     if (!client) throw new Error("Garmin client initialization failed.");
 
-    const todayStr = getAMSDateString();
-    const workouts = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
-        [req.user.id, todayStr],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows || []);
-        },
-      );
-    });
+    let workoutsToSync = [];
 
-    const workoutsToSync = workouts.filter((w) =>
-      selectedWorkouts.some((sw) => sw.date === w.date && sw.sport === w.sport),
-    );
+    // Case 1: Client explicitly sent specific workout(s) with steps/title (e.g. from AddWorkoutModal)
+    if (selectedWorkouts && selectedWorkouts.length > 0 && selectedWorkouts.some(sw => sw.steps || sw.title)) {
+      console.log(`DEBUG: Syncing ${selectedWorkouts.length} explicit workout(s) from client payload`);
+      workoutsToSync = selectedWorkouts.map(sw => ({
+        date: sw.date,
+        sport: sw.sport,
+        title: sw.title,
+        description: sw.description || sw.title,
+        target_rooka: sw.rookaPoints || sw.target_rooka || 50,
+        steps: Array.isArray(sw.steps) ? sw.steps : [],
+        steps_json: Array.isArray(sw.steps) ? JSON.stringify(sw.steps) : (sw.steps_json || "[]")
+      }));
+    } else {
+      // Case 2: Client sent date/sport filter, or sent nothing (sync upcoming micro plan workouts from DB)
+      const todayStr = getAMSDateString();
+      const dbWorkouts = await new Promise((resolve, reject) => {
+        db.all(
+          `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
+          [req.user.id, todayStr],
+          (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          },
+        );
+      });
+
+      if (selectedWorkouts && selectedWorkouts.length > 0) {
+        workoutsToSync = dbWorkouts.filter((w) =>
+          selectedWorkouts.some((sw) => sw.date === w.date && sw.sport === w.sport),
+        );
+      } else {
+        workoutsToSync = dbWorkouts;
+      }
+    }
 
     if (workoutsToSync.length === 0)
       return res
@@ -594,10 +720,14 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
 
       const sportDef = SPORT_MAP[workout.sport];
       let stepsArray = [];
-      try {
-        stepsArray = JSON.parse(workout.steps_json);
-      } catch (e) {
-        stepsArray = [];
+      if (Array.isArray(workout.steps) && workout.steps.length > 0) {
+        stepsArray = workout.steps;
+      } else {
+        try {
+          stepsArray = JSON.parse(workout.steps_json);
+        } catch (e) {
+          stepsArray = [];
+        }
       }
 
       if (stepsArray.length === 0) {
@@ -793,9 +923,10 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
         return stepDTO;
       });
 
+      const workoutTitle = workout.title || workout.description || `${workout.sport} Workout`;
       const wkt = {
-        workoutName: `Rooka: ${workout.sport}`,
-        description: workout.description,
+        workoutName: `Rooka: ${workoutTitle.slice(0, 40)}`,
+        description: workout.description || workoutTitle,
         sportType: sportDef,
         workoutSegments: [
           { segmentOrder: 1, sportType: sportDef, workoutSteps: garminSteps },
@@ -826,7 +957,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
           err.message,
         );
       }
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 2500));
     }
 
     res.json({
@@ -835,6 +966,19 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error("CRITICAL ERROR in sync-garmin:", err);
+    const isRateLimit =
+      err.message?.includes("429") ||
+      err.message?.includes("Rate limited") ||
+      err.response?.status === 429;
+
+    if (isRateLimit) {
+      return res.status(429).json({
+        error: "Garmin rate limit reached",
+        details:
+          "Garmin has temporarily throttled authentication attempts for this account/IP. Please wait 15–30 minutes before syncing again. Once connected, your OAuth session will be stored so future syncs do not re-authenticate.",
+      });
+    }
+
     return res
       .status(500)
       .json({ error: "Server sync failed", details: err.message });
