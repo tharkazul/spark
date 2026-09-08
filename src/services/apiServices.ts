@@ -344,6 +344,8 @@ export const socialApi = {
       method: 'POST',
       body: JSON.stringify({ micro_plan_id, invitee_ids, location, time }),
     }),
+  getEventInvites: (micro_plan_id: string | number) =>
+    apiClient<{ invites: { invitee_id: number; status: string }[] }>(`/api/social/invite/${micro_plan_id}`),
   searchUser: (username: string) =>
     apiClient<{
       found: boolean;

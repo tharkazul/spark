@@ -38,18 +38,31 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     }
   }, [visible]);
 
+  const [existingInvites, setExistingInvites] = useState<{ invitee_id: number; status: string }[]>([]);
+
   const loadConnections = async () => {
     setLoading(true);
     try {
-      const res = await socialApi.getConnections();
-      if (res && Array.isArray(res.connections)) {
-        setConnections(res.connections.filter((c: any) => c && c.status === 'accepted'));
+      const [connRes, invitesRes] = await Promise.all([
+        socialApi.getConnections(),
+        workout?.id && !String(workout.id).startsWith('w-') ? socialApi.getEventInvites(workout.id).catch(() => ({ invites: [] })) : Promise.resolve({ invites: [] })
+      ]);
+      
+      if (connRes && Array.isArray(connRes.connections)) {
+        setConnections(connRes.connections.filter((c: any) => c && c.status === 'accepted'));
       } else {
         setConnections([]);
+      }
+
+      if (invitesRes && Array.isArray(invitesRes.invites)) {
+        setExistingInvites(invitesRes.invites);
+      } else {
+        setExistingInvites([]);
       }
     } catch (e) {
       console.error("Failed to load connections:", e);
       setConnections([]);
+      setExistingInvites([]);
     } finally {
       setLoading(false);
     }
@@ -88,35 +101,36 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
   };
 
   const renderConnection = ({ item }: { item: SocialConnection }) => {
+    const existingInvite = existingInvites.find(i => i.invitee_id === item.friend_id);
     const isSelected = selectedIds.has(item.friend_id);
     
-    return (
-      <TouchableOpacity
-        onPress={() => toggleSelection(item.friend_id)}
-        activeOpacity={0.75}
-        className={`flex-row items-center p-3.5 mb-2.5 rounded-2xl border ${
-          isSelected
-            ? 'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10'
-            : 'border-slate-200 dark:border-theme-border/50 bg-slate-50/60 dark:bg-theme-bg'
-        }`}
-      >
-        {item.profile_picture_url ? (
-          <Image
-            source={{ uri: getFullProfilePhotoUrl(item.profile_picture_url) || undefined }}
-            className="w-10 h-10 rounded-full mr-3"
-          />
-        ) : (
-          <View className="w-10 h-10 rounded-full bg-emerald-500/15 items-center justify-center">
-            <Text className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-              {item.username.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-
-        <View className="flex-1 ml-3">
-          <Text className="text-slate-900 dark:text-theme-text font-bold text-base">{item.username}</Text>
-        </View>
-
+    const renderStatus = () => {
+      if (existingInvite) {
+        if (existingInvite.status === 'accepted') {
+           return (
+             <View className="flex-row items-center bg-[#10B981]/15 px-3 py-1 rounded-full">
+               <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+               <Text className="text-[#10B981] font-bold text-xs ml-1">Accepted</Text>
+             </View>
+           );
+        } else if (existingInvite.status === 'declined' || existingInvite.status === 'rejected') {
+           return (
+             <View className="flex-row items-center bg-red-500/15 px-3 py-1 rounded-full">
+               <Ionicons name="close-circle" size={16} color="#EF4444" />
+               <Text className="text-red-500 font-bold text-xs ml-1">Declined</Text>
+             </View>
+           );
+        } else {
+           return (
+             <View className="flex-row items-center bg-slate-500/15 px-3 py-1 rounded-full">
+               <Ionicons name="time" size={16} color="#64748b" />
+               <Text className="text-slate-500 font-bold text-xs ml-1">Pending</Text>
+             </View>
+           );
+        }
+      }
+      
+      return (
         <View
           className={`w-6 h-6 rounded-full border items-center justify-center ${
             isSelected
@@ -126,6 +140,42 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
         >
           {isSelected && <Ionicons name="checkmark" size={15} color="#FFFFFF" />}
         </View>
+      );
+    };
+
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          if (!existingInvite) toggleSelection(item.friend_id);
+        }}
+        disabled={!!existingInvite}
+        activeOpacity={0.75}
+        className={`flex-row items-center p-3.5 mb-2.5 rounded-2xl border ${
+          isSelected
+            ? 'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10'
+            : existingInvite
+            ? 'border-slate-100 dark:border-theme-border/30 bg-slate-50/40 dark:bg-theme-bg/50 opacity-80'
+            : 'border-slate-200 dark:border-theme-border/50 bg-slate-50/60 dark:bg-theme-bg'
+        }`}
+      >
+        {item.profile_picture_url ? (
+          <Image
+            source={{ uri: getFullProfilePhotoUrl(item.profile_picture_url) || undefined }}
+            className="w-10 h-10 rounded-full mr-3"
+          />
+        ) : (
+          <View className="w-10 h-10 rounded-full bg-emerald-500/15 items-center justify-center mr-3">
+            <Text className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+              {item.username.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        <View className="flex-1 ml-1">
+          <Text className="text-slate-900 dark:text-theme-text font-bold text-base">{item.username}</Text>
+        </View>
+
+        {renderStatus()}
       </TouchableOpacity>
     );
   };
