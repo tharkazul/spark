@@ -20,6 +20,7 @@ import {
   presentPaywallIfNeeded as rcPresentPaywallIfNeeded,
   presentCustomerCenter as rcPresentCustomerCenter,
   presentCodeRedemptionSheet as rcPresentCodeRedemptionSheet,
+  syncSubscriptionWithBackend,
   ROOKA_ENTITLEMENT_ID,
 } from '../services/subscriptionService';
 
@@ -75,6 +76,11 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
         setCustomerInfo(info);
         setCurrentOffering(offering);
         setLoading(false);
+        if (hasRookaEntitlement(info)) {
+          syncSubscriptionWithBackend(true).then(() => {
+            refreshUser?.();
+          });
+        }
       }
 
       // Add real-time listener for purchases/renewals/cancellations
@@ -82,8 +88,10 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
         if (!isMounted) return;
         setCustomerInfo(updatedInfo);
         const active = hasRookaEntitlement(updatedInfo);
-        if (active && user?.subscription_tier === 'free') {
-          refreshUser?.();
+        if (active) {
+          syncSubscriptionWithBackend(true).then(() => {
+            refreshUser?.();
+          });
         }
       };
 
@@ -151,6 +159,7 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
         Alert.alert('Subscription', res.error);
       }
       if (res.success) {
+        await syncSubscriptionWithBackend(true);
         await refreshUser?.();
       }
       return res.success;
@@ -169,6 +178,7 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
       Alert.alert('Restore Purchases', res.error);
     } else if (res.success) {
       Alert.alert('Success', 'Your subscriptions have been restored.');
+      await syncSubscriptionWithBackend(true);
       await refreshUser?.();
     } else {
       Alert.alert('Restore Purchases', 'No active subscription was found for this account.');
@@ -179,6 +189,7 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
   const presentPaywall = useCallback(async (): Promise<PAYWALL_RESULT> => {
     const result = await rcPresentPaywall();
     if (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED) {
+      await syncSubscriptionWithBackend(true);
       await refreshSubscription();
       await refreshUser?.();
     }

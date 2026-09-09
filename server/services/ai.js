@@ -5,12 +5,12 @@ const db = require("./db");
 const geminiConfigs = [
   {
     name: "Primary (Key 1)",
-    model: "gemini-3.8-flash",
+    model: "gemini-3.6-flash",
     apiKey: process.env.GEMINI_API_KEY, // Your main key
   },
   {
     name: "Primary (Key 2)",
-    model: "gemini-3.8-flash",
+    model: "gemini-3.6-flash",
     apiKey: process.env.GEMINI_API_KEY2 || process.env.GEMINI_API_KEY,
   },
   {

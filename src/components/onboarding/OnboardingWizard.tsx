@@ -45,6 +45,7 @@ import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { MarkdownText } from '../chat/MarkdownText';
 import { DurationRoller } from '../ui/DurationRoller';
 import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
+import { calculateTargetCTL } from '../profile/GoalsTab';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -132,7 +133,7 @@ export default function OnboardingWizard() {
     const theme = useTheme();
 
   const { user, refreshUser, updateUser } = useUser();
-  const { packages, purchasePackage } = useSubscription();
+  const { packages, purchasePackage, refreshSubscription } = useSubscription();
   const { t, language, setLanguage } = useLanguage();
 
   // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Gender, 4 = Context/Event, 5 = Schedule, 6 = Integrations, 7 = Paywall)
@@ -351,15 +352,37 @@ export default function OnboardingWizard() {
       }
     }
   }, [user?.garmin_connected]);
+  const [goalType, setGoalType] = useState<'race' | 'physiological'>('race');
   const [raceName, setRaceName] = useState(user?.target_event || '');
   const [raceDate, setRaceDate] = useState(() => {
     const existing = user?.event_date || '';
     return isPastDateString(existing) ? '' : existing;
   });
+  const [targetMode, setTargetMode] = useState<'finish' | 'time'>('finish');
+  const [targetValue, setTargetValue] = useState('');
+  const [targetWeight, setTargetWeight] = useState('');
   const [targetCtl, setTargetCtl] = useState(user?.target_ctl?.toString() || '75');
   // Age drives max HR (220 - age) and therefore the whole heart-rate zone
   // table, which is what every rooka score is now weighted by.
   const [age, setAge] = useState('');
+
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return t('onboarding.raceDatePlaceholder') || 'Select Date';
+    try {
+      const parts = dateStr.split('-').map(Number);
+      if (parts.length === 3) {
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        const loc = language === 'nl' ? 'nl-NL' : language === 'de' ? 'de-DE' : language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US';
+        return d.toLocaleDateString(loc, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      }
+    } catch (e) {}
+    return dateStr;
+  };
 
   // The three-column month/day/year roller that used to live here has been
   // replaced by the Goals sheet (year stepper, month grid, day strip, quick
@@ -385,27 +408,9 @@ export default function OnboardingWizard() {
       return;
     }
     raceDebounceRef.current = setTimeout(() => {
-      const lower = text.toLowerCase();
-      let estimated = 70;
-      if (lower.includes('ironman') || lower.includes('140.6')) {
-        estimated = 115;
-      } else if (lower.includes('70.3') || lower.includes('half ironman')) {
-        estimated = 90;
-      } else if (lower.includes('marathon') || lower.includes('42k')) {
-        estimated = 85;
-      } else if (lower.includes('half marathon') || lower.includes('21k')) {
-        estimated = 65;
-      } else if (lower.includes('olympic') || lower.includes('triathlon')) {
-        estimated = 75;
-      } else if (lower.includes('hyrox')) {
-        estimated = 80;
-      } else if (lower.includes('10k')) {
-        estimated = 45;
-      } else if (lower.includes('5k')) {
-        estimated = 35;
-      }
+      const estimated = calculateTargetCTL(text);
       setTargetCtl(estimated.toString());
-    }, 700);
+    }, 500);
   };
 
   const handleAthleteContextChange = (text: string) => {
@@ -625,11 +630,28 @@ export default function OnboardingWizard() {
   const handleConfirmContextAndEvent = () => {
     if (isStreamingMessage) return;
 
+    const eventDesc =
+      goalType === 'race'
+        ? raceName
+          ? targetMode === 'time' && targetValue
+            ? `${raceName} (${targetValue})`
+            : raceName
+          : ''
+        : raceName
+          ? targetWeight
+            ? `${raceName} (${targetWeight} kg)`
+            : raceName
+          : targetWeight
+            ? `Target Weight: ${targetWeight} kg`
+            : 'Physiological Goal';
+
     if (currentStep === 4) {
       setCurrentStep(5);
       const feedback = coachReaction || t('onboarding.contextFeedbackDefault');
       appendCoachPromptAndCard(
-        raceName ? t('onboarding.contextUserEvent', { name: raceName, date: raceDate || 'TBD' }) : t('onboarding.contextUserBackground'),
+        eventDesc
+          ? t('onboarding.contextUserEvent', { name: eventDesc, date: raceDate || 'TBD' })
+          : t('onboarding.contextUserBackground'),
         `${feedback} ${t('onboarding.schedulePrompt')}`,
         'card_schedule',
         { type: 'card_context_event', key: 'completed', val: true }
@@ -639,7 +661,9 @@ export default function OnboardingWizard() {
         prev.map((item) => (item.type === 'card_context_event' ? { ...item, data: { completed: true } } : item))
       );
       appendCoachAckOnly(
-        raceName ? t('onboarding.contextUserEvent', { name: raceName, date: raceDate || 'TBD' }) : t('onboarding.contextUserBackground'),
+        eventDesc
+          ? t('onboarding.contextUserEvent', { name: eventDesc, date: raceDate || 'TBD' })
+          : t('onboarding.contextUserBackground'),
         t('onboarding.contextFeedbackDefault')
       );
     }
@@ -828,17 +852,44 @@ export default function OnboardingWizard() {
 
   const handleCompleteSetup = async (isTrial: boolean) => {
     setIsSubmitting(true);
+    let subscribedToPlus = false;
+
     try {
-      // If user chooses trial/subscription, prompt RevenueCat Apple in-app purchase
-      if (isTrial) {
-        const targetPkg = selectedPlan === 'annual' ? packages.yearly : packages.monthly;
-        if (targetPkg && Platform.OS !== 'web') {
+      // If user chooses trial/subscription, prompt RevenueCat in-app purchase
+      if (isTrial && Platform.OS !== 'web') {
+        let targetPkg = selectedPlan === 'annual' ? packages.yearly : packages.monthly;
+
+        // If packages are not loaded yet, attempt a refresh
+        if (!targetPkg && refreshSubscription) {
+          try {
+            await refreshSubscription();
+            targetPkg = selectedPlan === 'annual' ? packages.yearly : packages.monthly;
+          } catch (_) {}
+        }
+
+        if (targetPkg) {
           const purchaseSuccess = await purchasePackage(targetPkg);
           if (!purchaseSuccess) {
-            // User cancelled or purchase failed
+            // User cancelled or purchase failed — keep them on the paywall screen without finalizing
             setIsSubmitting(false);
             return;
           }
+          subscribedToPlus = true;
+        } else {
+          // Packages could not be retrieved from RevenueCat / StoreKit
+          setIsSubmitting(false);
+          Alert.alert(
+            'Trial Unavailable',
+            'Unable to connect to the App Store subscription service to activate your trial. Would you like to retry, or continue with the Free Tier for now?',
+            [
+              { text: 'Retry', style: 'cancel' },
+              {
+                text: 'Continue with Free',
+                onPress: () => handleCompleteSetup(false),
+              },
+            ]
+          );
+          return;
         }
       }
 
@@ -873,9 +924,18 @@ export default function OnboardingWizard() {
             athleteContext: fullContext,
             trainingAvailability: availability,
             gender,
-            targetEvent: raceName || undefined,
+            subscriptionTier: subscribedToPlus ? 'rooka_plus' : 'free',
+            targetEvent: raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined),
             eventDate: raceDate || undefined,
             targetCtl: targetCtl ? parseFloat(targetCtl) : undefined,
+            goalType,
+            goal_type: goalType,
+            targetMode,
+            target_mode: targetMode,
+            targetValue: targetValue || undefined,
+            target_value: targetValue || undefined,
+            targetWeight: targetWeight ? parseFloat(targetWeight) : undefined,
+            target_weight: targetWeight ? parseFloat(targetWeight) : undefined,
             age: age ? parseInt(age, 10) : undefined,
             language: language || 'en',
           }),
@@ -887,9 +947,14 @@ export default function OnboardingWizard() {
           athlete_context: fullContext,
           training_availability: availability as any,
           gender: gender,
-          target_event: raceName || undefined,
+          subscription_tier: subscribedToPlus ? 'rooka_plus' : 'free',
+          target_event: raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined),
           event_date: raceDate || undefined,
           target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
+          goal_type: goalType,
+          target_mode: targetMode,
+          target_value: targetValue || undefined,
+          target_weight: targetWeight ? parseFloat(targetWeight) : undefined,
           onboarding_completed: true,
         } as any);
       }
@@ -1425,33 +1490,237 @@ export default function OnboardingWizard() {
                       </Pressable>
                     </View>
 
-                    {/* Main Goal Event Setup */}
-                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2.5">
+                    {/* Main Goal & Target Setup */}
+                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-3">
                       <Text className="text-theme-muted text-xs font-bold">
                         {t('onboarding.targetEventTitle')}
                       </Text>
-                      <TextInput
-                        editable={!isStreamingMessage}
-                        placeholder={t('onboarding.raceNamePlaceholder')}
-                        placeholderTextColor={theme.textSecondary}
-                        value={raceName}
-                        onChangeText={handleRaceNameChange}
-                        className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
-                      />
-                      {/* Target CTL is still derived from the event name and sent
-                          to the backend on finalize — it just isn't shown. As a bare
-                          number it told the athlete nothing and invited edits to a
-                          value they had no basis to set. */}
-                      <Pressable
-                        disabled={isStreamingMessage}
-                        onPress={openDatePickerModal}
-                        className="w-full p-2.5 bg-theme-card border border-theme-border rounded-control flex-row items-center justify-between"
-                      >
-                        <Text className={raceDate ? 'text-theme-text text-xs font-medium' : 'text-theme-muted text-xs'}>
-                          {raceDate || t('onboarding.raceDatePlaceholder')}
-                        </Text>
-                        <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
-                      </Pressable>
+
+                      {/* GOAL TYPE SELECTOR: RACE vs PHYSIOLOGICAL */}
+                      <View className="flex-row bg-theme-card p-1 rounded-xl border border-theme-border/50">
+                        <Pressable
+                          disabled={isStreamingMessage}
+                          onPress={() => {
+                            Haptics.selectionAsync();
+                            setGoalType('race');
+                          }}
+                          className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
+                            goalType === 'race' ? 'bg-theme-accent' : 'bg-transparent'
+                          }`}
+                        >
+                          <Ionicons
+                            name="flag-outline"
+                            size={13}
+                            color={goalType === 'race' ? '#FFFFFF' : theme.textSecondary}
+                          />
+                          <Text
+                            className={`text-xs font-bold ml-1.5 ${
+                              goalType === 'race' ? 'text-white' : 'text-theme-muted'
+                            }`}
+                          >
+                            {t('onboarding.goalTypeRace')}
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          disabled={isStreamingMessage}
+                          onPress={() => {
+                            Haptics.selectionAsync();
+                            setGoalType('physiological');
+                          }}
+                          className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
+                            goalType === 'physiological' ? 'bg-theme-accent' : 'bg-transparent'
+                          }`}
+                        >
+                          <Ionicons
+                            name="fitness-outline"
+                            size={13}
+                            color={goalType === 'physiological' ? '#FFFFFF' : theme.textSecondary}
+                          />
+                          <Text
+                            className={`text-xs font-bold ml-1.5 ${
+                              goalType === 'physiological' ? 'text-white' : 'text-theme-muted'
+                            }`}
+                          >
+                            {t('onboarding.goalTypePhysiological')}
+                          </Text>
+                        </Pressable>
+                      </View>
+
+                      {goalType === 'race' ? (
+                        <>
+                          {/* Race Event Name */}
+                          <View className="gap-1">
+                            <Text className="text-xs font-bold text-theme-muted">
+                              {t('onboarding.raceNameLabel')}
+                            </Text>
+                            <TextInput
+                              editable={!isStreamingMessage}
+                              placeholder={t('onboarding.raceNamePlaceholder')}
+                              placeholderTextColor={theme.textSecondary}
+                              value={raceName}
+                              onChangeText={handleRaceNameChange}
+                              className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs font-bold"
+                            />
+                          </View>
+
+                          {/* Race Date */}
+                          <View className="gap-1">
+                            <Text className="text-xs font-bold text-theme-muted">
+                              {t('onboarding.raceDateLabel')}
+                            </Text>
+                            <Pressable
+                              disabled={isStreamingMessage}
+                              onPress={openDatePickerModal}
+                              className="w-full p-2.5 bg-theme-card border border-theme-border rounded-control flex-row items-center justify-between"
+                            >
+                              <Text
+                                className={
+                                  raceDate
+                                    ? 'text-theme-text text-xs font-bold'
+                                    : 'text-theme-muted text-xs font-bold'
+                                }
+                              >
+                                {formatDateDisplay(raceDate)}
+                              </Text>
+                              <Ionicons name="calendar-outline" size={15} color={theme.tint} />
+                            </Pressable>
+                          </View>
+
+                          {/* Target Selection: Finish vs Time */}
+                          <View className="gap-1.5">
+                            <Text className="text-xs font-bold text-theme-muted">
+                              {t('onboarding.raceTargetLabel')}
+                            </Text>
+                            <View className="flex-row gap-2">
+                              <Pressable
+                                disabled={isStreamingMessage}
+                                onPress={() => {
+                                  Haptics.selectionAsync();
+                                  setTargetMode('finish');
+                                }}
+                                className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${
+                                  targetMode === 'finish'
+                                    ? 'bg-theme-accent/15 border-theme-accent'
+                                    : 'bg-theme-card border-theme-border/50'
+                                }`}
+                              >
+                                <Ionicons
+                                  name="checkmark-circle-outline"
+                                  size={14}
+                                  color={targetMode === 'finish' ? theme.tint : theme.textSecondary}
+                                />
+                                <Text
+                                  className={`text-xs font-bold ml-1.5 ${
+                                    targetMode === 'finish' ? 'text-theme-accent' : 'text-theme-muted'
+                                  }`}
+                                >
+                                  {t('onboarding.finishRace')}
+                                </Text>
+                              </Pressable>
+
+                              <Pressable
+                                disabled={isStreamingMessage}
+                                onPress={() => {
+                                  Haptics.selectionAsync();
+                                  setTargetMode('time');
+                                }}
+                                className={`flex-1 p-2.5 rounded-xl border flex-row items-center justify-center ${
+                                  targetMode === 'time'
+                                    ? 'bg-theme-accent/15 border-theme-accent'
+                                    : 'bg-theme-card border-theme-border/50'
+                                }`}
+                              >
+                                <Ionicons
+                                  name="time-outline"
+                                  size={14}
+                                  color={targetMode === 'time' ? theme.tint : theme.textSecondary}
+                                />
+                                <Text
+                                  className={`text-xs font-bold ml-1.5 ${
+                                    targetMode === 'time' ? 'text-theme-accent' : 'text-theme-muted'
+                                  }`}
+                                >
+                                  {t('onboarding.timeGoal')}
+                                </Text>
+                              </Pressable>
+                            </View>
+                          </View>
+
+                          {/* If Time Goal Selected */}
+                          {targetMode === 'time' && (
+                            <View className="gap-1">
+                              <Text className="text-xs font-bold text-theme-muted">
+                                {t('onboarding.targetTimeLabel')}
+                              </Text>
+                              <TextInput
+                                editable={!isStreamingMessage}
+                                value={targetValue}
+                                onChangeText={setTargetValue}
+                                placeholder={t('onboarding.targetTimePlaceholder')}
+                                placeholderTextColor={theme.textSecondary}
+                                className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs font-bold"
+                              />
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {/* Physiological Goal Title */}
+                          <View className="gap-1">
+                            <Text className="text-xs font-bold text-theme-muted">
+                              {t('onboarding.physiologicalGoalTitleLabel')}
+                            </Text>
+                            <TextInput
+                              editable={!isStreamingMessage}
+                              value={raceName}
+                              onChangeText={handleRaceNameChange}
+                              placeholder={t('onboarding.physiologicalGoalTitlePlaceholder')}
+                              placeholderTextColor={theme.textSecondary}
+                              className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs font-bold"
+                            />
+                          </View>
+
+                          {/* Target Date */}
+                          <View className="gap-1">
+                            <Text className="text-xs font-bold text-theme-muted">
+                              {t('onboarding.targetDateLabel')}
+                            </Text>
+                            <Pressable
+                              disabled={isStreamingMessage}
+                              onPress={openDatePickerModal}
+                              className="w-full p-2.5 bg-theme-card border border-theme-border rounded-control flex-row items-center justify-between"
+                            >
+                              <Text
+                                className={
+                                  raceDate
+                                    ? 'text-theme-text text-xs font-bold'
+                                    : 'text-theme-muted text-xs font-bold'
+                                }
+                              >
+                                {formatDateDisplay(raceDate)}
+                              </Text>
+                              <Ionicons name="calendar-outline" size={15} color={theme.tint} />
+                            </Pressable>
+                          </View>
+
+                          {/* Goal Weight (kg) */}
+                          <View className="gap-1">
+                            <Text className="text-xs font-bold text-theme-muted">
+                              {t('onboarding.targetWeightLabel')}
+                            </Text>
+                            <TextInput
+                              editable={!isStreamingMessage}
+                              value={targetWeight}
+                              onChangeText={setTargetWeight}
+                              placeholder={t('onboarding.targetWeightPlaceholder')}
+                              placeholderTextColor={theme.textSecondary}
+                              keyboardType="numeric"
+                              className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs font-bold"
+                            />
+                          </View>
+                        </>
+                      )}
                     </View>
 
                     <Pressable

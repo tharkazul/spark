@@ -59,6 +59,11 @@ export const userApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  syncSubscription: (hasActiveEntitlement: boolean) =>
+    apiClient<{ success: boolean; tier?: string }>('/api/user/sync-subscription', {
+      method: 'POST',
+      body: JSON.stringify({ hasActiveEntitlement, entitlementId: 'rooka' }),
+    }),
   uploadProfilePicture: async (fileUri: string) => {
     const formData = new FormData();
     const filename = fileUri.split('/').pop() || 'profile.jpg';

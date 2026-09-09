@@ -1,3 +1,4 @@
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import Purchases, {
   CustomerInfo,
@@ -7,16 +8,43 @@ import Purchases, {
   PurchasesPackage
 } from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
+
+import { apiClient } from './apiClient';
 
 // RevenueCat Public API Keys
 export const REVENUECAT_APPLE_KEY = 'appl_xahgRkiLzkQGFIEoOtlnxhMZDEO';
+export const REVENUECAT_TEST_KEY = 'test_ncoYEuNlgOotwSTOKwfVQvBPYxF';
 export const REVENUECAT_GOOGLE_KEY = 'test_ncoYEuNlgOotwSTOKwfVQvBPYxF';
 
 // Key Entitlement identifier for rooka subscription
 export const ROOKA_ENTITLEMENT_ID = 'rooka';
 
+/**
+ * Set to true to use RevenueCat Test Store (virtual sandbox for mock testing).
+ * Set to false for live Apple App Store In-App Purchases.
+ */
+export const USE_TEST_STORE = false;
+
 let isConfigured = false;
+
+/**
+ * Sync active subscription entitlement directly with Rooka backend SQLite database
+ */
+export async function syncSubscriptionWithBackend(hasActiveEntitlement: boolean): Promise<{ success: boolean; tier?: string }> {
+  try {
+    const res = await apiClient<{ success: boolean; tier?: string }>('/api/user/sync-subscription', {
+      method: 'POST',
+      body: JSON.stringify({
+        hasActiveEntitlement,
+        entitlementId: ROOKA_ENTITLEMENT_ID,
+      }),
+    });
+    return res;
+  } catch (err: any) {
+    console.warn('[RevenueCat] Failed to sync subscription with backend:', err?.message || err);
+    return { success: false };
+  }
+}
 
 /**
  * Initialize RevenueCat SDK
@@ -27,7 +55,9 @@ export async function initializeRevenueCat(appUserID?: string | number): Promise
     return;
   }
 
-  const apiKey = Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY;
+  const apiKey = Platform.OS === 'ios'
+    ? (USE_TEST_STORE ? REVENUECAT_TEST_KEY : REVENUECAT_APPLE_KEY)
+    : REVENUECAT_GOOGLE_KEY;
 
   if (!apiKey) {
     console.warn('[RevenueCat] Missing RevenueCat API key.');

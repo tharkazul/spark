@@ -157,7 +157,7 @@ const MessageRow = React.memo(({
   onExpandImage: (source: any) => void;
   onResend: (id: string | number) => void;
 }) => {
-  const hasText = hasRenderableText(item.content) || !!item.isStreaming;
+  const hasText = hasRenderableText(item.content);
   const hasImages = !!item.images?.length;
   const hasProposal = !!item.proposedPlan?.length;
   const hasPayloadCard = !!item.payload_json;
@@ -205,7 +205,7 @@ const MessageRow = React.memo(({
           </View>
         ) : null}
 
-        <MarkdownText content={item.content} isUser={isUser} isStreaming={item.isStreaming} onImagePress={onExpandImage} />
+        <MarkdownText content={item.content} isUser={isUser} onImagePress={onExpandImage} />
 
         {item.payload_json?.type === 'event_invite' ? (
           <EventInviteCard
@@ -233,16 +233,14 @@ const MessageRow = React.memo(({
             onReject={() => onReject(item.id)}
           />
         ) : null}
-
-        {isLastInRun && !item.isError && (
-          <Text
-            className={`text-xs mt-1.5 self-end ${isUser ? 'text-white/70' : 'text-theme-muted'
-              }`}
-          >
-            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-        )}
       </View>
+
+      {isLastInRun && !item.isError && (
+        <Text className="text-xs mt-1 self-end mr-1 text-theme-muted">
+          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      )}
+
       {isUser && item.isError && (
         <TouchableOpacity activeOpacity={0.8} onPress={() => onResend(item.id)} className="mt-1 flex-row items-center self-end mr-1">
           <Ionicons name="reload-circle" size={14} color="#EF4444" />

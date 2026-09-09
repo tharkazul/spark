@@ -403,4 +403,34 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
     });
 });
 
+// Sync RevenueCat subscription entitlement status with the backend database
+router.post("/api/user/sync-subscription", authenticateToken, (req, res) => {
+  const { hasActiveEntitlement, entitlementId } = req.body;
+  const userId = req.user.id;
+
+  if (hasActiveEntitlement && (entitlementId === "rooka" || !entitlementId)) {
+    db.run(
+      `UPDATE users SET subscription_tier = 'rooka_plus', daily_token_limit = 50000 WHERE id = ? AND subscription_tier != 'admin'`,
+      [userId],
+      function (err) {
+        if (err) {
+          console.error("Error syncing subscription to rooka_plus:", err);
+          return res.status(500).json({ error: "DB_ERROR" });
+        }
+        console.log(`[Subscription Sync] User ${userId} successfully synced to rooka_plus.`);
+        return res.json({ success: true, tier: "rooka_plus" });
+      }
+    );
+  } else {
+    db.get(
+      `SELECT subscription_tier FROM users WHERE id = ?`,
+      [userId],
+      (err, row) => {
+        if (err || !row) return res.status(500).json({ error: "DB_ERROR" });
+        return res.json({ success: true, tier: row.subscription_tier || "free" });
+      }
+    );
+  }
+});
+
 module.exports = router;

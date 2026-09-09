@@ -369,80 +369,6 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, [isAuthenticated, user?.id, processMessageItem, setMessages]);
 
-  const streamCoachMessage = (fullMessage: ChatMessage): Promise<void> => {
-    const fullText = fullMessage.content || '';
-    if (!fullText || fullText.length < 50) {
-      setMessages((prev) => [...prev, fullMessage]);
-      setSending(false);
-      return Promise.resolve();
-    }
-
-    // Determine 5-12 progressive slices of fullText to animate smoothly without Hermes GC churn
-    const totalSteps = Math.min(14, Math.max(6, Math.floor(fullText.length / 30)));
-    const stepLength = Math.ceil(fullText.length / totalSteps);
-
-    const slices: string[] = [];
-    for (let i = 1; i <= totalSteps; i++) {
-      if (i === totalSteps) {
-        slices.push(fullText);
-      } else {
-        const cut = Math.min(fullText.length, i * stepLength);
-        const spaceIdx = fullText.indexOf(' ', cut);
-        const actualCut = spaceIdx !== -1 && spaceIdx - cut < 25 ? spaceIdx : cut;
-        slices.push(fullText.substring(0, actualCut));
-      }
-    }
-
-    return new Promise<void>((resolve) => {
-      const initialMsg: ChatMessage = {
-        ...fullMessage,
-        content: slices[0] || fullText,
-        isStreaming: true,
-      };
-
-      // Set initial stream item in memory
-      setMessagesState((prev) => [...prev, initialMsg]);
-      setSending(false);
-
-      let stepIdx = 1;
-
-      const step = () => {
-        if (stepIdx >= slices.length) {
-          // Final state: persist to storage ONCE
-          setMessages((prev) => {
-            const last = prev[prev.length - 1];
-            if (last && (last.id === fullMessage.id || last.clientId === fullMessage.clientId)) {
-              return [...prev.slice(0, -1), { ...fullMessage, isStreaming: false }];
-            }
-            return prev.map((m) =>
-              (m.id === fullMessage.id || m.clientId === fullMessage.clientId)
-                ? { ...fullMessage, isStreaming: false }
-                : m
-            );
-          });
-          resolve();
-          return;
-        }
-
-        const currentText = slices[stepIdx];
-        stepIdx++;
-
-        // Fast in-memory update targeting only the last message
-        setMessagesState((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && (last.id === fullMessage.id || last.clientId === fullMessage.clientId)) {
-            return [...prev.slice(0, -1), { ...last, content: currentText, isStreaming: true }];
-          }
-          return prev;
-        });
-
-        setTimeout(step, 85);
-      };
-
-      setTimeout(step, 85);
-    });
-  };
-
   const sendMessage = async (text: string, imagesBase64?: string[]) => {
     if (!text.trim() && (!imagesBase64 || imagesBase64.length === 0)) return;
 
@@ -459,6 +385,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     setSending(true);
 
     try {
+      const requestStart = Date.now();
       const res = await chatApi.sendMessage(text, imagesBase64);
       if (res && (res.replies || res.reply)) {
         const rawReplies: string[] = res.replies && res.replies.length > 0
@@ -480,6 +407,12 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         }
         refreshPhysique();
         refreshNiggles();
+
+        // Ensure typing indicator was shown for at least 800ms during API request
+        const elapsed = Date.now() - requestStart;
+        if (elapsed < 800) {
+          await new Promise((resolve) => setTimeout(resolve, 800 - elapsed));
+        }
 
         const baseTimestamp = Date.now();
         for (let i = 0; i < rawReplies.length; i++) {
@@ -503,7 +436,13 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
             timestamp: new Date(baseTimestamp + (i + 1) * 1000).toISOString(),
           });
 
-          await streamCoachMessage(coachMsg);
+          // WhatsApp style: drop full message bubble without typewriter effect
+          setMessages((prev) => [...prev, coachMsg]);
+
+          // Turn off typing indicator if this was the last bubble
+          if (i === rawReplies.length - 1) {
+            setSending(false);
+          }
         }
       } else {
         setSending(false);
@@ -531,7 +470,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
             role: 'coach',
             timestamp: new Date(baseErrTimestamp + (i + 1) * 1000).toISOString(),
           });
-          await streamCoachMessage(fallbackCoachMsg);
+          setMessages((prev) => [...prev, fallbackCoachMsg]);
+          if (i === fallbackParts.length - 1) {
+            setSending(false);
+          }
         }
       }
     } finally {

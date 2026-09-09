@@ -316,29 +316,37 @@ router.post('/finalize', authenticateToken, async (req, res) => {
     const selectedLang = language || 'en';
     const targetLanguageName = langNames[selectedLang] || 'English';
 
+    const isRookaPlus = req.body.subscriptionTier === 'rooka_plus' || req.body.subscription_tier === 'rooka_plus';
+    const subTier = isRookaPlus ? 'rooka_plus' : 'free';
+    const tokenLimit = isRookaPlus ? 50000 : 5000;
+
     // 1. Update user profile & mark onboarding completed (with fallback if column missing)
     await new Promise((resolve) => {
       db.run(
-        `UPDATE users SET coach_tone = ?, athlete_context = ?, training_availability = ?, gender = ?, language = ?, onboarding_completed = 1 WHERE id = ?`,
+        `UPDATE users SET coach_tone = ?, athlete_context = ?, training_availability = ?, gender = ?, language = ?, onboarding_completed = 1, subscription_tier = ?, daily_token_limit = ? WHERE id = ?`,
         [
           coachTone || 'Empathetic but demanding elite endurance coach.',
           athleteContext || 'Endurance athlete.',
           typeof trainingAvailability === 'object' ? JSON.stringify(trainingAvailability) : (trainingAvailability || null),
           gender || 'Prefer not to say',
           selectedLang,
+          subTier,
+          tokenLimit,
           userId
         ],
         (err) => {
           if (err) {
             console.warn('onboarding_completed update fallback:', err.message);
             db.run(
-              `UPDATE users SET coach_tone = ?, athlete_context = ?, training_availability = ?, gender = ?, language = ? WHERE id = ?`,
+              `UPDATE users SET coach_tone = ?, athlete_context = ?, training_availability = ?, gender = ?, language = ?, subscription_tier = ?, daily_token_limit = ? WHERE id = ?`,
               [
                 coachTone || 'Empathetic but demanding elite endurance coach.',
                 athleteContext || 'Endurance athlete.',
                 typeof trainingAvailability === 'object' ? JSON.stringify(trainingAvailability) : (trainingAvailability || null),
                 gender || 'Prefer not to say',
                 selectedLang,
+                subTier,
+                tokenLimit,
                 userId
               ],
               () => resolve()
@@ -351,15 +359,34 @@ router.post('/finalize', authenticateToken, async (req, res) => {
     });
 
     // 2. Save milestone if provided
-    if (targetEvent && eventDate) {
+    const reqGoalType = req.body.goalType || req.body.goal_type || 'race';
+    const reqTargetMode = req.body.targetMode || req.body.target_mode || 'finish';
+    const reqTargetValue = req.body.targetValue || req.body.target_value || null;
+    const reqTargetWeight = (req.body.targetWeight !== undefined && req.body.targetWeight !== null && req.body.targetWeight !== '')
+      ? parseFloat(req.body.targetWeight)
+      : (req.body.target_weight !== undefined && req.body.target_weight !== null && req.body.target_weight !== '')
+        ? parseFloat(req.body.target_weight)
+        : null;
+    const finalEventName = targetEvent || (reqGoalType === 'physiological' ? 'Physiological Goal' : null);
+
+    if (finalEventName || reqTargetWeight || reqGoalType === 'physiological') {
       await new Promise((resolve) => {
         db.run(
           `DELETE FROM milestones WHERE user_id = ? AND is_main = 1`,
           [userId],
           () => {
             db.run(
-              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main) VALUES (?, ?, ?, ?, 1)`,
-              [userId, targetEvent, eventDate, parseFloat(targetCtl || 90)],
+              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+              [
+                userId,
+                finalEventName || 'Physiological Goal',
+                eventDate || '',
+                parseFloat(targetCtl || (reqGoalType === 'physiological' ? 70 : 90)),
+                reqGoalType,
+                reqTargetMode,
+                reqTargetValue,
+                reqTargetWeight,
+              ],
               () => resolve()
             );
           }

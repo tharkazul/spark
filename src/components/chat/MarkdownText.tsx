@@ -122,29 +122,15 @@ const LoadingImagePlaceholder: React.FC<{
   );
 };
 
-export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, isUser, isStreaming, textColorOverride, onImagePress }) => {
+export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, isUser, textColorOverride, onImagePress }) => {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  const [caretOn, setCaretOn] = useState(true);
-
-  useEffect(() => {
-    if (!isStreaming) return;
-    setCaretOn(true);
-    const id = setInterval(() => setCaretOn((v) => !v), 500);
-    return () => clearInterval(id);
-  }, [isStreaming]);
-
-  const cleanedContent = useMemo(() => {
+  const displayContent = useMemo(() => {
     if (!content) return '';
     if (!content.includes('```json')) return content.trim();
     return content.replace(/```json[\s\S]*?```/gi, '').trim();
   }, [content]);
-
-  const displayContent = useMemo(() => {
-    if (!cleanedContent) return '';
-    return isStreaming ? `${cleanedContent}${caretOn ? ' ▍' : ' '}` : cleanedContent;
-  }, [cleanedContent, isStreaming, caretOn]);
 
   const defaultCoachColor = isDark ? '#F8FAFC' : '#0F172A';
   const textColor = textColorOverride || (isUser ? '#FFFFFF' : defaultCoachColor);
