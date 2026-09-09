@@ -960,7 +960,7 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                     </Text>
                   </View>
                   <View className="flex-row items-center gap-1">
-                    <Ionicons name="heart" size={15} color="#F43F5E" />
+                    <Ionicons name="flash" size={15} color="#F59E0B" />
                     <Text className="text-sm font-bold text-theme-text font-mono">
                       {kudosCount}
                     </Text>
@@ -971,11 +971,11 @@ export const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({
                   onPress={handleToggleKudos}
                   activeOpacity={0.75}
                   className={`w-10 h-10 rounded-full items-center justify-center ${
-                    hasKudosed ? 'bg-rose-500' : 'bg-slate-200 dark:bg-slate-700'
+                    hasKudosed ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-700'
                   }`}
                 >
                   <Ionicons
-                    name={hasKudosed ? 'heart' : 'heart-outline'}
+                    name={hasKudosed ? 'flash' : 'flash-outline'}
                     size={18}
                     color={hasKudosed ? '#FFFFFF' : isDark ? '#E2E8F0' : '#475569'}
                   />

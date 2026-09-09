@@ -470,7 +470,7 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
                     [act.user_id],
                     async (err, coachUser) => {
                       if (coachUser) {
-                        const prompt = `The athlete just received Kudos (a like) from their friend ${req.user.username || "Someone"} on their activity "${act.name}". Send a very short 1-sentence message to the athlete acknowledging this and hyping them up.`;
+                        const prompt = `The athlete just received a Spark (a like/kudos) from their friend ${req.user.username || "Someone"} on their activity "${act.name}". Send a very short 1-sentence message to the athlete acknowledging this and hyping them up.`;
                         const sysPrompt = `You are an elite endurance coach. Your tone is: ${coachUser.coach_tone || "Friendly and motivating"}.`;
                         try {
                           const msg = await generateWithFallback(
@@ -487,9 +487,9 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
                                   mood: "hype",
                                 });
                                 sendPushToUser(act.user_id, {
-                                  title: "New Kudos! ⚡",
-                                  body: `${req.user.username || "A friend"} gave you kudos on ${act.name}!`,
-                                  data: { url: "/(tabs)/social", type: "kudos" },
+                                  title: "New Spark! ⚡",
+                                  body: `${req.user.username || "A friend"} sent you a spark on ${act.name}!`,
+                                  data: { url: "/(tabs)/social", type: "spark" },
                                 });
                               }
                             }

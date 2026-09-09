@@ -144,9 +144,9 @@ const FEATURES_REGISTRY = [
   },
   {
     key: "social_kudos",
-    name: "Social Connections & Kudos",
-    description: "Connect with friends on Rooka, view the community leaderboard, and give kudos on activities.",
-    coachPrompt: "Training is better together! Connect with training partners on Rooka, check out the weekly leaderboard, and send kudos to motivate each other on recent activities.",
+    name: "Social Connections & Sparks",
+    description: "Connect with friends on Rooka, view the community leaderboard, and send sparks on activities.",
+    coachPrompt: "Training is better together! Connect with training partners on Rooka, check out the weekly leaderboard, and send sparks to motivate each other on recent activities.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(

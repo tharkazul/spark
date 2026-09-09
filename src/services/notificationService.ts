@@ -147,7 +147,7 @@ export function setupNotificationListeners(
           } catch (_) {}
         } else if (data?.type === 'coach' || data?.type === 'message') {
           router.push('/(tabs)/coach');
-        } else if (data?.type === 'social' || data?.type === 'connection' || data?.type === 'kudos') {
+        } else if (data?.type === 'social' || data?.type === 'connection' || data?.type === 'kudos' || data?.type === 'spark') {
           router.push('/(tabs)/social');
         }
       }

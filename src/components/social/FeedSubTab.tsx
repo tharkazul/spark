@@ -391,15 +391,15 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
                 <TouchableOpacity
                   onPress={() => handleToggleKudos(primaryActivity)}
                   className={`flex-row items-center gap-x-1.5 px-3 py-1.5 rounded-full ${
-                    hasKudosed ? 'bg-semantic-error/15' : 'bg-theme-bg'
+                    hasKudosed ? 'bg-amber-500/15' : 'bg-theme-bg'
                   }`}
                 >
                   <Ionicons
-                    name={hasKudosed ? 'heart' : 'heart-outline'}
+                    name={hasKudosed ? 'flash' : 'flash-outline'}
                     size={15}
-                    color={hasKudosed ? '#F43F5E' : '#6F6F79'}
+                    color={hasKudosed ? '#F59E0B' : '#6F6F79'}
                   />
-                  <Text className={`text-xs font-extrabold font-mono ${hasKudosed ? 'text-semantic-error' : 'text-theme-muted'}`}>
+                  <Text className={`text-xs font-extrabold font-mono ${hasKudosed ? 'text-amber-500' : 'text-theme-muted'}`}>
                     {totalKudos}
                   </Text>
                 </TouchableOpacity>
