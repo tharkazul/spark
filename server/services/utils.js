@@ -1321,10 +1321,10 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
     const tss = data.suffer_score || Math.round((data.moving_time / 3600) * 50);
 
     db.get(
-      `SELECT rooka_start_date, spark_start_date, created_at FROM users WHERE id = ?`,
+      `SELECT rooka_start_date, spark_start_date FROM users WHERE id = ?`,
       [internalUserId],
       async (err, uRow) => {
-        const rawStartDate = uRow ? (uRow.rooka_start_date || uRow.spark_start_date || uRow.created_at) : null;
+        const rawStartDate = uRow ? (uRow.rooka_start_date || uRow.spark_start_date) : null;
         const userStartDateDay = (rawStartDate && rawStartDate.length >= 10)
           ? rawStartDate.substring(0, 10)
           : new Date().toISOString().substring(0, 10);
@@ -1483,7 +1483,7 @@ async function syncAllStravaUsersOnStartup() {
 
       console.log("🔄 Running initial Strava sync for all connected users...");
       db.all(
-        "SELECT id, rooka_start_date, spark_start_date, created_at FROM users WHERE strava_refresh_token IS NOT NULL AND deleted_at IS NULL",
+        "SELECT id, rooka_start_date, spark_start_date FROM users WHERE strava_refresh_token IS NOT NULL AND deleted_at IS NULL",
         [],
         async (err, users) => {
           if (err || !users) return;
@@ -1510,7 +1510,7 @@ async function syncAllStravaUsersOnStartup() {
               const activities = await actRes.json();
 
               if (Array.isArray(activities)) {
-                const rawStartDate = user.rooka_start_date || user.spark_start_date || user.created_at;
+                const rawStartDate = user.rooka_start_date || user.spark_start_date;
                 const userStartDateDay = (rawStartDate && rawStartDate.length >= 10)
                   ? rawStartDate.substring(0, 10)
                   : new Date().toISOString().substring(0, 10);
@@ -1659,13 +1659,13 @@ INSTRUCTIONS & CRITICAL RULES FOR INJURIES:
 
 function updateUserRookaAndCheckLevel(userId, options = {}) {
   db.get(
-    `SELECT total_rooka, rooka_start_date, spark_start_date, created_at FROM users WHERE id = ?`,
+    `SELECT total_rooka, rooka_start_date, spark_start_date FROM users WHERE id = ?`,
     [userId],
     (err, userRow) => {
       if (err || !userRow) return;
       const oldRooka = userRow.total_rooka || 0;
       const oldLevelInfo = getRookaLevelInfo(oldRooka);
-      const rawStartDate = userRow.rooka_start_date || userRow.spark_start_date || userRow.created_at;
+      const rawStartDate = userRow.rooka_start_date || userRow.spark_start_date;
       const rookaStartDateDay = (rawStartDate && rawStartDate.length >= 10)
         ? rawStartDate.substring(0, 10)
         : new Date().toISOString().substring(0, 10);
