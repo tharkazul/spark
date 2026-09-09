@@ -108,18 +108,18 @@ export const GoalsTab: React.FC = () => {
         console.log('Failed to fetch milestones from server, fallback to user profile:', err);
       }
 
-      if (isMounted && user?.target_event) {
+      if (isMounted && (user?.target_event || user?.event_date || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological')) {
         setMilestones([
           {
             id: '1',
             isARace: true,
             goalType: ((user as any)?.goal_type || (user as any)?.goalType || 'physiological') as 'race' | 'physiological',
-            eventName: user.target_event,
-            eventDate: user.event_date || new Date().toISOString().split('T')[0],
-            targetMode: 'finish',
-            targetValue: '',
-            targetWeight: '',
-            targetVo2max: '',
+            eventName: user?.target_event || '',
+            eventDate: user?.event_date || new Date().toISOString().split('T')[0],
+            targetMode: (((user as any)?.target_mode || (user as any)?.targetMode || 'finish') as 'finish' | 'time'),
+            targetValue: (user as any)?.target_value || (user as any)?.targetValue || '',
+            targetWeight: (user as any)?.target_weight ? (user as any).target_weight.toString() : (user as any)?.targetWeight ? (user as any).targetWeight.toString() : '',
+            targetVo2max: (user as any)?.target_vo2max ? (user as any).target_vo2max.toString() : (user as any)?.targetVo2max ? (user as any).targetVo2max.toString() : '',
           },
         ]);
       }
@@ -213,6 +213,14 @@ export const GoalsTab: React.FC = () => {
           target_ctl: calculatedCTL,
           goal_type: primaryGoal.goalType,
           goalType: primaryGoal.goalType,
+          target_weight: primaryGoal.targetWeight ? parseFloat(primaryGoal.targetWeight) : undefined,
+          targetWeight: primaryGoal.targetWeight ? parseFloat(primaryGoal.targetWeight) : undefined,
+          target_vo2max: primaryGoal.targetVo2max ? parseFloat(primaryGoal.targetVo2max) : undefined,
+          targetVo2max: primaryGoal.targetVo2max ? parseFloat(primaryGoal.targetVo2max) : undefined,
+          target_mode: primaryGoal.targetMode,
+          targetMode: primaryGoal.targetMode,
+          target_value: primaryGoal.targetValue,
+          targetValue: primaryGoal.targetValue,
         });
       } else {
         await userApi.updateSettings({

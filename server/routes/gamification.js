@@ -30,6 +30,7 @@ const {
   triggerBackgroundSummary,
   updateUserRookaAndCheckLevel,
   checkAndAwardRookaTitles,
+  enforceMaxUserTitles,
   triggerLevelUpCoachPrompt,
   evaluateAndProgressQuests,
   calculateQuestProgress,
@@ -221,6 +222,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
             // Evaluate any newly completed milestones or races (e.g. Half Ironman)
             try {
               await checkAndAwardRookaTitles(userId);
+              await enforceMaxUserTitles(userId, 5);
             } catch (eTitle) {
               console.error("Error evaluating titles on get gamification:", eTitle);
             }
@@ -456,7 +458,15 @@ router.post(
               db.run(
                 `INSERT INTO user_titles (user_id, title, description, is_active) VALUES (?, ?, ?, ?)`,
                 [userId, titleData.title, titleData.description, shouldBeActive],
-                function (errInsert) {
+                async function (errInsert) {
+                  if (errInsert) {
+                    return res.status(500).json({ error: "Failed to save title" });
+                  }
+                  const newTitleId = this.lastID;
+
+                  // Enforce maximum 5 titles: delete oldest unequipped titles if > 5
+                  await enforceMaxUserTitles(userId, 5);
+
                   // Also award 50 bonus points for a new title
                   db.run(
                     `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
@@ -466,7 +476,7 @@ router.post(
                   // Clear public profile cache so changes reflect on social profile
                   db.run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [userId]);
 
-                  res.json({ success: true, title: { id: this.lastID, ...titleData, is_active: shouldBeActive } });
+                  res.json({ success: true, title: { id: newTitleId, ...titleData, is_active: shouldBeActive } });
                 }
               );
             }

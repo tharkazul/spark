@@ -27,6 +27,14 @@ export interface UserProfile {
   current_ctl?: number;
   goal_type?: 'race' | 'physiological';
   goalType?: 'race' | 'physiological';
+  target_mode?: string;
+  targetMode?: string;
+  target_value?: string;
+  targetValue?: string;
+  target_weight?: number | string;
+  targetWeight?: number | string;
+  target_vo2max?: number | string;
+  targetVo2max?: number | string;
   daily_availability?: Record<string, number>; // e.g. { MON: 45, TUE: 45, WED: 60, THU: 45, FRI: 60, SAT: 90, SUN: 45 }
   athlete_metrics?: {
     max_hr?: number;

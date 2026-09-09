@@ -60,6 +60,7 @@ const {
   resetDailyTokensForAllUsers,
   resetDailyNutritionForAllUsers,
   generateWeeklyAthleteDescriptionsJob,
+  enforceMaxTitlesForAllUsers,
 } = require("./services/utils");
 
 const { sseClients, initWebSocketServer } = require("./services/sse");
@@ -77,6 +78,7 @@ db.serialize(() => {
   // Reset tokens & nutrition for any overdue accounts on startup
   resetDailyTokensForAllUsers();
   resetDailyNutritionForAllUsers();
+  enforceMaxTitlesForAllUsers(5);
 });
 
 // Periodic Jobs

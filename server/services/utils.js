@@ -2250,6 +2250,78 @@ async function checkAndAwardRookaTitles(userId, options = {}) {
   });
 }
 
+/**
+ * Ensures an athlete has at most maxTitles (default 5) in user_titles.
+ * If there are > maxTitles, deletes the oldest unequipped title(s).
+ * The equipped title (is_active = 1) is ALWAYS protected and never deleted.
+ */
+function enforceMaxUserTitles(userId, maxTitles = 5) {
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT id, is_active, datetime(created_at) as created_time 
+       FROM user_titles 
+       WHERE user_id = ? 
+       ORDER BY is_active DESC, datetime(created_at) DESC, id DESC`,
+      [userId],
+      (err, rows) => {
+        if (err || !rows || rows.length <= maxTitles) {
+          return resolve();
+        }
+
+        const equippedRow = rows.find((r) => r.is_active === 1);
+        const unequippedRows = rows.filter((r) => r.is_active !== 1);
+
+        // How many unequipped titles can be retained while keeping the equipped title safe
+        const allowedUnequippedCount = equippedRow ? Math.max(0, maxTitles - 1) : maxTitles;
+
+        // unequippedRows are sorted newest to oldest, so excess oldest unequipped are sliced from allowedUnequippedCount
+        const toDelete = unequippedRows.slice(allowedUnequippedCount);
+
+        if (toDelete.length === 0) {
+          return resolve();
+        }
+
+        const deleteIds = toDelete.map((r) => r.id);
+        const placeholders = deleteIds.map(() => '?').join(',');
+
+        db.run(
+          `DELETE FROM user_titles WHERE id IN (${placeholders}) AND user_id = ? AND is_active != 1`,
+          [...deleteIds, userId],
+          (errDel) => {
+            if (errDel) {
+              console.error(`Error enforcing max titles for user ${userId}:`, errDel);
+            } else {
+              console.log(`Cleaned up ${deleteIds.length} old unequipped title(s) for user ${userId} to enforce max ${maxTitles} titles.`);
+            }
+            resolve();
+          }
+        );
+      }
+    );
+  });
+}
+
+/**
+ * Sweeps all users who have > maxTitles in user_titles and cleans them up.
+ */
+async function enforceMaxTitlesForAllUsers(maxTitles = 5) {
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT user_id, COUNT(*) as cnt FROM user_titles GROUP BY user_id HAVING COUNT(*) > ?`,
+      [maxTitles],
+      async (err, rows) => {
+        if (!err && rows && rows.length > 0) {
+          console.log(`🧹 Enforcing max ${maxTitles} titles for ${rows.length} athlete(s)...`);
+          for (const row of rows) {
+            await enforceMaxUserTitles(row.user_id, maxTitles);
+          }
+        }
+        resolve();
+      }
+    );
+  });
+}
+
 function saveMilestoneTitleRecord(userId, milestoneKey, title, description, resolve) {
   db.get(
     `SELECT id, milestone_key FROM user_titles WHERE user_id = ? AND is_active = 1 LIMIT 1`,
@@ -2266,11 +2338,14 @@ function saveMilestoneTitleRecord(userId, milestoneKey, title, description, reso
       db.run(
         `INSERT INTO user_titles (user_id, title, description, is_active, milestone_key) VALUES (?, ?, ?, ?, ?)`,
         [userId, title, description, shouldBeActive, milestoneKey],
-        function (errInsert) {
+        async function (errInsert) {
           if (errInsert) {
             console.error("Error saving earned milestone title:", errInsert);
             return resolve();
           }
+
+          // Enforce maximum 5 titles: delete oldest unequipped titles if > 5
+          await enforceMaxUserTitles(userId, 5);
 
           // Award 50 bonus Rooka points for earning a milestone title
           db.run(
@@ -3088,6 +3163,8 @@ module.exports = {
   triggerBackgroundSummary,
   updateUserRookaAndCheckLevel,
   checkAndAwardRookaTitles,
+  enforceMaxUserTitles,
+  enforceMaxTitlesForAllUsers,
   triggerLevelUpCoachPrompt,
   generateQuestForUser,
   evaluateQuestsAgainstActivity,

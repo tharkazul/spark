@@ -60,6 +60,14 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     target_ctl: data?.targetCtl ?? data?.target_ctl ?? (isSameUser ? prev?.target_ctl : undefined),
     goal_type: data?.goalType ?? data?.goal_type ?? (isSameUser ? prev?.goal_type : undefined),
     goalType: data?.goalType ?? data?.goal_type ?? (isSameUser ? prev?.goalType : undefined),
+    target_mode: data?.targetMode ?? data?.target_mode ?? (isSameUser ? prev?.target_mode : undefined),
+    targetMode: data?.targetMode ?? data?.target_mode ?? (isSameUser ? prev?.targetMode : undefined),
+    target_value: data?.targetValue ?? data?.target_value ?? (isSameUser ? prev?.target_value : undefined),
+    targetValue: data?.targetValue ?? data?.target_value ?? (isSameUser ? prev?.targetValue : undefined),
+    target_weight: data?.targetWeight ?? data?.target_weight ?? (isSameUser ? prev?.target_weight : undefined),
+    targetWeight: data?.targetWeight ?? data?.target_weight ?? (isSameUser ? prev?.targetWeight : undefined),
+    target_vo2max: data?.targetVo2max ?? data?.target_vo2max ?? (isSameUser ? prev?.target_vo2max : undefined),
+    targetVo2max: data?.targetVo2max ?? data?.target_vo2max ?? (isSameUser ? prev?.targetVo2max : undefined),
   };
 };
 

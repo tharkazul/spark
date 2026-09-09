@@ -222,13 +222,14 @@ export default function PlanningHomeScreen() {
         console.log('Failed to fetch milestones in Planning screen:', e);
       }
 
-      if (isMounted && (user?.target_event || user?.event_date)) {
+      if (isMounted && (user?.target_event || user?.event_date || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological')) {
+        const isPhys = (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
         setActiveGoals([
           {
-            name: user?.target_event || 'Target Goal',
+            name: user?.target_event || (isPhys ? 'Physiological Goal' : 'Target Goal'),
             date: user?.event_date || new Date().toISOString().split('T')[0],
             isMain: true,
-            goalType: ((user as any)?.goal_type || (user as any)?.goalType || 'physiological') as 'race' | 'physiological',
+            goalType: (isPhys ? 'physiological' : 'race') as 'race' | 'physiological',
             targetCTL: user?.target_ctl || 70,
           },
         ]);
@@ -239,18 +240,19 @@ export default function PlanningHomeScreen() {
     return () => {
       isMounted = false;
     };
-  }, [user?.id, user?.target_event, user?.event_date]);
+  }, [user?.id, user?.target_event, user?.event_date, (user as any)?.goal_type, (user as any)?.goalType]);
 
   const nearestGoalInfo = useMemo(() => {
     if (!activeGoals || activeGoals.length === 0) {
-      if (user?.target_event || user?.event_date) {
-        const gDate = user.event_date || new Date().toISOString().split('T')[0];
+      if (user?.target_event || user?.event_date || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological') {
+        const isPhys = (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
+        const gDate = user?.event_date || new Date().toISOString().split('T')[0];
         return {
-          name: user.target_event || 'Target Goal',
+          name: user?.target_event || (isPhys ? 'Physiological Goal' : 'Target Goal'),
           date: gDate,
           isMain: true,
-          goalType: ((user as any)?.goal_type || (user as any)?.goalType || 'race') as 'race' | 'physiological',
-          targetCTL: user.target_ctl || 70,
+          goalType: (isPhys ? 'physiological' : ((user as any)?.goal_type || (user as any)?.goalType || 'race')) as 'race' | 'physiological',
+          targetCTL: user?.target_ctl || 70,
           daysRemaining: calculateDaysRemaining(gDate),
         };
       }

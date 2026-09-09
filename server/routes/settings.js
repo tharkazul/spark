@@ -149,7 +149,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
       const dailyUsage = (row.last_token_reset_date === todayStr) ? (row.daily_token_usage || 0) : 0;
 
       db.get(
-        `SELECT name, date, target_ctl FROM milestones WHERE user_id = ? AND is_main = 1 ORDER BY date DESC LIMIT 1`,
+        `SELECT name, date, target_ctl, goal_type, target_mode, target_value, target_weight, target_vo2max FROM milestones WHERE user_id = ? AND is_main = 1 ORDER BY date DESC LIMIT 1`,
         [req.user.id],
         (mErr, mRow) => {
           res.json({
@@ -190,6 +190,16 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             targetEvent: mRow?.name || null,
             eventDate: mRow?.date || null,
             targetCtl: mRow?.target_ctl || null,
+            goal_type: mRow?.goal_type || 'race',
+            goalType: mRow?.goal_type || 'race',
+            target_mode: mRow?.target_mode || 'finish',
+            targetMode: mRow?.target_mode || 'finish',
+            target_value: mRow?.target_value || '',
+            targetValue: mRow?.target_value || '',
+            target_weight: mRow?.target_weight || null,
+            targetWeight: mRow?.target_weight || null,
+            target_vo2max: mRow?.target_vo2max || null,
+            targetVo2max: mRow?.target_vo2max || null,
           });
         }
       );
@@ -237,16 +247,30 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     const targetEvent = req.body.targetEvent !== undefined ? req.body.targetEvent : req.body.target_event;
     const eventDate = req.body.eventDate !== undefined ? req.body.eventDate : req.body.event_date;
     const targetCtl = req.body.targetCtl !== undefined ? req.body.targetCtl : req.body.target_ctl;
+    const reqGoalType = req.body.goalType !== undefined ? req.body.goalType : req.body.goal_type;
+    const reqTargetMode = req.body.targetMode !== undefined ? req.body.targetMode : req.body.target_mode;
+    const reqTargetValue = req.body.targetValue !== undefined ? req.body.targetValue : req.body.target_value;
+    const reqTargetWeight = req.body.targetWeight !== undefined ? req.body.targetWeight : req.body.target_weight;
+    const reqTargetVo2max = req.body.targetVo2max !== undefined ? req.body.targetVo2max : req.body.target_vo2max;
 
-    if (targetEvent !== undefined && eventDate !== undefined) {
-      if (targetEvent) {
+    if (targetEvent !== undefined || eventDate !== undefined || reqGoalType !== undefined) {
+      const finalGoalType = reqGoalType || 'race';
+      const finalName = targetEvent || (finalGoalType === 'physiological' ? 'Physiological Goal' : '');
+      const finalDate = eventDate || '';
+      const finalCtl = targetCtl ? parseFloat(targetCtl) : 70;
+      const finalMode = reqTargetMode || (finalGoalType === 'physiological' ? 'weight' : 'finish');
+      const finalValue = reqTargetValue || '';
+      const finalWeight = (reqTargetWeight !== undefined && reqTargetWeight !== null && reqTargetWeight !== '') ? parseFloat(reqTargetWeight) : null;
+      const finalVo2 = (reqTargetVo2max !== undefined && reqTargetVo2max !== null && reqTargetVo2max !== '') ? parseFloat(reqTargetVo2max) : null;
+
+      if (finalName || finalWeight || finalGoalType === 'physiological') {
         db.run(
           `DELETE FROM milestones WHERE user_id = ? AND is_main = 1`,
           [req.user.id],
           () => {
             db.run(
-              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type) VALUES (?, ?, ?, ?, 1, 'race')`,
-              [req.user.id, targetEvent, eventDate, targetCtl ? parseFloat(targetCtl) : 75],
+              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
+              [req.user.id, finalName, finalDate, finalCtl, finalGoalType, finalMode, finalValue, finalWeight, finalVo2],
             );
           }
         );
