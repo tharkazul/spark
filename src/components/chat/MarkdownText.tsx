@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { RookaMark } from '../ui/RookaPoints';
 import { BrandColors, accentAlpha } from '@/constants/theme';
-import { View, Text, StyleSheet, Platform, useColorScheme, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Platform, useColorScheme, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import Markdown from 'react-native-markdown-display';
 import FitImage from 'react-native-fit-image';
 import { API_BASE_URL } from '../../constants/api';
@@ -15,6 +16,7 @@ interface MarkdownTextProps {
   isStreaming?: boolean;
   textColorOverride?: string;
   onImagePress?: (uri: string) => void;
+  onLinkPress?: (url: string) => boolean | void;
 }
 
 const getFullImageUrl = (src?: string) => {
@@ -122,15 +124,58 @@ const LoadingImagePlaceholder: React.FC<{
   );
 };
 
-export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, isUser, textColorOverride, onImagePress }) => {
+export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, isUser, textColorOverride, onImagePress, onLinkPress }) => {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+  const router = useRouter();
 
   const displayContent = useMemo(() => {
     if (!content) return '';
-    if (!content.includes('```json')) return content.trim();
-    return content.replace(/```json[\s\S]*?```/gi, '').trim();
+    let text = content;
+    if (text.includes('```json')) {
+      text = text.replace(/```json[\s\S]*?```/gi, '');
+    }
+    // Auto-link token exhaustion upgrade placeholders if they don't have a markdown url target
+    if (text.includes('[link to upgrade page]')) {
+      text = text.replace(/\[link to upgrade page\](?!\()/gi, '[Upgrade Page](rooka://profile?subtab=account)');
+    }
+    return text.trim();
   }, [content]);
+
+  const handleLinkPress = useCallback((url: string): boolean => {
+    if (onLinkPress) {
+      const res = onLinkPress(url);
+      if (res === false) return false;
+    }
+
+    if (!url) return false;
+
+    const lower = url.toLowerCase();
+    if (
+      lower.includes('subtab=account') ||
+      lower.includes('profile') ||
+      lower.includes('account') ||
+      lower.includes('upgrade')
+    ) {
+      router.navigate({
+        pathname: '/(tabs)/profile',
+        params: { subtab: 'account' },
+      });
+      return false;
+    }
+
+    if (url.startsWith('/(tabs)/') || url.startsWith('/')) {
+      router.push(url as any);
+      return false;
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      Linking.openURL(url).catch((err) => console.warn('Failed to open link:', err));
+      return false;
+    }
+
+    return false;
+  }, [onLinkPress, router]);
 
   const defaultCoachColor = isDark ? '#F8FAFC' : '#0F172A';
   const textColor = textColorOverride || (isUser ? '#FFFFFF' : defaultCoachColor);
@@ -299,7 +344,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
 
   return (
     <View className="w-full">
-      <Markdown rules={markdownRules} style={styles}>
+      <Markdown rules={markdownRules} style={styles} onLinkPress={handleLinkPress}>
         {displayContent}
       </Markdown>
     </View>

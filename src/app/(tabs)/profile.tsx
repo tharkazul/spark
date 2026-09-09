@@ -66,6 +66,7 @@ export default function ProfileScreen() {
         const index = TABS.indexOf(targetTab);
         if (index !== -1) {
           setActiveTab(targetTab);
+          scrollX.setValue(index * SCREEN_WIDTH);
           const task = InteractionManager.runAfterInteractions(() => {
             scrollViewRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: false });
           });

@@ -165,6 +165,17 @@ const MessageRow = React.memo(({
 
   const isUser = item.role === 'user';
   const avatarSrc = getCoachAvatarSource(coachTone, item.mood, user);
+  const router = useRouter();
+
+  const isUpgradePrompt = useMemo(() => {
+    if (isUser || !item.content) return false;
+    const lower = item.content.toLowerCase();
+    return (
+      lower.includes('run out of tokens') ||
+      lower.includes('upgrade page') ||
+      lower.includes('subtab=account')
+    );
+  }, [isUser, item.content]);
 
   return (
     <View className={`mb-3 max-w-[86%] ${isUser ? 'self-end' : 'self-start'}`}>
@@ -206,6 +217,25 @@ const MessageRow = React.memo(({
         ) : null}
 
         <MarkdownText content={item.content} isUser={isUser} onImagePress={onExpandImage} />
+        {isUpgradePrompt && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.navigate({
+                pathname: '/(tabs)/profile',
+                params: { subtab: 'account' },
+              });
+            }}
+            className="mt-3 py-2 px-3.5 bg-brand rounded-control flex-row items-center justify-center self-start shadow-xs"
+          >
+            <Ionicons name="sparkles" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text className="text-white text-xs font-jakarta-bold">
+              Upgrade to Rooka+
+            </Text>
+            <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+        )}
 
         {item.payload_json?.type === 'event_invite' ? (
           <EventInviteCard

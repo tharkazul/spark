@@ -454,7 +454,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         prev.map(m => (m.id === userMsg.id || m.clientId === userMsg.clientId) ? { ...m, isError: true } : m)
       );
       if (err.status === 429) {
-        const fallbackText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]";
+        const fallbackText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [Upgrade Page](rooka://profile?subtab=account)";
         const fallbackParts = splitCoachReply(fallbackText);
         const baseErrTimestamp = Date.now();
         for (let i = 0; i < fallbackParts.length; i++) {

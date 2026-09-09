@@ -213,7 +213,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
       const canGenerateImage = isAdminTier && dailyImageCount < 1;
 
       if (currentDailyUsage > currentDailyLimit) {
-        const replyText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [link to upgrade page]";
+        const replyText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [Upgrade Page](rooka://profile?subtab=account)";
         return db.run(
           `INSERT INTO chat_history (user_id, role, content) VALUES (?, 'user', ?)`,
           [req.user.id, message],
