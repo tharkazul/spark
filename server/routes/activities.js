@@ -788,7 +788,13 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             5. You must append a JSON code block at the very end of your response containing the schedule.
             6. Use metric measurements exclusively (km, kg, km/h). IMPORTANT: For 'distance' condition_type in the JSON steps, the condition_value MUST be in pure METERS (e.g., use 5000 for a 5km interval, NOT 5). DO NOT repeat greetings, filler words, or preamble.
             7. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout, create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
-            8. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array with "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and push for progressive overload.
+            8. STRENGTH & FUNCTIONAL TRAINING PARITY (CRITICAL):
+               - Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete.
+               - EXERCISE & STEP PARITY MANDATE: EVERY single exercise, station, carry, lift, or core movement described in 'details' MUST have its own corresponding repeat block or step in the 'steps_json' array! NEVER omit exercises or only output 1 exercise when multiple exercises were prescribed in 'details'.
+               - For Strength workouts, put each exercise into 'steps_json' with "condition_type": "reps" (for reps), "distance" (in meters for carries/sled pushes, e.g. 100), or "time_sec"/"time" (for planks/timed holds). Set "condition_value" to the number of reps, meters, or seconds. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use standard exercise names (e.g., "Barbell Back Squat", "Farmers Carry", "Pallof Press").
+               - Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds).
+               - On Warmup and Cooldown steps, ALWAYS include "exerciseName" specifying the mobility drills or stretches (e.g., "Cossack Squats & Inchworms", "Couch Stretch & Pigeon Pose").
+               - Reference the Athlete Context for their past weights, and push for progressive overload.
             9. TARGETS: If a workout step requires a specific pace or power target:
                - For exact pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and set "target_value": "4:15" (do NOT include "min/km" in target_value!).
                - For exact power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
@@ -806,7 +812,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             13. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL):
                 - Every workout's 'details' field is the primary athlete-facing coaching prescription and MUST NEVER be a basic, vague one-liner like "intervals" or "easy run".
                 - You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling guidance.
-                - While machine-readable structured intervals go into 'steps_json', the rich human-readable drills, equipment, and technique instructions go into 'details'!
+                - Ensure 100% PARITY between all movements described in 'details' and all step blocks in 'steps_json'.
 
         WORKOUT PLANNING (CRITICAL):
         If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 
@@ -819,19 +825,19 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             "description": "5k Speed Intervals & Form Drills",
             "target_rooka": 80,
             "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 8x1000m at threshold with 1min active recoveries. Cool-down: 10 min easy jog + calf mobility.",
-            "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 15, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"repeat\\", \\"iterations\\": 8, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 1000, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 4}, {\\"type\\": \\"recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 1, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
+            "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"A-Skips & Ankle Rocks\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 15, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"repeat\\", \\"iterations\\": 8, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"1000m Threshold Interval\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 1000, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 4}, {\\"type\\": \\"recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 1, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Jog & Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
           },
           {
             "date": "YYYY-MM-DD",
             "sport": "Strength", 
-            "description": "Leg Day Burner",
-            "target_rooka": 40,
-            "details": "Dynamic warm-up: 2x10 world's greatest stretch, 20 band pull-aparts. Focus on explosive concentric drive and controlled 3-second eccentric descent.",
-            "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 10, \\"weight\\": 80, \\"exerciseName\\": \\"Barbell Squat\\", \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 2, \\"target_type\\": \\"no.target\\"}]}]"
+            "description": "Lower Body & Hyrox Core Power",
+            "target_rooka": 45,
+            "details": "Warmup: Cossack squats, inchworms (10 min). Main: Barbell Back Squat 3x10 reps (90s rest), Farmers Carry 4x100m (60s rest), Pallof Press 3x12 reps (45s rest). Cooldown: Couch stretch & pigeon pose (5 min).",
+            "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Cossack Squats & Inchworms\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Barbell Back Squat\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 10, \\"weight\\": 60, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 90, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 4, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Farmers Carry\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 100, \\"weight\\": 20, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 60, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Pallof Press\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 12, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 45, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Couch Stretch & Pigeon Pose\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}]"
           }
         ]
         \`\`\`
-        *Note: Ensure "steps_json" is formatted as a stringified JSON array as shown in the examples. Exercises MUST go in steps_json, NOT details!*`;
+        *Note: Ensure "steps_json" is formatted as a stringified JSON array as shown in the examples. All exercises from details MUST be included in steps_json!*`;
 
                   const ctl = user.current_ctl || 0;
                   const atl = user.current_atl || 0;
@@ -891,7 +897,11 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                                   day.description,
                                   require('../services/zones').planDayTargetRooka(day),
                                   day.details,
-                                  day.steps_json || "[]",
+                                  Array.isArray(day.steps)
+                                    ? JSON.stringify(day.steps)
+                                    : typeof day.steps_json === 'object'
+                                    ? JSON.stringify(day.steps_json)
+                                    : (day.steps_json || "[]"),
                                 );
                               });
                               stmt.finalize();

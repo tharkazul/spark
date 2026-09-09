@@ -99,5 +99,12 @@ console.log("🏃 Running Goal Prompt Context unit tests...\n");
   assert.ok(res2.promptContext.includes("TRIATHLON"));
 
   console.log("✅ Test 6 Passed: Async getUserGoalPromptContext successfully returns discipline & prompt context");
-  console.log("\n🎉 All 6 Goal Prompt Context tests passed successfully!");
+
+  // Test 7: Exercise & Step Parity Mandate presence
+  const promptCtx = getGoalDependentPromptContext("hyrox");
+  assert.ok(promptCtx.includes("EXERCISE & STEP PARITY MANDATE"), "Must include Parity Mandate");
+  assert.ok(promptCtx.includes("exerciseName"), "Must specify exerciseName on steps");
+  console.log("✅ Test 7 Passed: Exercise and step parity mandate verified in prompt context");
+
+  console.log("\n🎉 All 7 Goal Prompt Context tests passed successfully!");
 })();

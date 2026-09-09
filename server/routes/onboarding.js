@@ -454,7 +454,7 @@ CRITICAL RULES:
    - Description: "${benchmarkInfo.desc}"
    - Details: "${benchmarkInfo.details}"
    - is_benchmark: true
-4. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus.
+4. WORKOUT DETAILS & STEP PARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus. Every exercise or station described in 'details' MUST have its matching structured step in 'steps_json'!
 5. Format output as a valid JSON array of 7 items at the very end of your response inside a \`\`\`json code block.
 Example format:
 \`\`\`json
@@ -465,6 +465,7 @@ Example format:
     "description": "${benchmarkInfo.desc}",
     "target_rooka": ${benchmarkInfo.targetRooka},
     "details": "${benchmarkInfo.details}",
+    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Benchmark Assessment\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 5000, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]",
     "is_benchmark": true
   }
 ]
@@ -574,7 +575,7 @@ Example format:
         day.description || 'Workout',
         require('../services/zones').planDayTargetRooka(day) || 40,
         day.details || '',
-        typeof day.steps_json === 'object' ? JSON.stringify(day.steps_json) : (day.steps_json || '[]')
+        Array.isArray(day.steps) ? JSON.stringify(day.steps) : typeof day.steps_json === 'object' ? JSON.stringify(day.steps_json) : (day.steps_json || '[]')
       );
     });
     stmt.finalize();

@@ -332,12 +332,22 @@ CRITICAL RULES:
 4. MUSCLE LOAD: Any group listed HIGH is heavily loaded. Do not schedule consecutive sessions overloading that group.
 5. INJURIES: Respect active niggles and substitute lower impact activities where necessary.
 6. TARGETS & MEASUREMENTS: Metric units (km, kg, km/h, meters). Distance condition values must be in pure meters.
-7. STRENGTH: For Strength workouts, exercises go into the 'steps_json' array with condition_type 'reps', weight (kg), exerciseName, and rest steps.
+7. STRENGTH & MULTI-EXERCISE PARITY (CRITICAL):
+   - EVERY exercise, station, carry, lift, or core movement prescribed in 'details' MUST have its own corresponding repeat block or step in the 'steps_json' array!
+   - NEVER output only 1 exercise in 'steps_json' when you prescribed multiple exercises in 'details'! If you prescribe 3 exercises (e.g. Barbell Back Squat, Farmers Carry, and Pallof Press), you MUST output 3 separate repeat blocks in 'steps_json'.
+   - For each strength/functional step, include:
+     * "exerciseName": exact movement name (e.g., "Barbell Back Squat", "Farmers Carry", "Pallof Press").
+     * "condition_type": "reps" (for reps), "distance" (in meters for carries/sleds, e.g. 100), or "time_sec"/"time" (for planks/holds).
+     * "condition_value": number of reps, meters, or seconds.
+     * "weight": load in kg if applicable (e.g., 60 or 20).
+     * "target_type": "weight" (or "no.target").
+     * A "rest" step between sets with "condition_type": "time_sec" and seconds in "condition_value" (e.g., 60 or 90).
+   - For Warmup and Cooldown steps, ALWAYS include "exerciseName" describing the dynamic mobility or stretches (e.g. "Cossack Squats & Inchworms", "Couch Stretch & Pigeon Pose").
 8. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL):
    - Every workout's 'details' field is the primary athlete-facing coaching prescription.
    - NEVER write basic or vague one-liners like "intervals", "easy run", or "tempo session".
    - You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling notes.
-   - Note: While machine-readable structured intervals go into 'steps_json', the rich human-readable drills, equipment, and technique instructions go into 'details'!
+   - Ensure 100% PARITY between all movements described in 'details' and all step blocks in 'steps_json'.
 9. FORMAT: You must append a JSON code block at the very end of your response containing the array of 7 days:
 \`\`\`json
 [
@@ -347,7 +357,15 @@ CRITICAL RULES:
     "description": "Aerobic Base & Cadence Drill",
     "target_rooka": 45,
     "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 45 min steady Zone 2 holding 175-180 spm cadence. Cool-down: 4x60m relaxed strides + calf mobility.",
-    "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
+    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"A-Skips & Ankle Rocks\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Zone 2 Aerobic Base\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 45, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Strides & Calf Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
+  },
+  {
+    "date": "${dates[1]}",
+    "sport": "Strength",
+    "description": "Lower Body & Hyrox Core Power",
+    "target_rooka": 45,
+    "details": "Warmup: Cossack squats, inchworms (10 min). Main: Barbell Back Squat 3x10 reps (90s rest), Farmers Carry 4x100m (60s rest), Pallof Press 3x12 reps (45s rest). Cooldown: Couch stretch & pigeon pose (5 min).",
+    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Cossack Squats & Inchworms\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Barbell Back Squat\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 10, \\"weight\\": 60, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 90, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 4, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Farmers Carry\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 100, \\"weight\\": 20, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 60, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Pallof Press\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 12, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 45, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Couch Stretch & Pigeon Pose\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}]"
   }
 ]
 \`\`\``;

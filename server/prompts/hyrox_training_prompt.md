@@ -8,6 +8,7 @@
   2. *Primary Work*: Prescribed sets, distances, exact kg load, rest intervals in seconds, and target paces.
   3. *Accessory & Core*: Functional grip, posterior chain, or stability accessories.
   4. *Cool-down*: Static stretches and parasympathetic recovery protocols.
+- **1-to-1 Step Parity (CRITICAL)**: Every exercise, carry, station, and core movement described in the session MUST be included in the structured steps ('steps_json'). For example, if you prescribe a primary lift (e.g. Barbell Squats), a carry (e.g. Farmers Carry), and a core accessory (e.g. Pallof Press), all 3 MUST each have their own repeat block in 'steps_json' with their respective reps/distance, weight, exerciseName, and rest intervals. Warmup and cooldown steps in 'steps_json' MUST also include 'exerciseName' naming the mobility/stretch protocol.
 
 ## Prescribed Drills & Station Guidelines
 

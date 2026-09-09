@@ -100,9 +100,14 @@ function getGoalDependentPromptContext(discipline = "general", options = {}) {
   const templates = loadPromptTemplates();
 
   const baseHeader = `GOAL-SPECIFIC TRAINING & DRILL PRESCRIPTION RULES:
-MANDATORY GRANULARITY DIRECTIVE:
-Every workout's 'details' field in the JSON is the athlete-facing coaching prescription and MUST NEVER be a basic one-liner like "intervals", "easy run", or "tempo session". 
-You MUST provide explicit drill breakdowns, equipment cues, cadence targets, and biomechanical focus in 'details'.
+MANDATORY GRANULARITY & STRUCTURE PARITY DIRECTIVE:
+1. Every workout's 'details' field in the JSON is the athlete-facing coaching prescription and MUST NEVER be a basic one-liner like "intervals", "easy run", or "tempo session". 
+   You MUST provide explicit drill breakdowns, equipment cues, cadence targets, and biomechanical focus in 'details'.
+2. EXERCISE & STEP PARITY MANDATE (CRITICAL):
+   EVERY single exercise, station, carry, lift, or drill prescribed in 'details' MUST have its own corresponding structured step or repeat block in 'steps_json' (or 'steps')!
+   - If 'details' prescribes 3 exercises (e.g. Barbell Back Squat, Farmers Carry, and Pallof Press), you MUST output 3 separate repeat blocks in 'steps_json'—NEVER output only 1 exercise!
+   - In each exercise step, specify: "exerciseName" (e.g. "Barbell Back Squat", "Farmers Carry", "Pallof Press"), "condition_type" ("reps" or "distance" or "time"), "condition_value", "weight" (kg if applicable), and a corresponding "rest" step (condition_type: "time_sec").
+   - For Warmup and Cooldown steps, ALWAYS populate "exerciseName" with the specific mobility drills or stretches prescribed (e.g. exerciseName: "Cossack Squats & Inchworms" for warmup, exerciseName: "Couch Stretch & Pigeon Pose" for cooldown).
 (Machine-readable step intervals go into 'steps_json', while rich, human-readable technique cues, drills, and equipment instructions go into 'details').`;
 
   if (discipline === "hyrox") {
