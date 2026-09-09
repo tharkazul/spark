@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 // Set to true for local development backend, false to connect directly to the Termux production server.
-export const USE_LOCAL_BACKEND = false;
+export const USE_LOCAL_BACKEND = true;
 
 // Production URLs (Termux Cloudflare Tunnel)
 const PROD_API_BASE_URL = 'https://api.rooka.io';
