@@ -451,8 +451,8 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
 
                     const userStartDate = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;
                     const computedTotalRooka =
-                      typeof user.total_rooka === "number" && user.total_rooka > 0
-                        ? user.total_rooka
+                      typeof user.total_rooka === "number"
+                        ? Math.round(user.total_rooka)
                         : Math.round(
                             activities
                               .filter((a) => !userStartDate || !a.start_date || a.start_date.substring(0, 10) >= userStartDate)
