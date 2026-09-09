@@ -4,6 +4,7 @@ const db = require('../services/db');
 const { authenticateToken } = require('../services/auth');
 const { generateWithFallback } = require('../services/ai');
 const { generateQuestForUser } = require('../services/utils');
+const { detectAthleteGoalDiscipline, getGoalDependentPromptContext } = require('../services/goalPromptContext');
 
 // Helper to determine benchmark test name & sport based on user context
 function getBenchmarkInfoForUser(athleteContext, targetEvent) {
@@ -431,6 +432,9 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       } catch (e) {}
     }
 
+    const discipline = detectAthleteGoalDiscipline({ target_event: targetEvent, athlete_context: athleteContext }, []);
+    const goalPrompt = getGoalDependentPromptContext(discipline);
+
     const systemPrompt = `You are Coach Rooka, an elite endurance AI coach.
 Tone: ${coachTone || 'Empathetic but demanding elite endurance coach.'}
 Athlete Context: ${athleteContext || 'Endurance athlete.'}
@@ -438,6 +442,8 @@ Gender: ${gender || 'Prefer not to say'}
 Target Event: ${targetEvent || 'General Fitness'} (Date: ${eventDate || 'TBD'})
 Schedule Boundaries:
 ${availabilityText}
+
+${goalPrompt}
 
 CRITICAL RULES:
 0. LANGUAGE DIRECTIVE: All natural language workout descriptions and details MUST be written fluently in ${targetLanguageName}.
@@ -448,7 +454,8 @@ CRITICAL RULES:
    - Description: "${benchmarkInfo.desc}"
    - Details: "${benchmarkInfo.details}"
    - is_benchmark: true
-4. Format output as a valid JSON array of 7 items at the very end of your response inside a \`\`\`json code block.
+4. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus.
+5. Format output as a valid JSON array of 7 items at the very end of your response inside a \`\`\`json code block.
 Example format:
 \`\`\`json
 [

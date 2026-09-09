@@ -36,6 +36,7 @@ const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback, generateImage } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const muscleLoad = require('../services/muscleLoad');
+const { getUserGoalPromptContext } = require('../services/goalPromptContext');
 const {
   extractAndCleanFoodItems,
   matchGarminExercise,
@@ -340,6 +341,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                             : "No upcoming workouts scheduled.";
 
                         const milestonesText = await getUserGoalsContext(req.user.id);
+                        const goalContext = await getUserGoalPromptContext(req.user.id, user);
 
                             db.all(
                               `SELECT body_part, severity, notes, status FROM athlete_niggles WHERE user_id = ?`,
@@ -527,8 +529,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     PHYSIOLOGICAL METRICS:
                     ${metricsText}
                     
-                    UPCOMING EVENTS/MILESTONES:
+                     UPCOMING EVENTS/MILESTONES:
                     ${milestonesText}
+
+                    ${goalContext.promptContext}
 
                     UPCOMING SCHEDULED WORKOUTS (Microplan):
                     ${planText}
@@ -561,7 +565,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                     CRITICAL RULES:
                     0. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
-                    1. CONCISE CHAT APPLICATION STYLE & MULTI-MESSAGE BREAKS (CRITICAL): Act like a real coach texting in a mobile chat app (such as WhatsApp or iMessage). Keep your conversational text formulated concisely, punchily, directly, and naturally (typically 1-3 short sentences or paragraphs). If you need to send multiple distinct messages or break up a larger thought into separate chat bubbles, use \`<br>\` or \`---MSG---\` between each message. The app will split them and display them in the exact right order.
+                    1. CONCISE CHAT APPLICATION STYLE & MULTI-MESSAGE BREAKS (CRITICAL): Act like a real coach texting in a mobile chat app (such as WhatsApp or iMessage). Keep your conversational text formulated concisely, punchily, directly, and naturally (typically 1-3 short sentences or paragraphs). If you need to send multiple distinct messages or break up a larger thought into separate chat bubbles, use `<br>` or `---MSG---` between each message. The app will split them and display them in the exact right order.
                     2. RETRIES & REPEATED MESSAGES (CRITICAL): If the athlete's message seems repeated or identical to a previous message (which happens when a mobile user retries after a connection error), NEVER say things like "did you want to tell me this twice?" or "you already said that". Treat it naturally and helpfully as a single message, and NEVER duplicate activity or diet logs.
                     3. NEVER repeat your previous greetings, praises, or paragraphs verbatim. Do not bring up old topics unless the athlete explicitly mentions them.
                     4. Always use metric measurements exclusively (meters for distance, km/h for speed, min/km for pace). Never use imperial units. IMPORTANT: For 'distance' condition_type in the JSON steps, the condition_value MUST be in pure METERS (e.g., use 5000 for a 5km interval, NOT 5).
@@ -577,7 +581,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     5. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout (e.g., Bike + Run), you MUST create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
                     6. INTERVALS: To create a repeating block (e.g., 8x 1000m fast, 1min rest), use a "repeat" object in steps_json with "iterations" and an array of "steps".
                     7. SENTIMENT & SUPPORT: Pay close attention to the athlete's physical and mental state. If they mention soreness, exhaustion, poor sleep, or lack of motivation, immediately prioritize empathy and recovery. Strongly advise them to rest or dial back intensity, even if it means modifying the plan.
-                    8. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array, NOT in the 'details' text! Use "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and try to prescribe slight progressive overload (e.g., +2.5kg).
+                    8. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array with "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and try to prescribe slight progressive overload (e.g., +2.5kg).
                     9. TARGETS: If a workout step requires a specific pace or power target:
                        - For exact pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and set "target_value": "4:15" (do NOT include "min/km" in target_value!).
                        - For exact power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
@@ -592,18 +596,20 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         - Mention their streak or title occasionally to motivate them, especially if their streak is high (e.g., "You're on a ${gamification.streak} day streak, keep the momentum going!"). Do NOT mention it every single time.
                         - IMPORTANT: Warmup and Cooldown steps MUST ALWAYS be at least heart rate Zone 2 (never Zone 1). Rest and Recovery steps can be Zone 1.
 
-                    WORKOUT PLANNING (CRITICAL):
+                    WORKOUT PLANNING & PRESCRIPTION DETAILS (CRITICAL):
                     If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 
                     - To CANCEL or CLEAR a workout for a day, you MUST include that date in the JSON array and set "sport": "Rest". Otherwise, the old workout will remain in the database!
+                    - WORKOUT DETAILS FIELD (CRITICAL): The 'details' field in each workout object is the athlete's primary coaching note and guide. NEVER write basic, vague one-liners like "intervals", "easy run", or "tempo session". You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling guidance.
+                    - While machine-readable structured intervals go into the "steps" JSON array, the rich human-readable drills, equipment, and technique instructions go into "details"!
                     The JSON must be a valid Array of objects. Format it EXACTLY like this inside triple backticks:
                     \`\`\`json
                     [
                       {
                         "date": "YYYY-MM-DD",
                         "sport": "Run", 
-                        "description": "5k Speed Intervals",
+                        "description": "5k Speed Intervals & Form Drills",
                         "target_rooka": 80,
-                        "details": "Push hard on the intervals, recover fully on the rests.",
+                        "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 8x1000m at threshold with 1min active recoveries. Cool-down: 10 min easy jog + calf mobility.",
                         "steps": [{"type": "warmup", "condition_type": "time", "condition_value": 15, "target_type": "heart.rate.zone", "zone": 2}, {"type": "repeat", "iterations": 8, "steps": [{"type": "interval", "condition_type": "distance", "condition_value": 1000, "target_type": "heart.rate.zone", "zone": 4}, {"type": "rest", "condition_type": "time", "condition_value": 1, "target_type": "heart.rate.zone", "zone": 1}]}, {"type": "cooldown", "condition_type": "time", "condition_value": 10, "target_type": "heart.rate.zone", "zone": 2}]
                       },
                       {
@@ -611,12 +617,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         "sport": "Rest", 
                         "description": "Active Recovery",
                         "target_rooka": 0,
-                        "details": "Take the day off.",
+                        "details": "Rest and recovery. 15-min light walk, hydration, and 3 minutes box breathing.",
                         "steps": []
                       }
                     ]
                     \`\`\`
-                    *Note: Exercises MUST go in the "steps" JSON array, NOT details!*
                     
                     IMAGE GENERATION (NEW):
                     If the athlete asks for an illustration, visualization, diagram, or picture of an exercise, route, pose, or anything else, you can seamlessly generate an image by outputting a Markdown image tag with the following URL format:

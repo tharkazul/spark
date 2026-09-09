@@ -10,6 +10,7 @@ const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const { getUserGoalPromptContext } = require('../services/goalPromptContext');
 const {
   matchGarminExercise,
   getAMSDateString,
@@ -672,7 +673,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
   const { targetDate } = req.body;
 
   db.get(
-    `SELECT coach_tone, athlete_context, gender, training_availability FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, training_availability, current_ctl, current_atl, training_phase, cycle_tracking_enabled FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -693,6 +694,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
           gender: 'prefer_not_to_say',
         };
       }
+
+      const goalContext = await getUserGoalPromptContext(req.user.id, user);
 
       db.all(
         `SELECT metric, value FROM athlete_metrics WHERE user_id = ?`,
@@ -747,9 +750,17 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     console.error("Muscle load for plan generation failed:", e.message);
                   }
 
-                  const systemPrompt = `You are Coach Rooka, an elite Ironman Triathlon and endurance coach.
-                Tone: ${user.coach_tone || "empathetic"}
+                  const coachName = user.coach_name || 'Rooka';
+                  let coachToneText = user.coach_tone || 'Empathetic but demanding elite endurance coach.';
+                  if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
+                    coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
+                  }
+
+                  const systemPrompt = `You are Coach ${coachName}, an elite endurance and athletic performance coach.
+                Tone: ${coachToneText}
+                ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
                 Athlete Context: ${user.athlete_context || "General endurance athlete"}
+                Athlete Primary Goal: ${goalContext.goalName} (${goalContext.goalDate || 'Target Date TBD'})
                 Gender: ${user.gender || "Prefer not to share"}
                 ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT: Adjust training load taking the menstrual cycle into consideration. Distribute exercises carefully around the physically demanding days." : ""}
                 Schedule Boundaries:
@@ -761,6 +772,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                 ${recentSetsText}
                 ACTIVE INJURIES/NIGGLES:
                 ${nigglesText}
+
+                ${goalContext.promptContext}
             
             CRITICAL RULES:
             0. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
@@ -775,7 +788,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             5. You must append a JSON code block at the very end of your response containing the schedule.
             6. Use metric measurements exclusively (km, kg, km/h). IMPORTANT: For 'distance' condition_type in the JSON steps, the condition_value MUST be in pure METERS (e.g., use 5000 for a 5km interval, NOT 5). DO NOT repeat greetings, filler words, or preamble.
             7. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout, create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
-            8. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array, NOT in the 'details' text! Use "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and push for progressive overload.
+            8. STRENGTH TRAINING: Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete. For Strength workouts, YOU MUST put the individual exercises into the 'steps_json' array with "condition_type": "reps" instead of time for the interval steps. Set "condition_value" to the number of reps. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use simple, standard exercise names (e.g., "Barbell Back Squat", "Dumbbell Lunge"). Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds). Reference the Athlete Context for their past weights, and push for progressive overload.
             9. TARGETS: If a workout step requires a specific pace or power target:
                - For exact pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and set "target_value": "4:15" (do NOT include "min/km" in target_value!).
                - For exact power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
@@ -790,6 +803,10 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                  - For HYROX / FUNCTIONAL FITNESS focus: Schedule a Hyrox Benchmark Test ("sport": "Strength", "description": "🎯 Benchmark Assessment: Hyrox Functional Fitness Test").
                  - NEVER assign a running test to pure swimmers/cyclists or a cycling test to Hyrox athletes. Respect their specific sport/goal context strictly.
             12. IMPORTANT: Warmup and Cooldown steps MUST ALWAYS be at least heart rate Zone 2 (never Zone 1). Rest and Recovery steps can be Zone 1.
+            13. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL):
+                - Every workout's 'details' field is the primary athlete-facing coaching prescription and MUST NEVER be a basic, vague one-liner like "intervals" or "easy run".
+                - You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling guidance.
+                - While machine-readable structured intervals go into 'steps_json', the rich human-readable drills, equipment, and technique instructions go into 'details'!
 
         WORKOUT PLANNING (CRITICAL):
         If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 
@@ -799,9 +816,9 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
           {
             "date": "YYYY-MM-DD",
             "sport": "Run", 
-            "description": "5k Speed Intervals",
+            "description": "5k Speed Intervals & Form Drills",
             "target_rooka": 80,
-            "details": "Push hard on the intervals, recover fully on the rests.",
+            "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 8x1000m at threshold with 1min active recoveries. Cool-down: 10 min easy jog + calf mobility.",
             "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 15, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"repeat\\", \\"iterations\\": 8, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 1000, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 4}, {\\"type\\": \\"recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 1, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
           },
           {
@@ -809,7 +826,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             "sport": "Strength", 
             "description": "Leg Day Burner",
             "target_rooka": 40,
-            "details": "Focus on depth and explosion.",
+            "details": "Dynamic warm-up: 2x10 world's greatest stretch, 20 band pull-aparts. Focus on explosive concentric drive and controlled 3-second eccentric descent.",
             "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 10, \\"weight\\": 80, \\"exerciseName\\": \\"Barbell Squat\\", \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 2, \\"target_type\\": \\"no.target\\"}]}]"
           }
         ]

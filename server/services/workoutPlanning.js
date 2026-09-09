@@ -5,6 +5,7 @@ const { sendPushToUser } = require("./pushNotificationService");
 const { planDayTargetRooka } = require("./zones");
 const muscleLoad = require("./muscleLoad");
 const { getUserMacroPhase } = require("./utils");
+const { getUserGoalPromptContext } = require("./goalPromptContext");
 
 /**
  * Calculates the exact 7 consecutive dates (YYYY-MM-DD) from Monday to Sunday
@@ -263,6 +264,7 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
   // 6. Macro phase & PMC fitness metrics
   const phase = await getUserMacroPhase(userId);
   const { ctl, atl, tsb } = await calculateUserFitnessMetrics(userId);
+  const goalContext = await getUserGoalPromptContext(userId, user);
 
   // 7. Check for athlete's pre-scheduled manual sessions (source = 'user')
   const userManualWorkouts = await new Promise((resolve) => {
@@ -299,6 +301,7 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
 Tone: ${coachToneText}
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
 Athlete Context: ${user.athlete_context || "General endurance athlete"}
+Athlete Primary Goal: ${goalContext.goalName} (${goalContext.goalDate || 'Target Date TBD'})
 Gender: ${user.gender || "Prefer not to share"}
 ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT: Adjust training load taking the menstrual cycle into consideration. Distribute exercises carefully around the physically demanding days." : ""}
 Schedule Boundaries:
@@ -311,6 +314,8 @@ ${recentSetsText}
 ACTIVE INJURIES/NIGGLES:
 ${nigglesText}
 ${userWorkoutsNotice}
+
+${goalContext.promptContext}
 
 CRITICAL RULES:
 0. LANGUAGE DIRECTIVE: All natural language workout descriptions and details MUST be written fluently in ${targetLanguageName}.
@@ -328,15 +333,20 @@ CRITICAL RULES:
 5. INJURIES: Respect active niggles and substitute lower impact activities where necessary.
 6. TARGETS & MEASUREMENTS: Metric units (km, kg, km/h, meters). Distance condition values must be in pure meters.
 7. STRENGTH: For Strength workouts, exercises go into the 'steps_json' array with condition_type 'reps', weight (kg), exerciseName, and rest steps.
-8. FORMAT: You must append a JSON code block at the very end of your response containing the array of 7 days:
+8. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL):
+   - Every workout's 'details' field is the primary athlete-facing coaching prescription.
+   - NEVER write basic or vague one-liners like "intervals", "easy run", or "tempo session".
+   - You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling notes.
+   - Note: While machine-readable structured intervals go into 'steps_json', the rich human-readable drills, equipment, and technique instructions go into 'details'!
+9. FORMAT: You must append a JSON code block at the very end of your response containing the array of 7 days:
 \`\`\`json
 [
   {
     "date": "${dates[0]}",
     "sport": "Run",
-    "description": "Aerobic Base Progression",
+    "description": "Aerobic Base & Cadence Drill",
     "target_rooka": 45,
-    "details": "Controlled Zone 2 aerobic foundation run.",
+    "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 45 min steady Zone 2 holding 175-180 spm cadence. Cool-down: 4x60m relaxed strides + calf mobility.",
     "steps_json": "[{\\"type\\": \\"warmup\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
   }
 ]

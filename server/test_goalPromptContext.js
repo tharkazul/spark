@@ -84,4 +84,20 @@ console.log("🏃 Running Goal Prompt Context unit tests...\n");
   console.log("✅ Test 5 Passed: Goal contexts contain exact discipline drills with clean separation");
 }
 
-console.log("\n🎉 All 5 Goal Prompt Context tests passed successfully!");
+// Test 6: Async getUserGoalPromptContext
+(async () => {
+  const { getUserGoalPromptContext } = require("./services/goalPromptContext");
+  
+  // Test with fallbackUser containing Hyrox
+  const res1 = await getUserGoalPromptContext(null, { athlete_context: "Hyrox athlete" });
+  assert.strictEqual(res1.discipline, "hyrox");
+  assert.ok(res1.promptContext.includes("HYROX"));
+
+  // Test with fallbackUser containing Triathlon
+  const res2 = await getUserGoalPromptContext(null, { target_event: "Ironman 70.3" });
+  assert.strictEqual(res2.discipline, "triathlon");
+  assert.ok(res2.promptContext.includes("TRIATHLON"));
+
+  console.log("✅ Test 6 Passed: Async getUserGoalPromptContext successfully returns discipline & prompt context");
+  console.log("\n🎉 All 6 Goal Prompt Context tests passed successfully!");
+})();
