@@ -253,9 +253,12 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
         const activities = await actRes.json();
 
         const userRow = await new Promise((resolve) =>
-          db.get(`SELECT rooka_start_date FROM users WHERE id = ?`, [req.user.id], (err, row) => resolve(row))
+          db.get(`SELECT rooka_start_date, spark_start_date, created_at FROM users WHERE id = ?`, [req.user.id], (err, row) => resolve(row))
         );
-        const userStartDateDay = userRow && userRow.rooka_start_date ? userRow.rooka_start_date.substring(0, 10) : null;
+        const rawStartDate = userRow ? (userRow.rooka_start_date || userRow.spark_start_date || userRow.created_at) : null;
+        const userStartDateDay = (rawStartDate && rawStartDate.length >= 10)
+          ? rawStartDate.substring(0, 10)
+          : new Date().toISOString().substring(0, 10);
 
         let storedForUser = 0;
         let failed = 0;
@@ -265,7 +268,7 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
             act.suffer_score || Math.round((act.moving_time / 3600) * 50);
           const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
           let rookaScore = 0;
-          if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
+          if (actStartDateDay && actStartDateDay >= userStartDateDay) {
             rookaScore = await calculateRookaScoreZoned({
               userId: req.user.id,
               movingTimeMin: act.moving_time / 60,

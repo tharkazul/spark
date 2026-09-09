@@ -224,15 +224,26 @@ db.serialize(() => {
   );
   db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {
     // Automatically backfill any activities that have a NULL rooka_score, then sync total_rooka
+    // Ensure all users have a valid rooka_start_date
+    db.run(
+      `UPDATE users SET rooka_start_date = COALESCE(rooka_start_date, spark_start_date, substr(created_at, 1, 10), date('now')) WHERE rooka_start_date IS NULL OR rooka_start_date = ''`,
+      () => {
+        // Zero out rooka_score for historical activities created before the user's start date
+        db.run(
+          `UPDATE activities SET rooka_score = 0 WHERE user_id IN (SELECT id FROM users) AND substr(start_date, 1, 10) < (SELECT COALESCE(u.rooka_start_date, u.spark_start_date, substr(u.created_at, 1, 10), date('now')) FROM users u WHERE u.id = activities.user_id)`
+        );
+      }
+    );
+
     db.all(
-      `SELECT a.id, a.user_id, a.start_date, a.moving_time_min, a.average_heartrate, a.tss, u.rooka_start_date FROM activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.rooka_score IS NULL`,
+      `SELECT a.id, a.user_id, a.start_date, a.moving_time_min, a.average_heartrate, a.tss, COALESCE(u.rooka_start_date, u.spark_start_date, u.created_at, date('now')) as rooka_start_date FROM activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.rooka_score IS NULL`,
       (err, rows) => {
         const syncUserRooka = () => {
           db.all(
             `SELECT u.id as user_id, 
                     COALESCE(SUM(a.rooka_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND (u.rooka_start_date IS NULL OR substr(created_at, 1, 10) >= substr(u.rooka_start_date, 1, 10))), 0) as total 
              FROM users u 
-             LEFT JOIN activities a ON a.user_id = u.id AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10)) 
+             LEFT JOIN activities a ON a.user_id = u.id AND substr(a.start_date, 1, 10) >= substr(COALESCE(u.rooka_start_date, u.spark_start_date, u.created_at, date('now')), 1, 10) 
              GROUP BY u.id`,
             (err, userRows) => {
               if (!err && userRows) {
@@ -257,10 +268,10 @@ db.serialize(() => {
             `UPDATE activities SET rooka_score = ? WHERE id = ?`,
           );
           rows.forEach((row) => {
-            const userStartDateDay = row.rooka_start_date ? row.rooka_start_date.substring(0, 10) : null;
+            const userStartDateDay = row.rooka_start_date ? row.rooka_start_date.substring(0, 10) : new Date().toISOString().substring(0, 10);
             const actStartDateDay = row.start_date ? row.start_date.substring(0, 10) : null;
             let score = 0;
-            if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
+            if (actStartDateDay && actStartDateDay >= userStartDateDay) {
               let bonus = 0;
               if (row.average_heartrate) {
                 if (row.average_heartrate >= 180) bonus = 1.0;
@@ -282,6 +293,7 @@ db.serialize(() => {
           });
         } else {
           syncUserRooka();
+        }
         }
       },
     );
