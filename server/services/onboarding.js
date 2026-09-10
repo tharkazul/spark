@@ -166,14 +166,17 @@ async function evaluateUserFeatureUsage(userId) {
   for (const feature of FEATURES_REGISTRY) {
     const isUsed = await feature.checkUsage(userId);
     if (isUsed) {
-      db.run(
-        `INSERT INTO user_feature_onboarding (user_id, feature_key, status, first_used_at) 
-         VALUES (?, ?, 'used', CURRENT_TIMESTAMP)
-         ON CONFLICT(user_id, feature_key) DO UPDATE SET 
-           status = 'used',
-           first_used_at = COALESCE(first_used_at, CURRENT_TIMESTAMP)`,
-        [userId, feature.key]
-      );
+      await new Promise((resolve) => {
+        db.run(
+          `INSERT INTO user_feature_onboarding (user_id, feature_key, status, first_used_at) 
+           VALUES (?, ?, 'used', CURRENT_TIMESTAMP)
+           ON CONFLICT(user_id, feature_key) DO UPDATE SET 
+             status = 'used',
+             first_used_at = COALESCE(first_used_at, CURRENT_TIMESTAMP)`,
+          [userId, feature.key],
+          () => resolve()
+        );
+      });
     }
   }
 }
@@ -209,28 +212,29 @@ async function getNextUnusedFeatureForUser(userId) {
 
 /**
  * Weekly Scheduled Job:
- * Evaluates all users and introduces 1 new feature per week per user if they haven't used it.
+ * Evaluates all active users and introduces 1 new feature per week per user if they haven't used it.
  */
 async function runWeeklyFeatureOnboardingJob() {
   console.log("🚀 Starting weekly feature onboarding drip check...");
 
-  db.all(`SELECT id, username, coach_tone FROM users`, async (err, users) => {
-    if (err || !users) {
-      console.error("Error fetching users for onboarding job:", err);
-      return;
-    }
+  const users = await new Promise((resolve, reject) => {
+    db.all(`SELECT id, username, coach_tone FROM users WHERE deleted_at IS NULL`, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
 
-    for (const user of users) {
-      try {
-        const nextFeature = await getNextUnusedFeatureForUser(user.id);
-        if (!nextFeature) {
-          console.log(`[Onboarding Job] User ${user.username} (ID: ${user.id}) has no new features to introduce.`);
-          continue;
-        }
+  for (const user of users) {
+    try {
+      const nextFeature = await getNextUnusedFeatureForUser(user.id);
+      if (!nextFeature) {
+        console.log(`[Onboarding Job] User ${user.username} (ID: ${user.id}) has no new features to introduce.`);
+        continue;
+      }
 
-        console.log(`[Onboarding Job] Introducing "${nextFeature.name}" (${nextFeature.key}) to ${user.username} (ID: ${user.id})`);
+      console.log(`[Onboarding Job] Introducing "${nextFeature.name}" (${nextFeature.key}) to ${user.username} (ID: ${user.id})`);
 
-        const prompt = `You are the athlete's personal endurance coach. Write a natural, friendly, non-overwhelming chat message introducing a useful feature in Rooka that they haven't tried yet.
+      const prompt = `You are the athlete's personal endurance coach. Write a natural, friendly, non-overwhelming chat message introducing a useful feature in Rooka that they haven't tried yet.
 Feature: ${nextFeature.name}
 Core Message Guidance: ${nextFeature.coachPrompt}
 Instructions:
@@ -239,24 +243,25 @@ Instructions:
 - Sound enthusiastic, encouraging, and natural (NOT robotic or marketing-heavy).
 - DO NOT wrap in JSON.`;
 
-        const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${user.coach_tone || "Empathetic but demanding elite endurance coach."}. Act like a real human coach in a text thread.`;
+      const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${user.coach_tone || "Empathetic but demanding elite endurance coach."}. Act like a real human coach in a text thread.`;
 
-        let aiReply;
-        try {
-          aiReply = await generateWithFallback(prompt, systemPrompt);
-        } catch (aiErr) {
-          console.warn(`[Onboarding Job] AI generation fallback used for feature ${nextFeature.key}:`, aiErr.message);
-          aiReply = nextFeature.coachPrompt;
-        }
+      let aiReply;
+      try {
+        aiReply = await generateWithFallback(prompt, systemPrompt, null, null, user.id, "common");
+      } catch (aiErr) {
+        console.warn(`[Onboarding Job] AI generation fallback used for feature ${nextFeature.key}:`, aiErr.message);
+        aiReply = nextFeature.coachPrompt;
+      }
 
-        // Save coach message in chat history
+      // Save coach message in chat history
+      await new Promise((resolve) => {
         db.run(
           `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'informative')`,
           [user.id, aiReply],
           (err) => {
             if (err) {
               console.error(`Failed to insert chat history for user ${user.id}:`, err);
-              return;
+              return resolve();
             }
 
             // Push notification bubble to frontend via SSE
@@ -272,17 +277,18 @@ Instructions:
                ON CONFLICT(user_id, feature_key) DO UPDATE SET 
                  status = CASE WHEN status = 'used' THEN 'used' ELSE 'introduced' END,
                  introduced_at = CURRENT_TIMESTAMP`,
-              [user.id, nextFeature.key]
+              [user.id, nextFeature.key],
+              () => resolve()
             );
 
             console.log(`✅ Successfully delivered onboarding feature "${nextFeature.key}" to user ${user.username}`);
           }
         );
-      } catch (e) {
-        console.error(`Error processing onboarding for user ${user.id}:`, e);
-      }
+      });
+    } catch (e) {
+      console.error(`Error processing onboarding for user ${user.id}:`, e);
     }
-  });
+  }
 }
 
 module.exports = {
