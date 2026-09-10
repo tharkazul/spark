@@ -271,9 +271,10 @@ export function AddWorkoutModal({
       const { syncGarminWorkout } = require('../../api/integrations');
       const finalTitle = title.trim() || `${selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()} Workout`;
       const workoutDate = targetFullDate || (initialWorkout as any)?.date || normalizeDateToYYYYMMDD(targetDateStr);
+      const normalizedSport = (selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1).toLowerCase());
       await syncGarminWorkout([{
         date: workoutDate,
-        sport: selectedSport,
+        sport: normalizedSport,
         title: finalTitle,
         description: finalTitle,
         rookaPoints: calculatedRooka,

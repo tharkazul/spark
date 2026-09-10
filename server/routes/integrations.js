@@ -43,10 +43,40 @@ const {
 
 const SPORT_MAP = {
   Run: { sportTypeId: 1, sportTypeKey: "running" },
+  RUN: { sportTypeId: 1, sportTypeKey: "running" },
+  run: { sportTypeId: 1, sportTypeKey: "running" },
+  running: { sportTypeId: 1, sportTypeKey: "running" },
   Bike: { sportTypeId: 2, sportTypeKey: "cycling" },
+  BIKE: { sportTypeId: 2, sportTypeKey: "cycling" },
+  bike: { sportTypeId: 2, sportTypeKey: "cycling" },
+  cycling: { sportTypeId: 2, sportTypeKey: "cycling" },
+  cycle: { sportTypeId: 2, sportTypeKey: "cycling" },
+  CYCLE: { sportTypeId: 2, sportTypeKey: "cycling" },
   Swim: { sportTypeId: 4, sportTypeKey: "swimming" },
+  SWIM: { sportTypeId: 4, sportTypeKey: "swimming" },
+  swim: { sportTypeId: 4, sportTypeKey: "swimming" },
+  swimming: { sportTypeId: 4, sportTypeKey: "swimming" },
   Strength: { sportTypeId: 5, sportTypeKey: "strength_training" },
+  STRENGTH: { sportTypeId: 5, sportTypeKey: "strength_training" },
+  strength: { sportTypeId: 5, sportTypeKey: "strength_training" },
+  Walk: { sportTypeId: 1, sportTypeKey: "running" },
+  WALK: { sportTypeId: 1, sportTypeKey: "running" },
+  walk: { sportTypeId: 1, sportTypeKey: "running" },
 };
+
+function getGarminSportDef(sport) {
+  if (!sport) return null;
+  const raw = String(sport).trim();
+  if (SPORT_MAP[raw]) return SPORT_MAP[raw];
+  const s = raw.toLowerCase();
+  if (s === "rest") return null;
+  if (s === "run" || s === "running") return { sportTypeId: 1, sportTypeKey: "running" };
+  if (s === "bike" || s === "cycling" || s === "biking" || s === "cycle") return { sportTypeId: 2, sportTypeKey: "cycling" };
+  if (s === "swim" || s === "swimming") return { sportTypeId: 4, sportTypeKey: "swimming" };
+  if (s === "strength" || s === "strength_training" || s === "gym") return { sportTypeId: 5, sportTypeKey: "strength_training" };
+  if (s === "walk" || s === "walking" || s === "hike") return { sportTypeId: 1, sportTypeKey: "running" };
+  return null;
+}
 
 const STEP_TYPE_MAP = {
   warmup: { id: 1, key: "warmup" },
@@ -765,9 +795,11 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     let lastSyncError = null;
 
     for (const workout of workoutsToSync) {
-      if (workout.sport === "Rest" || !SPORT_MAP[workout.sport]) continue;
-
-      const sportDef = SPORT_MAP[workout.sport];
+      const sportDef = getGarminSportDef(workout.sport);
+      if (!sportDef) {
+        console.warn(`[Garmin Sync] Skipping unsupported or rest sport: "${workout.sport}"`);
+        continue;
+      }
       let stepsArray = [];
       if (Array.isArray(workout.steps) && workout.steps.length > 0) {
         stepsArray = workout.steps;
@@ -982,12 +1014,13 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
         ],
       };
 
-      if (workout.sport === "Swim") {
+      if (String(workout.sport).toLowerCase().includes("swim")) {
         wkt.poolLength = 25;
         wkt.poolLengthUnit = { unitId: 1, unitKey: "meter", factor: 100 };
       }
 
       const scheduleDate = normalizeToYYYYMMDD(workout.date);
+      console.log(`DEBUG: Sending workout "${wkt.workoutName}" (${sportDef.sportTypeKey}) to Garmin for date: ${scheduleDate}`);
 
       try {
         const response = await client.post(
