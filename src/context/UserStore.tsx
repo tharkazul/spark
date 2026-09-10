@@ -14,6 +14,8 @@ interface UserContextType {
   error: string | null;
   login: (emailOrUsername: string, password: string) => Promise<void>;
   register: (email: string, password: string, username?: string) => Promise<void>;
+  loginWithToken: (token: string) => Promise<void>;
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   logout: (reason?: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
@@ -183,6 +185,54 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       setLoading(false);
     }
   }, [login]);
+
+  const loginWithToken = React.useCallback(async (token: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      setAuthToken(token);
+      const profileData = await userApi.getProfile();
+      await tokenStorage.setToken(token);
+
+      const normalizedProfile = normalizeProfile(profileData);
+      await profileStorage.setProfile(normalizedProfile);
+
+      setUser(normalizedProfile);
+      setIsAuthenticated(true);
+    } catch (err: any) {
+      setAuthToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      const message = err?.message || 'Authentication failed. Please sign in.';
+      setError(message);
+      throw err instanceof Error ? err : new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const resetPassword = React.useCallback(
+    async (email: string, code: string, newPassword: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await authApi.resetPassword({
+          email: email.trim().toLowerCase(),
+          code: code.trim(),
+          newPassword,
+        });
+        if (res && res.token) {
+          await loginWithToken(res.token);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Password reset failed.');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginWithToken]
+  );
 
   const refreshUser = React.useCallback(async () => {
     try {
@@ -359,6 +409,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         error,
         login,
         register,
+        loginWithToken,
+        resetPassword,
         logout,
         refreshUser,
         updateUser,

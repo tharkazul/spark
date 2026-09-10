@@ -733,6 +733,17 @@ db.serialize(() => {
         FOREIGN KEY(code_id) REFERENCES discount_codes(id),
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS password_resets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        code_hash TEXT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        attempts INTEGER DEFAULT 0,
+        used_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
 });
 
 /**
