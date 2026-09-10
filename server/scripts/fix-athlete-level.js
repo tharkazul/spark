@@ -45,29 +45,53 @@ async function main() {
   console.log(`👥 Total users in database: ${userCountRow.count}\n`);
 
   const args = process.argv.slice(2);
+  const idIdx = args.indexOf("--id");
+  const targetId = idIdx !== -1 ? parseInt(args[idIdx + 1], 10) : null;
   const dateIdx = args.indexOf("--date");
   const explicitDate = dateIdx !== -1 ? args[dateIdx + 1] : null;
 
   // 1. Find target athlete
-  const users = await all(
-    `SELECT id, username, email, rooka_start_date, total_rooka 
-     FROM users 
-     WHERE username LIKE '%rutger%' OR email LIKE '%rutger%' OR id = 11 OR id = 1`
-  );
+  let users = [];
+  if (targetId) {
+    users = await all(
+      `SELECT id, username, email, rooka_start_date, total_rooka 
+       FROM users 
+       WHERE id = ?`,
+      [targetId]
+    );
+  } else {
+    // Only search ACTIVE non-deleted users matching 'rutger' or ID 11
+    users = await all(
+      `SELECT id, username, email, rooka_start_date, total_rooka 
+       FROM users 
+       WHERE (deleted_at IS NULL OR deleted_at = '')
+         AND username NOT LIKE '%_deleted_%'
+         AND (id = 11 OR username LIKE '%rutger%' OR email LIKE '%rutger%')`
+    );
+  }
 
   if (users.length === 0) {
-    console.error("❌ No athlete matching 'rutger' found in the database.");
-    console.log("Available users:");
-    const allUsers = await all(`SELECT id, username, email FROM users LIMIT 10`);
+    console.error("❌ No active athlete matching 'rutger' or ID 11 found.");
+    console.log("All non-deleted users in database:");
+    const allUsers = await all(`SELECT id, username, email, total_rooka FROM users WHERE deleted_at IS NULL LIMIT 20`);
     console.table(allUsers);
     process.exit(1);
   }
+
+  // Count activities for each candidate to pick the active account
+  for (const u of users) {
+    const actRow = await get(`SELECT COUNT(*) as count FROM activities WHERE user_id = ?`, [u.id]);
+    u.activityCount = actRow ? actRow.count : 0;
+  }
+
+  // Sort descending by activity count so the real active account with all activities is selected
+  users.sort((a, b) => b.activityCount - a.activityCount);
 
   const user = users[0];
   console.log(`Selected athlete: "${user.username}" (ID: ${user.id}, Email: ${user.email || 'None'})`);
   console.log(`Current DB State:`);
   console.log(`  rooka_start_date: ${user.rooka_start_date || 'NULL'}`);
-  console.log(`  total_rooka:      ${user.total_rooka || 0} (${getRookaLevelInfo(user.total_rooka || 0).level})`);
+  console.log(`  total_rooka:      ${user.total_rooka || 0} (Level ${getRookaLevelInfo(user.total_rooka || 0).level})`);
 
   // Activity stats
   const actStats = await get(
@@ -83,7 +107,6 @@ async function main() {
   let detectedDate = explicitDate;
 
   if (!detectedDate) {
-    // Check earliest onboarding quest or title
     const firstTitle = await get(
       `SELECT MIN(substr(created_at, 1, 10)) as d FROM user_titles WHERE user_id = ?`,
       [user.id]
@@ -100,14 +123,18 @@ async function main() {
     ).catch(() => null);
 
     const candidateDates = [
-      firstTitle?.d,
-      firstQuest?.d,
-      firstChat?.d
-    ].filter(Boolean).sort();
+      firstTitle?.d && { source: "user_titles", date: firstTitle.d },
+      firstQuest?.d && { source: "user_quests", date: firstQuest.d },
+      firstChat?.d && { source: "chat_history", date: firstChat.d }
+    ].filter(Boolean);
+
+    console.log("Onboarding timestamps found:");
+    candidateDates.forEach(c => console.log(`  - ${c.source}: ${c.date}`));
 
     if (candidateDates.length > 0) {
-      detectedDate = candidateDates[0];
-      console.log(`🔍 Detected athlete join date from onboarding records: ${detectedDate}`);
+      candidateDates.sort((a, b) => a.date.localeCompare(b.date));
+      detectedDate = candidateDates[0].date;
+      console.log(`🔍 Detected earliest join date: ${detectedDate}`);
     }
   }
 
@@ -117,8 +144,8 @@ async function main() {
   }
 
   if (!detectedDate) {
-    console.log("⚠️ Could not auto-detect join date. Please specify it using: node server/scripts/fix-athlete-level.js --date YYYY-MM-DD");
-    console.log("Example: node server/scripts/fix-athlete-level.js --date 2026-08-01");
+    console.log("⚠️ Could not auto-detect join date. Please specify using --date YYYY-MM-DD");
+    console.log("Example: node server/scripts/fix-athlete-level.js --id 11 --date 2026-08-18");
     process.exit(1);
   }
 
