@@ -61,6 +61,7 @@ const {
   resetDailyNutritionForAllUsers,
   generateWeeklyAthleteDescriptionsJob,
   enforceMaxTitlesForAllUsers,
+  syncAllStravaUsersOnStartup,
 } = require("./services/utils");
 
 const { sseClients, initWebSocketServer } = require("./services/sse");
