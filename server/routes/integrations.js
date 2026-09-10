@@ -793,6 +793,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
 
     let syncedCount = 0;
     let lastSyncError = null;
+    const monthCalendarCache = new Map();
 
     for (const workout of workoutsToSync) {
       const sportDef = getGarminSportDef(workout.sport);
@@ -1006,7 +1007,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
 
       const workoutTitle = workout.title || workout.description || `${workout.sport} Workout`;
       const wkt = {
-        workoutName: `Rooka: ${workoutTitle.slice(0, 40)}`,
+        workoutName: `rooka: ${workoutTitle.slice(0, 40)}`,
         description: workout.description || workoutTitle,
         sportType: sportDef,
         workoutSegments: [
@@ -1021,6 +1022,50 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
 
       const scheduleDate = normalizeToYYYYMMDD(workout.date);
       console.log(`DEBUG: Sending workout "${wkt.workoutName}" (${sportDef.sportTypeKey}) to Garmin for date: ${scheduleDate}`);
+
+      // Auto-Deduplication: Check if there is already a Rooka workout of the SAME sport on this date.
+      // If so, delete the prior workout from Garmin so we replace it instead of creating duplicates.
+      // Brick sessions (e.g. Bike + Run on the same day) have different sportTypeKeys and will NOT be touched!
+      try {
+        const dateParts = scheduleDate.split("-").map(n => parseInt(n, 10));
+        if (dateParts.length >= 2) {
+          const sYear = dateParts[0];
+          const sMonth = dateParts[1];
+          const monthCacheKey = `${sYear}-${sMonth}`;
+          if (!monthCalendarCache.has(monthCacheKey)) {
+            if (typeof GCClient.getMonthCalendarEvents === "function") {
+              const cal = await GCClient.getMonthCalendarEvents(sYear, sMonth - 1);
+              monthCalendarCache.set(monthCacheKey, cal?.calendarItems || []);
+            } else {
+              monthCalendarCache.set(monthCacheKey, []);
+            }
+          }
+
+          const calendarItems = monthCalendarCache.get(monthCacheKey) || [];
+          const existingSameSportWorkouts = calendarItems.filter(item =>
+            item.date === scheduleDate &&
+            item.itemType === "workout" &&
+            item.workoutId &&
+            item.title &&
+            item.title.toLowerCase().startsWith("rooka") &&
+            item.sportTypeKey === sportDef.sportTypeKey
+          );
+
+          for (const oldWorkout of existingSameSportWorkouts) {
+            console.log(`DEBUG: Found prior Rooka ${oldWorkout.sportTypeKey} workout on ${scheduleDate}: "${oldWorkout.title}" (ID: ${oldWorkout.workoutId}). Deleting prior workout to avoid duplicates...`);
+            try {
+              await GCClient.deleteWorkout({ workoutId: oldWorkout.workoutId });
+              console.log(`DEBUG: Successfully deleted prior workout ${oldWorkout.workoutId}`);
+              const updatedCache = (monthCalendarCache.get(monthCacheKey) || []).filter(i => i.workoutId !== oldWorkout.workoutId);
+              monthCalendarCache.set(monthCacheKey, updatedCache);
+            } catch (delErr) {
+              console.warn(`[Garmin Sync] Could not delete prior workout ${oldWorkout.workoutId}:`, delErr.message);
+            }
+          }
+        }
+      } catch (dedupErr) {
+        console.warn("[Garmin Sync] Deduplication lookup failed (non-fatal):", dedupErr.message);
+      }
 
       try {
         const response = await client.post(
