@@ -116,8 +116,9 @@ db.serialize(() => {
   db.run(`ALTER TABLE users RENAME COLUMN spark_plus_clicks TO rooka_plus_clicks`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN rooka_plus_clicks INTEGER DEFAULT 0`, (err) => {});
   db.run(`ALTER TABLE activities RENAME COLUMN spark_score TO rooka_score`, (err) => {});
-  db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN coach_name TEXT DEFAULT 'Rooka'`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN apple_id TEXT`, (err) => {});
+  db.run(`CREATE INDEX IF NOT EXISTS idx_users_apple_id ON users(apple_id)`, (err) => {});
   // Databases created before the Spark -> Rooka rename still carry
   // `coach_name TEXT DEFAULT 'Spark'` on the column itself. ALTER TABLE ADD
   // COLUMN above is a no-op there, so the stale default survives and every new

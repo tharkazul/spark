@@ -34,6 +34,19 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  appleLogin: (data: {
+    identityToken: string;
+    user: string;
+    email?: string | null;
+    fullName?: { givenName?: string | null; familyName?: string | null } | null;
+  }) =>
+    apiClient<{ success?: boolean; token: string; isNewUser?: boolean; message: string; user?: UserProfile }>(
+      '/api/auth/apple',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    ),
 };
 
 export const userApi = {

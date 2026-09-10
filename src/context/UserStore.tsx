@@ -15,6 +15,12 @@ interface UserContextType {
   login: (emailOrUsername: string, password: string) => Promise<void>;
   register: (email: string, password: string, username?: string) => Promise<void>;
   loginWithToken: (token: string) => Promise<void>;
+  loginWithApple: (appleData: {
+    identityToken: string;
+    user: string;
+    email?: string | null;
+    fullName?: { givenName?: string | null; familyName?: string | null } | null;
+  }) => Promise<{ isNewUser?: boolean }>;
   resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   logout: (reason?: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -234,6 +240,33 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     [loginWithToken]
   );
 
+  const loginWithApple = React.useCallback(
+    async (appleData: {
+      identityToken: string;
+      user: string;
+      email?: string | null;
+      fullName?: { givenName?: string | null; familyName?: string | null } | null;
+    }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await authApi.appleLogin(appleData);
+        if (res && res.token) {
+          await loginWithToken(res.token);
+          return { isNewUser: res.isNewUser };
+        }
+        throw new Error('No authentication token returned by server.');
+      } catch (err: any) {
+        const msg = err?.message || 'Apple Sign-In failed.';
+        setError(msg);
+        throw err instanceof Error ? err : new Error(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginWithToken]
+  );
+
   const refreshUser = React.useCallback(async () => {
     try {
       const data = await userApi.getProfile();
@@ -410,6 +443,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         login,
         register,
         loginWithToken,
+        loginWithApple,
         resetPassword,
         logout,
         refreshUser,

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   View,
   Text,
@@ -14,13 +15,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useUser } from '../context/UserStore';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function LoginScreen() {
   const theme = useTheme();
+  const colorScheme = useColorScheme();
   const router = useRouter();
-  const { login, register, resetPassword, loading: storeLoading, error: sessionError } = useUser();
+  const { login, register, loginWithApple, resetPassword, loading: storeLoading, error: sessionError } = useUser();
   const { t } = useLanguage();
 
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
@@ -31,6 +34,13 @@ export default function LoginScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+
+  useEffect(() => {
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleAuthAvailable)
+      .catch(() => setAppleAuthAvailable(false));
+  }, []);
 
   // Forgot password state
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
@@ -139,6 +149,40 @@ export default function LoginScreen() {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    try {
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple Sign-In failed: No identity token received.');
+      }
+
+      setSubmitting(true);
+      await loginWithApple({
+        identityToken: credential.identityToken,
+        user: credential.user,
+        email: credential.email,
+        fullName: credential.fullName,
+      });
+
+      router.replace('/(tabs)/coach');
+    } catch (e: any) {
+      if (e.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      setErrorMessage(e.message || 'Failed to sign in with Apple.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const inputStyle = {
     fontSize: 16,
     lineHeight: 22,
@@ -170,7 +214,7 @@ export default function LoginScreen() {
                 accessibilityLabel="rooka"
               />
             </View>
-            <Text className="text-3xl font-extrabold text-theme-text tracking-tight">rooka</Text>
+            <Text className="text-3xl font-extrabold text-theme-text tracking-tight font-rajdhani">rooka</Text>
             <Text className="text-sm font-medium text-theme-muted mt-1">
               {t('auth.subtitle')}
             </Text>
@@ -360,6 +404,35 @@ export default function LoginScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {/* Apple Sign-In */}
+              {appleAuthAvailable && (
+                <>
+                  <View className="flex-row items-center my-4">
+                    <View className="flex-1 h-[1px] bg-theme-border/60" />
+                    <Text className="mx-3 text-[11px] font-bold text-theme-muted uppercase tracking-widest">
+                      OR
+                    </Text>
+                    <View className="flex-1 h-[1px] bg-theme-border/60" />
+                  </View>
+
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={
+                      mode === 'login'
+                        ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                        : AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
+                    }
+                    buttonStyle={
+                      colorScheme === 'dark'
+                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                    }
+                    cornerRadius={14}
+                    style={{ width: '100%', height: 52 }}
+                    onPress={handleAppleSignIn}
+                  />
+                </>
+              )}
             </View>
           )}
 

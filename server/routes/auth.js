@@ -76,6 +76,161 @@ router.post("/login", (req, res) => {
   );
 });
 
+// Sign In with Apple
+router.post("/apple", async (req, res) => {
+  const { identityToken, user: appleUserId, email, fullName } = req.body;
+
+  if (!identityToken) {
+    return res.status(400).json({ error: "Apple identity token is required." });
+  }
+
+  try {
+    const decoded = jwt.decode(identityToken, { complete: true });
+    if (!decoded || !decoded.payload) {
+      return res.status(400).json({ error: "Invalid Apple identity token." });
+    }
+
+    const { payload } = decoded;
+
+    // Validate Apple token claims
+    if (payload.iss !== "https://appleid.apple.com") {
+      return res.status(400).json({ error: "Untrusted token issuer." });
+    }
+
+    if (payload.exp && payload.exp * 1000 < Date.now() - 60000) {
+      return res.status(401).json({ error: "Apple session has expired. Please sign in again." });
+    }
+
+    const sub = payload.sub || appleUserId;
+    if (!sub) {
+      return res.status(400).json({ error: "Unable to identify Apple user identifier." });
+    }
+
+    const cleanEmail = (payload.email || email || "").trim().toLowerCase() || null;
+
+    // Check if user already exists by apple_id or email
+    db.get(
+      `SELECT * FROM users 
+       WHERE (apple_id = ? OR (email IS NOT NULL AND LOWER(email) = ?)) 
+         AND deleted_at IS NULL 
+       LIMIT 1`,
+      [sub, cleanEmail],
+      async (err, existingUser) => {
+        if (err) {
+          console.error("Apple auth lookup error:", err);
+          return res.status(500).json({ error: "Database error during Apple authentication." });
+        }
+
+        if (existingUser) {
+          // Link apple_id or email if not previously populated
+          if (!existingUser.apple_id) {
+            db.run(`UPDATE users SET apple_id = ? WHERE id = ?`, [sub, existingUser.id]);
+          }
+          if (!existingUser.email && cleanEmail) {
+            db.run(`UPDATE users SET email = ? WHERE id = ?`, [cleanEmail, existingUser.id]);
+          }
+
+          db.run(`UPDATE users SET login_count = login_count + 1 WHERE id = ?`, [
+            existingUser.id,
+          ]);
+
+          const token = jwt.sign(
+            { id: existingUser.id, username: existingUser.username },
+            process.env.JWT_SECRET,
+            { expiresIn: "30d" }
+          );
+
+          console.log(`🍏 Apple login successful for user: ${existingUser.username} (ID: ${existingUser.id})`);
+          return res.json({
+            token,
+            isNewUser: false,
+            message: "Welcome back to Rooka HQ",
+          });
+        }
+
+        // New User: Create account
+        let preferredName = "";
+        if (fullName) {
+          const given = (fullName.givenName || "").trim();
+          const family = (fullName.familyName || "").trim();
+          preferredName = [given, family].filter(Boolean).join(" ");
+        }
+
+        if (!preferredName && cleanEmail) {
+          preferredName = cleanEmail.split("@")[0];
+        }
+
+        if (!preferredName) {
+          preferredName = "Athlete";
+        }
+
+        // Sanitize username
+        preferredName = preferredName.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Athlete";
+
+        // Check if username is already taken, if so, append random suffix
+        db.get(
+          `SELECT id FROM users WHERE LOWER(username) = ?`,
+          [preferredName.toLowerCase()],
+          async (nameErr, nameRow) => {
+            let finalUsername = preferredName;
+            if (nameRow) {
+              const suffix = Math.floor(100 + Math.random() * 900);
+              finalUsername = `${preferredName}${suffix}`;
+            }
+
+            try {
+              // Generate secure random unguessable password hash for oauth account
+              const randomPass = crypto.randomBytes(32).toString("hex");
+              const hashedPassword = await bcrypt.hash(randomPass, 10);
+              const nowIso = new Date().toISOString();
+
+              db.run(
+                `INSERT INTO users (username, email, apple_id, password_hash, athlete_context, rooka_start_date, coach_name, onboarding_completed)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+                [
+                  finalUsername,
+                  cleanEmail,
+                  sub,
+                  hashedPassword,
+                  "New athlete joined via Apple Sign-In.",
+                  nowIso,
+                  "Rooka",
+                ],
+                function (insertErr) {
+                  if (insertErr) {
+                    console.error("Apple registration error:", insertErr);
+                    return res.status(500).json({ error: "Failed to create account with Apple." });
+                  }
+
+                  const newUserId = this.lastID;
+                  const token = jwt.sign(
+                    { id: newUserId, username: finalUsername },
+                    process.env.JWT_SECRET,
+                    { expiresIn: "30d" }
+                  );
+
+                  console.log(`🍏 New athlete registered via Apple: ${finalUsername} (ID: ${newUserId}, Email: ${cleanEmail})`);
+                  res.status(201).json({
+                    token,
+                    isNewUser: true,
+                    message: "Account created with Apple successfully!",
+                  });
+                }
+              );
+            } catch (createErr) {
+              console.error("Error creating Apple user:", createErr);
+              res.status(500).json({ error: "Failed to finalize Apple registration." });
+            }
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error("Apple authentication error:", error);
+    res.status(500).json({ error: "Apple authentication failed." });
+  }
+});
+
 const crypto = require("crypto");
 const { sendPasswordResetEmail } = require("../services/emailService");
 
