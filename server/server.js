@@ -67,6 +67,7 @@ const {
 const { sseClients, initWebSocketServer } = require("./services/sse");
 const { runWeeklyFeatureOnboardingJob } = require("./services/onboarding");
 const { runWeeklyWorkoutPlanningJob } = require("./services/workoutPlanning");
+const { sendWeeklyNewUsersReport } = require("./services/weeklyReportService");
 const cron = require('node-cron');
 
 // Initialize WebSocket server attached to HTTP server
@@ -120,6 +121,16 @@ cron.schedule('0 10 * * 0', () => {
 cron.schedule('0 20 * * 0', () => {
   runWeeklyWorkoutPlanningJob().catch((err) =>
     console.error('[CRON] Weekly workout planning job failed:', err)
+  );
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Schedule weekly new athlete registration & subscription digest on Sundays at 21:00 (Europe/Amsterdam timezone)
+cron.schedule('0 21 * * 0', () => {
+  sendWeeklyNewUsersReport().catch((err) =>
+    console.error('[CRON] Weekly athlete digest email failed:', err)
   );
 }, {
   scheduled: true,
