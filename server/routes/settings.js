@@ -131,9 +131,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, 
-            (SELECT COUNT(*) FROM strava_tokens st WHERE st.user_id = users.id) as strava_tokens_count,
-            garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -158,7 +156,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             id: row.id,
             username: row.username,
             email: row.email,
-            hasStrava: (row.strava_tokens_count > 0) || !!row.strava_refresh_token,
+            hasStrava: !!row.strava_refresh_token,
             hasGarmin: !!row.garmin_username,
             garminUsername: row.garmin_username,
             coachTone: row.coach_tone,

@@ -126,29 +126,26 @@ db.serialize(() => {
     `UPDATE users SET coach_name = 'Rooka' WHERE coach_name IS NULL OR coach_name = '' OR coach_name = 'Spark'`,
     (err) => {},
   );
-  // Ensure every athlete has a valid rooka_start_date (account creation or earliest activity start date).
-  // If rooka_start_date was corrupted to today/future date despite activities existing before then, repair it.
+  // Ensure every athlete has a rooka_start_date so historical activities are not counted as Rooka XP
   db.run(
     `UPDATE users 
      SET rooka_start_date = COALESCE(
-       (SELECT MIN(start_date) FROM activities WHERE user_id = users.id),
-       created_at,
+       (SELECT MIN(start_date) FROM activities WHERE user_id = users.id AND rooka_score > 0),
        CURRENT_TIMESTAMP
      ) 
-     WHERE rooka_start_date IS NULL 
-        OR rooka_start_date = '' 
-        OR (
-          substr(rooka_start_date, 1, 10) >= date('now') 
-          AND EXISTS (
-            SELECT 1 FROM activities 
-            WHERE user_id = users.id 
-              AND substr(start_date, 1, 10) < substr(users.rooka_start_date, 1, 10)
-          )
-        )`,
+     WHERE rooka_start_date IS NULL OR rooka_start_date = ''`,
     (err) => {},
   );
+  // Activities prior to joining Rooka must score 0
   db.run(
-    `ALTER TABLE users ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP`,
+    `UPDATE activities
+     SET rooka_score = 0
+     WHERE EXISTS (
+       SELECT 1 FROM users u
+       WHERE u.id = activities.user_id
+         AND u.rooka_start_date IS NOT NULL
+         AND substr(activities.start_date, 1, 10) < substr(u.rooka_start_date, 1, 10)
+     ) AND rooka_score > 0`,
     (err) => {},
   );
   db.run(`ALTER TABLE users ADD COLUMN coach_context TEXT DEFAULT ''`, (err) => {});
@@ -225,72 +222,70 @@ db.serialize(() => {
   db.run(
     `CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, sport_type TEXT, distance_km REAL, elevation_m INTEGER, moving_time_min REAL, average_heartrate REAL, start_date TEXT, tss REAL)`,
   );
-  db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {});
-
-  // Rescore activities and synchronize total_rooka for all users
-  const syncUserRooka = () => {
+  db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {
+    // Automatically backfill any activities that have a NULL rooka_score, then sync total_rooka
     db.all(
-      `SELECT u.id as user_id, 
-              COALESCE(SUM(a.rooka_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND (u.rooka_start_date IS NULL OR substr(created_at, 1, 10) >= substr(u.rooka_start_date, 1, 10))), 0) as total 
-       FROM users u 
-       LEFT JOIN activities a ON a.user_id = u.id AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10)) 
-       GROUP BY u.id`,
-      (err, userRows) => {
-        if (!err && userRows) {
-          const uStmt = db.prepare(
-            `UPDATE users SET total_rooka = ? WHERE id = ?`,
+      `SELECT a.id, a.user_id, a.start_date, a.moving_time_min, a.average_heartrate, a.tss, u.rooka_start_date FROM activities a LEFT JOIN users u ON a.user_id = u.id WHERE a.rooka_score IS NULL`,
+      (err, rows) => {
+        const syncUserRooka = () => {
+          db.all(
+            `SELECT u.id as user_id, 
+                    COALESCE(SUM(a.rooka_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND (u.rooka_start_date IS NULL OR substr(created_at, 1, 10) >= substr(u.rooka_start_date, 1, 10))), 0) as total 
+             FROM users u 
+             LEFT JOIN activities a ON a.user_id = u.id AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10)) 
+             GROUP BY u.id`,
+            (err, userRows) => {
+              if (!err && userRows) {
+                const uStmt = db.prepare(
+                  `UPDATE users SET total_rooka = ? WHERE id = ?`,
+                );
+                userRows.forEach((r) => uStmt.run(Math.round((r.total || 0) * 10) / 10, r.user_id));
+                uStmt.finalize(() => {
+                  console.log("total_rooka synchronization complete.");
+                  db.run(`DELETE FROM public_profile_cache`, () => {});
+                });
+              }
+            },
           );
-          userRows.forEach((r) => uStmt.run(Math.round((r.total || 0) * 10) / 10, r.user_id));
-          uStmt.finalize(() => {
-            console.log("total_rooka synchronization complete.");
-            db.run(`DELETE FROM public_profile_cache`, () => {});
+        };
+
+        if (!err && rows && rows.length > 0) {
+          console.log(
+            `Backfilling rooka_score for ${rows.length} activities...`,
+          );
+          const stmt = db.prepare(
+            `UPDATE activities SET rooka_score = ? WHERE id = ?`,
+          );
+          rows.forEach((row) => {
+            const userStartDateDay = row.rooka_start_date ? row.rooka_start_date.substring(0, 10) : null;
+            const actStartDateDay = row.start_date ? row.start_date.substring(0, 10) : null;
+            let score = 0;
+            if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
+              let bonus = 0;
+              if (row.average_heartrate) {
+                if (row.average_heartrate >= 180) bonus = 1.0;
+                else if (row.average_heartrate >= 160) bonus = 0.4;
+                else if (row.average_heartrate >= 140) bonus = 0.3;
+                else if (row.average_heartrate >= 120) bonus = 0.2;
+                else if (row.average_heartrate >= 100) bonus = 0.0;
+                else if (row.average_heartrate >= 80) bonus = -0.2;
+                else bonus = -0.5;
+              }
+              const baseScore = row.moving_time_min || row.tss || 0;
+              score = baseScore > 0 ? baseScore + baseScore * bonus : (row.tss || 0);
+            }
+            stmt.run(score, row.id);
           });
+          stmt.finalize(() => {
+            console.log("Rooka Score backfill complete.");
+            syncUserRooka();
+          });
+        } else {
+          syncUserRooka();
         }
       },
     );
-  };
-
-  db.all(
-    `SELECT a.id, a.user_id, a.start_date, a.moving_time_min, a.average_heartrate, a.tss, u.rooka_start_date 
-     FROM activities a 
-     LEFT JOIN users u ON a.user_id = u.id`,
-    (err, rows) => {
-      if (!err && rows && rows.length > 0) {
-        console.log(
-          `Evaluating rooka_score for ${rows.length} activities...`,
-        );
-        const stmt = db.prepare(
-          `UPDATE activities SET rooka_score = ? WHERE id = ?`,
-        );
-        rows.forEach((row) => {
-          const userStartDateDay = row.rooka_start_date ? row.rooka_start_date.substring(0, 10) : new Date().toISOString().substring(0, 10);
-          const actStartDateDay = row.start_date ? row.start_date.substring(0, 10) : null;
-          let score = 0;
-          if (actStartDateDay && actStartDateDay >= userStartDateDay) {
-            let bonus = 0;
-            if (row.average_heartrate) {
-              if (row.average_heartrate >= 180) bonus = 1.0;
-              else if (row.average_heartrate >= 160) bonus = 0.4;
-              else if (row.average_heartrate >= 140) bonus = 0.3;
-              else if (row.average_heartrate >= 120) bonus = 0.2;
-              else if (row.average_heartrate >= 100) bonus = 0.0;
-              else if (row.average_heartrate >= 80) bonus = -0.2;
-              else bonus = -0.5;
-            }
-            const baseScore = row.moving_time_min || row.tss || 0;
-            score = baseScore > 0 ? Math.round((baseScore + baseScore * bonus) * 10) / 10 : (row.tss || 0);
-          }
-          stmt.run(score, row.id);
-        });
-        stmt.finalize(() => {
-          console.log("Rooka Score evaluation complete.");
-          syncUserRooka();
-        });
-      } else {
-        syncUserRooka();
-      }
-    },
-  );
+  });
   db.run(`ALTER TABLE activities ADD COLUMN sets_json TEXT`, (err) => {
     if (!err) console.log("Added sets_json column to activities table.");
   });

@@ -35,8 +35,8 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
 
   return {
     ...(data as UserProfile),
-    total_rooka: typeof data?.total_rooka === 'number' ? data.total_rooka : (typeof data?.totalRooka === 'number' ? data.totalRooka : ((isSameUser ? prev?.total_rooka : 0) ?? 0)),
-    level: data?.level ?? data?.sparkLevel?.level ?? data?.levelInfo?.level ?? (isSameUser ? prev?.level : 1) ?? 1,
+    total_rooka: data?.total_rooka ?? data?.totalRooka ?? (isSameUser ? prev?.total_rooka : 0) ?? 0,
+    level: data?.level ?? data?.sparkLevel?.level ?? (isSameUser ? prev?.level : 1) ?? 1,
     subscription_tier:
       data?.subscriptionTier ?? data?.subscription_tier ?? (isSameUser ? prev?.subscription_tier : 'free') ?? 'free',
     daily_token_usage: data?.dailyTokenUsage ?? data?.daily_token_usage ?? (isSameUser ? prev?.daily_token_usage : 0) ?? 0,

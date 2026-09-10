@@ -451,8 +451,8 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
 
                     const userStartDate = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;
                     const computedTotalRooka =
-                      typeof user.total_rooka === "number"
-                        ? Math.round(user.total_rooka)
+                      typeof user.total_rooka === "number" && user.total_rooka > 0
+                        ? user.total_rooka
                         : Math.round(
                             activities
                               .filter((a) => !userStartDate || !a.start_date || a.start_date.substring(0, 10) >= userStartDate)
@@ -1321,17 +1321,14 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
     const tss = data.suffer_score || Math.round((data.moving_time / 3600) * 50);
 
     db.get(
-      `SELECT rooka_start_date, spark_start_date FROM users WHERE id = ?`,
+      `SELECT rooka_start_date FROM users WHERE id = ?`,
       [internalUserId],
       async (err, uRow) => {
-        const rawStartDate = uRow ? (uRow.rooka_start_date || uRow.spark_start_date) : null;
-        const userStartDateDay = (rawStartDate && rawStartDate.length >= 10)
-          ? rawStartDate.substring(0, 10)
-          : new Date().toISOString().substring(0, 10);
+        const userStartDateDay = uRow && uRow.rooka_start_date ? uRow.rooka_start_date.substring(0, 10) : null;
         const actStartDateDay = data.start_date ? data.start_date.substring(0, 10) : null;
 
         let rookaScore = 0;
-        if (actStartDateDay && actStartDateDay >= userStartDateDay) {
+        if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
           // The webhook is how activities normally arrive, so scoring it
           // with the legacy helper meant the zone model almost never ran: no
           // tables passed means the fallback multiplier of 1.0, i.e. bare
@@ -1483,7 +1480,7 @@ async function syncAllStravaUsersOnStartup() {
 
       console.log("🔄 Running initial Strava sync for all connected users...");
       db.all(
-        "SELECT id, rooka_start_date, spark_start_date FROM users WHERE strava_refresh_token IS NOT NULL AND deleted_at IS NULL",
+        "SELECT id, rooka_start_date FROM users WHERE strava_refresh_token IS NOT NULL AND deleted_at IS NULL",
         [],
         async (err, users) => {
           if (err || !users) return;
@@ -1510,17 +1507,14 @@ async function syncAllStravaUsersOnStartup() {
               const activities = await actRes.json();
 
               if (Array.isArray(activities)) {
-                const rawStartDate = user.rooka_start_date || user.spark_start_date;
-                const userStartDateDay = (rawStartDate && rawStartDate.length >= 10)
-                  ? rawStartDate.substring(0, 10)
-                  : new Date().toISOString().substring(0, 10);
+                const userStartDateDay = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;
                 for (const act of activities) {
                   const tss =
                     act.suffer_score ||
                     Math.round((act.moving_time / 3600) * 50);
                   const actStartDateDay = act.start_date ? act.start_date.substring(0, 10) : null;
                   let rookaScore = 0;
-                  if (actStartDateDay && actStartDateDay >= userStartDateDay) {
+                  if (!userStartDateDay || (actStartDateDay && actStartDateDay >= userStartDateDay)) {
                     rookaScore = await calculateRookaScoreZoned({
                       userId: user.id,
                       movingTimeMin: act.moving_time / 60,
@@ -1659,30 +1653,42 @@ INSTRUCTIONS & CRITICAL RULES FOR INJURIES:
 
 function updateUserRookaAndCheckLevel(userId, options = {}) {
   db.get(
-    `SELECT total_rooka, rooka_start_date, spark_start_date FROM users WHERE id = ?`,
+    `SELECT total_rooka, rooka_start_date FROM users WHERE id = ?`,
     [userId],
     (err, userRow) => {
       if (err || !userRow) return;
       const oldRooka = userRow.total_rooka || 0;
       const oldLevelInfo = getRookaLevelInfo(oldRooka);
-      const rawStartDate = userRow.rooka_start_date || userRow.spark_start_date;
-      const rookaStartDateDay = (rawStartDate && rawStartDate.length >= 10)
-        ? rawStartDate.substring(0, 10)
-        : new Date().toISOString().substring(0, 10);
 
-      const actQuery = `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`;
-      const queryParams = [userId, rookaStartDateDay];
+      const resolveStartDate = (cb) => {
+        if (userRow.rooka_start_date) {
+          return cb(userRow.rooka_start_date.substring(0, 10));
+        }
+        db.get(
+          `SELECT MIN(start_date) as first_date FROM activities WHERE user_id = ? AND rooka_score > 0`,
+          [userId],
+          (eDate, dRow) => {
+            const dateVal = dRow?.first_date || new Date().toISOString();
+            db.run(`UPDATE users SET rooka_start_date = ? WHERE id = ?`, [dateVal, userId]);
+            cb(dateVal.substring(0, 10));
+          }
+        );
+      };
 
-      db.get(actQuery, queryParams, (err, actRow) => {
-        if (err) return;
-        const actTotal = actRow ? (actRow.act_total || 0) : 0;
+      resolveStartDate((rookaStartDateDay) => {
+        const actQuery = `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`;
+        const queryParams = [userId, rookaStartDateDay];
 
-        const bonusQuery = `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`;
-
-        db.get(bonusQuery, queryParams, (err, bonusRow) => {
+        db.get(actQuery, queryParams, (err, actRow) => {
           if (err) return;
-          const bonusTotal = bonusRow ? (bonusRow.bonus_total || 0) : 0;
-          const newRooka = Math.round((actTotal + bonusTotal) * 10) / 10;
+          const actTotal = actRow ? (actRow.act_total || 0) : 0;
+
+          const bonusQuery = `SELECT COALESCE(SUM(amount), 0) as bonus_total FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`;
+
+          db.get(bonusQuery, queryParams, (err, bonusRow) => {
+            if (err) return;
+            const bonusTotal = bonusRow ? (bonusRow.bonus_total || 0) : 0;
+            const newRooka = Math.round((actTotal + bonusTotal) * 10) / 10;
 
           db.run(
             `UPDATE users SET total_rooka = ? WHERE id = ?`,
@@ -1718,6 +1724,7 @@ function updateUserRookaAndCheckLevel(userId, options = {}) {
             },
           );
         });
+      });
       });
     },
   );
