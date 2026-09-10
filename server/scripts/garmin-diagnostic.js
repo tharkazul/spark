@@ -94,24 +94,42 @@ async function main() {
       console.error("❌ No token payload provided after --import");
       process.exit(1);
     }
+    const userParamIdx = args.indexOf("--user");
+    const targetEmail = userParamIdx !== -1 ? args[userParamIdx + 1] : null;
+
     try {
       const decoded = JSON.parse(Buffer.from(rawPayload, "base64").toString("utf8"));
       if (!decoded.oauth1 || !decoded.oauth2) {
         throw new Error("Invalid token format: missing oauth1 or oauth2");
       }
+
+      let targetUser = null;
+      if (targetEmail) {
+        targetUser = await get(
+          `SELECT id, username, garmin_username, garmin_password FROM users WHERE garmin_username = ? OR email = ? OR username = ?`,
+          [targetEmail, targetEmail, targetEmail]
+        );
+      } else {
+        targetUser = await get(
+          `SELECT id, username, garmin_username, garmin_password FROM users WHERE id = ?`,
+          [targetId]
+        );
+      }
+
+      if (!targetUser) {
+        console.error(`❌ User not found in database (searched by ${targetEmail ? `email "${targetEmail}"` : `ID ${targetId}`}).`);
+        process.exit(1);
+      }
+
       const enc1 = encrypt(JSON.stringify(decoded.oauth1));
       const enc2 = encrypt(JSON.stringify(decoded.oauth2));
       await run(
         `UPDATE users SET garmin_oauth1_token = ?, garmin_oauth2_token = ? WHERE id = ?`,
-        [enc1, enc2, targetId]
+        [enc1, enc2, targetUser.id]
       );
-      console.log(`✅ Successfully imported and encrypted Garmin OAuth tokens for user ${targetId}!`);
+      console.log(`✅ Successfully imported and encrypted Garmin OAuth tokens for "${targetUser.username}" (ID: ${targetUser.id})!`);
 
       console.log("Testing imported tokens with Garmin API...");
-      const targetUser = await get(
-        `SELECT garmin_username, garmin_password FROM users WHERE id = ?`,
-        [targetId]
-      );
       const testClient = new GarminConnect({
         username: targetUser?.garmin_username || "",
         password: targetUser?.garmin_password ? decrypt(targetUser.garmin_password) : "",
