@@ -26,81 +26,14 @@ function run(sql, params = []) {
   );
 }
 
-async function main() {
-  console.log("==================================================");
-  console.log("   Rooka Athlete Level & Start Date Repair Tool   ");
-  console.log("==================================================\n");
+async function repairAthlete(user, options = {}) {
+  const { explicitDate, resetBonus, isVerbose } = options;
 
-  const resolvedDbPath = process.env.DB_PATH 
-    ? path.resolve(__dirname, "..", process.env.DB_PATH) 
-    : path.join(__dirname, "..", "rooka_native.db");
-  console.log(`📂 Active Database File: ${resolvedDbPath}`);
-
-  // Verify database connectivity
-  const userCountRow = await get(`SELECT COUNT(*) as count FROM users`).catch((e) => null);
-  if (!userCountRow) {
-    console.error("❌ Could not read from users table in this database!");
-    process.exit(1);
+  if (isVerbose) {
+    console.log(`\n--------------------------------------------------`);
+    console.log(`Processing Athlete: "${user.username}" (ID: ${user.id}, Email: ${user.email || 'None'})`);
+    console.log(`Current DB State: rooka_start_date = ${user.rooka_start_date || 'NULL'}, total_rooka = ${user.total_rooka || 0} (Level ${getRookaLevelInfo(user.total_rooka || 0).level})`);
   }
-  console.log(`👥 Total users in database: ${userCountRow.count}\n`);
-
-  const args = process.argv.slice(2);
-  const idIdx = args.indexOf("--id");
-  const targetId = idIdx !== -1 ? parseInt(args[idIdx + 1], 10) : null;
-  const dateIdx = args.indexOf("--date");
-  const explicitDate = dateIdx !== -1 ? args[dateIdx + 1] : null;
-  const resetBonus = args.includes("--reset-bonus");
-
-  // Ensure user_milestone_history table exists
-  await run(`CREATE TABLE IF NOT EXISTS user_milestone_history (
-    user_id INTEGER,
-    milestone_key TEXT,
-    awarded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(user_id, milestone_key)
-  )`);
-
-  // 1. Find target athlete
-  let users = [];
-  if (targetId) {
-    users = await all(
-      `SELECT id, username, email, rooka_start_date, total_rooka 
-       FROM users 
-       WHERE id = ?`,
-      [targetId]
-    );
-  } else {
-    // Only search ACTIVE non-deleted users matching 'rutger' or ID 11
-    users = await all(
-      `SELECT id, username, email, rooka_start_date, total_rooka 
-       FROM users 
-       WHERE (deleted_at IS NULL OR deleted_at = '')
-         AND username NOT LIKE '%_deleted_%'
-         AND (id = 11 OR username LIKE '%rutger%' OR email LIKE '%rutger%')`
-    );
-  }
-
-  if (users.length === 0) {
-    console.error("❌ No active athlete matching 'rutger' or ID 11 found.");
-    console.log("All non-deleted users in database:");
-    const allUsers = await all(`SELECT id, username, email, total_rooka FROM users WHERE deleted_at IS NULL LIMIT 20`);
-    console.table(allUsers);
-    process.exit(1);
-  }
-
-  // Count activities for each candidate to pick the active account
-  for (const u of users) {
-    const actRow = await get(`SELECT COUNT(*) as count FROM activities WHERE user_id = ?`, [u.id]);
-    u.activityCount = actRow ? actRow.count : 0;
-  }
-
-  // Sort descending by activity count so the real active account with all activities is selected
-  users.sort((a, b) => b.activityCount - a.activityCount);
-
-  const user = users[0];
-  console.log(`Selected athlete: "${user.username}" (ID: ${user.id}, Email: ${user.email || 'None'})`);
-  console.log(`Current DB State:`);
-  console.log(`  rooka_start_date: ${user.rooka_start_date || 'NULL'}`);
-  console.log(`  total_rooka:      ${user.total_rooka || 0} (Level ${getRookaLevelInfo(user.total_rooka || 0).level})`);
 
   // Activity stats
   const actStats = await get(
@@ -110,9 +43,8 @@ async function main() {
      FROM activities WHERE user_id = ?`,
     [user.id]
   );
-  console.log(`  Total Activities in DB: ${actStats.total_acts} (ranging from ${actStats.oldest_act} to ${actStats.newest_act})\n`);
 
-  // 2. Determine actual Rooka join date
+  // 1. Determine actual Rooka join date
   let detectedDate = explicitDate;
 
   if (!detectedDate) {
@@ -137,78 +69,51 @@ async function main() {
       firstChat?.d && { source: "chat_history", date: firstChat.d }
     ].filter(Boolean);
 
-    console.log("Onboarding timestamps found:");
-    candidateDates.forEach(c => console.log(`  - ${c.source}: ${c.date}`));
-
     if (candidateDates.length > 0) {
       candidateDates.sort((a, b) => a.date.localeCompare(b.date));
       detectedDate = candidateDates[0].date;
-      console.log(`🔍 Detected earliest join date: ${detectedDate}`);
     }
   }
 
-  if (!detectedDate && user.rooka_start_date && user.rooka_start_date.length >= 10 && user.rooka_start_date !== actStats.oldest_act) {
+  if (!detectedDate && user.rooka_start_date && user.rooka_start_date.length >= 10 && actStats && user.rooka_start_date !== actStats.oldest_act) {
     detectedDate = user.rooka_start_date.substring(0, 10);
-    console.log(`🔍 Using existing start date: ${detectedDate}`);
+  }
+
+  if (!detectedDate && actStats && actStats.oldest_act) {
+    detectedDate = actStats.oldest_act;
   }
 
   if (!detectedDate) {
-    console.log("⚠️ Could not auto-detect join date. Please specify using --date YYYY-MM-DD");
-    console.log("Example: node server/scripts/fix-athlete-level.js --id 11 --date 2026-08-18");
-    process.exit(1);
+    detectedDate = new Date().toISOString().substring(0, 10);
   }
 
-  console.log(`\n🎯 Applying Rooka Start Date: ${detectedDate}`);
-
-  // Seed user_milestone_history from existing user_titles so milestones are remembered forever
+  // Seed user_milestone_history so active titles aren't re-evaluated
   await run(
     `INSERT OR IGNORE INTO user_milestone_history (user_id, milestone_key, awarded_at)
      SELECT user_id, milestone_key, created_at FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
     [user.id]
   );
 
-  // 3. Inspect and Clean Bonus Points
-  console.log("\n==================================================");
-  console.log("   Bonus Points Audit & Cleanup                   ");
-  console.log("==================================================");
-
-  const rawBonusStats = await get(
-    `SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM bonus_points WHERE user_id = ?`,
-    [user.id]
-  );
-  console.log(`Initial bonus records for athlete: ${rawBonusStats ? rawBonusStats.cnt : 0} rows totaling ${rawBonusStats ? rawBonusStats.total : 0} pts`);
-
-  // Fetch actual titles currently in user_titles
+  // 2. Inspect & Clean Bonus Points
   const currentTitles = await all(
     `SELECT id, title, is_active, milestone_key FROM user_titles WHERE user_id = ?`,
     [user.id]
   );
-  console.log(`\n👑 Athlete's Current Valid Titles (${currentTitles.length}):`);
-  currentTitles.forEach((t) => console.log(`  - [ID: ${t.id}] "${t.title}" (Active: ${t.is_active ? 'YES' : 'NO'}, Key: ${t.milestone_key || 'None'})`));
-
-  // Fetch actual completed quests in user_quests
   const completedQuests = await all(
     `SELECT id, description, reward_points FROM user_quests WHERE user_id = ? AND status = 'completed'`,
     [user.id]
   );
-  console.log(`\n🎯 Athlete's Completed Quests (${completedQuests.length}):`);
-  completedQuests.forEach((q) => console.log(`  - [ID: ${q.id}] "${q.description}" (${q.reward_points} pts)`));
 
   if (resetBonus) {
-    const delAll = await run(`DELETE FROM bonus_points WHERE user_id = ?`, [user.id]);
-    console.log(`\n🧹 --reset-bonus specified: Removed ALL ${delAll.changes} bonus records.`);
+    await run(`DELETE FROM bonus_points WHERE user_id = ?`, [user.id]);
   } else {
-    // 3a. Remove pre-join bonus points
-    const oldDel = await run(
+    // Remove pre-join bonus points
+    await run(
       `DELETE FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) < ?`,
       [user.id, detectedDate]
     );
-    if (oldDel.changes > 0) {
-      console.log(`\n🧹 Removed ${oldDel.changes} pre-join bonus point records (before ${detectedDate}).`);
-    }
 
-    // 3b. Build list of legitimate bonus reasons:
-    // Only titles currently held in user_titles or quests completed in user_quests
+    // Build list of legitimate bonus reasons: only titles currently held or quests completed
     const legitimateTitleReasons = [];
     currentTitles.forEach((t) => {
       legitimateTitleReasons.push(`Earned Milestone Title: ${t.title}`);
@@ -219,25 +124,23 @@ async function main() {
 
     if (allLegitimateReasons.length > 0) {
       const placeholders = allLegitimateReasons.map(() => '?').join(',');
-      const phantomDel = await run(
+      await run(
         `DELETE FROM bonus_points 
          WHERE user_id = ? 
            AND reason NOT IN (${placeholders})`,
         [user.id, ...allLegitimateReasons]
       );
-      console.log(`\n🧹 Purged ${phantomDel.changes} phantom/loop title bonus records not matching your active titles!`);
     } else {
-      const phantomDel = await run(
+      await run(
         `DELETE FROM bonus_points 
          WHERE user_id = ? 
            AND (reason LIKE 'Earned Milestone Title:%' OR reason LIKE 'Earned Title:%' OR reason LIKE 'Quest Completed:%')`,
         [user.id]
       );
-      console.log(`\n🧹 Purged ${phantomDel.changes} phantom bonus records!`);
     }
 
-    // 3c. Deduplicate repeated entries among remaining legitimate records (keep only MIN(id) for each reason)
-    const dupDel = await run(
+    // Deduplicate repeated legitimate records (keep only earliest MIN(id) for each reason)
+    await run(
       `DELETE FROM bonus_points 
        WHERE user_id = ? 
          AND id NOT IN (
@@ -248,9 +151,6 @@ async function main() {
          )`,
       [user.id, user.id]
     );
-    if (dupDel.changes > 0) {
-      console.log(`🧹 Deduplicated: Removed ${dupDel.changes} duplicate records of legitimate bonuses.`);
-    }
   }
 
   const cleanBonusRow = await get(
@@ -260,18 +160,16 @@ async function main() {
     [user.id, detectedDate]
   );
   const bonusTotal = cleanBonusRow ? cleanBonusRow.total : 0;
-  console.log(`\n✅ Final Clean Bonus Points: ${bonusTotal} pts across ${cleanBonusRow ? cleanBonusRow.cnt : 0} record(s).\n`);
 
-  // 4. Zero out rooka_score for historical activities before this date
-  const zeroResult = await run(
+  // 3. Zero out pre-join activities
+  await run(
     `UPDATE activities 
      SET rooka_score = 0 
      WHERE user_id = ? AND substr(start_date, 1, 10) < ?`,
     [user.id, detectedDate]
   );
-  console.log(`✅ Zeroed out ${zeroResult.changes} historical activities recorded before ${detectedDate}.`);
 
-  // 5. Rescore activities on or after detectedDate
+  // 4. Rescore post-join activities
   const eligibleActivities = await all(
     `SELECT id, moving_time_min, average_heartrate, average_watts, tss, start_date, rooka_score
      FROM activities
@@ -279,7 +177,6 @@ async function main() {
      ORDER BY start_date ASC`,
     [user.id, detectedDate]
   );
-  console.log(`🏃 Rescoring ${eligibleActivities.length} activities logged on or after ${detectedDate}...`);
 
   let hrZones = null;
   let powerZones = null;
@@ -288,7 +185,7 @@ async function main() {
     hrZones = resolvedZones.hrZones;
     powerZones = resolvedZones.powerZones;
   } catch (e) {
-    // Fallback zones
+    // Fallback
   }
 
   let actTotal = 0;
@@ -312,7 +209,7 @@ async function main() {
   }
   actTotal = Math.round(actTotal * 10) / 10;
 
-  // 6. Calculate new total Rooka points and level
+  // 5. Calculate new total Rooka and level
   const newTotalRooka = Math.round((actTotal + bonusTotal) * 10) / 10;
   const levelInfo = getRookaLevelInfo(newTotalRooka);
 
@@ -322,18 +219,115 @@ async function main() {
     [detectedDate, newTotalRooka, user.id]
   );
 
-  // 7. Clear public profile cache so social view and coach update immediately
+  // 7. Clear public profile cache
   await run(`DELETE FROM public_profile_cache WHERE user_id = ?`, [user.id]).catch(() => {});
 
-  console.log("\n==================================================");
-  console.log("🎉 SUCCESS! Athlete profile repaired:");
-  console.log(`   Athlete:             ${user.username} (ID: ${user.id})`);
-  console.log(`   Rooka Start Date:    ${detectedDate}`);
-  console.log(`   Activities Total:    ${actTotal} pts (${eligibleActivities.length} activities scored)`);
-  console.log(`   Bonus Points:        ${bonusTotal} pts`);
-  console.log(`   New Total Rooka:     ${newTotalRooka} pts`);
-  console.log(`   Calculated Level:    Level ${levelInfo.level}`);
+  if (isVerbose) {
+    console.log(`   Join Date:          ${detectedDate}`);
+    console.log(`   Activities Scored:  ${eligibleActivities.length} activities (${actTotal} pts)`);
+    console.log(`   Clean Bonus Points: ${bonusTotal} pts across ${cleanBonusRow ? cleanBonusRow.cnt : 0} record(s)`);
+    console.log(`   New Total Rooka:    ${newTotalRooka} pts (${levelInfo.level ? 'Level ' + levelInfo.level : 'Level 1'})`);
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    startDate: detectedDate,
+    actsScored: eligibleActivities.length,
+    actPoints: actTotal,
+    bonusPoints: bonusTotal,
+    totalRooka: newTotalRooka,
+    level: `Level ${levelInfo.level}`
+  };
+}
+
+async function main() {
+  console.log("==================================================");
+  console.log("   Rooka Athlete Level & Start Date Repair Tool   ");
   console.log("==================================================\n");
+
+  const resolvedDbPath = process.env.DB_PATH 
+    ? path.resolve(__dirname, "..", process.env.DB_PATH) 
+    : path.join(__dirname, "..", "rooka_native.db");
+  console.log(`📂 Active Database File: ${resolvedDbPath}`);
+
+  const userCountRow = await get(`SELECT COUNT(*) as count FROM users`).catch((e) => null);
+  if (!userCountRow) {
+    console.error("❌ Could not read from users table in this database!");
+    process.exit(1);
+  }
+  console.log(`👥 Total users in database: ${userCountRow.count}\n`);
+
+  const args = process.argv.slice(2);
+  const isAll = args.includes("--all");
+  const idIdx = args.indexOf("--id");
+  const targetId = idIdx !== -1 ? parseInt(args[idIdx + 1], 10) : null;
+  const dateIdx = args.indexOf("--date");
+  const explicitDate = dateIdx !== -1 ? args[dateIdx + 1] : null;
+  const resetBonus = args.includes("--reset-bonus");
+
+  // Ensure user_milestone_history table exists
+  await run(`CREATE TABLE IF NOT EXISTS user_milestone_history (
+    user_id INTEGER,
+    milestone_key TEXT,
+    awarded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id, milestone_key)
+  )`);
+
+  let targetUsers = [];
+  if (isAll) {
+    targetUsers = await all(
+      `SELECT id, username, email, rooka_start_date, total_rooka 
+       FROM users 
+       WHERE (deleted_at IS NULL OR deleted_at = '')
+         AND username NOT LIKE '%_deleted_%'
+       ORDER BY id ASC`
+    );
+    console.log(`🚀 Running repair for ALL ${targetUsers.length} active athletes in database...\n`);
+  } else if (targetId) {
+    targetUsers = await all(
+      `SELECT id, username, email, rooka_start_date, total_rooka 
+       FROM users 
+       WHERE id = ?`,
+      [targetId]
+    );
+  } else {
+    // Default to Rutger (ID 11 or matching username/email)
+    targetUsers = await all(
+      `SELECT id, username, email, rooka_start_date, total_rooka 
+       FROM users 
+       WHERE (deleted_at IS NULL OR deleted_at = '')
+         AND username NOT LIKE '%_deleted_%'
+         AND (id = 11 OR username LIKE '%rutger%' OR email LIKE '%rutger%')`
+    );
+    for (const u of targetUsers) {
+      const actRow = await get(`SELECT COUNT(*) as count FROM activities WHERE user_id = ?`, [u.id]);
+      u.activityCount = actRow ? actRow.count : 0;
+    }
+    targetUsers.sort((a, b) => b.activityCount - a.activityCount);
+    targetUsers = targetUsers.slice(0, 1);
+  }
+
+  if (targetUsers.length === 0) {
+    console.error("❌ No active athlete(s) found matching criteria.");
+    process.exit(1);
+  }
+
+  const summary = [];
+  for (const user of targetUsers) {
+    const res = await repairAthlete(user, {
+      explicitDate: targetUsers.length === 1 ? explicitDate : null,
+      resetBonus,
+      isVerbose: true
+    });
+    summary.push(res);
+  }
+
+  console.log("\n==================================================");
+  console.log("            ATHLETE REPAIR SUMMARY                ");
+  console.log("==================================================");
+  console.table(summary);
+  console.log("🎉 SUCCESS! Athlete profile(s) repaired.\n");
 
   process.exit(0);
 }
