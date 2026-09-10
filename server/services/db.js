@@ -542,6 +542,14 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS user_milestone_history (
+        user_id INTEGER,
+        milestone_key TEXT,
+        awarded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(user_id, milestone_key),
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS user_quests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,

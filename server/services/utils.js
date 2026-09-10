@@ -1801,8 +1801,10 @@ async function checkAndAwardRookaTitles(userId, options = {}) {
       if (!isPaid) return resolve();
 
       db.all(
-        `SELECT milestone_key FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
-        [userId],
+        `SELECT milestone_key FROM user_milestone_history WHERE user_id = ? AND milestone_key IS NOT NULL
+         UNION
+         SELECT milestone_key FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
+        [userId, userId],
         async (err, titleRows) => {
           if (err) return resolve();
           const awardedKeys = new Set((titleRows || []).map((r) => r.milestone_key));
@@ -2281,6 +2283,16 @@ function enforceMaxUserTitles(userId, maxTitles = 5) {
           return resolve();
         }
 
+        // Preserve milestone history of all pruned titles so they are never re-evaluated
+        for (const r of rows) {
+          if (r.milestone_key) {
+            db.run(
+              `INSERT OR IGNORE INTO user_milestone_history (user_id, milestone_key) VALUES (?, ?)`,
+              [userId, r.milestone_key]
+            );
+          }
+        }
+
         const deleteIds = toDelete.map((r) => r.id);
         const placeholders = deleteIds.map(() => '?').join(',');
 
@@ -2344,13 +2356,28 @@ function saveMilestoneTitleRecord(userId, milestoneKey, title, description, reso
             return resolve();
           }
 
+          if (milestoneKey) {
+            db.run(
+              `INSERT OR IGNORE INTO user_milestone_history (user_id, milestone_key) VALUES (?, ?)`,
+              [userId, milestoneKey]
+            );
+          }
+
           // Enforce maximum 5 titles: delete oldest unequipped titles if > 5
           await enforceMaxUserTitles(userId, 5);
 
-          // Award 50 bonus Rooka points for earning a milestone title
-          db.run(
-            `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
-            [userId, 50, `Earned Milestone Title: ${title}`]
+          // Award 50 bonus Rooka points for earning a milestone title (only if not already awarded)
+          db.get(
+            `SELECT id FROM bonus_points WHERE user_id = ? AND reason = ? LIMIT 1`,
+            [userId, `Earned Milestone Title: ${title}`],
+            (errBP, bpRow) => {
+              if (!bpRow) {
+                db.run(
+                  `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
+                  [userId, 50, `Earned Milestone Title: ${title}`]
+                );
+              }
+            }
           );
 
           // Clear public profile cache so changes reflect on social profile

@@ -467,10 +467,18 @@ router.post(
                   // Enforce maximum 5 titles: delete oldest unequipped titles if > 5
                   await enforceMaxUserTitles(userId, 5);
 
-                  // Also award 50 bonus points for a new title
-                  db.run(
-                    `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
-                    [userId, 50, `Earned Title: ${titleData.title}`],
+                  // Also award 50 bonus points for a new title (only if not already awarded)
+                  db.get(
+                    `SELECT id FROM bonus_points WHERE user_id = ? AND reason = ? LIMIT 1`,
+                    [userId, `Earned Title: ${titleData.title}`],
+                    (errBP, existingBP) => {
+                      if (!existingBP) {
+                        db.run(
+                          `INSERT INTO bonus_points (user_id, amount, reason) VALUES (?, ?, ?)`,
+                          [userId, 50, `Earned Title: ${titleData.title}`],
+                        );
+                      }
+                    }
                   );
 
                   // Clear public profile cache so changes reflect on social profile

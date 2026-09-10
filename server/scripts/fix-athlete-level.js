@@ -49,6 +49,15 @@ async function main() {
   const targetId = idIdx !== -1 ? parseInt(args[idIdx + 1], 10) : null;
   const dateIdx = args.indexOf("--date");
   const explicitDate = dateIdx !== -1 ? args[dateIdx + 1] : null;
+  const resetBonus = args.includes("--reset-bonus");
+
+  // Ensure user_milestone_history table exists
+  await run(`CREATE TABLE IF NOT EXISTS user_milestone_history (
+    user_id INTEGER,
+    milestone_key TEXT,
+    awarded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id, milestone_key)
+  )`);
 
   // 1. Find target athlete
   let users = [];
@@ -151,7 +160,77 @@ async function main() {
 
   console.log(`\n🎯 Applying Rooka Start Date: ${detectedDate}`);
 
-  // 3. Zero out rooka_score for historical activities before this date
+  // Seed user_milestone_history from existing user_titles so milestones are remembered forever
+  await run(
+    `INSERT OR IGNORE INTO user_milestone_history (user_id, milestone_key, awarded_at)
+     SELECT user_id, milestone_key, created_at FROM user_titles WHERE user_id = ? AND milestone_key IS NOT NULL`,
+    [user.id]
+  );
+
+  // 3. Inspect and Clean Bonus Points
+  console.log("\n==================================================");
+  console.log("   Bonus Points Audit & Cleanup                   ");
+  console.log("==================================================");
+
+  const rawBonusStats = await get(
+    `SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM bonus_points WHERE user_id = ?`,
+    [user.id]
+  );
+  console.log(`Initial bonus records for athlete: ${rawBonusStats ? rawBonusStats.cnt : 0} rows totaling ${rawBonusStats ? rawBonusStats.total : 0} pts`);
+
+  const breakdown = await all(
+    `SELECT reason, COUNT(*) as count, SUM(amount) as total_pts 
+     FROM bonus_points 
+     WHERE user_id = ? 
+     GROUP BY reason 
+     ORDER BY count DESC 
+     LIMIT 15`,
+    [user.id]
+  );
+  if (breakdown.length > 0) {
+    console.log("Top bonus point entries:");
+    console.table(breakdown);
+  }
+
+  if (resetBonus) {
+    const delAll = await run(`DELETE FROM bonus_points WHERE user_id = ?`, [user.id]);
+    console.log(`🧹 --reset-bonus specified: Removed ALL ${delAll.changes} bonus records.`);
+  } else {
+    // 3a. Remove pre-join bonus points
+    const oldDel = await run(
+      `DELETE FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) < ?`,
+      [user.id, detectedDate]
+    );
+    if (oldDel.changes > 0) {
+      console.log(`🧹 Removed ${oldDel.changes} pre-join bonus point records (before ${detectedDate}).`);
+    }
+
+    // 3b. Deduplicate repeated entries (loops that awarded the same milestone title dozens/hundreds of times)
+    // Keep only the earliest record (MIN(id)) for each distinct reason
+    const dupDel = await run(
+      `DELETE FROM bonus_points 
+       WHERE user_id = ? 
+         AND id NOT IN (
+           SELECT MIN(id) 
+           FROM bonus_points 
+           WHERE user_id = ? 
+           GROUP BY reason
+         )`,
+      [user.id, user.id]
+    );
+    console.log(`🧹 Deduplication: Removed ${dupDel.changes} duplicate bonus records.`);
+  }
+
+  const cleanBonusRow = await get(
+    `SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total 
+     FROM bonus_points 
+     WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`,
+    [user.id, detectedDate]
+  );
+  const bonusTotal = cleanBonusRow ? cleanBonusRow.total : 0;
+  console.log(`✅ Clean Bonus Points: ${bonusTotal} pts across ${cleanBonusRow ? cleanBonusRow.cnt : 0} record(s).\n`);
+
+  // 4. Zero out rooka_score for historical activities before this date
   const zeroResult = await run(
     `UPDATE activities 
      SET rooka_score = 0 
@@ -160,7 +239,7 @@ async function main() {
   );
   console.log(`✅ Zeroed out ${zeroResult.changes} historical activities recorded before ${detectedDate}.`);
 
-  // 4. Rescore activities on or after detectedDate
+  // 5. Rescore activities on or after detectedDate
   const eligibleActivities = await all(
     `SELECT id, moving_time_min, average_heartrate, average_watts, tss, start_date, rooka_score
      FROM activities
@@ -201,13 +280,7 @@ async function main() {
   }
   actTotal = Math.round(actTotal * 10) / 10;
 
-  // 5. Calculate bonus points earned since start date
-  const bonusRow = await get(
-    `SELECT COALESCE(SUM(amount), 0) as bonus FROM bonus_points WHERE user_id = ? AND substr(created_at, 1, 10) >= ?`,
-    [user.id, detectedDate]
-  ).catch(() => ({ bonus: 0 }));
-  const bonusTotal = bonusRow ? bonusRow.bonus : 0;
-
+  // 6. Calculate new total Rooka points and level
   const newTotalRooka = Math.round((actTotal + bonusTotal) * 10) / 10;
   const levelInfo = getRookaLevelInfo(newTotalRooka);
 
