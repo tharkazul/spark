@@ -37,11 +37,12 @@ async function main() {
 
   const args = process.argv.slice(2);
   const targetId = args.includes("--id") ? parseInt(args[args.indexOf("--id") + 1], 10) : 11;
+  const exportCmdIdx = args.indexOf("--export-command");
+  const loginDirectIdx = args.indexOf("--login-direct");
   const importIdx = args.indexOf("--import");
-  const generateIdx = args.indexOf("--generate-tokens");
 
-  // Mode: Generate tokens locally on residential Mac IP
-  if (generateIdx !== -1) {
+  // Mode 1: Run on SERVER to get the command for your Mac
+  if (exportCmdIdx !== -1) {
     const user = await get(
       `SELECT id, username, garmin_username, garmin_password FROM users WHERE id = ?`,
       [targetId]
@@ -51,21 +52,42 @@ async function main() {
       process.exit(1);
     }
     const password = decrypt(user.garmin_password);
-    console.log(`🔑 Logging into Garmin for "${user.garmin_username}" from this machine...`);
-    const GCClient = new GarminConnect({
-      username: user.garmin_username,
-      password: password,
-    });
-    await GCClient.login(user.garmin_username, password);
-    const tokens = GCClient.exportToken();
-    const payload = Buffer.from(JSON.stringify(tokens)).toString("base64");
-    console.log("\n🎉 Tokens successfully generated!");
-    console.log("\nTo apply these tokens to your server, run this command on your server:");
-    console.log(`\nnode server/scripts/garmin-diagnostic.js --id ${targetId} --import "${payload}"\n`);
+    console.log("==================================================");
+    console.log("  Step 1: Run this command on your MAC terminal:  ");
+    console.log("==================================================\n");
+    console.log(`cd /Users/rutgervandenberg/Documents/rooka && node server/scripts/garmin-diagnostic.js --login-direct --user "${user.garmin_username}" --pass "${password}"\n`);
     process.exit(0);
   }
 
-  // Mode: Import tokens generated elsewhere
+  // Mode 2: Run on MAC to login via clean residential IP and generate token payload
+  if (loginDirectIdx !== -1) {
+    const userIdx = args.indexOf("--user");
+    const passIdx = args.indexOf("--pass");
+    const username = userIdx !== -1 ? args[userIdx + 1] : null;
+    const password = passIdx !== -1 ? args[passIdx + 1] : null;
+
+    if (!username || !password) {
+      console.error("❌ Missing --user or --pass arguments.");
+      process.exit(1);
+    }
+
+    console.log(`🔑 Logging into Garmin for "${username}" from this machine...`);
+    const GCClient = new GarminConnect({
+      username: username,
+      password: password,
+    });
+    await GCClient.login(username, password);
+    const tokens = GCClient.exportToken();
+    const payload = Buffer.from(JSON.stringify(tokens)).toString("base64");
+    console.log("\n🎉 Tokens successfully generated from your residential IP!");
+    console.log("\n==================================================");
+    console.log("  Step 2: Run this command on your SERVER:        ");
+    console.log("==================================================\n");
+    console.log(`node server/scripts/garmin-diagnostic.js --id ${targetId} --import "${payload}"\n`);
+    process.exit(0);
+  }
+
+  // Mode 3: Run on SERVER to import token payload
   if (importIdx !== -1) {
     const rawPayload = args[importIdx + 1];
     if (!rawPayload) {
@@ -84,7 +106,14 @@ async function main() {
         [enc1, enc2, targetId]
       );
       console.log(`✅ Successfully imported and encrypted Garmin OAuth tokens for user ${targetId}!`);
-      console.log("Sync to Garmin will now work seamlessly without requiring full login.\n");
+
+      console.log("Testing imported tokens with Garmin API...");
+      const testClient = new GarminConnect();
+      testClient.loadToken(decoded.oauth1, decoded.oauth2);
+      await testClient.client.checkTokenVaild();
+      const profile = await testClient.getUserProfile();
+      console.log(`🎉 SUCCESS! Profile verified: "${profile?.displayName || profile?.userName || 'OK'}"`);
+      console.log("Garmin sync will now work without requiring full login.\n");
       process.exit(0);
     } catch (e) {
       console.error("❌ Failed to import tokens:", e.message);
@@ -92,7 +121,7 @@ async function main() {
     }
   }
 
-  // 1. Inspect all users with Garmin credentials
+  // Default Mode: Diagnose and test current state
   const garminUsers = await all(
     `SELECT id, username, email, garmin_username, 
             garmin_password IS NOT NULL as has_password,
@@ -144,7 +173,7 @@ async function main() {
     console.log(`✅ Tokens copied to user ${targetUser.id}!`);
   }
 
-  // 2. If target user has tokens, test validating/refreshing them
+  // If target user has tokens, test validating/refreshing them
   if (targetUser.has_oauth1 && targetUser.has_oauth2) {
     console.log("\n🔑 Testing existing OAuth tokens in DB...");
     try {
@@ -186,70 +215,8 @@ async function main() {
     }
   }
 
-  // 3. Perform diagnostic login test to inspect exact Garmin 429 response
-  console.log("\n🧪 Performing diagnostic full login test...");
-  const password = decrypt(targetUser.garmin_password);
-  if (!password) {
-    console.error("❌ Could not decrypt Garmin password for user.");
-    process.exit(1);
-  }
-
-  const GCClient = new GarminConnect({
-    username: targetUser.garmin_username,
-    password: password,
-  });
-
-  // Attach interceptors to capture exact request/response
-  const axiosClient = GCClient.client.client;
-  if (axiosClient && axiosClient.interceptors) {
-    axiosClient.interceptors.request.use((config) => {
-      console.log(`   ➡️  [HTTP ${config.method ? config.method.toUpperCase() : 'GET'}] ${config.url}`);
-      return config;
-    });
-
-    axiosClient.interceptors.response.use(
-      (res) => {
-        console.log(`   ✅ [HTTP ${res.status}] ${res.config.url}`);
-        return res;
-      },
-      (err) => {
-        const status = err.response ? err.response.status : 'NO_STATUS';
-        const url = err.config ? err.config.url : 'UNKNOWN_URL';
-        console.log(`   ❌ [HTTP ${status}] ${url}`);
-        if (err.response) {
-          console.log(`      Response Headers:`, JSON.stringify(err.response.headers, null, 2));
-          console.log(`      Response Data:`, typeof err.response.data === 'object' ? JSON.stringify(err.response.data, null, 2) : err.response.data);
-          if (err.response.headers && err.response.headers['retry-after']) {
-            console.log(`      ⏱️ Retry-After: ${err.response.headers['retry-after']} seconds`);
-          }
-        }
-        return Promise.reject(err);
-      }
-    );
-  }
-
-  try {
-    await GCClient.login(targetUser.garmin_username, password);
-    console.log("\n🎉 Login succeeded! Exporting and saving OAuth tokens to DB...");
-    const tokens = GCClient.exportToken();
-    if (tokens?.oauth1 && tokens?.oauth2) {
-      const enc1 = encrypt(JSON.stringify(tokens.oauth1));
-      const enc2 = encrypt(JSON.stringify(tokens.oauth2));
-      await run(
-        `UPDATE users SET garmin_oauth1_token = ?, garmin_oauth2_token = ? WHERE id = ?`,
-        [enc1, enc2, targetUser.id]
-      );
-      console.log("💾 OAuth tokens successfully saved to DB! Full login will be bypassed next time.\n");
-    }
-  } catch (loginErr) {
-    console.log("\n==================================================");
-    console.log("          GARMIN 429 DIAGNOSTIC RESULT            ");
-    console.log("==================================================");
-    console.log(`Result: ${loginErr.message}`);
-    console.log("\nExplanation:");
-    console.log("Garmin's Cloudflare SSO service temporarily blocks fresh credential logins from datacenter server IPs.");
-    console.log("==================================================\n");
-  }
+  console.log("\n💡 TIP: To bypass the server's rate-limited IP, run this on your server:");
+  console.log(`   node server/scripts/garmin-diagnostic.js --id ${targetId} --export-command\n`);
 
   process.exit(0);
 }
