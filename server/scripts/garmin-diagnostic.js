@@ -108,7 +108,14 @@ async function main() {
       console.log(`✅ Successfully imported and encrypted Garmin OAuth tokens for user ${targetId}!`);
 
       console.log("Testing imported tokens with Garmin API...");
-      const testClient = new GarminConnect();
+      const targetUser = await get(
+        `SELECT garmin_username, garmin_password FROM users WHERE id = ?`,
+        [targetId]
+      );
+      const testClient = new GarminConnect({
+        username: targetUser?.garmin_username || "",
+        password: targetUser?.garmin_password ? decrypt(targetUser.garmin_password) : "",
+      });
       testClient.loadToken(decoded.oauth1, decoded.oauth2);
       await testClient.client.checkTokenVaild();
       const profile = await testClient.getUserProfile();

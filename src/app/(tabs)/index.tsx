@@ -535,14 +535,28 @@ export default function PlanningHomeScreen() {
 
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
     setSelectedWorkoutForEdit(null);
-    setTargetAddDay({ dayName, dateStr });
+    const dayIdx = weeklyAgenda.findIndex((d) => d.dayName === dayName || d.dateStr === dateStr);
+    let fullDate = todayYYYYMMDD;
+    if (dayIdx >= 0) {
+      const targetDate = new Date(weekStart);
+      targetDate.setDate(targetDate.getDate() + dayIdx);
+      fullDate = formatDateToYYYYMMDD(targetDate);
+    }
+    setTargetAddDay({ dayName, dateStr, fullDate });
     setIsAddModalOpen(true);
   };
 
   const handleSelectWorkoutForEdit = (workout: WorkoutItem) => {
     setSelectedWorkoutForEdit(workout);
     if (workout.day && workout.dateStr) {
-      setTargetAddDay({ dayName: workout.day, dateStr: workout.dateStr });
+      const dayIdx = weeklyAgenda.findIndex((d) => d.dayName === workout.day || d.dateStr === workout.dateStr);
+      let fullDate = workout.date || todayYYYYMMDD;
+      if (dayIdx >= 0) {
+        const targetDate = new Date(weekStart);
+        targetDate.setDate(targetDate.getDate() + dayIdx);
+        fullDate = formatDateToYYYYMMDD(targetDate);
+      }
+      setTargetAddDay({ dayName: workout.day, dateStr: workout.dateStr, fullDate });
     }
     setIsAddModalOpen(true);
   };
@@ -730,6 +744,7 @@ export default function PlanningHomeScreen() {
         visible={isAddModalOpen}
         targetDayName={targetAddDay.dayName}
         targetDateStr={targetAddDay.dateStr}
+        targetFullDate={targetAddDay.fullDate}
         initialWorkout={selectedWorkoutForEdit}
         onClose={() => { setIsAddModalOpen(false); setSelectedWorkoutForEdit(null); }}
         onSave={handleSaveWorkout}

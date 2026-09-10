@@ -22,6 +22,7 @@ export interface WorkoutItem {
   id: string;
   day?: string;
   dateStr?: string;
+  date?: string;
   type: SportType;
   sport?: SportType | string;
   title: string;

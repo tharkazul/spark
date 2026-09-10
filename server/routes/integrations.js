@@ -149,22 +149,24 @@ router.post("/webhook/strava", (req, res) => {
 });
 
 router.post("/api/user/settings/garmin", authenticateToken, (req, res) => {
-  const { garminUsername, garminPassword } = req.body;
+  const { garminUsername, garminPassword, oauth1, oauth2 } = req.body;
 
-  if (!garminUsername || !garminPassword) {
+  if (!garminUsername || (!garminPassword && (!oauth1 || !oauth2))) {
     return res
       .status(400)
-      .json({ error: "Username and password are required." });
+      .json({ error: "Username and password (or valid OAuth tokens) are required." });
   }
 
   // Clear in-memory session if previously cached
   garminSessionCache.delete(req.user.id);
 
-  const encryptedPassword = encrypt(garminPassword);
+  const encryptedPassword = garminPassword ? encrypt(garminPassword) : null;
+  const enc1 = oauth1 ? encrypt(typeof oauth1 === "string" ? oauth1 : JSON.stringify(oauth1)) : null;
+  const enc2 = oauth2 ? encrypt(typeof oauth2 === "string" ? oauth2 : JSON.stringify(oauth2)) : null;
 
   db.run(
-    `UPDATE users SET garmin_username = ?, garmin_password = ?, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL WHERE id = ?`,
-    [garminUsername, encryptedPassword, req.user.id],
+    `UPDATE users SET garmin_username = ?, garmin_password = COALESCE(?, garmin_password), garmin_oauth1_token = ?, garmin_oauth2_token = ? WHERE id = ?`,
+    [garminUsername, encryptedPassword, enc1, enc2, req.user.id],
     function (err) {
       if (err)
         return res
@@ -172,6 +174,31 @@ router.post("/api/user/settings/garmin", authenticateToken, (req, res) => {
           .json({ error: "Failed to save Garmin credentials." });
       res.json({ message: "Garmin connection secured successfully!" });
     },
+  );
+});
+
+router.post("/api/user/settings/garmin-tokens", authenticateToken, (req, res) => {
+  const { oauth1, oauth2, garminUsername } = req.body;
+
+  if (!oauth1 || !oauth2) {
+    return res
+      .status(400)
+      .json({ error: "Both oauth1 and oauth2 tokens are required." });
+  }
+
+  garminSessionCache.delete(req.user.id);
+
+  const enc1 = encrypt(typeof oauth1 === "string" ? oauth1 : JSON.stringify(oauth1));
+  const enc2 = encrypt(typeof oauth2 === "string" ? oauth2 : JSON.stringify(oauth2));
+
+  db.run(
+    `UPDATE users SET garmin_oauth1_token = ?, garmin_oauth2_token = ?, garmin_username = COALESCE(?, garmin_username) WHERE id = ?`,
+    [enc1, enc2, garminUsername || null, req.user.id],
+    function (err) {
+      if (err)
+        return res.status(500).json({ error: "Failed to save Garmin OAuth tokens." });
+      res.json({ message: "Garmin OAuth tokens imported successfully!" });
+    }
   );
 });
 
@@ -529,6 +556,26 @@ router.post("/api/user/disconnect/strava", authenticateToken, (req, res) => {
 
 
 /**
+ * Normalizes any date format (e.g. "Sep 12", "2026-09-12", "Sat Sep 12")
+ * into strict YYYY-MM-DD required by Garmin Connect schedule API.
+ */
+function normalizeToYYYYMMDD(dateInput) {
+  if (!dateInput) return getAMSDateString();
+  const trimmed = String(dateInput).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) return trimmed.split("T")[0];
+  const currentYear = new Date().getFullYear();
+  let parsed = new Date(`${trimmed}, ${currentYear}`);
+  if (isNaN(parsed.getTime())) {
+    parsed = new Date(`${trimmed} ${currentYear}`);
+  }
+  if (!isNaN(parsed.getTime())) {
+    return getAMSDateString(parsed);
+  }
+  return getAMSDateString();
+}
+
+/**
  * Obtains an authenticated GarminConnect client instance for a user.
  * Tries:
  *  1. In-memory active session cache
@@ -646,11 +693,7 @@ router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
 
 router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
   console.log("DEBUG: Sync route triggered for user:", req.user.id);
-  const selectedWorkouts = req.body.workouts;
-
-  if (!selectedWorkouts || selectedWorkouts.length === 0) {
-    return res.status(400).json({ error: "No workouts selected for sync." });
-  }
+  const selectedWorkouts = Array.isArray(req.body.workouts) ? req.body.workouts : null;
 
   try {
     const user = await new Promise((resolve, reject) => {
@@ -677,7 +720,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     if (selectedWorkouts && selectedWorkouts.length > 0 && selectedWorkouts.some(sw => sw.steps || sw.title)) {
       console.log(`DEBUG: Syncing ${selectedWorkouts.length} explicit workout(s) from client payload`);
       workoutsToSync = selectedWorkouts.map(sw => ({
-        date: sw.date,
+        date: normalizeToYYYYMMDD(sw.date),
         sport: sw.sport,
         title: sw.title,
         description: sw.description || sw.title,
@@ -706,6 +749,11 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       } else {
         workoutsToSync = dbWorkouts;
       }
+
+      workoutsToSync = workoutsToSync.map(w => ({
+        ...w,
+        date: normalizeToYYYYMMDD(w.date),
+      }));
     }
 
     if (workoutsToSync.length === 0)
@@ -714,6 +762,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
         .json({ error: "No valid workouts found to sync." });
 
     let syncedCount = 0;
+    let lastSyncError = null;
 
     for (const workout of workoutsToSync) {
       if (workout.sport === "Rest" || !SPORT_MAP[workout.sport]) continue;
@@ -938,6 +987,8 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
         wkt.poolLengthUnit = { unitId: 1, unitKey: "meter", factor: 100 };
       }
 
+      const scheduleDate = normalizeToYYYYMMDD(workout.date);
+
       try {
         const response = await client.post(
           "https://connectapi.garmin.com/workout-service/workout",
@@ -945,24 +996,34 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
         );
         const workoutId = response?.workoutId || response?.data?.workoutId;
         if (workoutId) {
+          console.log(`DEBUG: Scheduling Garmin workout ${workoutId} for calendar date: ${scheduleDate}`);
           await client.post(
             `https://connectapi.garmin.com/workout-service/schedule/${workoutId}`,
-            { date: workout.date },
+            { date: scheduleDate },
           );
           syncedCount++;
         }
       } catch (err) {
+        lastSyncError = err.message || "Failed to schedule workout";
         console.error(
-          `❌ Sync Failed for ${workout.sport} on ${workout.date}:`,
+          `❌ Sync Failed for ${workout.sport} on ${scheduleDate}:`,
           err.message,
         );
       }
       await new Promise((resolve) => setTimeout(resolve, 2500));
     }
 
+    if (workoutsToSync.length > 0 && syncedCount === 0) {
+      return res.status(500).json({
+        error: "Failed to schedule workouts on Garmin calendar.",
+        details: lastSyncError || "Garmin rejected the workout payload or calendar schedule date.",
+      });
+    }
+
     res.json({
       success: true,
-      message: `Successfully pushed ${syncedCount} structured workouts!`,
+      message: `Successfully pushed ${syncedCount} structured workout${syncedCount === 1 ? "" : "s"} to Garmin!`,
+      syncedCount,
     });
   } catch (err) {
     console.error("CRITICAL ERROR in sync-garmin:", err);

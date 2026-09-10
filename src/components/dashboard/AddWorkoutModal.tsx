@@ -35,10 +35,30 @@ interface AddWorkoutModalProps {
   visible: boolean;
   targetDayName?: string;
   targetDateStr?: string;
+  targetFullDate?: string;
   initialWorkout?: WorkoutItem | null;
   onClose: () => void;
   onSave: (workout: Omit<WorkoutItem, 'id'>, existingId?: string) => void;
   onDelete?: (workoutId: string) => void;
+}
+
+function normalizeDateToYYYYMMDD(dateStr?: string): string {
+  if (!dateStr) return new Date().toISOString().split('T')[0];
+  const trimmed = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) return trimmed.split('T')[0];
+  const currentYear = new Date().getFullYear();
+  let parsed = new Date(`${trimmed}, ${currentYear}`);
+  if (isNaN(parsed.getTime())) {
+    parsed = new Date(`${trimmed} ${currentYear}`);
+  }
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return new Date().toISOString().split('T')[0];
 }
 
 const defaultStepTemplates: Record<SportType, WorkoutStep[]> = {
@@ -101,6 +121,7 @@ export function AddWorkoutModal({
   visible,
   targetDayName = 'FRI',
   targetDateStr = 'Aug 7',
+  targetFullDate,
   initialWorkout = null,
   onClose,
   onSave,
@@ -249,8 +270,9 @@ export function AddWorkoutModal({
     try {
       const { syncGarminWorkout } = require('../../api/integrations');
       const finalTitle = title.trim() || `${selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()} Workout`;
+      const workoutDate = targetFullDate || (initialWorkout as any)?.date || normalizeDateToYYYYMMDD(targetDateStr);
       await syncGarminWorkout([{
-        date: targetDateStr || new Date().toISOString().split('T')[0],
+        date: workoutDate,
         sport: selectedSport,
         title: finalTitle,
         description: finalTitle,
@@ -278,9 +300,10 @@ export function AddWorkoutModal({
         previewWorkoutOnAppleWatch,
       } = require('../../services/appleHealthService');
 
+      const workoutDate = targetFullDate || (initialWorkout as any)?.date || normalizeDateToYYYYMMDD(targetDateStr);
       const payload = {
         id: initialWorkout?.id || '1',
-        date: targetDateStr || new Date().toISOString().split('T')[0],
+        date: workoutDate,
         sport: selectedSport,
         description: title || `${selectedSport} Workout`,
         target_rooka: calculatedRooka,
