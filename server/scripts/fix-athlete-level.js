@@ -178,23 +178,25 @@ async function main() {
   );
   console.log(`Initial bonus records for athlete: ${rawBonusStats ? rawBonusStats.cnt : 0} rows totaling ${rawBonusStats ? rawBonusStats.total : 0} pts`);
 
-  const breakdown = await all(
-    `SELECT reason, COUNT(*) as count, SUM(amount) as total_pts 
-     FROM bonus_points 
-     WHERE user_id = ? 
-     GROUP BY reason 
-     ORDER BY count DESC 
-     LIMIT 15`,
+  // Fetch actual titles currently in user_titles
+  const currentTitles = await all(
+    `SELECT id, title, is_active, milestone_key FROM user_titles WHERE user_id = ?`,
     [user.id]
   );
-  if (breakdown.length > 0) {
-    console.log("Top bonus point entries:");
-    console.table(breakdown);
-  }
+  console.log(`\n👑 Athlete's Current Valid Titles (${currentTitles.length}):`);
+  currentTitles.forEach((t) => console.log(`  - [ID: ${t.id}] "${t.title}" (Active: ${t.is_active ? 'YES' : 'NO'}, Key: ${t.milestone_key || 'None'})`));
+
+  // Fetch actual completed quests in user_quests
+  const completedQuests = await all(
+    `SELECT id, description, reward_points FROM user_quests WHERE user_id = ? AND status = 'completed'`,
+    [user.id]
+  );
+  console.log(`\n🎯 Athlete's Completed Quests (${completedQuests.length}):`);
+  completedQuests.forEach((q) => console.log(`  - [ID: ${q.id}] "${q.description}" (${q.reward_points} pts)`));
 
   if (resetBonus) {
     const delAll = await run(`DELETE FROM bonus_points WHERE user_id = ?`, [user.id]);
-    console.log(`🧹 --reset-bonus specified: Removed ALL ${delAll.changes} bonus records.`);
+    console.log(`\n🧹 --reset-bonus specified: Removed ALL ${delAll.changes} bonus records.`);
   } else {
     // 3a. Remove pre-join bonus points
     const oldDel = await run(
@@ -202,11 +204,39 @@ async function main() {
       [user.id, detectedDate]
     );
     if (oldDel.changes > 0) {
-      console.log(`🧹 Removed ${oldDel.changes} pre-join bonus point records (before ${detectedDate}).`);
+      console.log(`\n🧹 Removed ${oldDel.changes} pre-join bonus point records (before ${detectedDate}).`);
     }
 
-    // 3b. Deduplicate repeated entries (loops that awarded the same milestone title dozens/hundreds of times)
-    // Keep only the earliest record (MIN(id)) for each distinct reason
+    // 3b. Build list of legitimate bonus reasons:
+    // Only titles currently held in user_titles or quests completed in user_quests
+    const legitimateTitleReasons = [];
+    currentTitles.forEach((t) => {
+      legitimateTitleReasons.push(`Earned Milestone Title: ${t.title}`);
+      legitimateTitleReasons.push(`Earned Title: ${t.title}`);
+    });
+    const legitimateQuestReasons = completedQuests.map((q) => `Quest Completed: ${q.description}`);
+    const allLegitimateReasons = [...legitimateTitleReasons, ...legitimateQuestReasons];
+
+    if (allLegitimateReasons.length > 0) {
+      const placeholders = allLegitimateReasons.map(() => '?').join(',');
+      const phantomDel = await run(
+        `DELETE FROM bonus_points 
+         WHERE user_id = ? 
+           AND reason NOT IN (${placeholders})`,
+        [user.id, ...allLegitimateReasons]
+      );
+      console.log(`\n🧹 Purged ${phantomDel.changes} phantom/loop title bonus records not matching your active titles!`);
+    } else {
+      const phantomDel = await run(
+        `DELETE FROM bonus_points 
+         WHERE user_id = ? 
+           AND (reason LIKE 'Earned Milestone Title:%' OR reason LIKE 'Earned Title:%' OR reason LIKE 'Quest Completed:%')`,
+        [user.id]
+      );
+      console.log(`\n🧹 Purged ${phantomDel.changes} phantom bonus records!`);
+    }
+
+    // 3c. Deduplicate repeated entries among remaining legitimate records (keep only MIN(id) for each reason)
     const dupDel = await run(
       `DELETE FROM bonus_points 
        WHERE user_id = ? 
@@ -218,7 +248,9 @@ async function main() {
          )`,
       [user.id, user.id]
     );
-    console.log(`🧹 Deduplication: Removed ${dupDel.changes} duplicate bonus records.`);
+    if (dupDel.changes > 0) {
+      console.log(`🧹 Deduplicated: Removed ${dupDel.changes} duplicate records of legitimate bonuses.`);
+    }
   }
 
   const cleanBonusRow = await get(
@@ -228,7 +260,7 @@ async function main() {
     [user.id, detectedDate]
   );
   const bonusTotal = cleanBonusRow ? cleanBonusRow.total : 0;
-  console.log(`✅ Clean Bonus Points: ${bonusTotal} pts across ${cleanBonusRow ? cleanBonusRow.cnt : 0} record(s).\n`);
+  console.log(`\n✅ Final Clean Bonus Points: ${bonusTotal} pts across ${cleanBonusRow ? cleanBonusRow.cnt : 0} record(s).\n`);
 
   // 4. Zero out rooka_score for historical activities before this date
   const zeroResult = await run(
