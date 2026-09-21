@@ -28,7 +28,7 @@ function authenticateToken(req, res, next) {
     }
 
     db.get(
-      `SELECT id, username, deleted_at FROM users WHERE id = ?`,
+      `SELECT id, username, subscription_tier, role, deleted_at FROM users WHERE id = ?`,
       [payload.id],
       (dbErr, user) => {
         if (dbErr) {
@@ -47,7 +47,12 @@ function authenticateToken(req, res, next) {
         }
 
         // Trust the database for identity, not the (possibly stale) token payload.
-        req.user = { id: user.id, username: user.username };
+        req.user = {
+          id: user.id,
+          username: user.username,
+          subscription_tier: user.subscription_tier || "free",
+          role: user.role || "user",
+        };
         next();
       },
     );

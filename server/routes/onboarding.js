@@ -5,6 +5,7 @@ const { authenticateToken } = require('../services/auth');
 const { generateWithFallback } = require('../services/ai');
 const { generateQuestForUser } = require('../services/utils');
 const { detectAthleteGoalDiscipline, getGoalDependentPromptContext } = require('../services/goalPromptContext');
+const { sendSSEEvent } = require('../services/sse');
 
 // Helper to determine benchmark test name & sport based on user context
 function getBenchmarkInfoForUser(athleteContext, targetEvent) {
@@ -434,146 +435,98 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       );
     });
 
-    // 4. Generate 7-day initial training schedule via LLM
-    const todayStr = new Date().toLocaleDateString('en-CA');
-    let availabilityText = 'No specific schedule boundaries set.';
-    if (trainingAvailability) {
-      try {
-        const availObj = typeof trainingAvailability === 'string' ? JSON.parse(trainingAvailability) : trainingAvailability;
-        availabilityText = Object.entries(availObj)
-          .map(([day, data]) => `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${data.status} (Max minutes: ${data.max_minutes})`)
-          .join('\n            ');
-      } catch (e) {}
+    // 4. Construct & insert pre-built, localized 7-day baseline plan immediately (<10ms)
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      dates.push(d.toLocaleDateString('en-CA'));
     }
 
-    const discipline = detectAthleteGoalDiscipline({ target_event: targetEvent, athlete_context: athleteContext }, []);
-    const goalPrompt = getGoalDependentPromptContext(discipline);
-
-    const systemPrompt = `You are Coach Rooka, an elite endurance AI coach.
-Tone: ${coachTone || 'Empathetic but demanding elite endurance coach.'}
-Athlete Context: ${athleteContext || 'Endurance athlete.'}
-Gender: ${gender || 'Prefer not to say'}
-Target Event: ${targetEvent || 'General Fitness'} (Date: ${eventDate || 'TBD'})
-Schedule Boundaries:
-${availabilityText}
-
-${goalPrompt}
-
-CRITICAL RULES:
-0. LANGUAGE DIRECTIVE: All natural language workout descriptions and details MUST be written fluently in ${targetLanguageName}.
-1. SPORT TYPE: 'sport' must be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'.
-2. You are generating an initial 7-day onboarding training plan starting on ${todayStr} (exactly 7 distinct consecutive days).
-3. BENCHMARK ASSESSMENT: Day 1 or Day 2 MUST contain the following Benchmark Assessment workout:
-   - Sport: "${benchmarkInfo.sport}"
-   - Description: "${benchmarkInfo.desc}"
-   - Details: "${benchmarkInfo.details}"
-   - is_benchmark: true
-4. WORKOUT DETAILS & STEP PARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus. Every exercise or station described in 'details' MUST have its matching structured step in 'steps_json'!
-5. Format output as a valid JSON array of 7 items at the very end of your response inside a \`\`\`json code block.
-Example format:
-\`\`\`json
-[
-  {
-    "date": "${todayStr}",
-    "sport": "${benchmarkInfo.sport}",
-    "description": "${benchmarkInfo.desc}",
-    "target_rooka": ${benchmarkInfo.targetRooka},
-    "details": "${benchmarkInfo.details}",
-    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Benchmark Assessment\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 5000, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]",
-    "is_benchmark": true
-  }
-]
-\`\`\``;
-
-    const userPrompt = `I just completed my onboarding! Please generate my initial 7-day training schedule starting today (${todayStr}) in ${targetLanguageName}. Make sure Day 1 or Day 2 includes my ${benchmarkInfo.testName} benchmark test!`;
-
-    let aiReply = '';
-    try {
-      aiReply = await generateWithFallback(userPrompt, systemPrompt, null, null, userId, 'common');
-    } catch (errAi) {
-      console.warn('AI initial plan generation warning:', errAi);
-    }
-
-    let planData = [];
-    const jsonMatch = aiReply ? aiReply.match(/```json([\s\S]*?)```/) : null;
-    if (jsonMatch) {
-      try {
-        planData = JSON.parse(jsonMatch[1]);
-      } catch (e) {}
-    }
-
-    // Fallback if LLM parsing didn't return a full array
-    if (!Array.isArray(planData) || planData.length === 0) {
-      const dates = [];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() + i);
-        dates.push(d.toLocaleDateString('en-CA'));
+    const baselinePlan = [
+      {
+        date: dates[0],
+        sport: benchmarkInfo.sport,
+        description: benchmarkInfo.desc,
+        target_rooka: benchmarkInfo.targetRooka,
+        details: benchmarkInfo.details,
+        is_benchmark: true,
+        steps: [
+          { type: 'warmup', exerciseName: 'Dynamic Warm-up', condition_type: 'time', condition_value: 10, target_type: 'no.target' },
+          { type: 'interval', exerciseName: benchmarkInfo.testName, condition_type: benchmarkInfo.sport === 'Run' ? 'distance' : 'time', condition_value: benchmarkInfo.sport === 'Run' ? 5000 : 20, target_type: 'no.target' },
+          { type: 'cooldown', exerciseName: 'Easy Cool-down', condition_type: 'time', condition_value: 8, target_type: 'no.target' }
+        ]
+      },
+      {
+        date: dates[1],
+        sport: 'Rest',
+        description: selectedLang === 'nl' ? 'Actief Herstel & Mobiliteit' : selectedLang === 'de' ? 'Aktive Regeneration & Mobility' : selectedLang === 'es' ? 'Recuperación Activa y Movilidad' : selectedLang === 'fr' ? 'Récupération Active & Mobilité' : 'Active Recovery & Mobility',
+        target_rooka: 0,
+        details: selectedLang === 'nl' ? 'Lichte wandeling of stretching na je benchmark test.' : selectedLang === 'de' ? 'Leichter Spaziergang oder Dehnen nach deinem Baseline-Test.' : selectedLang === 'es' ? 'Caminata ligera o estiramientos tras tu prueba de referencia.' : selectedLang === 'fr' ? 'Marche légère ou étirements après votre test de référence.' : 'Light walk or stretching after your baseline assessment.',
+        steps: []
+      },
+      {
+        date: dates[2],
+        sport: benchmarkInfo.sport,
+        description: selectedLang === 'nl' ? 'Zone 2 Aerobe Duur' : selectedLang === 'de' ? 'Zone 2 Grundlagenlauf' : selectedLang === 'es' ? 'Resistencia Aeróbica Zona 2' : selectedLang === 'fr' ? 'Endurance Aérobie Zone 2' : 'Zone 2 Aerobic Base',
+        target_rooka: 40,
+        details: selectedLang === 'nl' ? 'Rustig aerobe duurtraining op praattempo.' : selectedLang === 'de' ? 'Ruhige Ausdauereinheit im Gesprächstempo.' : selectedLang === 'es' ? 'Sesión aeróbica controlada a ritmo de conversación.' : selectedLang === 'fr' ? 'Séance aérobie contrôlée à allure de conversation.' : 'Controlled conversational pace endurance session.',
+        steps: [
+          { type: 'warmup', exerciseName: 'Warm-up', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
+          { type: 'interval', exerciseName: 'Zone 2 Aerobic Base', condition_type: 'time', condition_value: 40, target_type: 'heart.rate.zone', zone: 2 },
+          { type: 'cooldown', exerciseName: 'Cool-down', condition_type: 'time', condition_value: 5, target_type: 'no.target' }
+        ]
+      },
+      {
+        date: dates[3],
+        sport: 'Strength',
+        description: selectedLang === 'nl' ? 'Core & Atletische Kracht' : selectedLang === 'de' ? 'Core & Rumpfkraft' : selectedLang === 'es' ? 'Fuerza Funcional y Core' : selectedLang === 'fr' ? 'Renforcement Core & Postural' : 'Core & Foundation Strength',
+        target_rooka: 35,
+        details: selectedLang === 'nl' ? 'Planks, lunges, heupstabiliteit en glute bridges (30 min).' : selectedLang === 'de' ? 'Planks, Ausfallschritte und Rumpfstabilität (30 Min).' : selectedLang === 'es' ? 'Planchas, zancadas y estabilidad de cadera (30 min).' : selectedLang === 'fr' ? 'Gainage, fentes et renforcement des hanches (30 min).' : 'Planks, lunges, hip stability and glute activation (30 min).',
+        steps: [
+          { type: 'warmup', exerciseName: 'Dynamic Movement Prep', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
+          { type: 'interval', exerciseName: 'Core & Foundation Circuit', condition_type: 'time', condition_value: 25, target_type: 'no.target' }
+        ]
+      },
+      {
+        date: dates[4],
+        sport: 'Rest',
+        description: selectedLang === 'nl' ? 'Rustdag' : selectedLang === 'de' ? 'Ruhetag' : selectedLang === 'es' ? 'Día de Descanso' : selectedLang === 'fr' ? 'Jour de Repos' : 'Rest & Recharge',
+        target_rooka: 0,
+        details: selectedLang === 'nl' ? 'Volledige rust om spierherstel en adaptatie te stimuleren.' : selectedLang === 'de' ? 'Vollständige Erholung zur Förderung der Muskelregeneration.' : selectedLang === 'es' ? 'Descanso completo para asimilar la carga de entrenamiento.' : selectedLang === 'fr' ? 'Repos complet pour optimiser la récupération et l\'adaptation.' : 'Full rest to promote cellular repair and adaptation.',
+        steps: []
+      },
+      {
+        date: dates[5],
+        sport: benchmarkInfo.sport,
+        description: selectedLang === 'nl' ? 'Langere Aerobe Duur' : selectedLang === 'de' ? 'Langer Grundlagen-Dauerlauf' : selectedLang === 'es' ? 'Tirada Larga Aeróbica' : selectedLang === 'fr' ? 'Sortie Longue Fondamentale' : 'Long Aerobic Progression',
+        target_rooka: 60,
+        details: selectedLang === 'nl' ? 'Gestage duurtraining met focus op cadans en hydratatie.' : selectedLang === 'de' ? 'Gleichmäßige Grundlagenausdauer mit Fokus auf Tritt-/Schrittfrequenz.' : selectedLang === 'es' ? 'Sesión de volumen aeróbico constante con hidratación controlada.' : selectedLang === 'fr' ? 'Endurance fondamentale régulière avec gestion de l\'hydratation.' : 'Steady aerobic endurance focusing on rhythm and fueling.',
+        steps: [
+          { type: 'warmup', exerciseName: 'Easy Warm-up', condition_type: 'time', condition_value: 10, target_type: 'no.target' },
+          { type: 'interval', exerciseName: 'Conversational Pace Base', condition_type: 'time', condition_value: 60, target_type: 'heart.rate.zone', zone: 2 },
+          { type: 'cooldown', exerciseName: 'Cool-down & Recovery Walk', condition_type: 'time', condition_value: 5, target_type: 'no.target' }
+        ]
+      },
+      {
+        date: dates[6],
+        sport: 'Rest',
+        description: selectedLang === 'nl' ? 'Herstel & Weekevaluatie' : selectedLang === 'de' ? 'Regeneration & Wochenrückblick' : selectedLang === 'es' ? 'Recuperación y Resumen Semanal' : selectedLang === 'fr' ? 'Récupération & Bilan Semaine' : 'Recovery & Weekly Reflection',
+        target_rooka: 0,
+        details: selectedLang === 'nl' ? 'Lichte wandeling, foam rolling en voorbereiding op week 2.' : selectedLang === 'de' ? 'Leichter Spaziergang, Faszienrolle und Vorbereitung auf Woche 2.' : selectedLang === 'es' ? 'Caminata suave, foam roller y preparación para la semana 2.' : selectedLang === 'fr' ? 'Marche douce, rouleau de massage en voorbereiding op week 2.' : 'Easy walk, foam rolling, and reviewing week 1 progress.',
+        steps: []
       }
-      planData = [
-        {
-          date: dates[0],
-          sport: benchmarkInfo.sport,
-          description: benchmarkInfo.desc,
-          target_rooka: benchmarkInfo.targetRooka,
-          details: benchmarkInfo.details,
-          is_benchmark: true
-        },
-        {
-          date: dates[1],
-          sport: 'Rest',
-          description: selectedLang === 'nl' ? 'Actief Herstel & Mobiliteit' : selectedLang === 'de' ? 'Aktive Regeneration & Mobility' : selectedLang === 'es' ? 'Recuperación Activa y Movilidad' : selectedLang === 'fr' ? 'Récupération Active & Mobilité' : 'Active Recovery & Mobility',
-          target_rooka: 0,
-          details: selectedLang === 'nl' ? 'Lichte wandeling of stretching na je benchmark test.' : selectedLang === 'de' ? 'Leichter Spaziergang oder Dehnen nach deinem Baseline-Test.' : selectedLang === 'es' ? 'Caminata ligera o estiramientos tras tu prueba de referencia.' : selectedLang === 'fr' ? 'Marche légère ou étirements après votre test de référence.' : 'Light walk or stretching after your baseline assessment.'
-        },
-        {
-          date: dates[2],
-          sport: benchmarkInfo.sport,
-          description: selectedLang === 'nl' ? 'Zone 2 Aerobe Duur' : selectedLang === 'de' ? 'Zone 2 Grundlagenlauf' : selectedLang === 'es' ? 'Resistencia Aeróbica Zona 2' : selectedLang === 'fr' ? 'Endurance Aérobie Zone 2' : 'Zone 2 Aerobic Base',
-          target_rooka: 40,
-          details: selectedLang === 'nl' ? 'Rustig aerobe duurtraining op praattempo.' : selectedLang === 'de' ? 'Ruhige Ausdauereinheit im Gesprächstempo.' : selectedLang === 'es' ? 'Sesión aeróbica controlada a ritmo de conversación.' : selectedLang === 'fr' ? 'Séance aérobie contrôlée à allure de conversation.' : 'Controlled conversational pace endurance session.'
-        },
-        {
-          date: dates[3],
-          sport: 'Strength',
-          description: selectedLang === 'nl' ? 'Core & Atletische Kracht' : selectedLang === 'de' ? 'Core & Rumpfkraft' : selectedLang === 'es' ? 'Fuerza Funcional y Core' : selectedLang === 'fr' ? 'Renforcement Core & Postural' : 'Core & Foundation Strength',
-          target_rooka: 35,
-          details: selectedLang === 'nl' ? 'Planks, lunges, heupstabiliteit en glute bridges (30 min).' : selectedLang === 'de' ? 'Planks, Ausfallschritte und Rumpfstabilität (30 Min).' : selectedLang === 'es' ? 'Planchas, zancadas y estabilidad de cadera (30 min).' : selectedLang === 'fr' ? 'Gainage, fentes et renforcement des hanches (30 min).' : 'Planks, lunges, hip stability and glute activation (30 min).'
-        },
-        {
-          date: dates[4],
-          sport: 'Rest',
-          description: selectedLang === 'nl' ? 'Rustdag' : selectedLang === 'de' ? 'Ruhetag' : selectedLang === 'es' ? 'Día de Descanso' : selectedLang === 'fr' ? 'Jour de Repos' : 'Rest & Recharge',
-          target_rooka: 0,
-          details: selectedLang === 'nl' ? 'Volledige rust om spierherstel en adaptatie te stimuleren.' : selectedLang === 'de' ? 'Vollständige Erholung zur Förderung der Muskelregeneration.' : selectedLang === 'es' ? 'Descanso completo para asimilar la carga de entrenamiento.' : selectedLang === 'fr' ? 'Repos complet pour optimiser la récupération et l\'adaptation.' : 'Full rest to promote cellular repair and adaptation.'
-        },
-        {
-          date: dates[5],
-          sport: benchmarkInfo.sport,
-          description: selectedLang === 'nl' ? 'Langere Aerobe Duur' : selectedLang === 'de' ? 'Langer Grundlagen-Dauerlauf' : selectedLang === 'es' ? 'Tirada Larga Aeróbica' : selectedLang === 'fr' ? 'Sortie Longue Fondamentale' : 'Long Aerobic Progression',
-          target_rooka: 60,
-          details: selectedLang === 'nl' ? 'Gestage duurtraining met focus op cadans en hydratatie.' : selectedLang === 'de' ? 'Gleichmäßige Grundlagenausdauer mit Fokus auf Tritt-/Schrittfrequenz.' : selectedLang === 'es' ? 'Sesión de volumen aeróbico constante con hidratación controlada.' : selectedLang === 'fr' ? 'Endurance fondamentale régulière avec gestion de l\'hydratation.' : 'Steady aerobic endurance focusing on rhythm and fueling.'
-        },
-        {
-          date: dates[6],
-          sport: 'Rest',
-          description: selectedLang === 'nl' ? 'Herstel & Weekevaluatie' : selectedLang === 'de' ? 'Regeneration & Wochenrückblick' : selectedLang === 'es' ? 'Recuperación y Resumen Semanal' : selectedLang === 'fr' ? 'Récupération & Bilan Semaine' : 'Recovery & Weekly Reflection',
-          target_rooka: 0,
-          details: selectedLang === 'nl' ? 'Lichte wandeling, foam rolling en voorbereiding op week 2.' : selectedLang === 'de' ? 'Leichter Spaziergang, Faszienrolle und Vorbereitung auf Woche 2.' : selectedLang === 'es' ? 'Caminata suave, foam roller y preparación para la semana 2.' : selectedLang === 'fr' ? 'Marche douce, rouleau de massage et préparation pour la semaine 2.' : 'Easy walk, foam rolling, and reviewing week 1 progress.'
-        }
-      ];
-    }
+    ];
 
-    // Save initial plan to micro_plan. Clear the dates we are about to write so
-    // a forced regeneration replaces that day rather than doubling it up.
-    const targetDates = [...new Set(planData.map((day) => day.date).filter(Boolean))];
+    // Clear existing rows for these dates and insert baseline plan
+    const targetDates = [...new Set(baselinePlan.map((day) => day.date).filter(Boolean))];
     if (targetDates.length > 0) {
       await new Promise((resolve) =>
         db.run(
           `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${targetDates.map(() => '?').join(',')})`,
           [userId, ...targetDates],
-          () => resolve(),
-        ),
+          () => resolve()
+        )
       );
     }
 
@@ -581,7 +534,7 @@ Example format:
       INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
     `);
-    planData.forEach((day) => {
+    baselinePlan.forEach((day) => {
       stmt.run(
         userId,
         day.date,
@@ -592,16 +545,9 @@ Example format:
         Array.isArray(day.steps) ? JSON.stringify(day.steps) : typeof day.steps_json === 'object' ? JSON.stringify(day.steps_json) : (day.steps_json || '[]')
       );
     });
-    stmt.finalize();
+    await new Promise((resolve) => stmt.finalize(() => resolve()));
 
-    // 5. Generate First Quest
-    try {
-      await generateQuestForUser(userId, 'common');
-    } catch (errQuest) {
-      console.warn('Quest generation warning:', errQuest);
-    }
-
-    // 6. Post initial Coach Welcome message in chat_history
+    // 5. Post initial Coach Welcome message in chat_history immediately
     const welcomeMessages = {
       nl: `Welkom bij je gepersonaliseerde trainingsprogramma! ⚡️ Ik heb je profiel en doelen verwerkt en je eerste 7-daagse schema direct klaargezet.
 
@@ -683,10 +629,134 @@ Before we dial in structured training loads, we need to measure your current fit
       );
     });
 
+    // 6. Respond immediately to the client so account activation is instant (<100ms)
     res.json({
       success: true,
-      message: 'Onboarding finalized, initial plan, baseline test, and first quest created!',
+      message: 'Onboarding finalized, initial plan and baseline test ready!',
       benchmark: benchmarkInfo
+    });
+
+    // 7. Background Worker: Asynchronously tailor 7-day schedule via Gemini LLM & generate quest
+    setImmediate(async () => {
+      try {
+        console.log(`[Onboarding] Background AI plan generation started for user ${userId}...`);
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        let availabilityText = 'No specific schedule boundaries set.';
+        if (trainingAvailability) {
+          try {
+            const availObj = typeof trainingAvailability === 'string' ? JSON.parse(trainingAvailability) : trainingAvailability;
+            availabilityText = Object.entries(availObj)
+              .map(([day, data]) => `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${data.status} (Max minutes: ${data.max_minutes})`)
+              .join('\n            ');
+          } catch (e) {}
+        }
+
+        const discipline = detectAthleteGoalDiscipline({ target_event: targetEvent, athlete_context: athleteContext }, []);
+        const goalPrompt = getGoalDependentPromptContext(discipline);
+
+        const systemPrompt = `You are Coach Rooka, an elite endurance AI coach.
+Tone: ${coachTone || 'Empathetic but demanding elite endurance coach.'}
+Athlete Context: ${athleteContext || 'Endurance athlete.'}
+Gender: ${gender || 'Prefer not to say'}
+Target Event: ${targetEvent || 'General Fitness'} (Date: ${eventDate || 'TBD'})
+Schedule Boundaries:
+${availabilityText}
+
+${goalPrompt}
+
+CRITICAL RULES:
+0. LANGUAGE DIRECTIVE: All natural language workout descriptions and details MUST be written fluently in ${targetLanguageName}.
+1. SPORT TYPE: 'sport' must be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'.
+2. You are generating an initial 7-day onboarding training plan starting on ${todayStr} (exactly 7 distinct consecutive days).
+3. BENCHMARK ASSESSMENT: Day 1 or Day 2 MUST contain the following Benchmark Assessment workout:
+   - Sport: "${benchmarkInfo.sport}"
+   - Description: "${benchmarkInfo.desc}"
+   - Details: "${benchmarkInfo.details}"
+   - is_benchmark: true
+4. WORKOUT DETAILS & STEP PARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus. Every exercise or station described in 'details' MUST have its matching structured step in 'steps_json'!
+4b. TARGETS & METRIC PARITY MANDATE:
+   - If prescribing a target running pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and "target_value": "4:15" (pure mm:ss string, NEVER include "min/km"). NEVER substitute or default to "heart.rate.zone" when prescribing a running pace!
+   - If prescribing heart rate targets (e.g. Zone 2 aerobic base): set "target_type": "heart.rate.zone" and "zone": <1-5>.
+   - For warmups and cooldowns: set "target_type": "no.target".
+5. Format output as a valid JSON array of 7 items at the very end of your response inside a \`\`\`json code block.
+Example format:
+\`\`\`json
+[
+  {
+    "date": "${todayStr}",
+    "sport": "${benchmarkInfo.sport}",
+    "description": "${benchmarkInfo.desc}",
+    "target_rooka": ${benchmarkInfo.targetRooka},
+    "details": "${benchmarkInfo.details}",
+    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Benchmark Assessment\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 5000, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}]",
+    "is_benchmark": true
+  }
+]
+\`\`\``;
+
+        const userPrompt = `I just completed my onboarding! Please generate my initial 7-day training schedule starting today (${todayStr}) in ${targetLanguageName}. Make sure Day 1 or Day 2 includes my ${benchmarkInfo.testName} benchmark test!`;
+
+        let aiReply = '';
+        try {
+          aiReply = await generateWithFallback(userPrompt, systemPrompt, null, null, userId, 'common');
+        } catch (errAi) {
+          console.warn('[Onboarding] Background AI plan generation warning:', errAi);
+        }
+
+        let planData = [];
+        const jsonMatch = aiReply ? aiReply.match(/```json([\s\S]*?)```/) : null;
+        if (jsonMatch) {
+          try {
+            planData = JSON.parse(jsonMatch[1]);
+          } catch (e) {}
+        }
+
+        if (Array.isArray(planData) && planData.length > 0) {
+          const planDates = [...new Set(planData.map((d) => d.date).filter(Boolean))];
+          if (planDates.length > 0) {
+            await new Promise((resolve) =>
+              db.run(
+                `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${planDates.map(() => '?').join(',')})`,
+                [userId, ...planDates],
+                () => resolve()
+              )
+            );
+          }
+
+          const bgStmt = db.prepare(`
+            INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
+          `);
+          planData.forEach((day) => {
+            bgStmt.run(
+              userId,
+              day.date,
+              day.sport || 'Run',
+              day.description || 'Workout',
+              require('../services/zones').planDayTargetRooka(day) || 40,
+              day.details || '',
+              Array.isArray(day.steps) ? JSON.stringify(day.steps) : typeof day.steps_json === 'object' ? JSON.stringify(day.steps_json) : (day.steps_json || '[]')
+            );
+          });
+          await new Promise((resolve) => bgStmt.finalize(() => resolve()));
+
+          sendSSEEvent(userId, 'plan_updated', { message: 'Custom training plan tailored' });
+          console.log(`[Onboarding] Background custom AI plan saved and broadcasted for user ${userId}`);
+        }
+
+        // Quest generation: only for plus subscribers to ensure free accounts never have active quests
+        if (subTier === 'rooka_plus') {
+          try {
+            await generateQuestForUser(userId, 'common');
+            sendSSEEvent(userId, 'quest_updated', {});
+            console.log(`[Onboarding] Background quest generated for plus user ${userId}`);
+          } catch (errQuest) {
+            console.warn('[Onboarding] Background quest generation warning:', errQuest);
+          }
+        }
+      } catch (bgErr) {
+        console.error('[Onboarding] Error in background plan/quest generation:', bgErr);
+      }
     });
   } catch (err) {
     console.error('Error finalizing onboarding:', err);

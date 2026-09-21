@@ -555,7 +555,7 @@ router.post("/api/activities", authenticateToken, async (req, res) => {
 
     // Evaluate active quests (paid tiers only)
     let completedQuests = [];
-    if (canAccessQuests(req.user.subscription_tier)) {
+    if (canAccessQuests(req.user.subscription_tier, req.user.role)) {
       try {
         completedQuests = await evaluateQuestsAgainstActivity(req.user.id, {
           distance_km: finalDistanceKm,
@@ -570,7 +570,7 @@ router.post("/api/activities", authenticateToken, async (req, res) => {
 
     sendSSEEvent(req.user.id, "activity_logged", { activityId: manualId });
     sendSSEEvent(req.user.id, "activity_synced", { activityId: manualId });
-    if (canAccessQuests(req.user.subscription_tier)) {
+    if (canAccessQuests(req.user.subscription_tier, req.user.role)) {
       sendSSEEvent(req.user.id, "quest_updated", {});
     }
 
@@ -900,12 +900,14 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                - Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds).
                - On Warmup and Cooldown steps, ALWAYS include "exerciseName" specifying the mobility drills or stretches (e.g., "Cossack Squats & Inchworms", "Couch Stretch & Pigeon Pose").
                - Reference the Athlete Context for their past weights, and push for progressive overload.
-            9. TARGETS: If a workout step requires a specific pace or power target:
-               - For exact pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and set "target_value": "4:15" (do NOT include "min/km" in target_value!).
-               - For exact power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
-               - For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
-               - For HR Zones: set "target_type": "heart.rate.zone" and "zone": <1-5>.
-               - For open targets: set "target_type": "no.target".
+            9. TARGETS & METRIC PARITY MANDATE (CRITICAL):
+               - METRIC PARITY RULE: The structured metric you assign to each step MUST strictly match the coaching metric you prescribe in your conversational text and workout 'details'!
+               - EXACT RUNNING PACE: Whenever you prescribe a specific running pace in text or details (e.g. "run at 4:15 pace", "5:00 min/km", "threshold pace 4:05"): you MUST set "target_type": "pace.exact" and "target_value": "4:15" (pure mm:ss string, NEVER include "min/km" in target_value!). NEVER substitute or default to "heart.rate.zone" when you gave the athlete a pace target!
+               - PACE ZONES: For a pace zone instead of an exact pace: set "target_type": "pace.zone" and "zone": <1-5>.
+               - EXACT CYCLING POWER: If you prescribe wattage/power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
+               - POWER ZONES: For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
+               - HEART RATE ZONES: ONLY set "target_type": "heart.rate.zone" and "zone": <1-5> when you are explicitly prescribing heart rate training (e.g. Zone 2 aerobic base run, Zone 1 recovery, or HR cap).
+               - OPEN / NO TARGET: For warmup, cooldown, mobility drills, or open efforts: set "target_type": "no.target".
             10. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
             11. BENCHMARK ASSESSMENT: If the athlete is new or setting up an onboarding plan, Day 1 or Day 2 MUST contain exactly ONE sport-tailored Benchmark Assessment workout to establish baseline capabilities:
                  - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run ("sport": "Run", "description": "🎯 Benchmark Assessment: 5k Pace & HR Test").
@@ -929,8 +931,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             "sport": "Run", 
             "description": "5k Speed Intervals & Form Drills",
             "target_rooka": 80,
-            "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 8x1000m at threshold with 1min active recoveries. Cool-down: 10 min easy jog + calf mobility.",
-            "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"A-Skips & Ankle Rocks\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 15, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"repeat\\", \\"iterations\\": 8, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"1000m Threshold Interval\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 1000, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 4}, {\\"type\\": \\"recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 1, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Jog & Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
+            "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 8x1000m at threshold pace (4:05 min/km) with 1min active recoveries. Cool-down: 10 min easy jog + calf mobility.",
+            "steps_json": "[{\\\"type\\\": \\"warmup\\\", \\"exerciseName\\\": \\"A-Skips & Ankle Rocks\\\", \\"condition_type\\\": \\"time\\\", \\"condition_value\\": 15, \\"target_type\\\": \\"no.target\\\"}, {\\\"type\\\": \\"repeat\\\", \\"iterations\\\": 8, \\"steps\\": [{\\\"type\\\": \\"interval\\\", \\"exerciseName\\\": \\"1000m Threshold Interval\\\", \\"condition_type\\\": \\"distance\\\", \\"condition_value\\": 1000, \\"target_type\\\": \\"pace.exact\\\", \\"target_value\\\": \\"4:05\\\"}, {\\\"type\\\": \\"recovery\\\", \\"condition_type\\\": \\"time\\\", \\"condition_value\\": 1, \\"target_type\\\": \\"heart.rate.zone\\\", \\"zone\\": 1}]}, {\\\"type\\\": \\"cooldown\\\", \\"exerciseName\\\": \\"Easy Jog & Mobility\\\", \\"condition_type\\\": \\"time\\\", \\"condition_value\\": 10, \\"target_type\\\": \\"no.target\\\"}]"
           },
           {
             "date": "YYYY-MM-DD",

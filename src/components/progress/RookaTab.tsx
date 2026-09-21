@@ -12,10 +12,15 @@ import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { useGamification } from '../../context/GamificationStore';
+import { useSubscription } from '../../context/SubscriptionStore';
+import { useRouter } from 'expo-router';
+import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { canAccessQuests } from '../../utils/permissions';
 import { getRookaLevelInfo } from '../../utils/gamification';
 import { calculateAthleteArchetype, ArchetypeData } from '../../utils/archetypeUtils';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
+import { SeasonRoadmapCard } from '../dashboard/SeasonRoadmapCard';
+import { useSeasonGoal } from '../../hooks/use-season-goal';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface RookaTabProps {
@@ -38,10 +43,11 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   const { activities } = useActivities();
   const { physiqueLogs } = usePhysique();
   const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
-
+  const router = useRouter();
+  const { presentPaywall } = useSubscription();
+  const { hasSeasonGoal, seasonInfo } = useSeasonGoal();
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [questActionLoading, setQuestActionLoading] = useState(false);
-
   const activeQuest = quests?.find((q) => q.status === 'active') || null;
   const currentVal = activeQuest
     ? Math.round(activeQuest.current_value !== undefined ? activeQuest.current_value : (activeQuest.progress || 0))
@@ -197,8 +203,15 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         tier={user?.subscription_tier || 'free'}
       />
 
+      {/* MACRO PHASE INFO */}
+      {hasSeasonGoal && seasonInfo && (
+        <Card className="mb-6 p-4 md:p-5">
+          <SeasonRoadmapCard info={seasonInfo} />
+        </Card>
+      )}
+
       {/* QUESTS LOG */}
-      {canAccessQuests(user?.subscription_tier) && (
+      {canAccessQuests(user?.subscription_tier) ? (
         <Card className="mb-6 bg-theme-card">
           <View className="flex-row items-center gap-x-2 mb-3">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
@@ -286,6 +299,31 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             </TouchableOpacity>
           )}
         </Card>
+      ) : (
+        <Card className="mb-6 bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center shadow-sm">
+          <Ionicons name="lock-closed-outline" size={44} color={theme.tint} />
+          <Text className="text-lg font-extrabold text-theme-text mt-3 text-center">
+            Weekly Quests Locked
+          </Text>
+          <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed font-rajdhani">
+            Upgrade to the rooka+ subscription to unlock weekly fitness quests, custom challenges, and bonus rooka points.
+          </Text>
+          <TouchableOpacity
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const res = await presentPaywall();
+              if (res === PAYWALL_RESULT.NOT_PRESENTED || res === PAYWALL_RESULT.ERROR) {
+                router.navigate({ pathname: '/profile', params: { subtab: 'account' } });
+              }
+            }}
+            className="bg-theme-accent px-6 py-3 rounded-2xl w-full mt-5 shadow-sm shadow-theme-accent/30"
+            activeOpacity={0.8}
+          >
+            <Text className="text-white font-black text-center font-rajdhani">
+              Upgrade to rooka+
+            </Text>
+          </TouchableOpacity>
+        </Card>
       )}
 
       {/* Quest Detail Modal */}
@@ -360,6 +398,8 @@ export const RookaTab: React.FC<RookaTabProps> = ({
           </TouchableOpacity>
         </View>
       </BottomSheetModal>
+
+      
     </View>
   );
 };

@@ -766,6 +766,8 @@ function abbreviateStepDuration(step) {
 /** The intensity target of a step: Z3, 250W, 4:15, or nothing at all. */
 function describeStepTarget(step) {
   if (step.target_type === "no.target") return "";
+  if (step.target_type === "pace.exact" && step.target_value) return String(step.target_value);
+  if (step.target_type === "power.exact" && step.target_value) return `${step.target_value}W`;
   if (step.zone) return `Z${step.zone}`;
   if (step.target_value) {
     if (step.target_type === "power.exact") return `${step.target_value}W`;
@@ -906,7 +908,8 @@ function canHideRookaLink(subscriptionTier) {
   );
 }
 
-function canAccessQuests(subscriptionTier) {
+function canAccessQuests(subscriptionTier, role) {
+  if (role === "admin") return true;
   return ["subscription", "rooka_plus", "premium", "admin"].includes(
     String(subscriptionTier || "free"),
   );
@@ -1180,7 +1183,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
           async (planErr, plan) => {
             // Fetch user context & coach tone
             db.get(
-              "SELECT coach_name, coach_tone, coach_context, subscription_tier FROM users WHERE id = ?",
+              "SELECT coach_name, coach_tone, coach_context, subscription_tier, role FROM users WHERE id = ?",
               [internalUserId],
               async (userErr, userRow) => {
                 const coachName = userRow?.coach_name || "Rooka";
@@ -1204,7 +1207,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                 }
 
                 // Quest evaluation (paid tiers only)
-                if (canAccessQuests(userRow?.subscription_tier)) {
+                if (canAccessQuests(userRow?.subscription_tier, userRow?.role)) {
                   try {
                     const completedQuests = await evaluateQuestsAgainstActivity(
                       internalUserId,
@@ -2543,10 +2546,10 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
 async function generateQuestForUser(userId, poolType = "personal", previousQuest = null) {
   return new Promise((resolve, reject) => {
     db.get(
-      `SELECT subscription_tier FROM users WHERE id = ?`,
+      `SELECT subscription_tier, role FROM users WHERE id = ?`,
       [userId],
       (userErr, userRow) => {
-        if (!canAccessQuests(userRow && userRow.subscription_tier)) {
+        if (!canAccessQuests(userRow && userRow.subscription_tier, userRow && userRow.role)) {
           return resolve(null);
         }
 
@@ -2865,13 +2868,13 @@ async function evaluateAndProgressQuests(userId) {
   // Check subscription tier first: free/downgraded users must NEVER have active quests
   const userRow = await new Promise((resolve) => {
     db.get(
-      `SELECT subscription_tier FROM users WHERE id = ?`,
+      `SELECT subscription_tier, role FROM users WHERE id = ?`,
       [userId],
       (err, row) => resolve(row),
     );
   });
 
-  if (!canAccessQuests(userRow && userRow.subscription_tier)) {
+  if (!canAccessQuests(userRow && userRow.subscription_tier, userRow && userRow.role)) {
     // Purge any active quests for this user
     await new Promise((resolve) => {
       db.run(
@@ -2986,12 +2989,12 @@ async function evaluateAndProgressQuests(userId) {
 async function evaluateQuestsAgainstActivity(userId, activityData) {
   const userRow = await new Promise((resolve) => {
     db.get(
-      `SELECT subscription_tier FROM users WHERE id = ?`,
+      `SELECT subscription_tier, role FROM users WHERE id = ?`,
       [userId],
       (err, row) => resolve(row),
     );
   });
-  if (!canAccessQuests(userRow && userRow.subscription_tier)) {
+  if (!canAccessQuests(userRow && userRow.subscription_tier, userRow && userRow.role)) {
     return [];
   }
   const allQuests = await evaluateAndProgressQuests(userId);

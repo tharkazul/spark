@@ -370,7 +370,15 @@ CRITICAL RULES:
 3b. RECURRING NON-ROOKA ACTIVITIES: If any recurring non-Rooka activities are listed in ATHLETE'S RECURRING PERIODICAL SESSIONS above (e.g. hockey, spinning, tennis, club sports), you MUST include a workout entry on that exact day representing this activity. Set 'sport' to the relevant sport or 'CrossTraining' / 'Cardio' / 'Strength' / 'Other' (or closest match), use the exact session name as the description, set an appropriate target_rooka reflecting the duration and intensity (e.g. 40-70), and in 'details' describe the session and coaching notes on how it fits into their weekly athletic development. Balance the athlete's other workouts, intensities, and recovery days around these sessions.
 4. MUSCLE LOAD: Any group listed HIGH is heavily loaded. Do not schedule consecutive sessions overloading that group.
 5. INJURIES: Respect active niggles and substitute lower impact activities where necessary.
-6. TARGETS & MEASUREMENTS: Metric units (km, kg, km/h, meters). Distance condition values must be in pure meters.
+6. TARGETS & METRIC PARITY MANDATE (CRITICAL):
+   - Metric units exclusively (km, kg, km/h, meters). Distance condition values must be in pure meters (e.g., use 5000 for 5km, 1000 for 1km).
+   - METRIC PARITY RULE: The structured metric you assign to each step MUST strictly match the coaching metric you prescribe in your conversational summary and workout 'details'!
+   - EXACT RUNNING PACE: Whenever you prescribe a specific running pace in text or details (e.g. "run at 4:15 pace", "5:00 min/km", "threshold pace 4:05"): you MUST set "target_type": "pace.exact" and "target_value": "4:15" (pure mm:ss string, NEVER include "min/km" in target_value!). NEVER substitute or default to "heart.rate.zone" when you gave the athlete a pace target!
+   - PACE ZONES: For a pace zone instead of an exact pace: set "target_type": "pace.zone" and "zone": <1-5>.
+   - EXACT CYCLING POWER: If you prescribe wattage/power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
+   - POWER ZONES: For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
+   - HEART RATE ZONES: ONLY set "target_type": "heart.rate.zone" and "zone": <1-5> when you are explicitly prescribing heart rate training (e.g. Zone 2 aerobic base run, Zone 1 recovery, or HR cap).
+   - OPEN / NO TARGET: For warmup, cooldown, mobility drills, or open efforts: set "target_type": "no.target".
 7. STRENGTH & MULTI-EXERCISE PARITY (CRITICAL):
    - EVERY exercise, station, carry, lift, or core movement prescribed in 'details' MUST have its own corresponding repeat block or step in the 'steps_json' array!
    - NEVER output only 1 exercise in 'steps_json' when you prescribed multiple exercises in 'details'! If you prescribe 3 exercises (e.g. Barbell Back Squat, Farmers Carry, and Pallof Press), you MUST output 3 separate repeat blocks in 'steps_json'.
@@ -396,10 +404,18 @@ CRITICAL RULES:
     "description": "Aerobic Base & Cadence Drill",
     "target_rooka": 45,
     "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 45 min steady Zone 2 holding 175-180 spm cadence. Cool-down: 4x60m relaxed strides + calf mobility.",
-    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"A-Skips & Ankle Rocks\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Zone 2 Aerobic Base\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 45, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Strides & Calf Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}]"
+    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"A-Skips & Ankle Rocks\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Zone 2 Aerobic Base\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 45, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Strides & Calf Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}]"
   },
   {
     "date": "${dates[1]}",
+    "sport": "Run",
+    "description": "5x1000m Threshold Intervals",
+    "target_rooka": 70,
+    "details": "Warm-up: 10 min easy jog + dynamic form drills. Main set: 5x1000m at threshold pace (4:10 min/km) with 90s active jog recovery. Cool-down: 10 min easy recovery jog + calf stretching.",
+    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Warmup Jog\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 5, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"1000m Threshold\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 1000, \\"target_type\\": \\"pace.exact\\", \\"target_value\\": \\"4:10\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 90, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery Jog\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}]"
+  },
+  {
+    "date": "${dates[2]}",
     "sport": "Strength",
     "description": "Lower Body & Hyrox Core Power",
     "target_rooka": 45,

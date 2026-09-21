@@ -12,9 +12,7 @@ import {
   View
 } from 'react-native';
 
-import { goalsStorage } from '../../services/storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { calculateTargetCTL } from '../../components/profile/GoalsTab';
 import { Card } from '../../components/ui/Card';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 import { useActivities } from '../../context/ActivityStore';
@@ -27,8 +25,8 @@ import { useUser } from '../../context/UserStore';
 import { gamificationApi, planApi } from '../../services/apiServices';
 
 import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
-import { SeasonRoadmapCard } from '../../components/dashboard/SeasonRoadmapCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
+import { TodaysPlanSkeleton } from '../../components/skeletons/TodaysPlanSkeleton';
 
 
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
@@ -40,7 +38,6 @@ import { LogWeightModal } from '../../components/dashboard/LogWeightModal';
 
 import {
   DayAgenda,
-  MacroPeriodInfo,
   WorkoutItem,
 } from '../../types/dashboard';
 
@@ -71,7 +68,7 @@ export default function PlanningHomeScreen() {
   const { sendMessage, unreadCount } = useCoachChat();
   const { t } = useLanguage();
   const { headerHeight } = useHeaderLayout();
-  const { plan, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
+  const { plan, loading: planLoading, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
   const { activities } = useActivities();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -159,261 +156,6 @@ export default function PlanningHomeScreen() {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekRangeLabel = `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
-
-  const calculateDaysRemaining = (eventDateStr?: string): number => {
-    if (!eventDateStr) return 0;
-    try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const cleanEventDate = eventDateStr.split('T')[0];
-      if (cleanEventDate === todayStr) return 0;
-      const todayDate = new Date(todayStr + 'T00:00:00Z');
-      const targetDate = new Date(cleanEventDate + 'T00:00:00Z');
-      const diffTime = targetDate.getTime() - todayDate.getTime();
-      return Math.round(diffTime / (1000 * 60 * 60 * 24));
-    } catch {
-      return 0;
-    }
-  };
-
-  const [activeGoals, setActiveGoals] = useState<Array<{
-    name: string;
-    date: string;
-    isMain: boolean;
-    goalType: 'race' | 'physiological';
-    targetCTL?: number;
-  }>>([]);
-
-  useEffect(() => {
-    let isMounted = true;
-    setActiveGoals([]);
-
-    if (!user?.id) {
-      return;
-    }
-
-    const loadGoals = async () => {
-      try {
-        const cached = await goalsStorage.getGoals(user.id);
-        if (cached && isMounted && Array.isArray(cached) && cached.length > 0) {
-          setActiveGoals(
-            cached.map((m: any) => ({
-              name: m.name || m.eventName || 'Goal',
-              date: m.date || m.eventDate || new Date().toISOString().split('T')[0],
-              isMain: m.is_main === 1 || Boolean(m.isARace),
-              goalType: (m.goal_type || m.goalType || 'race') as 'race' | 'physiological',
-              targetCTL: m.target_ctl || m.targetCtl || (m.name ? calculateTargetCTL(m.name) : 70),
-            }))
-          );
-        }
-      } catch (_) { }
-
-      try {
-        const milestones = await gamificationApi.getMilestones();
-        if (isMounted && milestones && milestones.length > 0) {
-          const mapped = milestones.map((m: any) => ({
-            name: m.name || m.eventName || 'Goal',
-            date: m.date || m.eventDate || new Date().toISOString().split('T')[0],
-            isMain: m.is_main === 1 || Boolean(m.isARace),
-            goalType: (m.goal_type || m.goalType || 'race') as 'race' | 'physiological',
-            targetCTL: m.target_ctl || m.targetCtl || (m.name ? calculateTargetCTL(m.name) : 70),
-          }));
-          setActiveGoals(mapped);
-          await goalsStorage.setGoals(milestones, user.id);
-          return;
-        }
-      } catch (e) {
-        console.log('Failed to fetch milestones in Planning screen:', e);
-      }
-
-      const hasEventGoal = Boolean(user?.target_event && user.target_event.trim().length > 0);
-      const hasPhysGoal = Boolean(
-        (user?.target_weight && Number(user.target_weight) > 0) ||
-        (user?.target_vo2max && Number(user.target_vo2max) > 0)
-      );
-
-      if (isMounted && (hasEventGoal || hasPhysGoal)) {
-        const isPhys = hasPhysGoal || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
-        setActiveGoals([
-          {
-            name: user?.target_event || (isPhys ? 'Health & Fitness Goal' : 'Target Goal'),
-            date: user?.event_date || new Date().toISOString().split('T')[0],
-            isMain: true,
-            goalType: (isPhys ? 'physiological' : 'race') as 'race' | 'physiological',
-            targetCTL: user?.target_ctl || 70,
-          },
-        ]);
-      } else if (isMounted) {
-        setActiveGoals([]);
-        await goalsStorage.setGoals([], user.id);
-      }
-    };
-
-    loadGoals();
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.id, user?.target_event, user?.event_date, user?.target_weight, user?.target_vo2max, (user as any)?.goal_type, (user as any)?.goalType]);
-
-  const nearestGoalInfo = useMemo(() => {
-    if (!activeGoals || activeGoals.length === 0) {
-      const hasEventGoal = Boolean(user?.target_event && user.target_event.trim().length > 0);
-      const hasPhysGoal = Boolean(
-        (user?.target_weight && Number(user.target_weight) > 0) ||
-        (user?.target_vo2max && Number(user.target_vo2max) > 0)
-      );
-
-      if (hasEventGoal || hasPhysGoal) {
-        const isPhys = hasPhysGoal || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
-        const gDate = user?.event_date || new Date().toISOString().split('T')[0];
-        return {
-          name: user?.target_event || (isPhys ? 'Health & Fitness Goal' : 'Target Goal'),
-          date: gDate,
-          isMain: true,
-          goalType: (isPhys ? 'physiological' : ((user as any)?.goal_type || (user as any)?.goalType || 'race')) as 'race' | 'physiological',
-          targetCTL: user?.target_ctl || 70,
-          daysRemaining: calculateDaysRemaining(gDate),
-        };
-      }
-      return null;
-    }
-
-    const goalsWithDays = activeGoals.map((g) => ({
-      ...g,
-      daysRemaining: calculateDaysRemaining(g.date),
-    }));
-
-    const upcomingGoals = goalsWithDays.filter((g) => g.daysRemaining >= -1);
-    const pool = upcomingGoals.length > 0 ? upcomingGoals : goalsWithDays;
-
-    pool.sort((a, b) => {
-      const aFuture = a.daysRemaining >= -1;
-      const bFuture = b.daysRemaining >= -1;
-      if (aFuture && !bFuture) return -1;
-      if (!aFuture && bFuture) return 1;
-
-      if (Math.abs(a.daysRemaining) !== Math.abs(b.daysRemaining)) {
-        return Math.abs(a.daysRemaining) - Math.abs(b.daysRemaining);
-      }
-      return a.isMain === b.isMain ? 0 : a.isMain ? -1 : 1;
-    });
-
-    return pool[0] || null;
-  }, [activeGoals, user?.target_event, user?.event_date, user?.target_ctl, user?.target_weight, user?.target_vo2max]);
-
-  const hasSeasonGoal = Boolean(nearestGoalInfo && nearestGoalInfo.name);
-  const isPhysiologicalGoal = nearestGoalInfo?.goalType === 'physiological';
-
-  const seasonInfo: MacroPeriodInfo = useMemo(() => {
-    const goalName = nearestGoalInfo?.name || user?.target_event || 'Training Goal';
-    const targetCtl = nearestGoalInfo?.targetCTL || user?.target_ctl || 70;
-    const currentCtl = user?.current_ctl || 45;
-    const daysLeft = nearestGoalInfo ? nearestGoalInfo.daysRemaining : 60;
-
-    const totalCycleDays = Math.max(112, daysLeft > 0 ? daysLeft : 112);
-    const elapsedTotalDays = Math.max(0, totalCycleDays - Math.max(0, daysLeft));
-    const progressRatio = Math.min(1, Math.max(0, elapsedTotalDays / totalCycleDays));
-
-    const phaseLengthDays = totalCycleDays / 4;
-    const currentPhaseIndex = Math.min(3, Math.floor(progressRatio * 4));
-    const phaseElapsedDays = Math.max(0, elapsedTotalDays - currentPhaseIndex * phaseLengthDays);
-    const activePhaseProgress = Math.min(100, Math.max(0, Math.round((phaseElapsedDays / phaseLengthDays) * 100)));
-
-    const goalLabel = nearestGoalInfo?.isMain
-      ? isPhysiologicalGoal ? 'PRIMARY' : 'RACE'
-      : isPhysiologicalGoal ? 'SECONDARY' : 'RACE';
-
-    if (isPhysiologicalGoal) {
-      return {
-        raceTargetName: goalName,
-        daysRemaining: daysLeft,
-        currentPhaseIndex,
-        targetCTL: targetCtl,
-        currentCTL: currentCtl,
-        goalType: 'physiological',
-        isPrimaryGoal: nearestGoalInfo?.isMain,
-        goalLabel,
-        phases: [
-          {
-            name: 'ADAPT',
-            weeks: 'Weeks 1-4',
-            focus: 'Neuromuscular & Movement Baseline',
-            description: 'Building workout consistency, structural integrity, and foundational movement efficiency with steady volume.',
-            status: currentPhaseIndex > 0 ? 'completed' : currentPhaseIndex === 0 ? 'active' : 'upcoming',
-            progressPercent: currentPhaseIndex === 0 ? activePhaseProgress : undefined,
-          },
-          {
-            name: 'DEVELOP',
-            weeks: 'Weeks 5-8',
-            focus: 'Targeted Load & Volume',
-            description: 'Incremental load increase, target energy system stimulus, and progressive overload across target disciplines.',
-            status: currentPhaseIndex > 1 ? 'completed' : currentPhaseIndex === 1 ? 'active' : 'upcoming',
-            progressPercent: currentPhaseIndex === 1 ? activePhaseProgress : undefined,
-          },
-          {
-            name: 'CRUNCH',
-            weeks: 'Weeks 9-12',
-            focus: 'High-Efficiency Output',
-            description: 'Stabilizing physiological adaptations, expanding threshold capacity, and performance benchmark assessments.',
-            status: currentPhaseIndex > 2 ? 'completed' : currentPhaseIndex === 2 ? 'active' : 'upcoming',
-            progressPercent: currentPhaseIndex === 2 ? activePhaseProgress : undefined,
-          },
-          {
-            name: 'SUSTAIN',
-            weeks: 'Weeks 13-16',
-            focus: 'Continuous Growth & Maintenance',
-            description: 'Sustaining peak fitness gains, long-term habit strength, and resilient baseline fitness maintenance.',
-            status: currentPhaseIndex === 3 ? 'active' : 'upcoming',
-            progressPercent: currentPhaseIndex === 3 ? activePhaseProgress : undefined,
-          },
-        ],
-      };
-    }
-
-    return {
-      raceTargetName: goalName,
-      daysRemaining: daysLeft,
-      currentPhaseIndex,
-      targetCTL: targetCtl,
-      currentCTL: currentCtl,
-      goalType: 'race',
-      isPrimaryGoal: nearestGoalInfo?.isMain,
-      goalLabel,
-      phases: [
-        {
-          name: 'BASE PHASE',
-          weeks: 'Weeks 1-6',
-          focus: 'Aerobic Volume & Technique',
-          description: 'Building mitochondrial density & base aerobic capacity with low HR long rides and CSS swim threshold sets.',
-          status: currentPhaseIndex > 0 ? 'completed' : currentPhaseIndex === 0 ? 'active' : 'upcoming',
-          progressPercent: currentPhaseIndex === 0 ? activePhaseProgress : undefined,
-        },
-        {
-          name: 'BUILD PHASE',
-          weeks: 'Weeks 7-12',
-          focus: 'Threshold Velocity & Power',
-          description: 'High aerobic intervals, threshold swim pace, VO2 max bike intervals, and Saturday brick runs.',
-          status: currentPhaseIndex > 1 ? 'completed' : currentPhaseIndex === 1 ? 'active' : 'upcoming',
-          progressPercent: currentPhaseIndex === 1 ? activePhaseProgress : undefined,
-        },
-        {
-          name: 'PEAK PHASE',
-          weeks: 'Weeks 13-14',
-          focus: 'Race Pace Intervals',
-          description: 'Race-specific pacing simulation, sharp interval efforts, and high-intensity micro efforts.',
-          status: currentPhaseIndex > 2 ? 'completed' : currentPhaseIndex === 2 ? 'active' : 'upcoming',
-          progressPercent: currentPhaseIndex === 2 ? activePhaseProgress : undefined,
-        },
-        {
-          name: 'TAPER PHASE',
-          weeks: 'Weeks 15-16',
-          focus: 'Glycogen Supercompensation',
-          description: 'Volume reduction by 50% while maintaining sharp stride frequency to arrive fresh on race day.',
-          status: currentPhaseIndex === 3 ? 'active' : 'upcoming',
-          progressPercent: currentPhaseIndex === 3 ? activePhaseProgress : undefined,
-        },
-      ],
-    };
-  }, [nearestGoalInfo, user?.target_event, user?.target_ctl, user?.current_ctl, isPhysiologicalGoal]);
 
   // Compute 7-Day Agenda Dynamically from weekStart
   const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -692,12 +434,7 @@ export default function PlanningHomeScreen() {
       <View className="flex-1 px-5 pt-2">
         {/* Pinned plan context — Card matching TodaysPlanCard styling */}
         <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
-          {hasSeasonGoal && (
-            <>
-              <SeasonRoadmapCard info={seasonInfo} />
-              <View className="h-px bg-theme-border/50 my-3.5" />
-            </>
-          )}
+          
 
           {/* Week Selector Bar with Interactive Chevrons */}
           <View className="flex-row items-center justify-between mb-3">
@@ -738,21 +475,29 @@ export default function PlanningHomeScreen() {
           showsVerticalScrollIndicator={false}
           onScrollBeginDrag={notifyScroll} onScrollEndDrag={notifyScrollEnd} onMomentumScrollEnd={notifyScrollEnd}
         >
-          {weeklyAgenda.map((day, idx) => (
-            <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {
-              const y = e.nativeEvent.layout.y;
-              setDayYPositions((prev) => ({ ...prev, [idx]: y }));
-            }}>
-              <DetailedDayCard
-                day={day}
-                onAdaptPress={() => setIsAdaptModalOpen(true)}
-                onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
-                onSelectWorkout={handleSelectWorkoutForEdit}
-                onDeleteWorkout={handleDeleteWorkout}
-                onInvitePartner={handleInvitePartner}
-              />
+          {planLoading && plan.length === 0 ? (
+            <View className="gap-y-3 pt-1">
+              <TodaysPlanSkeleton />
+              <TodaysPlanSkeleton />
+              <TodaysPlanSkeleton />
             </View>
-          ))}
+          ) : (
+            weeklyAgenda.map((day, idx) => (
+              <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {
+                const y = e.nativeEvent.layout.y;
+                setDayYPositions((prev) => ({ ...prev, [idx]: y }));
+              }}>
+                <DetailedDayCard
+                  day={day}
+                  onAdaptPress={() => setIsAdaptModalOpen(true)}
+                  onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
+                  onSelectWorkout={handleSelectWorkoutForEdit}
+                  onDeleteWorkout={handleDeleteWorkout}
+                  onInvitePartner={handleInvitePartner}
+                />
+              </View>
+            ))
+          )}
 
 
         </ScrollView>

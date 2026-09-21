@@ -4,7 +4,7 @@ import { chatApi, planApi, socialApi } from '../services/apiServices';
 import { clearBadgeCountAsync, setBadgeCountAsync, setNotificationChatActive } from '../services/notificationService';
 import { chatReadStorage, chatStorage } from '../services/storage';
 import { wsService } from '../services/websocket';
-import { ChatMessage, ProposedWorkoutItem, TokenUsage } from '../types/chat';
+import { ChatMessage, CreatedWorkoutPayload, ProposedWorkoutItem, TokenUsage } from '../types/chat';
 import { useActivities } from './ActivityStore';
 import { useHealth } from './HealthStore';
 import { usePhysique } from './PhysiqueStore';
@@ -178,11 +178,11 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       const t = new Date(m.timestamp || 0).getTime();
       if (!isNaN(t) && t > maxMsgTime) maxMsgTime = t;
     }
-    const now = Math.max(Date.now(), maxMsgTime + 1000);
-    setLastReadTimestamp((prev) => (now > prev ? now : prev));
+    const readTime = maxMsgTime > 0 ? maxMsgTime : Date.now();
+    setLastReadTimestamp((prev) => (readTime > prev ? readTime : prev));
     setUnreadCount(0);
     if (user?.id) {
-      await chatReadStorage.setLastReadTimestamp(now, user.id);
+      await chatReadStorage.setLastReadTimestamp(readTime, user.id);
     }
     await clearBadgeCountAsync();
   }, [user?.id]);
@@ -250,20 +250,22 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
     // If the user is actively viewing the chat screen in the foreground,
     // all incoming messages are instantly marked as read in real time.
-    if (isChatActiveRef.current && isAppActiveRef.current) {
+    if (isChatActive && isAppActiveRef.current) {
       let maxMsgTime = 0;
       for (const m of messages) {
         if (m.id === 'welcome-msg') continue;
         const t = new Date(m.timestamp || 0).getTime();
         if (!isNaN(t) && t > maxMsgTime) maxMsgTime = t;
       }
-      const now = Math.max(Date.now(), maxMsgTime + 1000);
-      setLastReadTimestamp((prev) => (now > prev ? now : prev));
       setUnreadCount(0);
-      if (user?.id) {
-        chatReadStorage.setLastReadTimestamp(now, user.id);
-      }
       clearBadgeCountAsync();
+
+      if (maxMsgTime > lastReadTimestamp) {
+        setLastReadTimestamp(maxMsgTime);
+        if (user?.id) {
+          chatReadStorage.setLastReadTimestamp(maxMsgTime, user.id);
+        }
+      }
       return;
     }
 
@@ -306,7 +308,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     }
     const proposedPlan = parseWorkoutProposals(msg.content);
-    const payload = parsePayloadJson(msg);
+    let payload = parsePayloadJson(msg);
+    if (!payload && proposedPlan && proposedPlan.length > 0) {
+      payload = { type: 'created_workout', workouts: proposedPlan };
+    }
 
     // Ensure SQLite timestamp is parsed as UTC
     let safeTimestamp = msg.timestamp || new Date().toISOString();
@@ -478,6 +483,11 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           }
 
           const partId = `coach-${baseTimestamp}-${i}`;
+          const isLastPart = i === rawReplies.length - 1;
+          const workoutsPayload: CreatedWorkoutPayload | undefined = (isLastPart && res.workouts && res.workouts.length > 0)
+            ? { type: 'created_workout', workouts: res.workouts }
+            : undefined;
+
           const coachMsg: ChatMessage = processMessageItem({
             id: partId,
             clientId: `c-coach-${baseTimestamp}-${i}-${Math.random().toString(36).slice(2, 8)}`,
@@ -485,6 +495,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
             role: 'coach',
             mood: res.mood || 'default',
             timestamp: new Date(baseTimestamp + (i + 1) * 1000).toISOString(),
+            payload_json: workoutsPayload,
           });
 
           // WhatsApp style: drop full message bubble without typewriter effect

@@ -150,8 +150,19 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
   const userId = req.user.id;
   const responseData = { quests: [], titles: [], bonus_points: [] };
 
+  let tier = req.user.subscription_tier;
+  let role = req.user.role;
+
   try {
-    if (!canAccessQuests(req.user.subscription_tier)) {
+    if (!tier) {
+      const userRow = await new Promise((resolve) => {
+        db.get(`SELECT subscription_tier, role FROM users WHERE id = ?`, [userId], (err, row) => resolve(row));
+      });
+      tier = userRow?.subscription_tier || "free";
+      role = userRow?.role || "user";
+    }
+
+    if (!canAccessQuests(tier, role)) {
       // Free users cannot access quests: close any active quests and return empty array
       await new Promise((resolve) => {
         db.run(
@@ -221,12 +232,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
   }
 
   try {
-    const userRow = await new Promise((resolve) => {
-      db.get(`SELECT subscription_tier FROM users WHERE id = ?`, [userId], (err, row) => resolve(row));
-    });
-
-    const tier = userRow?.subscription_tier;
-    const isPaid = tier === 'admin' || tier === 'premium' || tier === 'rooka_plus' || tier === 'subscription';
+    const isPaid = canAccessQuests(tier, role);
 
     if (!isPaid) {
       responseData.titles = [];
@@ -304,7 +310,17 @@ router.post(
   authenticateToken,
   async (req, res) => {
     const userId = req.user.id;
-    if (!canAccessQuests(req.user.subscription_tier)) {
+    let tier = req.user.subscription_tier;
+    let role = req.user.role;
+    if (!tier) {
+      const userRow = await new Promise((resolve) => {
+        db.get(`SELECT subscription_tier, role FROM users WHERE id = ?`, [userId], (err, row) => resolve(row));
+      });
+      tier = userRow?.subscription_tier || "free";
+      role = userRow?.role || "user";
+    }
+
+    if (!canAccessQuests(tier, role)) {
       return res.status(403).json({ error: "Quests require a paid subscription." });
     }
 
@@ -339,7 +355,17 @@ router.post(
   authenticateToken,
   async (req, res) => {
     const userId = req.user.id;
-    if (!canAccessQuests(req.user.subscription_tier)) {
+    let tier = req.user.subscription_tier;
+    let role = req.user.role;
+    if (!tier) {
+      const userRow = await new Promise((resolve) => {
+        db.get(`SELECT subscription_tier, role FROM users WHERE id = ?`, [userId], (err, row) => resolve(row));
+      });
+      tier = userRow?.subscription_tier || "free";
+      role = userRow?.role || "user";
+    }
+
+    if (!canAccessQuests(tier, role)) {
       return res.status(403).json({ error: "Quests require a paid subscription." });
     }
     const { quest_id } = req.body;
@@ -414,7 +440,17 @@ router.post(
 
 router.post("/api/gamification/evaluate_quests", authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  if (!canAccessQuests(req.user.subscription_tier)) {
+  let tier = req.user.subscription_tier;
+  let role = req.user.role;
+  if (!tier) {
+    const userRow = await new Promise((resolve) => {
+      db.get(`SELECT subscription_tier, role FROM users WHERE id = ?`, [userId], (err, row) => resolve(row));
+    });
+    tier = userRow?.subscription_tier || "free";
+    role = userRow?.role || "user";
+  }
+
+  if (!canAccessQuests(tier, role)) {
     return res.json({
       success: true,
       message: "Quests require a paid subscription.",
