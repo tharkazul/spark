@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
+import { ScalePressable } from '../ui/ScalePressable';
 import { DurationRoller } from '../ui/DurationRoller';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -137,12 +138,13 @@ export const WeeklyAvailabilityCard: React.FC = () => {
         })}
       </View>
 
-      <TouchableOpacity
+      <ScalePressable
         onPress={handleSave}
         disabled={saving || !hasChanges}
-        activeOpacity={0.8}
+        activeScale={0.96}
+        haptic="selection"
         className={`w-full py-3 rounded-xl items-center justify-center mt-4 shadow-sm flex-row gap-x-2 ${
-          hasChanges ? 'bg-theme-accent' : 'bg-theme-border/50'
+          hasChanges ? 'bg-theme-accent' : 'bg-theme-border/50 opacity-50'
         }`}
       >
         {saving ? (
@@ -155,7 +157,7 @@ export const WeeklyAvailabilityCard: React.FC = () => {
             </Text>
           </>
         )}
-      </TouchableOpacity>
+      </ScalePressable>
 
       {saveSuccess && (
         <View className="p-2.5 bg-semantic-success/10 rounded-xl mt-3 items-center flex-row justify-center gap-x-1.5 border border-semantic-success/20">

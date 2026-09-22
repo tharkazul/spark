@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Alert, TouchableOpacity, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import { View, Text, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
+import { ScalePressable } from '../ui/ScalePressable';
 import { Image } from 'expo-image';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { Ionicons } from '@expo/vector-icons';
@@ -144,12 +145,13 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     };
 
     return (
-      <TouchableOpacity
+      <ScalePressable
         onPress={() => {
           if (!existingInvite) toggleSelection(item.friend_id);
         }}
         disabled={!!existingInvite}
-        activeOpacity={0.75}
+        activeScale={0.97}
+        haptic="selection"
         className={`flex-row items-center p-3.5 mb-2.5 rounded-2xl border ${
           isSelected
             ? 'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10'
@@ -176,7 +178,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
         </View>
 
         {renderStatus()}
-      </TouchableOpacity>
+      </ScalePressable>
     );
   };
 
@@ -190,9 +192,9 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         <View className="flex-row justify-between items-center pb-4 pt-2">
           <Text className="text-xl font-extrabold text-theme-text">Invite Friends</Text>
-          <TouchableOpacity onPress={onClose} className="p-2 -mr-2 bg-theme-bg rounded-full">
+          <ScalePressable onPress={onClose} activeScale={0.9} haptic="light" className="p-2 -mr-2 bg-theme-bg rounded-full">
             <Ionicons name="close" size={20} color={theme.textSecondary} />
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         {workout && (
@@ -251,9 +253,11 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
         )}
 
         <View className="pt-4 pb-8">
-          <TouchableOpacity
+          <ScalePressable
             disabled={selectedIds.size === 0 || sending}
             onPress={handleSend}
+            activeScale={0.96}
+            haptic="selection"
             className={`py-4 rounded-full items-center justify-center ${(selectedIds.size === 0 || sending) ? 'opacity-50' : ''}`}
             style={{ backgroundColor: theme.tint }}
           >
@@ -264,7 +268,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
                 Send {selectedIds.size > 0 ? selectedIds.size : ''} Invite{selectedIds.size !== 1 ? 's' : ''}
               </Text>
             )}
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
       </KeyboardAvoidingView>
     </BottomSheetModal>

@@ -1021,12 +1021,8 @@ export default function OnboardingWizard() {
         {/* Header Stepper Bar */}
         <View className="px-6 pt-4 pb-3 border-b border-theme-border flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
-            <View className="w-9 h-9 rounded-xl overflow-hidden shadow-md">
-              <Image
-                source={require('../../../assets/images/logo-mark.png')}
-                className="w-full h-full"
-                resizeMode="contain"
-              />
+            <View className="w-9 h-9 items-center justify-center">
+              <RookaMark size={32} color={theme.tint} />
             </View>
             <View>
               <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">rooka</Text>

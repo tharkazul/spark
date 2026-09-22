@@ -2,7 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { UserProfile } from '../types/user';
 import { userApi, authApi } from '../services/apiServices';
 import { ApiError, setAuthToken, setOnUnauthorizedHandler, setOnRateLimitHandler } from '../services/apiClient';
-import { tokenStorage, chatStorage, briefingStorage, profileStorage, goalsStorage } from '../services/storage';
+import {
+  tokenStorage,
+  chatStorage,
+  briefingStorage,
+  profileStorage,
+  goalsStorage,
+  planStorage,
+  activityStorage,
+  gamificationStorage,
+} from '../services/storage';
 import { unregisterPushNotificationsAsync } from '../services/notificationService';
 import { wsService } from '../services/websocket';
 import { realtimeEngine } from '../realtime/realtimeEngine';
@@ -132,6 +141,9 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     if (chatStorage.clearChatHistory) await chatStorage.clearChatHistory(currentUserId);
     if (briefingStorage.clearBriefing) await briefingStorage.clearBriefing();
     if (goalsStorage.clearGoals) await goalsStorage.clearGoals(currentUserId);
+    if (planStorage.clearPlan) await planStorage.clearPlan(currentUserId);
+    if (activityStorage.clearActivities) await activityStorage.clearActivities(currentUserId);
+    if (gamificationStorage.clearGamification) await gamificationStorage.clearGamification(currentUserId);
     setUser(null);
     setIsAuthenticated(false);
     setError(typeof reason === 'string' ? reason : null);

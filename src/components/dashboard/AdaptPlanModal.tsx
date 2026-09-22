@@ -2,6 +2,7 @@ import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Animated, KeyboardAvoidingView, Platform, ScrollView, Dimensions, StyleSheet } from 'react-native';
 import { Button } from '../ui/Button';
+import { ScalePressable } from '../ui/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -146,8 +147,10 @@ export function AdaptPlanModal({
               {/* Adaptation Suggestions */}
               <ScrollView showsVerticalScrollIndicator={false} className="mb-6 max-h-[350px]">
                 <View className="gap-y-2.5">
-                  <TouchableOpacity
+                  <ScalePressable
                     onPress={() => handleOption('TIME_CRUNCH')}
+                    activeScale={0.97}
+                    haptic="selection"
                     className="p-3.5 bg-theme-bg rounded-xl flex-row items-center gap-3 border border-theme-border/40"
                   >
                     <Ionicons name="time-outline" size={20} color="#16ACBD" />
@@ -155,10 +158,12 @@ export function AdaptPlanModal({
                       <Text className="text-xs font-bold text-theme-text">Time Crunch</Text>
                       <Text className="text-xs text-theme-muted">Shorten session without losing peak stimulus</Text>
                     </View>
-                  </TouchableOpacity>
+                  </ScalePressable>
 
-                  <TouchableOpacity
+                  <ScalePressable
                     onPress={() => handleOption('MOVE_INDOORS')}
+                    activeScale={0.97}
+                    haptic="selection"
                     className="p-3.5 bg-theme-bg rounded-xl flex-row items-center gap-3 border border-theme-border/40"
                   >
                     <Ionicons name="home-outline" size={20} color="#10B981" />
@@ -166,10 +171,12 @@ export function AdaptPlanModal({
                       <Text className="text-xs font-bold text-theme-text">Move indoors</Text>
                       <Text className="text-xs text-theme-muted">Adapt for trainer/treadmill environments</Text>
                     </View>
-                  </TouchableOpacity>
+                  </ScalePressable>
 
-                  <TouchableOpacity
+                  <ScalePressable
                     onPress={() => handleOption('MOVE_ALL_ONE_DAY')}
+                    activeScale={0.97}
+                    haptic="selection"
                     className="p-3.5 bg-theme-bg rounded-xl flex-row items-center gap-3 border border-theme-border/40"
                   >
                     <Ionicons name="calendar-outline" size={20} color="#F59E0B" />
@@ -177,10 +184,12 @@ export function AdaptPlanModal({
                       <Text className="text-xs font-bold text-theme-text">Move all one day</Text>
                       <Text className="text-xs text-theme-muted">Push entire schedule ahead by 24 hours</Text>
                     </View>
-                  </TouchableOpacity>
+                  </ScalePressable>
 
-                  <TouchableOpacity
+                  <ScalePressable
                     onPress={() => handleOption('CANCEL_COMPLETELY')}
+                    activeScale={0.97}
+                    haptic="warning"
                     className="p-3.5 bg-theme-bg rounded-xl flex-row items-center gap-3 border border-theme-border/40"
                   >
                     <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
@@ -188,7 +197,7 @@ export function AdaptPlanModal({
                       <Text className="text-xs font-bold text-theme-text">Cancel completely</Text>
                       <Text className="text-xs text-theme-muted">Rest up and skip today's workout entirely</Text>
                     </View>
-                  </TouchableOpacity>
+                  </ScalePressable>
                 </View>
               </ScrollView>
 

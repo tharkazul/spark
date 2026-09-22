@@ -46,17 +46,17 @@ function resolveFuelingItems(
           phase: item.phase,
           detail: item.detail,
           iconName: 'flash-outline',
-          iconColor: '#F9CF45',
-          bgClass: 'bg-semantic-warning/15',
-          borderClass: 'border-semantic-warning/30',
+          iconColor: tintColor,
+          bgClass: 'bg-theme-accent/20',
+          borderClass: 'border-theme-accent/30',
         };
       }
       return {
         phase: item.phase,
         detail: item.detail,
         iconName: 'fitness-outline',
-        iconColor: '#34C759',
-        bgClass: 'bg-theme-accent/15',
+        iconColor: tintColor,
+        bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       };
     });
@@ -88,17 +88,17 @@ function resolveFuelingItems(
         detail:
           'Consistent light carb snacking (rice cakes, pretzels, sports drink 500–750ml). Keep fats low to speed gastric emptying.',
         iconName: 'water-outline',
-        iconColor: '#F9CF45',
-        bgClass: 'bg-semantic-warning/15',
-        borderClass: 'border-semantic-warning/30',
+        iconColor: tintColor,
+          bgClass: 'bg-theme-accent/20',
+          borderClass: 'border-theme-accent/30',
       },
       {
         phase: 'Evening Digestible Carb Dinner',
         detail:
           'Simple carb base (pasta or jasmine rice) with 30–35g lean protein (chicken/fish). Keep fiber and fats minimal for optimal overnight digestion.',
         iconName: 'moon-outline',
-        iconColor: '#34C759',
-        bgClass: 'bg-theme-accent/15',
+        iconColor: tintColor,
+        bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
     ];
@@ -122,17 +122,17 @@ function resolveFuelingItems(
         detail:
           '60–90g carbs/hr via liquid carb mix, energy gels, or chews. Sip electrolytes every 15–20 mins.',
         iconName: 'flash-outline',
-        iconColor: '#F9CF45',
-        bgClass: 'bg-semantic-warning/15',
-        borderClass: 'border-semantic-warning/30',
+        iconColor: tintColor,
+          bgClass: 'bg-theme-accent/20',
+          borderClass: 'border-theme-accent/30',
       },
       {
         phase: 'Post-Ride Recovery (within 45 mins)',
         detail:
           '30–35g fast whey protein + 75–90g carbs to jumpstart muscle repair and glycogen replenishment.',
         iconName: 'fitness-outline',
-        iconColor: '#34C759',
-        bgClass: 'bg-theme-accent/15',
+        iconColor: tintColor,
+        bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
     ];
@@ -157,16 +157,16 @@ function resolveFuelingItems(
         detail:
           'Electrolyte sports bottle at the lane edge; sip between set intervals to maintain cellular hydration.',
         iconName: 'water-outline',
-        iconColor: '#F9CF45',
-        bgClass: 'bg-semantic-warning/15',
-        borderClass: 'border-semantic-warning/30',
+        iconColor: tintColor,
+          bgClass: 'bg-theme-accent/20',
+          borderClass: 'border-theme-accent/30',
       },
       {
         phase: 'Post-Swim Refuel (within 45 mins)',
         detail: '30g protein + 50–65g carbs (recovery shake or balanced warm meal).',
         iconName: 'fitness-outline',
-        iconColor: '#34C759',
-        bgClass: 'bg-theme-accent/15',
+        iconColor: tintColor,
+        bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
     ];
@@ -196,17 +196,17 @@ function resolveFuelingItems(
         phase: 'Intra-Workout Hydration',
         detail: 'Electrolyte water to maintain cellular hydration and muscular power output during working sets.',
         iconName: 'flash-outline',
-        iconColor: '#F9CF45',
-        bgClass: 'bg-semantic-warning/15',
-        borderClass: 'border-semantic-warning/30',
+        iconColor: tintColor,
+          bgClass: 'bg-theme-accent/20',
+          borderClass: 'border-theme-accent/30',
       },
       {
         phase: 'Post-Strength Protein (within 60 mins)',
         detail:
           '35–40g high-leucine protein (whey/plant) + moderate carbs to maximize muscle protein synthesis.',
         iconName: 'fitness-outline',
-        iconColor: '#34C759',
-        bgClass: 'bg-theme-accent/15',
+        iconColor: tintColor,
+        bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
     ];
@@ -226,16 +226,16 @@ function resolveFuelingItems(
       phase: 'Intra-Run Fueling',
       detail: '30–60g carbs/hr electrolyte gel or hydrogel drink mix if running over 60 mins.',
       iconName: 'flash-outline',
-      iconColor: '#F9CF45',
-      bgClass: 'bg-semantic-warning/15',
-      borderClass: 'border-semantic-warning/30',
+      iconColor: tintColor,
+          bgClass: 'bg-theme-accent/20',
+          borderClass: 'border-theme-accent/30',
     },
     {
       phase: 'Post-Run Recovery (within 45 mins)',
       detail: '30–35g whey protein isolate + 60–75g carbs to protect lean muscle and restore glycogen.',
       iconName: 'fitness-outline',
-      iconColor: '#34C759',
-      bgClass: 'bg-theme-accent/15',
+      iconColor: tintColor,
+        bgClass: 'bg-theme-accent/20',
       borderClass: 'border-theme-accent/30',
     },
   ];

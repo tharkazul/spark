@@ -1,6 +1,6 @@
 import { BrandColors } from '@/constants/theme';
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
@@ -33,12 +33,15 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
       : 'pending';
 
   const [status, setStatus] = useState<'pending' | 'accepted' | 'declined' | string>(initialStatus);
-  const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
 
   const handleAccept = async () => {
-    if (!targetId || status === 'accepted' || loading !== null) return;
+    if (!targetId || status === 'accepted') return;
+    const prevStatus = status;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading('accept');
+    // Optimistic UI update
+    setStatus('accepted');
+    if (onConnectionAccepted) onConnectionAccepted();
+
     try {
       if (onAccept) {
         await onAccept(targetId);
@@ -46,19 +49,20 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
         await socialApi.acceptUser(targetId);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setStatus('accepted');
-      if (onConnectionAccepted) onConnectionAccepted();
     } catch (e) {
+      console.error('Accept connection error, rolling back:', e);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setLoading(null);
+      setStatus(prevStatus);
     }
   };
 
   const handleDecline = async () => {
-    if (!targetId || status === 'declined' || loading !== null) return;
+    if (!targetId || status === 'declined') return;
+    const prevStatus = status;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLoading('decline');
+    // Optimistic UI update
+    setStatus('declined');
+
     try {
       if (onDecline) {
         await onDecline(targetId);
@@ -66,11 +70,10 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
         await socialApi.declineUser(targetId);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      setStatus('declined');
     } catch (e) {
+      console.error('Decline connection error, rolling back:', e);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setLoading(null);
+      setStatus(prevStatus);
     }
   };
 
@@ -139,34 +142,20 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
         <View className="flex-row items-center gap-2 pt-2 border border-theme-border/50 mt-1">
           <TouchableOpacity
             onPress={handleAccept}
-            disabled={loading !== null}
             activeOpacity={0.8}
             className="flex-1 bg-semantic-success py-2 rounded-xl items-center justify-center flex-row shadow-xs"
           >
-            {loading === 'accept' ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="checkmark" size={15} color="#FFFFFF" />
-                <Text className="text-xs font-extrabold text-white ml-1">Accept</Text>
-              </>
-            )}
+            <Ionicons name="checkmark" size={15} color="#FFFFFF" />
+            <Text className="text-xs font-extrabold text-white ml-1">Accept</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleDecline}
-            disabled={loading !== null}
             activeOpacity={0.8}
             className="flex-1 bg-theme-card border border-theme-border py-2 rounded-control items-center justify-center flex-row"
           >
-            {loading === 'decline' ? (
-              <ActivityIndicator size="small" color="#9CA3AF" />
-            ) : (
-              <>
-                <Ionicons name="close" size={15} color="#9CA3AF" />
-                <Text className="text-xs font-bold text-theme-muted ml-1">Reject</Text>
-              </>
-            )}
+            <Ionicons name="close" size={15} color="#9CA3AF" />
+            <Text className="text-xs font-bold text-theme-muted ml-1">Reject</Text>
           </TouchableOpacity>
         </View>
       )}

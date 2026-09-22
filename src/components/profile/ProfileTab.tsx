@@ -18,6 +18,7 @@ import { userApi, gamificationApi } from '../../services/apiServices';
 import { API_BASE_URL } from '../../constants/api';
 import { UserTitle } from '../../types/gamification';
 import { TrainingZonesCard } from './TrainingZonesCard';
+import { TitlesSkeleton } from '../skeletons/TitlesSkeleton';
 
 interface ProfileTabProps {
   username: string;
@@ -217,7 +218,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       ) : (
         <Card className="p-4 mb-6">
           {loadingTitles ? (
-            <Text className="text-theme-muted text-xs italic text-center py-2">Loading titles...</Text>
+            <TitlesSkeleton count={2} />
           ) : (
             <View className="gap-y-2">
               {(titles.length > 0

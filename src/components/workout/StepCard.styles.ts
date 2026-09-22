@@ -1,4 +1,4 @@
-import { BrandColors } from '@/constants/theme';
+import { BrandColors, accentAlpha } from '@/constants/theme';
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
@@ -39,10 +39,10 @@ export const CARD_COLORS = {
   },
   repeat: {
     bar: BrandColors.primary, // Theme Accent
-    bg: 'rgba(14, 165, 233, 0.05)',
-    border: 'rgba(14, 165, 233, 0.3)',
+    bg: accentAlpha(0.08),
+    border: accentAlpha(0.3),
     text: BrandColors.primary,
-    badgeBg: 'rgba(14, 165, 233, 0.15)',
+    badgeBg: accentAlpha(0.15),
   },
   default: {
     bar: '#94A3B8', // Slate
@@ -52,3 +52,14 @@ export const CARD_COLORS = {
     badgeBg: '#F1F5F9',
   },
 } as const;
+
+export const ZONE_COLORS: Record<number, { bg: string; text: string; border: string }> = {
+  1: { bg: '#10B981', text: '#FFFFFF', border: '#10B981' }, // Recovery (Emerald)
+  2: { bg: '#0EA5E9', text: '#FFFFFF', border: '#0EA5E9' }, // Endurance (Sky)
+  3: { bg: '#F59E0B', text: '#FFFFFF', border: '#F59E0B' }, // Tempo (Amber)
+  4: { bg: '#F97316', text: '#FFFFFF', border: '#F97316' }, // Threshold (Orange)
+  5: { bg: '#EF4444', text: '#FFFFFF', border: '#EF4444' }, // Anaerobic (Red)
+  6: { bg: '#DC2626', text: '#FFFFFF', border: '#DC2626' }, // Max Power (Crimson)
+  7: { bg: '#9333EA', text: '#FFFFFF', border: '#9333EA' }, // Neuromuscular (Purple)
+};
+

@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Activity } from '../types/activity';
 import { activitiesApi } from '../services/apiServices';
 import { wsService } from '../services/websocket';
 import { useUser } from './UserStore';
+import { activityStorage } from '../services/storage';
+import { offlineSync } from '../services/offlineSync';
 
 interface ActivityContextType {
   activities: Activity[];
@@ -19,10 +21,12 @@ const defaultActivities: Activity[] = [];
 const ActivityContext = createContext<ActivityContextType | undefined>(undefined);
 
 export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, user } = useUser();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const hasFreshServerDataRef = useRef<boolean>(false);
+  const userId = user?.id;
 
   const refreshActivities = React.useCallback(async () => {
     if (!isAuthenticated) return;
@@ -30,15 +34,18 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       const data = await activitiesApi.getActivities();
       if (data && Array.isArray(data)) {
+        hasFreshServerDataRef.current = true;
         setActivities(data);
+        activityStorage.setActivities(data, userId).catch(() => {});
       }
       setError(null);
     } catch (err: any) {
       console.log('ActivityStore fetch info:', err.message || err);
+      // Do not clear existing cached activities on network error
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userId]);
 
   const addManualActivity = React.useCallback(async (newAct: Partial<Activity>) => {
     const durSec = newAct.moving_time || (newAct.moving_time_min ? newAct.moving_time_min * 60 : 1800);
@@ -62,24 +69,50 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
       source: 'manual',
       ...newAct,
     };
-    // Optimistic UI update
-    setActivities((prev) => [formattedActivity, ...prev]);
+    // Optimistic UI update and cache sync
+    setActivities((prev) => {
+      const next = [formattedActivity, ...prev];
+      activityStorage.setActivities(next, userId).catch(() => {});
+      return next;
+    });
+
+    const payload = {
+      name: formattedActivity.name,
+      sport_type: formattedActivity.sport_type,
+      distance_km: formattedActivity.distance_km,
+      moving_time_min: formattedActivity.moving_time_min,
+      start_date: formattedActivity.start_date,
+      elevation_m: formattedActivity.elevation_m,
+      average_heartrate: formattedActivity.average_heartrate,
+    };
 
     try {
-      await activitiesApi.logActivity({
-        name: formattedActivity.name,
-        sport_type: formattedActivity.sport_type,
-        distance_km: formattedActivity.distance_km,
-        moving_time_min: formattedActivity.moving_time_min,
-        start_date: formattedActivity.start_date,
-        elevation_m: formattedActivity.elevation_m,
-        average_heartrate: formattedActivity.average_heartrate,
-      });
+      await activitiesApi.logActivity(payload);
       await refreshActivities();
     } catch (err: any) {
-      console.error('Failed to persist manual activity to server:', err);
+      const errMsg = err?.message || String(err);
+      const isNetworkErr =
+        err?.status === 0 ||
+        !offlineSync.getStatus().isOnline ||
+        errMsg.includes('Network') ||
+        errMsg.includes('Failed to fetch');
+
+      if (isNetworkErr) {
+        console.log('[ActivityStore] Network error; queued manual activity for offline sync:', formattedActivity.name);
+        await offlineSync.enqueueMutation('LOG_ACTIVITY', payload, formattedActivity.id);
+        // Retain optimistic activity in state & storage
+        return;
+      }
+
+      console.error('Failed to persist manual activity to server, rolling back:', err);
+      setActivities((prev) => {
+        const rollback = prev.filter((a) => a.id !== formattedActivity.id);
+        activityStorage.setActivities(rollback, userId).catch(() => {});
+        return rollback;
+      });
+      throw err;
     }
-  }, [refreshActivities]);
+  }, [refreshActivities, userId]);
 
   const syncGarmin = React.useCallback(async () => {
     setLoading(true);
@@ -111,23 +144,42 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [refreshActivities]);
 
+  // Hydrate from cache immediately upon mounting or user change
   useEffect(() => {
     if (!isAuthenticated) {
       setActivities([]);
+      hasFreshServerDataRef.current = false;
       return;
     }
+
+    let isMounted = true;
+    const hydrateCache = async () => {
+      try {
+        const cached = await activityStorage.getActivities(userId);
+        if (isMounted && cached && Array.isArray(cached) && !hasFreshServerDataRef.current) {
+          setActivities(cached);
+        }
+      } catch (e) {
+        console.warn('Error hydrating activities cache:', e);
+      }
+    };
+
+    hydrateCache();
     refreshActivities();
 
     const unsubActivity = wsService.subscribeToEvent('activity_synced', () => refreshActivities());
     const unsubStrava = wsService.subscribeToEvent('strava_sync_complete', () => refreshActivities());
     const unsubGarmin = wsService.subscribeToEvent('garmin_sync_complete', () => refreshActivities());
+    const unsubOfflineSync = offlineSync.onSyncComplete(() => refreshActivities());
 
     return () => {
+      isMounted = false;
       unsubActivity();
       unsubStrava();
       unsubGarmin();
+      unsubOfflineSync();
     };
-  }, [isAuthenticated, refreshActivities]);
+  }, [isAuthenticated, userId, refreshActivities]);
 
   return (
     <ActivityContext.Provider

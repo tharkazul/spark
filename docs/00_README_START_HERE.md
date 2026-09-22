@@ -70,7 +70,7 @@ Nothing in `01_API_CONTRACT.md` changes for the client rewrite — the backend s
 | 00:00 daily | `resetDailyTokensForAllUsers()` + `resetDailyNutritionForAllUsers()` |
 | 00:05 daily | `runDailyRecoveryJob()` — muscle fatigue decay / degradation |
 | 03:00 daily | `generateAllPublicProfiles()` |
-| 08:00 daily | `sendMorningMessage()` — proactive coach push to every user |
+| 07:00 daily | `sendMorningMessage()` — proactive coach push to every user |
 | Sun 10:00 | `runWeeklyFeatureOnboardingJob()` — feature discovery nudges |
 | every 2 h | `syncAllStravaUsersOnStartup()` |
 | every 6 h | `calculateGlobalMaxStats()` — leaderboard normalisation |

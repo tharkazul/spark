@@ -9,6 +9,8 @@ import FitImage from 'react-native-fit-image';
 import { API_BASE_URL } from '../../constants/api';
 import { wsService } from '../../services/websocket';
 import { chatApi } from '../../services/apiServices';
+import { resolveChatImageUrl } from '../../utils/avatarUtils';
+import { getAuthToken } from '../../services/apiClient';
 
 interface MarkdownTextProps {
   content: string;
@@ -21,10 +23,7 @@ interface MarkdownTextProps {
 
 const getFullImageUrl = (src?: string) => {
   if (!src) return '';
-  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) {
-    return src;
-  }
-  return `${API_BASE_URL}${src.startsWith('/') ? src : `/${src}`}`;
+  return resolveChatImageUrl(src, getAuthToken());
 };
 
 export const hasRenderableText = (content?: string) => {

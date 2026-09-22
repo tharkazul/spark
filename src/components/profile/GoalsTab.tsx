@@ -7,6 +7,7 @@ import { goalsStorage } from '../../services/storage';
 import { useUser } from '../../context/UserStore';
 import { gamificationApi, userApi } from '../../services/apiServices';
 import { Card } from '../ui/Card';
+import { ScalePressable } from '../ui/ScalePressable';
 import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
 
 export interface MilestoneRow {
@@ -294,13 +295,15 @@ export const GoalsTab: React.FC = () => {
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
             <Text className="text-theme-text font-bold text-sm">Goals & Race Calendar</Text>
           </View>
-          <TouchableOpacity
+          <ScalePressable
             onPress={handleAddMilestone}
+            activeScale={0.93}
+            haptic="selection"
             className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
           >
             <Ionicons name="add" size={14} color={theme.tint} />
             <Text className="text-theme-accent font-bold text-xs ml-1">Add Goal</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
 
         {/* CTL TARGET REFERENCE GUIDE (COLLAPSIBLE) */}
@@ -589,15 +592,19 @@ export const GoalsTab: React.FC = () => {
         )}
 
         {/* SAVE BUTTON */}
-        <TouchableOpacity
+        <ScalePressable
           onPress={handleSaveCalendar}
           disabled={saving}
-          className="bg-theme-accent py-3.5 rounded-xl items-center mt-5 shadow-sm"
+          activeScale={0.96}
+          haptic="selection"
+          className={`bg-theme-accent py-3.5 rounded-xl items-center mt-5 shadow-sm ${
+            saving ? 'opacity-50' : ''
+          }`}
         >
           <Text className="text-white font-bold text-sm">
             {saving ? 'Saving Goals...' : 'Save Goals & Calendar'}
           </Text>
-        </TouchableOpacity>
+        </ScalePressable>
 
         {savedSuccess && (
           <View className="p-3 bg-semantic-success/10 rounded-xl mt-3 items-center">

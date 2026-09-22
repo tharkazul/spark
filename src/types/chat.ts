@@ -48,7 +48,17 @@ export interface ConnectionRequestPayload {
   status?: string;
 }
 
-export type ChatPayload = EventInvitePayload | SocialMentionPayload | WorkoutProposalPayload | ConnectionRequestPayload;
+export interface CreatedWorkoutPayload {
+  type: 'created_workout';
+  workouts: ProposedWorkoutItem[];
+}
+
+export type ChatPayload =
+  | EventInvitePayload
+  | SocialMentionPayload
+  | WorkoutProposalPayload
+  | ConnectionRequestPayload
+  | CreatedWorkoutPayload;
 
 export interface ChatMessage {
   id: string | number;

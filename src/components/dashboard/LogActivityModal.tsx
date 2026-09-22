@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { TextInput } from '../ui/TextInput';
 import { Button } from '../ui/Button';
+import { ScalePressable } from '../ui/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useActivities } from '../../context/ActivityStore';
@@ -205,12 +206,11 @@ export function LogActivityModal({
                     {SPORTS.map((s) => {
                       const isSelected = sport === s.id;
                       return (
-                        <TouchableOpacity
+                        <ScalePressable
                           key={s.id}
-                          onPress={() => {
-                            Haptics.selectionAsync();
-                            setSport(s.id);
-                          }}
+                          onPress={() => setSport(s.id)}
+                          activeScale={0.94}
+                          haptic="selection"
                           className={`flex-1 py-2.5 rounded-xl items-center justify-center border ${
                             isSelected
                               ? 'bg-semantic-success/15 border-semantic-success'
@@ -229,7 +229,7 @@ export function LogActivityModal({
                           >
                             {s.label}
                           </Text>
-                        </TouchableOpacity>
+                        </ScalePressable>
                       );
                     })}
                   </View>

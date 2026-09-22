@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EventInvitePayload } from '../../types/chat';
 
@@ -26,31 +26,32 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
 }) => {
     const theme = useTheme();
   const [status, setStatus] = useState<'pending' | 'accepted' | 'declined'>(payload.status || 'pending');
-  const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
 
   const handleAccept = async () => {
-    if (loading) return;
-    setLoading('accept');
+    if (status === 'accepted') return;
+    const prevStatus = status;
+    // Optimistic UI update
+    setStatus('accepted');
+
     try {
       await onAccept(payload.invite_id);
-      setStatus('accepted');
     } catch (e) {
-      console.error('Failed to accept event invite:', e);
-    } finally {
-      setLoading(null);
+      console.error('Failed to accept event invite, rolling back:', e);
+      setStatus(prevStatus);
     }
   };
 
   const handleDecline = async () => {
-    if (loading) return;
-    setLoading('decline');
+    if (status === 'declined') return;
+    const prevStatus = status;
+    // Optimistic UI update
+    setStatus('declined');
+
     try {
       await onDecline(payload.invite_id);
-      setStatus('declined');
     } catch (e) {
-      console.error('Failed to decline event invite:', e);
-    } finally {
-      setLoading(null);
+      console.error('Failed to decline event invite, rolling back:', e);
+      setStatus(prevStatus);
     }
   };
 
@@ -80,34 +81,18 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
         <View className="flex-row items-center gap-2 pt-2 border border-theme-border/60">
           <TouchableOpacity
             onPress={handleAccept}
-            disabled={loading !== null}
-            className="flex-1 bg-theme-accent py-2.5 rounded-xl items-center justify-center flex-row gap-1.5"
-            activeOpacity={0.8}
+            className="flex-1 bg-theme-accent py-2.5 rounded-xl items-center justify-center flex-row gap-1.5 active:opacity-80"
           >
-            {loading === 'accept' ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                <Text className="text-white font-bold text-xs">Accept</Text>
-              </>
-            )}
+            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+            <Text className="text-white font-bold text-xs">Accept</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleDecline}
-            disabled={loading !== null}
-            className="flex-1 bg-theme-bg border border-theme-border py-2.5 rounded-xl items-center justify-center flex-row gap-1.5"
-            activeOpacity={0.8}
+            className="flex-1 bg-theme-bg border border-theme-border py-2.5 rounded-xl items-center justify-center flex-row gap-1.5 active:opacity-80"
           >
-            {loading === 'decline' ? (
-              <ActivityIndicator size="small" color="#9CA3AF" />
-            ) : (
-              <>
-                <Ionicons name="close" size={16} color="#9CA3AF" />
-                <Text className="text-theme-muted font-bold text-xs">Decline</Text>
-              </>
-            )}
+            <Ionicons name="close" size={16} color="#9CA3AF" />
+            <Text className="text-theme-muted font-bold text-xs">Decline</Text>
           </TouchableOpacity>
         </View>
       ) : (

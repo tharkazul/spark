@@ -16,7 +16,7 @@
         "NSMicrophoneUsageDescription": "Rooka requires microphone access for voice coaching notes and audio logs.",
         "NSPhotoLibraryUsageDescription": "Rooka requires photo library access to choose workout and progress photos.",
         "NSLocationWhenInUseUsageDescription": "Rooka requires location access to track outdoor running, cycling, and GPS activity routes.",
-        "NSHealthShareUsageDescription": "Rooka needs access to read your workouts, heart rate, and activity metrics.",
+        "NSHealthShareUsageDescription": "Rooka needs access to read your workouts, heart rate, heart rate variability, sleep analysis, steps, active energy, and body metrics.",
         "NSHealthUpdateUsageDescription": "Rooka needs permission to save scheduled workouts to your Apple Watch and Apple Health.",
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -42,13 +42,6 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.VIBRATE",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.VIBRATE"
       ],
       "adaptiveIcon": {
@@ -65,6 +58,13 @@
     "plugins": [
       "expo-router",
       "expo-apple-authentication",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Rooka needs access to read your workouts, heart rate, heart rate variability, sleep analysis, steps, active energy, and body metrics.",
+          "NSHealthUpdateUsageDescription": "Rooka needs permission to save scheduled workouts to your Apple Watch and Apple Health."
+        }
+      ],
       [
         "expo-splash-screen",
         {

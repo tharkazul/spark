@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { RookaMark } from '../ui/RookaPoints';
 import { formatPaceOrSpeed } from '../../utils/paceFormat';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
@@ -10,10 +10,13 @@ import { wsService } from '../../services/websocket';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { getSportIconConfig } from '../../utils/sportIcons';
 import { SocialFeedActivity } from '../../types/social';
+import { FeedSkeleton } from '../skeletons/FeedSkeleton';
+import { EmptyState } from '../ui/EmptyState';
 
 interface FeedSubTabProps {
   onOpenActivityModal?: (id: string | number, activity?: Partial<SocialFeedActivity>) => void;
   onOpenAthleteProfile?: (userId: number | string) => void;
+  onOpenAddFriends?: () => void;
 }
 
 interface FeedDayGroup {
@@ -28,7 +31,11 @@ interface FeedDayGroup {
   isMultiSport: boolean;
 }
 
-export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onOpenAthleteProfile }) => {
+export const FeedSubTab: React.FC<FeedSubTabProps> = ({
+  onOpenActivityModal,
+  onOpenAthleteProfile,
+  onOpenAddFriends,
+}) => {
     const theme = useTheme();
   const [loading, setLoading] = useState<boolean>(true);
   const [feedItems, setFeedItems] = useState<SocialFeedActivity[]>([]);
@@ -80,25 +87,36 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
 
   const handleAcceptRequest = async (friendId: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const prevRequests = [...pendingRequests];
+    // Optimistically remove request from list
+    setPendingRequests((prev) => prev.filter((r) => r.friend_id !== friendId && r.user_id !== friendId));
+
     try {
       const res = await socialApi.acceptUser(friendId);
       if (res && res.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setPendingRequests((prev) => prev.filter((r) => r.friend_id !== friendId && r.user_id !== friendId));
         socialApi.getFeed().then((feedRes) => {
           if (feedRes && Array.isArray(feedRes.activities)) {
             setFeedItems(feedRes.activities);
           }
         });
+      } else {
+        throw new Error('Accept connection failed');
       }
-    } catch {}
+    } catch (err) {
+      console.error('Accept request error, rolling back:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setPendingRequests(prevRequests);
+    }
   };
 
   const handleToggleKudos = async (item: SocialFeedActivity) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const id = item.id;
+    const prevHasKudosed = item.has_kudosed;
+    const prevKudosCount = item.kudos_count;
     const nextHasKudosed = !item.has_kudosed;
-    const nextKudosCount = nextHasKudosed ? item.kudos_count + 1 : Math.max(0, item.kudos_count - 1);
+    const nextKudosCount = nextHasKudosed ? (item.kudos_count || 0) + 1 : Math.max(0, (item.kudos_count || 0) - 1);
 
     setFeedItems((prev) =>
       prev.map((act) =>
@@ -115,7 +133,19 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
     try {
       await socialApi.toggleKudos(id);
     } catch (err) {
-      console.error('Toggle kudos error:', err);
+      console.error('Toggle kudos error, rolling back:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setFeedItems((prev) =>
+        prev.map((act) =>
+          act.id === id
+            ? {
+                ...act,
+                has_kudosed: prevHasKudosed,
+                kudos_count: prevKudosCount,
+              }
+            : act
+        )
+      );
     }
   };
 
@@ -155,12 +185,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
   }, [feedItems]);
 
   if (loading && feedItems.length === 0 && pendingRequests.length === 0) {
-    return (
-      <View className="items-center justify-center p-8">
-        <ActivityIndicator size="large" color={theme.tint} />
-        <Text className="text-xs font-bold text-theme-muted mt-3">Loading social feed...</Text>
-      </View>
-    );
+    return <FeedSkeleton count={3} />;
   }
 
   return (
@@ -206,13 +231,23 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({ onOpenActivityModal, onO
       )}
 
       {groupedFeed.length === 0 ? (
-        <View className="items-center justify-center p-8 bg-theme-card border border-theme-border/60 rounded-card my-2">
-          <Ionicons name="people-outline" size={36} color={theme.textSecondary} style={{ marginBottom: 8 }} />
-          <Text className="text-sm font-bold text-theme-text text-center">No Recent Activity</Text>
-          <Text className="text-xs text-theme-muted text-center mt-1 px-4 leading-relaxed">
-            No activity from your connections yet. Tap the + icon at the top right to find and add athlete friends!
-          </Text>
-        </View>
+        <EmptyState
+          preset="empty-feed"
+          badge="ATHLETE NETWORK"
+          title="Your Feed is Quiet"
+          subtitle="Connect with teammates, training partners, and club athletes to see their workouts, exchange kudos, and keep each other accountable."
+          action={
+            onOpenAddFriends
+              ? {
+                  label: 'Find & Add Athletes',
+                  icon: 'person-add-outline',
+                  onPress: onOpenAddFriends,
+                  variant: 'primary',
+                }
+              : undefined
+          }
+          className="my-2"
+        />
       ) : (
         groupedFeed.map((group) => {
           const itemAvatarUri = getFullProfilePhotoUrl(group.profile_picture_url);

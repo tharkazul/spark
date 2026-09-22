@@ -1,6 +1,25 @@
 const jwt = require("jsonwebtoken");
 const db = require("./db");
 
+// In-memory cache to throttle last_active_at updates (at most once every 5 minutes per user)
+const lastActiveMap = new Map();
+
+function trackUserActivity(userId) {
+  if (!userId) return;
+  const now = Date.now();
+  const lastUpdate = lastActiveMap.get(userId) || 0;
+  if (now - lastUpdate > 5 * 60 * 1000) {
+    lastActiveMap.set(userId, now);
+    db.run(
+      `UPDATE users SET last_active_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      [userId],
+      (err) => {
+        if (err) console.error("Error updating last_active_at:", err.message);
+      }
+    );
+  }
+}
+
 /**
  * Verifies the bearer token AND re-checks the account behind it on every request.
  *
@@ -46,6 +65,9 @@ function authenticateToken(req, res, next) {
             .json({ error: "Account has been deleted", code: "ACCOUNT_DELETED" });
         }
 
+        // Record activity timestamp for active user safeguards
+        trackUserActivity(user.id);
+
         // Trust the database for identity, not the (possibly stale) token payload.
         req.user = {
           id: user.id,
@@ -59,4 +81,4 @@ function authenticateToken(req, res, next) {
   });
 }
 
-module.exports = { authenticateToken };
+module.exports = { authenticateToken, trackUserActivity };

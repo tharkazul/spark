@@ -2,7 +2,7 @@ import React from 'react';
 import { RookaPoints } from '../ui/RookaPoints';
 import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
-import { View, Text, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, useColorScheme, Image } from 'react-native';
 import { Card } from '../ui/Card';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -61,14 +61,14 @@ export function TodaysPlanCard({
           <Text className="text-xs text-theme-muted font-bold">· {tempLabel}</Text>
         </View>
 
-        {/* Adapt Plan Action Trigger Button */}
+        {/* Adapt Plan Action Trigger Button aligned flush to right */}
         <TouchableOpacity
           onPress={handleAdapt}
           activeOpacity={0.7}
-          className="bg-theme-card px-3.5 py-1.5 rounded-full flex-row items-center gap-1.5"
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 12 }}
+          className="py-1 pl-3 pr-0 items-end justify-center"
         >
-          <Ionicons name="flash-outline" size={13} color={theme.tint} />
-          <Text className="text-xs font-bold text-theme-accent">{t('dashboard.adapt')}</Text>
+          <Text className="text-xs font-bold text-theme-accent text-right">{t('dashboard.adapt')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -76,8 +76,12 @@ export function TodaysPlanCard({
       {workouts.length === 0 ? (
         <Card className="p-4 bg-theme-card flex-row items-center justify-between">
           <View className="flex-row items-center gap-3 flex-1">
-            <View className="w-10 h-10 rounded-xl bg-gray-500/15 items-center justify-center">
-              <Ionicons name="moon-outline" size={20} color={theme.textSecondary} />
+            <View className="w-10 h-10 rounded-xl bg-theme-accent/10 items-center justify-center">
+              <Image
+                source={require('../../../assets/images/restday.png')}
+                style={{ width: 22, height: 22 }}
+                resizeMode="contain"
+              />
             </View>
             <View className="flex-1">
               <Text className="text-sm font-extrabold text-theme-text">{t('dashboard.restRecoveryDay')}</Text>
@@ -123,7 +127,11 @@ export function TodaysPlanCard({
                       style={{ backgroundColor: cfg.tint }}
                       className="w-10 h-10 rounded-xl items-center justify-center"
                     >
-                      <Ionicons name={cfg.icon as any} size={20} color={cfg.color} />
+                      <Image
+                        source={cfg.emblem}
+                        style={{ width: 24, height: 24 }}
+                        resizeMode="contain"
+                      />
                     </View>
                     <View className="flex-1">
                       <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>

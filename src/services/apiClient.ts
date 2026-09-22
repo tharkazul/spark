@@ -14,6 +14,7 @@ export class ApiError extends Error {
 let authToken: string | null = null;
 let onUnauthorizedCallback: ((reason?: string) => void) | null = null;
 let onRateLimitCallback: ((message?: string) => void) | null = null;
+let onNetworkErrorCallback: (() => void) | null = null;
 
 export const setAuthToken = (token: string | null) => {
   authToken = token;
@@ -31,6 +32,10 @@ export const setOnUnauthorizedHandler = (
 
 export const setOnRateLimitHandler = (callback: ((message?: string) => void) | null) => {
   onRateLimitCallback = callback;
+};
+
+export const setOnNetworkErrorHandler = (callback: (() => void) | null) => {
+  onNetworkErrorCallback = callback;
 };
 
 export interface ApiClientOptions extends RequestInit {
@@ -78,10 +83,19 @@ export async function apiClient<T>(
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  const response = await fetch(url, {
-    ...fetchOptions,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+    });
+  } catch (err: any) {
+    if (onNetworkErrorCallback) {
+      onNetworkErrorCallback();
+    }
+    const errMsg = err?.message || 'Network request failed';
+    throw new ApiError(errMsg, 0, err);
+  }
 
   // Universal 401 interceptor (excluding login/register auth endpoints and requests with skipAuthInterceptor).
   // A 401 here only triggers logout if an Authorization header was actually sent and the token was rejected.

@@ -13,10 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
+import { ScalePressable } from '../ui/ScalePressable';
 import { useTheme } from '@/hooks/use-theme';
 import { benchmarksApi } from '../../services/apiServices';
 import { BenchmarkTest } from '../../types/user';
 import { useCoachChat } from '../../context/CoachChatStore';
+import { BenchmarkSkeleton } from '../skeletons/BenchmarkSkeleton';
 
 interface BenchmarkPreset {
   id: string;
@@ -281,7 +283,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
       </Text>
 
       {loading ? (
-        <ActivityIndicator size="small" color={theme.tint} className="py-4" />
+        <BenchmarkSkeleton count={2} />
       ) : benchmarks.length === 0 ? (
         <View className="p-4 bg-theme-bg rounded-xl items-center border border-theme-border/50 my-1">
           <Ionicons name="speedometer-outline" size={26} color={theme.textSecondary} className="mb-1.5 opacity-60" />
@@ -506,12 +508,14 @@ export const BenchmarkSessionsCard: React.FC = () => {
                   Log Benchmark Baseline
                 </Text>
               </View>
-              <TouchableOpacity
+              <ScalePressable
                 onPress={() => setLogModalVisible(false)}
+                activeScale={0.9}
+                haptic="light"
                 className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
               >
                 <Ionicons name="close" size={18} color={theme.text} />
-              </TouchableOpacity>
+              </ScalePressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -523,12 +527,11 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 {['Run', 'Bike', 'Swim', 'Strength', 'Other'].map((s) => {
                   const isSel = logSport === s;
                   return (
-                    <TouchableOpacity
+                    <ScalePressable
                       key={s}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setLogSport(s);
-                      }}
+                      onPress={() => setLogSport(s)}
+                      activeScale={0.94}
+                      haptic="selection"
                       className={`px-3 py-1.5 rounded-lg border flex-1 items-center ${
                         isSel ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'
                       }`}
@@ -540,7 +543,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                       >
                         {s}
                       </Text>
-                    </TouchableOpacity>
+                    </ScalePressable>
                   );
                 })}
               </View>
@@ -632,11 +635,14 @@ export const BenchmarkSessionsCard: React.FC = () => {
               />
 
               {/* Save Log Button */}
-              <TouchableOpacity
+              <ScalePressable
                 onPress={handleSaveManualLog}
                 disabled={savingLog}
-                activeOpacity={0.8}
-                className="bg-theme-accent py-3 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-4"
+                activeScale={0.96}
+                haptic="selection"
+                className={`bg-theme-accent py-3 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-4 ${
+                  savingLog ? 'opacity-50' : ''
+                }`}
               >
                 {savingLog ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -648,7 +654,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                     </Text>
                   </>
                 )}
-              </TouchableOpacity>
+              </ScalePressable>
             </ScrollView>
           </View>
         </View>

@@ -161,6 +161,7 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN public_description TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN last_active_at DATETIME`, (err) => {});
   db.run(
     `UPDATE users SET created_at = rooka_start_date WHERE (created_at IS NULL OR created_at = '') AND rooka_start_date IS NOT NULL`,
     (err) => {},
@@ -423,6 +424,14 @@ db.serialize(() => {
   db.run(
     `CREATE TABLE IF NOT EXISTS athlete_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, metric TEXT, value TEXT, UNIQUE(user_id, metric))`,
   );
+  db.run(`ALTER TABLE activities ADD COLUMN healthkit_workout_id TEXT`, (err) => {
+    if (!err) console.log("Added healthkit_workout_id column to activities table.");
+    db.run(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_activities_user_healthkit ON activities(user_id, healthkit_workout_id)`,
+      () => {},
+    );
+  });
+
   db.run(`CREATE TABLE IF NOT EXISTS biometrics (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -431,9 +440,31 @@ db.serialize(() => {
         body_fat_percent REAL,
         bmi REAL,
         lean_mass_kg REAL,
+        resting_hr REAL,
+        avg_hr REAL,
+        hrv_sdnn REAL,
+        sleep_minutes REAL,
+        sleep_deep_minutes REAL,
+        sleep_rem_minutes REAL,
+        sleep_core_minutes REAL,
+        sleep_awake_minutes REAL,
+        steps INTEGER,
+        active_calories REAL,
+        vo2_max REAL,
         UNIQUE(user_id, date),
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+  db.run(`ALTER TABLE biometrics ADD COLUMN resting_hr REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN avg_hr REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN hrv_sdnn REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN sleep_minutes REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN sleep_deep_minutes REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN sleep_rem_minutes REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN sleep_core_minutes REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN sleep_awake_minutes REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN steps INTEGER`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN active_calories REAL`, (err) => {});
+  db.run(`ALTER TABLE biometrics ADD COLUMN vo2_max REAL`, (err) => {});
   db.run(`CREATE TABLE IF NOT EXISTS physique_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,

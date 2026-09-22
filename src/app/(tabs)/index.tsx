@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '../../components/ui/Card';
@@ -181,18 +182,29 @@ export default function PlanningHomeScreen() {
             const steps = JSON.parse(w.steps_json);
             let totalMins = 0;
             const parseSteps = (sArr: any[]) => {
+              if (!Array.isArray(sArr)) return;
               for (const s of sArr) {
-                if (s.condition_type === 'time' && s.condition_value) totalMins += s.condition_value;
-                if (s.condition_type === 'time_sec' && s.condition_value) totalMins += s.condition_value / 60;
-                if (s.type === 'repeat' && s.iterations && s.steps) {
+                if (s.type === 'repeat' && s.iterations && Array.isArray(s.steps)) {
                   let iterMins = 0;
                   for (const rs of s.steps) {
-                    if (rs.condition_type === 'time' && rs.condition_value) iterMins += rs.condition_value;
-                    if (rs.condition_type === 'time_sec' && rs.condition_value) iterMins += rs.condition_value / 60;
+                    const cVal = Number(rs.condition_value) || 0;
+                    if (rs.condition_type === 'time_sec') {
+                      iterMins += cVal / 60;
+                    } else if (rs.condition_type === 'time') {
+                      iterMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
+                    }
                   }
-                  totalMins += (iterMins * s.iterations);
+                  totalMins += iterMins * (Number(s.iterations) || 1);
+                } else {
+                  const cVal = Number(s.condition_value) || 0;
+                  if (s.condition_type === 'time_sec') {
+                    totalMins += cVal / 60;
+                  } else if (s.condition_type === 'time') {
+                    totalMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
+                  } else if (s.steps && Array.isArray(s.steps)) {
+                    parseSteps(s.steps);
+                  }
                 }
-                if (s.steps) parseSteps(s.steps);
               }
             };
             parseSteps(steps);
@@ -375,9 +387,11 @@ export default function PlanningHomeScreen() {
   const deleteWorkoutConfirmed = async (workoutId: string) => {
     try {
       await deleteWorkout(workoutId);
-      await refreshPlan();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Failed to delete workout from DB', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Notice', 'Could not delete workout. Schedule restored.');
     }
   };
 
@@ -476,17 +490,27 @@ export default function PlanningHomeScreen() {
           onScrollBeginDrag={notifyScroll} onScrollEndDrag={notifyScrollEnd} onMomentumScrollEnd={notifyScrollEnd}
         >
           {planLoading && plan.length === 0 ? (
-            <View className="gap-y-3 pt-1">
+            <Animated.View
+              layout={LinearTransition.springify().damping(16).stiffness(160)}
+              exiting={FadeOutUp.duration(150)}
+              className="gap-y-3 pt-1"
+            >
               <TodaysPlanSkeleton />
               <TodaysPlanSkeleton />
               <TodaysPlanSkeleton />
-            </View>
+            </Animated.View>
           ) : (
             weeklyAgenda.map((day, idx) => (
-              <View key={`${day.dayName}-${day.dateStr}`} onLayout={(e) => {
-                const y = e.nativeEvent.layout.y;
-                setDayYPositions((prev) => ({ ...prev, [idx]: y }));
-              }}>
+              <Animated.View
+                key={`${day.dayName}-${day.dateStr}`}
+                layout={LinearTransition.springify().damping(16).stiffness(160)}
+                entering={FadeInDown.duration(200).springify().damping(15)}
+                exiting={FadeOutUp.duration(150)}
+                onLayout={(e) => {
+                  const y = e.nativeEvent.layout.y;
+                  setDayYPositions((prev) => ({ ...prev, [idx]: y }));
+                }}
+              >
                 <DetailedDayCard
                   day={day}
                   onAdaptPress={() => setIsAdaptModalOpen(true)}
@@ -495,7 +519,7 @@ export default function PlanningHomeScreen() {
                   onDeleteWorkout={handleDeleteWorkout}
                   onInvitePartner={handleInvitePartner}
                 />
-              </View>
+              </Animated.View>
             ))
           )}
 

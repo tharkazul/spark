@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity, Switch, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Card } from '../ui/Card';
-import { useUser } from '../../context/UserStore';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Platform, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useActivities } from '../../context/ActivityStore';
+import { useUser } from '../../context/UserStore';
 import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
 import { canHideRookaLink } from '../../utils/permissions';
+import { Card } from '../ui/Card';
 
 interface ConnectionsTabProps {
   onOpenGarminModal: () => void;
@@ -43,21 +43,18 @@ const SPORT_OPTIONS: { id: SportType; label: string; icon: keyof typeof Ionicons
 
 // `shareStructure` has no toggle: the planned steps go out whenever there is a
 // plan. It rides along in the payload so saving never clears it.
-const TOGGLE_ROWS: { key: keyof StravaShareFlags; title: string; subtitle: string }[] = [
+const TOGGLE_ROWS: { key: keyof StravaShareFlags; title: string }[] = [
   {
     key: 'shareScore',
-    title: 'Include rooka score in Caption',
-    subtitle: 'Add calculated rooka and TSS to caption',
+    title: 'Include rooka score',
   },
   {
     key: 'shareName',
-    title: 'Post AI Workout Summary Title',
-    subtitle: 'Auto-generate catchy workout title',
+    title: 'Post Workout Summary Title',
   },
   {
     key: 'shareLink',
-    title: 'Include rooka.io Link',
-    subtitle: 'Credit rooka at the end of the caption',
+    title: 'Show rooka.io',
   },
 ];
 
@@ -67,9 +64,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   onDisconnectStrava,
   stravaLoading = false,
 }) => {
-    const theme = useTheme();
+  const theme = useTheme();
   const { user } = useUser();
-  const { syncGarmin, syncStrava } = useActivities();
+  const { syncGarmin, syncStrava, refreshActivities } = useActivities();
 
   const isGarminConnected = !!user?.garmin_connected;
   const isStravaConnected = !!user?.strava_connected;
@@ -87,18 +84,23 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   // The server is the authority here; this is the optimistic local view of it.
   const [linkIsOptional, setLinkIsOptional] = useState(canHideRookaLink(user?.subscription_tier));
 
-  // iOS is the authority on whether rooka may schedule workouts, so the badge
-  // reads the live WorkoutKit status rather than a flag we wrote ourselves.
+  const [lastAppleSync, setLastAppleSync] = useState<string | null>(null);
+
+  // iOS is the authority on whether rooka may schedule workouts & read health data
   useEffect(() => {
     let cancelled = false;
     const {
       isWorkoutKitSupported,
       getWorkoutKitAuthorizationStatus,
+      getLastAppleHealthSyncTime,
     } = require('../../services/appleHealthService');
 
     setAppleSupported(isWorkoutKitSupported());
     getWorkoutKitAuthorizationStatus().then((status: string) => {
       if (!cancelled) setIsAppleConnected(status === 'authorized');
+    });
+    getLastAppleHealthSyncTime().then((time: string | null) => {
+      if (!cancelled && time) setLastAppleSync(time);
     });
 
     return () => {
@@ -106,27 +108,22 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     };
   }, []);
 
-  // Granting happens in the Watch app, outside rooka, so there has to be a way
-  // back here to re-read the status once the athlete has done it.
   const handleRefreshAppleStatus = async () => {
-    setAppleSyncing(true);
     try {
+      setAppleSyncing(true);
       const {
         isWorkoutKitSupported,
         getWorkoutKitAuthorizationStatus,
+        getLastAppleHealthSyncTime,
       } = require('../../services/appleHealthService');
 
       setAppleSupported(isWorkoutKitSupported());
       const status = await getWorkoutKitAuthorizationStatus();
-      const authorized = status === 'authorized';
-      setIsAppleConnected(authorized);
-      Haptics.notificationAsync(
-        authorized
-          ? Haptics.NotificationFeedbackType.Success
-          : Haptics.NotificationFeedbackType.Warning
-      );
-    } catch (err: any) {
-      console.error('Apple Watch status refresh error:', err);
+      setIsAppleConnected(status === 'authorized');
+      const time = await getLastAppleHealthSyncTime();
+      if (time) setLastAppleSync(time);
+    } catch (e) {
+      console.warn('Failed to refresh Apple status:', e);
     } finally {
       setAppleSyncing(false);
     }
@@ -135,32 +132,73 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const handleConnectAppleHealth = async () => {
     try {
       const {
-        isWorkoutKitSupported,
+        requestFullHealthKitPermissions,
         requestWorkoutKitAuthorization,
-        WORKOUT_KIT_DENIED_MESSAGE,
+        isWorkoutKitSupported,
       } = require('../../services/appleHealthService');
 
-      if (!isWorkoutKitSupported()) {
-        Alert.alert(
-          'Not Supported',
-          'Sending workouts to an Apple Watch needs an iPhone running iOS 17 or newer. It is also unavailable in the Simulator.'
-        );
+      if (Platform.OS !== 'ios') {
+        Alert.alert('Not Supported', 'Apple Health integration is only available on iOS devices.');
         return;
       }
 
-      const status = await requestWorkoutKitAuthorization();
-      setIsAppleConnected(status === 'authorized');
+      // 1. Request Apple HealthKit read permissions for HR, HRV, Sleep, Steps, Calories, Workouts
+      const healthKitGranted = await requestFullHealthKitPermissions();
 
-      if (status === 'authorized') {
+      // 2. Request WorkoutKit scheduling permissions if on iOS 17+
+      let workoutKitGranted = false;
+      if (isWorkoutKitSupported()) {
+        const wStatus = await requestWorkoutKitAuthorization();
+        workoutKitGranted = wStatus === 'authorized';
+      }
+
+      const connected = healthKitGranted || workoutKitGranted;
+      setIsAppleConnected(connected);
+
+      if (connected) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Apple Health Connected!',
+          'Rooka is now authorized to sync your Heart Rate, HRV, Sleep, Steps, Calories, and Workouts.'
+        );
       } else {
-        // The scheduling permission lives in the Watch app under rooka, not in
-        // Settings or the Health app, so point people at the right place.
-        Alert.alert('Permission Required', WORKOUT_KIT_DENIED_MESSAGE);
+        Alert.alert(
+          'Permissions Note',
+          'Please ensure Health permissions are enabled in Settings > Health > Data Access & Devices > Rooka.'
+        );
       }
     } catch (err: any) {
       console.error('Apple Health connect error:', err);
-      Alert.alert('Error', err?.message || 'Failed to request Apple Watch permissions.');
+      Alert.alert('Error', err?.message || 'Failed to request Apple Health permissions.');
+    }
+  };
+
+  const handleSyncAppleHealth = async () => {
+    setAppleSyncing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const { syncAppleHealthData } = require('../../services/appleHealthService');
+      const res = await syncAppleHealthData(7);
+
+      if (res.success) {
+        setLastAppleSync(res.lastSyncDate || new Date().toISOString());
+        setIsAppleConnected(true);
+        await refreshActivities();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Apple Health Synced! 🎉',
+          res.message || `Synced ${res.biometricsSynced || 0} daily biometric records and ${res.workoutsSynced || 0} workout(s) from Apple Health (including Garmin).`
+        );
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Sync Incomplete', res.message);
+      }
+    } catch (err: any) {
+      console.error('Apple Health sync error:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Sync Error', err?.message || 'Failed to sync with Apple Health.');
+    } finally {
+      setAppleSyncing(false);
     }
   };
 
@@ -244,36 +282,50 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const currentToggles = sportToggles[selectedSport] || DEFAULT_TOGGLES[selectedSport];
 
   return (
-    <View className="gap-y-6">
+    <View className="gap-y-4">
       {/* APPLE HEALTH & WORKOUTKIT INTEGRATION */}
-      <Card className="p-4 mb-6">
-        <View className="flex-row justify-between items-center pb-3 mb-3">
+      <Card className="p-4">
+        <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border">
           <View className="flex-row items-center gap-2">
             <Ionicons name="logo-apple" size={20} color="#FF2D55" />
             <Text className="text-theme-text font-bold text-sm">Apple Health & Watch</Text>
           </View>
           <View
-            className={`px-2 py-0.5 rounded ${
-              isAppleConnected
-                ? 'bg-semantic-success/10'
-                : 'bg-semantic-error/10'
-            }`}
+            className={`px-2 py-0.5 rounded ${isAppleConnected
+              ? 'bg-semantic-success/10'
+              : 'bg-semantic-error/10'
+              }`}
           >
             <Text
-              className={`text-xs font-bold ${
-                isAppleConnected ? 'text-semantic-success' : 'text-semantic-error'
-              }`}
+              className={`text-xs font-bold ${isAppleConnected ? 'text-semantic-success' : 'text-semantic-error'
+                }`}
             >
               {isAppleConnected ? 'Active' : appleSupported ? 'Disconnected' : 'Unavailable'}
             </Text>
           </View>
         </View>
 
-        <Text className="text-theme-muted text-xs mb-4 leading-relaxed font-rajdhani">
-          Sends your planned rooka sessions — warmup, intervals, targets and cooldown — straight
-          into the Workout app on your Apple Watch. Needs iPhone on iOS 17 or newer with a paired
-          Watch. Completed sessions still come back to rooka through Strava.
+        <Text className="text-theme-muted text-xs mb-3 leading-4">
+          Sync workouts, heart rate, sleep stages, HRV, and daily biometrics from Apple Health (including Garmin & Apple Watch).
         </Text>
+
+        {/* Feature Badges */}
+        <View className="flex-row flex-wrap gap-1.5 mb-3">
+          {['Heart Rate', 'Sleep Stages', 'HRV (SDNN)', 'Steps & Calories', 'Workouts', 'VO2 Max'].map((metric) => (
+            <View key={metric} className="bg-theme-bg border border-theme-border px-2 py-1 rounded-md">
+              <Text className="text-[10px] font-bold text-theme-muted">{metric}</Text>
+            </View>
+          ))}
+        </View>
+
+        {lastAppleSync && (
+          <View className="flex-row items-center gap-1.5 mb-3">
+            <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
+            <Text className="text-[11px] text-theme-muted">
+              Last synced: {new Date(lastAppleSync).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+            </Text>
+          </View>
+        )}
 
         <View className="flex-row flex-wrap gap-2">
           <TouchableOpacity
@@ -287,16 +339,16 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleRefreshAppleStatus}
+            onPress={handleSyncAppleHealth}
             disabled={appleSyncing}
-            className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+            className="bg-theme-bg border border-theme-border px-4 py-2.5 rounded-xl flex-row items-center justify-center"
           >
             {appleSyncing ? (
               <ActivityIndicator size="small" color="#FF2D55" />
             ) : (
               <>
                 <Ionicons name="sync-outline" size={16} color={theme.textSecondary} />
-                <Text className="text-theme-text font-bold text-xs ml-2">Refresh Status</Text>
+                <Text className="text-theme-text font-bold text-xs ml-2">Sync Health</Text>
               </>
             )}
           </TouchableOpacity>
@@ -304,32 +356,28 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       </Card>
 
       {/* GARMIN CONNECT INTEGRATION */}
-      <Card className="p-4 mb-6">
+      <Card className="p-4">
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="watch-outline" size={20} color={theme.tint} />
             <Text className="text-theme-text font-bold text-sm">Garmin Connect Integration</Text>
           </View>
           <View
-            className={`px-2 py-0.5 rounded ${
-              isGarminConnected
-                ? 'bg-semantic-success/10'
-                : 'bg-semantic-error/10'
-            }`}
+            className={`px-2 py-0.5 rounded ${isGarminConnected
+              ? 'bg-semantic-success/10'
+              : 'bg-semantic-error/10'
+              }`}
           >
             <Text
-              className={`text-xs font-bold ${
-                isGarminConnected ? 'text-semantic-success' : 'text-semantic-error'
-              }`}
+              className={`text-xs font-bold ${isGarminConnected ? 'text-semantic-success' : 'text-semantic-error'
+                }`}
             >
               {isGarminConnected ? 'Connected' : 'Disconnected'}
             </Text>
           </View>
         </View>
 
-        <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
-          Required to automatically push micro-plan workouts directly to your Garmin watch calendar. Credentials are secure and encrypted.
-        </Text>
+
 
         <View className="flex-row flex-wrap gap-2">
           <TouchableOpacity
@@ -362,32 +410,28 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       </Card>
 
       {/* STRAVA INTEGRATION */}
-      <Card className="p-4 mb-6">
+      <Card className="p-4">
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="fitness-outline" size={20} color={theme.tint} />
             <Text className="text-theme-text font-bold text-sm">Strava Integration</Text>
           </View>
           <View
-            className={`px-2 py-0.5 rounded ${
-              isStravaConnected
-                ? 'bg-semantic-success/10'
-                : 'bg-semantic-error/10'
-            }`}
+            className={`px-2 py-0.5 rounded ${isStravaConnected
+              ? 'bg-semantic-success/10'
+              : 'bg-semantic-error/10'
+              }`}
           >
             <Text
-              className={`text-xs font-bold ${
-                isStravaConnected ? 'text-semantic-success' : 'text-semantic-error'
-              }`}
+              className={`text-xs font-bold ${isStravaConnected ? 'text-semantic-success' : 'text-semantic-error'
+                }`}
             >
               {isStravaConnected ? 'Connected' : 'Disconnected'}
             </Text>
           </View>
         </View>
 
-        <Text className="text-theme-muted text-xs mb-4 leading-relaxed">
-          Required to pull completed activities automatically and push personalized AI Coach captions to your Strava profile.
-        </Text>
+
 
         <View className="flex-row flex-wrap gap-2">
           {!isStravaConnected ? (
@@ -435,15 +479,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       </Card>
 
       {/* STRAVA AUTOMATIONS PER SPORT TYPE */}
-      <Card className="p-4 mb-6">
+      <Card className="p-4">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
           <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
           <Text className="text-theme-text font-bold text-sm">Strava Automations</Text>
         </View>
 
-        <Text className="text-theme-muted text-xs mb-3 leading-relaxed font-rajdhani">
-          Customize what details rooka AI Coach posts to your Strava captions for each individual sport type.
-        </Text>
+
 
         {/* SPORT SELECTOR TABS */}
         <View className="flex-row bg-theme-bg p-1 rounded-xl mb-4 border border-theme-border">
@@ -453,9 +495,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <TouchableOpacity
                 key={sport.id}
                 onPress={() => setSelectedSport(sport.id)}
-                className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1 ${
-                  isSelected ? 'bg-theme-accent' : 'bg-transparent'
-                }`}
+                className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1 ${isSelected ? 'bg-theme-accent' : 'bg-transparent'
+                  }`}
               >
                 <Ionicons
                   name={sport.icon}
@@ -463,9 +504,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                   color={isSelected ? '#FFFFFF' : '#8E8E93'}
                 />
                 <Text
-                  className={`text-xs font-bold ${
-                    isSelected ? 'text-white' : 'text-theme-muted'
-                  }`}
+                  className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-theme-muted'
+                    }`}
                 >
                   {sport.label}
                 </Text>
@@ -487,9 +527,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               return (
                 <View
                   key={row.key}
-                  className={`flex-row items-center justify-between py-2 ${
-                    isLast ? '' : 'border-b border-theme-border'
-                  }`}
+                  className={`flex-row items-center justify-between py-2 ${isLast ? '' : 'border-b border-theme-border'
+                    }`}
                 >
                   <View className="flex-1 pr-3">
                     <View className="flex-row items-center gap-1">
@@ -500,9 +539,11 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                         </View>
                       )}
                     </View>
-                    <Text className="text-theme-muted text-xs font-rajdhani">
-                      {isLocked ? 'Upgrade to rooka+ to remove the credit' : row.subtitle}
-                    </Text>
+                    {isLocked && (
+                      <Text className="text-theme-muted text-xs font-rajdhani">
+                        Upgrade to rooka+ to remove the credit
+                      </Text>
+                    )}
                   </View>
                   <Switch
                     value={currentToggles[row.key]}

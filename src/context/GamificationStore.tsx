@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Quest, UserTitle } from '../types/gamification';
 import { gamificationApi } from '../services/apiServices';
 import { wsService } from '../services/websocket';
 import { useUser } from './UserStore';
 import { canAccessQuests } from '../utils/permissions';
+import { gamificationStorage } from '../services/storage';
 
 interface GamificationContextType {
   quests: Quest[];
@@ -26,6 +27,8 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
   const [titles, setTitles] = useState<UserTitle[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const hasFreshServerDataRef = useRef<boolean>(false);
+  const userId = user?.id;
 
   const refreshGamification = React.useCallback(async () => {
     if (!isAuthenticated) return;
@@ -35,8 +38,9 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
     setLoading(true);
     try {
       const data = await gamificationApi.getGamificationData();
+      let normalizedQuests: Quest[] = [];
       if (canAccessQuests(user?.subscription_tier) && data && data.quests && Array.isArray(data.quests)) {
-        const normalizedQuests = data.quests.map((q: Quest) => {
+        normalizedQuests = data.quests.map((q: Quest) => {
           const currentVal = q.current_value !== undefined ? q.current_value : (q.progress ?? 0);
           const targetVal = q.target_value || 1;
           const progressPercent = q.progress_percent !== undefined
@@ -49,20 +53,27 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
             progress_percent: progressPercent,
           };
         });
+        hasFreshServerDataRef.current = true;
         setQuests(normalizedQuests);
       } else if (!canAccessQuests(user?.subscription_tier)) {
         setQuests([]);
       }
+      const fetchedTitles = (data && data.titles) || [];
       if (data && data.titles) {
-        setTitles(data.titles);
+        setTitles(fetchedTitles);
       }
+      gamificationStorage.setGamification(
+        { quests: normalizedQuests, titles: fetchedTitles },
+        userId
+      ).catch(() => {});
       setError(null);
     } catch (err: any) {
       console.log('GamificationStore fetch info:', err.message || err);
+      // Do not clear existing cached quests on network error
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user?.subscription_tier]);
+  }, [isAuthenticated, user?.subscription_tier, userId]);
 
   const swapQuest = React.useCallback(async (questId?: number | string) => {
     if (!canAccessQuests(user?.subscription_tier)) {
@@ -97,7 +108,7 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoading(false);
     }
-  }, [quests, refreshGamification]);
+  }, [quests, refreshGamification, user?.subscription_tier]);
 
   const generateQuest = React.useCallback(async () => {
     if (!canAccessQuests(user?.subscription_tier)) {
@@ -138,20 +149,43 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
   }, [quests, refreshGamification, swapQuest, user?.subscription_tier]);
 
   const claimQuest = React.useCallback((id: number | string) => {
-    setQuests((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, status: 'claimed' } : q))
-    );
-  }, []);
+    setQuests((prev) => {
+      const next = prev.map((q) => (q.id === id ? { ...q, status: 'claimed' as const } : q));
+      gamificationStorage.setGamification({ quests: next, titles }, userId).catch(() => {});
+      return next;
+    });
+  }, [titles, userId]);
 
+  // Hydrate from cache immediately upon mounting or user change
   useEffect(() => {
     if (!isAuthenticated) {
       setQuests(defaultQuests);
       setTitles([]);
+      hasFreshServerDataRef.current = false;
       return;
     }
     if (!canAccessQuests(user?.subscription_tier)) {
       setQuests(defaultQuests);
     }
+
+    let isMounted = true;
+    const hydrateCache = async () => {
+      try {
+        const cached = await gamificationStorage.getGamification(userId);
+        if (isMounted && cached && !hasFreshServerDataRef.current) {
+          if (canAccessQuests(user?.subscription_tier) && Array.isArray(cached.quests)) {
+            setQuests(cached.quests);
+          }
+          if (Array.isArray(cached.titles)) {
+            setTitles(cached.titles);
+          }
+        }
+      } catch (e) {
+        console.warn('Error hydrating gamification cache:', e);
+      }
+    };
+
+    hydrateCache();
     refreshGamification();
 
     const unsubQuestUpdated = wsService.subscribeToEvent('quest_updated', () => refreshGamification());
@@ -161,13 +195,14 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
     const unsubActivitySynced = wsService.subscribeToEvent('activity_synced', () => refreshGamification());
 
     return () => {
+      isMounted = false;
       unsubQuestUpdated();
       unsubQuestCompleted();
       unsubTitleUnlocked();
       unsubActivityLogged();
       unsubActivitySynced();
     };
-  }, [isAuthenticated, refreshGamification]);
+  }, [isAuthenticated, userId, user?.subscription_tier, refreshGamification]);
 
   return (
     <GamificationContext.Provider

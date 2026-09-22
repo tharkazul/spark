@@ -40,6 +40,8 @@ import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownT
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
+import { WorkoutPill } from '../../components/chat/WorkoutPill';
+import { CoachChatSkeleton } from '../../components/skeletons/CoachChatSkeleton';
 import { useCoachChat, sortMessagesChronological } from '../../context/CoachChatStore';
 import { useGamification } from '../../context/GamificationStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -48,8 +50,10 @@ import { usePlan } from '../../context/PlanStore';
 import { useSubscription } from '../../context/SubscriptionStore';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
-import { ChatMessage } from '../../types/chat';
-import { getCoachAvatarSource } from '../../utils/avatarUtils';
+import { getAuthToken } from '../../services/apiClient';
+import { tokenStorage } from '../../services/storage';
+import { ChatMessage, ProposedWorkoutItem } from '../../types/chat';
+import { getCoachAvatarSource, resolveChatImageUrl } from '../../utils/avatarUtils';
 import { hasSubscriptionTier } from '../../utils/permissions';
 
 import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
@@ -78,6 +82,26 @@ function formatDateHeader(dateObj: Date): string {
     return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   }
   return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatPillWorkoutDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const [y, m, d] = dateStr.split('-').map((v) => parseInt(v, 10));
+    if (!y || !m || !d) return dateStr;
+    const target = new Date(y, m - 1, d);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+
+    return target.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch (_) {
+    return dateStr;
+  }
 }
 
 type ChatListItem =
@@ -134,6 +158,7 @@ const MessageRow = React.memo(({
   isLastInRun,
   user,
   coachTone,
+  authToken,
   onAccept,
   onReject,
   onAcceptInvite,
@@ -141,6 +166,7 @@ const MessageRow = React.memo(({
   onAcceptConnection,
   onDeclineConnection,
   onExpandImage,
+  onSelectWorkout,
   onResend,
 }: {
   item: ChatMessage;
@@ -148,6 +174,7 @@ const MessageRow = React.memo(({
   isLastInRun: boolean;
   user?: any;
   coachTone?: string;
+  authToken?: string | null;
   onAccept: any;
   onReject: any;
   onAcceptInvite: any;
@@ -155,11 +182,22 @@ const MessageRow = React.memo(({
   onAcceptConnection?: (friendId: number | string) => Promise<void> | void;
   onDeclineConnection?: (friendId: number | string) => Promise<void> | void;
   onExpandImage: (source: any) => void;
+  onSelectWorkout?: (workout: ProposedWorkoutItem) => void;
   onResend: (id: string | number) => void;
 }) => {
+  const createdWorkouts = useMemo(() => {
+    if (item.payload_json?.type === 'created_workout' && Array.isArray((item.payload_json as any).workouts)) {
+      return (item.payload_json as any).workouts as ProposedWorkoutItem[];
+    }
+    if (item.proposedPlan && item.proposedPlan.length > 0) {
+      return item.proposedPlan;
+    }
+    return null;
+  }, [item.payload_json, item.proposedPlan]);
+
   const hasText = hasRenderableText(item.content);
   const hasImages = !!item.images?.length;
-  const hasProposal = !!item.proposedPlan?.length;
+  const hasProposal = !!item.proposedPlan?.length || (createdWorkouts && createdWorkouts.length > 0);
   const hasPayloadCard = !!item.payload_json;
   if (!hasText && !hasImages && !hasProposal && !hasPayloadCard) return null;
 
@@ -200,19 +238,25 @@ const MessageRow = React.memo(({
       >
         {item.images && item.images.length > 0 ? (
           <View className="mb-2 flex-row flex-wrap gap-2">
-            {item.images.map((imgUri, imgIdx) => (
-              <TouchableOpacity
-                key={`msg-img-${imgIdx}`}
-                activeOpacity={0.85}
-                onPress={() => onExpandImage(imgUri)}
-              >
-                <Image
-                  source={{ uri: imgUri }}
-                  style={{ width: 140, height: 140, borderRadius: 10 }}
-                  contentFit="cover"
-                />
-              </TouchableOpacity>
-            ))}
+            {item.images.map((imgUri, imgIdx) => {
+              const resolvedUri = resolveChatImageUrl(imgUri, authToken);
+              return (
+                <TouchableOpacity
+                  key={`msg-img-${imgIdx}`}
+                  activeOpacity={0.85}
+                  onPress={() => onExpandImage(resolvedUri)}
+                >
+                  <Image
+                    source={{
+                      uri: resolvedUri,
+                      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+                    }}
+                    style={{ width: 140, height: 140, borderRadius: 10 }}
+                    contentFit="cover"
+                  />
+                </TouchableOpacity>
+              );
+            })}
           </View>
         ) : null}
 
@@ -255,7 +299,17 @@ const MessageRow = React.memo(({
           />
         ) : null}
 
-        {item.proposedPlan && item.proposedPlan.length > 0 ? (
+        {createdWorkouts && createdWorkouts.length > 0 ? (
+          <View className="mt-1">
+            {createdWorkouts.map((w, wIdx) => (
+              <WorkoutPill
+                key={`workout-pill-${wIdx}`}
+                workout={w}
+                onPress={() => onSelectWorkout?.(w)}
+              />
+            ))}
+          </View>
+        ) : item.proposedPlan && item.proposedPlan.length > 0 ? (
           <ProposalCard
             plan={item.proposedPlan}
             status={item.proposalStatus}
@@ -312,9 +366,19 @@ export default function CoachScreen() {
   const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
 
   const [isWorkoutModalOpen, setIsWorkoutModalOpen] = useState(false);
+  const [selectedPillWorkout, setSelectedPillWorkout] = useState<ProposedWorkoutItem | null>(null);
+  const [authToken, setAuthTokenState] = useState<string | null>(getAuthToken());
   const [isNutritionModalOpen, setIsNutritionModalOpen] = useState(false);
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [questLoading, setQuestLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authToken) {
+      tokenStorage.getToken().then((t) => {
+        if (t) setAuthTokenState(t);
+      });
+    }
+  }, [authToken]);
 
   const [inputText, setInputText] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -596,6 +660,11 @@ export default function CoachScreen() {
     return getCoachAvatarSource(user?.coach_tone, lastMood, user);
   }, [user, lastMood]);
 
+  const handleSelectWorkout = useCallback((w: ProposedWorkoutItem) => {
+    setSelectedPillWorkout(w);
+    setIsWorkoutModalOpen(true);
+  }, []);
+
   const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
     if (item.type === 'thinking') {
       return (
@@ -620,7 +689,7 @@ export default function CoachScreen() {
     if (item.type === 'date') {
       return (
         <View className="py-2.5 items-center justify-center pointer-events-none">
-          <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full shadow-md">
+          <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full">
             <Text className="text-theme-text text-xs font-extrabold tracking-wide">{item.title}</Text>
           </View>
         </View>
@@ -633,6 +702,7 @@ export default function CoachScreen() {
         isLastInRun={item.isLastInRun}
         user={user}
         coachTone={user?.coach_tone}
+        authToken={authToken}
         onAccept={acceptProposal}
         onReject={rejectProposal}
         onAcceptInvite={acceptInvite}
@@ -640,10 +710,11 @@ export default function CoachScreen() {
         onAcceptConnection={acceptConnection}
         onDeclineConnection={declineConnection}
         onExpandImage={(source) => setPreviewImage(source)}
+        onSelectWorkout={handleSelectWorkout}
         onResend={resendMessage}
       />
     );
-  }, [user, avatarSource, t, acceptProposal, rejectProposal, acceptInvite, declineInvite, acceptConnection, declineConnection, resendMessage]);
+  }, [user, avatarSource, t, authToken, handleSelectWorkout, acceptProposal, rejectProposal, acceptInvite, declineInvite, acceptConnection, declineConnection, resendMessage]);
 
   const primaryWorkout = todayWorkouts[0] || null;
   const totalTodayRooka = todayWorkouts.reduce((acc, w) => acc + (w.target_rooka || (w as any).rookaPoints || 0), 0);
@@ -719,7 +790,10 @@ export default function CoachScreen() {
                 />
               ) : (
                 <Image
-                  source={{ uri: previewImage as string }}
+                  source={{
+                    uri: resolveChatImageUrl(previewImage as string, authToken),
+                    headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+                  }}
                   style={{ width: '100%', height: '80%' }}
                   contentFit="contain"
                 />
@@ -731,40 +805,59 @@ export default function CoachScreen() {
         {/* Workout Detail Sheet Modal */}
         <BottomSheetModal
           visible={isWorkoutModalOpen}
-          onClose={() => setIsWorkoutModalOpen(false)}
+          onClose={() => {
+            setIsWorkoutModalOpen(false);
+            setSelectedPillWorkout(null);
+          }}
           showHandle
         >
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center gap-3">
-              <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
-                <Ionicons
-                  name={getSportIconConfig(primaryWorkout?.sport).icon as any}
-                  size={24}
-                  color={getSportIconConfig(primaryWorkout?.sport).color}
-                />
-              </View>
-              <View>
-                <Text className="text-lg font-extrabold text-theme-text">
-                  {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
-                </Text>
-                <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
-              </View>
-            </View>
-            {totalTodayRooka > 0 ? (
-              <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
-                <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
-                  +{Math.round(totalTodayRooka)} Total rooka
-                </Text>
-              </View>
-            ) : null}
-          </View>
+          {selectedPillWorkout ? (
+            (() => {
+              const cfg = getSportIconConfig(selectedPillWorkout.sport);
+              const isRest = (selectedPillWorkout.sport || '').toLowerCase() === 'rest';
+              const dateLabel = formatPillWorkoutDate(selectedPillWorkout.date);
+              let steps: any[] = [];
+              if (selectedPillWorkout.steps_json) {
+                try {
+                  steps = typeof selectedPillWorkout.steps_json === 'string'
+                    ? JSON.parse(selectedPillWorkout.steps_json)
+                    : selectedPillWorkout.steps_json;
+                } catch (_) {}
+              }
 
-          {todayWorkouts.length > 0 ? (
-            <View className="gap-y-3 mb-5">
-              {todayWorkouts.map((w, idx) => {
-                const cfg = getSportIconConfig(w.sport);
-                return (
-                  <View key={`modal-w-${idx}`} className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60">
+              return (
+                <>
+                  <View className="flex-row items-center justify-between mb-4">
+                    <View className="flex-row items-center gap-3">
+                      <View
+                        style={{ backgroundColor: cfg.tint }}
+                        className="w-12 h-12 rounded-2xl items-center justify-center"
+                      >
+                        <Ionicons
+                          name={cfg.icon as any}
+                          size={24}
+                          color={cfg.color}
+                        />
+                      </View>
+                      <View>
+                        <Text className="text-lg font-extrabold text-theme-text">
+                          {isRest ? 'Rest Day' : `${selectedPillWorkout.sport || 'Workout'} Details`}
+                        </Text>
+                        <Text className="text-xs text-theme-muted font-bold">
+                          {dateLabel || selectedPillWorkout.date || 'Scheduled'}
+                        </Text>
+                      </View>
+                    </View>
+                    {selectedPillWorkout.target_rooka && selectedPillWorkout.target_rooka > 0 ? (
+                      <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
+                        <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
+                          +{Math.round(selectedPillWorkout.target_rooka)} rooka
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
                     {/* Top Sport Line */}
                     <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
                       <View className="flex-row items-center gap-2">
@@ -774,42 +867,135 @@ export default function CoachScreen() {
                         >
                           <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
                         </View>
-                        <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
+                        <Text className="text-sm font-extrabold text-theme-text">
+                          {selectedPillWorkout.sport || 'Workout'}
+                        </Text>
                       </View>
-                      {w.target_rooka ? (
-                        <RookaPoints value={Math.round(w.target_rooka)} variant="badge" />
+                      {selectedPillWorkout.target_rooka && selectedPillWorkout.target_rooka > 0 ? (
+                        <RookaPoints value={Math.round(selectedPillWorkout.target_rooka)} variant="badge" />
                       ) : null}
                     </View>
 
                     {/* Workout Title / Name */}
-                    {w.description ? (
+                    {selectedPillWorkout.description ? (
                       <Text className="text-sm font-extrabold text-theme-text mb-1.5 leading-snug">
-                        {w.description}
+                        {selectedPillWorkout.description}
                       </Text>
                     ) : null}
 
                     {/* Workout Focus / Instructions */}
-                    {w.details ? (
-                      <Text className="text-xs text-theme-muted font-normal leading-relaxed">
-                        {w.details}
+                    {selectedPillWorkout.details ? (
+                      <Text className="text-xs text-theme-muted font-normal leading-relaxed mb-2">
+                        {selectedPillWorkout.details}
                       </Text>
                     ) : null}
+
+                    {/* Structured Steps if available */}
+                    {Array.isArray(steps) && steps.length > 0 && (
+                      <View className="mt-2 pt-2 border-t border-theme-border/30 gap-y-1.5">
+                        <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider mb-1">
+                          Structured Workout Steps
+                        </Text>
+                        {steps.map((st: any, sIdx: number) => (
+                          <View
+                            key={`modal-step-${sIdx}`}
+                            className="flex-row items-center justify-between py-1.5 px-2.5 rounded-lg bg-theme-card/60"
+                          >
+                            <Text className="text-xs font-semibold text-theme-text flex-1 mr-2" numberOfLines={1}>
+                              {st.name || st.description || `Step ${sIdx + 1}`}
+                            </Text>
+                            <Text className="text-xs text-theme-muted font-mono">
+                              {st.duration || st.distance || st.target || ''}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
-                );
-              })}
-            </View>
+                </>
+              );
+            })()
           ) : (
-            <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
-              <Ionicons name="moon-outline" size={28} color={theme.textSecondary} />
-              <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
-              <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
-            </View>
+            <>
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
+                    <Ionicons
+                      name={getSportIconConfig(primaryWorkout?.sport).icon as any}
+                      size={24}
+                      color={getSportIconConfig(primaryWorkout?.sport).color}
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-lg font-extrabold text-theme-text">
+                      {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
+                    </Text>
+                    <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
+                  </View>
+                </View>
+                {totalTodayRooka > 0 ? (
+                  <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
+                    <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
+                      +{Math.round(totalTodayRooka)} Total rooka
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {todayWorkouts.length > 0 ? (
+                <View className="gap-y-3 mb-5">
+                  {todayWorkouts.map((w, idx) => {
+                    const cfg = getSportIconConfig(w.sport);
+                    return (
+                      <View key={`modal-w-${idx}`} className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60">
+                        {/* Top Sport Line */}
+                        <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
+                          <View className="flex-row items-center gap-2">
+                            <View
+                              style={{ backgroundColor: cfg.tint }}
+                              className="w-7 h-7 rounded-lg items-center justify-center"
+                            >
+                              <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
+                            </View>
+                            <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
+                          </View>
+                          {w.target_rooka ? (
+                            <RookaPoints value={Math.round(w.target_rooka)} variant="badge" />
+                          ) : null}
+                        </View>
+
+                        {/* Workout Title / Name */}
+                        {w.description ? (
+                          <Text className="text-sm font-extrabold text-theme-text mb-1.5 leading-snug">
+                            {w.description}
+                          </Text>
+                        ) : null}
+
+                        {/* Workout Focus / Instructions */}
+                        {w.details ? (
+                          <Text className="text-xs text-theme-muted font-normal leading-relaxed">
+                            {w.details}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
+                  <Ionicons name="moon-outline" size={28} color={theme.textSecondary} />
+                  <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
+                  <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
+                </View>
+              )}
+            </>
           )}
 
           <View className="flex-row gap-3">
             <TouchableOpacity
               onPress={() => {
                 setIsWorkoutModalOpen(false);
+                setSelectedPillWorkout(null);
                 // `/(tabs)/planning` was an alias route re-exporting the Planning
                 // screen. The tab pager only carries the five declared screens, so
                 // go to the real one.
@@ -822,7 +1008,10 @@ export default function CoachScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setIsWorkoutModalOpen(false)}
+              onPress={() => {
+                setIsWorkoutModalOpen(false);
+                setSelectedPillWorkout(null);
+              }}
               className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
             >
               <Text className="text-xs font-extrabold text-white">Got it</Text>
@@ -999,6 +1188,7 @@ export default function CoachScreen() {
           <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync();
+              setSelectedPillWorkout(null);
               setIsWorkoutModalOpen(true);
             }}
             activeOpacity={0.75}
@@ -1027,7 +1217,6 @@ export default function CoachScreen() {
               activeOpacity={0.75}
               className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
             >
-              <Ionicons name="nutrition-outline" size={14} color={theme.tint} />
               <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
                 Nutrition
               </Text>
@@ -1044,7 +1233,6 @@ export default function CoachScreen() {
               activeOpacity={0.75}
               className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
             >
-              <Ionicons name="trophy" size={13} color={theme.tint} />
               <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
                 Quest
               </Text>
@@ -1093,7 +1281,7 @@ export default function CoachScreen() {
               style={{ opacity: fadeAnim }}
               className="absolute top-2 self-center z-40"
             >
-              <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full shadow-lg">
+              <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full">
                 <Text className="text-theme-text text-xs font-extrabold tracking-wide">
                   {floatingDate}
                 </Text>
@@ -1102,10 +1290,7 @@ export default function CoachScreen() {
           ) : null}
 
           {loading && messages.length === 0 ? (
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator size="large" color="#16ACBD" />
-              <Text className="text-theme-muted text-xs mt-2 font-rajdhani">Connecting with rooka...</Text>
-            </View>
+            <CoachChatSkeleton />
           ) : (
             <FlatList
               ref={flatListRef}
@@ -1168,7 +1353,7 @@ export default function CoachScreen() {
             </View>
           ) : null}
 
-          <View className="bg-theme-card rounded-card px-3 py-2 shadow-lg border border-theme-border">
+          <View className="bg-theme-card rounded-card px-3 py-2 border border-theme-border">
             {selectedImages.length > 0 ? (
               <View className="mb-2 flex-row gap-2 px-1">
                 {selectedImages.map((imgUri, idx) => (

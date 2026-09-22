@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { RookaMark } from '../ui/RookaPoints';
 import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
-import { View, Text, TouchableOpacity, useColorScheme, LayoutChangeEvent } from 'react-native';
+import { View, Text, TouchableOpacity, useColorScheme, LayoutChangeEvent, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -60,15 +60,17 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
         const isSelected = selectedDayIndex === idx;
         const isToday = day.isToday;
         const totalRooka = Math.round(day.workouts.reduce((acc, w) => acc + (w.rookaPoints || 0), 0));
-        const hasWorkouts = day.workouts.length > 0;
+        const isRest = (sport?: SportType | string) => String(sport || '').toUpperCase() === 'REST';
+        const activeWorkouts = day.workouts.filter((w) => !isRest(w.type));
+        const hasActiveWorkouts = activeWorkouts.length > 0;
 
         /* One icon per DISTINCT sport. Two bike sessions on a Saturday said
            "bike, bike", which is noise -- what the strip is scanned for is
            which sports a day contains, not how many entries it has. */
-        const sports = Array.from(
-          new Set(day.workouts.map((w) => String(w.type).toUpperCase())),
+        const activeSports = Array.from(
+          new Set(activeWorkouts.map((w) => String(w.type).toUpperCase())),
         );
-        const shownSports = sports.slice(0, 4);
+        const shownSports = activeSports.slice(0, 4);
         /* A day column is ~33pt wide inside its padding, which fits two 14px
            icons and no more -- three across overflows however small you make
            them, and by the time they fit they are illegible. So a third sport
@@ -105,36 +107,37 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                   needed 84px of icons in a 66px box and overlapped the day
                   header above it. */}
               <View className="flex-row flex-wrap items-center justify-center gap-0.5 my-1 flex-1">
-                {hasWorkouts ? (
+                {hasActiveWorkouts ? (
                   <>
                     {shownSports.map((sport) => {
                       const cfg = getSportIcon(sport);
                       return (
-                        /* The icon sat in its own rounded box inside the day
-                           chip inside the week card — three nested surfaces to
-                           show one glyph. The glyph alone reads better. */
-                        <Ionicons
+                        <Image
                           key={sport}
-                          name={cfg.icon as any}
-                          size={sportIconSize}
-                          color={cfg.color}
+                          source={cfg.emblem}
+                          style={{ width: sportIconSize + 2, height: sportIconSize + 2 }}
+                          resizeMode="contain"
                         />
                       );
                     })}
-                    {sports.length > shownSports.length && (
+                    {activeSports.length > shownSports.length && (
                       <Text className="text-[9px] font-mono font-extrabold text-theme-muted">
-                        +{sports.length - shownSports.length}
+                        +{activeSports.length - shownSports.length}
                       </Text>
                     )}
                   </>
                 ) : (
-                  <Ionicons name="moon-outline" size={16} color={getSportIcon('REST').color} />
+                  <Image
+                    source={getSportIcon('REST').emblem}
+                    style={{ width: 18, height: 18 }}
+                    resizeMode="contain"
+                  />
                 )}
               </View>
 
               {/* rooka points or Completion Check */}
               <View className="items-center justify-center pt-1 pb-1 border border-theme-border/40 w-full h-[24px]">
-                {hasWorkouts && day.workouts.every((w) => w.isCompleted) ? (
+                {hasActiveWorkouts && activeWorkouts.every((w) => w.isCompleted) ? (
                   <Ionicons name="checkmark-circle" size={12} color="#10B981" />
                 ) : totalRooka > 0 ? (
                   <View className="flex-row items-center justify-center gap-0.5">

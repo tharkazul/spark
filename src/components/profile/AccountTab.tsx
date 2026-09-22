@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
+import { ScalePressable } from '../ui/ScalePressable';
 import { discountApi, userApi } from '../../services/apiServices';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
@@ -274,17 +275,19 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             />
           </View>
           
-          <TouchableOpacity
+          <ScalePressable
             onPress={handleSaveAccount}
             disabled={savingAccount || email === user?.email}
-            className={`py-3 rounded-xl items-center ${email === user?.email ? 'bg-theme-accent/50' : 'bg-theme-accent'}`}
+            activeScale={0.96}
+            haptic="selection"
+            className={`py-3 rounded-xl items-center ${email === user?.email ? 'bg-theme-accent/50 opacity-50' : 'bg-theme-accent'}`}
           >
             {savingAccount ? (
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text className="text-white font-bold">Save Account Details</Text>
             )}
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
       </Card>
 

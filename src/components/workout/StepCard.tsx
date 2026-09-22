@@ -1,15 +1,24 @@
-import { BrandColors } from '@/constants/theme';
+import { BrandColors, Fonts } from '@/constants/theme';
 import React, { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TextInput, LayoutAnimation } from 'react-native';
+import { View, Text, TextInput, KeyboardTypeOptions } from 'react-native';
 import { useColorScheme } from 'nativewind';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeOut,
+  FadeOutUp,
+  LinearTransition,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { WorkoutStep, SportType } from '../../types/plan';
-import { styles, CARD_COLORS } from './StepCard.styles';
+import { styles, CARD_COLORS, ZONE_COLORS } from './StepCard.styles';
+import { ScalePressable } from '@/components/ui/ScalePressable';
 
 export type StepCardProps = {
   step: WorkoutStep;
@@ -42,6 +51,91 @@ const getPacePlaceholder = (currentSport: SportType | string) => {
 const stripTargetUnits = (value: string | undefined) =>
   (value || '').replace(/\s*(min\/km|min\/100m|km\/u|watts|w)\s*$/i, '').trim();
 
+interface StepInputPillProps {
+  value: string;
+  onChangeText: (text: string) => void;
+  unit: string;
+  onUnitPress?: () => void;
+  isUnitInteractive?: boolean;
+  keyboardType?: KeyboardTypeOptions;
+  placeholder?: string;
+  textColor?: string;
+  inputWidth?: number;
+  className?: string;
+}
+
+/**
+ * Integrated unit input pill replacing bare text fields with embedded badges,
+ * tabular monospace figures, subtle borders, and spring physics.
+ */
+const StepInputPill = ({
+  value,
+  onChangeText,
+  unit,
+  onUnitPress,
+  isUnitInteractive = false,
+  keyboardType = 'decimal-pad',
+  placeholder = '',
+  textColor,
+  inputWidth,
+  className = '',
+}: StepInputPillProps) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const theme = useTheme();
+
+  return (
+    <View
+      className={`flex-row items-center bg-slate-50 dark:bg-slate-800/80 border rounded-xl h-9 px-2.5 ${
+        isFocused
+          ? 'border-theme-accent dark:border-theme-accent'
+          : 'border-slate-200/80 dark:border-white/10'
+      } ${className}`}
+    >
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        placeholder={placeholder}
+        placeholderTextColor={theme.textSecondary}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        style={{
+          color: textColor,
+          fontFamily: Fonts?.numeric,
+          fontSize: 13,
+          width: inputWidth,
+        }}
+        className={`font-bold p-0 ${inputWidth ? 'text-center' : 'flex-1 text-left'}`}
+      />
+      {isUnitInteractive ? (
+        <ScalePressable
+          onPress={onUnitPress}
+          activeScale={0.92}
+          haptic="selection"
+          className="flex-row items-center ml-1.5 pl-1.5 py-0.5 border-l border-slate-200 dark:border-white/10"
+        >
+          <Text className="text-[10px] font-extrabold text-theme-muted dark:text-theme-muted tracking-wider uppercase">
+            {unit}
+          </Text>
+          <Ionicons
+            name="chevron-down"
+            size={9}
+            color={theme.textSecondary}
+            style={{ marginLeft: 2 }}
+          />
+        </ScalePressable>
+      ) : (
+        <View className="ml-1.5 pl-1.5 py-0.5 border-l border-slate-200 dark:border-white/10">
+          <Text className="text-[10px] font-extrabold text-theme-muted dark:text-theme-muted tracking-wider uppercase">
+            {unit}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+
 const StepCardComponent = ({
   step,
   isStrength,
@@ -69,8 +163,8 @@ const StepCardComponent = ({
   const rawTargetType = step.target_type || 'no.target';
   let targetType = rawTargetType;
 
-  // Auto-infer exact pace/power if rawTargetType is missing but target_value is present
-  if (step.target_value && (targetType === 'no.target' || (targetType as any) === 'open')) {
+  // Auto-infer exact pace/power if rawTargetType is missing or mismatching but target_value is present
+  if (step.target_value && (targetType === 'no.target' || (targetType as any) === 'open' || (targetType === 'heart.rate.zone' && !step.zone))) {
     if (String(step.target_value).includes(':') || String(step.target_value).toLowerCase().includes('min')) {
       targetType = 'pace.exact';
     } else if (String(step.target_value).toLowerCase().includes('w')) {
@@ -172,9 +266,6 @@ const StepCardComponent = ({
 
   const handleTargetTypeSelect = (newType: string) => {
     Haptics.selectionAsync();
-    try {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    } catch (_) {}
 
     const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
 
@@ -214,17 +305,38 @@ const StepCardComponent = ({
 
   const maxZone = targetType === 'power.zone' ? 7 : 5;
 
+  const targetIcon = useMemo(() => {
+    if (targetType === 'heart.rate.zone') {
+      return <Ionicons name="heart" size={12} color="#EF4444" />;
+    }
+    if (targetType === 'power.zone' || targetType === 'power.exact') {
+      return <Ionicons name="flash" size={12} color="#F59E0B" />;
+    }
+    if (targetType === 'pace.zone' || targetType === 'pace.exact' || targetType === 'speed.zone' || targetType === 'speed.exact') {
+      return <Ionicons name="speedometer-outline" size={12} color="#3B82F6" />;
+    }
+    if (targetType === 'weight') {
+      return <Ionicons name="barbell-outline" size={12} color="#8B5CF6" />;
+    }
+    return <Ionicons name="radio-button-off-outline" size={12} color={theme.textSecondary} />;
+  }, [targetType, theme.textSecondary]);
+
+  const hasActiveTarget = targetType !== 'no.target' && (targetType as any) !== 'open';
+
   return (
     <Animated.View
+      layout={isActive ? undefined : LinearTransition.springify().damping(16).stiffness(160)}
+      entering={FadeInDown.duration(220).springify().damping(15)}
+      exiting={FadeOutUp.duration(180)}
       style={[
         styles.shadowHost,
         animatedStyles,
-        { marginLeft: isSubStep ? 24 : 0, marginBottom: 8 },
+        { marginLeft: isSubStep ? 20 : 0, marginBottom: 8 },
       ]}
     >
-      <View className="bg-white dark:bg-theme-card rounded-tile border border-theme-border dark:border-theme-border/70 overflow-hidden flex-row shadow-xs">
+      <View className="bg-white dark:bg-[#141923] rounded-2xl border border-slate-200/80 dark:border-white/10 overflow-hidden flex-row shadow-xs">
         {/* Left Vertical Accent Bar & Drag Handle */}
-        <View className="flex-row items-center w-9 bg-theme-bg dark:bg-theme-bg/60 border-r border-slate-100 dark:border-theme-border/50 justify-center">
+        <View className="flex-row items-center w-9 bg-slate-50/80 dark:bg-slate-900/40 border-r border-slate-100 dark:border-white/5 justify-center">
           <View
             className="absolute left-0 top-0 bottom-0 w-1.5"
             style={{ backgroundColor: colorConfig.bar }}
@@ -251,48 +363,50 @@ const StepCardComponent = ({
           {/* Step Header */}
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-1.5">
+              <View
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: colorConfig.bar }}
+              />
               <Text className="text-xs font-extrabold text-theme-text">
-                {/* Was rendered via `uppercase`; the raw value is lowercase
-                    ("warmup", "interval"), so capitalise it at the source. */}
                 {step.type ? step.type.charAt(0).toUpperCase() + step.type.slice(1) : ''}
               </Text>
             </View>
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 if (isSubStep && onRemoveSub) {
                   onRemoveSub(step.id, step.id);
                 } else {
                   onRemove(step.id);
                 }
               }}
-              className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-theme-bg"
+              activeScale={0.88}
+              haptic="light"
+              className="w-6 h-6 rounded-full items-center justify-center bg-slate-100 dark:bg-slate-800"
             >
-              <Ionicons name="close" size={16} color={theme.textSecondary} />
-            </TouchableOpacity>
+              <Ionicons name="close" size={14} color={theme.textSecondary} />
+            </ScalePressable>
           </View>
 
           {/* Step Config Row */}
           {step.type === 'repeat' ? (
             <View className="flex-row items-center gap-2">
-              <View className="flex-row items-center bg-theme-bg dark:bg-theme-bg/80 border border-theme-border dark:border-theme-border/60 rounded-xl px-3 py-1.5">
-                <TextInput
-                  value={step.iterations !== undefined ? String(step.iterations) : ''}
-                  onChangeText={(text) => {
-                    const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
-                    if (text === '') updateFn('iterations', undefined);
-                    else {
-                      const val = parseInt(text, 10);
-                      if (!isNaN(val)) updateFn('iterations', val);
-                    }
-                  }}
-                  keyboardType="number-pad"
-                  style={{ color: inputTextColor }}
-                  className="w-10 text-sm font-extrabold text-center p-0"
-                />
-                <Text className="text-xs font-bold text-theme-muted dark:text-theme-muted ml-1">times</Text>
-              </View>
+              <StepInputPill
+                value={step.iterations !== undefined ? String(step.iterations) : ''}
+                onChangeText={(text) => {
+                  const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
+                  if (text === '') updateFn('iterations', undefined);
+                  else {
+                    const val = parseInt(text, 10);
+                    if (!isNaN(val)) updateFn('iterations', val);
+                  }
+                }}
+                unit="times"
+                keyboardType="number-pad"
+                placeholder="3"
+                textColor={inputTextColor}
+                inputWidth={36}
+              />
             </View>
           ) : (
             <View className="flex-col gap-2.5">
@@ -306,73 +420,78 @@ const StepCardComponent = ({
                   placeholder="Exercise name (e.g. Core Plank / Squats)"
                   placeholderTextColor={theme.textSecondary}
                   style={{ color: inputTextColor }}
-                  className="w-full h-9 bg-theme-bg dark:bg-theme-bg/70 border border-theme-border dark:border-theme-border/60 rounded-xl px-3 text-xs font-bold"
+                  className="w-full h-9 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-xl px-3 text-xs font-bold"
                 />
               )}
 
               <View className="flex-row flex-wrap items-center gap-2">
-                {/* Condition Box (Duration/Distance/Reps) matching Image 1 & 2 */}
-                <View className="flex-row items-center bg-theme-bg dark:bg-theme-bg/80 border border-theme-border dark:border-theme-border/60 rounded-xl h-9 px-2.5">
-                  <TextInput
-                    value={step.condition_value !== undefined ? String(step.condition_value) : ''}
-                    onChangeText={handleValueChange}
-                    keyboardType={isStrengthOrMobility && condType === 'reps' ? 'number-pad' : 'decimal-pad'}
-                    style={{ color: inputTextColor }}
-                    className="w-10 text-xs text-center font-extrabold p-0"
-                  />
-                  <TouchableOpacity
-                    onPress={handleUnitToggle}
-                    className="flex-row items-center ml-1 pl-1.5 border-l border-theme-border dark:border-theme-border/60"
-                  >
-                    <Text className="text-xs font-extrabold text-theme-muted dark:text-theme-muted uppercase">
-                      {unitDisplay}
-                    </Text>
-                    <Ionicons name="chevron-down" size={10} color={theme.textSecondary} style={{ marginLeft: 2 }} />
-                  </TouchableOpacity>
-                </View>
+                {/* Condition Box with Integrated Unit Badge */}
+                <StepInputPill
+                  value={step.condition_value !== undefined ? String(step.condition_value) : ''}
+                  onChangeText={handleValueChange}
+                  unit={unitDisplay}
+                  onUnitPress={handleUnitToggle}
+                  isUnitInteractive={true}
+                  keyboardType={isStrengthOrMobility && condType === 'reps' ? 'number-pad' : 'decimal-pad'}
+                  placeholder="0"
+                  textColor={inputTextColor}
+                  inputWidth={40}
+                />
 
-                {/* Target Selector Dropdown Button matching Image 1 & 2 */}
-                <TouchableOpacity
+                {/* Target Selector Button with Context Icon */}
+                <ScalePressable
                   onPress={() => {
-                    Haptics.selectionAsync();
-                    try {
-                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    } catch (_) {}
                     setIsExpanded(!isExpanded);
                   }}
-                  activeOpacity={0.75}
-                  className="h-9 px-3 bg-theme-bg dark:bg-theme-bg/80 border border-theme-border dark:border-theme-border/60 rounded-xl flex-row items-center gap-1.5"
+                  activeScale={0.96}
+                  haptic="selection"
+                  className={`h-9 px-2.5 rounded-xl border flex-row items-center gap-1.5 ${
+                    hasActiveTarget
+                      ? 'bg-theme-accent/10 border-theme-accent/30 dark:bg-theme-accent/15 dark:border-theme-accent/40'
+                      : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200/80 dark:border-white/10'
+                  }`}
                 >
+                  {targetIcon}
                   <Text className="text-xs font-bold text-theme-muted dark:text-theme-muted">
                     Target:{' '}
-                    <Text className="text-theme-text font-extrabold">
+                    <Text
+                      className={`font-extrabold ${
+                        hasActiveTarget ? 'text-theme-accent' : 'text-theme-text'
+                      }`}
+                    >
                       {targetDisplay}
                     </Text>
                   </Text>
                   <Ionicons
                     name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={13}
-                    color={theme.textSecondary}
+                    size={11}
+                    color={hasActiveTarget ? BrandColors.primary : theme.textSecondary}
                   />
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
 
               {/* Clean, Spacious Collapsible Target Picker Panel */}
               {isExpanded && (
-                <View className="mt-1 p-3 bg-theme-bg dark:bg-theme-bg/90 border border-theme-border/80 dark:border-theme-border/60 rounded-xl flex-col gap-2.5">
+                <Animated.View
+                  entering={FadeIn.duration(180)}
+                  exiting={FadeOut.duration(140)}
+                  layout={LinearTransition.springify().damping(16).stiffness(160)}
+                  className="mt-1 p-3 bg-slate-50/80 dark:bg-slate-900/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-col gap-2.5"
+                >
                   <Text className="text-xs font-extrabold text-theme-muted">
                     Target Type
                   </Text>
 
-                  {/* Target Type Chips Row with High-Contrast Explicit Colors */}
+                  {/* Target Type Chips Row with ScalePressable */}
                   <View className="flex-row flex-wrap gap-1.5">
                     {targetOptions.map((t) => {
                       const isSelected = targetType === t.key;
                       return (
-                        <TouchableOpacity
+                        <ScalePressable
                           key={t.key}
                           onPress={() => handleTargetTypeSelect(t.key)}
-                          activeOpacity={0.75}
+                          activeScale={0.94}
+                          haptic="selection"
                           style={{
                             backgroundColor: isSelected ? BrandColors.primary : undefined,
                             borderColor: isSelected ? BrandColors.primary : undefined,
@@ -380,7 +499,7 @@ const StepCardComponent = ({
                           className={`px-3 py-1.5 rounded-xl border ${
                             isSelected
                               ? 'shadow-xs'
-                              : 'bg-white dark:bg-slate-800 border-theme-border'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-white/10'
                           }`}
                         >
                           <Text
@@ -390,132 +509,157 @@ const StepCardComponent = ({
                           >
                             {t.label}
                           </Text>
-                        </TouchableOpacity>
+                        </ScalePressable>
                       );
                     })}
                   </View>
 
-                  {/* Sub-Selection: Zone Pills or Exact Values */}
+                  {/* Sub-Selection: Zone Pills with ZONE_COLORS */}
                   {isZoneTarget && (
-                    <View className="flex-col gap-1.5 pt-1.5 border border-theme-border/60 dark:border-theme-border/40">
+                    <Animated.View
+                      entering={FadeIn.duration(150)}
+                      exiting={FadeOut.duration(120)}
+                      layout={LinearTransition.springify().damping(16).stiffness(160)}
+                      className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5"
+                    >
                       <Text className="text-xs font-extrabold text-theme-muted">
                         Select Zone
                       </Text>
                       <View className="flex-row flex-wrap items-center gap-1.5">
                         {Array.from({ length: maxZone }, (_, i) => i + 1).map((z) => {
                           const isZoneSelected = step.zone === z;
+                          const zoneColor = ZONE_COLORS[z] || ZONE_COLORS[2];
                           return (
-                            <TouchableOpacity
+                            <ScalePressable
                               key={`z-${z}`}
                               onPress={() => {
-                                Haptics.selectionAsync();
                                 const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
                                 updateFn('zone', z);
                               }}
+                              activeScale={0.92}
+                              haptic="selection"
                               style={{
-                                backgroundColor: isZoneSelected ? BrandColors.primary : undefined,
-                                borderColor: isZoneSelected ? BrandColors.primary : undefined,
+                                backgroundColor: isZoneSelected ? zoneColor.bg : undefined,
+                                borderColor: isZoneSelected ? zoneColor.border : undefined,
                               }}
                               className={`w-9 h-9 rounded-xl items-center justify-center border ${
                                 isZoneSelected
                                   ? 'shadow-xs'
-                                  : 'bg-white dark:bg-slate-800 border-theme-border'
+                                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-white/10'
                               }`}
                             >
                               <Text
+                                style={{ fontFamily: Fonts?.numeric }}
                                 className={`text-xs font-extrabold ${
                                   isZoneSelected ? 'text-white' : 'text-slate-800 dark:text-slate-100'
                                 }`}
                               >
                                 Z{z}
                               </Text>
-                            </TouchableOpacity>
+                            </ScalePressable>
                           );
                         })}
                       </View>
-                    </View>
+                    </Animated.View>
                   )}
 
+                  {/* Exact Value Target Input using StepInputPill */}
                   {(isPaceExact || isExactPowerTarget || isWeightTarget) && (
-                    <View className="flex-col gap-1.5 pt-1.5 border border-theme-border/60 dark:border-theme-border/40">
+                    <Animated.View
+                      entering={FadeIn.duration(150)}
+                      exiting={FadeOut.duration(120)}
+                      layout={LinearTransition.springify().damping(16).stiffness(160)}
+                      className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5"
+                    >
                       <Text className="text-xs font-extrabold text-theme-muted">
                         {isWeightTarget ? 'Target Weight' : isExactPowerTarget ? 'Target Power' : 'Target Pace'}
                       </Text>
-                      <View className="flex-row items-center gap-2">
-                        <TextInput
-                          value={
-                            isWeightTarget
-                              ? String(step.weight !== undefined ? step.weight : '')
-                              : stripTargetUnits(step.target_value)
+                      <StepInputPill
+                        value={
+                          isWeightTarget
+                            ? String(step.weight !== undefined ? step.weight : '')
+                            : stripTargetUnits(step.target_value)
+                        }
+                        onChangeText={(text) => {
+                          const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
+                          if (isWeightTarget) {
+                            updateFn('weight', text === '' ? undefined : parseFloat(text));
+                          } else {
+                            updateFn('target_value', text);
                           }
-                          onChangeText={(text) => {
-                            const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
-                            if (isWeightTarget) {
-                              updateFn('weight', text === '' ? undefined : parseFloat(text));
-                            } else {
-                              updateFn('target_value', text);
-                            }
-                          }}
-                          keyboardType={isPaceExact ? 'numbers-and-punctuation' : 'decimal-pad'}
-                          placeholder={
-                            isWeightTarget
-                              ? '20'
-                              : isExactPowerTarget
-                              ? '200'
-                              : getPacePlaceholder(sport)
-                          }
-                          placeholderTextColor={theme.textSecondary}
-                          style={{ color: inputTextColor }}
-                          className="flex-1 h-9 bg-white dark:bg-slate-800 border border-theme-border rounded-xl px-3 text-xs font-extrabold"
-                        />
-                        <Text className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
-                          {isWeightTarget
+                        }}
+                        unit={
+                          isWeightTarget
                             ? 'kg'
                             : isExactPowerTarget
                             ? 'W'
-                            : getPaceUnitLabel(sport)}
-                        </Text>
-                      </View>
-                    </View>
+                            : getPaceUnitLabel(sport)
+                        }
+                        keyboardType={isPaceExact ? 'numbers-and-punctuation' : 'decimal-pad'}
+                        placeholder={
+                          isWeightTarget
+                            ? '20'
+                            : isExactPowerTarget
+                            ? '200'
+                            : getPacePlaceholder(sport)
+                        }
+                        textColor={inputTextColor}
+                        className="w-full"
+                      />
+                    </Animated.View>
                   )}
-                </View>
+                </Animated.View>
               )}
             </View>
           )}
 
           {/* Repeat Block Child Steps */}
           {step.type === 'repeat' && step.steps && (
-            <View className="mt-3 flex-col gap-1.5">
-              {step.steps.map((subStep) => (
-                <StepCardComponent
-                  key={subStep.id}
-                  step={subStep}
-                  isStrength={isStrength}
-                  sport={sport}
-                  isActive={false}
-                  drag={() => {}}
-                  isSubStep={true}
-                  onUpdate={(id, field, val) => {
-                    if (onUpdateSub) onUpdateSub(step.id, id, field, val);
-                  }}
-                  onRemove={(id) => {
-                    if (onRemoveSub) onRemoveSub(step.id, id);
-                  }}
-                />
-              ))}
+            <Animated.View
+              layout={LinearTransition.springify().damping(16).stiffness(160)}
+              className="mt-3 relative pl-2"
+            >
+              {/* Vertical nesting track indicator */}
+              <View
+                className="absolute left-0 top-1 bottom-3 w-0.5 rounded-full"
+                style={{ backgroundColor: colorConfig.bar, opacity: 0.35 }}
+              />
+              <View className="flex-col gap-1.5">
+                {step.steps.map((subStep) => (
+                  <StepCardComponent
+                    key={subStep.id}
+                    step={subStep}
+                    isStrength={isStrength}
+                    sport={sport}
+                    isActive={false}
+                    drag={() => {}}
+                    isSubStep={true}
+                    onUpdate={(id, field, val) => {
+                      if (onUpdateSub) onUpdateSub(step.id, id, field, val);
+                    }}
+                    onRemove={(id) => {
+                      if (onRemoveSub) onRemoveSub(step.id, id);
+                    }}
+                  />
+                ))}
 
-              {onAddSubStep && (
-                <TouchableOpacity
-                  onPress={() => onAddSubStep(step.id, 'interval')}
-                  className="py-1.5 px-3 bg-slate-100 dark:bg-theme-bg/60 border border-dashed border-slate-300 dark:border-theme-border rounded-xl flex-row items-center justify-center gap-1 self-start mt-1"
-                >
-                  <Ionicons name="add" size={14} color={theme.textSecondary} />
-                  <Text className="text-xs font-bold text-slate-600 dark:text-theme-muted">
-                    + Sub-step
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+                {onAddSubStep && (
+                  <Animated.View layout={LinearTransition.springify().damping(16).stiffness(160)}>
+                    <ScalePressable
+                      onPress={() => onAddSubStep(step.id, 'interval')}
+                      activeScale={0.96}
+                      haptic="light"
+                      className="py-1.5 px-3 bg-slate-100 dark:bg-slate-800/80 border border-dashed border-slate-300 dark:border-white/10 rounded-xl flex-row items-center justify-center gap-1 self-start mt-1"
+                    >
+                      <Ionicons name="add" size={14} color={theme.textSecondary} />
+                      <Text className="text-xs font-bold text-slate-600 dark:text-theme-muted">
+                        + Sub-step
+                      </Text>
+                    </ScalePressable>
+                  </Animated.View>
+                )}
+              </View>
+            </Animated.View>
           )}
         </View>
       </View>

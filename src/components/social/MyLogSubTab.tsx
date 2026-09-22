@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { RookaPoints } from '../ui/RookaPoints';
+import { RookaPoints, RookaMark } from '../ui/RookaPoints';
 import { BrandColors, Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
@@ -12,6 +12,8 @@ import { useGamification } from '../../context/GamificationStore';
 import { useUser } from '../../context/UserStore';
 import { Activity } from '../../types/activity';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
+import { EmptyState } from '../ui/EmptyState';
 
 interface MyLogSubTabProps {
   onOpenActivityModal?: (id: string | number, activity?: Partial<Activity>) => void;
@@ -214,7 +216,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
   const theme = useTheme();
   const { user } = useUser();
   const { activities, loading } = useActivities();
-  const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
+  const { quests, loading: gamificationLoading, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
 
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [questActionLoading, setQuestActionLoading] = useState(false);
@@ -268,7 +270,10 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
         {/* 2-CARD FROSTED GLASS ROW */}
         <View className="flex-row gap-3">
           {/* CARD 1: ACTIVE QUEST */}
-          <TouchableOpacity
+          {gamificationLoading && (!quests || quests.length === 0) ? (
+            <ActiveQuestSkeleton variant="tile" />
+          ) : activeQuest ? (
+            <TouchableOpacity
             onPress={() => {
               Haptics.selectionAsync();
               setIsQuestModalOpen(true);
@@ -281,7 +286,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                 Active Quest
               </Text>
               <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
-                {activeQuest ? `${currentProgress} / ${targetVal}` : 'No Quest'}
+                {`${currentProgress} / ${targetVal}`}
               </Text>
             </View>
 
@@ -294,10 +299,32 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               <CircularProgressChamber
                 progress={questProgressPercent / 100}
                 icon="trophy"
-                iconColor="#F59E0B"
+                iconColor={theme.tint}
               />
             </View>
           </TouchableOpacity>
+          ) : (
+          <TouchableOpacity
+            onPress={handleGenerateQuest}
+            disabled={questActionLoading}
+            activeOpacity={0.8}
+            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-center items-center h-[152px] shadow-xs"
+          >
+            <Ionicons name="trophy-outline" size={26} color={theme.tint} />
+            <Text className="text-xs font-bold text-theme-text mt-2 text-center">No Active Quest</Text>
+            
+            <View className="mt-3 px-3 py-1.5 bg-theme-accent rounded-lg flex-row items-center gap-1">
+              {questActionLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Ionicons name="add-circle-outline" size={14} color="white" />
+                  <Text className="text-[10px] font-bold text-white uppercase">Start</Text>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+          )}
 
           {/* CARD 2: REAL STREAK */}
           <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs">
@@ -344,10 +371,12 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             <Text className="text-xs font-bold text-theme-muted mt-3">Loading activities...</Text>
           </View>
         ) : activities.length === 0 ? (
-          <View className="p-8 items-center justify-center bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card">
-            <Ionicons name="fitness-outline" size={32} color={theme.textSecondary} />
-            <Text className="text-sm font-semibold text-theme-muted mt-2">No activity history recorded yet.</Text>
-          </View>
+          <EmptyState
+            preset="no-activity"
+            badge="TRAINING HISTORY"
+            title="No Workouts Logged Yet"
+            subtitle="Your training log records every ride, run, swim, and session with telemetry, heart rate zones, and rooka points."
+          />
         ) : (
           <View className="gap-y-2.5">
             {activities.map((act) => {
@@ -425,8 +454,9 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             </View>
           </View>
           {activeQuest?.reward_points ? (
-            <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
-              <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
+            <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full flex-row items-center">
+              <RookaMark size={12} color={theme.tint} />
+              <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani ml-1">
                 +{Math.round(activeQuest.reward_points)} rooka
               </Text>
             </View>

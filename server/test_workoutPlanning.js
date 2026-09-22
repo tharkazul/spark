@@ -96,8 +96,44 @@ console.log("🏃 Running Workout Planning unit tests...\n");
   assert.strictEqual(typeof service.calculateUserFitnessMetrics, "function");
   assert.strictEqual(typeof service.buildFallbackPlan, "function");
   assert.strictEqual(typeof service.generateWeeklyPlanForUser, "function");
+  assert.strictEqual(typeof service.sendInactiveUserWeeklyPlanInquiry, "function");
   assert.strictEqual(typeof service.runWeeklyWorkoutPlanningJob, "function");
   console.log("✅ Test 6 Passed: workoutPlanning service exports all required methods");
 }
 
-console.log("\n🎉 All 6 Workout Planning unit tests passed successfully!");
+// Test 7: Verify sendInactiveUserWeeklyPlanInquiry inserts coach chat inquiry
+(async () => {
+  const db = require("./services/db");
+  const { sendInactiveUserWeeklyPlanInquiry } = require("./services/workoutPlanning");
+
+  const testUser = {
+    id: 987654,
+    username: "TestAthlete",
+    coach_name: "Coach Rooka",
+    language: "nl",
+  };
+
+  await sendInactiveUserWeeklyPlanInquiry(testUser);
+
+  const insertedMessage = await new Promise((resolve) => {
+    db.get(
+      `SELECT content, role, mood FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
+      [testUser.id],
+      (err, row) => resolve(row)
+    );
+  });
+
+  assert.ok(insertedMessage, "Message should be inserted in chat_history");
+  assert.strictEqual(insertedMessage.role, "coach");
+  assert.strictEqual(insertedMessage.mood, "friendly");
+  assert.ok(
+    insertedMessage.content.includes("TestAthlete") && insertedMessage.content.includes("schema"),
+    "Message should be localized in Dutch and mention athlete name"
+  );
+
+  // Clean up
+  db.run(`DELETE FROM chat_history WHERE user_id = ?`, [testUser.id]);
+  console.log("✅ Test 7 Passed: sendInactiveUserWeeklyPlanInquiry sends personalized, localized coach inquiry");
+
+  console.log("\n🎉 All 7 Workout Planning unit tests passed successfully!");
+})();

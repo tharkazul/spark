@@ -156,7 +156,7 @@ router.post("/api/niggles", authenticateToken, (req, res) => {
   );
 });
 
-router.put("/api/niggles/:id/resolve", authenticateToken, (req, res) => {
+const handleResolveNiggle = (req, res) => {
   const niggleId = req.params.id;
   db.run(
     `UPDATE athlete_niggles SET status = 'resolved', resolved_date = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?`,
@@ -168,7 +168,10 @@ router.put("/api/niggles/:id/resolve", authenticateToken, (req, res) => {
       res.json({ success: true });
     },
   );
-});
+};
+
+router.put("/api/niggles/:id/resolve", authenticateToken, handleResolveNiggle);
+router.post("/api/niggles/:id/resolve", authenticateToken, handleResolveNiggle);
 
 router.get("/api/fatigue", authenticateToken, (req, res) => {
   db.all(
@@ -274,7 +277,10 @@ router.get("/api/images/chat/:filename", authenticateToken, (req, res) => {
       .status(403)
       .json({ error: "Forbidden: You do not have access to this image." });
   }
-  const filePath = path.join(__dirname, "secure_uploads/chat_images", filename);
+  let filePath = path.join(__dirname, "secure_uploads/chat_images", filename);
+  if (!fs.existsSync(filePath)) {
+    filePath = path.join(__dirname, "../secure_uploads/chat_images", filename);
+  }
   if (!fs.existsSync(filePath)) return res.status(404).send("Not found");
   res.sendFile(filePath);
 });

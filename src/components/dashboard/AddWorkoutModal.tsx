@@ -1,4 +1,3 @@
-import { BrandColors } from '@/constants/theme';
 import { RookaMark } from '../ui/RookaPoints';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
@@ -7,24 +6,23 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Animated,
-  ActivityIndicator,
-  StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useUser } from '../../context/UserStore';
-import { Button } from '../ui/Button';
+import { ScalePressable } from '../ui/ScalePressable';
 import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
 import { QuickBuildModal } from './QuickBuildModal';
+import { DeviceSyncChip } from './DeviceSyncChip';
+import { getSportEmblem } from '../../utils/disciplineConfig';
 
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { WorkoutStep } from '../../types/plan';
@@ -139,6 +137,38 @@ export function AddWorkoutModal({
   const [steps, setSteps] = useState<WorkoutStep[]>([]);
   const [customRooka, setCustomRooka] = useState<number | null>(null);
   const [isQuickBuildOpen, setIsQuickBuildOpen] = useState(false);
+
+  const isGarminConnected = Boolean(
+    user?.garmin_connected || (user as any)?.garmin_username || (user as any)?.garminUsername
+  );
+  const [isAppleConnected, setIsAppleConnected] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const {
+        isWorkoutKitSupported,
+        getWorkoutKitAuthorizationStatus,
+      } = require('../../services/appleHealthService');
+
+      if (isWorkoutKitSupported()) {
+        getWorkoutKitAuthorizationStatus()
+          .then((status: string) => {
+            if (!cancelled) setIsAppleConnected(status === 'authorized');
+          })
+          .catch(() => {
+            if (!cancelled) setIsAppleConnected(false);
+          });
+      } else {
+        setIsAppleConnected(false);
+      }
+    } catch {
+      setIsAppleConnected(false);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   const [isGarminSynced, setIsGarminSynced] = useState(false);
   const [isGarminSyncing, setIsGarminSyncing] = useState(false);
@@ -312,8 +342,8 @@ export function AddWorkoutModal({
       };
       const result = await deployWorkoutToAppleWatch(payload);
 
-      // The checkbox only ticks when WorkoutKit actually accepted the plan; it
-      // used to tick on failure too, which read as a successful push.
+      // The chip only turns synced when WorkoutKit actually accepted the plan; it
+      // used to show success on failure too, which read as a successful push.
       setIsAppleWatchSynced(result.success);
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -351,63 +381,61 @@ export function AddWorkoutModal({
   // Footer containing Device Sync and Primary Save / Cancel / Delete Actions
   const renderFooter = () => (
     <View style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
-      {/* Device Sync Row */}
-      <View className="mb-6">
-        <Text className="text-xs font-extrabold text-theme-muted mb-3">
-          Sync to Device
-        </Text>
-        <View className="flex-row gap-6">
-          <TouchableOpacity
-            onPress={handleGarminSync}
-            disabled={isGarminSyncing}
-            activeOpacity={0.7}
-            className="flex-row items-center gap-2.5"
-          >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isGarminSynced ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'}`}>
-              {isGarminSynced && <Ionicons name="checkmark" size={14} color="white" />}
-            </View>
-            <Text className="text-sm font-bold text-theme-text">Garmin</Text>
-            {isGarminSyncing && <ActivityIndicator size="small" color={theme.tint} />}
-          </TouchableOpacity>
+      {/* Device Sync Row - Only shown if at least one device is connected */}
+      {(isGarminConnected || isAppleConnected) && (
+        <View className="mb-6">
+          <Text className="text-xs font-extrabold text-theme-muted mb-2.5">
+            Sync to Device
+          </Text>
+          <View className="flex-row gap-3">
+            {isGarminConnected && (
+              <DeviceSyncChip
+                device="garmin"
+                isSynced={isGarminSynced}
+                isSyncing={isGarminSyncing}
+                onPress={handleGarminSync}
+              />
+            )}
 
-          <TouchableOpacity
-            onPress={handleAppleWatchSync}
-            disabled={isAppleWatchSyncing}
-            activeOpacity={0.7}
-            className="flex-row items-center gap-2.5"
-          >
-            <View className={`w-5 h-5 rounded-[6px] items-center justify-center border ${isAppleWatchSynced ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'}`}>
-              {isAppleWatchSynced && <Ionicons name="checkmark" size={14} color="white" />}
-            </View>
-            <Text className="text-sm font-bold text-theme-text">Apple Watch</Text>
-            {isAppleWatchSyncing && <ActivityIndicator size="small" color={theme.tint} />}
-          </TouchableOpacity>
+            {isAppleConnected && (
+              <DeviceSyncChip
+                device="apple"
+                isSynced={isAppleWatchSynced}
+                isSyncing={isAppleWatchSyncing}
+                onPress={handleAppleWatchSync}
+              />
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Primary Action Buttons */}
       <View className="items-center w-full">
-        <TouchableOpacity
+        <ScalePressable
           onPress={handleSave}
-          className="w-[70%] bg-theme-accent rounded-xl py-3.5 items-center justify-center mb-3"
+          activeScale={0.96}
+          haptic="selection"
+          className="w-[70%] bg-theme-accent rounded-xl py-3.5 items-center justify-center mb-3 shadow-sm"
         >
            <Text className="text-white font-extrabold text-base">
              {t('common.save') || 'Save'}
            </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={onClose} className="py-2 px-6">
+        </ScalePressable>
+        <ScalePressable onPress={onClose} activeScale={0.97} haptic="light" className="py-2 px-6">
           <Text className="text-theme-muted font-bold text-sm">{t('common.cancel')}</Text>
-        </TouchableOpacity>
+        </ScalePressable>
       </View>
 
       {/* Delete button if editing */}
       {initialWorkout && (
-        <TouchableOpacity
+        <ScalePressable
           onPress={handleDelete}
+          activeScale={0.96}
+          haptic="warning"
           className="py-2.5 items-center justify-center bg-semantic-error/10 rounded-xl mt-4"
         >
           <Text className="text-xs font-extrabold text-semantic-error">{t('common.delete')}</Text>
-        </TouchableOpacity>
+        </ScalePressable>
       )}
     </View>
   );
@@ -464,9 +492,9 @@ export function AddWorkoutModal({
                           <Text className="text-lg font-extrabold text-theme-text flex-shrink">
                             {title || (initialWorkout ? 'Edit Workout' : 'Add Workout')}
                           </Text>
-                          <TouchableOpacity onPress={() => setIsEditingTitle(true)} className="p-1">
+                          <ScalePressable onPress={() => setIsEditingTitle(true)} activeScale={0.9} haptic="selection" className="p-1">
                             <Ionicons name="pencil" size={16} color={theme.textSecondary} />
-                          </TouchableOpacity>
+                          </ScalePressable>
                         </>
                       )}
                     </View>
@@ -477,47 +505,40 @@ export function AddWorkoutModal({
                     <View>
                       <View className="flex-row items-center justify-between">
                       {[
-                        { type: 'RUN' as SportType, label: 'Run', icon: 'walk', isFa: false },
-                        { type: 'BIKE' as SportType, label: 'Bike', icon: 'bicycle', isFa: false },
-                        { type: 'SWIM' as SportType, label: 'Swim', icon: 'swimmer', isFa: true },
-                        { type: 'STRENGTH' as SportType, label: 'Strength', icon: 'barbell', isFa: false },
-                        { type: 'MOBILITY' as SportType, label: 'Mobility', icon: 'body', isFa: false },
+                        { type: 'RUN' as SportType, label: 'Run' },
+                        { type: 'BIKE' as SportType, label: 'Bike' },
+                        { type: 'SWIM' as SportType, label: 'Swim' },
+                        { type: 'STRENGTH' as SportType, label: 'Strength' },
+                        { type: 'MOBILITY' as SportType, label: 'Mobility' },
                       ].map((item) => {
                         const isSelected = selectedSport === item.type;
-                        const iconColor = isSelected ? BrandColors.primary : '#64748B';
+                        const emblem = getSportEmblem(item.type);
                         return (
-                          <TouchableOpacity
+                          <ScalePressable
                             key={item.type}
                             onPress={() => handleSportSelect(item.type)}
-                            activeOpacity={0.7}
-                            className={`flex-1 rounded-xl items-center justify-center py-2 ${
+                            activeScale={0.95}
+                            haptic="selection"
+                            className={`flex-1 rounded-xl items-center justify-center py-2.5 ${
                               isSelected
                                 ? 'bg-theme-accent-soft border border-theme-accent-border'
                                 : 'bg-theme-bg border border-transparent'
                             }`}
                             style={{ marginHorizontal: 2 }}
                           >
-                            {item.isFa ? (
-                              <FontAwesome5
-                                name={item.icon as any}
-                                size={17}
-                                color={iconColor}
-                              />
-                            ) : (
-                              <Ionicons
-                                name={item.icon as any}
-                                size={20}
-                                color={iconColor}
-                              />
-                            )}
+                            <Image
+                              source={emblem}
+                              style={{ width: 28, height: 28, opacity: isSelected ? 1 : 0.65 }}
+                              resizeMode="contain"
+                            />
                             <Text
-                              className={`text-xs font-bold mt-1 ${
+                              className={`text-xs font-bold mt-1.5 ${
                                 isSelected ? 'text-theme-accent' : 'text-theme-muted'
                               }`}
                             >
                               {item.label}
                             </Text>
-                          </TouchableOpacity>
+                          </ScalePressable>
                         );
                       })}
                     </View>
@@ -549,13 +570,15 @@ export function AddWorkoutModal({
 
                   {/* Quick Build & Calculated rooka row */}
                   <View className="flex-row items-center gap-3">
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => setIsQuickBuildOpen(true)}
+                      activeScale={0.96}
+                      haptic="selection"
                       className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2"
                     >
                       <Ionicons name="flash" size={14} color={theme.textSecondary} />
                       <Text className="text-sm font-bold text-theme-text">Quick Build</Text>
-                    </TouchableOpacity>
+                    </ScalePressable>
 
                     <View className="flex-1 bg-theme-accent-soft border border-theme-accent-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2">
                       <RookaMark size={15} color={theme.tint} />
@@ -567,7 +590,7 @@ export function AddWorkoutModal({
                   </View>
                 </View>
               ), [selectedSport, title, durationMinutes, calculatedRooka, initialWorkout, isEditingTitle])}
-              ListFooterComponent={React.useMemo(() => renderFooter(), [insets.bottom, isGarminSynced, isGarminSyncing, isAppleWatchSynced, isAppleWatchSyncing, initialWorkout, title, durationMinutes, calculatedRooka, steps])}
+              ListFooterComponent={React.useMemo(() => renderFooter(), [insets.bottom, isGarminConnected, isAppleConnected, isGarminSynced, isGarminSyncing, isAppleWatchSynced, isAppleWatchSyncing, initialWorkout, title, durationMinutes, calculatedRooka, steps])}
             />
           </View>
         </KeyboardAvoidingView>

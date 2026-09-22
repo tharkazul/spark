@@ -22,6 +22,7 @@ import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
+import { ScalePressable } from '../ui/ScalePressable';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -78,7 +79,6 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchUserResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
-  const [connectingId, setConnectingId] = useState<number | null>(null);
 
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const lastSearchIdRef = useRef<number>(0);
@@ -207,40 +207,50 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
 
   const handleConnect = async (friendId: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setConnectingId(friendId);
+    const prevSearchResults = [...searchResults];
+
+    // Optimistically show Requested
+    setSearchResults((prev) =>
+      prev.map((item) => (item.id === friendId ? { ...item, status: 'pending' } : item))
+    );
+
     try {
       const res = await socialApi.connectUser(friendId);
       if (res && res.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setSearchResults((prev) =>
-          prev.map((item) => (item.id === friendId ? { ...item, status: 'pending' } : item))
-        );
         if (onConnectionsUpdated) onConnectionsUpdated();
+      } else {
+        throw new Error('Connect failed');
       }
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setConnectingId(null);
+      setSearchResults(prevSearchResults);
     }
   };
 
   const handleAccept = async (friendId: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setConnectingId(friendId);
+    const prevSearchResults = [...searchResults];
+    const prevPending = [...pendingRequests];
+
+    // Optimistically show Connected and remove from pending requests
+    setSearchResults((prev) =>
+      prev.map((item) => (item.id === friendId ? { ...item, status: 'accepted' } : item))
+    );
+    setPendingRequests((prev) => prev.filter((req) => req.friend_id !== friendId && req.id !== friendId && req.user_id !== friendId));
+
     try {
       const res = await socialApi.acceptUser(friendId);
       if (res && res.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setSearchResults((prev) =>
-          prev.map((item) => (item.id === friendId ? { ...item, status: 'accepted' } : item))
-        );
-        setPendingRequests((prev) => prev.filter((req) => req.friend_id !== friendId && req.id !== friendId));
         if (onConnectionsUpdated) onConnectionsUpdated();
+      } else {
+        throw new Error('Accept failed');
       }
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setConnectingId(null);
+      setSearchResults(prevSearchResults);
+      setPendingRequests(prevPending);
     }
   };
 
@@ -326,9 +336,9 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
               {searching ? (
                 <ActivityIndicator size="small" color={theme.tint} className="mr-1" />
               ) : searchQuery.length > 0 ? (
-                <TouchableOpacity onPress={() => handleQueryChange('')} className="mr-1">
+                <ScalePressable onPress={() => handleQueryChange('')} activeScale={0.9} haptic="light" className="mr-1">
                   <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-                </TouchableOpacity>
+                </ScalePressable>
               ) : null}
             </View>
 
@@ -347,7 +357,6 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                 {searchResults.length > 0 ? (
                   <View className="gap-y-2">
                     {searchResults.map((item) => {
-                      const isConnecting = connectingId === item.id;
                       return (
                         <View
                           key={`search-user-${item.id}`}
@@ -358,8 +367,9 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               item.profile_picture_url || (item as any).profilePictureUrl
                             );
                             return (
-                              <TouchableOpacity
-                                activeOpacity={0.7}
+                              <ScalePressable
+                                activeScale={0.97}
+                                haptic="selection"
                                 onPress={() => {
                                   if (onOpenAthleteProfile) {
                                     onClose();
@@ -390,7 +400,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                                     {formatTierLabel(item.subscription_tier, item.role)}
                                   </Text>
                                 </View>
-                              </TouchableOpacity>
+                              </ScalePressable>
                             );
                           })()}
 
@@ -409,25 +419,23 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               <Text className="text-xs font-bold text-theme-muted">Requested</Text>
                             </View>
                           ) : item.status === 'pending_received' ? (
-                            <TouchableOpacity
+                            <ScalePressable
                               onPress={() => handleAccept(item.id)}
-                              disabled={isConnecting}
+                              activeScale={0.94}
+                              haptic="selection"
                               className="bg-semantic-success px-3.5 py-1.5 rounded-xl"
                             >
                               <Text className="text-xs font-extrabold text-white">Accept</Text>
-                            </TouchableOpacity>
+                            </ScalePressable>
                           ) : (
-                            <TouchableOpacity
+                            <ScalePressable
                               onPress={() => handleConnect(item.id)}
-                              disabled={isConnecting}
+                              activeScale={0.94}
+                              haptic="selection"
                               className="bg-theme-accent px-3.5 py-1.5 rounded-xl"
                             >
-                              {isConnecting ? (
-                                <ActivityIndicator size="small" color="#FFF" />
-                              ) : (
-                                <Text className="text-xs font-extrabold text-white">+ Add</Text>
-                              )}
-                            </TouchableOpacity>
+                              <Text className="text-xs font-extrabold text-white">+ Add</Text>
+                            </ScalePressable>
                           )}
                         </View>
                       );
@@ -467,12 +475,14 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                         </Text>
                       </View>
                     </View>
-                    <TouchableOpacity
+                    <ScalePressable
                       onPress={() => handleAccept(req.friend_id || req.user_id)}
+                      activeScale={0.94}
+                      haptic="selection"
                       className="bg-semantic-success px-3.5 py-1.5 rounded-xl"
                     >
                       <Text className="text-xs font-extrabold text-white">Accept</Text>
-                    </TouchableOpacity>
+                    </ScalePressable>
                   </View>
                 ))}
               </View>

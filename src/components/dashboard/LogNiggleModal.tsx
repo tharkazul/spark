@@ -19,6 +19,7 @@ import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { useHealth } from '../../context/HealthStore';
 import { BODY_PARTS_LOOKUP } from '../progress/AnatomicalBodyMap';
 import { Button } from '../ui/Button';
+import { ScalePressable } from '../ui/ScalePressable';
 import { TextInput } from '../ui/TextInput';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -259,12 +260,14 @@ export function LogNiggleModal({
                   <Text className="text-xs text-theme-muted font-rajdhani">Records to Health Tracker & alerts rooka Coach</Text>
                 </View>
               </View>
-              <TouchableOpacity
+              <ScalePressable
                 onPress={onClose}
+                activeScale={0.9}
+                haptic="light"
                 className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
               >
                 <Ionicons name="close" size={18} color="#8E9BA4" />
-              </TouchableOpacity>
+              </ScalePressable>
             </View>
 
             {/* Scrollable Form Content */}
@@ -296,26 +299,28 @@ export function LogNiggleModal({
                   </Text>
                   {currentRegion?.isBilateral && (
                     <View className="flex-row bg-theme-bg rounded-lg p-0.5 border border-theme-border/60">
-                      <TouchableOpacity
+                      <ScalePressable
                         onPress={() => {
-                          Haptics.selectionAsync();
                           setSelectedSide('left');
                           setIsManuallySelected(true);
                         }}
+                        activeScale={0.94}
+                        haptic="selection"
                         className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'left' ? 'bg-theme-accent' : ''}`}
                       >
                         <Text className={`text-xs font-bold ${selectedSide === 'left' ? 'text-white' : 'text-theme-muted'}`}>Left</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
+                      </ScalePressable>
+                      <ScalePressable
                         onPress={() => {
-                          Haptics.selectionAsync();
                           setSelectedSide('right');
                           setIsManuallySelected(true);
                         }}
+                        activeScale={0.94}
+                        haptic="selection"
                         className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'right' ? 'bg-theme-accent' : ''}`}
                       >
                         <Text className={`text-xs font-bold ${selectedSide === 'right' ? 'text-white' : 'text-theme-muted'}`}>Right</Text>
-                      </TouchableOpacity>
+                      </ScalePressable>
                     </View>
                   )}
                 </View>
@@ -329,13 +334,14 @@ export function LogNiggleModal({
                   {BODY_REGIONS.map((region) => {
                     const isSelected = selectedBaseKey === region.key;
                     return (
-                      <TouchableOpacity
+                      <ScalePressable
                         key={region.key}
                         onPress={() => {
-                          Haptics.selectionAsync();
                           setSelectedBaseKey(region.key);
                           setIsManuallySelected(true);
                         }}
+                        activeScale={0.94}
+                        haptic="selection"
                         className={`px-3 py-1.5 rounded-xl border ${isSelected
                             ? 'bg-semantic-error/15 border-semantic-error'
                             : 'bg-theme-bg border-theme-border/60'
@@ -347,7 +353,7 @@ export function LogNiggleModal({
                         >
                           {region.name}
                         </Text>
-                      </TouchableOpacity>
+                      </ScalePressable>
                     );
                   })}
                 </ScrollView>
@@ -369,12 +375,11 @@ export function LogNiggleModal({
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
                     const isSelected = severity === num;
                     return (
-                      <TouchableOpacity
+                      <ScalePressable
                         key={num}
-                        onPress={() => {
-                          Haptics.selectionAsync();
-                          setSeverity(num);
-                        }}
+                        onPress={() => setSeverity(num)}
+                        activeScale={0.88}
+                        haptic="selection"
                         className={`flex-1 py-2 rounded-xl items-center justify-center ${isSelected
                             ? num <= 3
                               ? 'bg-semantic-success'
@@ -390,7 +395,7 @@ export function LogNiggleModal({
                         >
                           {num}
                         </Text>
-                      </TouchableOpacity>
+                      </ScalePressable>
                     );
                   })}
                 </View>

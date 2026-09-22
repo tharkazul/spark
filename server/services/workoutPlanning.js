@@ -609,17 +609,113 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 }
 
 /**
+ * Safeguard for inactive free users:
+ * Sends a polite notification and coach chat inquiry asking if they want to plan the next week with the coach.
+ * This costs ZERO LLM tokens.
+ */
+async function sendInactiveUserWeeklyPlanInquiry(user) {
+  const userId = user.id;
+  const coachName = user.coach_name || 'Rooka';
+  const lang = user.language || 'en';
+  const displayName = user.username || '';
+
+  // Prevent duplicate outreach if the job is re-run on the same day
+  const alreadySent = await new Promise((resolve) => {
+    db.get(
+      `SELECT id FROM chat_history 
+       WHERE user_id = ? AND role = 'coach' 
+         AND (content LIKE '%trainingsschema%' OR content LIKE '%training plan%' OR content LIKE '%Trainingsplan%' OR content LIKE '%plan de entrenamiento%' OR content LIKE '%programme d''entraînement%')
+         AND substr(timestamp, 1, 10) = date('now')
+       LIMIT 1`,
+      [userId],
+      (err, row) => resolve(!!row)
+    );
+  });
+
+  let pushTitle = `🗓️ Plan next week with Coach ${coachName}?`;
+  let pushBody = `Hey ${displayName}! Would you like me to prepare your training schedule for next week? Tap to chat!`;
+  let chatMessage = `Hey ${displayName}! 👋 I noticed we haven't trained together much this past week. Would you like me to build a personalized training plan for the coming week? Just reply here with your schedule or goals, or let me know "let's do it" and I'll tailor the week for you! 🚀`;
+
+  if (lang === 'nl') {
+    pushTitle = `🗓️ Komende week inplannen met Coach ${coachName}?`;
+    pushBody = `Hey ${displayName}! Zullen we samen je trainingen voor komende week plannen? Tik hier om te openen!`;
+    chatMessage = `Hey ${displayName}! 👋 Ik zag dat we afgelopen week wat minder getraind hebben. Zullen we samen je schema voor komende week inplannen? Laat me hier weten wat je doelen of beschikbaarheid zijn, of zeg gewoon "maak maar een schema" en ik zet het voor je klaar! 🚀`;
+  } else if (lang === 'de') {
+    pushTitle = `🗓️ Nächste Woche mit Coach ${coachName} planen?`;
+    pushBody = `Hey ${displayName}! Wollen wir dein Training für die kommende Woche vorbereiten? Tippe hier!`;
+    chatMessage = `Hey ${displayName}! 👋 Ich habe gesehen, dass wir letzte Woche etwas ruhiger unterwegs waren. Möchtest du, dass wir dein Training für die kommende Woche zusammen planen? Sag mir einfach hier Bescheid oder antworte mit "Erstelle einen Plan" und ich lege los! 🚀`;
+  } else if (lang === 'es') {
+    pushTitle = `🗓️ ¿Planificamos la semana con Coach ${coachName}?`;
+    pushBody = `¡Hola ${displayName}! ¿Te gustaría que preparemos tus entrenamientos de la próxima semana? ¡Toca aquí!`;
+    chatMessage = `¡Hola ${displayName}! 👋 He notado que hemos entrenado un poco menos esta semana. ¿Te gustaría que preparemos juntos tu plan de entrenamiento para la próxima semana? ¡Dime tus objetivos o disponibilidad por aquí y lo organizamos! 🚀`;
+  } else if (lang === 'fr') {
+    pushTitle = `🗓️ Planifier la semaine avec Coach ${coachName} ?`;
+    pushBody = `Salut ${displayName} ! Tu veux préparer tes entraînements pour la semaine prochaine ? Touche ici !`;
+    chatMessage = `Salut ${displayName} ! 👋 J'ai remarqué qu'on a un peu moins bougé cette semaine. Tu veux qu'on prépare ton programme d'entraînement pour la semaine prochaine ensemble ? Dis-moi ce qui t'arrange par ici et je m'en occupe ! 🚀`;
+  }
+
+  if (!alreadySent) {
+    db.run(
+      `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'friendly')`,
+      [userId, chatMessage],
+      (err) => {
+        if (err) console.error(`[WeeklyPlanInquiry] Error inserting chat message for user ${userId}:`, err?.message);
+      }
+    );
+
+    sendSSEEvent(userId, 'unread_message', {
+      message: chatMessage,
+      mood: 'friendly',
+    });
+  }
+
+  try {
+    await sendPushToUser(userId, {
+      title: pushTitle,
+      body: pushBody,
+      data: { url: '/(tabs)/coach', type: 'coach_plan_inquiry' },
+      badge: 1,
+    });
+  } catch (pushErr) {
+    console.warn(`[WeeklyPlanInquiry] Push notification warning for user ${userId}:`, pushErr?.message);
+  }
+}
+
+/**
  * Weekly Scheduled Cron Job:
  * Runs on Sunday for all active accounts on the common token budget.
+ *
+ * Safeguards:
+ * 1. Automatic LLM workout plan generation is only performed for:
+ *    - Paid users (tier != 'free' or role == 'admin')
+ *    - Free users who have used/opened Rooka in the last 7 days
+ * 2. Free users who have NOT opened Rooka in the last 7 days do NOT burn LLM tokens.
+ *    Instead, a friendly push notification + coach chat inquiry is sent asking
+ *    if they would like to plan the coming week together.
  */
 async function runWeeklyWorkoutPlanningJob(options = {}) {
-  console.log('🗓️ [CRON] Starting Sunday weekly workout planning job for all accounts...');
+  console.log('🗓️ [CRON] Starting Sunday weekly workout planning job...');
   const { mondayStr, sundayStr, dates } = getUpcomingWeekMonToSun();
   console.log(`📅 [CRON] Generating week: ${mondayStr} (Monday) to ${sundayStr} (Sunday)`);
 
   const users = await new Promise((resolve) => {
     db.all(
-      `SELECT id, username FROM users WHERE deleted_at IS NULL`,
+      `SELECT u.id, u.username, u.subscription_tier, u.role, u.language, u.coach_name,
+         CASE 
+           WHEN (u.subscription_tier IS NOT NULL AND u.subscription_tier != 'free') OR u.role = 'admin' THEN 1 
+           ELSE 0 
+         END AS is_paid,
+         CASE
+           WHEN u.last_active_at IS NOT NULL AND u.last_active_at >= datetime('now', '-7 days') THEN 1
+           WHEN u.created_at IS NOT NULL AND u.created_at >= datetime('now', '-7 days') THEN 1
+           WHEN EXISTS (SELECT 1 FROM activities a WHERE a.user_id = u.id AND substr(a.start_date, 1, 10) >= date('now', '-7 days')) THEN 1
+           WHEN EXISTS (SELECT 1 FROM chat_history c WHERE c.user_id = u.id AND c.role = 'user' AND c.timestamp >= datetime('now', '-7 days')) THEN 1
+           WHEN EXISTS (SELECT 1 FROM weight_log w WHERE w.user_id = u.id AND w.date >= date('now', '-7 days')) THEN 1
+           WHEN EXISTS (SELECT 1 FROM push_tokens p WHERE p.user_id = u.id AND p.updated_at >= datetime('now', '-7 days')) THEN 1
+           ELSE 0
+         END AS is_active_recently
+       FROM users u 
+       WHERE u.deleted_at IS NULL`,
       [],
       (err, rows) => resolve(err || !rows ? [] : rows)
     );
@@ -627,16 +723,27 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
 
   if (!users || users.length === 0) {
     console.log('ℹ️ [CRON] No active users found.');
-    return { successCount: 0, failCount: 0, total: 0, targetDates: dates };
+    return { successCount: 0, failCount: 0, inquiryCount: 0, total: 0, targetDates: dates };
   }
 
-  console.log(`👥 [CRON] Found ${users.length} active account(s) to process on Common token budget.`);
+  const eligibleForAutoPlan = users.filter((u) => u.is_paid === 1 || u.is_active_recently === 1);
+  const inactiveFreeUsers = users.filter((u) => u.is_paid === 0 && u.is_active_recently === 0);
+
+  const paidCount = users.filter((u) => u.is_paid === 1).length;
+  const activeFreeCount = users.filter((u) => u.is_paid === 0 && u.is_active_recently === 1).length;
+
+  console.log(
+    `👥 [CRON] Total users: ${users.length} | Auto-plan: ${eligibleForAutoPlan.length} (Paid: ${paidCount}, Active Free: ${activeFreeCount}) | Inactive Free (Safeguarded): ${inactiveFreeUsers.length}`
+  );
+
   let successCount = 0;
   let failCount = 0;
+  let inquiryCount = 0;
 
-  for (const user of users) {
+  // 1. Generate full AI weekly workout plan for paid users and active free users
+  for (const user of eligibleForAutoPlan) {
     try {
-      console.log(`⚡ [CRON] Generating weekly plan for ${user.username} (ID: ${user.id})...`);
+      console.log(`⚡ [CRON] Generating weekly plan for ${user.username} (ID: ${user.id}, Tier: ${user.subscription_tier || 'free'})...`);
       await generateWeeklyPlanForUser(user.id, dates, { poolType: 'common' });
       successCount++;
       console.log(`✅ [CRON] Successfully scheduled coming week for ${user.username}`);
@@ -649,11 +756,28 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
     }
   }
 
-  console.log(`🏁 [CRON] Completed weekly workout planning. Success: ${successCount}, Failures: ${failCount}`);
+  // 2. Safeguard for inactive free users: Skip heavy LLM generation, send coach inquiry notification
+  for (const user of inactiveFreeUsers) {
+    try {
+      console.log(`📨 [CRON] Sending weekly plan inquiry notification to inactive free user ${user.username} (ID: ${user.id})...`);
+      await sendInactiveUserWeeklyPlanInquiry(user);
+      inquiryCount++;
+    } catch (err) {
+      console.error(`❌ [CRON] Error sending plan inquiry to ${user.username} (ID: ${user.id}):`, err.message);
+    }
+  }
+
+  console.log(
+    `🏁 [CRON] Completed Sunday weekly workout planning. Plans generated: ${successCount}, Failures: ${failCount}, Inquiries sent: ${inquiryCount}`
+  );
+
   return {
     successCount,
     failCount,
+    inquiryCount,
     total: users.length,
+    autoPlanned: eligibleForAutoPlan.length,
+    safeguarded: inactiveFreeUsers.length,
     targetDates: dates,
   };
 }
@@ -663,5 +787,6 @@ module.exports = {
   calculateUserFitnessMetrics,
   buildFallbackPlan,
   generateWeeklyPlanForUser,
+  sendInactiveUserWeeklyPlanInquiry,
   runWeeklyWorkoutPlanningJob,
 };

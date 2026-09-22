@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
@@ -11,33 +10,27 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { Ionicons } from '@expo/vector-icons';
 import { FeedSubTab } from '../../components/social/FeedSubTab';
-import { MyLogSubTab } from '../../components/social/MyLogSubTab';
-import {
-  LeaderboardSubTab,
-  LeaderboardTypeSwitcher,
-  LEADERBOARD_SWITCHER_HEIGHT,
-} from '../../components/social/LeaderboardSubTab';
-import { ActivityDetailModal } from '../../components/social/ActivityDetailModal';
+import { LeaderboardSubTab } from '../../components/social/LeaderboardSubTab';
 import { AddFriendsModal } from '../../components/social/AddFriendsModal';
-import { AthleteProfileModal } from '../../components/social/AthleteProfileModal';
 import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { canAccessLeaderboard } from '../../utils/permissions';
 import { socialApi } from '../../services/apiServices';
 import { LeaderboardEntry } from '../../types/social';
-import { Activity } from '../../types/activity';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
-const TABS = ['feed', 'mylog', 'leaderboard'] as const;
+const TABS = ['feed', 'leaderboard'] as const;
 type TabType = typeof TABS[number];
 
 export default function SocialScreen() {
-    const theme = useTheme();
+  const theme = useTheme();
+  const router = useRouter();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { notifyScroll, notifyScrollEnd, tabBarOccupied } = useTabBar();
   const { t } = useLanguage();
@@ -47,7 +40,6 @@ export default function SocialScreen() {
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<TabType>('feed');
-  const lastLeaderboardPageIndex = useRef<number>(2);
 
   // Leaderboard data
   const hasLeaderboardAccess = canAccessLeaderboard(user?.subscription_tier);
@@ -83,37 +75,26 @@ export default function SocialScreen() {
     };
   }, [hasLeaderboardAccess]);
 
-  // Modal State
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [selectedActivityId, setSelectedActivityId] = useState<string | number | null>(null);
-  const [selectedInitialActivity, setSelectedInitialActivity] = useState<Partial<Activity> | undefined>(undefined);
-
+  // Modal State (Add Friends is a creation/search modal sheet)
   const [addFriendsModalVisible, setAddFriendsModalVisible] = useState<boolean>(false);
-  const [selectedAthleteId, setSelectedAthleteId] = useState<number | string | null>(null);
 
-  const handleOpenActivityModal = (id: string | number, initialAct?: Partial<Activity>) => {
+  // Push Navigation Drill-Downs (WWDC22 Guidance: slide-in push transitions for browsing)
+  const handleOpenActivity = (id: string | number) => {
     Haptics.selectionAsync();
-    setSelectedActivityId(id);
-    setSelectedInitialActivity(initialAct);
-    setModalVisible(true);
-  };
-
-  const handleCloseActivityModal = () => {
-    setModalVisible(false);
-    setSelectedActivityId(null);
-    setSelectedInitialActivity(undefined);
+    router.push({ pathname: '/activity/[id]', params: { id: String(id) } });
   };
 
   const handleOpenAthleteProfile = (userId: number | string) => {
     Haptics.selectionAsync();
-    setSelectedAthleteId(userId);
+    router.push({ pathname: '/athlete/[id]', params: { id: String(userId) } });
   };
 
-  const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 3;
+  // 2-tab segmented control calculations
+  const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 2;
 
   const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [0, segmentWidth, 2 * segmentWidth, 2 * segmentWidth],
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: [0, segmentWidth],
     extrapolate: 'clamp',
   });
 
@@ -128,53 +109,22 @@ export default function SocialScreen() {
     extrapolate: 'clamp',
   });
 
-  const logWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, 1, 0],
-    extrapolate: 'clamp',
-  });
-  const logGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [1, 0, 1],
-    extrapolate: 'clamp',
-  });
-
   const leaderboardWhiteOpacity = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [0, 1, 1],
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: [0, 1],
     extrapolate: 'clamp',
   });
   const leaderboardGreyOpacity = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [1, 0, 0],
+    inputRange: [0, SCREEN_WIDTH],
+    outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
   const handleTabPress = (tabId: TabType) => {
     Haptics.selectionAsync();
     setActiveTab(tabId);
+    const targetIndex = tabId === 'feed' ? 0 : 1;
 
-    let targetIndex = 0;
-    if (tabId === 'feed') {
-      targetIndex = 0;
-    } else if (tabId === 'mylog') {
-      targetIndex = 1;
-    } else if (tabId === 'leaderboard') {
-      targetIndex = lastLeaderboardPageIndex.current;
-    }
-
-    if (horizontalScrollViewRef.current) {
-      horizontalScrollViewRef.current.scrollTo({
-        x: targetIndex * SCREEN_WIDTH,
-        animated: true,
-      });
-    }
-  };
-
-  const handleLeaderboardSubTabPress = (type: 'rooka' | 'quests') => {
-    Haptics.selectionAsync();
-    const targetIndex = type === 'rooka' ? 2 : 3;
-    lastLeaderboardPageIndex.current = targetIndex;
     if (horizontalScrollViewRef.current) {
       horizontalScrollViewRef.current.scrollTo({
         x: targetIndex * SCREEN_WIDTH,
@@ -186,37 +136,18 @@ export default function SocialScreen() {
   const handleHorizontalScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const pageIndex = Math.round(offsetX / SCREEN_WIDTH);
-    if (pageIndex === 2 || pageIndex === 3) {
-      lastLeaderboardPageIndex.current = pageIndex;
-    }
-    const newTab = pageIndex >= 2 ? 'leaderboard' : TABS[pageIndex];
+    const newTab = TABS[pageIndex];
 
     if (newTab && newTab !== activeTab) {
       setActiveTab(newTab);
     }
   };
 
-  // The switcher block reveals itself over the swipe from My Log into the
-  // leaderboard, so nothing jumps at the halfway mark.
-  const LEADERBOARD_HEADER_BLOCK = LEADERBOARD_SWITCHER_HEIGHT + 12;
-  const leaderboardHeaderHeight = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, LEADERBOARD_HEADER_BLOCK],
-    extrapolate: 'clamp',
-  });
-  const leaderboardHeaderOpacity = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-  const leaderboardType: 'rooka' | 'quests' =
-    lastLeaderboardPageIndex.current === 3 ? 'quests' : 'rooka';
-
   const bottomInsetPadding = Math.max(tabBarOccupied + 48, 120);
 
   return (
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
-      {/* HEADER WITH TITLE AND SUB-TAB SWITCHER */}
+      {/* HEADER WITH TITLE AND 2-SEGMENT SUB-TAB SWITCHER */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
         <ScreenHeaderTitleRow
           title="Social"
@@ -234,7 +165,7 @@ export default function SocialScreen() {
           }
         />
 
-        {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
+        {/* 2-SEGMENT SUB-TAB PILL SWITCHER */}
         <View className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden mt-1 border border-theme-border">
           <Animated.View
             className="absolute top-1 bottom-1 bg-theme-accent rounded-lg shadow-xs"
@@ -262,27 +193,6 @@ export default function SocialScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* MY LOG PILL */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('mylog')}
-            className="flex-1 py-2 items-center justify-center z-10"
-          >
-            <View className="relative items-center justify-center">
-              <Animated.Text
-                style={{ opacity: logWhiteOpacity }}
-                className="text-xs font-semibold text-white absolute"
-              >
-                My Log
-              </Animated.Text>
-              <Animated.Text
-                style={{ opacity: logGreyOpacity }}
-                className="text-xs font-medium text-theme-muted"
-              >
-                My Log
-              </Animated.Text>
-            </View>
-          </TouchableOpacity>
-
           {/* LEADERBOARD PILL */}
           <TouchableOpacity
             onPress={() => handleTabPress('leaderboard')}
@@ -304,44 +214,14 @@ export default function SocialScreen() {
             </View>
           </TouchableOpacity>
         </View>
-
-        {/* The leaderboard's [rooka score | 7-Day Quests] switcher, pinned.
-            It used to sit inside each of the two leaderboard pages, so swiping
-            between them dragged two copies of the header across the screen.
-            Height and opacity are driven off the same scrollX as the pill, so it
-            grows in as you swipe toward the leaderboard rather than popping in
-            when the page index rounds over — and Feed and My Log keep exactly
-            the layout they had. */}
-        <Animated.View
-          style={{
-            height: leaderboardHeaderHeight,
-            opacity: leaderboardHeaderOpacity,
-            overflow: 'hidden',
-          }}
-        >
-          <View style={{ paddingTop: 12 }}>
-            <LeaderboardTypeSwitcher
-              scrollX={scrollX}
-              currentType={leaderboardType}
-              onSwitchType={handleLeaderboardSubTabPress}
-            />
-          </View>
-        </Animated.View>
       </View>
 
-      {/* SWIPABLE HORIZONTAL PAGER VIEW */}
+      {/* SWIPABLE HORIZONTAL PAGER VIEW (Clean 2-page secondary layer) */}
       <Animated.ScrollView
         ref={horizontalScrollViewRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        // Progress, Social and Profile each own a horizontal sub-tab pager, and
-        // the main tabs are now a pager too. Turning off bounce/overscroll is
-        // what makes the two cooperate: while this pager can still scroll in the
-        // drag direction it keeps the gesture, and once it is at its first or
-        // last page it has nowhere to go, so the drag passes up to the tab pager
-        // and you cross into the next main tab. With bounce on, the inner pager
-        // swallows the drag at its edge and rubber-bands instead.
         bounces={false}
         overScrollMode="never"
         onScroll={Animated.event(
@@ -351,102 +231,55 @@ export default function SocialScreen() {
         scrollEventThrottle={16}
         className="flex-1"
       >
-        {/* FEED PAGE */}
+        {/* PAGE 0: FEED */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
             <FeedSubTab
-              onOpenActivityModal={handleOpenActivityModal}
+              onOpenActivityModal={handleOpenActivity}
               onOpenAthleteProfile={handleOpenAthleteProfile}
+              onOpenAddFriends={() => {
+                Haptics.selectionAsync();
+                setAddFriendsModalVisible(true);
+              }}
             />
           </ScrollView>
         </View>
 
-        {/* MY LOG PAGE */}
+        {/* PAGE 1: LEADERBOARD (In-place switcher between Rooka Score & 7-Day Quests) */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
             contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
-          >
-            <MyLogSubTab onOpenActivityModal={handleOpenActivityModal} />
-          </ScrollView>
-        </View>
-
-        {/* LEADERBOARD - ROOKA SCORE PAGE */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
-            showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
             <LeaderboardSubTab
-              type="rooka"
-              scrollX={scrollX}
-              onSwitchType={handleLeaderboardSubTabPress}
               loading={leaderboardLoading}
               rookaLeaderboard={rookaLeaderboard}
               questLeaderboard={questLeaderboard}
               hasAccess={hasLeaderboardAccess}
               onOpenAthleteProfile={handleOpenAthleteProfile}
-              showSwitcher={false}
-            />
-          </ScrollView>
-        </View>
-
-        {/* LEADERBOARD - 7-DAY QUESTS PAGE */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: bottomInsetPadding }}
-            showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
-          >
-            <LeaderboardSubTab
-              type="quests"
-              scrollX={scrollX}
-              onSwitchType={handleLeaderboardSubTabPress}
-              loading={leaderboardLoading}
-              rookaLeaderboard={rookaLeaderboard}
-              questLeaderboard={questLeaderboard}
-              hasAccess={hasLeaderboardAccess}
-              onOpenAthleteProfile={handleOpenAthleteProfile}
-              showSwitcher={false}
+              showSwitcher={true}
             />
           </ScrollView>
         </View>
       </Animated.ScrollView>
 
-      {/* ACTIVITY DETAIL MODAL */}
-      <ActivityDetailModal
-        visible={modalVisible}
-        activityId={selectedActivityId}
-        initialActivity={selectedInitialActivity}
-        onClose={handleCloseActivityModal}
-        onOpenAthleteProfile={handleOpenAthleteProfile}
-      />
-
-      {/* ADD / SEARCH FRIENDS MODAL */}
+      {/* ADD / SEARCH FRIENDS MODAL (Action sheet for finding connections) */}
       <AddFriendsModal
         visible={addFriendsModalVisible}
         onClose={() => setAddFriendsModalVisible(false)}
         onOpenAthleteProfile={handleOpenAthleteProfile}
       />
-
-      {/* ATHLETE PUBLIC PROFILE MODAL */}
-      <AthleteProfileModal
-        visible={!!selectedAthleteId}
-        athleteId={selectedAthleteId}
-        onClose={() => setSelectedAthleteId(null)}
-        onOpenActivityModal={handleOpenActivityModal}
-      />
     </View>
   );
 }
-

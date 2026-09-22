@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
+import { ScalePressable } from '../ui/ScalePressable';
 import { useTheme } from '@/hooks/use-theme';
 import { recurringTrainingsApi } from '../../services/apiServices';
 import { RecurringTraining } from '../../types/user';
@@ -249,12 +250,14 @@ export const RecurringTrainingsCard: React.FC = () => {
                   Add Recurring Activity
                 </Text>
               </View>
-              <TouchableOpacity
+              <ScalePressable
                 onPress={() => setModalVisible(false)}
+                activeScale={0.9}
+                haptic="light"
                 className="p-1"
               >
                 <Ionicons name="close" size={20} color={theme.textSecondary} />
-              </TouchableOpacity>
+              </ScalePressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} className="pt-3">
@@ -265,14 +268,15 @@ export const RecurringTrainingsCard: React.FC = () => {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3.5">
                 <View className="flex-row gap-x-1.5">
                   {QUICK_ACTIVITIES.map((qa, i) => (
-                    <TouchableOpacity
+                    <ScalePressable
                       key={i}
                       onPress={() => handleSelectQuick(qa)}
-                      activeOpacity={0.7}
+                      activeScale={0.94}
+                      haptic="selection"
                       className="px-3 py-1.5 bg-theme-bg rounded-lg border border-theme-border/60"
                     >
                       <Text className="text-xs text-theme-text font-medium">{qa.title}</Text>
-                    </TouchableOpacity>
+                    </ScalePressable>
                   ))}
                 </View>
               </ScrollView>
@@ -297,13 +301,11 @@ export const RecurringTrainingsCard: React.FC = () => {
                 {DAYS.map((d) => {
                   const isSel = selectedDay === d;
                   return (
-                    <TouchableOpacity
+                    <ScalePressable
                       key={d}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setSelectedDay(d);
-                      }}
-                      activeOpacity={0.8}
+                      onPress={() => setSelectedDay(d)}
+                      activeScale={0.92}
+                      haptic="selection"
                       className={`px-2.5 py-2 rounded-xl border ${
                         isSel
                           ? 'bg-theme-accent border-theme-accent'
@@ -313,7 +315,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                       <Text className={`text-xs font-bold ${isSel ? 'text-white' : 'text-theme-text'}`}>
                         {d}
                       </Text>
-                    </TouchableOpacity>
+                    </ScalePressable>
                   );
                 })}
               </View>
@@ -389,11 +391,14 @@ export const RecurringTrainingsCard: React.FC = () => {
               />
 
               {/* Save Button */}
-              <TouchableOpacity
+              <ScalePressable
                 onPress={handleSaveActivity}
                 disabled={savingNew}
-                activeOpacity={0.8}
-                className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center shadow-md mb-6"
+                activeScale={0.96}
+                haptic="selection"
+                className={`w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center shadow-md mb-6 ${
+                  savingNew ? 'opacity-50' : ''
+                }`}
               >
                 {savingNew ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -402,7 +407,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                     Save Recurring Activity
                   </Text>
                 )}
-              </TouchableOpacity>
+              </ScalePressable>
             </ScrollView>
           </View>
         </View>

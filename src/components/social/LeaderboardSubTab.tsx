@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator, Animated, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useUser } from '../../context/UserStore';
 import { useRouter } from 'expo-router';
 import { socialApi } from '../../services/apiServices';
 import { LeaderboardEntry } from '../../types/social';
+import { LeaderboardSkeleton } from '../skeletons/LeaderboardSkeleton';
 
 /** Height of the switcher block, so a caller can animate it in without a jump. */
 export const LEADERBOARD_SWITCHER_HEIGHT = 46;
@@ -36,17 +37,71 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const subSegmentWidth = (SCREEN_WIDTH - 40 - 8) / 2;
 
-  // Pages 2 and 3 of the Social pager are the two leaderboards.
-  const track = (from: number, to: number) =>
-    scrollX
-      ? scrollX.interpolate({
-          inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-          outputRange: [from, to],
-          extrapolate: 'clamp',
-        })
-      : currentType === 'rooka'
-      ? from
-      : to;
+  const localAnim = useRef(new Animated.Value(currentType === 'rooka' ? 0 : 1)).current;
+
+  useEffect(() => {
+    Animated.spring(localAnim, {
+      toValue: currentType === 'rooka' ? 0 : 1,
+      damping: 20,
+      stiffness: 280,
+      useNativeDriver: false,
+    }).start();
+  }, [currentType, localAnim]);
+
+  const translateX = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [0, subSegmentWidth],
+        extrapolate: 'clamp',
+      })
+    : localAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, subSegmentWidth],
+      });
+
+  const rookaWhiteOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [1, 0],
+        extrapolate: 'clamp',
+      })
+    : localAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 0],
+      });
+
+  const rookaGreyOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+      })
+    : localAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+      });
+
+  const questsWhiteOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [0, 1],
+        extrapolate: 'clamp',
+      })
+    : localAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+      });
+
+  const questsGreyOpacity = scrollX
+    ? scrollX.interpolate({
+        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+        outputRange: [1, 0],
+        extrapolate: 'clamp',
+      })
+    : localAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 0],
+      });
 
   const handlePress = (type: 'rooka' | 'quests') => {
     Haptics.selectionAsync();
@@ -63,7 +118,7 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
         style={{
           left: 4,
           width: subSegmentWidth,
-          transform: [{ translateX: track(0, subSegmentWidth) }],
+          transform: [{ translateX }],
         }}
       />
 
@@ -73,13 +128,13 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
       >
         <View className="relative items-center justify-center">
           <Animated.Text
-            style={{ opacity: track(1, 0) }}
+            style={{ opacity: rookaWhiteOpacity }}
             className="text-xs font-extrabold text-white absolute"
           >
             rooka score
           </Animated.Text>
           <Animated.Text
-            style={{ opacity: track(0, 1) }}
+            style={{ opacity: rookaGreyOpacity }}
             className="text-xs font-extrabold text-theme-muted"
           >
             rooka score
@@ -93,13 +148,13 @@ export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = (
       >
         <View className="relative items-center justify-center">
           <Animated.Text
-            style={{ opacity: track(0, 1) }}
+            style={{ opacity: questsWhiteOpacity }}
             className="text-xs font-extrabold text-white absolute"
           >
             7-Day Quests
           </Animated.Text>
           <Animated.Text
-            style={{ opacity: track(1, 0) }}
+            style={{ opacity: questsGreyOpacity }}
             className="text-xs font-extrabold text-theme-muted"
           >
             7-Day Quests
@@ -229,10 +284,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
 
       {/* Leaderboard Ranks List */}
       {loading ? (
-        <View className="items-center justify-center p-8">
-          <ActivityIndicator size="large" color={theme.tint} />
-          <Text className="text-xs font-bold text-theme-muted mt-3">Fetching leaderboard rankings...</Text>
-        </View>
+        <LeaderboardSkeleton count={6} />
       ) : (
         activeList.map((item) => {
           const isCurrentUser = user?.id ? item.user_id === user.id : item.username === user?.username;

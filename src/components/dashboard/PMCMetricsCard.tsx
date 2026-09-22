@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SubscriptionTier } from '../../types/user';
 import { Sparkline } from '../common/Sparkline';
 import { useLanguage } from '../../context/LanguageContext';
+import { PMCMetricsSkeleton } from '../skeletons/PMCMetricsSkeleton';
 
 interface PMCMetricsProps {
   ctl?: number;
@@ -21,6 +22,7 @@ interface PMCMetricsProps {
   tsbHistory?: number[];
   weightHistory?: number[];
   tier?: SubscriptionTier;
+  loading?: boolean;
 }
 
 export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
@@ -36,9 +38,14 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
   tsbHistory = [],
   weightHistory = [],
   tier = 'free',
+  loading = false,
 }) => {
-    const theme = useTheme();
+  const theme = useTheme();
   const { t } = useLanguage();
+
+  if (loading) {
+    return <PMCMetricsSkeleton />;
+  }
 
   // With no sessions logged, CTL/ATL/TSB are all zero and every derived label
   // below is a statement about nothing. Track that explicitly so the card can

@@ -1,18 +1,25 @@
-import { TouchableOpacity, Text, TouchableOpacityProps, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { Text, ActivityIndicator } from 'react-native';
 import { BrandColors } from '@/constants/theme';
+import { ScalePressable, ScalePressableProps } from './ScalePressable';
 
-interface ButtonProps extends TouchableOpacityProps {
+export interface ButtonProps extends Omit<ScalePressableProps, 'children'> {
   label: string;
   variant?: 'primary' | 'secondary' | 'outline';
   isLoading?: boolean;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export function Button({ 
   label, 
   variant = 'primary', 
   isLoading = false, 
+  disabled = false,
   className = '', 
+  children,
+  activeScale = 0.96,
+  haptic = 'selection',
   ...props 
 }: ButtonProps) {
   
@@ -40,17 +47,28 @@ export function Button({
     }
   };
 
+  const isDisabled = Boolean(isLoading || disabled);
+
   return (
-    <TouchableOpacity 
-      className={`py-3.5 px-6 rounded-control flex-row items-center justify-center border ${getVariantClasses()} ${className}`}
-      disabled={isLoading || props.disabled}
+    <ScalePressable 
+      className={`py-3.5 px-6 rounded-control flex-row items-center justify-center border ${getVariantClasses()} ${isDisabled ? 'opacity-50' : ''} ${className}`}
+      disabled={isDisabled}
+      activeScale={activeScale}
+      haptic={haptic}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
       {...props}
     >
       {isLoading ? (
         <ActivityIndicator color={variant === 'primary' ? 'white' : BrandColors.primary} />
       ) : (
-        <Text className={`text-base text-center ${getTextClasses()}`}>{label}</Text>
+        <>
+          <Text className={`text-base text-center ${getTextClasses()}`}>{label}</Text>
+          {children}
+        </>
       )}
-    </TouchableOpacity>
+    </ScalePressable>
   );
 }
+
+export default Button;

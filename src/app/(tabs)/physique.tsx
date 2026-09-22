@@ -16,16 +16,19 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { RookaTab } from '../../components/progress/RookaTab';
 import { NutritionTab } from '../../components/progress/NutritionTab';
 import { HealthTab } from '../../components/progress/HealthTab';
+import { MyLogSubTab } from '../../components/social/MyLogSubTab';
+import { useRouter } from 'expo-router';
 
 import { useTabBar } from '../../context/TabBarContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
-const TABS = ['rooka', 'nutrition', 'health'] as const;
+const TABS = ['rooka', 'nutrition', 'health', 'mylog'] as const;
 type TabType = typeof TABS[number];
 
 export default function ProgressScreen() {
+  const router = useRouter();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { notifyScroll, notifyScrollEnd, tabBarOccupied } = useTabBar();
   const { t } = useLanguage();
@@ -35,11 +38,11 @@ export default function ProgressScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<TabType>('rooka');
 
-  const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 3;
+  const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 4;
 
   const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, segmentWidth, 2 * segmentWidth],
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [0, segmentWidth, 2 * segmentWidth, 3 * segmentWidth],
     extrapolate: 'clamp',
   });
 
@@ -55,26 +58,43 @@ export default function ProgressScreen() {
   });
 
   const nutritionWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, 1, 0],
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [0, 1, 0, 0],
     extrapolate: 'clamp',
   });
   const nutritionGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [1, 0, 1],
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [1, 0, 1, 1],
     extrapolate: 'clamp',
   });
 
   const healthWhiteOpacity = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [0, 1],
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [0, 0, 1, 0],
     extrapolate: 'clamp',
   });
   const healthGreyOpacity = scrollX.interpolate({
-    inputRange: [SCREEN_WIDTH, 2 * SCREEN_WIDTH],
-    outputRange: [1, 0],
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [1, 1, 0, 1],
     extrapolate: 'clamp',
   });
+
+  
+  const mylogWhiteOpacity = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [0, 0, 0, 1],
+    extrapolate: 'clamp',
+  });
+  const mylogGreyOpacity = scrollX.interpolate({
+    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
+    outputRange: [1, 1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const handleOpenActivity = (id: string | number) => {
+    Haptics.selectionAsync();
+    router.push({ pathname: '/activity/[id]', params: { id: String(id) } });
+  };
 
   const handleTabPress = (tabId: TabType) => {
     Haptics.selectionAsync();
@@ -156,7 +176,23 @@ export default function ProgressScreen() {
               </Animated.Text>
             </View>
           </TouchableOpacity>
+        
+          {/* MY LOG PILL */}
+          <TouchableOpacity
+            onPress={() => handleTabPress('mylog')}
+            className="flex-1 py-2.5 items-center justify-center z-10"
+          >
+            <View className="relative items-center justify-center">
+              <Animated.Text style={{ opacity: mylogWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
+                My Log
+              </Animated.Text>
+              <Animated.Text style={{ opacity: mylogGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
+                My Log
+              </Animated.Text>
+            </View>
+          </TouchableOpacity>
         </View>
+
       </View>
 
       {/* SWIPABLE HORIZONTAL PAGER VIEW */}
@@ -216,7 +252,20 @@ export default function ProgressScreen() {
             <HealthTab />
           </ScrollView>
         </View>
+      
+        {/* MY LOG PAGE */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <ScrollView
+            className="flex-1 px-5 pt-2"
+            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+          >
+            <MyLogSubTab onOpenActivityModal={handleOpenActivity} />
+          </ScrollView>
+        </View>
       </Animated.ScrollView>
     </View>
   );
 }
+

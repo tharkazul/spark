@@ -51,9 +51,10 @@ module.exports = {
       //   control -- input, button, chip, segmented-control track
       // Pills and avatars keep `rounded-full`; those aren't corners.
       borderRadius: {
-        card: '24px',
+        card: '20px',
         tile: '16px',
-        control: '12px',
+        control: '14px',
+        pill: '999px',
       },
       colors: {
         // The brand orange, and the only oranges. There were 8 near-identical

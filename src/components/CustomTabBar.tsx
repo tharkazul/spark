@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, useColorScheme, TouchableWithoutFeedback, Pressable, StyleSheet, DeviceEventEmitter, Modal, Animated as RNAnimated } from 'react-native';
+import { View, Text, useColorScheme, TouchableWithoutFeedback, Pressable, StyleSheet, DeviceEventEmitter, Modal, Animated as RNAnimated } from 'react-native';
 import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { BrandColors, accentAlpha } from '../constants/theme';
+import { GlassView } from 'expo-glass-effect';
 import { useTabBar } from '../context/TabBarContext';
 import { useCoachChat } from '../context/CoachChatStore';
 import { usePhysique } from '../context/PhysiqueStore';
 import { usePlan } from '../context/PlanStore';
 import { useKeyboardMotionContext } from '../context/KeyboardMotionContext';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import { ScalePressable } from './ui/ScalePressable';
 
 import { LogWeightModal } from './dashboard/LogWeightModal';
 import { AddWorkoutModal } from './dashboard/AddWorkoutModal';
@@ -231,9 +233,10 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
               pointerEvents="auto"
             >
               {/* Bubble 1: Log Weight */}
-              <TouchableOpacity
+              <ScalePressable
                 onPress={() => handleQuickAction('weight')}
-                activeOpacity={0.7}
+                activeScale={0.92}
+                haptic="light"
                 style={{
                   backgroundColor: bubbleBg,
                   borderColor: bubbleBorder,
@@ -246,21 +249,17 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                   gap: 4,
                   marginRight: 4,
                   marginBottom: 2,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.16,
-                  shadowRadius: 10,
-                  elevation: 8,
                 }}
               >
                 <Ionicons name="scale-outline" size={14} color="#F59E0B" />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Weight</Text>
-              </TouchableOpacity>
+              </ScalePressable>
 
               {/* Bubble 2: Add Workout */}
-              <TouchableOpacity
+              <ScalePressable
                 onPress={() => handleQuickAction('workout')}
-                activeOpacity={0.7}
+                activeScale={0.92}
+                haptic="light"
                 style={{
                   backgroundColor: bubbleBg,
                   borderColor: bubbleBorder,
@@ -273,21 +272,17 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                   gap: 4,
                   marginRight: 4,
                   marginBottom: 16,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.16,
-                  shadowRadius: 10,
-                  elevation: 8,
                 }}
               >
                 <Ionicons name="add-circle-outline" size={14} color={isDark ? BrandColors.accentDark : BrandColors.primary} />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Workout</Text>
-              </TouchableOpacity>
+              </ScalePressable>
 
               {/* Bubble 3: Log Activity */}
-              <TouchableOpacity
+              <ScalePressable
                 onPress={() => handleQuickAction('activity')}
-                activeOpacity={0.7}
+                activeScale={0.92}
+                haptic="light"
                 style={{
                   backgroundColor: bubbleBg,
                   borderColor: bubbleBorder,
@@ -300,21 +295,17 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                   gap: 4,
                   marginLeft: 4,
                   marginBottom: 16,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.16,
-                  shadowRadius: 10,
-                  elevation: 8,
                 }}
               >
                 <Ionicons name="fitness-outline" size={14} color="#10B981" />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Activity</Text>
-              </TouchableOpacity>
+              </ScalePressable>
 
               {/* Bubble 4: Log Injury */}
-              <TouchableOpacity
+              <ScalePressable
                 onPress={() => handleQuickAction('injury')}
-                activeOpacity={0.7}
+                activeScale={0.92}
+                haptic="light"
                 style={{
                   backgroundColor: bubbleBg,
                   borderColor: bubbleBorder,
@@ -327,16 +318,11 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                   gap: 4,
                   marginLeft: 4,
                   marginBottom: 2,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.16,
-                  shadowRadius: 10,
-                  elevation: 8,
                 }}
               >
                 <Ionicons name="bandage-outline" size={14} color="#EF4444" />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: textCol }}>Injury</Text>
-              </TouchableOpacity>
+              </ScalePressable>
             </Animated.View>
           </View>
         </View>
@@ -365,21 +351,23 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
               width: '85%',
               maxWidth: 380,
               height: TAB_BAR_HEIGHT,
-              backgroundColor: bgColor,
-              borderColor: borderColor,
-              borderWidth: 1,
-              borderRadius: 31,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-evenly',
               paddingHorizontal: 6,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.14,
-              shadowRadius: 16,
-              elevation: 6,
             }, animatedStyle]}
           >
+            {/* Background Blur Layer */}
+            <View style={[StyleSheet.absoluteFillObject, { 
+              backgroundColor: 'transparent',
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+              borderWidth: 1,
+              borderRadius: 31,
+              overflow: 'hidden'
+            }]}>
+              <GlassView colorScheme={isDark ? 'dark' : 'light'} glassEffectStyle="regular" style={StyleSheet.absoluteFillObject} />
+            </View>
+
             {/* Active pill. One element that slides, rather than a background
                 toggled per tab — the pill now follows the swipe the same way the
                 sub-tab indicators on Progress, Social and Profile do. It sits
@@ -453,7 +441,7 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
 
               if (isCenterButton) {
                 return (
-                  <TouchableOpacity
+                  <ScalePressable
                     key={route.key}
                     accessibilityRole="button"
                     accessibilityState={isFocused ? { selected: true } : {}}
@@ -462,6 +450,8 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                     onPress={onPress}
                     onLongPress={onLongPress}
                     delayLongPress={280}
+                    activeScale={0.92}
+                    haptic="selection"
                     style={{
                       flex: 1,
                       height: '100%',
@@ -478,13 +468,6 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginTop: -22,
-                        borderWidth: 4,
-                        borderColor: bgColor,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 6 },
-                        shadowOpacity: 0.2,
-                        shadowRadius: 8,
-                        elevation: 8,
                       }}
                     >
                       {(options.tabBarIcon as any) && (options.tabBarIcon as any)({ focused: isFocused, color: '#FFFFFF', size: 26 })}
@@ -503,11 +486,6 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                             borderColor: bgColor,
                             alignItems: 'center',
                             justifyContent: 'center',
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.25,
-                            shadowRadius: 3,
-                            elevation: 6,
                           }}
                         >
                           <Text
@@ -523,12 +501,12 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                         </View>
                       )}
                     </View>
-                  </TouchableOpacity>
+                  </ScalePressable>
                 );
               }
 
               return (
-                <TouchableOpacity
+                <ScalePressable
                   key={route.key}
                   accessibilityRole="button"
                   accessibilityState={isFocused ? { selected: true } : {}}
@@ -537,6 +515,8 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                   onPress={onPress}
                   onLongPress={onLongPress}
                   delayLongPress={280}
+                  activeScale={0.92}
+                  haptic="selection"
                   style={{
                     flex: 1,
                     height: '100%',
@@ -593,7 +573,7 @@ export function CustomTabBar({ state, descriptors, navigation, position }: Mater
                       </RNAnimated.View>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </ScalePressable>
               );
             })}
           </Animated.View>

@@ -572,129 +572,152 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const acceptProposal = async (messageId: string | number, plan: ProposedWorkoutItem[]) => {
+    let prevMessagesSnapshot: ChatMessage[] = [];
+    const confirmMsg: ChatMessage = {
+      id: `user-accept-${Date.now()}`,
+      content: `Accepted proposed plan changes!`,
+      role: 'user',
+      timestamp: new Date().toISOString(),
+    };
+    const ackMsg: ChatMessage = {
+      id: `coach-ack-${Date.now()}`,
+      content: `Awesome! I've updated your schedule. Let's make it count! 🚀`,
+      role: 'coach',
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => {
+      prevMessagesSnapshot = prev;
+      const updated: ChatMessage[] = prev.map((msg) =>
+        msg.id === messageId ? ({ ...msg, proposalStatus: 'accepted' } as ChatMessage) : msg
+      );
+      return [...updated, confirmMsg, ackMsg];
+    });
+
     try {
       await planApi.acceptSuggestion(plan);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, proposalStatus: 'accepted' } : msg
-        )
-      );
-
-      const confirmMsg: ChatMessage = {
-        id: `user-accept-${Date.now()}`,
-        content: `Accepted proposed plan changes!`,
-        role: 'user',
-        timestamp: new Date().toISOString(),
-      };
-      const ackMsg: ChatMessage = {
-        id: `coach-ack-${Date.now()}`,
-        content: `Awesome! I've updated your schedule. Let's make it count! 🚀`,
-        role: 'coach',
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, confirmMsg, ackMsg]);
       await refreshPlan();
     } catch (err) {
-      console.error('Failed to accept proposal:', err);
+      console.error('Failed to accept proposal, rolling back:', err);
+      setMessages(prevMessagesSnapshot);
+      throw err;
     }
   };
 
   const rejectProposal = (messageId: string | number) => {
     setMessages((prev) =>
       prev.map((msg) =>
-        msg.id === messageId ? { ...msg, proposalStatus: 'rejected' } : msg
+        msg.id === messageId ? ({ ...msg, proposalStatus: 'rejected' } as ChatMessage) : msg
       )
     );
   };
 
   const acceptInvite = async (inviteId: string) => {
+    let prevMessagesSnapshot: ChatMessage[] = [];
+    setMessages((prev) => {
+      prevMessagesSnapshot = prev;
+      return prev.map((msg) => {
+        const payload = msg.payload_json as any;
+        if (payload && (String(payload.invite_id) === String(inviteId) || String(payload.id) === String(inviteId))) {
+          return {
+            ...msg,
+            payload_json: { ...payload, status: 'accepted' },
+          };
+        }
+        return msg;
+      });
+    });
+
     try {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          const payload = msg.payload_json as any;
-          if (payload && (String(payload.invite_id) === String(inviteId) || String(payload.id) === String(inviteId))) {
-            return {
-              ...msg,
-              payload_json: { ...payload, status: 'accepted' },
-            };
-          }
-          return msg;
-        })
-      );
       await socialApi.acceptInvite(inviteId);
     } catch (e) {
-      console.error('Failed to accept invite:', e);
+      console.error('Failed to accept invite, rolling back:', e);
+      setMessages(prevMessagesSnapshot);
+      throw e;
     }
   };
 
   const declineInvite = async (inviteId: string) => {
+    let prevMessagesSnapshot: ChatMessage[] = [];
+    setMessages((prev) => {
+      prevMessagesSnapshot = prev;
+      return prev.map((msg) => {
+        const payload = msg.payload_json as any;
+        if (payload && (String(payload.invite_id) === String(inviteId) || String(payload.id) === String(inviteId))) {
+          return {
+            ...msg,
+            payload_json: { ...payload, status: 'declined' },
+          };
+        }
+        return msg;
+      });
+    });
+
     try {
-      setMessages((prev) =>
-        prev.map((msg) => {
-          const payload = msg.payload_json as any;
-          if (payload && (String(payload.invite_id) === String(inviteId) || String(payload.id) === String(inviteId))) {
-            return {
-              ...msg,
-              payload_json: { ...payload, status: 'declined' },
-            };
-          }
-          return msg;
-        })
-      );
       await socialApi.declineInvite(inviteId);
     } catch (e) {
-      console.error('Failed to decline invite:', e);
+      console.error('Failed to decline invite, rolling back:', e);
+      setMessages(prevMessagesSnapshot);
+      throw e;
     }
   };
 
   const acceptConnection = async (friendId: number | string) => {
+    let prevMessagesSnapshot: ChatMessage[] = [];
+    setMessages((prev) => {
+      prevMessagesSnapshot = prev;
+      return prev.map((msg) => {
+        const payload = msg.payload_json as any;
+        if (
+          payload &&
+          (String(payload.friend_id) === String(friendId) ||
+            String(payload.fromUserId) === String(friendId) ||
+            String(payload.id) === String(friendId))
+        ) {
+          return {
+            ...msg,
+            payload_json: { ...payload, status: 'accepted' },
+          };
+        }
+        return msg;
+      });
+    });
+
     try {
       await socialApi.acceptUser(friendId);
-      setMessages((prev) =>
-        prev.map((msg) => {
-          const payload = msg.payload_json as any;
-          if (
-            payload &&
-            (String(payload.friend_id) === String(friendId) ||
-              String(payload.fromUserId) === String(friendId) ||
-              String(payload.id) === String(friendId))
-          ) {
-            return {
-              ...msg,
-              payload_json: { ...payload, status: 'accepted' },
-            };
-          }
-          return msg;
-        })
-      );
     } catch (e) {
-      console.error('Failed to accept connection:', e);
+      console.error('Failed to accept connection, rolling back:', e);
+      setMessages(prevMessagesSnapshot);
       throw e;
     }
   };
 
   const declineConnection = async (friendId: number | string) => {
+    let prevMessagesSnapshot: ChatMessage[] = [];
+    setMessages((prev) => {
+      prevMessagesSnapshot = prev;
+      return prev.map((msg) => {
+        const payload = msg.payload_json as any;
+        if (
+          payload &&
+          (String(payload.friend_id) === String(friendId) ||
+            String(payload.fromUserId) === String(friendId) ||
+            String(payload.id) === String(friendId))
+        ) {
+          return {
+            ...msg,
+            payload_json: { ...payload, status: 'declined' },
+          };
+        }
+        return msg;
+      });
+    });
+
     try {
       await socialApi.declineUser(friendId);
-      setMessages((prev) =>
-        prev.map((msg) => {
-          const payload = msg.payload_json as any;
-          if (
-            payload &&
-            (String(payload.friend_id) === String(friendId) ||
-              String(payload.fromUserId) === String(friendId) ||
-              String(payload.id) === String(friendId))
-          ) {
-            return {
-              ...msg,
-              payload_json: { ...payload, status: 'declined' },
-            };
-          }
-          return msg;
-        })
-      );
     } catch (e) {
-      console.error('Failed to decline connection:', e);
+      console.error('Failed to decline connection, rolling back:', e);
+      setMessages(prevMessagesSnapshot);
       throw e;
     }
   };

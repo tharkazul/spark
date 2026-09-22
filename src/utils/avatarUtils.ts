@@ -58,3 +58,28 @@ export function getFullProfilePhotoUrl(path?: string | null): string | null {
   return `${API_BASE_URL}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`;
 }
 
+/**
+ * Resolves a chat image path (data:, file://, relative /api/images/chat/...) into an
+ * absolute URL that React Native Image can load, appending authentication token if required.
+ */
+export function resolveChatImageUrl(path?: string | null, token?: string | null): string {
+  if (!path || typeof path !== 'string' || !path.trim()) return '';
+  const trimmed = path.trim();
+  if (
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('file://') ||
+    trimmed.startsWith('content://')
+  ) {
+    return trimmed;
+  }
+  let fullUrl = trimmed;
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    fullUrl = `${API_BASE_URL}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`;
+  }
+  if (token && fullUrl.includes('/api/images/chat/') && !fullUrl.includes('token=')) {
+    const sep = fullUrl.includes('?') ? '&' : '?';
+    fullUrl = `${fullUrl}${sep}token=${encodeURIComponent(token)}`;
+  }
+  return fullUrl;
+}
+

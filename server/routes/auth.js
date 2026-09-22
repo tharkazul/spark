@@ -66,7 +66,7 @@ router.post("/login", (req, res) => {
           process.env.JWT_SECRET,
           { expiresIn: "30d" },
         );
-        db.run(`UPDATE users SET login_count = login_count + 1 WHERE id = ?`, [
+        db.run(`UPDATE users SET login_count = login_count + 1, last_active_at = CURRENT_TIMESTAMP WHERE id = ?`, [
           user.id,
         ]);
         res.json({ token, message: "Welcome to Rooka HQ" });
@@ -131,7 +131,7 @@ router.post("/apple", async (req, res) => {
             db.run(`UPDATE users SET email = ? WHERE id = ?`, [cleanEmail, existingUser.id]);
           }
 
-          db.run(`UPDATE users SET login_count = login_count + 1 WHERE id = ?`, [
+          db.run(`UPDATE users SET login_count = login_count + 1, last_active_at = CURRENT_TIMESTAMP WHERE id = ?`, [
             existingUser.id,
           ]);
 
@@ -293,7 +293,7 @@ router.post("/google", async (req, res) => {
             db.run(`UPDATE users SET profile_picture_url = ? WHERE id = ?`, [pictureUrl, existingUser.id]);
           }
 
-          db.run(`UPDATE users SET login_count = login_count + 1 WHERE id = ?`, [
+          db.run(`UPDATE users SET login_count = login_count + 1, last_active_at = CURRENT_TIMESTAMP WHERE id = ?`, [
             existingUser.id,
           ]);
 

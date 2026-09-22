@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
+import { ScalePressable } from './ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -179,13 +180,15 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       <Text className="text-xs font-bold text-theme-muted mb-2">Quick Presets</Text>
       <View className="flex-row flex-wrap gap-2 mb-4">
         {PRESETS.map((preset) => (
-          <TouchableOpacity
+          <ScalePressable
             key={preset.label}
             onPress={() => applyPreset(preset.months)}
+            activeScale={0.94}
+            haptic="selection"
             className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-control"
           >
             <Text className="text-xs font-bold text-theme-text">{preset.label}</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         ))}
       </View>
 
@@ -193,17 +196,19 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       <View className="flex-row items-center justify-between mb-3 bg-theme-card p-2 rounded-control">
         <Text className="text-xs font-bold text-theme-muted">Year</Text>
         <View className="flex-row items-center gap-3">
-          <TouchableOpacity
+          <ScalePressable
             onPress={() => stepYear(-1)}
             disabled={pickerYear <= floorYear}
+            activeScale={0.88}
+            haptic="light"
             className={`p-1 ${pickerYear <= floorYear ? 'opacity-30' : ''}`}
           >
             <Ionicons name="chevron-back" size={18} color={theme.tint} />
-          </TouchableOpacity>
+          </ScalePressable>
           <Text className="text-sm font-extrabold text-theme-text font-mono">{pickerYear}</Text>
-          <TouchableOpacity onPress={() => stepYear(1)} className="p-1">
+          <ScalePressable onPress={() => stepYear(1)} activeScale={0.88} haptic="light" className="p-1">
             <Ionicons name="chevron-forward" size={18} color={theme.tint} />
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
       </View>
 
@@ -213,9 +218,11 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
         {MONTH_NAMES.map((mName, idx) => {
           const isSelected = pickerMonth === idx;
           return (
-            <TouchableOpacity
+            <ScalePressable
               key={mName}
               onPress={() => selectMonth(idx)}
+              activeScale={0.94}
+              haptic="selection"
               className={`w-[23%] py-2 rounded-lg items-center ${
                 isSelected ? 'bg-theme-accent' : 'bg-theme-card border border-theme-border/50'
               }`}
@@ -223,7 +230,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
               <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-theme-text'}`}>
                 {mName}
               </Text>
-            </TouchableOpacity>
+            </ScalePressable>
           );
         })}
       </View>
@@ -234,9 +241,11 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
         {Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1).map((dNum) => {
           const isSelected = pickerDay === dNum;
           return (
-            <TouchableOpacity
+            <ScalePressable
               key={dNum}
               onPress={() => setPickerDay(dNum)}
+              activeScale={0.92}
+              haptic="selection"
               className={`w-10 h-10 rounded-xl items-center justify-center mr-2 border ${
                 isSelected
                   ? 'bg-theme-accent border-theme-accent'
@@ -246,21 +255,23 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
               <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-theme-text'}`}>
                 {dNum}
               </Text>
-            </TouchableOpacity>
+            </ScalePressable>
           );
         })}
       </ScrollView>
 
       {/* Confirm */}
-      <TouchableOpacity
+      <ScalePressable
         onPress={handleConfirm}
         disabled={isInPast}
+        activeScale={0.96}
+        haptic="selection"
         className={`bg-theme-accent py-3.5 rounded-xl items-center shadow-sm ${
           isInPast ? 'opacity-40' : ''
         }`}
       >
         <Text className="text-white font-bold text-sm">{confirmLabel}</Text>
-      </TouchableOpacity>
+      </ScalePressable>
     </BottomSheetModal>
   );
 };

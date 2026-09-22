@@ -4,6 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } fro
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
+import { ScalePressable } from '../ui/ScalePressable';
 import { zonesApi, ZoneBandDto } from '../../services/apiServices';
 
 /**
@@ -205,12 +206,11 @@ export function TrainingZonesCard() {
           const active = s === sport;
           const custom = s !== 'default' && overriddenSports.includes(s);
           return (
-            <TouchableOpacity
+            <ScalePressable
               key={s}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setSport(s);
-              }}
+              onPress={() => setSport(s)}
+              activeScale={0.93}
+              haptic="selection"
               className="flex-1 py-2 rounded-lg items-center justify-center border"
               style={
                 active
@@ -227,7 +227,7 @@ export function TrainingZonesCard() {
               {custom && !active ? (
                 <View className="w-1.5 h-1.5 rounded-full bg-theme-accent mt-1" />
               ) : null}
-            </TouchableOpacity>
+            </ScalePressable>
           );
         })}
       </View>
@@ -277,10 +277,14 @@ export function TrainingZonesCard() {
           )}
 
           <View className="flex-row gap-2">
-            <TouchableOpacity
+            <ScalePressable
               onPress={handleSave}
               disabled={saving}
-              className="flex-1 bg-theme-accent py-3 rounded-xl items-center justify-center"
+              activeScale={0.96}
+              haptic="selection"
+              className={`flex-1 bg-theme-accent py-3 rounded-xl items-center justify-center ${
+                saving ? 'opacity-50' : ''
+              }`}
             >
               {saving ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
@@ -289,16 +293,18 @@ export function TrainingZonesCard() {
                   {sport === 'default' ? 'Save zones' : `Save ${SPORT_LABEL[sport]} zones`}
                 </Text>
               )}
-            </TouchableOpacity>
+            </ScalePressable>
 
             {hasOverride && (
-              <TouchableOpacity
+              <ScalePressable
                 onPress={handleRemoveOverride}
                 disabled={saving}
+                activeScale={0.92}
+                haptic="warning"
                 className="px-4 py-3 rounded-xl items-center justify-center border border-theme-border"
               >
                 <Ionicons name="trash-outline" size={18} color="#EF4444" />
-              </TouchableOpacity>
+              </ScalePressable>
             )}
           </View>
         </View>

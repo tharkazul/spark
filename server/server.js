@@ -22,6 +22,7 @@ app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "adm
 app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "public", "privacy.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "public", "terms.html")));
 app.get("/support", (req, res) => res.sendFile(path.join(__dirname, "public", "support.html")));
+app.get("/status", (req, res) => res.status(200).json({ status: "healthy", service: "rooka-api", timestamp: new Date().toISOString() }));
 
 // Route modules
 const authRoutes = require("./routes/auth");
@@ -93,8 +94,8 @@ cron.schedule('0 0 * * *', () => {
   timezone: "Europe/Amsterdam"
 });
 
-// Schedule morning message to run every day at 08:00 AM (Europe/Amsterdam timezone)
-cron.schedule('0 8 * * *', () => {
+// Schedule morning message to run every day at 07:00 AM (Europe/Amsterdam timezone)
+cron.schedule('0 7 * * *', () => {
   sendMorningMessage();
 }, {
   scheduled: true,

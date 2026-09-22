@@ -12,6 +12,7 @@ interface ScreenHeaderTitleRowProps {
   dateLabel?: string;
   rightElement?: React.ReactNode;
   showCoachBadge?: boolean;
+  showDate?: boolean;
   unreadCount?: number;
   onCoachPress?: () => void;
 }
@@ -22,6 +23,7 @@ export function ScreenHeaderTitleRow({
   dateLabel,
   rightElement,
   showCoachBadge = true,
+  showDate = false,
   unreadCount,
   onCoachPress,
 }: ScreenHeaderTitleRowProps) {
@@ -70,10 +72,12 @@ export function ScreenHeaderTitleRow({
             </View>
           </TouchableOpacity>
         )}
-        <View className="flex-row items-center gap-1.5 py-1.5">
-          <Ionicons name="calendar-outline" size={13} color={theme.tint} />
-          <Text className="text-xs font-bold font-mono text-theme-muted">{formattedDate}</Text>
-        </View>
+        {showDate && (
+          <View className="flex-row items-center gap-1.5 py-1.5">
+            <Ionicons name="calendar-outline" size={13} color={theme.tint} />
+            <Text className="text-xs font-bold font-mono text-theme-muted">{formattedDate}</Text>
+          </View>
+        )}
       </View>
     </View>
   );

@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import { RookaPoints } from '../ui/RookaPoints';
 import { ProposedWorkoutItem } from '../../types/chat';
+import { ScalePressable } from '../ui/ScalePressable';
 
 interface WorkoutPillProps {
   workout: ProposedWorkoutItem;
@@ -39,16 +39,12 @@ export const WorkoutPill: React.FC<WorkoutPillProps> = ({ workout, onPress }) =>
   const dateLabel = formatWorkoutDate(workout?.date);
   const isRest = (workout?.sport || '').toLowerCase() === 'rest';
 
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPress?.(workout);
-  };
-
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={handlePress}
-      className="mt-2.5 px-3 py-2.5 rounded-2xl bg-theme-bg/80 border border-theme-border/80 flex-row items-center justify-between shadow-2xs active:scale-[0.99]"
+    <ScalePressable
+      activeScale={0.97}
+      haptic="light"
+      onPress={() => onPress?.(workout)}
+      className="mt-2.5 px-3 py-2.5 rounded-2xl bg-theme-bg/80 border border-theme-border/80 flex-row items-center justify-between shadow-2xs"
     >
       {/* Left icon + details */}
       <View className="flex-row items-center flex-1 mr-2.5">
@@ -93,6 +89,6 @@ export const WorkoutPill: React.FC<WorkoutPillProps> = ({ workout, onPress }) =>
         ) : null}
         <Ionicons name="chevron-forward" size={15} color={theme.textSecondary} />
       </View>
-    </TouchableOpacity>
+    </ScalePressable>
   );
 };

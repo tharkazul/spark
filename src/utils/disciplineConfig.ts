@@ -1,19 +1,8 @@
+import { ImageSourcePropType } from 'react-native';
 import { sportColor } from '../constants/theme';
 
 /**
- * The badge treatment for a sport: its label, glyph, and hue for the active
- * theme.
- *
- * This replaced four near-identical `getDisciplineConfig` functions declared
- * inside DetailedDayCard, TodaysPlanCard, MicroPlanAgendaCard and coach.tsx.
- * They had drifted apart, so the same session was a different colour depending
- * on which screen you looked at it from -- a bike was #4CAF6D on Planning,
- * #34D399 on Coach and #10B981 on the agenda. All of them also hardcoded the
- * light hue, so sport colours never changed in dark mode.
- *
- * Colours come back as values rather than Tailwind classes: a class string
- * cannot carry a runtime theme, which is what forced the hardcoding in the
- * first place.
+ * The badge treatment for a sport: its label, glyph, hue, and golden crest emblem.
  */
 export interface DisciplineConfig {
   /** Uppercase badge text, e.g. "SWIM". */
@@ -24,6 +13,29 @@ export interface DisciplineConfig {
   color: string;
   /** The same hue at 15%, for the badge background. */
   tint: string;
+  /** Branded golden crest emblem. */
+  emblem: ImageSourcePropType;
+}
+
+export const SPORT_EMBLEMS: Record<string, ImageSourcePropType> = {
+  RUN: require('../../assets/images/sports/run.png'),
+  BIKE: require('../../assets/images/sports/bike.png'),
+  RIDE: require('../../assets/images/sports/bike.png'),
+  SWIM: require('../../assets/images/sports/swim.png'),
+  STRENGTH: require('../../assets/images/sports/strength.png'),
+  MOBILITY: require('../../assets/images/sports/mobility.png'),
+  YOGA: require('../../assets/images/sports/mobility.png'),
+  WALK: require('../../assets/images/sports/hike.png'),
+  HIKE: require('../../assets/images/sports/hike.png'),
+  CARDIO: require('../../assets/images/sports/cardio.png'),
+  HIIT: require('../../assets/images/sports/cardio.png'),
+  TRIATHLON: require('../../assets/images/sports/triathlon.png'),
+  REST: require('../../assets/images/sports/rest.png'),
+};
+
+export function getSportEmblem(type: string | undefined): ImageSourcePropType {
+  const raw = String(type || 'REST').toUpperCase();
+  return SPORT_EMBLEMS[raw] || SPORT_EMBLEMS.REST;
 }
 
 const DISCIPLINES: Record<string, { label: string; icon: string }> = {
@@ -50,5 +62,7 @@ export function getDisciplineConfig(
   const raw = String(type || 'REST').toUpperCase();
   const key = raw in DISCIPLINES ? raw : 'REST';
   const color = sportColor(key, scheme);
-  return { ...DISCIPLINES[key], color, tint: `${color}26` };
+  const emblem = getSportEmblem(key);
+  return { ...DISCIPLINES[key], color, tint: `${color}26`, emblem };
 }
+

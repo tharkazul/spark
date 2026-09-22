@@ -3347,8 +3347,8 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   if (!force) {
     const nowAMS = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
     const currentHour = nowAMS.getHours();
-    if (currentHour < 8 || currentHour >= 13) {
-      return { skipped: true, reason: `Outside morning window (08:00 - 13:00, current hour in Amsterdam: ${currentHour})` };
+    if (currentHour < 7 || currentHour >= 13) {
+      return { skipped: true, reason: `Outside morning window (07:00 - 13:00, current hour in Amsterdam: ${currentHour})` };
     }
 
     const alreadyInteractedToday = await new Promise((resolve) => {

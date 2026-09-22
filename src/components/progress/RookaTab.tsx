@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Card } from '../ui/Card';
 import { RookaMark } from '../ui/RookaPoints';
 import { AthleteRadarChart } from './AthleteRadarChart';
@@ -22,6 +23,7 @@ import { calculatePMCMetrics } from '../../utils/pmcUtils';
 import { SeasonRoadmapCard } from '../dashboard/SeasonRoadmapCard';
 import { useSeasonGoal } from '../../hooks/use-season-goal';
 import { useLanguage } from '../../context/LanguageContext';
+import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
 
 interface RookaTabProps {
   levelInfo?: {
@@ -40,9 +42,9 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   const theme = useTheme();
   const { t } = useLanguage();
   const { user } = useUser();
-  const { activities } = useActivities();
-  const { physiqueLogs } = usePhysique();
-  const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
+  const { activities, loading: activitiesLoading } = useActivities();
+  const { physiqueLogs, loading: physiqueLoading } = usePhysique();
+  const { quests, loading: gamificationLoading, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
   const router = useRouter();
   const { presentPaywall } = useSubscription();
   const { hasSeasonGoal, seasonInfo } = useSeasonGoal();
@@ -201,6 +203,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         tsbHistory={pmcMetrics.tsbHistory}
         weightHistory={pmcMetrics.weightHistory}
         tier={user?.subscription_tier || 'free'}
+        loading={(activitiesLoading || physiqueLoading) && activities.length === 0}
       />
 
       {/* MACRO PHASE INFO */}
@@ -220,83 +223,99 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             </Text>
           </View>
 
-          {activeQuest ? (
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.selectionAsync();
-                setIsQuestModalOpen(true);
-              }}
-              activeOpacity={0.8}
-              className="bg-theme-bg/70 rounded-xl p-4"
+          {gamificationLoading && (!quests || quests.length === 0) ? (
+            <ActiveQuestSkeleton variant="full" />
+          ) : activeQuest ? (
+            <Animated.View
+              key={`active-${activeQuest.id || 'quest'}`}
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(150)}
+              layout={LinearTransition.springify().damping(16).stiffness(160)}
             >
-              <View className="flex-row justify-between items-start mb-1">
-                <Text className="text-sm font-bold text-theme-text flex-1 mr-2" numberOfLines={2}>
-                  {activeQuest.description || 'Active Weekly Quest'}
-                </Text>
-                <View className="bg-theme-accent/15 px-2 py-0.5 rounded-md">
-                  <View className="flex-row items-center gap-x-1">
-                    <Text className="text-[11px] font-mono font-bold text-theme-accent">
-                      +{Math.round(activeQuest.reward_points || 0)}
-                    </Text>
-                    <RookaMark size={11} color={theme.tint} />
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIsQuestModalOpen(true);
+                }}
+                activeOpacity={0.8}
+                className="bg-theme-bg/70 rounded-xl p-4"
+              >
+                <View className="flex-row justify-between items-start mb-1">
+                  <Text className="text-sm font-bold text-theme-text flex-1 mr-2" numberOfLines={2}>
+                    {activeQuest.description || 'Active Weekly Quest'}
+                  </Text>
+                  <View className="bg-theme-accent/15 px-2 py-0.5 rounded-md">
+                    <View className="flex-row items-center gap-x-1">
+                      <Text className="text-[11px] font-mono font-bold text-theme-accent">
+                        +{Math.round(activeQuest.reward_points || 0)}
+                      </Text>
+                      <RookaMark size={11} color={theme.tint} />
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              {/* Progress bar */}
-              <View className="my-2.5">
-                <View className="flex-row justify-between items-center mb-1">
-                  <Text className="text-xs text-theme-muted font-rajdhani">
-                    {currentVal} of {targetVal} {activeQuest.unit || ''}
-                  </Text>
-                  <Text className="text-xs font-bold text-theme-accent font-mono">
-                    {progressPercent}%
-                  </Text>
-                </View>
-                <View className="w-full h-2.5 bg-theme-card rounded-full overflow-hidden">
-                  <View
-                    style={{ width: `${progressPercent}%` }}
-                    className="h-full bg-theme-accent rounded-full"
-                  />
-                </View>
-              </View>
-
-              <View className="flex-row justify-between items-center pt-1">
-                <View className="flex-row items-center gap-x-1">
-                  <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
-                  <Text className="text-[11px] font-medium text-theme-muted">
-                    {activeQuest.time_remaining_str || 'Expires Sunday midnight'}
-                  </Text>
+                {/* Progress bar */}
+                <View className="my-2.5">
+                  <View className="flex-row justify-between items-center mb-1">
+                    <Text className="text-xs text-theme-muted font-rajdhani">
+                      {currentVal} of {targetVal} {activeQuest.unit || ''}
+                    </Text>
+                    <Text className="text-xs font-bold text-theme-accent font-mono">
+                      {progressPercent}%
+                    </Text>
+                  </View>
+                  <View className="w-full h-2.5 bg-theme-card rounded-full overflow-hidden">
+                    <View
+                      style={{ width: `${progressPercent}%` }}
+                      className="h-full bg-theme-accent rounded-full"
+                    />
+                  </View>
                 </View>
 
-                <View className="px-2.5 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg">
-                  <Text className="text-xs font-bold text-theme-accent">{t('dashboard.active')}</Text>
+                <View className="flex-row justify-between items-center pt-1">
+                  <View className="flex-row items-center gap-x-1">
+                    <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
+                    <Text className="text-[11px] font-medium text-theme-muted">
+                      {activeQuest.time_remaining_str || 'Expires Sunday midnight'}
+                    </Text>
+                  </View>
+
+                  <View className="px-2.5 py-1 bg-theme-accent/15 border border-theme-accent/30 rounded-lg">
+                    <Text className="text-xs font-bold text-theme-accent">{t('dashboard.active')}</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </Animated.View>
           ) : (
-            <TouchableOpacity
-              onPress={handleGenerateQuest}
-              disabled={questActionLoading}
-              activeOpacity={0.8}
-              className="bg-theme-bg/70 rounded-xl p-5 items-center justify-center"
+            <Animated.View
+              key="no-active-quest"
+              entering={FadeIn.duration(200)}
+              exiting={FadeOut.duration(150)}
+              layout={LinearTransition.springify().damping(16).stiffness(160)}
             >
-              <Ionicons name="trophy-outline" size={28} color={theme.tint} />
-              <Text className="text-sm font-bold text-theme-text mt-2">No Active Quest</Text>
-              <Text className="text-xs text-theme-muted mt-0.5 text-center">
-                Tap to start a new weekly fitness challenge
-              </Text>
-              <View className="mt-3 px-4 py-2 bg-theme-accent rounded-xl flex-row items-center gap-1.5">
-                {questActionLoading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <>
-                    <Ionicons name="add-circle-outline" size={16} color="white" />
-                    <Text className="text-xs font-bold text-white">Start Challenge</Text>
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleGenerateQuest}
+                disabled={questActionLoading}
+                activeOpacity={0.8}
+                className="bg-theme-bg/70 rounded-xl p-5 items-center justify-center"
+              >
+                <Ionicons name="trophy-outline" size={28} color={theme.tint} />
+                <Text className="text-sm font-bold text-theme-text mt-2">No Active Quest</Text>
+                <Text className="text-xs text-theme-muted mt-0.5 text-center">
+                  Tap to start a new weekly fitness challenge
+                </Text>
+                <View className="mt-3 px-4 py-2 bg-theme-accent rounded-xl flex-row items-center gap-1.5">
+                  {questActionLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <>
+                      <Ionicons name="add-circle-outline" size={16} color="white" />
+                      <Text className="text-xs font-bold text-white">Start Challenge</Text>
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
           )}
         </Card>
       ) : (

@@ -89,9 +89,12 @@ const STEP_TYPE_MAP = {
 const TARGET_TYPE_MAP = {
   "no.target": { id: 1, key: "no.target" },
   "power.zone": { id: 2, key: "power.zone" },
+  "power.exact": { id: 2, key: "power.zone" },
   "heart.rate.zone": { id: 4, key: "heart.rate.zone" },
   "speed.zone": { id: 5, key: "speed.zone" },
+  "speed.exact": { id: 5, key: "speed.zone" },
   "pace.zone": { id: 6, key: "pace.zone" },
+  "pace.exact": { id: 6, key: "pace.zone" },
 };
 
 const CONDITION_TYPE_MAP = {
@@ -866,11 +869,13 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
                 zoneNumber: subStep.zone ? parseInt(subStep.zone, 10) : null,
               };
               if (subStep.target_value) {
+                const targetValStr = String(subStep.target_value);
                 if (
-                  subStep.target_value.includes("min/km") ||
-                  subStep.target_type === "pace.exact"
+                  targetValStr.includes("min/km") ||
+                  subStep.target_type === "pace.exact" ||
+                  subStep.target_type === "pace.zone"
                 ) {
-                  const match = subStep.target_value.match(/(\d+):(\d+)/);
+                  const match = targetValStr.match(/(\d+)[:.](\d+)/);
                   if (match) {
                     const speedMs =
                       1000 /
@@ -883,8 +888,11 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
                     sDTO.targetValueTwo = speedMs * 1.05;
                     sDTO.zoneNumber = null;
                   }
-                } else if (subStep.target_value.toLowerCase().includes("w")) {
-                  const match = subStep.target_value.match(/(\d+)/);
+                } else if (
+                  targetValStr.toLowerCase().includes("w") ||
+                  subStep.target_type === "power.exact"
+                ) {
+                  const match = targetValStr.match(/(\d+)/);
                   if (match) {
                     const watts = parseInt(match[1], 10);
                     sDTO.targetType = {
@@ -951,11 +959,13 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
           zoneNumber: step.zone ? parseInt(step.zone, 10) : null,
         };
         if (step.target_value) {
+          const targetValStr = String(step.target_value);
           if (
-            step.target_value.includes("min/km") ||
-            step.target_type === "pace.exact"
+            targetValStr.includes("min/km") ||
+            step.target_type === "pace.exact" ||
+            step.target_type === "pace.zone"
           ) {
-            const match = step.target_value.match(/(\d+):(\d+)/);
+            const match = targetValStr.match(/(\d+)[:.](\d+)/);
             if (match) {
               const speedMs =
                 1000 / (parseInt(match[1], 10) * 60 + parseInt(match[2], 10));
@@ -967,8 +977,11 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
               stepDTO.targetValueTwo = speedMs * 1.05;
               stepDTO.zoneNumber = null;
             }
-          } else if (step.target_value.toLowerCase().includes("w")) {
-            const match = step.target_value.match(/(\d+)/);
+          } else if (
+            targetValStr.toLowerCase().includes("w") ||
+            step.target_type === "power.exact"
+          ) {
+            const match = targetValStr.match(/(\d+)/);
             if (match) {
               const watts = parseInt(match[1], 10);
               stepDTO.targetType = {
@@ -1121,6 +1134,156 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     return res
       .status(500)
       .json({ error: "Server sync failed", details: err.message });
+  }
+});
+
+/**
+ * Ingests biometrics and workouts collected directly from Apple HealthKit.
+ */
+router.post("/api/healthkit/sync", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { biometrics = [], workouts = [] } = req.body;
+
+  try {
+    let biometricsSynced = 0;
+    let workoutsSynced = 0;
+
+    // 1. Process Biometrics & Recovery Data
+    if (Array.isArray(biometrics) && biometrics.length > 0) {
+      const bioStmt = db.prepare(`
+        INSERT INTO biometrics (
+          user_id, date, weight_kg, body_fat_percent, resting_hr, avg_hr, hrv_sdnn,
+          sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, sleep_awake_minutes,
+          steps, active_calories, vo2_max
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, date) DO UPDATE SET
+          weight_kg = COALESCE(excluded.weight_kg, biometrics.weight_kg),
+          body_fat_percent = COALESCE(excluded.body_fat_percent, biometrics.body_fat_percent),
+          resting_hr = COALESCE(excluded.resting_hr, biometrics.resting_hr),
+          avg_hr = COALESCE(excluded.avg_hr, biometrics.avg_hr),
+          hrv_sdnn = COALESCE(excluded.hrv_sdnn, biometrics.hrv_sdnn),
+          sleep_minutes = COALESCE(excluded.sleep_minutes, biometrics.sleep_minutes),
+          sleep_deep_minutes = COALESCE(excluded.sleep_deep_minutes, biometrics.sleep_deep_minutes),
+          sleep_rem_minutes = COALESCE(excluded.sleep_rem_minutes, biometrics.sleep_rem_minutes),
+          sleep_core_minutes = COALESCE(excluded.sleep_core_minutes, biometrics.sleep_core_minutes),
+          sleep_awake_minutes = COALESCE(excluded.sleep_awake_minutes, biometrics.sleep_awake_minutes),
+          steps = COALESCE(excluded.steps, biometrics.steps),
+          active_calories = COALESCE(excluded.active_calories, biometrics.active_calories),
+          vo2_max = COALESCE(excluded.vo2_max, biometrics.vo2_max)
+      `);
+
+      for (const b of biometrics) {
+        if (!b.date) continue;
+        bioStmt.run(
+          userId,
+          b.date,
+          b.weight_kg ?? null,
+          b.body_fat_percent ?? null,
+          b.resting_hr ?? null,
+          b.avg_hr ?? null,
+          b.hrv_sdnn ?? null,
+          b.sleep_minutes ?? null,
+          b.sleep_deep_minutes ?? null,
+          b.sleep_rem_minutes ?? null,
+          b.sleep_core_minutes ?? null,
+          b.sleep_awake_minutes ?? null,
+          b.steps ?? null,
+          b.active_calories ?? null,
+          b.vo2_max ?? null,
+        );
+        biometricsSynced++;
+      }
+      bioStmt.finalize();
+    }
+
+    // 2. Process Workouts
+    if (Array.isArray(workouts) && workouts.length > 0) {
+      const athleteZoneRows = await new Promise((resolve) => {
+        db.all(`SELECT * FROM athlete_zones WHERE user_id = ?`, [userId], (err, rows) => {
+          resolve(rows || []);
+        });
+      });
+
+      for (const w of workouts) {
+        if (!w.external_id || !w.start_date) continue;
+
+        // Check if activity already exists from Strava or previous HealthKit sync
+        const existing = await new Promise((resolve) => {
+          db.get(
+            `SELECT id FROM activities 
+             WHERE user_id = ? 
+               AND (healthkit_workout_id = ? OR (substr(start_date, 1, 16) = substr(?, 1, 16) AND lower(sport_type) = lower(?)))`,
+            [userId, w.external_id, w.start_date, w.sport_type || 'Run'],
+            (err, row) => resolve(row),
+          );
+        });
+
+        if (existing) {
+          continue;
+        }
+
+        const sport = mapStravaSportToRooka ? mapStravaSportToRooka(w.sport_type || 'Run') : (w.sport_type || 'Run');
+        const movingTimeMin = Math.round(Number(w.duration_min) || 0);
+        const distanceKm = Math.round((Number(w.distance_km) || 0) * 100) / 100;
+        const avgHr = w.avg_heartrate ? Math.round(Number(w.avg_heartrate)) : null;
+        
+        let score = 0;
+        if (typeof calculateRookaScoreZoned === 'function' && avgHr) {
+          score = calculateRookaScoreZoned({
+            sport,
+            moving_time_min: movingTimeMin,
+            average_heartrate: avgHr,
+            athleteZones: athleteZoneRows,
+          });
+        } else if (typeof calculateRookaScore === 'function') {
+          score = calculateRookaScore(movingTimeMin, avgHr, sport);
+        } else {
+          score = movingTimeMin;
+        }
+
+        const actId = Date.now() + Math.floor(Math.random() * 1000);
+
+        await new Promise((resolve) => {
+          db.run(
+            `INSERT INTO activities (
+              id, user_id, name, sport_type, distance_km, elevation_m,
+              moving_time_min, average_heartrate, start_date, tss, rooka_score, healthkit_workout_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              actId,
+              userId,
+              w.name || `${sport} Workout`,
+              sport,
+              distanceKm,
+              w.elevation_m || 0,
+              movingTimeMin,
+              avgHr,
+              w.start_date,
+              score,
+              score,
+              w.external_id,
+            ],
+            () => resolve(),
+          );
+        });
+
+        workoutsSynced++;
+      }
+
+      if (workoutsSynced > 0 && typeof updateUserRookaAndCheckLevel === 'function') {
+        await updateUserRookaAndCheckLevel(userId);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Synced ${biometricsSynced} biometric record(s) and ${workoutsSynced} workout(s) from Apple Health!`,
+      biometricsSynced,
+      workoutsSynced,
+    });
+  } catch (err) {
+    console.error("HealthKit sync error:", err);
+    res.status(500).json({ error: "Failed to sync HealthKit data", details: err.message });
   }
 });
 

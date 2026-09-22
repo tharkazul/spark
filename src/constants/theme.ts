@@ -113,7 +113,7 @@ export const Colors = {
     background: '#F8FAFC',         // --bg-main
     card: '#FFFFFF',               // --bg-card
     border: '#E2E8F0',             // --border-color
-    tint: BrandColors.primary,               // --accent
+    tint: BrandColors.primary,     // --accent
     backgroundElement: '#F1F5F9',  // --gray-100
     backgroundSelected: '#E2E8F0', // --gray-200
   },
@@ -155,6 +155,15 @@ export const Fonts = Platform.select({
   },
 });
 
+/**
+ * 8-Point Spacing Grid Tokens
+ *
+ * Formalized 8-point rhythm per Rooka UI/UX Master Roadmap:
+ * - sm (8px): Inner pill padding, tag gaps, tight icon gaps.
+ * - md (16px): Card internal padding, horizontal screen margins/gutters.
+ * - lg (24px): Section breaks between grouped content blocks.
+ * - xl (32px): Modal headers, primary action button spacing, sticky footers.
+ */
 export const Spacing = {
   half: 2,
   one: 4,
@@ -163,6 +172,59 @@ export const Spacing = {
   four: 24,
   five: 32,
   six: 64,
+  // 8-point semantic aliases
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  xxxl: 64,
+} as const;
+
+/**
+ * Soft Corner Radii Tokens
+ *
+ * Modern soft corner radii vocabulary matching Tailwind config:
+ * - card (20px): Top-level cards, modal surfaces, interval builder containers.
+ * - tile (16px): Grid tiles, chat bubbles, nested step cards.
+ * - control (14px): Text inputs, buttons, chips, keypad buttons.
+ * - pill (999px): Filter pills, tag selectors, badge chips.
+ */
+export const Radii = {
+  card: 20,
+  tile: 16,
+  control: 14,
+  pill: 999,
+} as const;
+
+/**
+ * Diffuse Surface Elevation Tokens
+ *
+ * Soft diffuse shadows for deep obsidian surfaces rather than flat stacking.
+ */
+export const Elevation = {
+  card: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modal: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  control: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
-import { View, Text, TouchableOpacity, ActivityIndicator, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, useColorScheme, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { WorkoutItem, SportType } from '../../types/dashboard';
+import { WorkoutItem } from '../../types/dashboard';
 
 export interface DayAgenda {
   dayName: string; // e.g. 'MON', 'TUE'
@@ -184,7 +184,7 @@ export function MicroPlanAgendaCard({
                               style={{ backgroundColor: cfg.tint }}
                               className="px-2 py-0.5 rounded-md flex-row items-center gap-1 shrink min-w-0"
                             >
-                              <Ionicons name={cfg.icon as any} size={11} color={cfg.color} />
+                              <Image source={cfg.emblem} style={{ width: 12, height: 12 }} resizeMode="contain" />
                               <Text
                                 numberOfLines={1}
                                 style={{ color: cfg.color }}
@@ -198,7 +198,7 @@ export function MicroPlanAgendaCard({
                       </View>
                     ) : (
                       <View className="px-2 py-0.5 rounded-md bg-slate-700/20 flex-row items-center gap-1">
-                        <Ionicons name="moon-outline" size={11} color={theme.textSecondary} />
+                        <Image source={getDisciplineConfig('REST', scheme).emblem} style={{ width: 12, height: 12 }} resizeMode="contain" />
                         <Text className="text-xs font-bold text-slate-400">Rest / Recovery Day</Text>
                       </View>
                     )}
@@ -273,7 +273,7 @@ export function MicroPlanAgendaCard({
                   <View className="p-3 bg-theme-bg/30 gap-y-2.5">
                     {!hasWorkouts ? (
                       <View className="py-3 px-3.5 bg-theme-bg/40 rounded-xl flex-row items-center gap-2">
-                        <Ionicons name="moon-outline" size={16} color={theme.textSecondary} />
+                        <Image source={getDisciplineConfig('REST', scheme).emblem} style={{ width: 16, height: 16 }} resizeMode="contain" />
                         <Text className="text-xs font-bold text-theme-muted">Rest / Recovery Day</Text>
                       </View>
                     ) : (
@@ -297,7 +297,7 @@ export function MicroPlanAgendaCard({
                                 style={{ backgroundColor: cfg.tint }}
                                 className="px-2.5 py-0.5 rounded-md flex-row items-center gap-1.5"
                               >
-                                <Ionicons name={cfg.icon as any} size={13} color={cfg.color} />
+                                <Image source={cfg.emblem} style={{ width: 14, height: 14 }} resizeMode="contain" />
                                 <Text style={{ color: cfg.color }} className="text-xs font-extrabold">
                                   {cfg.label}
                                 </Text>

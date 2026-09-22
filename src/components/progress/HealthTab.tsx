@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
-import { AnatomicalBodyMap, ActiveNiggle, BODY_PARTS_LOOKUP } from './AnatomicalBodyMap';
+import { AnatomicalBodyMap, ActiveNiggle } from './AnatomicalBodyMap';
+import { NiggleCard } from '../health/NiggleCard';
 import { TrainingReadinessWidget } from './TrainingReadinessWidget';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
 import { MuscleFatigueCard } from './MuscleFatigueCard';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useHealth } from '../../context/HealthStore';
@@ -24,7 +23,6 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   onSaveNiggle,
   onResolveNiggle,
 }) => {
-    const theme = useTheme();
   const { niggles: storeNiggles, saveNiggle: storeSaveNiggle, resolveNiggle: storeResolveNiggle } = useHealth();
   const niggles = storeNiggles as ActiveNiggle[];
   const [modalVisible, setModalVisible] = useState(false);
@@ -77,25 +75,6 @@ export const HealthTab: React.FC<HealthTabProps> = ({
     if (modalVisible) setModalVisible(false);
   };
 
-  const getSeverityBadge = (sev: number) => {
-    let bg = 'bg-semantic-warning/15 text-semantic-warning';
-    let text = 'Severity 1 (Twinge)';
-
-    if (sev >= 4) {
-      bg = 'bg-semantic-error/15 text-semantic-error';
-      text = `Severity ${sev} (Severe)`;
-    } else if (sev >= 2) {
-      bg = 'bg-theme-accent/15 text-theme-accent';
-      text = `Severity ${sev} (Moderate)`;
-    }
-
-    return (
-      <View className={`px-2.5 py-1 rounded-full ${bg}`}>
-        <Text className="text-xs font-bold">{text}</Text>
-      </View>
-    );
-  };
-
   return (
     <View className="gap-y-4">
       {/* TRAINING READINESS GAUGE WIDGET */}
@@ -126,74 +105,13 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       <MuscleFatigueCard />
 
 
-      {/* ACTIVE ISSUES LIST */}
-      <Card className="mb-6 bg-theme-card">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xs font-bold text-theme-muted">
-            Active Issues Feed
-          </Text>
-          <TouchableOpacity
-            onPress={() => handleSelectBodyPart('left_calf', 'Left Calf')}
-            className="flex-row items-center gap-x-1"
-          >
-            <Ionicons name="add-circle-outline" size={16} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-accent">Log New</Text>
-          </TouchableOpacity>
-        </View>
-
-        {niggles.length === 0 ? (
-          <View className="py-6 items-center justify-center">
-            <Ionicons name="checkmark-circle-outline" size={36} color="#34C759" />
-            <Text className="text-sm font-bold text-theme-text mt-2">100% Healthy</Text>
-            <Text className="text-xs text-theme-muted mt-0.5">No active injuries or niggles reported.</Text>
-          </View>
-        ) : (
-          niggles.map((item) => (
-            <View
-              key={item.id}
-              className="bg-theme-bg/70 rounded-xl p-4 mb-3"
-            >
-              <View className="flex-row justify-between items-start mb-2">
-                <View className="flex-row items-center gap-x-2">
-                  <Ionicons name="fitness" size={18} color="#E3494F" />
-                  <Text className="text-sm font-extrabold text-theme-text capitalize">
-                    {BODY_PARTS_LOOKUP[item.body_part] || item.body_part.replace('_', ' ')}
-                  </Text>
-                </View>
-                {getSeverityBadge(item.severity)}
-              </View>
-
-              {item.notes ? (
-                <Text className="text-xs text-theme-muted mb-3 leading-4">
-                  &quot;{item.notes}&quot;
-                </Text>
-              ) : null}
-
-              <View className="flex-row justify-end gap-x-2 pt-2">
-                <TouchableOpacity
-                  onPress={() =>
-                    handleSelectBodyPart(
-                      item.body_part,
-                      BODY_PARTS_LOOKUP[item.body_part] || item.body_part
-                    )
-                  }
-                  className="px-3 py-1.5 bg-theme-bg rounded-lg"
-                >
-                  <Text className="text-xs font-bold text-theme-text">Edit</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => item.id && handleResolve(item.id)}
-                  className="px-3 py-1.5 bg-semantic-success/15 rounded-lg flex-row items-center gap-x-1"
-                >
-                  <Ionicons name="checkmark" size={14} color="#34C759" />
-                  <Text className="text-xs font-bold text-[#34C759]">Mark Resolved</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        )}
-      </Card>
+      {/* ACTIVE ISSUES FEED & HEALTHY EMPTY STATE */}
+      <NiggleCard
+        niggles={niggles}
+        onSelectBodyPart={handleSelectBodyPart}
+        onResolveNiggle={handleResolve}
+        onLogNew={() => handleSelectBodyPart('left_calf', 'Left Calf')}
+      />
 
       {/* NIGGLE LOGGING MODAL / BOTTOM SHEET */}
       <BottomSheetModal

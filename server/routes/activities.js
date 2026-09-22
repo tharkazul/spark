@@ -714,12 +714,26 @@ router.put("/api/micro-plan/:id", authenticateToken, (req, res) => {
 });
 
 router.delete("/api/micro-plan/:id", authenticateToken, (req, res) => {
+  const planId = req.params.id;
+  const numId = parseInt(planId, 10);
+
+  // Clean up any event invitations tied to this micro_plan workout
   db.run(
-    `DELETE FROM micro_plan WHERE id = ? AND user_id = ?`,
-    [req.params.id, req.user.id],
-    (err) => {
-      if (err) return res.status(500).json({ error: "Failed to delete plan" });
-      res.json({ success: true });
+    `DELETE FROM event_invitations WHERE micro_plan_id = ? OR micro_plan_id = ?`,
+    [planId, isNaN(numId) ? -1 : numId],
+    () => {
+      db.run(
+        `DELETE FROM micro_plan WHERE (id = ? OR id = ?) AND user_id = ?`,
+        [planId, isNaN(numId) ? -1 : numId, req.user.id],
+        function (err) {
+          if (err) {
+            console.error("DELETE /api/micro-plan/:id error:", err.message);
+            return res.status(500).json({ error: "Failed to delete plan" });
+          }
+          sendSSEEvent(req.user.id, "plan_updated", { deletedId: planId });
+          res.json({ success: true, changes: this.changes });
+        },
+      );
     },
   );
 });

@@ -4,6 +4,7 @@ import { View, Text, Modal, TouchableOpacity, Animated, Dimensions, StyleSheet }
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { Button } from '../ui/Button';
+import { ScalePressable } from '../ui/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -152,33 +153,41 @@ export function LogWeightModal({
 
               {/* Stepper Buttons Row */}
               <View className="flex-row items-center gap-3 mt-6">
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => adjustWeight(-1.0)}
+                  activeScale={0.92}
+                  haptic="light"
                   className="px-3.5 py-2 rounded-control bg-theme-card"
                 >
                   <Text className="text-xs font-mono font-bold text-theme-text">-1.0 kg</Text>
-                </TouchableOpacity>
+                </ScalePressable>
 
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => adjustWeight(-0.1)}
+                  activeScale={0.9}
+                  haptic="light"
                   className="w-10 h-10 rounded-xl bg-semantic-error/15 items-center justify-center"
                 >
                   <Ionicons name="remove" size={20} color="#F43F5E" />
-                </TouchableOpacity>
+                </ScalePressable>
 
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => adjustWeight(0.1)}
+                  activeScale={0.9}
+                  haptic="light"
                   className="w-10 h-10 rounded-xl bg-semantic-success/15 items-center justify-center"
                 >
                   <Ionicons name="add" size={20} color="#10B981" />
-                </TouchableOpacity>
+                </ScalePressable>
 
-                <TouchableOpacity
+                <ScalePressable
                   onPress={() => adjustWeight(1.0)}
+                  activeScale={0.92}
+                  haptic="light"
                   className="px-3.5 py-2 rounded-control bg-theme-card"
                 >
                   <Text className="text-xs font-mono font-bold text-theme-text">+1.0 kg</Text>
-                </TouchableOpacity>
+                </ScalePressable>
               </View>
             </View>
 

@@ -3,6 +3,7 @@ import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { WorkoutStep } from '../../types/plan';
 import { SportType } from '../../types/dashboard';
@@ -10,6 +11,7 @@ import { makeStepId } from '../../utils/stepId';
 import { StepCard } from '../workout/StepCard';
 import { CARD_COLORS } from '../workout/StepCard.styles';
 import { stepMultiplier } from '../../domain/rookaScore';
+import { ScalePressable } from '@/components/ui/ScalePressable';
 
 let DraggableFlatListComponent: any = FlatList;
 let ScaleDecorator: any = ({ children }: any) => <>{children}</>;
@@ -71,67 +73,95 @@ const MemoizedHeader = React.memo(({
           </Text>
 
           <View className="flex-row flex-wrap gap-2 mb-1">
-            <TouchableOpacity
+            <ScalePressable
               onPress={() => handleAddStep('warmup')}
-              activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              activeScale={0.95}
+              haptic="light"
+              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
             >
-              <Text className="text-xs font-bold text-semantic-success">+ Warmup</Text>
-            </TouchableOpacity>
+              <View className="w-2 h-2 rounded-full bg-emerald-500" />
+              <Text className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">+ Warmup</Text>
+            </ScalePressable>
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={() => handleAddStep('interval')}
-              activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              activeScale={0.95}
+              haptic="light"
+              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
             >
-              <Text className="text-xs font-bold text-semantic-info">+ Interval</Text>
-            </TouchableOpacity>
+              <View className="w-2 h-2 rounded-full bg-blue-500" />
+              <Text className="text-xs font-extrabold text-blue-600 dark:text-blue-400">+ Interval</Text>
+            </ScalePressable>
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={() => handleAddStep('recovery')}
-              activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              activeScale={0.95}
+              haptic="light"
+              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
             >
-              <Text className="text-xs font-bold text-semantic-warning">+ Recovery</Text>
-            </TouchableOpacity>
+              <View className="w-2 h-2 rounded-full bg-amber-500" />
+              <Text className="text-xs font-extrabold text-amber-600 dark:text-amber-400">+ Recovery</Text>
+            </ScalePressable>
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={() => handleAddStep('cooldown')}
-              activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1 shadow-xs"
+              activeScale={0.95}
+              haptic="light"
+              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
             >
-              <Text className="text-xs font-bold text-purple-600 dark:text-purple-400">+ Cooldown</Text>
-            </TouchableOpacity>
+              <View className="w-2 h-2 rounded-full bg-purple-500" />
+              <Text className="text-xs font-extrabold text-purple-600 dark:text-purple-400">+ Cooldown</Text>
+            </ScalePressable>
 
-            <TouchableOpacity
+            <ScalePressable
               onPress={handleAddRepeat}
-              activeOpacity={0.7}
-              className="px-3 py-1.5 bg-white dark:bg-theme-card border border-theme-border dark:border-theme-border rounded-control flex-row items-center gap-1.5 shadow-xs"
+              activeScale={0.95}
+              haptic="light"
+              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
             >
               <Ionicons name="repeat" size={13} color={BrandColors.primary} />
-              <Text className="text-xs font-bold text-theme-accent">Repeat</Text>
-            </TouchableOpacity>
+              <Text className="text-xs font-extrabold text-theme-accent">Repeat</Text>
+            </ScalePressable>
           </View>
 
           {stepsLength === 0 && (
-            <View className="py-4 items-center justify-center border border-dashed border-theme-border/80 rounded-tile bg-theme-card/50 mt-2">
-              <Text className="text-xs text-theme-muted italic font-bold">
-                No structured interval steps. Tap above to add blocks.
+            <Animated.View
+              entering={FadeIn.duration(180)}
+              exiting={FadeOut.duration(150)}
+              layout={LinearTransition.springify().damping(16).stiffness(160)}
+              className="py-6 px-4 items-center justify-center border border-dashed border-slate-300 dark:border-slate-700/80 rounded-2xl bg-slate-50/50 dark:bg-slate-900/40 mt-3"
+            >
+              <View className="w-10 h-10 rounded-full bg-theme-accent/10 dark:bg-theme-accent/20 items-center justify-center mb-2.5">
+                <Ionicons name="layers-outline" size={20} color={BrandColors.primary} />
+              </View>
+              <Text className="text-xs font-extrabold text-theme-text text-center mb-1">
+                Build Your Interval Structure
               </Text>
-            </View>
+              <Text className="text-[11px] text-theme-muted text-center max-w-[240px]">
+                Tap the blocks above to add warmup, work intervals, and recovery targets.
+              </Text>
+            </Animated.View>
           )}
         </View>
       </View>
 
       {/* Label for active step cards list */}
       {stepsLength > 0 && (
-        <Text className="text-xs font-extrabold text-theme-muted mb-2 px-1">
-          Configured Interval Steps
-        </Text>
+        <Animated.View
+          entering={FadeIn.duration(180)}
+          exiting={FadeOut.duration(150)}
+          layout={LinearTransition.springify().damping(16).stiffness(160)}
+        >
+          <Text className="text-xs font-extrabold text-theme-muted mb-2 px-1">
+            Configured Interval Steps
+          </Text>
+        </Animated.View>
       )}
     </>
   );
 });
+
+MemoizedHeader.displayName = 'MemoizedHeader';
 
 export function calculateWbRooka(steps: WorkoutStep[], isStrength: boolean, sport?: SportType | string): number {
   let totalRooka = 0;

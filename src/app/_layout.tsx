@@ -11,6 +11,7 @@ import { useUser } from '../context/UserStore';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { KeyboardMotionProvider } from '../context/KeyboardMotionContext';
 import { registerForPushNotificationsAsync, setupNotificationListeners } from '../services/notificationService';
+import { OfflineBanner } from '../components/ui/OfflineBanner';
 
 import { useFonts } from 'expo-font';
 import {
@@ -93,8 +94,25 @@ export default function RootLayout() {
           <KeyboardProvider>
             <KeyboardMotionProvider>
               <PushNotificationListener />
+              <OfflineBanner />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="activity/[id]"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    animation: 'slide_from_right',
+                  }}
+                />
+                <Stack.Screen
+                  name="athlete/[id]"
+                  options={{
+                    headerShown: false,
+                    presentation: 'card',
+                    animation: 'slide_from_right',
+                  }}
+                />
                 <Stack.Screen name="login" options={{ headerShown: false }} />
                 <Stack.Screen name="onboarding" options={{ headerShown: false }} />
               </Stack>
