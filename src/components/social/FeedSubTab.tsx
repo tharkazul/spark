@@ -1,17 +1,32 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { RookaMark } from '../ui/RookaPoints';
-import { formatPaceOrSpeed } from '../../utils/paceFormat';
-import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, RefreshControl, Pressable, DeviceEventEmitter } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withSpring,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+
+import { useTheme } from '@/hooks/use-theme';
+import { useLanguage } from '../../context/LanguageContext';
 import { socialApi } from '../../services/apiServices';
 import { wsService } from '../../services/websocket';
-import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
-import { getSportIconConfig } from '../../utils/sportIcons';
 import { SocialFeedActivity } from '../../types/social';
-import { FeedSkeleton } from '../skeletons/FeedSkeleton';
+import { formatPaceOrSpeed } from '../../utils/paceFormat';
+import { formatClock, formatDuration, formatRelativeDayAndTime, pluralize } from '../../utils/format';
+
+import { Card } from '../ui/Card';
+import { Chip } from '../ui/Chip';
+import { SportMedallion } from '../ui/SportMedallion';
+import { UserAvatar } from '../ui/UserAvatar';
+import { RoutePreview } from '../ui/RoutePreview';
 import { EmptyState } from '../ui/EmptyState';
+import { FeedSkeleton } from '../skeletons/FeedSkeleton';
 
 interface FeedSubTabProps {
   onOpenActivityModal?: (id: string | number, activity?: Partial<SocialFeedActivity>) => void;
@@ -25,93 +40,184 @@ interface FeedDayGroup {
   username: string;
   profile_picture_url?: string | null;
   rooka_level?: number;
+  equipped_title?: string;
   dateStr: string;
   totalRooka: number;
   activities: SocialFeedActivity[];
   isMultiSport: boolean;
 }
 
+/**
+ * Animated Bolt Kudos Ghost Button adhering to Rooka spec:
+ * Scale 1 to 1.25 to 1 with light haptics, fills with accent color.
+ */
+interface KudosButtonProps {
+  hasKudosed: boolean;
+  kudosCount: number;
+  onPress: () => void;
+}
+
+const KudosButton: React.FC<KudosButtonProps> = ({ hasKudosed, kudosCount, onPress }) => {
+  const theme = useTheme();
+  const reducedMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!reducedMotion) {
+      scale.value = withSequence(
+        withTiming(1.25, { duration: 120 }),
+        withSpring(1, { damping: 12, stiffness: 220 })
+      );
+    }
+    onPress();
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      className="flex-row items-center gap-x-1.5 py-1.5 px-2 rounded-button-md active:opacity-70"
+    >
+      <Animated.View style={animatedStyle}>
+        <Ionicons
+          name={hasKudosed ? 'flash' : 'flash-outline'}
+          size={18}
+          color={hasKudosed ? theme.tint : theme.textSecondary}
+        />
+      </Animated.View>
+      <Text
+        className={`text-sm font-bold font-rajdhani tabular-nums ${
+          hasKudosed ? 'text-theme-accent' : 'text-theme-muted'
+        }`}
+      >
+        {kudosCount}
+      </Text>
+    </Pressable>
+  );
+};
+
 export const FeedSubTab: React.FC<FeedSubTabProps> = ({
   onOpenActivityModal,
   onOpenAthleteProfile,
   onOpenAddFriends,
 }) => {
-    const theme = useTheme();
+  const theme = useTheme();
+  const { language } = useLanguage();
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [feedItems, setFeedItems] = useState<SocialFeedActivity[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const handledConnectionIdsRef = useRef<Set<string>>(new Set());
 
-  const fetchPending = async () => {
+  const fetchPending = useCallback(async () => {
     try {
       const res = await socialApi.getConnections();
       if (res && res.connections) {
-        const pending = res.connections.filter((c: any) => c.status === 'pending_received');
+        const pending = res.connections.filter(
+          (c: any) =>
+            c.status === 'pending_received' &&
+            !handledConnectionIdsRef.current.has(String(c.friend_id)) &&
+            !handledConnectionIdsRef.current.has(String(c.user_id))
+        );
         setPendingRequests(pending);
       }
     } catch {}
-  };
+  }, []);
+
+  const loadFeed = useCallback(async (isPullToRefresh = false) => {
+    if (isPullToRefresh) setRefreshing(true);
+    fetchPending();
+    try {
+      const res = await socialApi.getFeed();
+      if (res && Array.isArray(res.activities)) {
+        setFeedItems(res.activities);
+      }
+    } catch (err) {
+      console.log('Feed fetch error:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [fetchPending]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPending();
+    }, [fetchPending])
+  );
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadFeed = () => {
-      fetchPending();
-      return socialApi
-        .getFeed()
-        .then((res) => {
-          if (!isMounted) return;
-          if (res && Array.isArray(res.activities)) {
-            setFeedItems(res.activities);
-          }
-        })
-        .catch((err) => console.log('Feed fetch error:', err))
-        .finally(() => {
-          if (isMounted) setLoading(false);
-        });
-    };
-
     loadFeed();
 
+    const connSub = DeviceEventEmitter.addListener(
+      'connectionRequestUpdated',
+      ({ friendId, status }: { friendId: number | string; status: string }) => {
+        if (status === 'accepted' || status === 'declined') {
+          handledConnectionIdsRef.current.add(String(friendId));
+          setPendingRequests((prev) =>
+            prev.filter((r) => String(r.friend_id) !== String(friendId) && String(r.user_id) !== String(friendId))
+          );
+        }
+        fetchPending();
+      }
+    );
+
+    const connChangedSub = DeviceEventEmitter.addListener('socialConnectionsChanged', () => {
+      fetchPending();
+      loadFeed(false);
+    });
+
     const unsubs = [
-      wsService.subscribeToEvent('kudos_received', loadFeed),
-      wsService.subscribeToEvent('comment_received', loadFeed),
-      wsService.subscribeToEvent('connection_request', loadFeed),
-      wsService.subscribeToEvent('connection_accepted', loadFeed),
+      wsService.subscribeToEvent('kudos_received', () => loadFeed(false)),
+      wsService.subscribeToEvent('comment_received', () => loadFeed(false)),
+      wsService.subscribeToEvent('connection_request', () => {
+        fetchPending();
+        loadFeed(false);
+      }),
+      wsService.subscribeToEvent('connection_accepted', () => {
+        fetchPending();
+        loadFeed(false);
+      }),
     ];
 
     return () => {
-      isMounted = false;
+      connSub.remove();
+      connChangedSub.remove();
       unsubs.forEach((off) => off());
     };
-  }, []);
+  }, [loadFeed, fetchPending]);
 
-  const handleAcceptRequest = async (friendId: number) => {
+  const handleAcceptRequest = async (friendId: number | string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    handledConnectionIdsRef.current.add(String(friendId));
     const prevRequests = [...pendingRequests];
-    // Optimistically remove request from list
-    setPendingRequests((prev) => prev.filter((r) => r.friend_id !== friendId && r.user_id !== friendId));
+    setPendingRequests((prev) =>
+      prev.filter((r) => String(r.friend_id) !== String(friendId) && String(r.user_id) !== String(friendId))
+    );
 
     try {
       const res = await socialApi.acceptUser(friendId);
       if (res && res.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        socialApi.getFeed().then((feedRes) => {
-          if (feedRes && Array.isArray(feedRes.activities)) {
-            setFeedItems(feedRes.activities);
-          }
-        });
+        DeviceEventEmitter.emit('socialConnectionsChanged');
+        loadFeed(false);
       } else {
         throw new Error('Accept connection failed');
       }
     } catch (err) {
       console.error('Accept request error, rolling back:', err);
+      handledConnectionIdsRef.current.delete(String(friendId));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setPendingRequests(prevRequests);
     }
   };
 
   const handleToggleKudos = async (item: SocialFeedActivity) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const id = item.id;
     const prevHasKudosed = item.has_kudosed;
     const prevKudosCount = item.kudos_count;
@@ -166,7 +272,8 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
           username: act.username,
           profile_picture_url: act.profile_picture_url || (act as any).profilePictureUrl,
           rooka_level: act.rooka_level,
-          dateStr: dateKey,
+          equipped_title: act.equipped_title,
+          dateStr: act.start_date ? formatRelativeDayAndTime(act.start_date, language) : 'Recent',
           totalRooka: Math.round(act.rooka_score || 0),
           activities: [act],
           isMultiSport: false,
@@ -182,52 +289,46 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
     });
 
     return groups;
-  }, [feedItems]);
+  }, [feedItems, language]);
 
   if (loading && feedItems.length === 0 && pendingRequests.length === 0) {
     return <FeedSkeleton count={3} />;
   }
 
   return (
-    <View className="gap-y-3.5 pb-4">
+    <View className="gap-y-3 pb-4">
       {/* PENDING FRIEND REQUESTS BANNER */}
       {pendingRequests.length > 0 && (
-        <View className="bg-theme-accent/10 border border-theme-accent/30 rounded-2xl p-3.5 mb-3">
+        <Card variant="accent" padding={14} className="mb-2">
           <View className="flex-row items-center gap-x-2 mb-2.5">
             <Ionicons name="person-add" size={16} color={theme.tint} />
-            <Text className="text-xs font-extrabold text-theme-accent">
+            <Text className="text-xs font-bold text-theme-accent uppercase tracking-wider">
               Friend Requests ({pendingRequests.length})
             </Text>
           </View>
-          {pendingRequests.map((req) => {
-            const reqAvatarUri = getFullProfilePhotoUrl(req.profile_picture_url || req.profilePictureUrl);
-            return (
-              <View
-                key={`feed-req-${req.friend_id || req.user_id}`}
-                className="flex-row items-center justify-between bg-theme-card p-3 rounded-tile border border-theme-border/50 mb-1.5"
-              >
-                <View className="flex-row items-center gap-x-3">
-                  {reqAvatarUri ? (
-                    <Image source={{ uri: reqAvatarUri }} className="w-8 h-8 rounded-full border border-theme-accent/40" />
-                  ) : (
-                    <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-                      <Text className="text-xs font-extrabold text-theme-accent">
-                        {(req.username || 'A').charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <Text className="text-sm font-extrabold text-theme-text">{req.username}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleAcceptRequest(req.friend_id || req.user_id)}
-                  className="bg-semantic-success px-3.5 py-1.5 rounded-lg"
-                >
-                  <Text className="text-xs font-extrabold text-white">Accept</Text>
-                </TouchableOpacity>
+          {pendingRequests.map((req) => (
+            <View
+              key={`feed-req-${req.friend_id || req.user_id}`}
+              className="flex-row items-center justify-between bg-theme-bg p-2.5 rounded-inset mb-1.5"
+            >
+              <View className="flex-row items-center gap-x-2.5">
+                <UserAvatar
+                  size={32}
+                  photoUrl={req.profile_picture_url || req.profilePictureUrl}
+                  userId={req.friend_id || req.user_id}
+                  name={req.username}
+                />
+                <Text className="text-sm font-bold text-theme-text">{req.username}</Text>
               </View>
-            );
-          })}
-        </View>
+              <TouchableOpacity
+                onPress={() => handleAcceptRequest(req.friend_id || req.user_id)}
+                className="bg-emerald-600 px-3 py-1.5 rounded-button-md"
+              >
+                <Text className="text-xs font-bold text-white">Accept</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </Card>
       )}
 
       {groupedFeed.length === 0 ? (
@@ -250,25 +351,36 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
         />
       ) : (
         groupedFeed.map((group) => {
-          const itemAvatarUri = getFullProfilePhotoUrl(group.profile_picture_url);
           const primaryActivity = group.activities[0];
-          const primaryPace = formatPaceOrSpeed(
-            primaryActivity.distance_km,
-            primaryActivity.moving_time_min,
-            primaryActivity.sport_type,
-            primaryActivity.name || primaryActivity.title,
-          );
           const hasKudosed = group.activities.some((a) => a.has_kudosed);
           const totalKudos = group.activities.reduce((sum, a) => sum + (a.kudos_count || 0), 0);
           const totalComments = group.activities.reduce((sum, a) => sum + (a.comments_count || 0), 0);
+          const primaryMovingSec =
+            typeof (primaryActivity as any).moving_time_s === 'number' && (primaryActivity as any).moving_time_s > 0
+              ? (primaryActivity as any).moving_time_s
+              : typeof primaryActivity.moving_time === 'number' && primaryActivity.moving_time > 0
+              ? primaryActivity.moving_time
+              : (primaryActivity.moving_time_min || 0) * 60;
+
+          const primaryPace = formatPaceOrSpeed(
+            primaryActivity.distance_km,
+            primaryMovingSec,
+            primaryActivity.sport_type,
+            primaryActivity.name || (primaryActivity as any).title,
+            true
+          );
+
+          const hasDistance = typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0;
 
           return (
-            <View
+            <Card
               key={`feed-group-${group.id}`}
-              className="bg-theme-card rounded-card p-4 shadow-sm mb-3.5 border border-slate-100 dark:border-slate-800/60"
+              variant="default"
+              padding={16}
+              className="gap-y-3"
             >
-              {/* Tight Athlete Header */}
-              <View className="flex-row justify-between items-center mb-2.5">
+              {/* 1. ATHLETE HEADER ROW (48pt) */}
+              <View className="flex-row justify-between items-center">
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => {
@@ -278,130 +390,209 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                   }}
                   className="flex-row items-center flex-1 pr-2"
                 >
-                  {itemAvatarUri ? (
-                    <Image source={{ uri: itemAvatarUri }} className="w-10 h-10 rounded-full mr-3" />
-                  ) : (
-                    <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center mr-3">
-                      <Text className="text-sm font-extrabold text-theme-accent">
-                        {group.username ? group.username.charAt(0).toUpperCase() : 'A'}
-                      </Text>
-                    </View>
-                  )}
+                  <UserAvatar
+                    size={40}
+                    photoUrl={group.profile_picture_url}
+                    userId={group.user_id}
+                    name={group.username}
+                    className="mr-3"
+                  />
+
                   <View className="flex-1">
+                    {/* Line 1: Name + Level chip + Brick indicator */}
                     <View className="flex-row items-center gap-x-1.5 flex-wrap">
-                      <Text className="text-sm font-extrabold text-theme-text">{group.username}</Text>
+                      <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
+                        {group.username}
+                      </Text>
                       {group.rooka_level ? (
-                        <View className="px-1.5 py-0.2 bg-theme-accent/15 rounded">
-                          <Text className="text-xs font-extrabold text-theme-accent font-rajdhani">Lvl {group.rooka_level}</Text>
-                        </View>
+                        <Chip variant="neutral" size="sm" label={`Lvl ${group.rooka_level}`} />
                       ) : null}
                       {group.isMultiSport && (
-                        <View className="px-1.5 py-0.2 bg-theme-accent/15 rounded">
-                          <Text className="text-xs font-extrabold text-theme-accent">Brick ({group.activities.length})</Text>
-                        </View>
+                        <Chip
+                          variant="sport"
+                          sport="triathlon"
+                          size="sm"
+                          label={`Brick (${group.activities.length})`}
+                        />
                       )}
                     </View>
+
+                    {/* Line 2: Equipped Title in warm accent (if present) */}
+                    {group.equipped_title ? (
+                      <Text className="text-xs font-semibold text-theme-warm mt-0.5" numberOfLines={1}>
+                        {group.equipped_title}
+                      </Text>
+                    ) : null}
+
+                    {/* Line 3: Relative Timestamp e.g. "Today, 07:52" */}
                     <Text className="text-xs text-theme-muted mt-0.5">
                       {group.dateStr}
                     </Text>
                   </View>
                 </TouchableOpacity>
 
-                <View className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center">
-                  <RookaMark size={11} />
-                  <Text className="text-xs font-extrabold font-rajdhani text-theme-accent ml-1">
-                    +{group.totalRooka} rooka
-                  </Text>
-                </View>
+                {/* Right: Points chip (bolt + number, no word 'rooka') */}
+                <Chip variant="points" size="sm" label={`+${group.totalRooka}`} />
               </View>
 
-              {/* Workout Body: Single Activity or Multi-Activity Brick Stack */}
+              {/* 2. WORKOUT BODY: Single Activity or Multi-Activity Brick Stack */}
               {group.activities.length === 1 ? (
-                // Single Activity Card (Clean background, NO thick border)
+                // SINGLE ACTIVITY BLOCK
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={() => onOpenActivityModal && onOpenActivityModal(primaryActivity.id, primaryActivity)}
-                  className="bg-theme-bg p-3.5 rounded-xl mb-2.5"
+                  className="gap-y-2.5 pt-1"
                 >
-                  <View className="flex-row items-center justify-between mb-2">
-                    <View className="flex-row items-center gap-x-2 flex-1 pr-2">
-                      {(() => {
-                        const iconConfig = getSportIconConfig(primaryActivity.sport_type, primaryActivity.name || primaryActivity.title);
-                        return (
-                          <View className={`w-7 h-7 rounded-lg items-center justify-center ${iconConfig.bgColor}`}>
-                            <Ionicons name={iconConfig.name as any} size={15} color={iconConfig.color} />
-                          </View>
-                        );
-                      })()}
-                      <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
+                  {/* Title line: 40pt SportMedallion + title + chevron */}
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-x-2.5 flex-1 pr-2">
+                      <SportMedallion sport={primaryActivity.sport_type} size={40} />
+                      <Text className="text-base font-bold text-theme-text flex-1" numberOfLines={1}>
                         {primaryActivity.name || primaryActivity.title || 'Workout'}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
+                    <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
                   </View>
 
-                  <View className="flex-row items-center gap-x-4 pt-1.5 border border-theme-border/50">
-                    {typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 && (
-                      <View>
-                        <Text className="text-xs text-theme-muted font-bold uppercase">Distance</Text>
-                        <Text className="text-sm font-extrabold font-mono text-theme-text">{primaryActivity.distance_km.toFixed(1)} km</Text>
+                  {/* Metrics and Route block */}
+                  {primaryActivity.polyline ? (
+                    // Split view: Metrics left, Map right
+                    <View className="flex-row mt-3 mb-1">
+                      <View className="flex-col w-[35%] justify-between space-y-3">
+                        <View>
+                          <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                            {primaryActivity.distance_km?.toFixed(1) || '0.0'}
+                            <Text className="text-xs font-medium text-theme-muted"> km</Text>
+                          </Text>
+                          <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                            DISTANCE
+                          </Text>
+                        </View>
+                        <View>
+                          <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                            {formatClock(primaryMovingSec)}
+                          </Text>
+                          <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                            TIME
+                          </Text>
+                        </View>
+                        <View>
+                          <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                            {primaryPace || '--'}
+                          </Text>
+                          <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                            {primaryPace?.endsWith('km/h') ? 'SPEED' : 'PACE'}
+                          </Text>
+                        </View>
                       </View>
-                    )}
-                    {typeof primaryActivity.moving_time_min === 'number' && primaryActivity.moving_time_min > 0 && (
-                      <View className={typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0 ? 'pl-4 border-l border-theme-border/60' : ''}>
-                        <Text className="text-xs text-theme-muted font-bold uppercase">Duration</Text>
-                        <Text className="text-sm font-extrabold font-mono text-theme-text">{Math.round(primaryActivity.moving_time_min)} mins</Text>
+                      <View className="flex-1 pl-2 justify-center items-center">
+                        <RoutePreview
+                          polyline={primaryActivity.polyline}
+                          height={160}
+                          strokeWidth={4}
+                        />
                       </View>
-                    )}
-                    {/* Distance and duration alone told a runner nothing about
-                        how the session actually went. Unit follows the sport. */}
-                    {primaryPace && (
-                      <View className="pl-4 border-l border-theme-border/60">
-                        <Text className="text-xs text-theme-muted font-bold uppercase">
-                          {primaryPace.endsWith('km/h') ? 'Speed' : 'Pace'}
+                    </View>
+                  ) : hasDistance ? (
+                    // No map, but has distance -> horizontal 3 columns
+                    <View className="flex-row justify-between items-start pt-3 pb-1">
+                      {/* Metric 1: Distance */}
+                      <View className="flex-1">
+                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                          {primaryActivity.distance_km?.toFixed(1) || '0.0'}
+                          <Text className="text-xs font-medium text-theme-muted"> km</Text>
                         </Text>
-                        <Text className="text-sm font-extrabold font-mono text-theme-text">{primaryPace}</Text>
+                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                          DISTANCE
+                        </Text>
                       </View>
-                    )}
-                  </View>
+
+                      {/* Metric 2: Time */}
+                      <View className="flex-1 items-center">
+                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                          {formatClock(primaryMovingSec)}
+                        </Text>
+                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                          TIME
+                        </Text>
+                      </View>
+
+                      {/* Metric 3: Pace or Speed */}
+                      <View className="flex-1 items-end">
+                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                          {primaryPace || '--'}
+                        </Text>
+                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                          {primaryPace?.endsWith('km/h') ? 'SPEED' : 'PACE'}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    // Activities without distance (Strength, Mobility, Yoga)
+                    <View className="flex-row justify-between items-start pt-3 pb-1">
+                      <View className="flex-1">
+                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                          {formatDuration(primaryActivity.moving_time_min || 0)}
+                        </Text>
+                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                          DURATION
+                        </Text>
+                      </View>
+
+                      <View className="flex-1 items-end">
+                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
+                          +{Math.round(primaryActivity.rooka_score || 0)}
+                        </Text>
+                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
+                          EFFORT
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </TouchableOpacity>
               ) : (
-                // Multi-Activity Stack (Brick Session / Triathlons)
-                <View className="gap-y-1.5 mb-2.5">
+                // MULTI-ACTIVITY STACK (Brick Session)
+                <View className="pt-1">
                   {group.activities.map((act, actIdx) => {
-                    const iconConfig = getSportIconConfig(act.sport_type, act.name || act.title);
+                    const actMovingSec =
+                      typeof (act as any).moving_time_s === 'number' && (act as any).moving_time_s > 0
+                        ? (act as any).moving_time_s
+                        : typeof act.moving_time === 'number' && act.moving_time > 0
+                        ? act.moving_time
+                        : (act.moving_time_min || 0) * 60;
+
+                    const actPace = formatPaceOrSpeed(
+                      act.distance_km,
+                      actMovingSec,
+                      act.sport_type,
+                      act.name || act.title,
+                      true
+                    );
+
                     return (
                       <TouchableOpacity
                         key={`brick-act-${act.id}-${actIdx}`}
                         activeOpacity={0.8}
                         onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
-                        className="bg-theme-bg p-2.5 rounded-xl flex-row items-center justify-between"
+                        className={`py-3 flex-row items-center justify-between ${
+                          actIdx > 0 ? 'border-t border-theme-border/60' : ''
+                        }`}
                       >
                         <View className="flex-row items-center gap-x-2.5 flex-1 pr-2">
-                          <View className={`w-7 h-7 rounded-lg items-center justify-center ${iconConfig.bgColor}`}>
-                            <Ionicons name={iconConfig.name as any} size={15} color={iconConfig.color} />
-                          </View>
+                          <SportMedallion sport={act.sport_type} size={28} />
                           <View className="flex-1">
-                            <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
+                            <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                               {act.name || act.title || 'Workout'}
                             </Text>
-                            <Text className="text-xs text-theme-muted font-medium">
+                            <Text className="text-xs text-theme-muted font-medium font-rajdhani tabular-nums">
                               {[
                                 typeof act.distance_km === 'number' && act.distance_km > 0
-                                  ? `${act.distance_km.toFixed(1)} km`
+                                  ? `${act.distance_km.toFixed(1)}\u00A0km`
                                   : null,
                                 typeof act.moving_time_min === 'number' && act.moving_time_min > 0
-                                  ? `${Math.round(act.moving_time_min)} mins`
+                                  ? `${Math.round(act.moving_time_min)}\u00A0min`
                                   : null,
-                                // Pace was missing entirely, which for a runner
-                                // is the one number that matters. Unit follows
-                                // the sport; omitted when it has no meaning.
-                                formatPaceOrSpeed(
-                                  act.distance_km,
-                                  act.moving_time_min,
-                                  act.sport_type,
-                                  act.name || act.title,
-                                ),
+                                actPace,
                               ]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -409,11 +600,9 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                           </View>
                         </View>
 
-                        <View className="flex-row items-center gap-x-1.5">
-                          <Text className="text-xs font-extrabold font-rajdhani text-theme-accent">
-                            +{Math.round(act.rooka_score || 0)}
-                          </Text>
-                          <Ionicons name="chevron-forward" size={13} color={theme.textSecondary} />
+                        <View className="flex-row items-center gap-x-2">
+                          <Chip variant="points" size="sm" label={`+${Math.round(act.rooka_score || 0)}`} />
+                          <Ionicons name="chevron-forward" size={14} color={theme.textSecondary} />
                         </View>
                       </TouchableOpacity>
                     );
@@ -421,39 +610,29 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                 </View>
               )}
 
-              {/* Footer Actions */}
-              <View className="flex-row items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
-                <TouchableOpacity
+              {/* 3. FOOTER ACTIONS (44pt, hairline above, ghost buttons) */}
+              <View className="flex-row items-center justify-between pt-2 border-t border-theme-border/60">
+                <KudosButton
+                  hasKudosed={hasKudosed}
+                  kudosCount={totalKudos}
                   onPress={() => handleToggleKudos(primaryActivity)}
-                  className={`flex-row items-center gap-x-1.5 px-3 py-1.5 rounded-full ${
-                    hasKudosed ? 'bg-theme-accent/15' : 'bg-theme-bg'
-                  }`}
-                >
-                  <Ionicons
-                    name={hasKudosed ? 'flash' : 'flash-outline'}
-                    size={15}
-                    color={hasKudosed ? theme.tint : '#6F6F79'}
-                  />
-                  <Text className={`text-xs font-extrabold font-mono ${hasKudosed ? 'text-theme-accent' : 'text-theme-muted'}`}>
-                    {totalKudos}
-                  </Text>
-                </TouchableOpacity>
+                />
 
                 <TouchableOpacity
+                  activeOpacity={0.7}
                   onPress={() => onOpenActivityModal && onOpenActivityModal(primaryActivity.id, primaryActivity)}
-                  className="flex-row items-center gap-x-1.5 px-3 py-1.5 rounded-full bg-theme-bg"
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  className="flex-row items-center gap-x-1.5 py-1.5 px-2 rounded-button-md active:opacity-70"
                 >
-                  <Ionicons name="chatbubble-outline" size={15} color={theme.textSecondary} />
-                  {/* "0 Comments" as a button label read as a broken counter.
-                      Show the count only once there is one, and pluralise it. */}
-                  <Text className="text-xs font-bold text-theme-muted">
+                  <Ionicons name="chatbubble-outline" size={17} color={theme.textSecondary} />
+                  <Text className="text-xs font-semibold text-theme-muted">
                     {totalComments > 0
-                      ? `${totalComments} ${totalComments === 1 ? 'Comment' : 'Comments'}`
+                      ? pluralize('comment', totalComments, language)
                       : 'Comment'}
                   </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Card>
           );
         })
       )}
