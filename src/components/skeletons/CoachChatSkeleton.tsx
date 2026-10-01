@@ -8,7 +8,7 @@ export function CoachChatSkeleton() {
       {/* 1. Coach Greeting Message Bubble */}
       <View className="flex-row items-end gap-x-2.5 max-w-[85%]">
         <Skeleton.Circle size={32} />
-        <View className="bg-theme-card border border-theme-border/50 rounded-2xl rounded-bl-sm p-4 gap-y-2 flex-1 shadow-sm">
+        <View className="bg-theme-card border border-theme-border/50 rounded-2xl rounded-bl-sm p-4 gap-y-2 flex-1">
           <Skeleton.Line width="90%" height={14} />
           <Skeleton.Line width="75%" height={14} />
           <Skeleton.Line width="40%" height={14} />
@@ -24,7 +24,7 @@ export function CoachChatSkeleton() {
       {/* 3. Coach Suggestion / Workout Card Bubble */}
       <View className="flex-row items-end gap-x-2.5 max-w-[90%]">
         <Skeleton.Circle size={32} />
-        <View className="bg-theme-card border border-theme-border/50 rounded-2xl rounded-bl-sm p-4 gap-y-3 flex-1 shadow-sm">
+        <View className="bg-theme-card border border-theme-border/50 rounded-2xl rounded-bl-sm p-4 gap-y-3 flex-1">
           <Skeleton.Line width="80%" height={14} />
           
           {/* Nested Workout Card Placeholder */}

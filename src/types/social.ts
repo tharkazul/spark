@@ -10,6 +10,10 @@ export interface SocialFeedActivity {
   sport_type: string;
   distance_km?: number;
   moving_time_min?: number;
+  moving_time?: number;
+  moving_time_s?: number;
+  elapsed_time?: number;
+  elapsed_time_s?: number;
   rooka_score: number;
   kudos_count: number;
   comments_count: number;
@@ -21,6 +25,10 @@ export interface SocialFeedActivity {
   average_heartrate?: number;
   max_heartrate?: number;
   average_power_w?: number;
+  equipped_title?: string;
+  is_hidden?: number | boolean;
+  linked_activity_id?: number | string | null;
+  linked_activity_name?: string | null;
 }
 
 export interface ActivityComment {

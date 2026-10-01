@@ -144,8 +144,8 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
 
       {/* INPUT FIELD */}
       <View
-        className={`flex-row items-center bg-theme-bg dark:bg-slate-800/70 rounded-xl p-1.5 ${
-          isFocused ? 'border-[1.5px] border-[#0F172A] dark:border-white' : 'border border-transparent'
+        className={`flex-row items-center bg-theme-inset rounded-control p-1 border ${
+          isFocused ? 'border-theme-accent' : 'border-theme-border'
         }`}
       >
         <TextInput
@@ -156,14 +156,14 @@ export const CommentComposer: React.FC<CommentComposerProps> = ({
           placeholder={placeholder}
           placeholderTextColor={theme.textSecondary}
           multiline
-          className="flex-1 px-3 py-2 text-sm font-semibold text-theme-text max-h-24"
+          className="flex-1 px-3 py-2 text-sm font-medium text-theme-text max-h-24"
         />
 
         <TouchableOpacity
           onPress={handleSend}
           disabled={!text.trim() || sending}
-          className={`w-9 h-9 rounded-lg items-center justify-center ${
-            text.trim() && !sending ? 'bg-theme-accent' : 'bg-slate-300 dark:bg-slate-700'
+          className={`w-9 h-9 rounded-button-md items-center justify-center ${
+            text.trim() && !sending ? 'bg-theme-accent-strong' : 'bg-theme-border opacity-50'
           }`}
         >
           {sending ? (

@@ -15,7 +15,7 @@ export function TodaysPlanSkeleton() {
       </View>
 
       {/* Workout Card Container */}
-      <View className="p-3.5 bg-theme-card border border-theme-border/60 rounded-card shadow-sm">
+      <View className="p-3.5 bg-theme-card border border-theme-border/60 rounded-card">
         <View className="flex-row items-center justify-between">
           {/* Left: Sport Icon + Title & Duration */}
           <View className="flex-row items-center gap-3 flex-1 mr-3">

@@ -210,6 +210,26 @@ router.post('/finalize', authenticateToken, async (req, res) => {
     dateOfBirth
   } = req.body;
 
+  const DEFAULT_AVAILABILITY = {
+    Mon: { available: true, maxMinutes: 60 },
+    Tue: { available: true, maxMinutes: 60 },
+    Wed: { available: true, maxMinutes: 60 },
+    Thu: { available: true, maxMinutes: 60 },
+    Fri: { available: true, maxMinutes: 60 },
+    Sat: { available: true, maxMinutes: 90 },
+    Sun: { available: true, maxMinutes: 60 }
+  };
+
+  const hasAvailability = trainingAvailability && (
+    typeof trainingAvailability === 'object'
+      ? Object.keys(trainingAvailability).length > 0
+      : String(trainingAvailability).trim().length > 2
+  );
+  const resolvedAvailability = hasAvailability ? trainingAvailability : DEFAULT_AVAILABILITY;
+  const resolvedAthleteContext = (athleteContext && athleteContext.trim().length > 0)
+    ? athleteContext.trim()
+    : (targetEvent ? `Endurance athlete preparing for ${targetEvent}.` : 'Endurance athlete.');
+
   // Seed training zones FIRST, before the "already onboarded" guard below.
   // Zones are what every Rooka score is weighted by, and existing athletes have
   // none — so a returning user must be able to acquire them without their plan
@@ -328,8 +348,8 @@ router.post('/finalize', authenticateToken, async (req, res) => {
         `UPDATE users SET coach_tone = ?, athlete_context = ?, training_availability = ?, gender = ?, language = ?, onboarding_completed = 1, subscription_tier = ?, daily_token_limit = ? WHERE id = ?`,
         [
           coachTone || 'Empathetic but demanding elite endurance coach.',
-          athleteContext || 'Endurance athlete.',
-          typeof trainingAvailability === 'object' ? JSON.stringify(trainingAvailability) : (trainingAvailability || null),
+          resolvedAthleteContext,
+          typeof resolvedAvailability === 'object' ? JSON.stringify(resolvedAvailability) : resolvedAvailability,
           gender || 'Prefer not to say',
           selectedLang,
           subTier,
@@ -343,8 +363,8 @@ router.post('/finalize', authenticateToken, async (req, res) => {
               `UPDATE users SET coach_tone = ?, athlete_context = ?, training_availability = ?, gender = ?, language = ?, subscription_tier = ?, daily_token_limit = ? WHERE id = ?`,
               [
                 coachTone || 'Empathetic but demanding elite endurance coach.',
-                athleteContext || 'Endurance athlete.',
-                typeof trainingAvailability === 'object' ? JSON.stringify(trainingAvailability) : (trainingAvailability || null),
+                resolvedAthleteContext,
+                typeof resolvedAvailability === 'object' ? JSON.stringify(resolvedAvailability) : resolvedAvailability,
                 gender || 'Prefer not to say',
                 selectedLang,
                 subTier,

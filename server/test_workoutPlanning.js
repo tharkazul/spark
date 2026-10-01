@@ -1,6 +1,7 @@
 const assert = require("assert");
 const {
   getUpcomingWeekMonToSun,
+  getCurrentWeekMonToSun,
   buildFallbackPlan,
 } = require("./services/workoutPlanning");
 
@@ -25,6 +26,22 @@ console.log("🏃 Running Workout Planning unit tests...\n");
     "2026-09-20",
   ], "Dates must match Monday through Sunday");
   console.log("✅ Test 1 Passed: Sunday correctly yields upcoming Mon-Sun");
+}
+
+// Test 1b: getCurrentWeekMonToSun on a Monday and Sunday
+{
+  // 2026-09-28 is a Monday
+  const monday = new Date("2026-09-28T09:00:00Z");
+  const currentWeek = getCurrentWeekMonToSun(monday);
+  assert.strictEqual(currentWeek.mondayStr, "2026-09-28");
+  assert.strictEqual(currentWeek.sundayStr, "2026-10-04");
+
+  // 2026-10-04 is Sunday of that same week
+  const sunday = new Date("2026-10-04T20:00:00Z");
+  const sameWeek = getCurrentWeekMonToSun(sunday);
+  assert.strictEqual(sameWeek.mondayStr, "2026-09-28");
+  assert.strictEqual(sameWeek.sundayStr, "2026-10-04");
+  console.log("✅ Test 1b Passed: getCurrentWeekMonToSun correctly yields current Mon-Sun");
 }
 
 // Test 2: getUpcomingWeekMonToSun on a Monday
@@ -135,5 +152,55 @@ console.log("🏃 Running Workout Planning unit tests...\n");
   db.run(`DELETE FROM chat_history WHERE user_id = ?`, [testUser.id]);
   console.log("✅ Test 7 Passed: sendInactiveUserWeeklyPlanInquiry sends personalized, localized coach inquiry");
 
-  console.log("\n🎉 All 7 Workout Planning unit tests passed successfully!");
+  // Test 8: Fix the "2 min swim" bug: A 30-minute swim with "200m warm-up" in notes must yield 30 mins, never 2 mins
+  {
+    const { calculateWorkoutDurationMinutes } = require("./services/workoutPlanning");
+
+    // Case A: Title has "30-Min EVF & Pull Technique" and notes mention "200m warm-up"
+    const swimA = {
+      sport: "Swim",
+      title: "30-Min EVF & Pull Technique",
+      details: "200m warm-up on easy pace, then 6x100m EVF drills, 200m cool-down.",
+      steps_json: "[]",
+    };
+    const durA = calculateWorkoutDurationMinutes(swimA);
+    assert.strictEqual(durA, 30, `Expected 30 mins for swim with 30-Min title, but got ${durA}`);
+
+    // Case B: Explicit planned duration provided
+    const swimB = {
+      sport: "Swim",
+      title: "EVF & Pull Technique",
+      duration: 30,
+      details: "200m warm-up with pull buoy.",
+    };
+    const durB = calculateWorkoutDurationMinutes(swimB);
+    assert.strictEqual(durB, 30, `Expected 30 mins for explicit duration, but got ${durB}`);
+
+    // Case C: Details has "30 min swim" and "200m warm-up"
+    const swimC = {
+      sport: "Swim",
+      title: "Technique Focus",
+      details: "Planned 30 min swim session starting with 200m warm-up.",
+    };
+    const durC = calculateWorkoutDurationMinutes(swimC);
+    assert.strictEqual(durC, 30, `Expected 30 mins from details, but got ${durC}`);
+
+    // Case D: Distance steps in swim (200m warmup + 1000m main + 200m cooldown)
+    const swimD = {
+      sport: "Swim",
+      title: "Swim Aerobic",
+      steps_json: JSON.stringify([
+        { type: "warmup", condition_type: "distance", condition_value: 200 },
+        { type: "interval", condition_type: "distance", condition_value: 1000 },
+        { type: "cooldown", condition_type: "distance", condition_value: 200 },
+      ]),
+    };
+    const durD = calculateWorkoutDurationMinutes(swimD);
+    assert.ok(durD >= 20 && durD <= 35, `Expected ~25 mins for 1400m swim, got ${durD}`);
+    assert.notStrictEqual(durD, 2, "Swim must never mistakenly calculate as 2 mins!");
+
+    console.log("✅ Test 8 Passed: 30-minute swim duration correctly resolved without 2-min bug");
+  }
+
+  console.log("\n🎉 All 8 Workout Planning unit tests passed successfully!");
 })();

@@ -330,9 +330,14 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
           type: row.sport_type || "Workout",
           sport_type: row.sport_type || "Workout",
           distance: (row.distance_km || 0) * 1000,
-          moving_time: (row.moving_time_min || 0) * 60,
-          elapsed_time: (row.moving_time_min || 0) * 60,
+          distance_km: row.distance_km || 0,
+          moving_time: Math.round((row.moving_time_min || 0) * 60),
+          moving_time_s: Math.round((row.moving_time_min || 0) * 60),
+          elapsed_time: Math.round((row.moving_time_min || 0) * 60),
+          elapsed_time_s: Math.round((row.moving_time_min || 0) * 60),
+          moving_time_min: row.moving_time_min || 0,
           total_elevation_gain: row.elevation_m || 0,
+          elevation_m: row.elevation_m || 0,
           average_heartrate: row.average_heartrate || 0,
           has_heartrate: row.average_heartrate > 0,
           suffer_score: Math.round(row.rooka_score || row.tss || 0),
@@ -346,6 +351,10 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
           polyline: row.polyline || null,
           average_watts: row.average_watts || null,
           max_heartrate: row.max_heartrate || null,
+          user_id: row.user_id,
+          is_hidden: row.is_hidden || 0,
+          linked_activity_id: row.linked_activity_id || null,
+          linked_activity_name: row.linked_activity_name || null,
         };
         return res.json(fallbackData);
       }
@@ -429,7 +438,19 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
           );
         }
 
-        res.json(activityData);
+        db.get(
+          `SELECT user_id, is_hidden, linked_activity_id, linked_activity_name FROM activities WHERE user_id = ? AND (id = ? OR strava_activity_id = ?)`,
+          [req.user.id, activityId, String(activityId)],
+          (dbErr, aRow) => {
+            if (aRow) {
+              activityData.user_id = aRow.user_id;
+              activityData.is_hidden = aRow.is_hidden || 0;
+              activityData.linked_activity_id = aRow.linked_activity_id || null;
+              activityData.linked_activity_name = aRow.linked_activity_name || null;
+            }
+            res.json(activityData);
+          }
+        );
       } catch (err) {
         console.error("Single Activity Fetch Error:", err);
         fallbackToLocalDB(500, "Failed to fetch activity details.");
@@ -440,7 +461,7 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
 
 router.get("/api/dashboard-data", authenticateToken, (req, res) => {
   db.all(
-    `SELECT substr(start_date, 1, 10) as date, sport_type, SUM(rooka_score) as daily_rooka FROM activities WHERE user_id = ? GROUP BY date, sport_type ORDER BY date ASC`,
+    `SELECT substr(start_date, 1, 10) as date, sport_type, SUM(rooka_score) as daily_rooka FROM activities WHERE user_id = ? AND (is_hidden IS NULL OR is_hidden = 0) GROUP BY date, sport_type ORDER BY date ASC`,
     [req.user.id],
     (err, rows) => {
       if (!rows) return res.json([]);
@@ -463,11 +484,251 @@ router.get("/api/dashboard-data", authenticateToken, (req, res) => {
 
 router.get("/api/history", authenticateToken, (req, res) => {
   db.all(
-    `SELECT id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate, average_watts, max_heartrate, elevation_m, polyline FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 50`,
+    `SELECT id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate, average_watts, max_heartrate, elevation_m, polyline, is_hidden, linked_activity_id, linked_activity_name 
+     FROM activities 
+     WHERE user_id = ? AND (is_hidden IS NULL OR is_hidden = 0) 
+     ORDER BY start_date DESC LIMIT 50`,
     [req.user.id],
     (err, rows) => {
+      if (rows) {
+        rows.forEach((r) => {
+          if (r.moving_time_min !== undefined && r.moving_time_min !== null) {
+            r.moving_time_s = Math.round(r.moving_time_min * 60);
+            r.elapsed_time_s = Math.round(r.moving_time_min * 60);
+            r.moving_time = r.moving_time_s;
+          }
+        });
+      }
       res.json(rows || []);
     },
+  );
+});
+
+// --- ACTIVITY LINKING & DEDUPLICATION ENDPOINTS ---
+router.get("/api/activities/:id/candidates-to-link", authenticateToken, (req, res) => {
+  const activityId = req.params.id;
+  db.get(
+    `SELECT * FROM activities WHERE (id = ? OR strava_activity_id = ?) AND user_id = ?`,
+    [activityId, String(activityId), req.user.id],
+    (err, target) => {
+      if (err || !target) {
+        return res.status(404).json({ error: "Target activity not found." });
+      }
+      const targetDate = target.start_date ? target.start_date.substring(0, 10) : "";
+      if (!targetDate) {
+        return res.json({ candidates: [] });
+      }
+      db.all(
+        `SELECT id, user_id, name, sport_type, distance_km, moving_time_min, average_heartrate, max_heartrate, average_watts, elevation_m, polyline, rooka_score, start_date 
+         FROM activities 
+         WHERE user_id = ? 
+           AND id != ? 
+           AND (strava_activity_id IS NULL OR strava_activity_id != ?)
+           AND (is_hidden IS NULL OR is_hidden = 0)
+           AND substr(start_date, 1, 10) = ?
+         ORDER BY start_date DESC`,
+        [req.user.id, target.id, String(target.id), targetDate],
+        (cErr, candidates) => {
+          if (cErr) {
+            return res.status(500).json({ error: "Failed to fetch candidate activities." });
+          }
+          res.json({ candidates: candidates || [] });
+        }
+      );
+    }
+  );
+});
+
+router.post("/api/activities/:id/link", authenticateToken, async (req, res) => {
+  const targetId = req.params.id;
+  const { sourceActivityId } = req.body;
+
+  if (!sourceActivityId) {
+    return res.status(400).json({ error: "sourceActivityId is required." });
+  }
+
+  // Fetch target activity
+  db.get(
+    `SELECT * FROM activities WHERE (id = ? OR strava_activity_id = ?) AND user_id = ?`,
+    [targetId, String(targetId), req.user.id],
+    (tErr, target) => {
+      if (tErr || !target) {
+        return res.status(404).json({ error: "Target activity not found." });
+      }
+
+      // Fetch source activity
+      db.get(
+        `SELECT * FROM activities WHERE (id = ? OR strava_activity_id = ?) AND user_id = ?`,
+        [sourceActivityId, String(sourceActivityId), req.user.id],
+        (sErr, source) => {
+          if (sErr || !source) {
+            return res.status(404).json({ error: "Source activity not found." });
+          }
+
+          if (target.id === source.id) {
+            return res.status(400).json({ error: "Cannot link an activity to itself." });
+          }
+
+          // Merge telemetry from source to target
+          const newDistance = (source.distance_km && source.distance_km > 0) ? source.distance_km : target.distance_km;
+          const newMovingTime = (source.moving_time_min && source.moving_time_min > 0) ? source.moving_time_min : target.moving_time_min;
+          const newAvgHr = source.average_heartrate || target.average_heartrate || null;
+          const newMaxHr = source.max_heartrate || target.max_heartrate || null;
+          const newWatts = source.average_watts || target.average_watts || null;
+          const newElevation = source.elevation_m || target.elevation_m || 0;
+          const newPolyline = source.polyline || target.polyline || null;
+          const newLaps = source.laps_json || target.laps_json || null;
+          const newStravaId = source.strava_activity_id || target.strava_activity_id || null;
+
+          db.run(
+            `UPDATE activities SET 
+               distance_km = ?,
+               moving_time_min = ?,
+               average_heartrate = ?,
+               max_heartrate = ?,
+               average_watts = ?,
+               elevation_m = ?,
+               polyline = ?,
+               laps_json = ?,
+               strava_activity_id = ?,
+               linked_activity_id = ?,
+               linked_activity_name = ?
+             WHERE id = ?`,
+            [
+              newDistance,
+              newMovingTime,
+              newAvgHr,
+              newMaxHr,
+              newWatts,
+              newElevation,
+              newPolyline,
+              newLaps,
+              newStravaId,
+              source.id,
+              source.name || "Synced Session",
+              target.id
+            ],
+            (updateTargetErr) => {
+              if (updateTargetErr) {
+                return res.status(500).json({ error: "Failed to update target activity with telemetry." });
+              }
+
+              // Hide source activity and set score to 0
+              db.run(
+                `UPDATE activities SET is_hidden = 1, rooka_score = 0, linked_activity_id = ? WHERE id = ?`,
+                [target.id, source.id],
+                (hideSourceErr) => {
+                  if (hideSourceErr) {
+                    return res.status(500).json({ error: "Failed to hide source activity." });
+                  }
+
+                  // Recalculate user total rooka points (deducts excess source points)
+                  updateUserRookaAndCheckLevel(req.user.id, { isRealtime: true });
+
+                  sendSSEEvent(req.user.id, "activity_updated", { activityId: target.id });
+                  sendSSEEvent(req.user.id, "feed_updated", {});
+
+                  res.json({
+                    success: true,
+                    message: "Activities successfully linked. Telemetry transferred and duplicate points removed.",
+                    targetActivityId: target.id,
+                    sourceActivityId: source.id
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+router.post("/api/activities/:id/unlink", authenticateToken, (req, res) => {
+  const activityId = req.params.id;
+
+  db.get(
+    `SELECT * FROM activities WHERE (id = ? OR strava_activity_id = ?) AND user_id = ?`,
+    [activityId, String(activityId), req.user.id],
+    async (err, activity) => {
+      if (err || !activity) {
+        return res.status(404).json({ error: "Activity not found." });
+      }
+
+      // Check if this activity is target (has linked_activity_id) or source (is_hidden = 1)
+      const linkedId = activity.linked_activity_id;
+      if (!linkedId) {
+        return res.status(400).json({ error: "This activity is not linked to another session." });
+      }
+
+      // Find the partner activity
+      db.all(
+        `SELECT * FROM activities WHERE user_id = ? AND (id = ? OR linked_activity_id = ?)`,
+        [req.user.id, linkedId, activity.id],
+        async (pErr, linkedRows) => {
+          if (pErr || !linkedRows || linkedRows.length === 0) {
+            db.run(`UPDATE activities SET linked_activity_id = NULL, linked_activity_name = NULL WHERE id = ?`, [activity.id]);
+            return res.json({ success: true, message: "Link removed." });
+          }
+
+          // Unhide hidden partner activities and restore rooka_score
+          for (const row of linkedRows) {
+            if (row.is_hidden === 1) {
+              const restoredScore = await calculateRookaScoreZoned({
+                userId: req.user.id,
+                movingTimeMin: row.moving_time_min,
+                avgHr: row.average_heartrate,
+                sport: row.sport_type
+              });
+              db.run(
+                `UPDATE activities SET is_hidden = 0, rooka_score = ?, linked_activity_id = NULL, linked_activity_name = NULL WHERE id = ?`,
+                [restoredScore, row.id]
+              );
+            } else {
+              db.run(
+                `UPDATE activities SET linked_activity_id = NULL, linked_activity_name = NULL WHERE id = ?`,
+                [row.id]
+              );
+            }
+          }
+
+          updateUserRookaAndCheckLevel(req.user.id, { isRealtime: true });
+          sendSSEEvent(req.user.id, "activity_updated", { activityId: activity.id });
+          sendSSEEvent(req.user.id, "feed_updated", {});
+
+          res.json({ success: true, message: "Activities unlinked successfully." });
+        }
+      );
+    }
+  );
+});
+
+router.delete("/api/activities/:id", authenticateToken, (req, res) => {
+  const activityId = req.params.id;
+
+  db.get(
+    `SELECT * FROM activities WHERE (id = ? OR strava_activity_id = ?) AND user_id = ?`,
+    [activityId, String(activityId), req.user.id],
+    (err, activity) => {
+      if (err || !activity) {
+        return res.status(404).json({ error: "Activity not found or unauthorized." });
+      }
+
+      db.run(`DELETE FROM activities WHERE id = ? AND user_id = ?`, [activity.id, req.user.id], (delErr) => {
+        if (delErr) {
+          return res.status(500).json({ error: "Failed to delete activity." });
+        }
+
+        db.run(`DELETE FROM kudos WHERE activity_id = ?`, [activity.id]);
+        db.run(`DELETE FROM activity_comments WHERE activity_id = ?`, [activity.id]);
+
+        updateUserRookaAndCheckLevel(req.user.id, { isRealtime: true });
+        sendSSEEvent(req.user.id, "activity_deleted", { activityId: activity.id });
+        sendSSEEvent(req.user.id, "feed_updated", {});
+
+        res.json({ success: true, message: "Activity deleted successfully." });
+      });
+    }
   );
 });
 
@@ -655,33 +916,42 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
   if (!date || !Array.isArray(workouts))
     return res.status(400).json({ error: "Invalid data format" });
 
+  // Archive existing workouts for this date if non-rest or has details
   db.run(
-    `DELETE FROM micro_plan WHERE user_id = ? AND date = ?`,
+    `INSERT INTO deleted_micro_plan (original_id, user_id, date, sport, description, target_rooka, details, steps_json, source, deleted_at)
+     SELECT id, user_id, date, sport, description, target_rooka, details, steps_json, source, datetime('now')
+     FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) != 'rest' OR (details IS NOT NULL AND details != ''))`,
     [req.user.id, date],
-    (err) => {
-      if (err) return res.status(500).json({ error: "Failed to update plan" });
+    () => {
+      db.run(
+        `DELETE FROM micro_plan WHERE user_id = ? AND date = ?`,
+        [req.user.id, date],
+        (err) => {
+          if (err) return res.status(500).json({ error: "Failed to update plan" });
 
-      if (workouts.length === 0) return res.json({ success: true });
+          if (workouts.length === 0) return res.json({ success: true });
 
-      const stmt = db.prepare(
-        `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          const stmt = db.prepare(
+            `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          );
+          workouts.forEach((w) => {
+            stmt.run(
+              req.user.id,
+              date,
+              w.sport,
+              w.description,
+              w.target_rooka,
+              w.details,
+              w.steps_json || "[]",
+              // This route rewrites a whole day, so a caller replaying a
+              // coach-written session has to say so or its provenance is lost.
+              w.source === "coach" ? "coach" : "user",
+            );
+          });
+          stmt.finalize();
+          res.json({ success: true });
+        },
       );
-      workouts.forEach((w) => {
-        stmt.run(
-          req.user.id,
-          date,
-          w.sport,
-          w.description,
-          w.target_rooka,
-          w.details,
-          w.steps_json || "[]",
-          // This route rewrites a whole day, so a caller replaying a
-          // coach-written session has to say so or its provenance is lost.
-          w.source === "coach" ? "coach" : "user",
-        );
-      });
-      stmt.finalize();
-      res.json({ success: true });
     },
   );
 });
@@ -717,21 +987,81 @@ router.delete("/api/micro-plan/:id", authenticateToken, (req, res) => {
   const planId = req.params.id;
   const numId = parseInt(planId, 10);
 
-  // Clean up any event invitations tied to this micro_plan workout
+  // Archive to deleted_micro_plan before deletion
   db.run(
-    `DELETE FROM event_invitations WHERE micro_plan_id = ? OR micro_plan_id = ?`,
-    [planId, isNaN(numId) ? -1 : numId],
+    `INSERT INTO deleted_micro_plan (original_id, user_id, date, sport, description, target_rooka, details, steps_json, source, deleted_at)
+     SELECT id, user_id, date, sport, description, target_rooka, details, steps_json, source, datetime('now')
+     FROM micro_plan WHERE (id = ? OR id = ?) AND user_id = ?`,
+    [planId, isNaN(numId) ? -1 : numId, req.user.id],
     () => {
+      // Clean up any event invitations tied to this micro_plan workout
       db.run(
-        `DELETE FROM micro_plan WHERE (id = ? OR id = ?) AND user_id = ?`,
-        [planId, isNaN(numId) ? -1 : numId, req.user.id],
-        function (err) {
-          if (err) {
-            console.error("DELETE /api/micro-plan/:id error:", err.message);
-            return res.status(500).json({ error: "Failed to delete plan" });
+        `DELETE FROM event_invitations WHERE micro_plan_id = ? OR micro_plan_id = ?`,
+        [planId, isNaN(numId) ? -1 : numId],
+        () => {
+          db.run(
+            `DELETE FROM micro_plan WHERE (id = ? OR id = ?) AND user_id = ?`,
+            [planId, isNaN(numId) ? -1 : numId, req.user.id],
+            function (err) {
+              if (err) {
+                console.error("DELETE /api/micro-plan/:id error:", err.message);
+                return res.status(500).json({ error: "Failed to delete plan" });
+              }
+              sendSSEEvent(req.user.id, "plan_updated", { deletedId: planId });
+              res.json({ success: true, changes: this.changes });
+            },
+          );
+        },
+      );
+    },
+  );
+});
+
+router.get("/api/micro-plan/deleted", authenticateToken, (req, res) => {
+  db.all(
+    `SELECT * FROM deleted_micro_plan WHERE user_id = ? AND deleted_at >= datetime('now', '-30 days') ORDER BY id DESC LIMIT 20`,
+    [req.user.id],
+    (err, rows) => {
+      if (err) {
+        console.error("GET /api/micro-plan/deleted error:", err);
+        return res.status(500).json({ error: "Failed to fetch deleted workouts" });
+      }
+      res.json({ deletedWorkouts: rows || [] });
+    },
+  );
+});
+
+router.post("/api/micro-plan/restore/:id", authenticateToken, (req, res) => {
+  const archiveId = req.params.id;
+  db.get(
+    `SELECT * FROM deleted_micro_plan WHERE id = ? AND user_id = ?`,
+    [archiveId, req.user.id],
+    (err, archived) => {
+      if (err || !archived) {
+        return res.status(404).json({ error: "Archived workout not found" });
+      }
+      db.run(
+        `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.user.id,
+          archived.date,
+          archived.sport,
+          archived.description,
+          archived.target_rooka,
+          archived.details,
+          archived.steps_json || "[]",
+          archived.source || "coach",
+        ],
+        function (insertErr) {
+          if (insertErr) {
+            console.error("Restore insert error:", insertErr);
+            return res.status(500).json({ error: "Failed to restore workout" });
           }
-          sendSSEEvent(req.user.id, "plan_updated", { deletedId: planId });
-          res.json({ success: true, changes: this.changes });
+          const restoredId = this.lastID;
+          db.run(`DELETE FROM deleted_micro_plan WHERE id = ?`, [archiveId]);
+          sendSSEEvent(req.user.id, "plan_updated", { restoredId });
+          res.json({ success: true, restoredId });
         },
       );
     },
@@ -742,7 +1072,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
   const { targetDate } = req.body;
 
   db.get(
-    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, training_availability, current_ctl, current_atl, training_phase, cycle_tracking_enabled FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, training_availability, current_ctl, current_atl, training_phase, cycle_tracking_enabled, language, long_term_memory FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -864,6 +1194,16 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     console.error("Muscle load for plan generation failed:", e.message);
                   }
 
+                  const userLanguage = (user.language || 'en').toLowerCase().trim();
+                  const langMap = {
+                    nl: 'Dutch (Nederlands)',
+                    de: 'German (Deutsch)',
+                    es: 'Spanish (Español)',
+                    fr: 'French (Français)',
+                    en: 'English'
+                  };
+                  const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith('nl') ? 'Dutch (Nederlands)' : 'English');
+
                   const coachName = user.coach_name || 'Rooka';
                   let coachToneText = user.coach_tone || 'Empathetic but demanding elite endurance coach.';
                   if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
@@ -874,6 +1214,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                 Tone: ${coachToneText}
                 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
                 Athlete Context: ${user.athlete_context || "General endurance athlete"}
+                ATHLETE LIFE CONTEXT & LONG-TERM MEMORY:
+                ${user.long_term_memory || "No long-term memory recorded."}
                 Athlete Primary Goal: ${goalContext.goalName} (${goalContext.goalDate || 'Target Date TBD'})
                 Gender: ${user.gender || "Prefer not to share"}
                 ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT: Adjust training load taking the menstrual cycle into consideration. Distribute exercises carefully around the physically demanding days." : ""}
@@ -892,12 +1234,18 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                 ${goalContext.promptContext}
             
             CRITICAL RULES:
-            0. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
+            0. LANGUAGE PERSISTENCE & UNIFORMITY MANDATE: The athlete's preferred language is ${targetLanguageName} (${user.language || 'en'}). You MUST write all workout descriptions, details, analysis, and commentary fluently and exclusively in ${targetLanguageName}. NEVER mix Dutch and English within a sentence or use Dutch activity names inside English sentences (or vice-versa).
+            0b. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
             1. You are generating a 7-day training plan starting exactly on ${targetDate}.
             2. DAILY EXERCISE LIMITATIONS & RECURRING SPORTS (CRITICAL):
                - Adhere strictly to the daily time constraints listed in "Daily Exercise Limitations & Schedule Boundaries". NEVER schedule a workout exceeding the stated max minutes for that day.
                - If a day is marked 'Rest day / Blocked' or max minutes is 0, you are strictly forbidden from scheduling any active training on that day (you may only schedule 'Rest').
                - Account for all sessions listed in "Recurring Sports & Periodical Trainings". Factor their fatigue and intensity into the athlete's weekly load and NEVER schedule conflicting high-intensity endurance workouts on the same day. Distribute endurance volume safely across available days without spiking ATL.
+            2b. TRAVEL, VACATION, HOLIDAYS & SPECIAL CONSTRAINTS (CRITICAL): Check ATHLETE LIFE CONTEXT & LONG-TERM MEMORY above carefully. If the athlete is currently traveling, on holiday/vacation (e.g. in Italy, abroad, visiting family), lacks gym/equipment access, or has an ongoing illness/injury recovery, you MUST adapt the entire plan to fit those exact constraints:
+               - Do NOT schedule gym/strength workouts with barbells, machines, or heavy weights if they do not have gym access while traveling (prescribe bodyweight mobility or omit strength).
+               - Do NOT schedule indoor bike FTP sessions or road bike workouts if they do not have their bike on vacation.
+               - Do NOT schedule punishing VO2max / Z4 intervals if the user agreed to flexible aerobic Zone 2 daylight running while traveling.
+               - Respect their travel reality completely and maintain aerobic fitness without causing stress or guilt.
             3. MUSCLE LOAD: Read "MUSCLE LOAD OVER THE LAST 7 DAYS". Any group listed HIGH is already heavily loaded — do not schedule two consecutive sessions whose main driver is that group, and prefer a sport that spares it (a HIGH quadriceps or calf reading favours swimming over running or riding). Groups not listed are fresh and available.
             4. INJURY GUARDRAILS: The athlete has active injuries listed above. You MUST alter the training plan based on this data to prevent further injury.
                - If an injury is Lower Body (Severity 3+): Strictly avoid high-impact running. Substitute required aerobic load with swimming or indoor cycling.
@@ -996,6 +1344,22 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                             .join(",");
 
                           db.run(
+                            `INSERT INTO deleted_micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
+                             SELECT user_id, date, sport, description, target_rooka, details, steps_json, source
+                             FROM micro_plan
+                             WHERE user_id = ? AND date IN (${placeholders})
+                               AND sport IS NOT NULL AND LOWER(sport) != 'rest'`,
+                            [req.user.id, ...affectedDates],
+                            (archiveErr) => {
+                              if (archiveErr)
+                                console.error(
+                                  "Failed to archive old plan data before generate-plan overwrite:",
+                                  archiveErr,
+                                );
+                            }
+                          );
+
+                          db.run(
                             `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
                             [req.user.id, ...affectedDates],
                             (err) => {
@@ -1025,7 +1389,16 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                                     : (day.steps_json || "[]"),
                                 );
                               });
-                              stmt.finalize();
+                              stmt.finalize(() => {
+                                planData.forEach((day) => {
+                                  if (day.sport && day.sport.toLowerCase() !== "rest") {
+                                    db.run(
+                                      `DELETE FROM deleted_micro_plan WHERE user_id = ? AND date = ? AND LOWER(sport) = LOWER(?)`,
+                                      [req.user.id, day.date, day.sport]
+                                    );
+                                  }
+                                });
+                              });
                             },
                           );
                         }

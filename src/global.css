@@ -17,6 +17,11 @@
     --font-mono: 'Rajdhani-Bold';
     --font-numeric: 'Rajdhani-Bold';
 
+    /* Accent & Warm */
+    --accent-strong: #0284C7;
+    --accent-text: #0369A1;
+    --warm: #F97316;
+
     /* Neutrals & Surfaces */
     --gray-50: #F8FAFC;
     --gray-100: #F1F5F9;
@@ -24,11 +29,39 @@
     --gray-400: #94A3B8;
     --gray-600: #475569;
     --gray-800: #1E293B;
-    --bg-main: 248 250 252; /* Pure Chalk */
+    --bg-main: 241 245 249; /* #F1F5F9 Slate 100 */
     --bg-card: 255 255 255;
+    --bg-inset: 234 239 245; /* #EAEFF5 */
     --border-color: 226 232 240;
     --text-main: 15 23 42; /* Obsidian Slate */
     --text-muted: 100 116 139;
+
+    /* Macros */
+    --macro-carbs: #F59E0B;
+    --macro-protein: #8B5CF6;
+    --macro-fat: #F43F5E;
+
+    /* Tiers */
+    --tier-common: #94A3B8;
+    --tier-common-text: #475569;
+    --tier-rare: #3B82F6;
+    --tier-rare-text: #1D4ED8;
+    --tier-epic: #A855F7;
+    --tier-epic-text: #6D28D9;
+    --tier-legendary: #F59E0B;
+    --tier-legendary-text: #B45309;
+
+    /* Podium */
+    --podium-gold: #E5A50A;
+    --podium-silver: #A8B0BA;
+    --podium-bronze: #C97B45;
+
+    /* Heart Rate Zones */
+    --zone-1: #3B82F6;
+    --zone-2: #10B981;
+    --zone-3: #EAB308;
+    --zone-4: #F97316;
+    --zone-5: #EF4444;
 
     /* Semantic Status */
     --color-success: 16 185 129; /* Aero Mint #10B981 */
@@ -64,15 +97,46 @@
     --accent-hover: 96 165 250;
     --accent-soft: rgba(59, 130, 246, 0.16);
     --accent-border: rgba(59, 130, 246, 0.35);
+    --accent-strong: #2563EB;
+    --accent-text: #60A5FA;
+    --warm: #FB923C;
 
     /* Dark Surfaces & Text */
     --bg-main: 15 23 42; /* Obsidian Slate */
     --bg-card: 30 41 59;
+    --bg-inset: 22 32 51;
     --border-color: 51 65 85;
     --text-main: 248 250 252; /* Pure Chalk */
     --text-muted: 148 163 184;
     --color-focus: #3B82F6;
     --color-metric: #3B82F6;
+
+    /* Macros */
+    --macro-carbs: #FBBF24;
+    --macro-protein: #A78BFA;
+    --macro-fat: #FB7185;
+
+    /* Tiers */
+    --tier-common: #94A3B8;
+    --tier-common-text: #CBD5E1;
+    --tier-rare: #60A5FA;
+    --tier-rare-text: #93C5FD;
+    --tier-epic: #C084FC;
+    --tier-epic-text: #C4B5FD;
+    --tier-legendary: #FBBF24;
+    --tier-legendary-text: #FCD34D;
+
+    /* Podium */
+    --podium-gold: #E5A50A;
+    --podium-silver: #A8B0BA;
+    --podium-bronze: #C97B45;
+
+    /* Heart Rate Zones */
+    --zone-1: #3B82F6;
+    --zone-2: #10B981;
+    --zone-3: #EAB308;
+    --zone-4: #F97316;
+    --zone-5: #EF4444;
 
     /* Semantic Status (Dark Mode - High Contrast) */
     --color-success: 16 185 129; /* Aero Mint #10B981 */
@@ -107,15 +171,42 @@
       --accent-hover: 96 165 250;
       --accent-soft: rgba(59, 130, 246, 0.16);
       --accent-border: rgba(59, 130, 246, 0.35);
+      --accent-strong: #2563EB;
+      --accent-text: #60A5FA;
+      --warm: #FB923C;
 
       /* Dark Surfaces & Text */
       --bg-main: 15 23 42; /* Obsidian Slate */
       --bg-card: 30 41 59;
+      --bg-inset: 22 32 51;
       --border-color: 51 65 85;
       --text-main: 248 250 252; /* Pure Chalk */
       --text-muted: 148 163 184;
       --color-focus: #3B82F6;
       --color-metric: #3B82F6;
+
+      /* Macros */
+      --macro-carbs: #FBBF24;
+      --macro-protein: #A78BFA;
+      --macro-fat: #FB7185;
+
+      /* Tiers */
+      --tier-common: #94A3B8;
+      --tier-rare: #60A5FA;
+      --tier-epic: #C084FC;
+      --tier-legendary: #FBBF24;
+
+      /* Podium */
+      --podium-gold: #E5A50A;
+      --podium-silver: #A8B0BA;
+      --podium-bronze: #C97B45;
+
+      /* Heart Rate Zones */
+      --zone-1: #3B82F6;
+      --zone-2: #10B981;
+      --zone-3: #EAB308;
+      --zone-4: #F97316;
+      --zone-5: #EF4444;
 
       /* Semantic Status (Dark Mode - High Contrast) */
       --color-success: 16 185 129; /* Aero Mint #10B981 */

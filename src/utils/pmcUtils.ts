@@ -45,36 +45,25 @@ export function calculatePMCMetrics(
 
   const latestPhysiqueWeight = physiqueLogs.length > 0 ? physiqueLogs[0].weight_kg ?? currentWeightKg : currentWeightKg;
 
-  // Build 90-day (3-month) weight history array to reflect realistic weekly weigh-ins
+  // Build weight history from actual measurement logs (do not fake interpolate empty days)
   const sortedLogs = [...physiqueLogs]
     .filter((p) => p.date && typeof p.weight_kg === 'number')
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const weightMap: Record<string, number> = {};
-  sortedLogs.forEach((p) => {
-    weightMap[p.date.split('T')[0]] = p.weight_kg;
-  });
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const weightHistoryDays = 90; // 3-month timeframe
-  const now = new Date();
-  const weightHistory: number[] = [];
+  const recentLogs = sortedLogs.filter((p) => new Date(p.date).getTime() >= ninetyDaysAgo.getTime());
+  const logsToUse = recentLogs.length > 0 ? recentLogs : sortedLogs;
 
-  const startWindowDate = new Date(now);
-  startWindowDate.setDate(startWindowDate.getDate() - (weightHistoryDays - 1));
-  const startWindowStr = startWindowDate.toISOString().split('T')[0];
-
-  const initialEntry = [...sortedLogs].reverse().find((p) => p.date.split('T')[0] <= startWindowStr);
-  let runningWeight = initialEntry?.weight_kg ?? (sortedLogs[0]?.weight_kg ?? latestPhysiqueWeight);
-
-  for (let i = weightHistoryDays - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
-    if (weightMap[dateStr] !== undefined) {
-      runningWeight = weightMap[dateStr];
-    }
-    weightHistory.push(Math.round(runningWeight * 10) / 10);
+  const weightHistory: number[] = logsToUse.map((p) => Math.round(p.weight_kg * 10) / 10);
+  if (weightHistory.length === 0 && currentWeightKg > 0) {
+    weightHistory.push(Math.round(currentWeightKg * 10) / 10);
   }
+
+  const runningWeight = logsToUse.length > 0
+    ? logsToUse[logsToUse.length - 1].weight_kg
+    : latestPhysiqueWeight;
 
   return {
     ctl: result.currentCtl,

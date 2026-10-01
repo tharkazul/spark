@@ -251,7 +251,7 @@ export const NutritionTab: React.FC = () => {
 
   if (user?.subscription_tier === 'free') {
     return (
-      <View className="bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center mt-4 shadow-sm">
+      <View className="bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center mt-4">
         <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
         <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Nutrition Locked</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed font-rajdhani">
@@ -259,10 +259,10 @@ export const NutritionTab: React.FC = () => {
         </Text>
         <TouchableOpacity
           onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
-          className="bg-theme-accent px-6 py-3 rounded-2xl w-full mt-6 shadow-sm shadow-theme-accent/30"
+          className="bg-theme-accent-strong px-6 py-3.5 rounded-button w-full mt-6 items-center justify-center"
           activeOpacity={0.8}
         >
-          <Text className="text-white font-black text-center font-rajdhani">Upgrade to rooka+</Text>
+          <Text className="text-white font-black text-center font-rajdhani text-base">Upgrade to rooka+</Text>
         </TouchableOpacity>
       </View>
     );

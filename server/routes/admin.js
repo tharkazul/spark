@@ -221,9 +221,9 @@ router.post("/api/admin/trigger-weekly-onboarding", authenticateToken, async (re
 
 router.post("/api/admin/trigger-weekly-planning", authenticateToken, async (req, res) => {
   const { runWeeklyWorkoutPlanningJob } = require("../services/workoutPlanning");
-  console.log(`🤖 Admin triggering weekly workout planning job (Common token budget)...`);
+  console.log(`🤖 Admin triggering weekly workout planning job (Common token budget)...`, req.body);
   try {
-    const summary = await runWeeklyWorkoutPlanningJob();
+    const summary = await runWeeklyWorkoutPlanningJob(req.body || {});
     res.json({
       success: true,
       message: "Weekly workout planning job triggered successfully!",

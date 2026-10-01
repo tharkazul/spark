@@ -9,26 +9,26 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View
+  View,
+  useColorScheme,
 } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card } from '../../components/ui/Card';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
+import { Button } from '../../components/ui/Button';
+import { useTabBarInset } from '../../hooks/useTabBarInset';
+import { useConnectedDevices } from '../../hooks/useConnectedDevices';
 import { useActivities } from '../../context/ActivityStore';
 import { useCoachChat } from '../../context/CoachChatStore';
-import { useHeaderLayout } from '../../context/HeaderLayoutContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { usePlan } from '../../context/PlanStore';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
-import { gamificationApi, planApi } from '../../services/apiServices';
+import { planApi } from '../../services/apiServices';
 
 import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
 import { TodaysPlanSkeleton } from '../../components/skeletons/TodaysPlanSkeleton';
-
 
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
@@ -41,8 +41,8 @@ import {
   DayAgenda,
   WorkoutItem,
 } from '../../types/dashboard';
+import { calculateWorkoutDurationMinutes, formatDuration } from '../../utils/format';
 
-// Date Helpers (Fixed to use local timezone date components instead of UTC ISO string)
 function getMonday(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
@@ -63,14 +63,18 @@ function formatShortDate(d: Date): string {
 }
 
 export default function PlanningHomeScreen() {
-  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const router = useRouter();
   const { user } = useUser();
   const { sendMessage, unreadCount } = useCoachChat();
   const { t } = useLanguage();
-  const { headerHeight } = useHeaderLayout();
+  const tabBarInset = useTabBarInset();
   const { plan, loading: planLoading, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
   const { activities } = useActivities();
+  const { hasGarmin, hasAppleWatch, hasAnyDevices, isSyncing, syncWorkouts } = useConnectedDevices();
+  const [isSyncedSuccess, setIsSyncedSuccess] = useState(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
@@ -96,28 +100,126 @@ export default function PlanningHomeScreen() {
     return () => sub.remove();
   }, []);
 
-  // Re-fetch the plan every time this tab regains focus (e.g. coming back from the
-  // coach chat after a new workout was discussed). Tab screens stay mounted between
-  // switches, so the mount-only effect above won't catch changes made elsewhere.
-  useFocusEffect(
-    useCallback(() => {
-      refreshPlan();
-    }, [refreshPlan])
-  );
-
-  const { tabBarOccupied, notifyScroll, notifyScrollEnd } = useTabBar();
-
+  const { notifyScroll, notifyScrollEnd } = useTabBar();
   const part3ScrollViewRef = useRef<ScrollView>(null);
-  const hasScrolledToTodayRef = useRef(false);
 
   const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 0);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
 
   // Selected week start date (defaults to Monday of current week)
+  const currentMonday = useMemo(() => getMonday(new Date()), []);
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+  const isCurrentWeek = weekStart.getTime() === currentMonday.getTime();
 
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const initialTodayIndex = (new Date().getDay() + 6) % 7;
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(initialTodayIndex);
   const [dayYPositions, setDayYPositions] = useState<Record<number, number>>({});
+  const dayYPositionsRef = useRef<Record<number, number>>({});
+  const dayCardRefs = useRef<(View | null)[]>([]);
+  const pendingScrollIndexRef = useRef<number | null>(initialTodayIndex);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToSelectedDay = useCallback((targetIdx: number, animated = true) => {
+    const el = dayCardRefs.current[targetIdx];
+    if (el && part3ScrollViewRef.current) {
+      el.measureLayout(
+        part3ScrollViewRef.current as any,
+        (_x, y) => {
+          part3ScrollViewRef.current?.scrollTo({
+            y: Math.max(0, y - 8),
+            animated,
+          });
+        },
+        () => {
+          const cachedY = dayYPositionsRef.current[targetIdx];
+          if (typeof cachedY === 'number') {
+            part3ScrollViewRef.current?.scrollTo({
+              y: Math.max(0, cachedY - 8),
+              animated,
+            });
+          }
+        }
+      );
+    } else {
+      const cachedY = dayYPositionsRef.current[targetIdx];
+      if (typeof cachedY === 'number') {
+        part3ScrollViewRef.current?.scrollTo({
+          y: Math.max(0, cachedY - 8),
+          animated,
+        });
+      }
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshPlan();
+      const currentMon = getMonday(new Date());
+      setWeekStart(currentMon);
+      const todayIdx = (new Date().getDay() + 6) % 7;
+      setSelectedDayIndex(todayIdx);
+      pendingScrollIndexRef.current = todayIdx;
+
+      // Scroll immediately if position is already cached
+      const immediateY = dayYPositionsRef.current[todayIdx];
+      if (typeof immediateY === 'number') {
+        part3ScrollViewRef.current?.scrollTo({
+          y: Math.max(0, immediateY - 8),
+          animated: false,
+        });
+      }
+
+      const scrollToToday = (delay: number, animated = true) =>
+        setTimeout(() => {
+          scrollToSelectedDay(todayIdx, animated);
+        }, delay);
+
+      const t1 = scrollToToday(80, true);
+      const t2 = scrollToToday(250, true);
+      const t3 = setTimeout(() => {
+        scrollToSelectedDay(todayIdx, true);
+        pendingScrollIndexRef.current = null;
+      }, 450);
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }, [refreshPlan, scrollToSelectedDay])
+  );
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleSelectDay = useCallback((idx: number) => {
+    Haptics.selectionAsync();
+    setSelectedDayIndex(idx);
+    pendingScrollIndexRef.current = idx;
+
+    if (scrollTimerRef.current) {
+      clearTimeout(scrollTimerRef.current);
+    }
+
+    // 1. Immediate scroll attempt
+    scrollToSelectedDay(idx, true);
+
+    // 2. Mid-transition scroll
+    setTimeout(() => {
+      scrollToSelectedDay(idx, true);
+    }, 80);
+
+    // 3. Post-transition exact alignment
+    scrollTimerRef.current = setTimeout(() => {
+      scrollToSelectedDay(idx, true);
+      pendingScrollIndexRef.current = null;
+    }, 240);
+  }, [scrollToSelectedDay]);
 
   const now = new Date();
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -127,7 +229,6 @@ export default function PlanningHomeScreen() {
   const dayOfWeekUpper = dayOfWeekShort.toUpperCase();
   const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
   const dayNum = now.getDate();
-
   const todayDateStr = `${monthShort} ${dayNum}`;
 
   const [targetAddDay, setTargetAddDay] = useState<{ dayName: string; dateStr: string; fullDate?: string }>({
@@ -138,6 +239,8 @@ export default function PlanningHomeScreen() {
 
   const handlePrevWeek = () => {
     Haptics.selectionAsync();
+    dayYPositionsRef.current = {};
+    part3ScrollViewRef.current?.scrollTo({ y: 0, animated: false });
     setWeekStart((prev) => {
       const d = new Date(prev);
       d.setDate(d.getDate() - 7);
@@ -147,6 +250,8 @@ export default function PlanningHomeScreen() {
 
   const handleNextWeek = () => {
     Haptics.selectionAsync();
+    dayYPositionsRef.current = {};
+    part3ScrollViewRef.current?.scrollTo({ y: 0, animated: false });
     setWeekStart((prev) => {
       const d = new Date(prev);
       d.setDate(d.getDate() + 7);
@@ -160,115 +265,79 @@ export default function PlanningHomeScreen() {
 
   // Compute 7-Day Agenda Dynamically from weekStart
   const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-  const buildAgenda = (start: Date): DayAgenda[] => DAYS_HEADER.map((dayName, idx) => {
-    const dayDate = new Date(start);
-    dayDate.setDate(dayDate.getDate() + idx);
-    dayDate.setHours(0, 0, 0, 0);
+  const buildAgenda = (start: Date): DayAgenda[] =>
+    DAYS_HEADER.map((dayName, idx) => {
+      const dayDate = new Date(start);
+      dayDate.setDate(dayDate.getDate() + idx);
+      dayDate.setHours(0, 0, 0, 0);
 
-    const dateYYYYMMDD = formatDateToYYYYMMDD(dayDate);
-    const dateStr = formatShortDate(dayDate);
-    const isToday = dateYYYYMMDD === todayYYYYMMDD;
-    const isPast = dayDate < todayMidnight;
+      const dateYYYYMMDD = formatDateToYYYYMMDD(dayDate);
+      const dateStr = formatShortDate(dayDate);
+      const isToday = dateYYYYMMDD === todayYYYYMMDD;
+      const isPast = dayDate < todayMidnight;
 
-    let workouts: WorkoutItem[] = [];
+      let workouts: WorkoutItem[] = [];
 
-    if (plan && plan.length > 0) {
-      const dbWorkouts = plan.filter((w) => w.date === dateYYYYMMDD);
-      workouts = dbWorkouts.map((w) => {
-        // calculate duration from steps_json if possible
-        let durStr = '45 mins';
-        if (w.steps_json && typeof w.steps_json === 'string' && w.steps_json !== '[]') {
-          try {
-            const steps = JSON.parse(w.steps_json);
-            let totalMins = 0;
-            const parseSteps = (sArr: any[]) => {
-              if (!Array.isArray(sArr)) return;
-              for (const s of sArr) {
-                if (s.type === 'repeat' && s.iterations && Array.isArray(s.steps)) {
-                  let iterMins = 0;
-                  for (const rs of s.steps) {
-                    const cVal = Number(rs.condition_value) || 0;
-                    if (rs.condition_type === 'time_sec') {
-                      iterMins += cVal / 60;
-                    } else if (rs.condition_type === 'time') {
-                      iterMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
-                    }
-                  }
-                  totalMins += iterMins * (Number(s.iterations) || 1);
-                } else {
-                  const cVal = Number(s.condition_value) || 0;
-                  if (s.condition_type === 'time_sec') {
-                    totalMins += cVal / 60;
-                  } else if (s.condition_type === 'time') {
-                    totalMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
-                  } else if (s.steps && Array.isArray(s.steps)) {
-                    parseSteps(s.steps);
-                  }
-                }
-              }
-            };
-            parseSteps(steps);
-            if (totalMins > 0) durStr = `${Math.round(totalMins)} mins`;
-          } catch (e) { }
-        }
+      if (plan && plan.length > 0) {
+        const dbWorkouts = plan.filter((w) => w.date === dateYYYYMMDD);
+        workouts = dbWorkouts.map((w) => {
+          // Calculate duration safely using calculateWorkoutDurationMinutes (fixes 2-min swim bug)
+          const durMins = calculateWorkoutDurationMinutes(w);
+          const durStr = `${durMins} min`;
 
-        let parsedSteps = [];
-        if (w.steps_json && typeof w.steps_json === 'string') {
-          try { parsedSteps = JSON.parse(w.steps_json); } catch (e) { }
-        }
+          let parsedSteps = [];
+          if (w.steps_json && typeof w.steps_json === 'string') {
+            try {
+              parsedSteps = JSON.parse(w.steps_json);
+            } catch (e) {}
+          }
 
-        return {
-          id: String(w.id),
-          day: w.day || dayName,
-          dateStr: w.dateStr || dateStr,
-          type: (w.sport as any) || 'RUN',
-          title: w.title || w.description || 'Planned Workout',
-          duration: w.duration || durStr,
-          rookaPoints: w.target_rooka || 0,
-          sparkPoints: w.target_spark || 0,
-          isStructured: parsedSteps.length > 0,
-          isCompleted: (() => {
-            if (w.isCompleted) return true;
-            const planSport = String(w.sport || (w as any).type).toUpperCase();
-            if (planSport === 'REST') return false;
-            // Check if there's any activity on this day of the same sport type
-            const actsOnDay = activities.filter(a => {
-              const d = a.start_date_local || a.start_date || (a as any).date;
-              return d?.startsWith(dateYYYYMMDD);
-            });
-            const isMatch = actsOnDay.some(a => {
-              const aSport = String(a.sport_type || (a as any).type).toUpperCase();
-              return aSport === planSport;
-            });
-            return isMatch;
-          })(),
-          actualMetrics: w.actualMetrics,
-          executionScore: w.executionScore,
-          steps: parsedSteps,
-          notes: w.details,
-          // The coach's own description of the session. It reached Strava and
-          // nowhere else before this. Rows written before micro_plan gained a
-          // `source` column all came from plan generation, so an absent value
-          // counts as the coach; a workout you built yourself has no coach to
-          // quote and shows no note.
-          isCoachCreated: w.source !== 'user',
-          coachNote:
-            w.source !== 'user' && w.details && w.details.trim().length > 0
-              ? w.details.trim()
-              : undefined,
-        } as WorkoutItem;
-      });
-    }
+          return {
+            id: String(w.id),
+            day: w.day || dayName,
+            dateStr: w.dateStr || dateStr,
+            date: w.date || dateYYYYMMDD,
+            type: (w.sport as any) || 'RUN',
+            sport: (w.sport as any) || 'RUN',
+            title: w.title || w.description || 'Planned Workout',
+            duration: durStr,
+            rookaPoints: w.target_rooka || 0,
+            sparkPoints: w.target_spark || 0,
+            isStructured: parsedSteps.length > 0,
+            isCompleted: (() => {
+              if (w.isCompleted) return true;
+              const planSport = String(w.sport || (w as any).type).toUpperCase();
+              if (planSport === 'REST') return false;
+              const actsOnDay = activities.filter((a) => {
+                const d = a.start_date_local || a.start_date || (a as any).date;
+                return d?.startsWith(dateYYYYMMDD);
+              });
+              return actsOnDay.some((a) => {
+                const aSport = String(a.sport_type || (a as any).type).toUpperCase();
+                return aSport === planSport;
+              });
+            })(),
+            actualMetrics: w.actualMetrics,
+            executionScore: w.executionScore,
+            steps: parsedSteps,
+            notes: w.details,
+            isCoachCreated: w.source !== 'user',
+            coachNote:
+              w.source !== 'user' && w.details && w.details.trim().length > 0
+                ? w.details.trim()
+                : undefined,
+          } as WorkoutItem;
+        });
+      }
 
-
-    return {
-      dayName,
-      dateStr,
-      isToday,
-      isPast,
-      workouts,
-    };
-  });
+      return {
+        dayName,
+        dateStr,
+        isToday,
+        isPast,
+        workouts,
+      };
+    });
 
   const shiftWeeks = (d: Date, n: number) => {
     const out = new Date(d);
@@ -277,33 +346,24 @@ export default function PlanningHomeScreen() {
   };
 
   const weeklyAgenda = buildAgenda(weekStart);
-  // The strip renders its neighbours so a swipe has something real to drag in.
-  // Both come from the plan already in memory, so this is two array maps rather
-  // than two fetches.
   const prevWeekAgenda = buildAgenda(shiftWeeks(weekStart, -1));
   const nextWeekAgenda = buildAgenda(shiftWeeks(weekStart, 1));
 
+  // Week summary calculations
+  const allActiveWorkouts = weeklyAgenda.flatMap((d) =>
+    d.workouts.filter((w) => String(w.type).toUpperCase() !== 'REST')
+  );
+  const totalPlannedCount = allActiveWorkouts.length;
+  const doneCount = allActiveWorkouts.filter((w) => w.isCompleted).length;
+  const totalPoints = Math.round(
+    allActiveWorkouts.reduce((sum, w) => sum + (w.rookaPoints || 0), 0)
+  );
+  const progressPct = totalPlannedCount > 0 ? Math.round((doneCount / totalPlannedCount) * 100) : 0;
+
   useEffect(() => {
-    hasScrolledToTodayRef.current = false;
     const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
     setSelectedDayIndex(todayIdx >= 0 ? todayIdx : 0);
   }, [weekStart]);
-
-  // Automatically scroll to Today's card when opening planning subtab or layout measures
-  useEffect(() => {
-    const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
-    const targetIdx = todayIdx >= 0 ? todayIdx : 0;
-
-    if (!hasScrolledToTodayRef.current && dayYPositions[targetIdx] !== undefined) {
-      hasScrolledToTodayRef.current = true;
-      setTimeout(() => {
-        part3ScrollViewRef.current?.scrollTo({
-          y: dayYPositions[targetIdx],
-          animated: true,
-        });
-      }, 100);
-    }
-  }, [dayYPositions, weeklyAgenda]);
 
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
     setSelectedWorkoutForEdit(null);
@@ -321,7 +381,9 @@ export default function PlanningHomeScreen() {
   const handleSelectWorkoutForEdit = (workout: WorkoutItem) => {
     setSelectedWorkoutForEdit(workout);
     if (workout.day && workout.dateStr) {
-      const dayIdx = weeklyAgenda.findIndex((d) => d.dayName === workout.day || d.dateStr === workout.dateStr);
+      const dayIdx = weeklyAgenda.findIndex(
+        (d) => d.dayName === workout.day || d.dateStr === workout.dateStr
+      );
       let fullDate = workout.date || todayYYYYMMDD;
       if (dayIdx >= 0) {
         const targetDate = new Date(weekStart);
@@ -344,54 +406,38 @@ export default function PlanningHomeScreen() {
     if (dayIdx >= 0) targetDate.setDate(targetDate.getDate() + dayIdx);
     const targetYYYYMMDD = formatDateToYYYYMMDD(targetDate);
 
-    // Save to DB via usePlan
     try {
       const plannedWorkout = {
         date: targetYYYYMMDD,
-        day: workoutData.day,
         sport: workoutData.type,
+        title: workoutData.title,
         description: workoutData.title,
-        details: workoutData.notes || '',
-        target_rooka: workoutData.rookaPoints || 0,
+        target_rooka: workoutData.rookaPoints,
+        duration: workoutData.duration,
         steps_json: JSON.stringify(workoutData.steps || []),
+        details: workoutData.notes || '',
+        source: 'user',
       };
 
-      if (existingId && !existingId.startsWith('w-')) {
-        await updateWorkout(existingId, plannedWorkout);
+      if (existingId) {
+        await updateWorkout(existingId, plannedWorkout as any);
       } else {
-        await addWorkout(plannedWorkout);
+        await addWorkout(plannedWorkout as any);
       }
+      setIsAddModalOpen(false);
+      setSelectedWorkoutForEdit(null);
       await refreshPlan();
-    } catch (err) {
-      console.error('Failed to save workout to DB', err);
+    } catch (e) {
+      console.error('Failed to save workout:', e);
     }
   };
 
-  /**
-   * Deleting a planned workout is permanent and there is no undo, yet the only
-   * thing standing between a mis-tap and a lost session was a 12pt trash icon
-   * sitting flush beside "Invite". One confirmation step.
-   */
-  const handleDeleteWorkout = (workoutId: string) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    Alert.alert(
-      'Delete this workout?',
-      'It will be removed from your plan. This cannot be undone.',
-      [
-        { text: 'Keep it', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void deleteWorkoutConfirmed(workoutId) },
-      ],
-    );
-  };
-
-  const deleteWorkoutConfirmed = async (workoutId: string) => {
+  const handleDeleteWorkout = async (workoutId: string) => {
     try {
       await deleteWorkout(workoutId);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
-      console.error('Failed to delete workout from DB', err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Notice', 'Could not delete workout. Schedule restored.');
+      await refreshPlan();
+    } catch (e) {
+      console.error('Failed to delete workout:', e);
     }
   };
 
@@ -412,9 +458,12 @@ export default function PlanningHomeScreen() {
       }
     } else {
       let prompt = '';
-      if (type === 'TIME_CRUNCH') prompt = 'I only have 30 minutes today, please adapt my workout to a time crunch.';
-      if (type === 'MOVE_INDOORS') prompt = 'I need to move my workout indoors today. Please adapt it for the trainer/treadmill.';
-      if (type === 'CANCEL_COMPLETELY') prompt = 'I want to cancel my workout completely today. I need to rest.';
+      if (type === 'TIME_CRUNCH')
+        prompt = 'I only have 30 minutes today, please adapt my workout to a time crunch.';
+      if (type === 'MOVE_INDOORS')
+        prompt = 'I need to move my workout indoors today. Please adapt it for the trainer/treadmill.';
+      if (type === 'CANCEL_COMPLETELY')
+        prompt = 'I want to cancel my workout completely today. I need to rest.';
 
       if (prompt) {
         sendMessage(prompt);
@@ -426,122 +475,261 @@ export default function PlanningHomeScreen() {
     setRecordedWeight(newWeight);
   };
 
-  const handleSendInjuryToCoach = (description: string, severity: number, bodyPartId?: string, bodyPartName?: string) => {
+  const handleSendInjuryToCoach = (
+    description: string,
+    severity: number,
+    bodyPartId?: string,
+    bodyPartName?: string
+  ) => {
     const areaPrefix = bodyPartName ? `[${bodyPartName}] ` : '';
-    sendMessage(`I have a niggle / injury to report: ${areaPrefix}${description} (Severity: ${severity}/10). Can you provide recovery advice?`);
+    sendMessage(
+      `I have a niggle / injury to report: ${areaPrefix}${description} (Severity: ${severity}/10). Can you provide recovery advice?`
+    );
     router.push('/coach');
   };
 
-  const insets = useSafeAreaInsets();
+  const handleSendWeekToDevices = async () => {
+    if (allActiveWorkouts.length === 0 || isSyncing) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const result = await syncWorkouts(allActiveWorkouts);
+    if (result.success) {
+      setIsSyncedSuccess(true);
+      setTimeout(() => setIsSyncedSuccess(false), 3500);
+      Alert.alert(t('alerts.settingsSaved', 'Success'), result.message);
+    } else {
+      Alert.alert(t('alerts.errorOccurred', 'Sync Failed'), result.message);
+    }
+  };
+
+  const handleSendSingleWorkout = async (workout: WorkoutItem) => {
+    if (isSyncing) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const result = await syncWorkouts([workout]);
+    if (result.success) {
+      Alert.alert(t('alerts.settingsSaved', 'Success'), result.message);
+    } else {
+      Alert.alert(t('alerts.errorOccurred', 'Sync Failed'), result.message);
+    }
+  };
 
   return (
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
-      {/* HEADER WITH TITLE */}
-      <View className="px-5 pt-3 pb-2 bg-theme-bg">
+      {/* ------------------------------------------------------------- */}
+      {/* PINNED STICKY WEEK HEADER (Opaque background, hairline border) */}
+      {/* ------------------------------------------------------------- */}
+      <View className="bg-theme-bg px-4 pt-2 pb-3 border-b border-theme-border z-20">
         <ScreenHeaderTitleRow
-          title="Planning"
+          title={t('tabs.planning', 'Planning')}
           unreadCount={unreadCount}
           onCoachPress={() => router.push('/(tabs)/coach')}
         />
-      </View>
 
-      <View className="flex-1 px-5 pt-2">
-        {/* Pinned plan context — Card matching TodaysPlanCard styling */}
-        <Card className="p-4 md:p-5 border-theme-border shadow-sm mb-5">
-          
+        {/* Date Pager Row */}
+        <View className="flex-row items-center justify-between mt-2 mb-2.5">
+          <View className="flex-row items-center gap-1.5">
+            <TouchableOpacity
+              onPress={handlePrevWeek}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              className="w-8 h-8 items-center justify-center rounded-full"
+            >
+              <Ionicons
+                name="chevron-back"
+                size={18}
+                color={isDark ? '#94A3B8' : '#64748B'}
+              />
+            </TouchableOpacity>
 
-          {/* Week Selector Bar with Interactive Chevrons */}
-          <View className="flex-row items-center justify-between mb-3">
-            <Text className="text-sm font-extrabold text-theme-muted">
-              Week plan
+            <Text className="text-base font-bold text-theme-text font-jakarta px-1">
+              {weekRangeLabel}
             </Text>
-            <View className="flex-row items-center bg-theme-card border border-theme-border px-2.5 py-1 rounded-full shadow-sm">
-              <TouchableOpacity onPress={handlePrevWeek} activeOpacity={0.6} className="px-1.5 py-0.5">
-                <Ionicons name="chevron-back" size={13} color={theme.tint} />
-              </TouchableOpacity>
-              <Text className="text-sm font-mono font-extrabold text-theme-text px-1">{weekRangeLabel}</Text>
-              <TouchableOpacity onPress={handleNextWeek} activeOpacity={0.6} className="px-1.5 py-0.5">
-                <Ionicons name="chevron-forward" size={13} color={theme.tint} />
-              </TouchableOpacity>
-            </View>
+
+            <TouchableOpacity
+              onPress={handleNextWeek}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              className="w-8 h-8 items-center justify-center rounded-full"
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={isDark ? '#94A3B8' : '#64748B'}
+              />
+            </TouchableOpacity>
           </View>
 
-          <SideBySideWeekBar
-            agenda={weeklyAgenda}
-            prevAgenda={prevWeekAgenda}
-            nextAgenda={nextWeekAgenda}
-            selectedDayIndex={selectedDayIndex}
-            onSelectDay={(idx) => {
-              setSelectedDayIndex(idx);
-              if (dayYPositions[idx] !== undefined) {
-                part3ScrollViewRef.current?.scrollTo({ y: dayYPositions[idx], animated: true });
-              }
-            }}
-            onPrevWeek={handlePrevWeek}
-            onNextWeek={handleNextWeek}
-          />
-        </Card>
-
-        <ScrollView
-          ref={part3ScrollViewRef}
-          className="flex-1"
-          contentContainerStyle={{ paddingBottom: tabBarOccupied + 20, gap: 12 }}
-          showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={notifyScroll} onScrollEndDrag={notifyScrollEnd} onMomentumScrollEnd={notifyScrollEnd}
-        >
-          {planLoading && plan.length === 0 ? (
-            <Animated.View
-              layout={LinearTransition.springify().damping(16).stiffness(160)}
-              exiting={FadeOutUp.duration(150)}
-              className="gap-y-3 pt-1"
-            >
-              <TodaysPlanSkeleton />
-              <TodaysPlanSkeleton />
-              <TodaysPlanSkeleton />
-            </Animated.View>
-          ) : (
-            weeklyAgenda.map((day, idx) => (
-              <Animated.View
-                key={`${day.dayName}-${day.dateStr}`}
-                layout={LinearTransition.springify().damping(16).stiffness(160)}
-                entering={FadeInDown.duration(200).springify().damping(15)}
-                exiting={FadeOutUp.duration(150)}
-                onLayout={(e) => {
-                  const y = e.nativeEvent.layout.y;
-                  setDayYPositions((prev) => ({ ...prev, [idx]: y }));
-                }}
-              >
-                <DetailedDayCard
-                  day={day}
-                  onAdaptPress={() => setIsAdaptModalOpen(true)}
-                  onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
-                  onSelectWorkout={handleSelectWorkoutForEdit}
-                  onDeleteWorkout={handleDeleteWorkout}
-                  onInvitePartner={handleInvitePartner}
-                />
-              </Animated.View>
-            ))
+          {/* This week jump button if not currently viewing this week */}
+          {!isCurrentWeek && (
+            <Button
+              variant="ghost"
+              size="sm"
+              label="This week"
+              onPress={() => {
+                Haptics.selectionAsync();
+                setWeekStart(getMonday(new Date()));
+              }}
+            />
           )}
+        </View>
 
+        {/* 7-Tile Week Strip (Height 84, no card around it) */}
+        <SideBySideWeekBar
+          agenda={weeklyAgenda}
+          prevAgenda={prevWeekAgenda}
+          nextAgenda={nextWeekAgenda}
+          selectedDayIndex={selectedDayIndex}
+          onSelectDay={handleSelectDay}
+          onPrevWeek={handlePrevWeek}
+          onNextWeek={handleNextWeek}
+        />
 
-        </ScrollView>
+        {/* Week Summary Line & Progress Bar */}
+        <View className="flex-row items-center justify-between mt-2.5 min-h-[34px]">
+          <Text className="text-[12px] text-theme-muted font-jakarta flex-1 pr-2" numberOfLines={1}>
+            {doneCount} of {totalPlannedCount} done · {totalPoints} rooka planned
+          </Text>
+
+          {hasAnyDevices && totalPlannedCount > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              label={
+                isSyncedSuccess
+                  ? t('dashboard.devicesSynced', 'Sent ✓')
+                  : hasGarmin && hasAppleWatch
+                  ? t('dashboard.sendToDevices', 'Send to devices')
+                  : hasGarmin
+                  ? t('dashboard.sendToGarmin', 'Send to Garmin')
+                  : t('dashboard.sendToAppleWatch', 'Send to Apple Watch')
+              }
+              leftIcon={
+                isSyncedSuccess ? (
+                  <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                ) : (
+                  <Ionicons name="watch-outline" size={13} color="#0EA5E9" />
+                )
+              }
+              isLoading={isSyncing}
+              onPress={handleSendWeekToDevices}
+            />
+          )}
+        </View>
+        <View className="h-1 w-full bg-theme-inset rounded-full mt-1.5 overflow-hidden">
+          <View
+            style={{ width: `${progressPct}%` }}
+            className="h-full bg-theme-accent-strong rounded-full"
+          />
+        </View>
       </View>
 
+      {/* ------------------------------------------------------------- */}
+      {/* AGENDA SCROLLVIEW (Selected day expanded, other days collapsed) */}
+      {/* ------------------------------------------------------------- */}
+      <ScrollView
+        ref={part3ScrollViewRef}
+        className="flex-1"
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: tabBarInset,
+          gap: 12,
+        }}
+        showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={notifyScroll}
+        onScrollEndDrag={notifyScrollEnd}
+        onMomentumScrollEnd={notifyScrollEnd}
+      >
+        {planLoading && plan.length === 0 ? (
+          <Animated.View
+            layout={LinearTransition.duration(200)}
+            exiting={FadeOutUp.duration(150)}
+            className="gap-y-3 pt-1"
+          >
+            <TodaysPlanSkeleton />
+            <TodaysPlanSkeleton />
+            <TodaysPlanSkeleton />
+          </Animated.View>
+        ) : (
+          weeklyAgenda.map((day, idx) => (
+            <Animated.View
+              key={`${day.dayName}-${day.dateStr}`}
+              ref={(el) => {
+                dayCardRefs.current[idx] = el as any;
+              }}
+              layout={LinearTransition.duration(200)}
+              entering={FadeInDown.duration(200)}
+              exiting={FadeOutUp.duration(150)}
+              onLayout={(e) => {
+                const y = e.nativeEvent.layout.y;
+                dayYPositionsRef.current[idx] = y;
+                setDayYPositions((prev) => ({ ...prev, [idx]: y }));
+                if (pendingScrollIndexRef.current === idx) {
+                  part3ScrollViewRef.current?.scrollTo({
+                    y: Math.max(0, y - 8),
+                    animated: true,
+                  });
+                }
+              }}
+            >
+              <DetailedDayCard
+                day={day}
+                isExpanded={selectedDayIndex === idx}
+                onToggleExpand={() => handleSelectDay(idx)}
+                onAdaptPress={() => setIsAdaptModalOpen(true)}
+                onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
+                onSelectWorkout={handleSelectWorkoutForEdit}
+                onDeleteWorkout={handleDeleteWorkout}
+                onInvitePartner={handleInvitePartner}
+                hasGarmin={hasGarmin}
+                hasAppleWatch={hasAppleWatch}
+                hasAnyDevices={hasAnyDevices}
+                onSendWorkoutToDevice={handleSendSingleWorkout}
+              />
+            </Animated.View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* Modals */}
       <AddWorkoutModal
         visible={isAddModalOpen}
         targetDayName={targetAddDay.dayName}
         targetDateStr={targetAddDay.dateStr}
         targetFullDate={targetAddDay.fullDate}
         initialWorkout={selectedWorkoutForEdit}
-        onClose={() => { setIsAddModalOpen(false); setSelectedWorkoutForEdit(null); }}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setSelectedWorkoutForEdit(null);
+        }}
         onSave={handleSaveWorkout}
         onDelete={handleDeleteWorkout}
       />
-      <AdaptPlanModal visible={isAdaptModalOpen} onClose={() => setIsAdaptModalOpen(false)} onConfirmAdapt={handleConfirmAdaptation} />
-      <LogWeightModal visible={isWeightModalOpen} previousWeight={recordedWeight} onClose={() => setIsWeightModalOpen(false)} onSaveWeight={handleSaveWeight} />
-      <LogNiggleModal visible={isNiggleModalOpen} onClose={() => setIsNiggleModalOpen(false)} onSendToCoach={handleSendInjuryToCoach} />
-      <LogActivityModal visible={isLogActivityOpen} onClose={() => setIsLogActivityOpen(false)} />
-      <InvitePartnerModal visible={isInviteModalOpen} onClose={() => { setIsInviteModalOpen(false); setWorkoutToInvite(null); }} workout={workoutToInvite} />
+      <AdaptPlanModal
+        visible={isAdaptModalOpen}
+        onClose={() => setIsAdaptModalOpen(false)}
+        onConfirmAdapt={handleConfirmAdaptation}
+      />
+      <LogWeightModal
+        visible={isWeightModalOpen}
+        previousWeight={recordedWeight}
+        onClose={() => setIsWeightModalOpen(false)}
+        onSaveWeight={handleSaveWeight}
+      />
+      <LogNiggleModal
+        visible={isNiggleModalOpen}
+        onClose={() => setIsNiggleModalOpen(false)}
+        onSendToCoach={handleSendInjuryToCoach}
+      />
+      <LogActivityModal
+        visible={isLogActivityOpen}
+        onClose={() => setIsLogActivityOpen(false)}
+      />
+      <InvitePartnerModal
+        visible={isInviteModalOpen}
+        onClose={() => {
+          setIsInviteModalOpen(false);
+          setWorkoutToInvite(null);
+        }}
+        workout={workoutToInvite}
+      />
     </View>
   );
 }

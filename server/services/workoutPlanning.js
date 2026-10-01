@@ -46,6 +46,36 @@ function getUpcomingWeekMonToSun(baseDate = new Date()) {
 }
 
 /**
+ * Calculates the exact 7 consecutive dates (YYYY-MM-DD) from Monday to Sunday
+ * for the current week in the Europe/Amsterdam timezone.
+ */
+function getCurrentWeekMonToSun(baseDate = new Date()) {
+  const amsDateStr = new Date(baseDate).toLocaleDateString("en-CA", {
+    timeZone: "Europe/Amsterdam",
+  });
+  const [year, month, day] = amsDateStr.split("-").map(Number);
+  const amsDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const dayOfWeek = amsDate.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const monday = new Date(amsDate);
+  monday.setUTCDate(amsDate.getUTCDate() + diffToMonday);
+
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+
+  return {
+    mondayStr: dates[0],
+    sundayStr: dates[6],
+    dates,
+  };
+}
+
+/**
  * Computes current CTL, ATL, and TSB from historical activities
  * using the standard exponential moving average constants (42-day & 7-day).
  */
@@ -188,7 +218,7 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
   const user = await new Promise((resolve, reject) => {
     db.get(
       `SELECT id, username, coach_tone, coach_name, coach_context, athlete_context, 
-              gender, language, training_availability, cycle_tracking_enabled 
+              gender, language, training_availability, cycle_tracking_enabled, long_term_memory 
        FROM users WHERE id = ?`,
       [userId],
       (err, row) => {
@@ -338,6 +368,8 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
 Tone: ${coachToneText}
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
 Athlete Context: ${user.athlete_context || "General endurance athlete"}
+ATHLETE LIFE CONTEXT & LONG-TERM MEMORY:
+${user.long_term_memory || "No long-term memory recorded."}
 Athlete Primary Goal: ${goalContext.goalName} (${goalContext.goalDate || 'Target Date TBD'})
 Gender: ${user.gender || "Prefer not to share"}
 ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT: Adjust training load taking the menstrual cycle into consideration. Distribute exercises carefully around the physically demanding days." : ""}
@@ -356,7 +388,7 @@ ${recurringTrainingsNotice}
 ${goalContext.promptContext}
 
 CRITICAL RULES:
-0. LANGUAGE DIRECTIVE: All natural language workout descriptions and details MUST be written fluently in ${targetLanguageName}.
+0. LANGUAGE PERSISTENCE & UNIFORMITY MANDATE: The athlete's preferred language is ${targetLanguageName} (${user.language || 'en'}). You MUST write all workout descriptions, details, analysis, and commentary fluently and exclusively in ${targetLanguageName}. NEVER mix Dutch and English within a sentence or use Dutch activity names inside English sentences (or vice-versa).
 1. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
 2. DATES: You are generating a 7-day training plan for the coming week starting Monday ${dates[0]} and ending Sunday ${dates[6]}. Output workouts for these exact 7 dates:
    - Monday: ${dates[0]}
@@ -368,6 +400,11 @@ CRITICAL RULES:
    - Sunday: ${dates[6]}
 3. SCHEDULE BOUNDARIES: You MUST adhere to daily time constraints. If a day is marked 'blocked' or max_minutes is 0, schedule 'Rest'.
 3b. RECURRING NON-ROOKA ACTIVITIES: If any recurring non-Rooka activities are listed in ATHLETE'S RECURRING PERIODICAL SESSIONS above (e.g. hockey, spinning, tennis, club sports), you MUST include a workout entry on that exact day representing this activity. Set 'sport' to the relevant sport or 'CrossTraining' / 'Cardio' / 'Strength' / 'Other' (or closest match), use the exact session name as the description, set an appropriate target_rooka reflecting the duration and intensity (e.g. 40-70), and in 'details' describe the session and coaching notes on how it fits into their weekly athletic development. Balance the athlete's other workouts, intensities, and recovery days around these sessions.
+3c. TRAVEL, VACATION, HOLIDAYS & SPECIAL CONSTRAINTS (CRITICAL): Check ATHLETE LIFE CONTEXT & LONG-TERM MEMORY above carefully. If the athlete is currently traveling, on holiday/vacation (e.g. in Italy, abroad, visiting family), lacks gym/equipment access, or has an ongoing illness/injury recovery, you MUST adapt the entire weekly plan to fit those exact constraints:
+   - Do NOT schedule gym/strength workouts with barbells, machines, or heavy weights if they do not have gym access while traveling (prescribe bodyweight mobility or omit strength).
+   - Do NOT schedule indoor bike FTP sessions or road bike workouts if they do not have their bike on vacation.
+   - Do NOT schedule punishing VO2max / Z4 intervals if the user agreed to flexible aerobic Zone 2 daylight running while traveling.
+   - Respect their travel reality completely and maintain aerobic fitness without causing stress or guilt.
 4. MUSCLE LOAD: Any group listed HIGH is heavily loaded. Do not schedule consecutive sessions overloading that group.
 5. INJURIES: Respect active niggles and substitute lower impact activities where necessary.
 6. TARGETS & METRIC PARITY MANDATE (CRITICAL):
@@ -522,6 +559,23 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   }
 
   // 8. Atomic Database Write:
+  // First archive existing coach/recurring workouts that are being replaced so user can recover if desired
+  await new Promise((resolve) => {
+    const placeholders = dates.map(() => '?').join(',');
+    db.run(
+      `INSERT INTO deleted_micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
+       SELECT user_id, date, sport, description, target_rooka, details, steps_json, source
+       FROM micro_plan
+       WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source IS NULL)
+         AND sport IS NOT NULL AND LOWER(sport) != 'rest'`,
+      [userId, ...dates],
+      (archiveErr) => {
+        if (archiveErr) console.error(`[WeeklyPlan] Error archiving prior plan for user ${userId}:`, archiveErr);
+        resolve();
+      }
+    );
+  });
+
   // Remove existing coach/recurring generated workouts for these dates, leaving user-created workouts intact
   await new Promise((resolve) => {
     const placeholders = dates.map(() => '?').join(',');
@@ -695,8 +749,23 @@ async function sendInactiveUserWeeklyPlanInquiry(user) {
  */
 async function runWeeklyWorkoutPlanningJob(options = {}) {
   console.log('🗓️ [CRON] Starting Sunday weekly workout planning job...');
-  const { mondayStr, sundayStr, dates } = getUpcomingWeekMonToSun();
+  let weekInfo;
+  if (options.dates && Array.isArray(options.dates) && options.dates.length > 0) {
+    weekInfo = {
+      mondayStr: options.dates[0],
+      sundayStr: options.dates[options.dates.length - 1],
+      dates: options.dates,
+    };
+  } else if (options.targetWeek === 'current' || options.currentWeek) {
+    weekInfo = getCurrentWeekMonToSun(options.baseDate || new Date());
+  } else {
+    weekInfo = getUpcomingWeekMonToSun(options.baseDate || new Date());
+  }
+  const { mondayStr, sundayStr, dates } = weekInfo;
   console.log(`📅 [CRON] Generating week: ${mondayStr} (Monday) to ${sundayStr} (Sunday)`);
+
+  const userFilterSql = options.userId ? ` AND u.id = ?` : ``;
+  const userFilterParams = options.userId ? [options.userId] : [];
 
   const users = await new Promise((resolve) => {
     db.all(
@@ -715,9 +784,15 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
            ELSE 0
          END AS is_active_recently
        FROM users u 
-       WHERE u.deleted_at IS NULL`,
-      [],
-      (err, rows) => resolve(err || !rows ? [] : rows)
+       WHERE u.deleted_at IS NULL${userFilterSql}`,
+      userFilterParams,
+      (err, rows) => {
+        if (err) {
+          console.error('❌ [CRON] Error querying users for weekly planning:', err);
+          return resolve([]);
+        }
+        resolve(rows || []);
+      }
     );
   });
 
@@ -782,9 +857,103 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
   };
 }
 
+/**
+ * Calculates planned workout duration in minutes safely without mistaking
+ * distance annotations (like 200m warmup) for minutes.
+ */
+function calculateWorkoutDurationMinutes(workout) {
+  if (!workout) return 45;
+
+  // 1. Direct planned duration if provided
+  if (typeof workout.duration === 'number' && workout.duration > 0) {
+    return Math.round(workout.duration);
+  }
+  if (typeof workout.duration_minutes === 'number' && workout.duration_minutes > 0) {
+    return Math.round(workout.duration_minutes);
+  }
+  if (typeof workout.duration === 'string') {
+    const dMatch = workout.duration.match(/^(\d+)\s*(?:min|mins|minute|minutes)?$/i);
+    if (dMatch) return parseInt(dMatch[1], 10);
+  }
+
+  // 2. Title matching: e.g. "30-Min EVF & Pull Technique" or "45 min Tempo"
+  const title = workout.title || workout.description || '';
+  const titleMatch = title.match(/\b(\d+)\s*(?:-|–|\s)?(?:min|mins|minute|minutes)\b/i);
+  if (titleMatch) {
+    return parseInt(titleMatch[1], 10);
+  }
+
+  // 3. Structured steps calculation (including distance steps e.g. 200m or 1500m swim)
+  if (workout.steps_json) {
+    try {
+      const steps = typeof workout.steps_json === 'string' ? JSON.parse(workout.steps_json) : workout.steps_json;
+      if (Array.isArray(steps) && steps.length > 0) {
+        let totalMins = 0;
+        const sport = String(workout.sport || workout.type || '').toUpperCase();
+
+        const parseSteps = (sArr) => {
+          if (!Array.isArray(sArr)) return;
+          for (const s of sArr) {
+            if (s.type === 'repeat' && s.iterations && Array.isArray(s.steps)) {
+              let iterMins = 0;
+              for (const rs of s.steps) {
+                const cVal = Number(rs.condition_value) || 0;
+                if (rs.condition_type === 'time_sec') {
+                  iterMins += cVal / 60;
+                } else if (rs.condition_type === 'time') {
+                  iterMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
+                } else if (rs.condition_type === 'distance') {
+                  if (sport === 'SWIM') iterMins += (cVal / 100) * 1.8;
+                  else if (sport === 'BIKE' || sport === 'RIDE') iterMins += (cVal / 1000) * 2;
+                  else iterMins += (cVal / 1000) * 5;
+                } else if (rs.condition_type === 'distance_km') {
+                  if (sport === 'BIKE' || sport === 'RIDE') iterMins += cVal * 2;
+                  else iterMins += cVal * 5;
+                }
+              }
+              totalMins += iterMins * (Number(s.iterations) || 1);
+            } else {
+              const cVal = Number(s.condition_value) || 0;
+              if (s.condition_type === 'time_sec') {
+                totalMins += cVal / 60;
+              } else if (s.condition_type === 'time') {
+                totalMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
+              } else if (s.condition_type === 'distance') {
+                if (sport === 'SWIM') totalMins += (cVal / 100) * 1.8;
+                else if (sport === 'BIKE' || sport === 'RIDE') totalMins += (cVal / 1000) * 2;
+                else totalMins += (cVal / 1000) * 5;
+              } else if (s.condition_type === 'distance_km') {
+                if (sport === 'BIKE' || sport === 'RIDE') totalMins += cVal * 2;
+                else totalMins += cVal * 5;
+              } else if (s.steps && Array.isArray(s.steps)) {
+                parseSteps(s.steps);
+              }
+            }
+          }
+        };
+        parseSteps(steps);
+        if (totalMins > 0) return Math.round(totalMins);
+      }
+    } catch (e) {}
+  }
+
+  // 4. Details / notes matching: look for explicit "30 min" or "30 mins", NOT meters like "200m"
+  const details = workout.details || workout.notes || '';
+  if (details) {
+    const detailsMatch = details.match(/\b(\d+)\s*(?:min|mins|minute|minutes)\b/i);
+    if (detailsMatch) {
+      return parseInt(detailsMatch[1], 10);
+    }
+  }
+
+  return 45;
+}
+
 module.exports = {
   getUpcomingWeekMonToSun,
+  getCurrentWeekMonToSun,
   calculateUserFitnessMetrics,
+  calculateWorkoutDurationMinutes,
   buildFallbackPlan,
   generateWeeklyPlanForUser,
   sendInactiveUserWeeklyPlanInquiry,

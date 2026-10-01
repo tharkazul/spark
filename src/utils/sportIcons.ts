@@ -7,7 +7,7 @@ export type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 export interface SportIconConfig {
   name: string;
   outlineName: string;
-  family?: 'Ionicons' | 'FontAwesome5';
+  family?: 'Ionicons' | 'FontAwesome5' | 'MaterialCommunityIcons';
   color: string;
   bgColor: string;
   label: string;
@@ -155,8 +155,9 @@ export function getSportIconConfig(
     name.includes('intervals')
   ) {
     return {
-      name: 'walk',
-      outlineName: 'walk-outline',
+      name: 'run',
+      outlineName: 'run-fast',
+      family: 'MaterialCommunityIcons',
       color: sportColor('RUN', scheme),
       bgColor: 'bg-[#D9A62E]/15',
       label: 'RUN',

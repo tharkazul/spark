@@ -17,6 +17,7 @@ import {
   Platform,
   Image as RNImage,
   TextInput as RNTextInput,
+  ScrollView,
   Text,
   TouchableOpacity,
   View,
@@ -57,8 +58,12 @@ import { getCoachAvatarSource, resolveChatImageUrl } from '../../utils/avatarUti
 import { hasSubscriptionTier } from '../../utils/permissions';
 
 import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
+import { DeviceSyncBanner } from '../../components/dashboard/DeviceSyncBanner';
 import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
+import { Chip } from '../../components/ui/Chip';
 import { RookaPoints } from '../../components/ui/RookaPoints';
+import { SportMedallion } from '../../components/ui/SportMedallion';
+import { calculateWorkoutDurationMinutes } from '../../utils/format';
 
 interface ChatSection {
   title: string;
@@ -216,9 +221,9 @@ const MessageRow = React.memo(({
   }, [isUser, item.content]);
 
   return (
-    <View className={`mb-3 max-w-[86%] ${isUser ? 'self-end' : 'self-start'}`}>
+    <View className={`max-w-[85%] ${isUser ? 'self-end' : 'self-start'} ${isLastInRun ? 'mb-4' : 'mb-1'}`}>
       {!isUser && isFirstInRun && (
-        <View className="flex-row items-center mb-1 ml-1">
+        <View className="flex-row items-center mb-1.5 ml-1">
           <TouchableOpacity activeOpacity={0.8} onPress={() => onExpandImage(avatarSrc)}>
             <RNImage
               source={avatarSrc}
@@ -226,15 +231,16 @@ const MessageRow = React.memo(({
               resizeMode="cover"
             />
           </TouchableOpacity>
-          <Text className="text-theme-accent font-extrabold text-xs mr-2 font-rajdhani">rooka</Text>
+          <Text className="text-theme-accent-text font-bold text-xs mr-2 font-rajdhani">rooka</Text>
         </View>
       )}
 
       <View
-        className={`px-4 py-3 rounded-2xl ${isUser
-            ? 'bg-theme-accent rounded-br-sm shadow-sm'
-            : 'bg-theme-card border border-theme-border rounded-bl-sm shadow-sm'
-          }`}
+        className={`px-4 py-3 rounded-2xl ${
+          isUser
+            ? 'bg-theme-accent-strong rounded-br-[6px]'
+            : 'bg-theme-card border border-theme-border rounded-bl-[6px]'
+        }`}
       >
         {item.images && item.images.length > 0 ? (
           <View className="mb-2 flex-row flex-wrap gap-2">
@@ -271,10 +277,10 @@ const MessageRow = React.memo(({
                 params: { subtab: 'account' },
               });
             }}
-            className="mt-3 py-2 px-3.5 bg-brand rounded-control flex-row items-center justify-center self-start shadow-xs"
+            className="mt-3 py-2 px-3.5 bg-theme-accent-strong rounded-button flex-row items-center justify-center self-start"
           >
             <Ionicons name="sparkles" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text className="text-white text-xs font-jakarta-bold font-rajdhani">
+            <Text className="text-white text-xs font-bold font-rajdhani">
               Upgrade to Rooka+
             </Text>
             <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
@@ -320,7 +326,7 @@ const MessageRow = React.memo(({
       </View>
 
       {isLastInRun && !item.isError && (
-        <Text className="text-xs mt-1 self-end mr-1 text-theme-muted">
+        <Text className={`text-[11px] mt-1 mr-1 text-theme-muted ${isUser ? 'self-end' : 'self-start ml-1'}`}>
           {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       )}
@@ -565,27 +571,41 @@ export default function CoachScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions ? ImagePicker.MediaTypeOptions.Images : ('images' as any),
         allowsEditing: false,
+        allowsMultipleSelection: true,
+        orderedSelection: true,
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets && result.assets[0]?.uri) {
-        const asset = result.assets[0];
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const ImageManipulator = getImageManipulator();
-        if (ImageManipulator && typeof ImageManipulator.manipulateAsync === 'function') {
-          const manipulated = await ImageManipulator.manipulateAsync(
-            asset.uri,
-            [{ resize: { width: 1600 } }],
-            { compress: 0.7, format: ImageManipulator.SaveFormat?.JPEG || 'jpeg', base64: true }
-          );
+        const processedUris: string[] = [];
 
-          if (manipulated?.base64) {
-            const base64Uri = `data:image/jpeg;base64,${manipulated.base64}`;
-            setSelectedImages((prev) => [...prev, base64Uri]);
+        for (const asset of result.assets) {
+          if (!asset.uri) continue;
+          if (ImageManipulator && typeof ImageManipulator.manipulateAsync === 'function') {
+            try {
+              const manipulated = await ImageManipulator.manipulateAsync(
+                asset.uri,
+                [{ resize: { width: 1600 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat?.JPEG || 'jpeg', base64: true }
+              );
+
+              if (manipulated?.base64) {
+                processedUris.push(`data:image/jpeg;base64,${manipulated.base64}`);
+              } else {
+                processedUris.push(asset.uri);
+              }
+            } catch (manipErr) {
+              console.warn('Image manipulation failed for asset, using uri:', manipErr);
+              processedUris.push(asset.uri);
+            }
           } else {
-            setSelectedImages((prev) => [...prev, asset.uri]);
+            processedUris.push(asset.uri);
           }
-        } else {
-          setSelectedImages((prev) => [...prev, asset.uri]);
+        }
+
+        if (processedUris.length > 0) {
+          setSelectedImages((prev) => [...prev, ...processedUris]);
         }
       }
     } catch (error) {
@@ -668,18 +688,18 @@ export default function CoachScreen() {
   const renderItem: any = useCallback(({ item }: { item: ChatListItem }) => {
     if (item.type === 'thinking') {
       return (
-        <View className="mb-3 max-w-[86%] self-start">
-          <View className="flex-row items-center mb-1 ml-1">
+        <View className="mb-4 max-w-[85%] self-start">
+          <View className="flex-row items-center mb-1.5 ml-1">
             <RNImage
               source={avatarSource}
               style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
               resizeMode="cover"
             />
-            <Text className="text-theme-accent font-extrabold text-xs mr-2 font-rajdhani">rooka</Text>
+            <Text className="text-theme-accent-text font-bold text-xs mr-2 font-rajdhani">rooka</Text>
           </View>
-          <View className="px-4 py-2.5 flex-row items-center bg-theme-card border border-theme-border rounded-tile rounded-bl-sm shadow-xs">
-            <ActivityIndicator size="small" color="#16ACBD" />
-            <Text className="text-theme-accent text-xs font-semibold ml-2">
+          <View className="px-4 py-3 flex-row items-center bg-theme-card border border-theme-border rounded-2xl rounded-bl-[6px]">
+            <ActivityIndicator size="small" color="#0EA5E9" />
+            <Text className="text-theme-muted text-xs font-semibold ml-2.5">
               {t('chat.thinking')}
             </Text>
           </View>
@@ -688,10 +708,12 @@ export default function CoachScreen() {
     }
     if (item.type === 'date') {
       return (
-        <View className="py-2.5 items-center justify-center pointer-events-none">
-          <View className="bg-theme-card border border-theme-border px-4 py-1.5 rounded-full">
-            <Text className="text-theme-text text-xs font-extrabold tracking-wide">{item.title}</Text>
+        <View className="py-3 flex-row items-center justify-center px-4 pointer-events-none">
+          <View className="flex-1 h-[1px] bg-theme-border/60" />
+          <View className="bg-theme-card border border-theme-border px-3 py-1 rounded-full mx-3">
+            <Text className="text-theme-muted text-[11px] font-bold tracking-wide uppercase">{item.title}</Text>
           </View>
+          <View className="flex-1 h-[1px] bg-theme-border/60" />
         </View>
       );
     }
@@ -717,7 +739,16 @@ export default function CoachScreen() {
   }, [user, avatarSource, t, authToken, handleSelectWorkout, acceptProposal, rejectProposal, acceptInvite, declineInvite, acceptConnection, declineConnection, resendMessage]);
 
   const primaryWorkout = todayWorkouts[0] || null;
+  const primaryWorkoutDuration = useMemo(() => {
+    return primaryWorkout ? calculateWorkoutDurationMinutes(primaryWorkout) : 0;
+  }, [primaryWorkout]);
   const totalTodayRooka = todayWorkouts.reduce((acc, w) => acc + (w.target_rooka || (w as any).rookaPoints || 0), 0);
+  const totalTargetKcal = useMemo(() => {
+    const carbs = nutrition?.carbsTarget || 280;
+    const protein = nutrition?.proteinTarget || 200;
+    const fat = nutrition?.fatTarget || 80;
+    return carbs * 4 + protein * 4 + fat * 9;
+  }, [nutrition]);
 
   const activeQuest = quests?.find((q) => q.status === 'active') || null;
   const questProgressPercent = activeQuest
@@ -829,16 +860,7 @@ export default function CoachScreen() {
                 <>
                   <View className="flex-row items-center justify-between mb-4">
                     <View className="flex-row items-center gap-3">
-                      <View
-                        style={{ backgroundColor: cfg.tint }}
-                        className="w-12 h-12 rounded-2xl items-center justify-center"
-                      >
-                        <Ionicons
-                          name={cfg.icon as any}
-                          size={24}
-                          color={cfg.color}
-                        />
-                      </View>
+                      <SportMedallion sport={selectedPillWorkout.sport} size={40} />
                       <View>
                         <Text className="text-lg font-extrabold text-theme-text">
                           {isRest ? 'Rest Day' : `${selectedPillWorkout.sport || 'Workout'} Details`}
@@ -849,11 +871,11 @@ export default function CoachScreen() {
                       </View>
                     </View>
                     {selectedPillWorkout.target_rooka && selectedPillWorkout.target_rooka > 0 ? (
-                      <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
-                        <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
-                          +{Math.round(selectedPillWorkout.target_rooka)} rooka
-                        </Text>
-                      </View>
+                      <Chip
+                        variant="points"
+                        size="md"
+                        label={Math.round(selectedPillWorkout.target_rooka)}
+                      />
                     ) : null}
                   </View>
 
@@ -919,13 +941,7 @@ export default function CoachScreen() {
             <>
               <View className="flex-row items-center justify-between mb-4">
                 <View className="flex-row items-center gap-3">
-                  <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
-                    <Ionicons
-                      name={getSportIconConfig(primaryWorkout?.sport).icon as any}
-                      size={24}
-                      color={getSportIconConfig(primaryWorkout?.sport).color}
-                    />
-                  </View>
+                  <SportMedallion sport={primaryWorkout?.sport || 'Rest'} size={40} />
                   <View>
                     <Text className="text-lg font-extrabold text-theme-text">
                       {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
@@ -934,29 +950,23 @@ export default function CoachScreen() {
                   </View>
                 </View>
                 {totalTodayRooka > 0 ? (
-                  <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
-                    <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
-                      +{Math.round(totalTodayRooka)} Total rooka
-                    </Text>
-                  </View>
+                  <Chip
+                    variant="points"
+                    size="md"
+                    label={Math.round(totalTodayRooka)}
+                  />
                 ) : null}
               </View>
 
               {todayWorkouts.length > 0 ? (
                 <View className="gap-y-3 mb-5">
                   {todayWorkouts.map((w, idx) => {
-                    const cfg = getSportIconConfig(w.sport);
                     return (
                       <View key={`modal-w-${idx}`} className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60">
                         {/* Top Sport Line */}
                         <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
                           <View className="flex-row items-center gap-2">
-                            <View
-                              style={{ backgroundColor: cfg.tint }}
-                              className="w-7 h-7 rounded-lg items-center justify-center"
-                            >
-                              <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
-                            </View>
+                            <SportMedallion sport={w.sport || 'Workout'} size={24} />
                             <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
                           </View>
                           {w.target_rooka ? (
@@ -1019,7 +1029,7 @@ export default function CoachScreen() {
           </View>
         </BottomSheetModal>
 
-        {/* Nutrition Detail Sheet Modal (Live & Functional matching Progress Page) */}
+        {/* Nutrition Detail Sheet Modal */}
         <BottomSheetModal
           visible={isNutritionModalOpen}
           onClose={() => setIsNutritionModalOpen(false)}
@@ -1027,12 +1037,12 @@ export default function CoachScreen() {
         >
           <View className="flex-row items-center justify-between mb-4">
             <View className="flex-row items-center gap-3">
-              <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
-                <Ionicons name="restaurant-outline" size={24} color={theme.tint} />
+              <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center">
+                <Ionicons name="restaurant-outline" size={20} color={theme.tint} />
               </View>
               <View>
-                <Text className="text-lg font-extrabold text-theme-text">Today's Fueling Plan</Text>
-                <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Targets</Text>
+                <Text className="text-base font-bold text-theme-text font-rajdhani">Today's Fueling</Text>
+                <Text className="text-xs text-theme-muted font-medium">Macro targets & energy budget</Text>
               </View>
             </View>
             {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
@@ -1044,22 +1054,29 @@ export default function CoachScreen() {
                     console.error('Failed to clear nutrition:', e);
                   }
                 }}
-                className="flex-row items-center gap-1 bg-theme-bg px-3 py-1.5 rounded-full border border-theme-border"
+                className="flex-row items-center gap-1 bg-theme-bg px-2.5 py-1 rounded-full border border-theme-border"
               >
                 <Ionicons name="refresh-outline" size={12} color={theme.textSecondary} />
-                <Text className="text-xs font-bold text-theme-muted">Reset</Text>
+                <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Rationale Banner */}
-          <View className="p-3.5 bg-theme-accent/10 dark:bg-theme-accent/15 rounded-2xl mb-4 border border-theme-accent/20">
-            <Text className="text-xs font-extrabold text-theme-accent mb-1">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
-            <Text className="text-xs text-theme-text leading-relaxed font-medium">{nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}</Text>
+          {/* Total Target Energy Hero */}
+          <View className="mb-4 items-center py-1">
+            <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider mb-0.5">
+              {t('dashboard.dailyEnergyTarget')}
+            </Text>
+            <Text className="text-3xl font-rajdhani font-bold text-theme-text tabular-nums">
+              {totalTargetKcal.toLocaleString()} <Text className="text-base text-theme-muted font-normal">kcal</Text>
+            </Text>
+            <Text className="text-xs text-theme-muted mt-0.5 text-center font-medium">
+              Calculated from your training volume and target weight
+            </Text>
           </View>
 
           {/* 3 Live Macro Rings Row */}
-          <View className="bg-theme-bg/60 p-4 rounded-2xl border border-theme-border/60 mb-4 flex-row justify-around items-center">
+          <View className="bg-theme-card p-4 rounded-2xl border border-theme-border mb-4 flex-row justify-around items-center">
             <MacroRingGauge
               label="Carbs"
               target={nutrition?.carbsTarget || 280}
@@ -1080,12 +1097,35 @@ export default function CoachScreen() {
             />
           </View>
 
-          <TouchableOpacity
-            onPress={() => setIsNutritionModalOpen(false)}
-            className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center mt-2"
-          >
-            <Text className="text-xs font-extrabold text-white">Got it</Text>
-          </TouchableOpacity>
+          {/* Rationale / Explanation with Form (TSB) Chip */}
+          <View className="p-3.5 bg-theme-card rounded-2xl mb-5 border border-theme-border">
+            <View className="flex-row items-center justify-between mb-1.5">
+              <Text className="text-xs font-bold text-theme-text">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setIsNutritionModalOpen(false);
+                  router.push('/(tabs)/progress' as any);
+                }}
+                className="bg-emerald-500/15 px-2 py-0.5 rounded-full flex-row items-center gap-1"
+              >
+                <View className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <Text className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Fresh (TSB)</Text>
+              </TouchableOpacity>
+            </View>
+            <Text className="text-xs text-theme-muted leading-relaxed font-medium">
+              {nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}
+            </Text>
+          </View>
+
+          {/* Footer Actions */}
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              onPress={() => setIsNutritionModalOpen(false)}
+              className="flex-1 py-3.5 bg-theme-accent-strong rounded-button items-center justify-center"
+            >
+              <Text className="text-xs font-bold text-white">Got it</Text>
+            </TouchableOpacity>
+          </View>
         </BottomSheetModal>
 
         {/* Quest Detail Sheet Modal */}
@@ -1104,11 +1144,11 @@ export default function CoachScreen() {
                 <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
               </View>
             </View>
-            <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
-              <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
-                +{Math.round(activeQuest?.reward_points || 0)} rooka
-              </Text>
-            </View>
+            <Chip
+              variant="points"
+              size="md"
+              label={Math.round(activeQuest?.reward_points || 0)}
+            />
           </View>
 
           <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
@@ -1160,87 +1200,121 @@ export default function CoachScreen() {
         </BottomSheetModal>
 
         {/* Header bar with Avatar, Status, and Date */}
-        <View className="px-4 pt-3 pb-1.5 bg-theme-bg z-10 flex-row items-center justify-between">
+        <View className="px-4 pt-2.5 pb-2.5 bg-theme-bg border-b border-theme-border/40 z-10 flex-row items-center justify-between">
           <View className="flex-row items-center flex-1 mr-2">
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setPreviewImage(avatarSource)}
-              className="w-9 h-9 rounded-full bg-theme-bg overflow-hidden mr-2.5 border border-theme-accent/40 shadow-sm items-center justify-center"
+              className="relative mr-3"
             >
-              <RNImage source={avatarSource} style={{ width: 36, height: 36, borderRadius: 18 }} resizeMode="cover" />
+              <RNImage
+                source={avatarSource}
+                style={{ width: 40, height: 40, borderRadius: 20 }}
+                resizeMode="cover"
+              />
+              <View className="w-2.5 h-2.5 rounded-full bg-emerald-500 absolute bottom-0 right-0 border-2 border-theme-bg" />
             </TouchableOpacity>
-            <View className="flex-row items-center gap-x-1.5">
-              <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-1.5" />
-              <Text className="text-theme-text text-base font-extrabold font-rajdhani">rooka</Text>
+            <View>
+              <Text className="text-theme-text text-base font-bold font-rajdhani leading-tight">
+                rooka
+              </Text>
+              <Text className="text-[11px] text-theme-muted font-medium">
+                Your coach
+              </Text>
             </View>
           </View>
 
-          {/* Header Right: Date */}
-          <View className="flex-row items-center gap-1.5 py-1.5">
-            <Ionicons name="calendar-outline" size={13} color={theme.tint} />
-            <Text className="text-xs font-bold font-mono text-theme-muted">{dateBadgeStr}</Text>
-          </View>
-        </View>
-
-        {/* Option A Docked Glanceable Telemetry Micro-Pill Strip (Equal Width flex-1) */}
-        <View className="px-4 pb-2.5 pt-0.5 bg-theme-bg flex-row items-center gap-2">
-          {/* 1. Workout Micro-Pill */}
+          {/* Header Right: Date Link to Planning */}
           <TouchableOpacity
+            activeOpacity={0.7}
             onPress={() => {
               Haptics.selectionAsync();
-              setSelectedPillWorkout(null);
-              setIsWorkoutModalOpen(true);
+              router.push('/(tabs)');
             }}
-            activeOpacity={0.75}
-            className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
+            className="flex-row items-center gap-1.5 py-1 px-2.5 rounded-full bg-theme-card border border-theme-border"
           >
-            <Ionicons
-              name={getSportIconConfig(primaryWorkout?.sport).icon as any}
-              size={14}
-              color={getSportIconConfig(primaryWorkout?.sport).color}
-            />
-            <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
-              {primaryWorkout?.sport || 'Rest'}
-            </Text>
-            {primaryWorkout?.target_rooka ? (
-              <RookaPoints value={Math.round(primaryWorkout.target_rooka)} />
-            ) : null}
+            <Ionicons name="calendar-outline" size={13} color={theme.tint} />
+            <Text className="text-xs font-semibold text-theme-text">{dateBadgeStr}</Text>
+            <Ionicons name="chevron-forward" size={12} color={theme.textSecondary} />
           </TouchableOpacity>
+        </View>
 
-          {/* 2. Nutrition Micro-Pill */}
-          {user?.subscription_tier !== 'free' && (
+        {/* Docked Glanceable Telemetry Micro-Pill Strip */}
+        <View className="py-2 bg-theme-bg border-b border-theme-border/20">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              flexGrow: 1,
+              minWidth: '100%',
+              paddingHorizontal: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+            className="flex-row gap-2"
+          >
+            {/* 1. Workout Micro-Pill */}
             <TouchableOpacity
               onPress={() => {
                 Haptics.selectionAsync();
-                setIsNutritionModalOpen(true);
+                setSelectedPillWorkout(primaryWorkout);
+                setIsWorkoutModalOpen(true);
               }}
               activeOpacity={0.75}
-              className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
+              style={{ flexGrow: 1 }}
+              className="h-9 bg-theme-card border border-theme-border px-3 rounded-full flex-row items-center justify-center gap-2"
             >
-              <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
-                Nutrition
+              <SportMedallion sport={primaryWorkout?.sport || 'Rest'} size={20} />
+              <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
+                {primaryWorkout?.sport
+                  ? `${primaryWorkout.sport}${primaryWorkoutDuration ? `, ${primaryWorkoutDuration} min` : ''}`
+                  : 'Rest Day'}
               </Text>
+              {primaryWorkout?.target_rooka ? (
+                <RookaPoints value={Math.round(primaryWorkout.target_rooka)} />
+              ) : null}
             </TouchableOpacity>
-          )}
 
-          {/* 3. Quest Micro-Pill */}
-          {user?.subscription_tier !== 'free' && (
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.selectionAsync();
-                setIsQuestModalOpen(true);
-              }}
-              activeOpacity={0.75}
-              className="flex-1 bg-theme-card border border-theme-border px-2 py-2 rounded-control flex-row items-center justify-center gap-1.5 shadow-xs"
-            >
-              <Text className="text-xs font-extrabold text-theme-text" numberOfLines={1}>
-                Quest
-              </Text>
-              <Text className="text-xs font-mono font-extrabold text-theme-accent">
-                {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
-              </Text>
-            </TouchableOpacity>
-          )}
+            {/* 2. Nutrition Micro-Pill */}
+            {user?.subscription_tier !== 'free' && (
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIsNutritionModalOpen(true);
+                }}
+                activeOpacity={0.75}
+                style={{ flexGrow: 1 }}
+                className="h-9 bg-theme-card border border-theme-border px-3 rounded-full flex-row items-center justify-center gap-2"
+              >
+                <Ionicons name="restaurant-outline" size={15} color="#F59E0B" />
+                <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
+                  Nutrition
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* 3. Quest Micro-Pill */}
+            {user?.subscription_tier !== 'free' && (
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setIsQuestModalOpen(true);
+                }}
+                activeOpacity={0.75}
+                style={{ flexGrow: 1 }}
+                className="h-9 bg-theme-card border border-theme-border px-3 rounded-full flex-row items-center justify-center gap-2"
+              >
+                <Ionicons name="trophy-outline" size={15} color="#FB923C" />
+                <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
+                  Quest
+                </Text>
+                <Text className="text-xs font-mono font-bold text-theme-accent-text font-rajdhani">
+                  {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
         </View>
 
         {/* Low Token Budget Warning Banner */}
@@ -1267,10 +1341,8 @@ export default function CoachScreen() {
           </View>
         ) : null}
 
-        {/* Today's macro progress rings. The component and its visibility state
-          already existed but were never mounted, so the rings from the spec
-          simply did not appear in chat. */}
-
+        {/* Contextual Device Sync Banner (Prompt to sync Garmin/Strava) */}
+        <DeviceSyncBanner />
 
         {/* CHAT MESSAGES STREAM */}
         <View className="flex-1 relative">
@@ -1322,14 +1394,7 @@ export default function CoachScreen() {
                 Haptics.selectionAsync();
                 scrollToBottom(true);
               }}
-              className="absolute bottom-3 right-4 z-40 bg-theme-accent w-10 h-10 rounded-full shadow-lg items-center justify-center"
-              style={{
-                elevation: 8,
-                shadowColor: theme.tint,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.4,
-                shadowRadius: 6,
-              }}
+              className="absolute bottom-3 right-4 z-40 bg-theme-accent-strong w-10 h-10 rounded-full items-center justify-center border border-white/20"
             >
               <Ionicons name="chevron-down" size={22} color="white" />
             </TouchableOpacity>
@@ -1338,7 +1403,7 @@ export default function CoachScreen() {
 
         {/* Bottom Input Area */}
         <View
-          style={{ paddingBottom: isKeyboardVisible ? 6 : Math.max(tabBarOccupied + 12, 100) }}
+          style={{ paddingBottom: isKeyboardVisible ? (Platform.OS === 'ios' ? 8 : 12) : Math.max(tabBarOccupied + 8, 96) }}
           className="px-3 pt-1 bg-theme-bg"
         >
           {showSuggestions ? (
@@ -1353,29 +1418,56 @@ export default function CoachScreen() {
             </View>
           ) : null}
 
-          <View className="bg-theme-card rounded-card px-3 py-2 border border-theme-border">
-            {selectedImages.length > 0 ? (
-              <View className="mb-2 flex-row gap-2 px-1">
-                {selectedImages.map((imgUri, idx) => (
-                  <View key={`thumb-${idx}`} className="relative">
-                    <TouchableOpacity activeOpacity={0.85} onPress={() => setPreviewImage(imgUri)}>
-                      <Image source={{ uri: imgUri }} style={{ width: 48, height: 48, borderRadius: 8 }} contentFit="cover" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleRemoveImage(idx)}
-                      className="absolute -top-1.5 -right-1.5 bg-semantic-error w-4 h-4 rounded-full items-center justify-center"
-                    >
-                      <Ionicons name="close" size={10} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            ) : null}
+          <View className="bg-theme-card rounded-[24px] px-3 py-1.5 border border-theme-border flex-row items-end gap-2 min-h-[48px]">
+            {/* Left Action Buttons */}
+            <View className="flex-row items-center gap-1.5 pb-1">
+              <TouchableOpacity
+                onPress={handlePickImage}
+                hitSlop={6}
+                className="w-9 h-9 rounded-full bg-theme-bg border border-theme-border items-center justify-center active:opacity-70"
+              >
+                <Ionicons name="attach-outline" size={18} color={theme.tint} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowSuggestions(!showSuggestions)}
+                hitSlop={6}
+                className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${
+                  showSuggestions
+                    ? 'bg-amber-500/15 border-amber-500/40'
+                    : 'bg-theme-bg border border-theme-border'
+                }`}
+              >
+                <Ionicons
+                  name={showSuggestions ? 'bulb' : 'bulb-outline'}
+                  size={16}
+                  color={showSuggestions ? '#F59E0B' : theme.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
 
-            <View className="px-1 py-0 max-h-[120px]">
+            {/* Input & Selected Image Previews */}
+            <View className="flex-1 justify-center py-1">
+              {selectedImages.length > 0 ? (
+                <View className="mb-2 flex-row gap-2">
+                  {selectedImages.map((imgUri, idx) => (
+                    <View key={`thumb-${idx}`} className="relative">
+                      <TouchableOpacity activeOpacity={0.85} onPress={() => setPreviewImage(imgUri)}>
+                        <Image source={{ uri: imgUri }} style={{ width: 44, height: 44, borderRadius: 8 }} contentFit="cover" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleRemoveImage(idx)}
+                        className="absolute -top-1.5 -right-1.5 bg-semantic-error w-4 h-4 rounded-full items-center justify-center"
+                      >
+                        <Ionicons name="close" size={10} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
               <RNTextInput
                 ref={inputRef}
-                placeholder="Ask about your training, nutrition, or recovery..."
+                placeholder="Ask your coach..."
                 placeholderTextColor={theme.textSecondary}
                 value={inputText}
                 onChangeText={(text) => {
@@ -1386,50 +1478,45 @@ export default function CoachScreen() {
                   }
                 }}
                 multiline={true}
-                blurOnSubmit={true}
-                returnKeyType="send"
-                enterKeyHint="send"
-                onSubmitEditing={() => handleSend()}
-                className="text-theme-text text-base"
-                style={{ maxHeight: 110, textAlignVertical: 'top', paddingTop: 2, paddingBottom: 2, lineHeight: 22 }}
+                blurOnSubmit={false}
+                returnKeyType="default"
+                className="text-theme-text text-base font-jakarta"
+                style={{
+                  maxHeight: 110,
+                  minHeight: 28,
+                  paddingTop: Platform.OS === 'ios' ? 4 : 2,
+                  paddingBottom: Platform.OS === 'ios' ? 4 : 2,
+                  lineHeight: 22,
+                }}
               />
             </View>
 
-            <View className="flex-row items-center justify-between pt-1.5 mt-0.5">
-              <View className="flex-row items-center gap-x-2">
-                <TouchableOpacity onPress={handlePickImage} className="w-8 h-8 rounded-full bg-theme-bg/60 border border-theme-border items-center justify-center active:opacity-70">
-                  <Ionicons name="attach-outline" size={18} color="#16ACBD" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setShowSuggestions(!showSuggestions)}
-                  className={`w-8 h-8 rounded-full border items-center justify-center active:opacity-70 ${showSuggestions ? 'bg-theme-accent/20 border-theme-accent' : 'bg-theme-bg/60 border-theme-border'}`}
-                >
-                  <Ionicons name={showSuggestions ? 'bulb' : 'bulb-outline'} size={16} color={showSuggestions ? '#F59E0B' : '#16ACBD'} />
-                </TouchableOpacity>
-              </View>
-
-              <View className="flex-row items-center gap-x-2">
-                <TouchableOpacity
-                  onPress={handleToggleVoiceInput}
-                  className={`w-8 h-8 rounded-full border items-center justify-center active:opacity-70 ${isRecording ? 'bg-semantic-error/20 border-semantic-error' : 'bg-theme-bg/60 border-theme-border'}`}
-                >
-                  <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={16} color={isRecording ? '#EF4444' : '#94A3B8'} />
-                </TouchableOpacity>
+            {/* Right Action Button (Mic if empty, Send if populated) */}
+            <View className="pb-1">
+              {inputText.trim().length > 0 || selectedImages.length > 0 ? (
                 <TouchableOpacity
                   onPress={() => handleSend()}
-                  disabled={sending || (!inputText.trim() && selectedImages.length === 0)}
-                  className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${sending || (!inputText.trim() && selectedImages.length === 0)
-                      ? 'bg-theme-bg/60 border-theme-border opacity-50'
-                      : 'bg-theme-accent/15 border-theme-accent/40'
-                    }`}
+                  disabled={sending}
+                  className="w-9 h-9 rounded-full bg-theme-accent-strong items-center justify-center active:opacity-80"
+                >
+                  <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleToggleVoiceInput}
+                  className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${
+                    isRecording
+                      ? 'bg-rose-500/20 border-rose-500'
+                      : 'bg-theme-bg border border-theme-border'
+                  }`}
                 >
                   <Ionicons
-                    name="send"
-                    size={15}
-                    color={sending || (!inputText.trim() && selectedImages.length === 0) ? '#8E8E93' : BrandColors.primary}
+                    name={isRecording ? 'mic' : 'mic-outline'}
+                    size={17}
+                    color={isRecording ? '#EF4444' : theme.textSecondary}
                   />
                 </TouchableOpacity>
-              </View>
+              )}
             </View>
           </View>
         </View>

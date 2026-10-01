@@ -1,5 +1,5 @@
 import { BrandColors } from '@/constants/theme';
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -47,80 +47,69 @@ const MemoizedHeader = React.memo(({
     <>
       {ListHeaderComponent}
 
-      {/* UNIFIED WORKOUT STRUCTURE BUILDER CARD CONTAINER MATCHING IMAGE 1 */}
-      <View className="p-4 rounded-[24px] bg-theme-bg/60 border border-theme-border my-3 flex-col gap-3.5">
+      {/* STRUCTURE BUILDER SECTION (One Surface Rule - no nested card container) */}
+      <View className="my-3 flex-col gap-3">
         {/* Section Header */}
-        <View className="flex-row items-center justify-between pb-2.5 border-b border-theme-border/60">
+        <View className="flex-row items-center justify-between pb-2 border-b border-theme-border/40">
           <View className="flex-row items-center gap-2">
-            <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
-              <Ionicons name="layers-outline" size={16} color={BrandColors.primary} />
+            <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
+              <Ionicons name="layers-outline" size={15} color={BrandColors.primary} />
             </View>
-            <View>
-              <Text className="text-xs font-extrabold text-theme-text">
-                Workout Structure Builder
-              </Text>
-              <Text className="text-xs text-theme-muted font-bold">
-                Target duration & interval block manager
-              </Text>
-            </View>
+            <Text className="text-sm font-bold text-theme-text font-jakarta">Structure</Text>
           </View>
         </View>
 
         {/* Add Interval Blocks */}
         <View>
-          <Text className="text-xs font-bold text-theme-muted dark:text-theme-muted mb-2">
-            Add Interval Blocks:
-          </Text>
-
           <View className="flex-row flex-wrap gap-2 mb-1">
             <ScalePressable
               onPress={() => handleAddStep('warmup')}
               activeScale={0.95}
               haptic="light"
-              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
+              className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-emerald-500" />
-              <Text className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">+ Warmup</Text>
+              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-jakarta">+ Warmup</Text>
             </ScalePressable>
 
             <ScalePressable
               onPress={() => handleAddStep('interval')}
               activeScale={0.95}
               haptic="light"
-              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
+              className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-blue-500" />
-              <Text className="text-xs font-extrabold text-blue-600 dark:text-blue-400">+ Interval</Text>
+              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400 font-jakarta">+ Interval</Text>
             </ScalePressable>
 
             <ScalePressable
               onPress={() => handleAddStep('recovery')}
               activeScale={0.95}
               haptic="light"
-              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
+              className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-amber-500" />
-              <Text className="text-xs font-extrabold text-amber-600 dark:text-amber-400">+ Recovery</Text>
+              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400 font-jakarta">+ Recovery</Text>
             </ScalePressable>
 
             <ScalePressable
               onPress={() => handleAddStep('cooldown')}
               activeScale={0.95}
               haptic="light"
-              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
+              className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-purple-500" />
-              <Text className="text-xs font-extrabold text-purple-600 dark:text-purple-400">+ Cooldown</Text>
+              <Text className="text-xs font-bold text-purple-600 dark:text-purple-400 font-jakarta">+ Cooldown</Text>
             </ScalePressable>
 
             <ScalePressable
               onPress={handleAddRepeat}
               activeScale={0.95}
               haptic="light"
-              className="px-3 py-2 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-row items-center gap-1.5 shadow-xs"
+              className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <Ionicons name="repeat" size={13} color={BrandColors.primary} />
-              <Text className="text-xs font-extrabold text-theme-accent">Repeat</Text>
+              <Text className="text-xs font-bold text-theme-accent font-jakarta">Repeat</Text>
             </ScalePressable>
           </View>
 
@@ -128,16 +117,16 @@ const MemoizedHeader = React.memo(({
             <Animated.View
               entering={FadeIn.duration(180)}
               exiting={FadeOut.duration(150)}
-              layout={LinearTransition.springify().damping(16).stiffness(160)}
-              className="py-6 px-4 items-center justify-center border border-dashed border-slate-300 dark:border-slate-700/80 rounded-2xl bg-slate-50/50 dark:bg-slate-900/40 mt-3"
+              layout={LinearTransition.duration(200)}
+              className="py-6 px-4 items-center justify-center border border-dashed border-theme-border rounded-inset bg-theme-inset/60 mt-3"
             >
-              <View className="w-10 h-10 rounded-full bg-theme-accent/10 dark:bg-theme-accent/20 items-center justify-center mb-2.5">
+              <View className="w-10 h-10 rounded-full bg-theme-accent/10 items-center justify-center mb-2.5">
                 <Ionicons name="layers-outline" size={20} color={BrandColors.primary} />
               </View>
-              <Text className="text-xs font-extrabold text-theme-text text-center mb-1">
+              <Text className="text-xs font-bold text-theme-text text-center mb-1 font-jakarta">
                 Build Your Interval Structure
               </Text>
-              <Text className="text-[11px] text-theme-muted text-center max-w-[240px]">
+              <Text className="text-[11px] text-theme-muted text-center max-w-[240px] font-jakarta">
                 Tap the blocks above to add warmup, work intervals, and recovery targets.
               </Text>
             </Animated.View>
@@ -150,10 +139,10 @@ const MemoizedHeader = React.memo(({
         <Animated.View
           entering={FadeIn.duration(180)}
           exiting={FadeOut.duration(150)}
-          layout={LinearTransition.springify().damping(16).stiffness(160)}
+          layout={LinearTransition.duration(200)}
         >
-          <Text className="text-xs font-extrabold text-theme-muted mb-2 px-1">
-            Configured Interval Steps
+          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2 px-1">
+            Steps
           </Text>
         </Animated.View>
       )}
@@ -214,6 +203,7 @@ export function WorkoutStepBuilder({
   ListFooterComponent,
 }: WorkoutStepBuilderProps) {
   const isStrength = sport === 'STRENGTH' || sport === 'MOBILITY';
+  const listRef = useRef<any>(null);
 
   const updateStepsAndNotify = useCallback((newSteps: WorkoutStep[]) => {
     const computedRooka = calculateWbRooka(newSteps, isStrength, sport);
@@ -232,6 +222,9 @@ export function WorkoutStepBuilder({
           target_type: 'no.target',
         };
     updateStepsAndNotify([...steps, newStep]);
+    setTimeout(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 200);
   }, [isStrength, steps, updateStepsAndNotify]);
 
   const handleAddRepeat = useCallback(() => {
@@ -306,20 +299,22 @@ export function WorkoutStepBuilder({
 
   const renderItem = useCallback(({ item, drag, isActive }: { item: WorkoutStep; drag?: () => void; isActive?: boolean }) => {
     return (
-      <ScaleDecorator>
-        <StepCard
-          step={item}
-          isStrength={isStrength}
-          sport={sport || 'RUN'}
-          isActive={!!isActive}
-          drag={drag || (() => {})}
-          onUpdate={handleUpdateStep}
-          onRemove={handleRemoveStep}
-          onUpdateSub={handleUpdateSubStep}
-          onRemoveSub={handleRemoveSubStep}
-          onAddSubStep={handleAddSubStep}
-        />
-      </ScaleDecorator>
+      <Animated.View layout={isActive ? undefined : LinearTransition.duration(200)}>
+        <ScaleDecorator>
+          <StepCard
+            step={item}
+            isStrength={isStrength}
+            sport={sport || 'RUN'}
+            isActive={!!isActive}
+            drag={drag || (() => {})}
+            onUpdate={handleUpdateStep}
+            onRemove={handleRemoveStep}
+            onUpdateSub={handleUpdateSubStep}
+            onRemoveSub={handleRemoveSubStep}
+            onAddSubStep={handleAddSubStep}
+          />
+        </ScaleDecorator>
+      </Animated.View>
     );
   }, [isStrength, sport, handleUpdateStep, handleRemoveStep, handleUpdateSubStep, handleRemoveSubStep, handleAddSubStep]);
 
@@ -352,6 +347,7 @@ export function WorkoutStepBuilder({
 
   return (
     <DraggableFlatListComponent
+      ref={listRef}
       data={steps}
       extraData={steps}
       keyExtractor={(item: any) => item.id!}

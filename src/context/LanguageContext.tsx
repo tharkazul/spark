@@ -13,7 +13,7 @@ export type Language = 'en' | 'nl' | 'de' | 'es' | 'fr';
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => Promise<void>;
-  t: (key: string, params?: Record<string, string | number>) => string;
+  t: (key: string, fallbackOrParams?: string | Record<string, string | number>, params?: Record<string, string | number>) => string;
 }
 
 export const dictionaries: Record<Language, any> = { en, nl, de, es, fr };
@@ -45,7 +45,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const t = React.useCallback(
-    (path: string, params?: Record<string, string | number>): string => {
+    (path: string, fallbackOrParams?: string | Record<string, string | number>, paramsObj?: Record<string, string | number>): string => {
+      const defaultFallback = typeof fallbackOrParams === 'string' ? fallbackOrParams : undefined;
+      const params = typeof fallbackOrParams === 'object' ? fallbackOrParams : paramsObj;
+
       const dict = dictionaries[language] || dictionaries.en;
       const fallbackDict = dictionaries.en;
 
@@ -67,10 +70,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
       }
 
-      let result = val !== undefined ? val : fallbackVal !== undefined ? fallbackVal : path;
+      let result = val !== undefined ? val : fallbackVal !== undefined ? fallbackVal : (defaultFallback !== undefined ? defaultFallback : path);
 
       if (typeof result !== 'string') {
-        return path;
+        return defaultFallback !== undefined ? defaultFallback : path;
       }
 
       if (params) {

@@ -12,6 +12,12 @@ export const BrandColors = {
   deep: '#0284C7',         // Deep Sky
   ink: '#1B1B1F',
   accentDark: '#3B82F6',   // Nighttime Ultramarine
+  accentStrong: '#0284C7',
+  accentStrongDark: '#2563EB',
+  accentText: '#0369A1',
+  accentTextDark: '#60A5FA',
+  warm: '#F97316',
+  warmDark: '#FB923C',
 } as const;
 
 /**
@@ -110,10 +116,14 @@ export const Colors = {
   light: {
     text: '#0F172A',               // --text-main
     textSecondary: '#64748B',      // --text-muted
-    background: '#F8FAFC',         // --bg-main
+    background: '#F1F5F9',         // --bg-main
     card: '#FFFFFF',               // --bg-card
+    inset: '#EAEFF5',              // --bg-inset
     border: '#E2E8F0',             // --border-color
     tint: BrandColors.primary,     // --accent
+    accentStrong: BrandColors.accentStrong,
+    accentText: BrandColors.accentText,
+    warm: BrandColors.warm,
     backgroundElement: '#F1F5F9',  // --gray-100
     backgroundSelected: '#E2E8F0', // --gray-200
   },
@@ -122,8 +132,12 @@ export const Colors = {
     textSecondary: '#94A3B8',
     background: '#0F172A',
     card: '#1E293B',
+    inset: '#162033',              // --bg-inset
     border: '#334155',
     tint: BrandColors.accentDark,
+    accentStrong: BrandColors.accentStrongDark,
+    accentText: BrandColors.accentTextDark,
+    warm: BrandColors.warmDark,
     backgroundElement: '#1E293B',
     backgroundSelected: '#334155',
   },
@@ -187,41 +201,75 @@ export const Spacing = {
  *
  * Modern soft corner radii vocabulary matching Tailwind config:
  * - card (20px): Top-level cards, modal surfaces, interval builder containers.
+ * - inset (14px): Recessed areas inside cards, inputs, stat groups.
  * - tile (16px): Grid tiles, chat bubbles, nested step cards.
  * - control (14px): Text inputs, buttons, chips, keypad buttons.
+ * - button (16px): Large buttons.
+ * - buttonMd (12px): Medium buttons.
+ * - sheet (28px): Top corners of bottom sheets.
  * - pill (999px): Filter pills, tag selectors, badge chips.
  */
 export const Radii = {
   card: 20,
+  inset: 14,
   tile: 16,
   control: 14,
+  button: 16,
+  buttonMd: 12,
+  sheet: 28,
   pill: 999,
 } as const;
 
 /**
- * Diffuse Surface Elevation Tokens
+ * Surface Elevation Tokens
  *
- * Soft diffuse shadows for deep obsidian surfaces rather than flat stacking.
+ * Elevation 0: 1px border-theme-border, no shadow (Content cards)
+ * Elevation 1: Soft diffuse shadow (Tab bar, FAB, sticky headers, menus)
+ * Elevation 2: Deep diffuse shadow (Bottom sheets, modals)
  */
 export const Elevation = {
-  card: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
+  elevation0: {
+    borderWidth: 1,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+  },
+  elevation1: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
     shadowRadius: 16,
     elevation: 8,
   },
+  elevation2: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  // Legacy aliases
+  card: {
+    borderWidth: 1,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
+  },
   modal: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.35,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
     shadowRadius: 24,
     elevation: 16,
   },
   control: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },

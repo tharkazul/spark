@@ -11,7 +11,10 @@ import { useActivities } from '../../context/ActivityStore';
 import { useGamification } from '../../context/GamificationStore';
 import { useUser } from '../../context/UserStore';
 import { Activity } from '../../types/activity';
+import { calculateActivityStreak } from '../../utils/gamification';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { Chip } from '../ui/Chip';
+import { SportMedallion } from '../ui/SportMedallion';
 import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
 import { EmptyState } from '../ui/EmptyState';
 
@@ -50,74 +53,6 @@ function formatDuration(minutes?: number): string {
     return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
   return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function getSportVisuals(sportType?: string, name?: string, accent: string = Colors.light.tint) {
-  const sport = (sportType || '').toLowerCase();
-  const n = (name || '').toLowerCase();
-
-  if (
-    sport.includes('bike') ||
-    sport.includes('ride') ||
-    sport.includes('cycl') ||
-    n.includes('ride') ||
-    n.includes('bike')
-  ) {
-    return {
-      icon: 'bicycle-outline' as const,
-      color: accent,
-      label: 'Cycle',
-    };
-  }
-  if (sport.includes('swim') || sport.includes('water') || n.includes('swim')) {
-    return {
-      icon: 'water-outline' as const,
-      color: '#38BDF8',
-      label: 'Swim',
-    };
-  }
-  if (
-    sport.includes('weight') ||
-    sport.includes('strength') ||
-    sport.includes('gym') ||
-    sport.includes('barbell') ||
-    sport.includes('lift') ||
-    n.includes('lift') ||
-    n.includes('strength')
-  ) {
-    return {
-      icon: 'barbell-outline' as const,
-      color: '#C084FC',
-      label: 'Strength',
-    };
-  }
-  if (
-    sport.includes('yoga') ||
-    sport.includes('pilates') ||
-    sport.includes('mobility') ||
-    sport.includes('stretch') ||
-    n.includes('mobility') ||
-    n.includes('yoga')
-  ) {
-    return {
-      icon: 'body-outline' as const,
-      color: '#34D399',
-      label: 'Mobility',
-    };
-  }
-  if (sport.includes('walk') || sport.includes('hike') || n.includes('walk') || n.includes('hike')) {
-    return {
-      icon: 'footsteps-outline' as const,
-      color: '#F59E0B',
-      label: 'Walk',
-    };
-  }
-  // Default: Running / Workout
-  return {
-    icon: 'walk-outline' as const,
-    color: accent,
-    label: 'Ran',
-  };
 }
 
 function CircularProgressChamber({
@@ -168,49 +103,7 @@ function CircularProgressChamber({
   );
 }
 
-// Calculate Real Consecutive Day Activity Streak
-function calculateRealStreak(activities: Activity[]): number {
-  if (!activities || activities.length === 0) return 0;
 
-  const formatDateStr = (d: Date) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const activityDates = new Set(
-    activities
-      .filter((a) => a.start_date)
-      .map((a) => a.start_date.substring(0, 10))
-  );
-
-  const now = new Date();
-  const todayStr = formatDateStr(now);
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = formatDateStr(yesterday);
-
-  // If no activity today and no activity yesterday, streak is 0
-  if (!activityDates.has(todayStr) && !activityDates.has(yesterdayStr)) {
-    return 0;
-  }
-
-  let streak = 0;
-  let checkDate = activityDates.has(todayStr) ? new Date(now) : new Date(yesterday);
-
-  while (true) {
-    const dateStr = formatDateStr(checkDate);
-    if (activityDates.has(dateStr)) {
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-
-  return streak;
-}
 
 export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal }) => {
   const theme = useTheme();
@@ -233,9 +126,13 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
     : 0;
 
   // Real Streak Calculation
-  const realStreak = useMemo(() => {
-    return calculateRealStreak(activities);
+  const visibleActivities = useMemo(() => {
+    return activities.filter((a) => !(a as any).is_hidden && ((a as any).is_hidden !== 1));
   }, [activities]);
+
+  const realStreak = useMemo(() => {
+    return calculateActivityStreak(visibleActivities);
+  }, [visibleActivities]);
 
   const handleGenerateQuest = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -360,17 +257,17 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             Recent Activities
           </Text>
           <Text className="text-xs font-semibold text-theme-muted">
-            {activities.length} total
+            {visibleActivities.length} total
           </Text>
         </View>
 
         {/* Activity List Items */}
-        {loading && activities.length === 0 ? (
+        {loading && visibleActivities.length === 0 ? (
           <View className="items-center justify-center p-8 bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card">
             <ActivityIndicator size="large" color={theme.tint} />
             <Text className="text-xs font-bold text-theme-muted mt-3">Loading activities...</Text>
           </View>
-        ) : activities.length === 0 ? (
+        ) : visibleActivities.length === 0 ? (
           <EmptyState
             preset="no-activity"
             badge="TRAINING HISTORY"
@@ -379,9 +276,8 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
           />
         ) : (
           <View className="gap-y-2.5">
-            {activities.map((act) => {
+            {visibleActivities.map((act) => {
               const idStr = String(act.id);
-              const visuals = getSportVisuals(act.sport_type, act.name, theme.tint);
               const dateStr = formatHumanizedDate(act.start_date);
               const hasDistance = typeof act.distance_km === 'number' && act.distance_km > 0;
               const primaryStat = hasDistance
@@ -399,15 +295,13 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                   activeOpacity={0.75}
                   className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-3.5 flex-row items-center justify-between mb-2.5 shadow-xs"
                 >
-                  {/* Left: Circular Icon & Titles */}
+                  {/* Left: 40pt SportMedallion & Titles */}
                   <View className="flex-row items-center flex-1 pr-3">
-                    <View className="w-12 h-12 rounded-full items-center justify-center bg-slate-100 dark:bg-white/10 border border-theme-border/60 dark:border-white/15 mr-3.5">
-                      <Ionicons name={visuals.icon} size={22} color={visuals.color} />
-                    </View>
+                    <SportMedallion sport={act.sport_type || act.type} size={40} className="mr-3.5" />
 
                     <View className="flex-1">
                       <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
-                        {act.name || visuals.label}
+                        {act.name || act.sport_type || 'Workout'}
                       </Text>
                       <Text className="text-xs font-medium text-theme-muted mt-0.5">
                         {dateStr}
@@ -454,12 +348,11 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             </View>
           </View>
           {activeQuest?.reward_points ? (
-            <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full flex-row items-center">
-              <RookaMark size={12} color={theme.tint} />
-              <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani ml-1">
-                +{Math.round(activeQuest.reward_points)} rooka
-              </Text>
-            </View>
+            <Chip
+              variant="points"
+              size="md"
+              label={Math.round(activeQuest.reward_points)}
+            />
           ) : null}
         </View>
 

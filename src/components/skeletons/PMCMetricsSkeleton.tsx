@@ -17,7 +17,7 @@ export function PMCMetricsSkeleton() {
       {/* 4 Grid Metric Cards (2x2) */}
       <View className="flex-row flex-wrap gap-2.5">
         {/* Metric 1: Fitness (CTL) */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-2">
             <Skeleton.Line width={48} height={12} />
             <Skeleton.Rect width={36} height={16} borderRadius={4} />
@@ -28,7 +28,7 @@ export function PMCMetricsSkeleton() {
         </View>
 
         {/* Metric 2: Fatigue (ATL) */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-2">
             <Skeleton.Line width={48} height={12} />
             <Skeleton.Rect width={36} height={16} borderRadius={4} />
@@ -39,7 +39,7 @@ export function PMCMetricsSkeleton() {
         </View>
 
         {/* Metric 3: Readiness (TSB) */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-2">
             <Skeleton.Line width={56} height={12} />
             <Skeleton.Line width={42} height={12} />
@@ -50,7 +50,7 @@ export function PMCMetricsSkeleton() {
         </View>
 
         {/* Metric 4: Weight Trend */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-2">
             <Skeleton.Line width={44} height={12} />
             <Skeleton.Circle size={14} />

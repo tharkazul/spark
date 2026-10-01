@@ -158,7 +158,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
   }
 
   db.get(
-    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, role, daily_image_count, last_image_reset_date, training_availability FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, language, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, role, daily_image_count, last_image_reset_date, training_availability FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -174,6 +174,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
           coach_context: 'Empathetic athletic performance coach',
           athlete_context: 'Active athlete',
           gender: 'prefer_not_to_say',
+          language: 'en',
           long_term_memory: '',
           daily_token_usage: 0,
           common_token_usage: 0,
@@ -277,6 +278,53 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                   ? metricsRows.map((m) => `${m.metric}: ${m.value}`).join(", ")
                   : "None explicitly recorded yet.";
 
+              const recentBiometrics = await new Promise((resolve) => {
+                db.all(
+                  `SELECT date, resting_hr, avg_hr, hrv_sdnn, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, sleep_awake_minutes, steps, active_calories, weight_kg, vo2_max 
+                   FROM biometrics WHERE user_id = ? ORDER BY date DESC LIMIT 7`,
+                  [req.user.id],
+                  (err, rows) => resolve(rows || [])
+                );
+              });
+
+              let biometricsContextText = "No Apple Health / Garmin biometric records synced yet.";
+              if (recentBiometrics && recentBiometrics.length > 0) {
+                const todayStr = getAMSDateString();
+                const todayBio = recentBiometrics.find(b => b.date === todayStr) || recentBiometrics[0];
+                const lines = [];
+                if (todayBio) {
+                  lines.push(`TODAY (${todayBio.date}):`);
+                  if (todayBio.sleep_minutes && todayBio.sleep_minutes > 0) {
+                    const h = Math.floor(todayBio.sleep_minutes / 60);
+                    const m = Math.round(todayBio.sleep_minutes % 60);
+                    let stageStr = "";
+                    if (todayBio.sleep_deep_minutes || todayBio.sleep_rem_minutes) {
+                      stageStr = ` (Deep: ${Math.round(todayBio.sleep_deep_minutes || 0)}m, REM: ${Math.round(todayBio.sleep_rem_minutes || 0)}m, Core: ${Math.round(todayBio.sleep_core_minutes || 0)}m, Awake: ${Math.round(todayBio.sleep_awake_minutes || 0)}m)`;
+                    }
+                    lines.push(`- Sleep: ${h}h ${m}m total${stageStr}`);
+                  }
+                  if (todayBio.hrv_sdnn) lines.push(`- HRV (SDNN): ${todayBio.hrv_sdnn} ms`);
+                  if (todayBio.resting_hr) lines.push(`- Resting Heart Rate: ${todayBio.resting_hr} bpm`);
+                  if (todayBio.steps) lines.push(`- Steps: ${todayBio.steps}`);
+                  if (todayBio.active_calories) lines.push(`- Active Calories Burned: ${todayBio.active_calories} kcal`);
+                  if (todayBio.vo2_max) lines.push(`- VO2 Max: ${todayBio.vo2_max}`);
+                  if (todayBio.weight_kg) lines.push(`- Weight: ${todayBio.weight_kg} kg`);
+                }
+                if (recentBiometrics.length > 1) {
+                  const hrvs = recentBiometrics.filter(b => b.hrv_sdnn).map(b => b.hrv_sdnn);
+                  const rhrs = recentBiometrics.filter(b => b.resting_hr).map(b => b.resting_hr);
+                  if (hrvs.length > 0) {
+                    const avgHrv = hrvs.reduce((a, b) => a + b, 0) / hrvs.length;
+                    lines.push(`- 7-Day Baseline HRV: ${Math.round(avgHrv * 10) / 10} ms`);
+                  }
+                  if (rhrs.length > 0) {
+                    const avgRhr = rhrs.reduce((a, b) => a + b, 0) / rhrs.length;
+                    lines.push(`- 7-Day Baseline Resting HR: ${Math.round(avgRhr * 10) / 10} bpm`);
+                  }
+                }
+                biometricsContextText = lines.join("\n                    ");
+              }
+
               const phase = await getUserMacroPhase(req.user.id);
               try {
                 db.all(
@@ -329,18 +377,58 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                     const todayStr = getAMSDateString();
                     db.all(
-                      `SELECT * FROM micro_plan WHERE user_id = ? AND date >= ? ORDER BY date ASC LIMIT 14`,
+                      `SELECT * FROM micro_plan WHERE user_id = ? AND date >= date(?, '-2 days') ORDER BY date ASC LIMIT 20`,
                       [req.user.id, todayStr],
                       async (err, planRows) => {
                         const planText =
                           planRows && planRows.length > 0
                             ? planRows
-                                .map(
-                                  (p) =>
-                                    `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} Rooka)`,
-                                )
+                                .map((p) => {
+                                  let line = `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} Rooka)`;
+                                  if (p.details && p.details.trim()) {
+                                    line += `\n    Details: ${p.details.trim()}`;
+                                  }
+                                  if (p.steps_json && p.steps_json.trim() && p.steps_json !== "[]") {
+                                    try {
+                                      const parsed = JSON.parse(p.steps_json);
+                                      line += `\n    Steps: ${JSON.stringify(parsed)}`;
+                                    } catch (e) {
+                                      line += `\n    Steps: ${p.steps_json.trim()}`;
+                                    }
+                                  }
+                                  return line;
+                                })
                                 .join("\n                    ")
                             : "No upcoming workouts scheduled.";
+
+                        const deletedRows = await new Promise((resolve) => {
+                          db.all(
+                            `SELECT * FROM deleted_micro_plan WHERE user_id = ? AND deleted_at >= datetime('now', '-7 days') ORDER BY id DESC LIMIT 5`,
+                            [req.user.id],
+                            (err, rows) => resolve(rows || []),
+                          );
+                        });
+
+                        let deletedWorkoutsText = "No recently deleted workouts in archive.";
+                        if (deletedRows && deletedRows.length > 0) {
+                          deletedWorkoutsText = deletedRows
+                            .map((d) => {
+                              let line = `- [Archive ID: ${d.id}] Date: ${d.date}, Sport: ${d.sport}, Description: "${d.description}" (${d.target_rooka || 0} Rooka, deleted: ${d.deleted_at})`;
+                              if (d.details && d.details.trim()) {
+                                line += `\n    Details: ${d.details.trim()}`;
+                              }
+                              if (d.steps_json && d.steps_json.trim() && d.steps_json !== "[]") {
+                                try {
+                                  const parsed = JSON.parse(d.steps_json);
+                                  line += `\n    Steps: ${JSON.stringify(parsed)}`;
+                                } catch (e) {
+                                  line += `\n    Steps: ${d.steps_json.trim()}`;
+                                }
+                              }
+                              return line;
+                            })
+                            .join("\n                    ");
+                        }
 
                         const milestonesText = await getUserGoalsContext(req.user.id);
                         const goalContext = await getUserGoalPromptContext(req.user.id, user);
@@ -556,6 +644,16 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                            coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
                                        }
 
+                                       const langMap = {
+                                         nl: 'Dutch (Nederlands)',
+                                         de: 'German (Deutsch)',
+                                         es: 'Spanish (Español)',
+                                         fr: 'French (Français)',
+                                         en: 'English'
+                                       };
+                                       const userLanguage = user.language || 'en';
+                                       const targetLanguageName = langMap[userLanguage] || 'English';
+
                                        const systemPrompt = `You are a real, highly experienced endurance coach sending text messages to an athlete.
                     Name coach: ${coachName}
                     Tone: ${coachToneText}
@@ -567,6 +665,13 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     - Adopt your assigned tone with 100% fidelity on every single response.
                     - CONCISE CHAT APP COMMUNICATION (MANDATORY): You are texting inside a mobile chat application (like WhatsApp or iMessage). Formulate all responses to be concise, punchy, and direct. Keep regular turns compact (typically 1 to 3 short sentences/paragraphs max). Never output long monolithic walls of text.
                     - MULTI-MESSAGE SPLITTING (<br> or ---MSG---): If you want to send multiple separate messages (e.g. to convey distinct thoughts, convey a larger message, or text more naturally in separate consecutive bubbles), separate each message with \`<br>\` or \`---MSG---\`. The app will automatically split and render them into separate consecutive chat bubbles in the exact right order.
+                    LANGUAGE PERSISTENCE & UNIFORMITY MANDATE (CRITICAL):
+                    - The athlete's designated primary language is: ${targetLanguageName} (${userLanguage}).
+                    - You MUST speak, reply, and coach strictly and fluently in ${targetLanguageName}!
+                    - NEVER mix languages within a sentence or across conversation turns (e.g. NEVER mix Dutch and English words together, and do not use English sentences with Dutch activity titles like "Sunday's Namiddagloop" or vice versa).
+                    - If an activity or workout in history has a title in another language (e.g. "Namiddagloop"), refer to it naturally in ${targetLanguageName} (e.g. in Dutch "je namiddagloop van zondag" or in English "your Sunday afternoon run").
+                    - All conversational coaching, motivational phrases, workout descriptions, drill details, and technique cues in the JSON block MUST be written entirely in ${targetLanguageName}.
+
                     Current Training Phase: ${phase || user.training_phase || "Base/General"}
                     
                     TIME CONTEXT:
@@ -589,6 +694,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                     PHYSIOLOGICAL METRICS:
                     ${metricsText}
+
+                    ATHLETE RECOVERY & BIOMETRICS (FROM APPLE HEALTH / GARMIN):
+                    ${biometricsContextText}
                     
                     UPCOMING EVENTS/MILESTONES:
                     ${milestonesText}
@@ -603,6 +711,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                     UPCOMING SCHEDULED WORKOUTS (Microplan):
                     ${planText}
+                    
+                    RECENTLY DELETED WORKOUTS (TEMPORARY ARCHIVE - AVAILABLE FOR RESTORATION):
+                    ${deletedWorkoutsText}
                     
                     RECENT COMPLETED WORKOUTS (For context):
                     ${recentActivitiesText}
@@ -679,12 +790,39 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                         - The athlete's latest earned title/badge is: "${gamification.latestTitle}".
                         - Mention their streak or title occasionally to motivate them, especially if their streak is high (e.g., "You're on a ${gamification.streak} day streak, keep the momentum going!"). Do NOT mention it every single time.
                         - IMPORTANT: Warmup and Cooldown steps should generally use "target_type": "no.target" or open intensity so the athlete can gradually ease in and elevate their heart rate without triggering out-of-zone alarms while cold. Rest and Recovery steps can be Zone 1.
+                     17. EXISTING WORKOUT MODIFICATION & PRESERVATION DIRECTIVE (CRITICAL):
+                         - If the user asks to modify, adjust, swap, or tweak one or more specific parts of an existing workout (e.g. extending warmup duration, adjusting interval reps or paces, changing a single exercise in a strength routine):
+                           * You MUST ONLY change the requested part(s)!
+                           * You MUST leave all other exercises, drills, warmups, cooldowns, repeats, intervals, rest intervals, reps, weights, pacing, and technique cues completely untouched and preserved.
+                           * NEVER replace or regenerate an entire workout when the user only asked to change a specific element. Look up the existing workout in 'UPCOMING SCHEDULED WORKOUTS (Microplan)', extract its existing 'details' and 'steps', apply ONLY the specific modifications requested by the athlete, and output the updated workout with all other original parts intact in the JSON.
+                     18. WORKOUT RECOVERY & LIKE-FOR-LIKE RESTORATION DIRECTIVE (CRITICAL):
+                         - If the user deletes a workout (or mentions having deleted a workout) and asks to undo, restore, or recover it (e.g. "I accidentally deleted my workout", "bring back yesterday's session", "recover the threshold workout I deleted"):
+                           * Look up the deleted workout under 'RECENTLY DELETED WORKOUTS (TEMPORARY ARCHIVE - AVAILABLE FOR RESTORATION)'.
+                           * Restore the workout EXACTLY LIKE-FOR-LIKE!
+                           * Do NOT make up a new workout, change the sport, change the targets, or rewrite the details/steps. Re-output the exact original date, sport, description, target_rooka, details, and steps in your JSON code block so it is re-inserted into their schedule.
+                           * In your conversational reply, confirm to the athlete that their specific workout has been restored exactly as it was.
+                     19. TRAVEL, VACATION, HOLIDAY & LIFE CONTEXT AWARENESS (CRITICAL):
+                         - Carefully inspect 'LONG-TERM MEMORY (From Past Conversations)' and the athlete's current messages.
+                         - If the athlete mentions traveling, being on vacation/holiday, staying in a hotel/Airbnb, or being away from home (e.g. in Italy, mountains, beach, work trip):
+                           * You MUST IMMEDIATELY adapt your coaching, equipment assumptions, and expectations to their travel reality!
+                           * DO NOT suggest or prescribe gym barbell workouts (squats, bench press, deadlifts) if they are on holiday without explicit gym access.
+                           * DO NOT prescribe cycling or bike FTP workouts if they do not have their bike with them.
+                           * DO NOT prescribe aggressive threshold or VO2max intervals on unfamiliar or dark trails/roads where safety or footing is compromised.
+                           * Focus on flexible, enjoyable aerobic maintenance (Zone 2 running, walking steep hills, scenic daylight jogs, bodyweight mobility).
+                           * You MUST commit this travel/holiday fact, location, dates, and training focus to long-term memory using a JSON memory block!
+                     20. PLAN COMMITMENT MANDATE (CRITICAL):
+                         - If you tell the athlete in your text: "I'm adjusting your plan", "I've updated your workouts", "I've shifted your focus for the rest of your holiday", or promise any schedule alteration:
+                           * YOU MUST NEVER JUST SAY IT IN TEXT!
+                           * YOU MUST ALWAYS APPEND THE ACTUAL \`\`\`json [...] \`\`\` CODE BLOCK AT THE END OF YOUR MESSAGE WITH THE UPDATED WORKOUTS FOR THOSE DATES!
+                           * If you fail to include the JSON code block, the database WILL NOT UPDATE, the athlete's calendar will still show old workouts, and your promise will be broken!
 
                     WORKOUT PLANNING & PRESCRIPTION DETAILS (CRITICAL):
                     If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 
                     - To CANCEL or CLEAR a workout for a day, you MUST include that date in the JSON array and set "sport": "Rest". Otherwise, the old workout will remain in the database!
                     - WORKOUT DETAILS FIELD (CRITICAL): The 'details' field in each workout object is the athlete's primary coaching note and guide. NEVER write basic, vague one-liners like "intervals", "easy run", or "tempo session". You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling guidance.
                     - EXERCISE PARITY DIRECTIVE: While machine-readable structured intervals go into the "steps" JSON array, the rich human-readable drills, equipment, and technique instructions go into "details". EVERY exercise/station in 'details' MUST be represented with its own step/repeat block in 'steps'!
+                    - EXISTING WORKOUT PARTIAL MODIFICATIONS: When an athlete asks for adjustments to an existing workout, only modify the specific parts they asked to change. Leave all other drills, warmups, intervals, sets, reps, weights, cooldowns, and cues untouched!
+                    - LIKE-FOR-LIKE RESTORATION: When an athlete asks to recover a deleted workout, reference 'RECENTLY DELETED WORKOUTS' and output the exact like-for-like workout without making up a replacement.
                     The JSON must be a valid Array of objects. Format it EXACTLY like this inside triple backticks:
                     \`\`\`json
                     [
@@ -719,6 +857,15 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     If the athlete asks for an illustration, visualization, diagram, or picture of an exercise, route, pose, or anything else, you can seamlessly generate an image by outputting a Markdown image tag with the following URL format:
                     \`![Description of Image](https://image.pollinations.ai/prompt/{URL_ENCODED_PROMPT}?nologo=true)\`
                     Replace {URL_ENCODED_PROMPT} with a highly detailed, descriptive prompt for an image generation model. Always include '?nologo=true'. The app will automatically render this image!
+
+                    LONG-TERM MEMORY & LIFE EVENTS COMMITMENT (CRITICAL):
+                     If the athlete mentions an upcoming trip, vacation, holiday, illness, injury, or schedule shift (e.g. "I'm in Italy for 1.5 weeks", "Going on vacation next week", "I don't have access to a gym while traveling"), you MUST commit this to your long-term memory so future weekly planning and daily morning messages know about it. Output an additional JSON block at the very end of your response:
+                     \`\`\`json
+                     {
+                       "type": "memory",
+                       "data": "Traveling in Italy until Oct 4. Training focus: flexible daylight Zone 2 aerobic runs only. No gym, no bike, no high intensity."
+                     }
+                     \`\`\`
 
                     ATHLETE METRICS MEMORY (CRITICAL):
                     If the athlete mentions a new personal best, physiological metric, or baseline number (e.g., FTP, 5K pace, Max HR, resting heart rate, swim threshold), you MUST output an additional JSON block at the very end of your response to commit it to your long-term memory. Format it exactly like this inside triple backticks:
@@ -877,7 +1024,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                       // Fallback: if no fenced code block was found, check if a raw JSON object exists in the reply
                                       if (jsonMatches.length === 0) {
-                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|generate_image)"[\s\S]*?\}/);
+                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|memory|life_event|travel|generate_image)"[\s\S]*?\}/);
                                         if (rawJsonMatch) {
                                           jsonMatches.push([rawJsonMatch[0], rawJsonMatch[0]]);
                                         }
@@ -904,6 +1051,22 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                   .map(() => "?")
                                                   .join(",");
                                                 db.serialize(() => {
+                                                  // Archive existing workouts before overwriting or clearing
+                                                  db.run(
+                                                    `INSERT INTO deleted_micro_plan (original_id, user_id, date, sport, description, target_rooka, details, steps_json, source, deleted_at)
+                                                     SELECT id, user_id, date, sport, description, target_rooka, details, steps_json, source, datetime('now')
+                                                     FROM micro_plan 
+                                                     WHERE user_id = ? AND date IN (${placeholders}) AND (LOWER(sport) != 'rest' OR (details IS NOT NULL AND details != ''))`,
+                                                    [req.user.id, ...affectedDates],
+                                                    (archiveErr) => {
+                                                      if (archiveErr)
+                                                        console.error(
+                                                          "Failed to archive old plan data before chat overwrite:",
+                                                          archiveErr,
+                                                        );
+                                                    }
+                                                  );
+
                                                   db.run(
                                                     `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
                                                     [req.user.id, ...affectedDates],
@@ -932,7 +1095,18 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                       day.steps ? JSON.stringify(day.steps) : (day.steps_json || "[]"),
                                                     );
                                                   });
-                                                  stmt.finalize(() => resolvePlan());
+                                                  stmt.finalize(() => {
+                                                    // Clean up matching restored entries from deleted archive
+                                                    planData.forEach((day) => {
+                                                      if (day.sport && day.sport.toLowerCase() !== "rest") {
+                                                        db.run(
+                                                          `DELETE FROM deleted_micro_plan WHERE user_id = ? AND date = ? AND LOWER(sport) = LOWER(?)`,
+                                                          [req.user.id, day.date, day.sport]
+                                                        );
+                                                      }
+                                                    });
+                                                    resolvePlan();
+                                                  });
                                                 });
                                               });
                                             }
@@ -964,7 +1138,37 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             });
                                           } else if (
                                             parsedData &&
-                                            parsedData.type === "log_cycle" &&
+                                            (parsedData.type === "memory" || parsedData.type === "life_event" || parsedData.type === "travel") &&
+                                             (parsedData.data || parsedData.text || parsedData.notes)
+                                           ) {
+                                             const memoryNote = typeof parsedData.data === "string"
+                                               ? parsedData.data
+                                               : (parsedData.text || parsedData.notes || JSON.stringify(parsedData.data));
+                                             if (memoryNote && memoryNote.trim()) {
+                                               await new Promise((resolveMem) => {
+                                                 db.get(
+                                                   "SELECT long_term_memory FROM users WHERE id = ?",
+                                                   [req.user.id],
+                                                   (err, uRow) => {
+                                                     const existingMem = (uRow?.long_term_memory || "").trim();
+                                                     const cleanNote = memoryNote.trim();
+                                                     const newNote = cleanNote.startsWith("-") ? cleanNote : "- " + cleanNote;
+                                                     const updatedMem = existingMem ? existingMem + "\n" + newNote : newNote;
+                                                     db.run(
+                                                       "UPDATE users SET long_term_memory = ? WHERE id = ?",
+                                                       [updatedMem, req.user.id],
+                                                       (upErr) => {
+                                                         if (upErr) console.error("Failed to update long_term_memory from chat:", upErr);
+                                                         resolveMem();
+                                                       }
+                                                     );
+                                                   }
+                                                 );
+                                               });
+                                             }
+                                           } else if (
+                                             parsedData &&
+                                             parsedData.type === "log_cycle" &&
                                             parsedData.data &&
                                             parsedData.data.start_date
                                           ) {
@@ -1296,7 +1500,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                        aiReply = aiReply
                                          .replace(/```(?:json)?[\s\S]*?```/gi, "")
-                                         .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|generate_image)"[\s\S]*?\}/gi, "")
+                                         .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|memory|life_event|travel|generate_image)"[\s\S]*?\}/gi, "")
                                          .trim();
                                          
                                        aiReply = aiReply.replace(/[^.!?\n]*:\s*$/i, "").trim();
@@ -1413,10 +1617,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                          `SELECT COUNT(*) as count FROM chat_history WHERE user_id = ?`,
                                          [req.user.id],
                                          (err, row) => {
+                                           const userMsgLower = (message || "").toLowerCase();
+                                           const hasLifeEvent = /holiday|vacation|travel|italy|trip|flight|hotel|airbnb|vakantie|reis|italie|ziek|sick|ill|injury|blessure/i.test(userMsgLower);
                                            if (
-                                             row &&
-                                             row.count > 0 &&
-                                             row.count % 6 === 0
+                                             hasLifeEvent ||
+                                             (row && row.count > 0 && row.count % 6 === 0)
                                            ) {
                                              triggerBackgroundSummary(
                                                req.user.id,

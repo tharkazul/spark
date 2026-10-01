@@ -160,10 +160,10 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'en'`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN email TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN public_description TEXT`, (err) => {});
-  db.run(`ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN created_at DATETIME`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN last_active_at DATETIME`, (err) => {});
   db.run(
-    `UPDATE users SET created_at = rooka_start_date WHERE (created_at IS NULL OR created_at = '') AND rooka_start_date IS NOT NULL`,
+    `UPDATE users SET created_at = COALESCE(rooka_start_date, CURRENT_TIMESTAMP) WHERE (created_at IS NULL OR created_at = '')`,
     (err) => {},
   );
   // Date of birth drives max HR (220 - age) and therefore the heart-rate zone
@@ -241,7 +241,7 @@ db.serialize(() => {
             `SELECT u.id as user_id, 
                     COALESCE(SUM(a.rooka_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND (u.rooka_start_date IS NULL OR substr(created_at, 1, 10) >= substr(u.rooka_start_date, 1, 10))), 0) as total 
              FROM users u 
-             LEFT JOIN activities a ON a.user_id = u.id AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10)) 
+             LEFT JOIN activities a ON a.user_id = u.id AND (a.is_hidden IS NULL OR a.is_hidden = 0) AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10)) 
              GROUP BY u.id`,
             (err, userRows) => {
               if (!err && userRows) {
@@ -351,6 +351,81 @@ db.serialize(() => {
   db.run(`ALTER TABLE activities ADD COLUMN coach_analyzed INTEGER DEFAULT 0`, (err) => {
     if (!err) console.log("Added coach_analyzed column to activities table.");
   });
+  db.run(`ALTER TABLE activities ADD COLUMN is_hidden INTEGER DEFAULT 0`, (err) => {
+    if (!err) console.log("Added is_hidden column to activities table.");
+  });
+  db.run(`ALTER TABLE activities ADD COLUMN linked_activity_id INTEGER`, (err) => {
+    if (!err) console.log("Added linked_activity_id column to activities table.");
+  });
+  db.run(`ALTER TABLE activities ADD COLUMN linked_activity_name TEXT`, (err) => {
+    if (!err) console.log("Added linked_activity_name column to activities table.");
+  });
+
+  // Automatic migration: Deduplicate / link Tharaka's 2026-09-22 Hockey Training & Evening Run
+  db.all(
+    `SELECT a.id, a.user_id, a.name, a.sport_type, a.distance_km, a.moving_time_min, a.average_heartrate, a.max_heartrate, a.average_watts, a.elevation_m, a.polyline, a.laps_json, a.strava_activity_id, a.start_date
+     FROM activities a
+     JOIN users u ON a.user_id = u.id
+     WHERE (LOWER(u.username) LIKE '%tharaka%' OR a.user_id IN (SELECT id FROM users WHERE LOWER(username) LIKE '%tharaka%'))
+       AND substr(a.start_date, 1, 10) = '2026-09-22' 
+       AND (a.is_hidden IS NULL OR a.is_hidden = 0)`,
+    (err, rows) => {
+      if (!err && rows && rows.length >= 2) {
+        const hockeyAct = rows.find(r => (r.name && r.name.toLowerCase().includes('hockey')) || (r.sport_type && r.sport_type.toLowerCase().includes('hockey')));
+        const runAct = rows.find(r => (r.name && r.name.toLowerCase().includes('run')) || (r.sport_type && r.sport_type.toLowerCase().includes('run')));
+        if (hockeyAct && runAct && hockeyAct.id !== runAct.id) {
+          console.log(`[Migration] Linking Evening Run (${runAct.id}) to Field Hockey Training (${hockeyAct.id}) for Tharaka...`);
+          db.run(
+            `UPDATE activities SET 
+               distance_km = COALESCE(?, distance_km),
+               moving_time_min = COALESCE(?, moving_time_min),
+               average_heartrate = COALESCE(?, average_heartrate),
+               max_heartrate = COALESCE(?, max_heartrate),
+               average_watts = COALESCE(?, average_watts),
+               elevation_m = COALESCE(?, elevation_m),
+               polyline = COALESCE(?, polyline),
+               laps_json = COALESCE(?, laps_json),
+               strava_activity_id = COALESCE(?, strava_activity_id),
+               linked_activity_id = ?,
+               linked_activity_name = ?
+             WHERE id = ?`,
+            [
+              runAct.distance_km || hockeyAct.distance_km,
+              runAct.moving_time_min || hockeyAct.moving_time_min,
+              runAct.average_heartrate || hockeyAct.average_heartrate,
+              runAct.max_heartrate || hockeyAct.max_heartrate,
+              runAct.average_watts || hockeyAct.average_watts,
+              runAct.elevation_m || hockeyAct.elevation_m,
+              runAct.polyline || hockeyAct.polyline,
+              runAct.laps_json || hockeyAct.laps_json,
+              runAct.strava_activity_id || hockeyAct.strava_activity_id,
+              runAct.id,
+              runAct.name || "Evening Run",
+              hockeyAct.id
+            ],
+            () => {
+              db.run(
+                `UPDATE activities SET is_hidden = 1, rooka_score = 0, linked_activity_id = ? WHERE id = ?`,
+                [hockeyAct.id, runAct.id],
+                () => {
+                  try {
+                    const utils = require('./utils');
+                    if (utils && utils.updateUserRookaAndCheckLevel) {
+                      utils.updateUserRookaAndCheckLevel(hockeyAct.user_id);
+                    }
+                  } catch (e) {
+                    console.error("Error updating user rooka in migration:", e);
+                  }
+                  console.log(`[Migration] Successfully linked hockey and run for Tharaka! Excess points removed.`);
+                }
+              );
+            }
+          );
+        }
+      }
+    }
+  );
+
   db.run(
     `CREATE TABLE IF NOT EXISTS micro_plan (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, source TEXT DEFAULT 'coach', FOREIGN KEY(user_id) REFERENCES users(id))`,
   );
@@ -414,6 +489,26 @@ db.serialize(() => {
       }
     }
   });
+
+  db.run(
+    `CREATE TABLE IF NOT EXISTS deleted_micro_plan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      original_id INTEGER,
+      user_id INTEGER,
+      date TEXT,
+      sport TEXT,
+      description TEXT,
+      target_rooka REAL,
+      details TEXT,
+      steps_json TEXT,
+      source TEXT,
+      deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )`,
+  );
+  db.run(
+    `CREATE INDEX IF NOT EXISTS idx_deleted_micro_plan_user_date ON deleted_micro_plan(user_id, deleted_at DESC)`,
+  );
 
   db.run(
     `CREATE TABLE IF NOT EXISTS weight_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, weight_kg REAL, body_fat_percent REAL, bmi REAL, lean_mass_kg REAL, UNIQUE(user_id, date))`,

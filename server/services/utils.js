@@ -64,8 +64,14 @@ function getUserGamificationContext(userId) {
 
           // Group by unique days
           const activityDates = [
-            ...new Set(rows.map((r) => r.start_date.split("T")[0])),
-          ];
+            ...new Set(
+              rows.map((r) => {
+                if (!r.start_date) return '';
+                const parts = r.start_date.split(/[T ]/);
+                return parts[0] || r.start_date.substring(0, 10);
+              })
+            ),
+          ].filter(Boolean);
 
           if (
             activityDates.includes(todayStr) ||
@@ -451,8 +457,8 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
 
                     const userStartDate = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;
                     const computedTotalRooka =
-                      typeof user.total_rooka === "number" && user.total_rooka > 0
-                        ? user.total_rooka
+                      typeof user.total_rooka === "number" && user.total_rooka >= 0
+                        ? Math.round(user.total_rooka)
                         : Math.round(
                             activities
                               .filter((a) => !userStartDate || !a.start_date || a.start_date.substring(0, 10) >= userStartDate)
@@ -634,25 +640,33 @@ async function getStravaTokenForUser(userIdOrStravaId) {
 }
 
 function getRookaLevelInfo(total_rooka) {
-  const rooka = total_rooka || 0;
+  const rooka = Math.round(Math.max(0, Number(total_rooka) || 0));
   const level = Math.floor(8.5 * Math.log10(rooka / 250 + 1)) + 1;
-  const currentLevelThreshold = 250 * (Math.pow(10, (level - 1) / 8.5) - 1);
-  const nextLevelThreshold = 250 * (Math.pow(10, level / 8.5) - 1);
+  const currentLevelThreshold = level <= 1 ? 0 : Math.ceil(250 * (Math.pow(10, (level - 1) / 8.5) - 1));
+  const nextLevelThreshold = Math.ceil(250 * (Math.pow(10, level / 8.5) - 1));
 
-  let progressPercent = 0;
-  if (nextLevelThreshold > currentLevelThreshold) {
-    progressPercent =
-      ((rooka - currentLevelThreshold) /
-        (nextLevelThreshold - currentLevelThreshold)) *
-      100;
-  }
+  const xpTotal = rooka;
+  const levelStart = currentLevelThreshold;
+  const nextLevel = nextLevelThreshold;
+  const xpNeeded = Math.max(1, nextLevel - levelStart);
+  const xpThisLevel = Math.max(0, Math.min(xpTotal - levelStart, xpNeeded));
+  const xpRemaining = Math.max(0, nextLevel - xpTotal);
+  const progress = Math.min(Math.max(xpThisLevel / xpNeeded, 0), 1);
+  const progressPercent = Math.min(Math.max(Math.round(progress * 100), 0), 100);
 
   return {
     level,
     currentLevelThreshold,
     nextLevelThreshold,
-    progressPercent: Math.min(Math.max(progressPercent, 0), 100),
-    totalRooka: rooka,
+    progressPercent,
+    totalRooka: xpTotal,
+    xp_total: xpTotal,
+    level_start_xp: levelStart,
+    next_level_xp: nextLevel,
+    xpThisLevel,
+    xpNeeded,
+    xpRemaining,
+    progress,
   };
 }
 
@@ -1183,7 +1197,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
           async (planErr, plan) => {
             // Fetch user context & coach tone
             db.get(
-              "SELECT coach_name, coach_tone, coach_context, subscription_tier, role FROM users WHERE id = ?",
+              "SELECT coach_name, coach_tone, coach_context, subscription_tier, role, language FROM users WHERE id = ?",
               [internalUserId],
               async (userErr, userRow) => {
                 const coachName = userRow?.coach_name || "Rooka";
@@ -1191,6 +1205,16 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                 if (tone === "custom" || tone === "Configure own coach") {
                   tone = userRow?.coach_context ? `Custom tone: ${userRow.coach_context}` : "Custom coach persona";
                 }
+
+                const userLanguage = (userRow?.language || "en").toLowerCase().trim();
+                const langMap = {
+                  nl: "Dutch (Nederlands)",
+                  de: "German (Deutsch)",
+                  es: "Spanish (Español)",
+                  fr: "French (Français)",
+                  en: "English",
+                };
+                const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith("nl") ? "Dutch (Nederlands)" : "English");
 
                 let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". They covered ${distanceKm.toFixed(1)}km in ${Math.round(movingTimeMin)} minutes, generating ${Math.round(rookaScore)} Rooka. `;
 
@@ -1235,9 +1259,9 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                   }
                 }
 
-                prompt += ` Keep it under 3 sentences. DO NOT wrap it in JSON.`;
+                prompt += ` CRITICAL LANGUAGE MANDATE: You MUST write your coach reaction fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! Keep it under 3 sentences. DO NOT wrap it in JSON.`;
 
-                const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${tone}. ${userRow?.coach_context ? `Coach Custom Context: ${userRow.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
+                const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${tone}. ${userRow?.coach_context ? `Coach Custom Context: ${userRow.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}.`;
 
                 try {
                   const aiReply = await generateWithFallback(prompt, systemPrompt);
@@ -1636,11 +1660,12 @@ ${resolvedText}
 RECENT CHAT HISTORY:
 ${historyText}
 
-INSTRUCTIONS & CRITICAL RULES FOR INJURIES:
+INSTRUCTIONS & CRITICAL RULES:
 1. INJURY TRUTH: Refer strictly to the ACTIVE INJURIES list above. If an injury (e.g. heel, knee, ankle, back) is listed under RESOLVED INJURIES or is NOT in ACTIVE INJURIES, REMOVE IT COMPLETELY from current physical issues in the summary! Note it as fully healed or omit it.
 2. DO NOT state that a resolved or non-active injury is currently hurting, bothering, or limiting the athlete.
-3. Update the long-term memory summary to incorporate any new important facts (new goals, shifts in mood, new baseline numbers).
-4. Keep it extremely concise (under 150 words). Do not include pleasantries. Only output the updated summary text.`;
+3. TRAVEL, VACATIONS, HOLIDAYS & SCHEDULE/EQUIPMENT CONSTRAINTS (CRITICAL): If the athlete mentions traveling, taking a holiday, going on vacation (e.g. "in Italy for 1.5 weeks"), being away from home, lacking access to equipment/gym/bike, or illness, you MUST RECORD THIS PROMINENTLY including destination, duration/dates, and agreed training modifications (e.g. "In Italy until Oct 4; running flexible daylight Zone 2 only, no gym/weights, no bike/FTP").
+4. Update the long-term memory summary to incorporate any new important facts (new goals, shifts in mood, new baseline numbers).
+5. Keep it concise (under 200 words). Do not include pleasantries. Only output the updated summary text.`;
 
               try {
                 const newSummary = await generateWithFallback(prompt);
@@ -1688,7 +1713,7 @@ function updateUserRookaAndCheckLevel(userId, options = {}) {
       };
 
       resolveStartDate((rookaStartDateDay) => {
-        const actQuery = `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`;
+        const actQuery = `SELECT COALESCE(SUM(rooka_score), 0) as act_total FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ? AND (is_hidden IS NULL OR is_hidden = 0)`;
         const queryParams = [userId, rookaStartDateDay];
 
         db.get(actQuery, queryParams, (err, actRow) => {
@@ -3376,7 +3401,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   // 2. Load user details
   const user = await new Promise((resolve) => {
     db.get(
-      `SELECT u.id, u.coach_tone, u.coach_name, u.coach_context, u.athlete_context, u.gender, u.training_availability 
+      `SELECT u.id, u.coach_tone, u.coach_name, u.coach_context, u.athlete_context, u.gender, u.training_availability, u.language, u.long_term_memory 
        FROM users u 
        WHERE u.id = ? AND u.deleted_at IS NULL AND u.onboarding_completed = 1`,
       [userId],
@@ -3481,12 +3506,58 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
       `. Cheer them on or factor this into their day!`;
   }
 
+  // 5b. Load today's biometrics (Sleep, HRV, Resting HR from Apple Health / Garmin)
+  const todayBiometrics = await new Promise((resolve) => {
+    db.get(
+      `SELECT resting_hr, avg_hr, hrv_sdnn, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, steps, active_calories, vo2_max 
+       FROM biometrics WHERE user_id = ? AND date = ?`,
+      [userId, todayStr],
+      (err, row) => resolve(row || null)
+    );
+  });
+
+  let todayBiometricsNote = "";
+  if (todayBiometrics) {
+    const parts = [];
+    if (todayBiometrics.sleep_minutes && todayBiometrics.sleep_minutes > 0) {
+      const h = Math.floor(todayBiometrics.sleep_minutes / 60);
+      const m = Math.round(todayBiometrics.sleep_minutes % 60);
+      parts.push(`Sleep: ${h}h ${m}m`);
+    }
+    if (todayBiometrics.hrv_sdnn) {
+      parts.push(`HRV: ${todayBiometrics.hrv_sdnn} ms`);
+    }
+    if (todayBiometrics.resting_hr) {
+      parts.push(`Resting HR: ${todayBiometrics.resting_hr} bpm`);
+    }
+    if (parts.length > 0) {
+      todayBiometricsNote = `Athlete's fresh morning recovery metrics from Apple Health / Garmin: ${parts.join(', ')}. If sleep was great or HRV is high, celebrate their readiness; if sleep was poor (<5.5h) or HRV low, acknowledge it and suggest listening to their body today. `;
+    }
+  }
+
+  const userLanguage = (user.language || "en").toLowerCase().trim();
+  const langMap = {
+    nl: "Dutch (Nederlands)",
+    de: "German (Deutsch)",
+    es: "Spanish (Español)",
+    fr: "French (Français)",
+    en: "English",
+  };
+  const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith("nl") ? "Dutch (Nederlands)" : "English");
+
   let prompt = `It is morning (${todayStr}). You are the athlete's coach. Write a short, proactive, energetic morning message. `;
+  if (user.long_term_memory) {
+    prompt += `\nATHLETE LIFE CONTEXT & LONG-TERM MEMORY:\n${user.long_term_memory}\n`;
+    prompt += `CRITICAL TRAVEL & LIFE EVENT DIRECTIVE: If the athlete is currently traveling, on vacation/holiday, or away (e.g. in Italy), align your morning greeting with that exact reality. Do NOT urge them to go to a gym, ride an indoor bike / do FTP sessions, or follow rigid track intervals unless their context explicitly supports it. Cheer their flexible aerobic running or vacation rest! `;
+  }
   if (todayAvailabilityNote) {
     prompt += `${todayAvailabilityNote} `;
   }
   if (todayRecurringNote) {
     prompt += `${todayRecurringNote} `;
+  }
+  if (todayBiometricsNote) {
+    prompt += `${todayBiometricsNote} `;
   }
 
   if (raceToday) {
@@ -3507,6 +3578,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     prompt += `IMPORTANT: they have logged NO training at all in the last 7 days. Do NOT congratulate them on recent work, a "great block", or any session — none happened. Do not invent any training. Simply greet them and look ahead. `;
   }
   prompt += `Never mention a workout, distance, or achievement that is not listed above. `;
+  prompt += `CRITICAL LANGUAGE MANDATE: You MUST write this entire message fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! NEVER mix languages within a sentence or use Dutch activity names inside English sentences. `;
   prompt += `Keep it under 3 sentences. DO NOT wrap it in JSON.`;
 
   const coachName = user.coach_name || "Rooka";
@@ -3514,7 +3586,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
     toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
   }
-  const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
+  const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}.`;
 
   const aiReply = await generateWithFallback(prompt, systemPrompt);
 
@@ -3528,8 +3600,11 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
           message: aiReply,
           mood: "hype"
         });
+        const morningTitle = raceToday
+          ? (userLanguage === "nl" ? `🔥 WEDSTRIJDDAG: Veel succes van ${coachName}!` : `🔥 RACE DAY: Good luck from ${coachName}!`)
+          : (userLanguage === "nl" ? `Goedemorgen van ${coachName}! 🌅` : `Good morning from ${coachName}! 🌅`);
         sendPushToUser(user.id, {
-          title: raceToday ? `🔥 RACE DAY: Good luck from ${coachName}!` : `Good morning from ${coachName}! 🌅`,
+          title: morningTitle,
           body: aiReply,
           data: { url: "/(tabs)/coach", type: "coach" },
           badge: 1,

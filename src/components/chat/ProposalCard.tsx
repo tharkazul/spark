@@ -2,6 +2,7 @@ import React from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Chip } from '../ui/Chip';
 import { ProposedWorkoutItem } from '../../types/chat';
 
 interface ProposalCardProps {
@@ -43,9 +44,11 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
               <Text className="text-theme-text text-xs font-medium" numberOfLines={1}>{item.description}</Text>
             </View>
             {item.target_rooka ? (
-              <View className="bg-theme-accent/20 px-2 py-1 rounded-md">
-                <Text className="text-theme-accent font-bold font-rajdhani text-xs">+{Math.round(item.target_rooka)} rooka</Text>
-              </View>
+              <Chip
+                variant="points"
+                size="sm"
+                label={Math.round(item.target_rooka)}
+              />
             ) : null}
           </View>
         ))}

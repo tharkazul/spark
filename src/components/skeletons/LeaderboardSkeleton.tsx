@@ -8,7 +8,7 @@ export function LeaderboardSkeleton({ count = 5 }: { count?: number }) {
       {Array.from({ length: count }).map((_, index) => (
         <View
           key={`leaderboard-skeleton-${index}`}
-          className="bg-theme-card border border-theme-border/60 rounded-2xl p-4 mb-2.5 flex-row justify-between items-center shadow-sm"
+          className="bg-theme-card border border-theme-border/60 rounded-card p-4 mb-2.5 flex-row justify-between items-center"
         >
           {/* Left rank + avatar + name */}
           <View className="flex-row items-center gap-x-3 flex-1">

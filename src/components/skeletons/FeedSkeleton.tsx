@@ -8,7 +8,7 @@ export function FeedSkeleton({ count = 2 }: { count?: number }) {
       {Array.from({ length: count }).map((_, index) => (
         <View
           key={`feed-skeleton-${index}`}
-          className="bg-theme-card rounded-card p-4 shadow-sm border border-slate-100 dark:border-slate-800/60"
+          className="bg-theme-card rounded-card p-4 border border-theme-border"
         >
           {/* Athlete Header */}
           <View className="flex-row justify-between items-center mb-3">

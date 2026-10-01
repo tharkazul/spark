@@ -325,15 +325,15 @@ export function EmptyState({
 
   const containerClasses =
     layout === 'card'
-      ? 'p-6 rounded-card border border-theme-border/70 bg-theme-card items-center text-center shadow-xs'
+      ? 'p-4 rounded-card border border-theme-border bg-theme-card items-center text-center'
       : 'py-4 px-2 items-center text-center';
 
   return (
     <View style={style} className={`${containerClasses} ${className}`}>
       {/* Optional Badge */}
       {badge && (
-        <View className="mb-2.5 px-2.5 py-0.5 rounded-full bg-theme-accent/15 border border-theme-accent/30">
-          <Text className="text-[10px] font-extrabold text-theme-accent uppercase tracking-wider font-rajdhani">
+        <View className="mb-2.5 px-2.5 py-0.5 rounded-full bg-theme-accent-soft border border-theme-accent-border">
+          <Text className="text-[10px] font-extrabold text-theme-accent-text uppercase tracking-wider font-rajdhani">
             {badge}
           </Text>
         </View>
@@ -344,14 +344,17 @@ export function EmptyState({
 
       {/* Title */}
       {Boolean(title) && (
-        <Text className="text-base font-extrabold text-theme-text text-center px-2">
+        <Text className="text-lg font-bold text-theme-text text-center px-2 mt-2">
           {title}
         </Text>
       )}
 
       {/* Educational Context Subtitle */}
       {Boolean(subtitle) && (
-        <Text className="text-xs text-theme-muted text-center mt-1.5 px-4 leading-relaxed max-w-[340px]">
+        <Text
+          numberOfLines={2}
+          className="text-sm text-theme-muted text-center mt-1 px-4 leading-relaxed max-w-[280px]"
+        >
           {subtitle}
         </Text>
       )}

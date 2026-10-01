@@ -3,6 +3,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Card } from '../ui/Card';
+import { Chip } from '../ui/Chip';
+import { LevelProgress } from '../ui/LevelProgress';
 import { RookaMark } from '../ui/RookaPoints';
 import { AthleteRadarChart } from './AthleteRadarChart';
 import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
@@ -81,9 +83,9 @@ export const RookaTab: React.FC<RookaTabProps> = ({
   const activitiesTotalRooka = Math.round(
     activities.reduce((sum, a) => sum + (a.rooka_score || 0), 0)
   );
-  const effectiveTotalRooka = (user?.total_rooka && user.total_rooka > 0)
+  const effectiveTotalRooka = Math.round((user?.total_rooka && user.total_rooka > 0)
     ? user.total_rooka
-    : activitiesTotalRooka;
+    : activitiesTotalRooka);
   const computedInfo = getRookaLevelInfo(effectiveTotalRooka);
   const activeLevelInfo = customLevelInfo || {
     level: computedInfo.level,
@@ -115,43 +117,13 @@ export const RookaTab: React.FC<RookaTabProps> = ({
     <View className="gap-y-4">
       {/* ROOKA LEVEL CARD */}
       <Card className="mb-4 bg-theme-card">
-        <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center gap-x-2">
-            <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-              <RookaMark size={18} />
-            </View>
-            <View className="flex-row items-baseline gap-x-1.5">
-              <Text className="text-xs font-bold text-theme-muted">
-                {t('dashboard.sparkLevel')}
-              </Text>
-              <Text className="text-theme-accent text-xl font-extrabold font-rajdhani leading-tight">
-                {Math.round(activeLevelInfo.level)}
-              </Text>
-            </View>
-          </View>
-          <Text className="text-xs font-semibold text-theme-muted font-rajdhani leading-tight">
-            {Math.round(activeLevelInfo.currentXp)} <Text className="text-theme-text font-bold">/ {Math.round(activeLevelInfo.nextLevelXp)} XP</Text>
-          </Text>
-        </View>
-
-        {/* Progress Fill Bar */}
-        <View className="w-full h-3 bg-theme-bg rounded-full overflow-hidden my-2">
-          <View
-            style={{ width: `${xpPercent}%` }}
-            className="h-full bg-theme-accent rounded-full"
-          />
-        </View>
-
-        <View className="flex-row justify-between items-center mt-1">
-          <Text className="text-xs text-theme-muted">{t('dashboard.progressNextLevel')}</Text>
-          <Text className="text-xs font-bold text-theme-accent">{xpPercent}%</Text>
-        </View>
+        <LevelProgress totalRooka={effectiveTotalRooka} levelTitle={t('dashboard.sparkLevel') || 'Athlete Level'} />
       </Card>
 
-      {/* ATHLETE ARCHETYPE CARD */}
-      <Card className="mb-4 bg-theme-card">
+      {/* ATHLETE ARCHETYPE CARD (24pt padding) */}
+      <Card className="mb-4 bg-theme-card p-6">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xs font-bold text-theme-muted">
+          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
             {t('dashboard.athleteArchetype')}
           </Text>
           {hasArchetypeData && (
@@ -165,7 +137,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
           <>
             <AthleteRadarChart data={activeArchetypeData} size={260} />
             {activeArchetypeData.description ? (
-              <View className="mt-3 pt-3 border border-theme-border/40">
+              <View className="mt-3 pt-3 border-t border-theme-border/40">
                 <Text className="text-xs text-theme-muted text-center leading-relaxed">
                   {activeArchetypeData.description}
                 </Text>
@@ -173,15 +145,12 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             ) : null}
           </>
         ) : (
-          /* With no sessions every axis floors at 25%, drawing a perfect
-             pentagon that looks like a real measurement of nothing. Say what
-             is needed instead. */
-          <View className="items-center justify-center py-10 px-6">
+          <View className="items-center justify-center py-8 px-4">
             <Ionicons name="analytics-outline" size={34} color={theme.textSecondary} />
             <Text className="text-theme-text font-bold text-base mt-3 text-center">
               No sessions yet
             </Text>
-            <Text className="text-theme-muted text-sm mt-1.5 text-center">
+            <Text className="text-theme-muted text-xs mt-1.5 text-center leading-relaxed">
               Log or sync a workout and your athlete profile will build itself from
               what you actually train.
             </Text>
@@ -244,14 +213,11 @@ export const RookaTab: React.FC<RookaTabProps> = ({
                   <Text className="text-sm font-bold text-theme-text flex-1 mr-2" numberOfLines={2}>
                     {activeQuest.description || 'Active Weekly Quest'}
                   </Text>
-                  <View className="bg-theme-accent/15 px-2 py-0.5 rounded-md">
-                    <View className="flex-row items-center gap-x-1">
-                      <Text className="text-[11px] font-mono font-bold text-theme-accent">
-                        +{Math.round(activeQuest.reward_points || 0)}
-                      </Text>
-                      <RookaMark size={11} color={theme.tint} />
-                    </View>
-                  </View>
+                  <Chip
+                    variant="points"
+                    size="sm"
+                    label={Math.round(activeQuest.reward_points || 0)}
+                  />
                 </View>
 
                 {/* Progress bar */}
@@ -319,7 +285,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
           )}
         </Card>
       ) : (
-        <Card className="mb-6 bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center shadow-sm">
+        <Card className="mb-6 bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center">
           <Ionicons name="lock-closed-outline" size={44} color={theme.tint} />
           <Text className="text-lg font-extrabold text-theme-text mt-3 text-center">
             Weekly Quests Locked
@@ -335,10 +301,10 @@ export const RookaTab: React.FC<RookaTabProps> = ({
                 router.navigate({ pathname: '/profile', params: { subtab: 'account' } });
               }
             }}
-            className="bg-theme-accent px-6 py-3 rounded-2xl w-full mt-5 shadow-sm shadow-theme-accent/30"
+            className="bg-theme-accent-strong px-6 py-3.5 rounded-button w-full mt-5 items-center justify-center"
             activeOpacity={0.8}
           >
-            <Text className="text-white font-black text-center font-rajdhani">
+            <Text className="text-white font-black text-center font-rajdhani text-base">
               Upgrade to rooka+
             </Text>
           </TouchableOpacity>
@@ -362,11 +328,11 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             </View>
           </View>
           {activeQuest?.reward_points ? (
-            <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full">
-              <Text className="text-sm font-mono font-extrabold text-theme-accent font-rajdhani">
-                +{Math.round(activeQuest.reward_points)} rooka
-              </Text>
-            </View>
+            <Chip
+              variant="points"
+              size="md"
+              label={Math.round(activeQuest.reward_points)}
+            />
           ) : null}
         </View>
 

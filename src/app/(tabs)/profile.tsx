@@ -29,6 +29,7 @@ import { API_BASE_URL } from '../../constants/api';
 import { useActivities } from '../../context/ActivityStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTabBar } from '../../context/TabBarContext';
+import { useTabBarInset } from '../../hooks/useTabBarInset';
 import { useUser } from '../../context/UserStore';
 import { integrationsApi } from '../../services/apiServices';
 
@@ -49,7 +50,8 @@ export default function ProfileScreen() {
   const { user, logout, refreshUser } = useUser();
   const { t } = useLanguage();
   const { syncStrava, syncGarmin, refreshActivities } = useActivities();
-  const { notifyScroll, notifyScrollEnd, tabBarOccupied } = useTabBar();
+  const { notifyScroll, notifyScrollEnd } = useTabBar();
+  const tabBarInset = useTabBarInset();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ subtab?: string }>();
@@ -372,11 +374,11 @@ export default function ProfileScreen() {
               setSegmentedWidth(w);
             }
           }}
-          className="relative flex-row bg-theme-card rounded-tile p-1 overflow-hidden"
+          className="relative flex-row bg-theme-inset rounded-tile p-1 overflow-hidden"
         >
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent rounded-xl"
+            className="absolute top-1 bottom-1 bg-theme-accent-strong rounded-button"
             style={{
               left: indicatorLeft,
               width: tabWidth,
@@ -444,7 +446,7 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
@@ -461,7 +463,7 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
@@ -473,7 +475,7 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >
@@ -490,7 +492,7 @@ export default function ProfileScreen() {
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
           >

@@ -18,6 +18,7 @@ import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { TextInput } from '../ui/TextInput';
 import { Button } from '../ui/Button';
 import { ScalePressable } from '../ui/ScalePressable';
+import { SportMedallion } from '../ui/SportMedallion';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useActivities } from '../../context/ActivityStore';
@@ -31,11 +32,11 @@ interface LogActivityModalProps {
 }
 
 const SPORTS = [
-  { id: 'RUN', label: 'Run', icon: 'footsteps-outline' },
-  { id: 'BIKE', label: 'Bike', icon: 'bicycle-outline' },
-  { id: 'SWIM', label: 'Swim', icon: 'water-outline' },
-  { id: 'WEIGHTS', label: 'Strength', icon: 'barbell-outline' },
-  { id: 'WALK', label: 'Walk', icon: 'walk-outline' },
+  { id: 'RUN', label: 'Run' },
+  { id: 'BIKE', label: 'Bike' },
+  { id: 'SWIM', label: 'Swim' },
+  { id: 'STRENGTH', label: 'Strength' },
+  { id: 'WALK', label: 'Walk' },
 ];
 
 export function LogActivityModal({
@@ -211,20 +212,16 @@ export function LogActivityModal({
                           onPress={() => setSport(s.id)}
                           activeScale={0.94}
                           haptic="selection"
-                          className={`flex-1 py-2.5 rounded-xl items-center justify-center border ${
+                          className={`flex-1 py-2 rounded-xl items-center justify-center border ${
                             isSelected
-                              ? 'bg-semantic-success/15 border-semantic-success'
+                              ? 'bg-theme-accent-soft border-theme-accent'
                               : 'bg-theme-bg border-theme-border/60'
                           }`}
                         >
-                          <Ionicons
-                            name={s.icon as any}
-                            size={18}
-                            color={isSelected ? '#10B981' : isDark ? '#94A3B8' : '#64748B'}
-                          />
+                          <SportMedallion sport={s.id} size={28} />
                           <Text
                             className={`text-xs font-bold mt-1 ${
-                              isSelected ? 'text-semantic-success' : 'text-theme-muted'
+                              isSelected ? 'text-theme-accent' : 'text-theme-muted'
                             }`}
                           >
                             {s.label}

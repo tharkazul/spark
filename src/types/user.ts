@@ -52,6 +52,7 @@ export interface UserProfile {
   /** Set by the server when the athlete has no training zone table yet. */
   needsZoneSetup?: boolean;
   streak_days?: number;
+  current_streak?: number;
 }
 
 export interface GoalMilestone {

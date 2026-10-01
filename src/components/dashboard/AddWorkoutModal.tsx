@@ -1,7 +1,4 @@
-import { RookaMark } from '../ui/RookaPoints';
-import { SheetGrabber } from '@/components/ui/SheetGrabber';
-import React, { useState, useEffect, useRef } from 'react';
-import { useTheme } from '@/hooks/use-theme';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,24 +7,29 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Image,
+  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { useTheme } from '@/hooks/use-theme';
 import { useUser } from '../../context/UserStore';
-import { ScalePressable } from '../ui/ScalePressable';
+import { useLanguage } from '../../context/LanguageContext';
 import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
+import { WorkoutStructureBar } from './WorkoutStructureBar';
 import { QuickBuildModal } from './QuickBuildModal';
 import { DeviceSyncChip } from './DeviceSyncChip';
-import { getSportEmblem } from '../../utils/disciplineConfig';
+import { Button } from '../ui/Button';
+import { SportMedallion } from '../ui/SportMedallion';
+import { StatValue } from '../ui/StatValue';
+import { SheetGrabber } from '@/components/ui/SheetGrabber';
 
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { WorkoutStep } from '../../types/plan';
 import { makeStepId } from '../../utils/stepId';
-import { useLanguage } from '../../context/LanguageContext';
 
 interface AddWorkoutModalProps {
   visible: boolean;
@@ -115,6 +117,24 @@ const scaleStepsForDuration = (targetMins: number, existingSteps: WorkoutStep[],
   });
 };
 
+const calculateRookaPoints = (sport: SportType, durationMins: number, stepList: WorkoutStep[]): number => {
+  if (stepList && stepList.length > 0) {
+    const isStrength = sport === 'STRENGTH' || sport === 'MOBILITY';
+    return calculateWbRooka(stepList, isStrength, sport);
+  }
+  const multipliers: Record<SportType, number> = {
+    RUN: 1.6,
+    BIKE: 1.2,
+    SWIM: 1.9,
+    STRENGTH: 1.3,
+    MOBILITY: 0.9,
+    REST: 0,
+  };
+  return Math.round(durationMins * (multipliers[sport] || 1.3));
+};
+
+const quickDurations = [20, 30, 45, 60, 90];
+
 export function AddWorkoutModal({
   visible,
   targetDayName = 'FRI',
@@ -125,14 +145,13 @@ export function AddWorkoutModal({
   onSave,
   onDelete,
 }: AddWorkoutModalProps) {
-    const theme = useTheme();
+  const theme = useTheme();
   const { t } = useLanguage();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
 
   const [selectedSport, setSelectedSport] = useState<SportType>('RUN');
   const [title, setTitle] = useState('');
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState<number>(45);
   const [steps, setSteps] = useState<WorkoutStep[]>([]);
   const [customRooka, setCustomRooka] = useState<number | null>(null);
@@ -142,110 +161,63 @@ export function AddWorkoutModal({
     user?.garmin_connected || (user as any)?.garmin_username || (user as any)?.garminUsername
   );
   const [isAppleConnected, setIsAppleConnected] = useState(false);
+  const [isGarminSynced, setIsGarminSynced] = useState(false);
+  const [isAppleWatchSynced, setIsAppleWatchSynced] = useState(false);
+  const [isGarminSyncing, setIsGarminSyncing] = useState(false);
+  const [isAppleWatchSyncing, setIsAppleWatchSyncing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     try {
-      const {
-        isWorkoutKitSupported,
-        getWorkoutKitAuthorizationStatus,
-      } = require('../../services/appleHealthService');
-
-      if (isWorkoutKitSupported()) {
-        getWorkoutKitAuthorizationStatus()
-          .then((status: string) => {
-            if (!cancelled) setIsAppleConnected(status === 'authorized');
-          })
-          .catch(() => {
-            if (!cancelled) setIsAppleConnected(false);
-          });
-      } else {
-        setIsAppleConnected(false);
+      const { isWorkoutKitSupported, isWorkoutKitAuthorized } = require('../../services/appleHealthService');
+      if (isWorkoutKitSupported && isWorkoutKitSupported()) {
+        isWorkoutKitAuthorized().then((authorized: boolean) => {
+          if (!cancelled && authorized) {
+            setIsAppleConnected(true);
+          }
+        });
       }
-    } catch {
-      setIsAppleConnected(false);
-    }
+    } catch (_) {}
     return () => {
       cancelled = true;
     };
-  }, [visible]);
-
-  const [isGarminSynced, setIsGarminSynced] = useState(false);
-  const [isGarminSyncing, setIsGarminSyncing] = useState(false);
-  const [isAppleWatchSynced, setIsAppleWatchSynced] = useState(false);
-  const [isAppleWatchSyncing, setIsAppleWatchSyncing] = useState(false);
-  const prevVisibleRef = useRef(false);
-
-  // Preset quick duration options in minutes
-  const quickDurations = [15, 30, 45, 60, 90, 120];
+  }, []);
 
   useEffect(() => {
-    if (visible && !prevVisibleRef.current) {
+    if (initialWorkout) {
+      const sp = (initialWorkout.type || 'RUN').toUpperCase() as SportType;
+      setSelectedSport(sp);
+      setTitle(initialWorkout.title || '');
 
+      const durMatch = (initialWorkout.duration || '').match(/\d+/);
+      const parsedDur = durMatch ? parseInt(durMatch[0], 10) : 45;
+      setDurationMinutes(parsedDur);
 
-      setIsGarminSynced(false);
-      setIsAppleWatchSynced(false);
-
-      if (initialWorkout) {
-        setSelectedSport(String(initialWorkout.type || 'RUN').toUpperCase() as SportType);
-        setTitle(initialWorkout.title);
-        const parsedDur = parseInt(initialWorkout.duration || '45', 10);
-        const dur = isNaN(parsedDur) ? 45 : parsedDur;
-        setDurationMinutes(dur);
-
-        if (initialWorkout.steps && Array.isArray(initialWorkout.steps) && initialWorkout.steps.length > 0) {
-          setSteps(ensureStepIds(initialWorkout.steps));
-        } else {
-          setSteps(ensureStepIds(scaleStepsForDuration(dur, [], initialWorkout.type)));
-        }
+      if (initialWorkout.steps && initialWorkout.steps.length > 0) {
+        setSteps(ensureStepIds(initialWorkout.steps));
+        setCustomRooka(initialWorkout.rookaPoints || null);
       } else {
-        const dayKey = targetDayName.toUpperCase();
-        const userPreferredDur = user?.daily_availability?.[dayKey] || (dayKey === 'SAT' ? 90 : 60);
-
-        setSelectedSport('RUN');
-        setTitle('');
-        setDurationMinutes(userPreferredDur);
-        setSteps(ensureStepIds(scaleStepsForDuration(userPreferredDur, [], 'RUN')));
+        const scaled = scaleStepsForDuration(parsedDur, [], sp);
+        setSteps(ensureStepIds(scaled));
+        setCustomRooka(initialWorkout.rookaPoints || null);
       }
+    } else {
+      setSelectedSport('RUN');
+      setTitle('');
+      setDurationMinutes(45);
+      const scaled = scaleStepsForDuration(45, [], 'RUN');
+      setSteps(ensureStepIds(scaled));
       setCustomRooka(null);
     }
-    prevVisibleRef.current = visible;
-  }, [initialWorkout, visible, targetDayName, user]);
+    setIsGarminSynced(false);
+    setIsAppleWatchSynced(false);
+  }, [initialWorkout, visible]);
 
-  const handleDurationChange = (newMins: number) => {
-    setDurationMinutes(newMins);
-    if (newMins > 0) {
-      const rebalancedSteps = scaleStepsForDuration(newMins, steps, selectedSport);
-      setSteps(rebalancedSteps);
-      setCustomRooka(calculateWbRooka(rebalancedSteps, selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY', selectedSport));
-    }
-  };
-
-  const calculateRookaPoints = (type: SportType, mins: number, currentSteps: WorkoutStep[]): number => {
-    if (currentSteps && currentSteps.length > 0) {
-      return calculateWbRooka(currentSteps, type === 'STRENGTH', type);
-    }
-
-    let ratePerMin = 0.8;
-    switch (String(type).toUpperCase()) {
-      case 'RUN':
-        ratePerMin = 0.8;
-        break;
-      case 'BIKE':
-        ratePerMin = 0.7;
-        break;
-      case 'SWIM':
-        ratePerMin = 0.9;
-        break;
-      case 'STRENGTH':
-        ratePerMin = 0.5;
-        break;
-      case 'MOBILITY':
-        ratePerMin = 0.3;
-        break;
-    }
-
-    return Math.round(mins * ratePerMin);
+  const handleDurationChange = (mins: number) => {
+    setDurationMinutes(mins);
+    const scaled = scaleStepsForDuration(mins, steps, selectedSport);
+    setSteps(ensureStepIds(scaled));
+    setCustomRooka(calculateWbRooka(scaled, selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY', selectedSport));
   };
 
   const computedRooka = calculateRookaPoints(selectedSport, durationMinutes, steps);
@@ -275,7 +247,6 @@ export function AddWorkoutModal({
         isCompleted: initialWorkout ? initialWorkout.isCompleted : false,
         actualMetrics: initialWorkout?.actualMetrics,
         executionScore: initialWorkout?.executionScore,
-        // Editing a coach session keeps it a coach session, so the note stays.
         isCoachCreated: initialWorkout?.isCoachCreated,
         coachNote: initialWorkout?.coachNote,
         notes: initialWorkout?.notes,
@@ -293,152 +264,6 @@ export function AddWorkoutModal({
     }
   };
 
-  const handleGarminSync = async () => {
-    if (isGarminSyncing) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsGarminSyncing(true);
-    try {
-      const { syncGarminWorkout } = require('../../api/integrations');
-      const finalTitle = title.trim() || `${selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()} Workout`;
-      const workoutDate = targetFullDate || (initialWorkout as any)?.date || normalizeDateToYYYYMMDD(targetDateStr);
-      const normalizedSport = (selectedSport.charAt(0).toUpperCase() + selectedSport.slice(1).toLowerCase());
-      await syncGarminWorkout([{
-        date: workoutDate,
-        sport: normalizedSport,
-        title: finalTitle,
-        description: finalTitle,
-        rookaPoints: calculatedRooka,
-        steps: steps || [],
-      }]);
-      setIsGarminSynced(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: any) {
-      console.log('Garmin sync failed:', err?.message || err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Garmin Sync Failed', err?.message || 'Could not push this workout to Garmin. Please try again later.');
-    } finally {
-      setIsGarminSyncing(false);
-    }
-  };
-
-  const handleAppleWatchSync = async () => {
-    if (isAppleWatchSyncing) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsAppleWatchSyncing(true);
-    try {
-      const {
-        deployWorkoutToAppleWatch,
-        previewWorkoutOnAppleWatch,
-      } = require('../../services/appleHealthService');
-
-      const workoutDate = targetFullDate || (initialWorkout as any)?.date || normalizeDateToYYYYMMDD(targetDateStr);
-      const payload = {
-        id: initialWorkout?.id || '1',
-        date: workoutDate,
-        sport: selectedSport,
-        description: title || `${selectedSport} Workout`,
-        target_rooka: calculatedRooka,
-        steps_json: steps,
-      };
-      const result = await deployWorkoutToAppleWatch(payload);
-
-      // The chip only turns synced when WorkoutKit actually accepted the plan; it
-      // used to show success on failure too, which read as a successful push.
-      setIsAppleWatchSynced(result.success);
-      if (result.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (result.degraded) Alert.alert('Sent to Apple Watch', result.message);
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        // Apple's own preview sheet has an "Add to Watch" button and does not
-        // need the scheduling permission, so it still gets the session across
-        // when automatic scheduling is turned off.
-        Alert.alert('Apple Watch Sync Failed', result.message, [
-          { text: 'OK', style: 'cancel' },
-          {
-            text: 'Add Manually',
-            onPress: () => {
-              previewWorkoutOnAppleWatch(payload).then((preview: { success: boolean; message: string }) => {
-                if (!preview.success) Alert.alert('Apple Watch', preview.message);
-              });
-            },
-          },
-        ]);
-      }
-    } catch (err: any) {
-      console.log('Apple Watch sync failed:', err?.message || err);
-      setIsAppleWatchSynced(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        'Apple Watch Sync Failed',
-        err?.message || 'Could not send this workout to your Apple Watch. Please try again.'
-      );
-    } finally {
-      setIsAppleWatchSyncing(false);
-    }
-  };
-
-  // Footer containing Device Sync and Primary Save / Cancel / Delete Actions
-  const renderFooter = () => (
-    <View style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom + 20, 40) }}>
-      {/* Device Sync Row - Only shown if at least one device is connected */}
-      {(isGarminConnected || isAppleConnected) && (
-        <View className="mb-6">
-          <Text className="text-xs font-extrabold text-theme-muted mb-2.5">
-            Sync to Device
-          </Text>
-          <View className="flex-row gap-3">
-            {isGarminConnected && (
-              <DeviceSyncChip
-                device="garmin"
-                isSynced={isGarminSynced}
-                isSyncing={isGarminSyncing}
-                onPress={handleGarminSync}
-              />
-            )}
-
-            {isAppleConnected && (
-              <DeviceSyncChip
-                device="apple"
-                isSynced={isAppleWatchSynced}
-                isSyncing={isAppleWatchSyncing}
-                onPress={handleAppleWatchSync}
-              />
-            )}
-          </View>
-        </View>
-      )}
-
-      {/* Primary Action Buttons */}
-      <View className="items-center w-full">
-        <ScalePressable
-          onPress={handleSave}
-          activeScale={0.96}
-          haptic="selection"
-          className="w-[70%] bg-theme-accent rounded-xl py-3.5 items-center justify-center mb-3 shadow-sm"
-        >
-           <Text className="text-white font-extrabold text-base">
-             {t('common.save') || 'Save'}
-           </Text>
-        </ScalePressable>
-        <ScalePressable onPress={onClose} activeScale={0.97} haptic="light" className="py-2 px-6">
-          <Text className="text-theme-muted font-bold text-sm">{t('common.cancel')}</Text>
-        </ScalePressable>
-      </View>
-
-      {/* Delete button if editing */}
-      {initialWorkout && (
-        <ScalePressable
-          onPress={handleDelete}
-          activeScale={0.96}
-          haptic="warning"
-          className="py-2.5 items-center justify-center bg-semantic-error/10 rounded-xl mt-4"
-        >
-          <Text className="text-xs font-extrabold text-semantic-error">{t('common.delete')}</Text>
-        </ScalePressable>
-      )}
-    </View>
-  );
 
   return (
     <Modal
@@ -452,14 +277,27 @@ export function AddWorkoutModal({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           className="flex-1 bg-theme-card"
         >
-          <View className="flex-1 px-6 pt-5">
-            {/* Native page sheets have a built-in drag handle indicator on iOS 15+ in some cases,
-                but we can just render a static one here if we want the visual affordance. */}
-            <View className="items-center pb-4 -mt-2">
-              <SheetGrabber />
-            </View>
+          {/* Header Drag Handle */}
+          <View className="items-center pt-2.5 pb-1">
+            <SheetGrabber />
+          </View>
 
-            {/* STRUCTURED ACTIVITY BUILDER */}
+          {/* Top Title Bar with Close Action */}
+          <View className="flex-row items-center justify-between px-5 pt-1 pb-3 border-b border-theme-border/60">
+            <Text className="text-xl font-bold text-theme-text">
+              {initialWorkout ? 'Edit Workout' : 'Add Workout'}
+            </Text>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
+            >
+              <Ionicons name="close" size={18} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/* SCROLLABLE FORM AREA */}
+          <View className="flex-1 px-5">
             <WorkoutStepBuilder
               steps={steps}
               sport={selectedSport}
@@ -470,40 +308,26 @@ export function AddWorkoutModal({
                 setSteps(newSteps);
                 setCustomRooka(rooka);
               }}
-              ListHeaderComponent={React.useMemo(() => (
-                <View>
-                  {/* Header */}
-                  <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/40 mb-2">
-                    <View className="flex-row items-center gap-2 flex-1 pr-4">
-                      {isEditingTitle ? (
-                        <TextInput
-                          autoFocus
-                          value={title}
-                          onChangeText={setTitle}
-                          onBlur={() => setIsEditingTitle(false)}
-                          onSubmitEditing={() => setIsEditingTitle(false)}
-                          placeholder="Workout Title"
-                          placeholderTextColor={theme.textSecondary}
-                          className="text-lg font-extrabold text-theme-text p-0 m-0 flex-1"
-                          multiline
-                        />
-                      ) : (
-                        <>
-                          <Text className="text-lg font-extrabold text-theme-text flex-shrink">
-                            {title || (initialWorkout ? 'Edit Workout' : 'Add Workout')}
-                          </Text>
-                          <ScalePressable onPress={() => setIsEditingTitle(true)} activeScale={0.9} haptic="selection" className="p-1">
-                            <Ionicons name="pencil" size={16} color={theme.textSecondary} />
-                          </ScalePressable>
-                        </>
-                      )}
-                    </View>
+              ListHeaderComponent={useMemo(() => (
+                <View className="pt-3 gap-y-4">
+                  {/* Workout Name Input */}
+                  <View>
+                    <TextInput
+                      value={title}
+                      onChangeText={setTitle}
+                      placeholder="Workout name (optional)"
+                      placeholderTextColor={theme.textSecondary}
+                      className="bg-theme-inset px-3.5 py-2.5 rounded-control text-sm font-semibold text-theme-text border border-theme-border"
+                    />
                   </View>
 
-                  <View className="gap-y-6">
-                    {/* Discipline Selector - Horizontal Icon Strip */}
-                    <View>
-                      <View className="flex-row items-center justify-between">
+                  {/* Sport Tiles Strip (64pt wide, 76pt high, 8pt gap) */}
+                  <View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 8 }}
+                    >
                       {[
                         { type: 'RUN' as SportType, label: 'Run' },
                         { type: 'BIKE' as SportType, label: 'Bike' },
@@ -512,89 +336,205 @@ export function AddWorkoutModal({
                         { type: 'MOBILITY' as SportType, label: 'Mobility' },
                       ].map((item) => {
                         const isSelected = selectedSport === item.type;
-                        const emblem = getSportEmblem(item.type);
                         return (
-                          <ScalePressable
+                          <TouchableOpacity
                             key={item.type}
+                            activeOpacity={0.8}
                             onPress={() => handleSportSelect(item.type)}
-                            activeScale={0.95}
-                            haptic="selection"
-                            className={`flex-1 rounded-xl items-center justify-center py-2.5 ${
+                            style={{ width: 64, height: 76 }}
+                            className={`rounded-inset items-center justify-center ${
                               isSelected
-                                ? 'bg-theme-accent-soft border border-theme-accent-border'
-                                : 'bg-theme-bg border border-transparent'
+                                ? 'bg-theme-accent-soft border-[1.5px] border-theme-accent'
+                                : 'bg-transparent border border-transparent opacity-70'
                             }`}
-                            style={{ marginHorizontal: 2 }}
                           >
-                            <Image
-                              source={emblem}
-                              style={{ width: 28, height: 28, opacity: isSelected ? 1 : 0.65 }}
-                              resizeMode="contain"
-                            />
+                            <SportMedallion sport={item.type} size={40} />
                             <Text
-                              className={`text-xs font-bold mt-1.5 ${
-                                isSelected ? 'text-theme-accent' : 'text-theme-muted'
+                              className={`text-xs font-semibold mt-1.5 ${
+                                isSelected ? 'text-theme-accent font-bold' : 'text-theme-muted'
                               }`}
                             >
                               {item.label}
                             </Text>
-                          </ScalePressable>
+                          </TouchableOpacity>
                         );
                       })}
-                    </View>
+                    </ScrollView>
                   </View>
 
+                  {/* Quick Duration Chips (R2-28: 20, 30, 45, 60, 90 min) */}
+                  <View className="flex-row items-center gap-2">
+                    {quickDurations.map((mins) => {
+                      const isSelected = durationMinutes === mins;
+                      return (
+                        <TouchableOpacity
+                          key={`dur-${mins}`}
+                          onPress={() => handleDurationChange(mins)}
+                          activeOpacity={0.8}
+                          className={`flex-1 py-2 items-center justify-center rounded-button-md border ${
+                            isSelected
+                              ? 'bg-theme-accent-strong border-theme-accent-strong'
+                              : 'bg-theme-inset border-theme-border/60'
+                          }`}
+                        >
+                          <Text
+                            className={`text-xs font-bold font-rajdhani tabular-nums ${
+                              isSelected ? 'text-white' : 'text-theme-text'
+                            }`}
+                          >
+                            {mins}m
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
 
+                  {/* Build with rooka (Renamed from Quick Build) */}
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    label="Build with rooka"
+                    leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
+                    onPress={() => setIsQuickBuildOpen(true)}
+                    className="w-full"
+                  />
 
-                  {/* Why the coach prescribed this. Read-only: it is their note,
-                      not a field on the workout, and it is absent on sessions
-                      you built yourself. */}
-                  {initialWorkout?.coachNote && (
-                    <View className="flex-row gap-2.5 p-3 rounded-xl bg-theme-accent/5 border-l-2 border-l-theme-accent">
-                      <Ionicons
-                        name="chatbubble-ellipses-outline"
-                        size={15}
-                        color={theme.tint}
-                        style={{ marginTop: 1 }}
-                      />
-                      <View className="flex-1">
-                        <Text className="text-xs font-bold text-theme-accent mb-0.5">
-                          From your coach
+                  {/* Structure Preview Bar (proportional, rounded-full matching dashboard view) */}
+                  {steps && steps.length > 0 && (
+                    <View className="gap-y-1.5">
+                      <View className="flex-row justify-between items-center">
+                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider">
+                          STRUCTURE PREVIEW
                         </Text>
-                        <Text className="text-xs text-theme-muted leading-relaxed">
-                          {initialWorkout.coachNote}
+                        <Text className="text-xs font-semibold text-theme-muted font-rajdhani tabular-nums">
+                          {durationMinutes} min
                         </Text>
                       </View>
+                      <WorkoutStructureBar steps={steps} className="my-0" />
                     </View>
                   )}
-
-                  {/* Quick Build & Calculated rooka row */}
-                  <View className="flex-row items-center gap-3">
-                    <ScalePressable
-                      onPress={() => setIsQuickBuildOpen(true)}
-                      activeScale={0.96}
-                      haptic="selection"
-                      className="flex-1 bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2"
-                    >
-                      <Ionicons name="flash" size={14} color={theme.textSecondary} />
-                      <Text className="text-sm font-bold text-theme-text">Quick Build</Text>
-                    </ScalePressable>
-
-                    <View className="flex-1 bg-theme-accent-soft border border-theme-accent-border rounded-xl px-4 py-3 flex-row items-center justify-center gap-2">
-                      <RookaMark size={15} color={theme.tint} />
-                      <Text className="text-sm font-bold text-theme-accent">
-                        +{calculatedRooka} rooka <Text className="text-xs text-theme-accent/70">· Auto</Text>
-                      </Text>
-                    </View>
-                  </View>
-                  </View>
                 </View>
-              ), [selectedSport, title, durationMinutes, calculatedRooka, initialWorkout, isEditingTitle])}
-              ListFooterComponent={React.useMemo(() => renderFooter(), [insets.bottom, isGarminConnected, isAppleConnected, isGarminSynced, isGarminSyncing, isAppleWatchSynced, isAppleWatchSyncing, initialWorkout, title, durationMinutes, calculatedRooka, steps])}
+              ), [selectedSport, title, durationMinutes, calculatedRooka, steps])}
             />
+          </View>
+
+          {/* STICKY FOOTER PINNED OUTSIDE SCROLL VIEW (P0 Defect #6) */}
+          <View
+            style={{ paddingBottom: Math.max(insets.bottom, 16), paddingTop: 12 }}
+            className="px-5 border-t border-theme-border bg-theme-card"
+          >
+            {/* Device Sync Row (Garmin / Apple Watch) */}
+            {(isGarminConnected || isAppleConnected) && (
+              <View className="flex-row gap-2 mb-3">
+                {isGarminConnected && (
+                  <DeviceSyncChip
+                    device="garmin"
+                    isSynced={isGarminSynced}
+                    isSyncing={isGarminSyncing}
+                    onPress={async () => {
+                      if (isGarminSyncing) return;
+                      setIsGarminSyncing(true);
+                      try {
+                        const { syncGarminWorkout } = require('../../api/integrations');
+                        const finalTitle = title.trim() || `${selectedSport} Workout`;
+                        const workoutDate = targetFullDate || normalizeDateToYYYYMMDD(targetDateStr);
+                        await syncGarminWorkout([{
+                          date: workoutDate,
+                          sport: selectedSport,
+                          title: finalTitle,
+                          description: finalTitle,
+                          rookaPoints: calculatedRooka,
+                          steps,
+                        }]);
+                        setIsGarminSynced(true);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      } catch (err: any) {
+                        Alert.alert('Garmin Sync Failed', err?.message || 'Sync failed');
+                      } finally {
+                        setIsGarminSyncing(false);
+                      }
+                    }}
+                  />
+                )}
+
+                {isAppleConnected && (
+                  <DeviceSyncChip
+                    device="apple"
+                    isSynced={isAppleWatchSynced}
+                    isSyncing={isAppleWatchSyncing}
+                    onPress={async () => {
+                      if (isAppleWatchSyncing) return;
+                      setIsAppleWatchSyncing(true);
+                      try {
+                        const { deployWorkoutToAppleWatch } = require('../../services/appleHealthService');
+                        const workoutDate = targetFullDate || normalizeDateToYYYYMMDD(targetDateStr);
+                        const result = await deployWorkoutToAppleWatch({
+                          id: initialWorkout?.id || '1',
+                          date: workoutDate,
+                          sport: selectedSport,
+                          description: title || `${selectedSport} Workout`,
+                          target_rooka: calculatedRooka,
+                          steps_json: steps,
+                        });
+                        setIsAppleWatchSynced(result.success);
+                        if (result.success) {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        } else {
+                          Alert.alert('Apple Watch Sync Failed', result.message);
+                        }
+                      } catch (err: any) {
+                        Alert.alert('Apple Watch Sync Failed', err?.message || 'Sync failed');
+                      } finally {
+                        setIsAppleWatchSyncing(false);
+                      }
+                    }}
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Live Total & Save Action (R2-29: StatValue integration) */}
+            <View className="flex-row items-center justify-between gap-x-4">
+              <View className="flex-row items-center gap-4">
+                <StatValue
+                  label="DURATION"
+                  value={durationMinutes}
+                  unit="min"
+                  size="sm"
+                />
+                <StatValue
+                  label="ROOKA"
+                  value={`+${calculatedRooka}`}
+                  unit="pts"
+                  size="sm"
+                />
+              </View>
+
+              <Button
+                variant="primary"
+                size="md"
+                label={t('common.save') || 'Save'}
+                disabled={steps.length === 0}
+                onPress={handleSave}
+                className="flex-1"
+              />
+            </View>
+
+            {/* Optional Delete action if editing existing workout */}
+            {initialWorkout && (
+              <TouchableOpacity
+                onPress={handleDelete}
+                className="mt-2.5 items-center justify-center py-1.5"
+              >
+                <Text className="text-xs font-semibold text-rose-500">
+                  {t('common.delete') || 'Delete Workout'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
+
       <QuickBuildModal
         visible={isQuickBuildOpen}
         onClose={() => setIsQuickBuildOpen(false)}

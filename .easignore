@@ -2,8 +2,36 @@
 android/
 ios/
 
-# Standard ignores
-.git/
-node_modules/
+# Build artifacts & caches
+build/
+dist/
+.eas/
 .expo/
 *.log
+
+# Dependencies
+node_modules/
+
+# Git
+.git/
+
+# Backend & Web (not part of the mobile app bundle)
+server/
+website/
+docs/
+scratch/
+
+# SQLite databases & backups
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+backups/
+
+# Environment & secrets
+.env
+.env.*
+*.env
+.DS_Store
+

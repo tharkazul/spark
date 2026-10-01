@@ -17,6 +17,7 @@ import { useSubscription } from '../../context/SubscriptionStore';
 import { AppliedDiscount, DiscountValidationResult, PricingBreakdown } from '../../types/discount';
 import { DiscountCodeField } from '../subscription/DiscountCodeField';
 import { formatDate, formatDiscountSummary } from '../../utils/discountFormat';
+import { LanguageSelector } from '../LanguageSelector';
 
 interface AccountTabProps {
   onLogout: () => void;
@@ -548,6 +549,20 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             </>
           )}
         </View>
+      </Card>
+
+      {/* LANGUAGE SETTINGS (Moved from ProfileTab per Defect #14) */}
+      <Card className="p-4 mb-6">
+        <View className="flex-row items-center gap-2 pb-2 mb-3 border-b border-theme-border/20">
+          <Ionicons name="globe-outline" size={18} color={theme.tint} />
+          <Text className="text-theme-text font-bold text-sm">
+            {t('profile.languageSettingTitle')}
+          </Text>
+        </View>
+        <Text className="text-theme-muted text-xs mb-3">
+          {t('profile.languageSettingDesc')}
+        </Text>
+        <LanguageSelector />
       </Card>
 
       {/* LEGAL & PRIVACY */}

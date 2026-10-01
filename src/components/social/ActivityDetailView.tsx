@@ -1,18 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Alert,
   Image,
   Dimensions,
-  Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Platform,
+  Share,
+  ActivityIndicator,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withSpring,
+  useReducedMotion,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 let MapView: any = View;
@@ -28,22 +38,37 @@ if (Platform.OS !== 'web') {
   } catch (_) {}
 }
 
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useColorScheme } from 'nativewind';
 
 import { Activity, ActivityLap } from '../../types/activity';
 import { ActivityComment } from '../../types/social';
 import { activitiesApi, socialApi } from '../../services/apiServices';
 import { decodePolyline, Coordinate } from '../../utils/polyline';
-import { getSportFilledIcon, getSportIconConfig, getSportPlaceholderImage } from '../../utils/sportIcons';
-import { RookaMark } from '../ui/RookaPoints';
-import { CommentComposer } from './CommentComposer';
+import { getSportIconConfig, getSportPlaceholderImage } from '../../utils/sportIcons';
+import {
+  formatClock,
+  formatDuration,
+  formatRelativeDayAndTime,
+  pluralize,
+  formatPace,
+  formatSwimPace,
+  formatNumber,
+} from '../../utils/format';
+import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
+import { useActivities } from '../../context/ActivityStore';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
+import { Elevation } from '../../constants/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { Card } from '../ui/Card';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { SportMedallion } from '../ui/SportMedallion';
+import { UserAvatar } from '../ui/UserAvatar';
+import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { CommentComposer } from './CommentComposer';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface ActivityDetailViewProps {
   activityId: string | number | null;
@@ -162,20 +187,6 @@ function getMilestoneDistanceFromName(name?: string): number | undefined {
   return undefined;
 }
 
-function formatActivityDate(dateString?: string): string {
-  if (!dateString) return 'Recent Activity';
-  try {
-    const d = new Date(dateString);
-    return d.toLocaleDateString('en-US', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short',
-    });
-  } catch {
-    return dateString.substring(0, 10);
-  }
-}
-
 function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
   if (!raw && !fallback) return {} as Activity;
   const merged = { ...fallback, ...raw };
@@ -257,42 +268,39 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
           : typeof lap.moving_time === 'number'
           ? lap.moving_time / 60
           : 0;
+
       return {
-        lap_index: lap.lap_index ?? lap.split ?? idx + 1,
+        lap_index: lap.lap_index || idx + 1,
         distance_km: lapDist,
         elapsed_time_min: lapMins,
         split_pace: lap.split_pace,
         average_heartrate: lap.average_heartrate,
+        elevation_gain_m: lap.elevation_gain_m || lap.total_elevation_gain,
       };
     });
-  } else if (Array.isArray(raw?.splits_metric)) {
-    normalizedLaps = raw.splits_metric.map((split: any, idx: number) => ({
-      lap_index: split.split ?? idx + 1,
-      distance_km: typeof split.distance === 'number' ? split.distance / 1000 : 1,
-      elapsed_time_min: typeof split.moving_time === 'number' ? split.moving_time / 60 : 0,
-      split_pace: undefined,
-      average_heartrate: split.average_heartrate,
-    }));
   }
 
   return {
     ...merged,
-    id: raw?.id ?? fallback?.id,
-    name: raw?.name || raw?.title || fallback?.name || 'Workout Telemetry',
-    sport_type: raw?.sport_type || fallback?.sport_type || 'Run',
-    start_date: raw?.start_date || fallback?.start_date || new Date().toISOString(),
+    id: raw?.id ?? fallback?.id ?? 'temp',
+    name: raw?.name || raw?.title || fallback?.name || 'Workout',
+    sport_type: raw?.sport_type || raw?.type || fallback?.sport_type || 'RUN',
     distance_km: distKm,
     moving_time_min: movingMins,
+    elapsed_time: raw?.elapsed_time || fallback?.elapsed_time,
     elevation_m: elevation,
     average_heartrate: raw?.average_heartrate ?? fallback?.average_heartrate,
     max_heartrate: raw?.max_heartrate ?? fallback?.max_heartrate,
     average_power_w: avgPower,
     rooka_score: rooka,
     polyline: polylineStr,
+    sets_json: setsJsonStr,
+    laps: normalizedLaps || fallback?.laps,
+    calories: raw?.calories ?? fallback?.calories,
+    start_date: raw?.start_date || fallback?.start_date || new Date().toISOString(),
     kudos_count: raw?.kudos_count ?? fallback?.kudos_count ?? 0,
     has_kudosed: raw?.has_kudosed ?? fallback?.has_kudosed ?? false,
-    sets_json: setsJsonStr,
-    laps: normalizedLaps,
+    comments_count: raw?.comments_count ?? fallback?.comments_count ?? 0,
   };
 }
 
@@ -306,11 +314,10 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
-  const { colorScheme } = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { language } = useLanguage();
+  const reducedMotion = useReducedMotion();
 
   const [activeTabIndex, setActiveTabIndex] = useState<number>(0);
-  const scrollX = useRef(new Animated.Value(0)).current;
   const horizontalScrollViewRef = useRef<ScrollView>(null);
 
   const [activity, setActivity] = useState<Activity | null>(() =>
@@ -320,40 +327,23 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   const [kudosCount, setKudosCount] = useState<number>(0);
   const [hasKudosed, setHasKudosed] = useState<boolean>(false);
   const [isLapsExpanded, setIsLapsExpanded] = useState<boolean>(false);
+  const { refreshActivities } = useActivities();
+  const [mapInteractive, setMapInteractive] = useState<boolean>(false);
+
+  // Activity linking & options menu states
+  const [showActionsMenu, setShowActionsMenu] = useState<boolean>(false);
+  const [showLinkModal, setShowLinkModal] = useState<boolean>(false);
+  const [linkCandidates, setLinkCandidates] = useState<Activity[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState<boolean>(false);
+  const [isLinking, setIsLinking] = useState<boolean>(false);
 
   const mapRef = useRef<any>(null);
 
-  // Tab calculations matching Progress layout
-  const tabContentWidth = SCREEN_WIDTH - 48;
-  const segmentWidth = (tabContentWidth - 8) / 2;
-
-  const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [0, segmentWidth],
-    extrapolate: 'clamp',
-  });
-
-  const detailsWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-  const detailsGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const resultsWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-  const resultsGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
+  // Kudos animation scale
+  const kudosScale = useSharedValue(1);
+  const kudosAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: kudosScale.value }],
+  }));
 
   const handleTabPress = (targetIndex: number) => {
     Haptics.selectionAsync();
@@ -423,7 +413,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     });
   };
 
-  // Re-fit map when polyline loads or coordinates change
+  // Coordinates
   const coordinates: Coordinate[] = decodePolyline(activity?.polyline);
   const hasRoute = coordinates.length > 1;
 
@@ -436,6 +426,12 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   const handleToggleKudos = async () => {
     if (!activityId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!reducedMotion) {
+      kudosScale.value = withSequence(
+        withTiming(1.25, { duration: 120 }),
+        withSpring(1, { damping: 12, stiffness: 220 })
+      );
+    }
     const prevCount = kudosCount;
     const prevHasKudosed = hasKudosed;
 
@@ -491,6 +487,132 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
       setComments(prevComments);
       Alert.alert('Error', 'Failed to delete comment.');
     }
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `${activity?.name || 'Workout'} - ${distanceKmStr} km on Rooka`,
+      });
+    } catch (e) {
+      console.log('Share error:', e);
+    }
+  };
+
+  const handleOpenLinkModal = async () => {
+    setShowActionsMenu(false);
+    setShowLinkModal(true);
+    setLoadingCandidates(true);
+    try {
+      if (activityId) {
+        const res = await activitiesApi.getCandidatesToLink(activityId);
+        setLinkCandidates(res?.candidates || []);
+      }
+    } catch (e: any) {
+      console.log('Failed to fetch link candidates:', e);
+      setLinkCandidates([]);
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  const handleLinkActivity = (source: Activity) => {
+    Alert.alert(
+      'Link Workout Session?',
+      `Merge telemetry (distance, pace, heart rate & route) from "${source.name}" into "${activity?.name || 'Workout'}"?\n\n"${source.name}" will be hidden so you don't receive duplicate points.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Link Sessions',
+          onPress: async () => {
+            if (!activityId) return;
+            setIsLinking(true);
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const res = await activitiesApi.linkActivities(activityId, source.id);
+              if (res.success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setShowLinkModal(false);
+                const updated = await activitiesApi.getActivityDetail(activityId);
+                if (updated) {
+                  setActivity(normalizeActivity(updated));
+                }
+                refreshActivities?.();
+                Alert.alert('Session Linked', 'Telemetry successfully transferred and duplicate points removed.');
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to link activities.');
+            } finally {
+              setIsLinking(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnlinkActivity = () => {
+    Alert.alert(
+      'Unlink Session?',
+      'This will separate the linked telemetry and restore both activities.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unlink',
+          style: 'destructive',
+          onPress: async () => {
+            if (!activityId) return;
+            setIsLinking(true);
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const res = await activitiesApi.unlinkActivity(activityId);
+              if (res.success) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setShowActionsMenu(false);
+                const updated = await activitiesApi.getActivityDetail(activityId);
+                if (updated) {
+                  setActivity(normalizeActivity(updated));
+                }
+                refreshActivities?.();
+                Alert.alert('Session Unlinked', 'Activities have been restored.');
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to unlink activities.');
+            } finally {
+              setIsLinking(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteActivity = () => {
+    Alert.alert(
+      'Delete Activity?',
+      'Are you sure you want to delete this activity? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!activityId) return;
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              const res = await activitiesApi.deleteActivity(activityId);
+              if (res.success) {
+                setShowActionsMenu(false);
+                refreshActivities?.();
+                onClose();
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to delete activity.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const sportLower = (activity?.sport_type || '').toLowerCase();
@@ -602,51 +724,50 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     if (totalKm <= 0 || totalMins <= 0) return [];
 
     const fullKmCount = Math.floor(totalKm);
-    const avgPaceSec = (totalMins * 60) / totalKm;
+    const remainder = totalKm - fullKmCount;
+    const avgPaceMin = totalMins / totalKm;
+
     const laps: ActivityLap[] = [];
 
     for (let i = 1; i <= fullKmCount; i++) {
-      const lapSec = avgPaceSec * (0.97 + Math.random() * 0.06);
-      const lapMin = lapSec / 60;
-      let paceOrSpeedStr = '';
+      const variance = (Math.sin(i * 1.5) * 0.05 + 1) * avgPaceMin;
+      const m = Math.floor(variance);
+      const s = Math.round((variance - m) * 60);
 
+      let paceOrSpeedStr = '';
       if (isCycling) {
-        const speedKmh = (1.0 / (lapMin / 60)).toFixed(1);
-        paceOrSpeedStr = `${speedKmh} km/h`;
+        const speed = (60 / variance).toFixed(1);
+        paceOrSpeedStr = `${speed} km/h`;
       } else if (isSwim) {
-        const sec100m = (lapMin * 60) / 10;
-        const m = Math.floor(sec100m / 60);
-        const s = Math.round(sec100m % 60);
-        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /100m`;
+        const swim100mSec = (variance * 60) / 10;
+        const sm = Math.floor(swim100mSec / 60);
+        const ss = Math.round(swim100mSec % 60);
+        paceOrSpeedStr = `${sm}:${ss < 10 ? '0' : ''}${ss} /100m`;
       } else {
-        const m = Math.floor(lapMin);
-        const s = Math.round((lapMin - m) * 60);
         paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /km`;
       }
 
       laps.push({
         lap_index: i,
         distance_km: 1.0,
-        elapsed_time_min: lapMin,
+        elapsed_time_min: variance,
         split_pace: paceOrSpeedStr,
         average_heartrate: activity?.average_heartrate
-          ? Math.round(activity.average_heartrate + (Math.random() * 6 - 3))
+          ? Math.round(activity.average_heartrate + Math.sin(i) * 4)
           : undefined,
       });
     }
 
-    const remainder = totalKm - fullKmCount;
     if (remainder > 0.05) {
-      const remMin = (avgPaceSec * remainder) / 60;
+      const remMin = remainder * avgPaceMin;
       let paceOrSpeedStr = '';
-
       if (isCycling) {
-        const speedKmh = (remainder / (remMin / 60)).toFixed(1);
-        paceOrSpeedStr = `${speedKmh} km/h`;
+        const speed = (60 / avgPaceMin).toFixed(1);
+        paceOrSpeedStr = `${speed} km/h`;
       } else if (isSwim) {
-        const sec100m = (remMin * 60) / (remainder * 10);
-        const m = Math.floor(sec100m / 60);
-        const s = Math.round(sec100m % 60);
+        const swim100mSec = (avgPaceMin * 60) / 10;
+        const m = Math.floor(swim100mSec / 60);
+        const s = Math.round(swim100mSec % 60);
         paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /100m`;
       } else {
         const paceMin = remMin / remainder;
@@ -669,39 +790,77 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
   const laps = getLapSplits();
 
-  // Primary Metrics
-  const distanceKmStr = activity?.distance_km ? activity.distance_km.toFixed(1) : '9.0';
-  const durationMins = activity?.moving_time_min ? Math.round(activity.moving_time_min) : 30;
+  // Exact moving time in seconds to prevent minute-rounding drift
+  const movingTimeSec =
+    typeof (activity as any)?.moving_time_s === 'number' && (activity as any).moving_time_s > 0
+      ? (activity as any).moving_time_s
+      : typeof activity?.moving_time === 'number' && activity.moving_time > 0
+      ? activity.moving_time
+      : typeof activity?.moving_time_min === 'number' && activity.moving_time_min > 0
+      ? Math.round(activity.moving_time_min * 60)
+      : 1800;
 
-  // Accurate speed/pace calculations
+  const durationMins = movingTimeSec / 60;
+
+  // Accurate distance, speed, and pace calculations using exact seconds
+  const distanceKm = typeof activity?.distance_km === 'number' ? activity.distance_km : 0;
+  const distanceKmStr = formatNumber(distanceKm, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
   const avgSpeedKmh =
-    activity?.distance_km && activity?.moving_time_min && activity.moving_time_min > 0
-      ? (activity.distance_km / (activity.moving_time_min / 60)).toFixed(1)
-      : '27.0';
+    distanceKm > 0 && movingTimeSec > 0
+      ? formatNumber(distanceKm / (movingTimeSec / 3600), { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+      : '0.0';
 
-  const avgPaceRun =
-    activity?.distance_km && activity?.moving_time_min && activity.distance_km > 0
-      ? `${Math.floor(activity.moving_time_min / activity.distance_km)}:${Math.round(
-          ((activity.moving_time_min / activity.distance_km) % 1) * 60
-        )
-          .toString()
-          .padStart(2, '0')}`
-      : '4:52';
+  const minPerKm = distanceKm > 0 && movingTimeSec > 0 ? (movingTimeSec / 60) / distanceKm : 0;
+  const avgPaceRun = distanceKm > 0 ? formatPace(minPerKm) : '--:--\u00A0/km';
 
-  const avgPaceSwim =
-    activity?.distance_km && activity?.moving_time_min && activity.distance_km > 0
-      ? `${Math.floor((activity.moving_time_min * 60) / (activity.distance_km * 10) / 60)}:${Math.round(
-          ((activity.moving_time_min * 60) / (activity.distance_km * 10)) % 60
-        )
-          .toString()
-          .padStart(2, '0')}`
-      : '1:45';
+  const swimSecsPer100m = distanceKm > 0 ? movingTimeSec / (distanceKm * 10) : 0;
+  const avgPaceSwim = distanceKm > 0 ? formatSwimPace(swimSecsPer100m) : '--:--\u00A0/100\u00A0m';
 
-  const avgPower = activity?.average_power_w ? Math.round(activity.average_power_w) : 95;
+  const avgPower = activity?.average_power_w ? Math.round(activity.average_power_w) : null;
   const avgHeartRate = activity?.average_heartrate ? Math.round(activity.average_heartrate) : null;
-  const elevation = activity?.elevation_m ? Math.round(activity.elevation_m) : 45;
+  const maxHr = activity?.max_heartrate ? Math.round(activity.max_heartrate) : null;
+  const hasHrData = Boolean(avgHeartRate && avgHeartRate > 0);
+  const elevation = activity?.elevation_m ? Math.round(activity.elevation_m) : 0;
   const calories = activity?.calories || Math.round(durationMins * 10.7);
-  const rookaScore = Math.round(activity?.rooka_score || (activity as any)?.tss || 45);
+  const rookaScore = Math.round(activity?.rooka_score || (activity as any)?.tss || 0);
+
+  // Exact elapsed time in seconds (> 30s diff)
+  const elapsedSec =
+    typeof (activity as any)?.elapsed_time_s === 'number' && (activity as any).elapsed_time_s > 0
+      ? (activity as any).elapsed_time_s
+      : typeof activity?.elapsed_time === 'number' && activity.elapsed_time > 0
+      ? activity.elapsed_time
+      : typeof (activity as any)?.elapsed_time_min === 'number' && (activity as any).elapsed_time_min > 0
+      ? Math.round((activity as any).elapsed_time_min * 60)
+      : movingTimeSec;
+
+  const hasSignificantElapsedDiff = Math.abs(elapsedSec - movingTimeSec) >= 30;
+
+  // Heart Rate Zones: Only show if the activity contains real, measured zone telemetry
+  const hrZones = useMemo(() => {
+    const rawZones = (activity as any)?.hr_zones || (activity as any)?.heart_rate_zones;
+    if (!Array.isArray(rawZones) || rawZones.length === 0) {
+      // Do not synthesize or fake zone distribution without actual telemetry/stream data
+      return [];
+    }
+
+    const ZONE_COLORS = ['#38BDF8', '#22C55E', '#EAB308', '#F97316', '#EF4444'];
+    const totalSecs = rawZones.reduce((sum: number, z: any) => sum + (Number(z.time || z.seconds || (z.mins ? z.mins * 60 : 0)) || 0), 0);
+    if (totalSecs <= 0) return [];
+
+    return rawZones.map((z: any, idx: number) => {
+      const secs = Number(z.time || z.seconds || (z.mins ? z.mins * 60 : 0)) || 0;
+      const pct = Math.round((secs / totalSecs) * 100);
+      const mins = Math.round(secs / 60);
+      return {
+        label: z.label || `Z${idx + 1}`,
+        color: z.color || ZONE_COLORS[idx % ZONE_COLORS.length],
+        percent: pct,
+        mins,
+      };
+    });
+  }, [activity]);
 
   const startPt = coordinates[0];
   const endPt = coordinates[coordinates.length - 1];
@@ -716,42 +875,49 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         }
       : undefined);
 
-  const fadeGradientColors = isDark
-    ? ['rgba(18, 18, 20, 0)', 'rgba(18, 18, 20, 1)']
-    : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)'];
-
   // Athlete information attribution
   const athleteUserId = (activity as any)?.user_id;
   const athleteUsername = (activity as any)?.username || (activity as any)?.athlete_name;
   const athletePhotoUrl = getFullProfilePhotoUrl(
     (activity as any)?.profile_picture_url || (activity as any)?.user?.profile_picture_url
   );
+  const isOwner = Boolean(user?.id && (athleteUserId === user?.id || (activity as any)?.user_id === user?.id || !athleteUserId));
+
+  const MAP_HEIGHT = Math.min(SCREEN_HEIGHT * 0.4, 320);
 
   return (
     <View className="flex-1 bg-theme-bg">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 20 }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 24) + 24 }}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* 1. TOP FADED MAP CONTAINER (Movable and Zoomable) */}
-        <View className="w-full h-72 relative bg-slate-200 dark:bg-slate-800">
+        {/* 1. MAP HERO (No gradient overlay, interactive on tap) */}
+        <View
+          style={{ width: '100%', height: MAP_HEIGHT }}
+          className="relative bg-slate-200 dark:bg-slate-800"
+        >
           {hasRoute ? (
-            <MapView
-              ref={mapRef}
+            <Pressable
+              onPress={() => setMapInteractive(true)}
               style={{ width: '100%', height: '100%' }}
-              initialRegion={initialRegion}
-              onMapReady={() => fitMapToRoute(false)}
-              scrollEnabled={true}
-              zoomEnabled={true}
-              rotateEnabled={true}
-              pitchEnabled={true}
             >
-              <Polyline coordinates={coordinates} strokeColor={theme.tint} strokeWidth={4.5} />
-              {startPt && <Marker coordinate={startPt} title="Start" pinColor="green" />}
-              {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
-            </MapView>
+              <MapView
+                ref={mapRef}
+                style={{ width: '100%', height: '100%' }}
+                initialRegion={initialRegion}
+                onMapReady={() => fitMapToRoute(false)}
+                scrollEnabled={mapInteractive}
+                zoomEnabled={mapInteractive}
+                rotateEnabled={mapInteractive}
+                pitchEnabled={mapInteractive}
+              >
+                <Polyline coordinates={coordinates} strokeColor={theme.tint} strokeWidth={4.5} />
+                {startPt && <Marker coordinate={startPt} title="Start" pinColor="green" />}
+                {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
+              </MapView>
+            </Pressable>
           ) : (
             <Image
               source={getSportPlaceholderImage(getSportIconConfig(activity?.sport_type, activity?.name).label)}
@@ -760,56 +926,74 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             />
           )}
 
-          {/* Fading Gradient Overlay */}
-          <LinearGradient
-            colors={fadeGradientColors as any}
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 100,
-            }}
-          />
-
-          {/* Back / Close Button */}
+          {/* Top Controls inside Safe Area: Back on left, Share on right */}
           <TouchableOpacity
             onPress={onClose}
             activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             style={{
               position: 'absolute',
               top: isPushScreen ? Math.max(insets.top, 16) + 4 : 16,
               left: 16,
             }}
-            className="w-10 h-10 rounded-full bg-white/85 dark:bg-black/65 items-center justify-center shadow-md z-20"
+            className="w-10 h-10 rounded-full bg-theme-card/85 items-center justify-center border border-theme-border/40 shadow-sm z-20"
           >
             <Ionicons
               name={isPushScreen ? 'chevron-back' : 'close'}
               size={isPushScreen ? 22 : 20}
-              color={isDark ? '#FFFFFF' : '#0F172A'}
+              color={theme.text}
             />
           </TouchableOpacity>
+
+          <View
+            style={{
+              position: 'absolute',
+              top: isPushScreen ? Math.max(insets.top, 16) + 4 : 16,
+              right: 16,
+            }}
+            className="flex-row items-center gap-x-2 z-20"
+          >
+            {isOwner && (
+              <TouchableOpacity
+                onPress={() => setShowActionsMenu(true)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                className="w-10 h-10 rounded-full bg-theme-card/85 items-center justify-center border border-theme-border/40 shadow-sm"
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color={theme.text} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={handleShare}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              className="w-10 h-10 rounded-full bg-theme-card/85 items-center justify-center border border-theme-border/40 shadow-sm"
+            >
+              <Ionicons name="share-outline" size={20} color={theme.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* 2. ACTIVITY HEADER & PROGRESS-STYLE TAB SELECTOR */}
-        <View className="px-6 -mt-6">
+        {/* 2. OVERLAPPING CONTENT SHEET (Starts 24pt above bottom of map) */}
+        <View
+          style={Elevation.elevation1}
+          className="px-5 -mt-6 bg-theme-bg rounded-t-[24px] pt-5 border-t border-theme-border/40"
+        >
           {/* Athlete Attribution Badge (if available) */}
           {athleteUserId && athleteUsername ? (
             <TouchableOpacity
               onPress={() => onOpenAthleteProfile?.(athleteUserId)}
               activeOpacity={0.7}
-              className="flex-row items-center gap-2 mb-2 self-start py-1 px-2.5 bg-theme-card/80 border border-theme-border rounded-full"
+              className="flex-row items-center gap-x-2 mb-2.5 self-start py-1 px-2.5 bg-theme-inset rounded-pill"
             >
-              {athletePhotoUrl ? (
-                <Image source={{ uri: athletePhotoUrl }} className="w-5 h-5 rounded-full" />
-              ) : (
-                <View className="w-5 h-5 rounded-full bg-theme-accent/20 items-center justify-center">
-                  <Text className="text-[10px] font-bold text-theme-accent">
-                    {athleteUsername.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <Text className="text-xs font-semibold text-theme-text">{athleteUsername}</Text>
+              <UserAvatar
+                size={20}
+                photoUrl={athletePhotoUrl}
+                userId={athleteUserId}
+                name={athleteUsername}
+              />
+              <Text className="text-xs font-bold text-theme-text">{athleteUsername}</Text>
               <Ionicons name="chevron-forward" size={12} color={theme.textSecondary} />
             </TouchableOpacity>
           ) : null}
@@ -818,254 +1002,288 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
           <Text className="text-2xl font-extrabold text-theme-text tracking-tight">
             {activity?.name || 'Workout Telemetry'}
           </Text>
-          <View className="flex-row items-center gap-1.5 mt-1 mb-5">
-            <Ionicons
-              name={getSportFilledIcon(activity?.sport_type, activity?.name)}
-              size={16}
-              color="#3B82F6"
-            />
-            <Text className="text-sm font-semibold text-theme-muted dark:text-slate-400">
-              {formatActivityDate(activity?.start_date)}
+
+          <View className="flex-row items-center gap-x-2 mt-1 mb-2">
+            <SportMedallion sport={activity?.sport_type} size={24} />
+            <Text className="text-xs font-medium text-theme-muted">
+              {formatRelativeDayAndTime(activity?.start_date || new Date(), language)}
             </Text>
           </View>
 
-          {/* 3. FULL-WIDTH PROGRESS-STYLE SUB-TAB SWITCHER (Sliding Orange Pill) */}
-          <View className="relative flex-row bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-1 overflow-hidden border border-theme-border dark:border-slate-800 mb-6">
-            <Animated.View
-              className="absolute top-1 bottom-1 bg-theme-accent rounded-xl"
-              style={{
-                left: 4,
-                width: segmentWidth,
-                transform: [{ translateX: indicatorTranslateX }],
-              }}
+          {/* Linked Telemetry Banner (if linked) */}
+          {activity?.linked_activity_id ? (
+            <View className="flex-row items-center justify-between bg-primary/10 border border-primary/25 rounded-xl px-3 py-2 mb-2">
+              <View className="flex-row items-center gap-x-2 flex-1 mr-2">
+                <Ionicons name="link" size={16} color={theme.tint} />
+                <Text className="text-xs font-semibold text-primary flex-1" numberOfLines={1}>
+                  Linked with {activity.linked_activity_name || 'watch telemetry'}
+                </Text>
+              </View>
+              {isOwner && (
+                <TouchableOpacity
+                  onPress={handleUnlinkActivity}
+                  disabled={isLinking}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text className="text-xs font-bold text-theme-muted underline">Unlink</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+
+          {/* Sub-tab switcher: Sentence-case SegmentedControl */}
+          <View className="my-4">
+            <SegmentedControl
+              items={[
+                { key: 'details', label: 'Details' },
+                { key: 'results', label: 'Results' },
+              ]}
+              value={activeTabIndex === 0 ? 'details' : 'results'}
+              onChange={(key) => handleTabPress(key === 'details' ? 0 : 1)}
+              size="md"
             />
-
-            {/* DETAILS PILL */}
-            <TouchableOpacity
-              className="flex-1 py-2.5 items-center justify-center relative"
-              onPress={() => handleTabPress(0)}
-              activeOpacity={0.7}
-            >
-              <Animated.Text
-                className="absolute text-xs font-bold text-white uppercase tracking-wider"
-                style={{ opacity: detailsWhiteOpacity }}
-              >
-                Details
-              </Animated.Text>
-              <Animated.Text
-                className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-                style={{ opacity: detailsGreyOpacity }}
-              >
-                Details
-              </Animated.Text>
-            </TouchableOpacity>
-
-            {/* RESULTS PILL */}
-            <TouchableOpacity
-              className="flex-1 py-2.5 items-center justify-center relative"
-              onPress={() => handleTabPress(1)}
-              activeOpacity={0.7}
-            >
-              <Animated.Text
-                className="absolute text-xs font-bold text-white uppercase tracking-wider"
-                style={{ opacity: resultsWhiteOpacity }}
-              >
-                Results
-              </Animated.Text>
-              <Animated.Text
-                className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-                style={{ opacity: resultsGreyOpacity }}
-              >
-                Results
-              </Animated.Text>
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* 4. SWIPABLE HORIZONTAL PAGER FOR SUB-TABS */}
-        <Animated.ScrollView
+        {/* 3. SWIPABLE HORIZONTAL PAGER FOR SUB-TABS */}
+        <ScrollView
           ref={horizontalScrollViewRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           bounces={false}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: false, listener: handleHorizontalScroll }
-          )}
+          onMomentumScrollEnd={handleHorizontalScroll}
           scrollEventThrottle={16}
           className="flex-1"
         >
-          {/* PAGE 1: DETAILS (HERO STATS, 6-GRID TELEMETRY, KUDOS & COMMENTS) */}
-          <View style={{ width: SCREEN_WIDTH }} className="px-6 space-y-4">
-            {/* Hero Pill: Total Distance & Effort Score */}
-            <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-5 flex-row justify-between items-center shadow-xs">
-              <View>
-                <Text className="text-xs font-extrabold text-theme-muted uppercase tracking-wider">
-                  Total Distance
+          {/* PAGE 1: DETAILS */}
+          <View style={{ width: SCREEN_WIDTH }} className="px-5 gap-y-4">
+            {/* HERO STATS CARD: Distance in stat-xl Rajdhani + Effort badge */}
+            <Card variant="default" padding={16} className="flex-row justify-between items-center">
+              <View className="flex-1">
+                <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                  DISTANCE
                 </Text>
                 <View className="flex-row items-baseline mt-1">
-                  <Text className="text-3xl font-extrabold text-theme-text font-mono">
+                  <Text className="text-4xl font-bold font-rajdhani text-theme-text tabular-nums">
                     {distanceKmStr}
                   </Text>
-                  <Text className="text-sm font-bold text-theme-muted ml-1.5">km</Text>
+                  <Text className="text-sm font-medium text-theme-muted ml-1.5">km</Text>
                 </View>
               </View>
 
-              <View className="h-10 w-px bg-theme-border dark:bg-slate-800" />
+              <View className="h-10 w-px bg-theme-border mx-4" />
 
-              <View className="items-end">
-                <Text className="text-xs font-extrabold text-theme-muted uppercase tracking-wider">
-                  Effort Score
+              <View className="flex-1 items-end">
+                <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                  EFFORT
                 </Text>
-                <View className="flex-row items-center mt-1">
-                  <RookaMark size={16} color={theme.tint} />
-                  <Text className="text-2xl font-extrabold font-rajdhani text-theme-accent ml-1.5">
+                <View className="flex-row items-center mt-1 px-3 py-1.5 rounded-inset bg-theme-accent-soft">
+                  <Ionicons name="flash" size={16} color="#0EA5E9" />
+                  <Text className="text-2xl font-bold font-rajdhani text-theme-accent-text ml-1 tabular-nums">
                     +{rookaScore}
                   </Text>
                 </View>
               </View>
-            </View>
+            </Card>
 
-            {/* 6-Chamber Telemetry Grid */}
-            <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-5 shadow-xs space-y-4">
+            {/* 3-COLUMN STAT GRID CARD */}
+            <Card variant="default" padding={16}>
               {/* Row 1 */}
               <View className="flex-row justify-between items-center">
-                {/* Pace or Speed */}
                 <View className="w-1/3">
-                  <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                    {isCycling ? 'Avg Speed' : 'Avg Pace'}
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                    {isCycling ? 'AVG SPEED' : 'AVG PACE'}
                   </Text>
-                  <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
-                    {isCycling ? `${avgSpeedKmh} km/h` : isSwim ? `${avgPaceSwim}/100m` : `${avgPaceRun}/km`}
+                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                    {isCycling ? `${avgSpeedKmh}\u00A0km/h` : isSwim ? avgPaceSwim : avgPaceRun}
                   </Text>
                 </View>
 
-                {/* Duration */}
                 <View className="w-1/3 items-center">
-                  <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                    Elapsed Time
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                    MOVING TIME
                   </Text>
-                  <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
-                    {formatEffortDuration(durationMins * 60)}
+                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                    {formatClock(movingTimeSec)}
                   </Text>
                 </View>
 
-                {/* Power or Heart Rate */}
                 <View className="w-1/3 items-end">
-                  <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                    {avgHeartRate ? 'Avg HR' : 'Avg Power'}
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                    {avgHeartRate ? 'AVG HR' : 'AVG POWER'}
                   </Text>
-                  <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
-                    {avgHeartRate ? `${avgHeartRate} bpm` : `${avgPower} W`}
+                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                    {avgHeartRate ? `${avgHeartRate}\u00A0bpm` : avgPower ? `${avgPower}\u00A0W` : '--'}
                   </Text>
                 </View>
               </View>
 
-              <View className="h-px bg-theme-border dark:bg-slate-800" />
+              <View className="h-px bg-theme-border my-4" />
 
               {/* Row 2 */}
               <View className="flex-row justify-between items-center">
-                {/* Moving Time */}
                 <View className="w-1/3">
-                  <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                    Moving Time
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                    ELEVATION
                   </Text>
-                  <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
-                    {durationMins} min
+                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                    +{elevation}\u00A0m
                   </Text>
                 </View>
 
-                {/* Elevation Gain */}
                 <View className="w-1/3 items-center">
-                  <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                    Elevation Gain
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                    CALORIES
                   </Text>
-                  <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
-                    +{elevation} m
+                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                    {calories}\u00A0kcal
                   </Text>
                 </View>
 
-                {/* Calories */}
                 <View className="w-1/3 items-end">
-                  <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                    Calories
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                    {hasSignificantElapsedDiff ? 'ELAPSED' : maxHr ? 'MAX HR' : 'POWER'}
                   </Text>
-                  <Text className="text-lg font-extrabold text-theme-text font-mono mt-0.5">
-                    {calories} kcal
+                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                    {hasSignificantElapsedDiff
+                      ? formatClock(elapsedSec)
+                      : maxHr
+                      ? `${maxHr}\u00A0bpm`
+                      : avgPower
+                      ? `${avgPower}\u00A0W`
+                      : '--'}
                   </Text>
                 </View>
               </View>
-            </View>
 
-            {/* Social Action Bar (Kudos & Comment Counter) */}
-            <View className="flex-row items-center justify-between py-2 border-t border-b border-theme-border dark:border-slate-800">
-              <TouchableOpacity
+              {/* 5-Zone HR Distribution Bar (P2) */}
+              {hasHrData && hrZones.length > 0 && (
+                <View className="mt-4 pt-4 border-t border-theme-border">
+                  <View className="flex-row justify-between items-center mb-2">
+                    <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
+                      HEART RATE ZONES
+                    </Text>
+                    <Text className="text-xs font-semibold text-theme-muted font-rajdhani tabular-nums">
+                      {hrZones.reduce((acc, z) => acc + z.mins, 0)} min total
+                    </Text>
+                  </View>
+
+                  {/* 12pt stacked bar */}
+                  <View className="h-3 w-full rounded-pill overflow-hidden flex-row bg-theme-inset">
+                    {hrZones.map((z, idx) => (
+                      <View
+                        key={`hr-zone-bar-${idx}`}
+                        style={{ width: `${z.percent}%`, backgroundColor: z.color }}
+                        className="h-full"
+                      />
+                    ))}
+                  </View>
+
+                  {/* Legend below */}
+                  <View className="flex-row justify-between items-center mt-2.5 px-0.5">
+                    {hrZones.map((z, idx) => (
+                      <View key={`hr-zone-legend-${idx}`} className="flex-row items-center gap-x-1">
+                        <View style={{ backgroundColor: z.color }} className="w-2 h-2 rounded-full" />
+                        <Text className="text-[10px] font-bold text-theme-muted font-rajdhani">
+                          {z.label} {z.mins}m
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </Card>
+
+            {/* SOCIAL ROW: Ghost buttons matching feed footer */}
+            <View className="flex-row items-center justify-between py-2 border-t border-b border-theme-border">
+              <Pressable
                 onPress={handleToggleKudos}
-                className="flex-row items-center gap-1.5 py-1 px-3 rounded-full bg-slate-100 dark:bg-slate-800/80"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                className="flex-row items-center gap-x-1.5 py-1.5 px-2 active:opacity-70"
               >
-                <Ionicons
-                  name={hasKudosed ? 'heart' : 'heart-outline'}
-                  size={18}
-                  color={hasKudosed ? '#EF4444' : theme.textSecondary}
-                />
+                <Animated.View style={kudosAnimatedStyle}>
+                  <Ionicons
+                    name={hasKudosed ? 'flash' : 'flash-outline'}
+                    size={18}
+                    color={hasKudosed ? theme.tint : theme.textSecondary}
+                  />
+                </Animated.View>
                 <Text
-                  className={`text-xs font-bold ${
-                    hasKudosed ? 'text-rose-500' : 'text-theme-muted'
+                  className={`text-sm font-bold font-rajdhani tabular-nums ${
+                    hasKudosed ? 'text-theme-accent' : 'text-theme-muted'
                   }`}
                 >
-                  {kudosCount} {kudosCount === 1 ? 'Kudos' : 'Kudos'}
+                  {kudosCount}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <View className="flex-row items-center gap-1.5 py-1 px-3 rounded-full bg-slate-100 dark:bg-slate-800/80">
-                <Ionicons name="chatbubble-outline" size={16} color={theme.textSecondary} />
-                <Text className="text-xs font-bold text-theme-muted">
-                  {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
+              <View className="flex-row items-center gap-x-1.5 py-1.5 px-2">
+                <Ionicons name="chatbubble-outline" size={17} color={theme.textSecondary} />
+                <Text className="text-xs font-semibold text-theme-muted">
+                  {comments.length > 0 ? pluralize('comment', comments.length, language) : 'Comment'}
                 </Text>
               </View>
             </View>
 
-            {/* Comments Section */}
-            <View className="mt-2 space-y-2">
-              <Text className="text-xs font-extrabold text-theme-muted">
-                Comments ({comments.length})
+            {/* COMMENTS SECTION */}
+            <View className="gap-y-2.5">
+              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+                Comments {comments.length > 0 ? `(${comments.length})` : ''}
               </Text>
-              {comments.map((c) => (
-                <View
-                  key={`comm-${c.id}`}
-                  className="bg-slate-100 dark:bg-slate-800/40 p-3 rounded-xl flex-row justify-between items-center"
-                >
-                  <View className="flex-1 pr-2">
-                    <TouchableOpacity
-                      onPress={() => onOpenAthleteProfile?.(c.user_id)}
-                      activeOpacity={0.7}
-                    >
-                      <Text className="text-xs font-bold text-theme-accent">{c.username}</Text>
-                    </TouchableOpacity>
-                    <Text className="text-xs font-medium text-theme-text mt-0.5">{c.comment}</Text>
+              {comments.length === 0 ? (
+                <Text className="text-xs text-theme-muted text-center py-2.5">
+                  Be the first to comment
+                </Text>
+              ) : (
+                comments.map((c) => (
+                  <View
+                    key={`comm-${c.id}`}
+                    className="bg-theme-inset p-3 rounded-inset flex-row justify-between items-start"
+                  >
+                    <View className="flex-row items-start gap-x-2.5 flex-1 pr-2">
+                      <UserAvatar
+                        size={32}
+                        photoUrl={c.profile_picture_url}
+                        userId={c.user_id}
+                        name={c.username}
+                      />
+                      <View className="flex-1">
+                        <TouchableOpacity
+                          onPress={() => onOpenAthleteProfile?.(c.user_id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text className="text-xs font-bold text-theme-accent">{c.username}</Text>
+                        </TouchableOpacity>
+                        <Text className="text-xs font-medium text-theme-text mt-0.5">{c.comment}</Text>
+                      </View>
+                    </View>
+                    {c.user_id === user?.id && (
+                      <TouchableOpacity
+                        onPress={() => handleDeleteComment(c.id)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        className="p-1"
+                      >
+                        <Ionicons name="trash-outline" size={14} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  {c.user_id === user?.id && (
-                    <TouchableOpacity onPress={() => handleDeleteComment(c.id)}>
-                      <Ionicons name="trash-outline" size={13} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
+                ))
+              )}
               <CommentComposer onSendComment={handleSendComment} />
             </View>
           </View>
 
-          {/* PAGE 2: RESULTS (BEST EFFORTS TABLE & COMPLETE LAP SPLITS TABLE) */}
-          <View style={{ width: SCREEN_WIDTH }} className="px-6 space-y-4">
+          {/* PAGE 2: RESULTS (BEST EFFORTS & LAPS) */}
+          <View style={{ width: SCREEN_WIDTH }} className="px-5 gap-y-4">
             {/* BEST EFFORTS & MILESTONES TABLE */}
             {setsOrEfforts.length > 0 && (
-              <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-4">
+              <Card variant="default" padding={16}>
                 <View className="flex-row justify-between items-center mb-3">
-                  <Text className="text-xs font-extrabold text-theme-muted">
+                  <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
                     {hasMilestones ? 'Best Efforts & Milestones' : 'Strength Sets Breakdown'}
                   </Text>
-                  <Text className="text-xs font-bold text-theme-accent">
+                  <Text className="text-xs font-bold text-theme-accent font-rajdhani">
                     {setsOrEfforts.length} Recorded
                   </Text>
                 </View>
@@ -1073,17 +1291,17 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                 {setsOrEfforts.map((item, idx) => (
                   <View
                     key={`effort-${idx}`}
-                    className="flex-row justify-between items-center bg-theme-bg dark:bg-slate-800/40 p-3 rounded-xl mb-2 border border-theme-border dark:border-slate-800/60"
+                    className="flex-row justify-between items-center bg-theme-inset p-3 rounded-inset mb-2"
                   >
                     <View className="flex-row items-center flex-1 pr-2">
                       <View
                         className={`w-6 h-6 rounded-full items-center justify-center mr-2.5 ${
-                          item.prRank === 1 ? 'bg-theme-accent/20' : 'bg-theme-accent/20'
+                          item.prRank === 1 ? 'bg-amber-400' : 'bg-theme-accent/20'
                         }`}
                       >
                         <Text
-                          className={`text-xs font-bold ${
-                            item.prRank === 1 ? 'text-amber-600 dark:text-amber-400' : 'text-theme-accent'
+                          className={`text-xs font-bold font-rajdhani ${
+                            item.prRank === 1 ? 'text-slate-950' : 'text-theme-accent'
                           }`}
                         >
                           {idx + 1}
@@ -1096,46 +1314,36 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                             <Text className="text-xs font-bold text-amber-600 dark:text-amber-300">PR</Text>
                           </View>
                         )}
-                        {item.prRank === 2 && (
-                          <View className="bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded ml-2">
-                            <Text className="text-xs font-bold text-slate-600 dark:text-slate-300">2nd Best</Text>
-                          </View>
-                        )}
-                        {item.prRank === 3 && (
-                          <View className="bg-amber-900/20 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-2">
-                            <Text className="text-xs font-bold text-amber-700 dark:text-amber-400">3rd Best</Text>
-                          </View>
-                        )}
                       </View>
                     </View>
 
                     {item.isMilestone ? (
                       <View className="items-end">
-                        <Text className="text-sm font-bold font-mono text-theme-text">
+                        <Text className="text-sm font-bold font-rajdhani text-theme-text tabular-nums">
                           {formatEffortDuration(item.timeSec)}
                         </Text>
                         {item.paceOrSpeed ? (
-                          <Text className="text-xs font-medium font-mono text-theme-muted dark:text-slate-400">
+                          <Text className="text-xs font-medium font-rajdhani text-theme-muted">
                             {item.paceOrSpeed}
                           </Text>
                         ) : null}
                       </View>
                     ) : (
-                      <Text className="text-xs font-bold font-mono text-theme-accent">
+                      <Text className="text-xs font-bold font-rajdhani text-theme-accent tabular-nums">
                         {item.weight ? `${item.weight} kg × ` : ''}
                         {item.reps ? `${item.reps} reps` : 'Complete'}
                       </Text>
                     )}
                   </View>
                 ))}
-              </View>
+              </Card>
             )}
 
             {/* LAP SPLITS TABLE */}
             {laps.length > 0 && (
-              <View className="bg-theme-card border border-theme-border dark:border-slate-800 rounded-card p-4">
+              <Card variant="default" padding={16}>
                 <View className="flex-row justify-between items-center mb-3">
-                  <Text className="text-xs font-extrabold text-theme-muted">
+                  <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
                     {isCycling ? 'Speed by Lap' : 'Lap Splits Table'} ({laps.length})
                   </Text>
                   {laps.length > 5 && (
@@ -1158,35 +1366,41 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   )}
                 </View>
 
-                <View className="flex-row justify-between pb-2 border-b border-theme-border dark:border-slate-800 px-1 mb-1">
-                  <Text className="text-xs font-semibold text-theme-muted w-12">Lap</Text>
-                  <Text className="text-xs font-semibold text-theme-muted w-20">Dist</Text>
-                  <Text className="text-xs font-semibold text-theme-muted flex-1">
-                    {isCycling ? 'Speed' : isSwim ? 'Pace' : 'Pace'}
+                {/* Table Header */}
+                <View className="flex-row justify-between pb-2 border-b border-theme-border px-1 mb-1">
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-12">
+                    LAP
                   </Text>
-                  <Text className="text-xs font-semibold text-theme-muted w-16 text-right">Avg HR</Text>
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-20">
+                    DIST
+                  </Text>
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider flex-1">
+                    {isCycling ? 'SPEED' : 'PACE'}
+                  </Text>
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-16 text-right">
+                    AVG HR
+                  </Text>
                 </View>
 
+                {/* Rows */}
                 {(isLapsExpanded ? laps : laps.slice(0, 5)).map((lap, idx) => (
                   <View
                     key={`lap-${lap.lap_index}`}
                     className={`flex-row justify-between items-center py-2.5 px-1 ${
-                      idx !== (isLapsExpanded ? laps.length : 5) - 1
-                        ? 'border-b border-theme-border dark:border-slate-800/60'
-                        : ''
+                      idx !== (isLapsExpanded ? laps.length : 5) - 1 ? 'border-b border-theme-border/60' : ''
                     }`}
                   >
-                    <Text className="text-xs font-semibold text-[#475569] dark:text-slate-300 w-12">
+                    <Text className="text-xs font-bold font-rajdhani text-theme-muted w-12">
                       #{lap.lap_index}
                     </Text>
-                    <Text className="text-xs font-semibold font-mono text-theme-text w-20">
+                    <Text className="text-xs font-bold font-rajdhani text-theme-text w-20 tabular-nums">
                       {lap.distance_km.toFixed(2)} km
                     </Text>
-                    <Text className="text-xs font-medium font-mono text-theme-muted dark:text-slate-400 flex-1">
+                    <Text className="text-xs font-medium font-rajdhani text-theme-muted flex-1 tabular-nums">
                       {lap.split_pace || `${Math.round(lap.elapsed_time_min)} min`}
                     </Text>
                     <Text
-                      className={`text-xs font-medium font-mono w-16 text-right ${
+                      className={`text-xs font-medium font-rajdhani w-16 text-right tabular-nums ${
                         lap.average_heartrate ? 'text-rose-500' : 'text-theme-muted'
                       }`}
                     >
@@ -1194,11 +1408,144 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                     </Text>
                   </View>
                 ))}
-              </View>
+              </Card>
             )}
           </View>
-        </Animated.ScrollView>
+        </ScrollView>
       </ScrollView>
+
+      {/* Options Menu Modal */}
+      <BottomSheetModal
+        visible={showActionsMenu}
+        onClose={() => setShowActionsMenu(false)}
+        showHandle
+      >
+        <View className="pb-8 pt-2">
+          <Text className="text-base font-extrabold text-theme-text mb-4 text-center">
+            Workout Options
+          </Text>
+
+          {activity?.linked_activity_id ? (
+            <TouchableOpacity
+              onPress={handleUnlinkActivity}
+              className="flex-row items-center gap-x-3 py-3.5 px-3 rounded-2xl bg-theme-inset mb-2"
+            >
+              <Ionicons name="link-outline" size={20} color={theme.tint} />
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-theme-text">Unlink Synced Session</Text>
+                <Text className="text-xs text-theme-muted">Restore both workouts as separate entries</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleOpenLinkModal}
+              className="flex-row items-center gap-x-3 py-3.5 px-3 rounded-2xl bg-theme-inset mb-2"
+            >
+              <Ionicons name="link-outline" size={20} color={theme.tint} />
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-theme-text">Link With Synced Session</Text>
+                <Text className="text-xs text-theme-muted">Merge GPS route, duration & heart rate into this workout</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            onPress={handleDeleteActivity}
+            className="flex-row items-center gap-x-3 py-3.5 px-3 rounded-2xl bg-rose-500/10 mb-2"
+          >
+            <Ionicons name="trash-outline" size={20} color="#f43f5e" />
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-rose-500">Delete Activity</Text>
+              <Text className="text-xs text-rose-500/70">Permanently remove this workout from your log</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setShowActionsMenu(false)}
+            className="py-3 items-center justify-center mt-2"
+          >
+            <Text className="text-sm font-bold text-theme-muted">Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
+
+      {/* Link Candidates Modal */}
+      <BottomSheetModal
+        visible={showLinkModal}
+        onClose={() => setShowLinkModal(false)}
+        showHandle
+      >
+        <View className="pb-8 pt-2">
+          <Text className="text-base font-extrabold text-theme-text text-center">
+            Link Synced Session
+          </Text>
+          <Text className="text-xs text-theme-muted text-center mt-1 mb-4 px-2">
+            Select a session from this day to merge into {activity?.name || 'this workout'}. Telemetry will be combined and the other session hidden to prevent duplicate points.
+          </Text>
+
+          {loadingCandidates ? (
+            <View className="py-8 items-center justify-center">
+              <ActivityIndicator size="small" color={theme.tint} />
+              <Text className="text-xs text-theme-muted mt-2">Finding sessions from this day...</Text>
+            </View>
+          ) : linkCandidates.length === 0 ? (
+            <View className="py-6 items-center justify-center bg-theme-inset rounded-2xl px-4 my-2">
+              <Ionicons name="information-circle-outline" size={24} color={theme.textSecondary} />
+              <Text className="text-xs font-semibold text-theme-text mt-2 text-center">
+                No other workouts found on this day
+              </Text>
+              <Text className="text-[11px] text-theme-muted mt-1 text-center">
+                Sessions must be recorded on the same date ({activity?.start_date?.substring(0, 10)}) to be linked.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView className="max-h-72 gap-y-2 mb-3">
+              {linkCandidates.map((candidate) => (
+                <TouchableOpacity
+                  key={`candidate-${candidate.id}`}
+                  onPress={() => handleLinkActivity(candidate)}
+                  disabled={isLinking}
+                  className="flex-row items-center justify-between p-3.5 rounded-2xl bg-theme-inset border border-theme-border/40"
+                >
+                  <View className="flex-row items-center gap-x-3 flex-1 mr-3">
+                    <SportMedallion sport={candidate.sport_type} size={28} />
+                    <View className="flex-1">
+                      <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
+                        {candidate.name}
+                      </Text>
+                      <Text className="text-xs text-theme-muted mt-0.5">
+                        {candidate.distance_km ? `${candidate.distance_km.toFixed(1)} km · ` : ''}
+                        {Math.round(candidate.moving_time_min || 0)} mins
+                        {candidate.average_heartrate ? ` · ${Math.round(candidate.average_heartrate)} bpm` : ''}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View className="flex-row items-center gap-x-2">
+                    {candidate.rooka_score ? (
+                      <View className="bg-primary/10 px-2 py-0.5 rounded-pill">
+                        <Text className="text-xs font-bold text-primary font-rajdhani">
+                          +{Math.round(candidate.rooka_score)}
+                        </Text>
+                      </View>
+                    ) : null}
+                    <View className="w-8 h-8 rounded-full bg-primary/15 items-center justify-center">
+                      <Ionicons name="link" size={16} color={theme.tint} />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          <TouchableOpacity
+            onPress={() => setShowLinkModal(false)}
+            className="py-3 items-center justify-center"
+          >
+            <Text className="text-sm font-bold text-theme-muted">Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 };

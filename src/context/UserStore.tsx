@@ -16,6 +16,7 @@ import { unregisterPushNotificationsAsync } from '../services/notificationServic
 import { wsService } from '../services/websocket';
 import { realtimeEngine } from '../realtime/realtimeEngine';
 import { getGoogleSignin } from '../services/googleAuth';
+import { getRookaLevelInfo } from '../utils/gamification';
 
 interface UserContextType {
   user: UserProfile | null;
@@ -52,10 +53,14 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
   const isSameUser = Boolean(prev && data && prev.id === data.id);
   const onboardingVal = data?.onboardingCompleted ?? data?.onboarding_completed ?? (isSameUser ? prev?.onboarding_completed : false);
 
+  const rawTotal = data?.total_rooka ?? data?.totalRooka ?? (isSameUser ? prev?.total_rooka : 0) ?? 0;
+  const totalRooka = Math.round(Math.max(0, Number(rawTotal) || 0));
+  const level = getRookaLevelInfo(totalRooka).level;
+
   return {
     ...(data as UserProfile),
-    total_rooka: data?.total_rooka ?? data?.totalRooka ?? (isSameUser ? prev?.total_rooka : 0) ?? 0,
-    level: data?.level ?? data?.sparkLevel?.level ?? (isSameUser ? prev?.level : 1) ?? 1,
+    total_rooka: totalRooka,
+    level,
     subscription_tier:
       data?.subscriptionTier ?? data?.subscription_tier ?? (isSameUser ? prev?.subscription_tier : 'free') ?? 'free',
     daily_token_usage: data?.dailyTokenUsage ?? data?.daily_token_usage ?? (isSameUser ? prev?.daily_token_usage : 0) ?? 0,
@@ -89,6 +94,8 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     targetVo2max: data?.targetVo2max ?? data?.target_vo2max ?? (isSameUser ? prev?.targetVo2max : undefined),
     training_availability: data?.training_availability ?? data?.trainingAvailability ?? (isSameUser ? (prev as any)?.training_availability : undefined),
     trainingAvailability: data?.trainingAvailability ?? data?.training_availability ?? (isSameUser ? (prev as any)?.trainingAvailability : undefined),
+    streak_days: data?.streakDays ?? data?.streak_days ?? data?.current_streak ?? (isSameUser ? prev?.streak_days : 0) ?? 0,
+    current_streak: data?.current_streak ?? data?.streakDays ?? data?.streak_days ?? (isSameUser ? prev?.current_streak : 0) ?? 0,
   };
 };
 
@@ -487,18 +494,26 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       const total = typeof data.total_rooka === 'number' ? data.total_rooka : undefined;
       setUser((prev) => {
         if (!prev) return null;
+        const newTotal = Math.round(Math.max(0, total !== undefined ? total : prev.total_rooka + added));
         return {
           ...prev,
-          total_rooka: total !== undefined ? total : prev.total_rooka + added,
+          total_rooka: newTotal,
+          level: getRookaLevelInfo(newTotal).level,
         };
       });
     });
 
     const unsubLevel = realtimeEngine.subscribe('level_up', (data: any) => {
-      const newLevel = data.level || data.new_level;
-      if (newLevel) {
-        setUser((prev) => (prev ? { ...prev, level: newLevel } : null));
-      }
+      setUser((prev) => {
+        if (!prev) return null;
+        const total = typeof data.total_rooka === 'number' ? Math.round(data.total_rooka) : prev.total_rooka;
+        const newLevel = typeof data.level === 'number' ? data.level : getRookaLevelInfo(total).level;
+        return {
+          ...prev,
+          total_rooka: total,
+          level: newLevel,
+        };
+      });
     });
 
     return () => {

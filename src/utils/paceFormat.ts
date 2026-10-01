@@ -31,6 +31,52 @@ const mmss = (totalSeconds: number) => {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
+export interface PaceParts {
+  value: string;
+  unit: string;
+  label: 'SPEED' | 'PACE';
+}
+
+/**
+ * Returns structured pace/speed parts for high-fidelity rendering (e.g. StatValue),
+ * or null when it can't be computed.
+ */
+export function getPaceParts(
+  distanceKm?: number | null,
+  movingTimeMinOrSec?: number | null,
+  sportType?: string,
+  activityName?: string,
+  isExactSeconds?: boolean,
+): PaceParts | null {
+  if (!distanceKm || !movingTimeMinOrSec || distanceKm <= 0 || movingTimeMinOrSec <= 0) return null;
+
+  const totalSecs = isExactSeconds ? movingTimeMinOrSec : movingTimeMinOrSec * 60;
+  const hours = totalSecs / 3600;
+
+  switch (sportFamily(sportType, activityName)) {
+    case 'wheel':
+      return {
+        value: (distanceKm / hours).toFixed(1),
+        unit: 'km/h',
+        label: 'SPEED',
+      };
+    case 'water':
+      return {
+        value: mmss(totalSecs / (distanceKm * 10)),
+        unit: '/100\u00A0m',
+        label: 'PACE',
+      };
+    case 'foot':
+      return {
+        value: mmss(totalSecs / distanceKm),
+        unit: '/km',
+        label: 'PACE',
+      };
+    default:
+      return null;
+  }
+}
+
 /**
  * The headline pace/speed for an activity, or null when it can't be computed
  * or the sport has no meaningful one. Callers should omit the field on null
@@ -38,20 +84,13 @@ const mmss = (totalSeconds: number) => {
  */
 export function formatPaceOrSpeed(
   distanceKm?: number | null,
-  movingTimeMin?: number | null,
+  movingTimeMinOrSec?: number | null,
   sportType?: string,
   activityName?: string,
+  isExactSeconds?: boolean,
 ): string | null {
-  if (!distanceKm || !movingTimeMin || distanceKm <= 0 || movingTimeMin <= 0) return null;
-
-  switch (sportFamily(sportType, activityName)) {
-    case 'wheel':
-      return `${(distanceKm / (movingTimeMin / 60)).toFixed(1)} km/h`;
-    case 'water':
-      return `${mmss((movingTimeMin * 60) / (distanceKm * 10))} /100m`;
-    case 'foot':
-      return `${mmss((movingTimeMin * 60) / distanceKm)} /km`;
-    default:
-      return null;
-  }
+  const parts = getPaceParts(distanceKm, movingTimeMinOrSec, sportType, activityName, isExactSeconds);
+  if (!parts) return null;
+  return `${parts.value}\u00A0${parts.unit}`;
 }
+

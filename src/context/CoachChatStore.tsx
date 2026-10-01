@@ -663,6 +663,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const acceptConnection = async (friendId: number | string) => {
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'accepted' });
     let prevMessagesSnapshot: ChatMessage[] = [];
     setMessages((prev) => {
       prevMessagesSnapshot = prev;
@@ -685,6 +686,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
     try {
       await socialApi.acceptUser(friendId);
+      DeviceEventEmitter.emit('socialConnectionsChanged');
+      DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'accepted' });
     } catch (e) {
       console.error('Failed to accept connection, rolling back:', e);
       setMessages(prevMessagesSnapshot);
@@ -693,6 +696,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const declineConnection = async (friendId: number | string) => {
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'declined' });
     let prevMessagesSnapshot: ChatMessage[] = [];
     setMessages((prev) => {
       prevMessagesSnapshot = prev;
@@ -715,6 +719,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
     try {
       await socialApi.declineUser(friendId);
+      DeviceEventEmitter.emit('socialConnectionsChanged');
+      DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'declined' });
     } catch (e) {
       console.error('Failed to decline connection, rolling back:', e);
       setMessages(prevMessagesSnapshot);

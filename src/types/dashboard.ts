@@ -46,6 +46,9 @@ export interface WorkoutItem {
   coachNote?: string;
   isCoachCreated?: boolean;
   source?: string;
+  isSynced?: boolean;
+  syncedToGarmin?: boolean;
+  syncedToAppleWatch?: boolean;
 }
 
 export interface NutritionMacro {

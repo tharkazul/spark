@@ -1,193 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useTheme } from '@/hooks/use-theme';
-import { View, Text, TouchableOpacity, ActivityIndicator, Animated, useWindowDimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
+import Animated, { FadeInDown, useReducedMotion, type SharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { canAccessLeaderboard } from '../../utils/permissions';
-import { useUser } from '../../context/UserStore';
 import { useRouter } from 'expo-router';
+
+import { useTheme } from '@/hooks/use-theme';
+import { useUser } from '../../context/UserStore';
+import { useLanguage } from '../../context/LanguageContext';
 import { socialApi } from '../../services/apiServices';
+import { canAccessLeaderboard } from '../../utils/permissions';
 import { LeaderboardEntry } from '../../types/social';
+import { pluralize } from '../../utils/format';
+
+import { Card } from '../ui/Card';
+import { Chip } from '../ui/Chip';
+import { Button } from '../ui/Button';
+import { UserAvatar } from '../ui/UserAvatar';
 import { LeaderboardSkeleton } from '../skeletons/LeaderboardSkeleton';
-
-/** Height of the switcher block, so a caller can animate it in without a jump. */
-export const LEADERBOARD_SWITCHER_HEIGHT = 46;
-
-export interface LeaderboardTypeSwitcherProps {
-  /** Horizontal scroll offset of the pager holding the two leaderboard pages. */
-  scrollX?: Animated.Value;
-  /** Which list is showing, when there is no pager to read it from. */
-  currentType?: 'rooka' | 'quests';
-  onSwitchType?: (type: 'rooka' | 'quests') => void;
-}
-
-/**
- * The [rooka score | 7-Day Quests] switcher.
- *
- * Lives outside the pager. It used to be rendered inside each of the two
- * leaderboard pages, so swiping between them slid two copies of the header
- * across the screen — the header is a control for the pager, not content in it,
- * and a control that moves with the thing it controls is disorienting.
- */
-export const LeaderboardTypeSwitcher: React.FC<LeaderboardTypeSwitcherProps> = ({
-  scrollX,
-  currentType = 'rooka',
-  onSwitchType,
-}) => {
-  const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const subSegmentWidth = (SCREEN_WIDTH - 40 - 8) / 2;
-
-  const localAnim = useRef(new Animated.Value(currentType === 'rooka' ? 0 : 1)).current;
-
-  useEffect(() => {
-    Animated.spring(localAnim, {
-      toValue: currentType === 'rooka' ? 0 : 1,
-      damping: 20,
-      stiffness: 280,
-      useNativeDriver: false,
-    }).start();
-  }, [currentType, localAnim]);
-
-  const translateX = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [0, subSegmentWidth],
-        extrapolate: 'clamp',
-      })
-    : localAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, subSegmentWidth],
-      });
-
-  const rookaWhiteOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [1, 0],
-        extrapolate: 'clamp',
-      })
-    : localAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 0],
-      });
-
-  const rookaGreyOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [0, 1],
-        extrapolate: 'clamp',
-      })
-    : localAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 1],
-      });
-
-  const questsWhiteOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [0, 1],
-        extrapolate: 'clamp',
-      })
-    : localAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 1],
-      });
-
-  const questsGreyOpacity = scrollX
-    ? scrollX.interpolate({
-        inputRange: [2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-        outputRange: [1, 0],
-        extrapolate: 'clamp',
-      })
-    : localAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [1, 0],
-      });
-
-  const handlePress = (type: 'rooka' | 'quests') => {
-    Haptics.selectionAsync();
-    onSwitchType?.(type);
-  };
-
-  return (
-    <View
-      style={{ height: LEADERBOARD_SWITCHER_HEIGHT }}
-      className="relative flex-row bg-theme-bg dark:bg-slate-800 rounded-xl p-1 overflow-hidden border border-theme-border"
-    >
-      <Animated.View
-        className="absolute top-1 bottom-1 bg-theme-accent rounded-lg shadow-xs"
-        style={{
-          left: 4,
-          width: subSegmentWidth,
-          transform: [{ translateX }],
-        }}
-      />
-
-      <TouchableOpacity
-        onPress={() => handlePress('rooka')}
-        className="flex-1 items-center justify-center z-10"
-      >
-        <View className="relative items-center justify-center">
-          <Animated.Text
-            style={{ opacity: rookaWhiteOpacity }}
-            className="text-xs font-extrabold text-white absolute"
-          >
-            rooka score
-          </Animated.Text>
-          <Animated.Text
-            style={{ opacity: rookaGreyOpacity }}
-            className="text-xs font-extrabold text-theme-muted"
-          >
-            rooka score
-          </Animated.Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => handlePress('quests')}
-        className="flex-1 items-center justify-center z-10"
-      >
-        <View className="relative items-center justify-center">
-          <Animated.Text
-            style={{ opacity: questsWhiteOpacity }}
-            className="text-xs font-extrabold text-white absolute"
-          >
-            7-Day Quests
-          </Animated.Text>
-          <Animated.Text
-            style={{ opacity: questsGreyOpacity }}
-            className="text-xs font-extrabold text-theme-muted"
-          >
-            7-Day Quests
-          </Animated.Text>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 export interface LeaderboardSubTabProps {
   type?: 'rooka' | 'quests';
   onSwitchType?: (type: 'rooka' | 'quests') => void;
-  scrollX?: Animated.Value;
+  scrollX?: SharedValue<number>;
   loading?: boolean;
   rookaLeaderboard?: LeaderboardEntry[];
   questLeaderboard?: LeaderboardEntry[];
   hasAccess?: boolean;
   onOpenAthleteProfile?: (userId: number | string) => void;
-  /**
-   * Render the type switcher inline. Social passes false and renders
-   * LeaderboardTypeSwitcher in its fixed header instead, so the control does not
-   * slide away with the pages it controls.
-   */
   showSwitcher?: boolean;
 }
-
-import { useSubscription } from '../../context/SubscriptionStore';
 
 export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   type,
   onSwitchType,
-  scrollX,
   loading: controlledLoading,
   rookaLeaderboard: controlledRooka,
   questLeaderboard: controlledQuests,
@@ -195,10 +41,11 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   onOpenAthleteProfile,
   showSwitcher = true,
 }) => {
-    const theme = useTheme();
+  const theme = useTheme();
   const { user } = useUser();
-  const { presentPaywall } = useSubscription();
+  const { language } = useLanguage();
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
 
   const [internalActiveTab, setInternalActiveTab] = useState<'rooka' | 'quests'>('rooka');
   const [internalLoading, setInternalLoading] = useState<boolean>(true);
@@ -254,127 +101,336 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
 
   if (!hasAccess) {
     return (
-      <View className="bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center mt-4 shadow-sm">
-        <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
-        <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Leaderboard Locked</Text>
-        <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed font-rajdhani">
+      <Card variant="default" padding={24} className="items-center justify-center mt-4">
+        <Ionicons name="lock-closed-outline" size={44} color={theme.tint} />
+        <Text className="text-lg font-bold text-theme-text mt-3 text-center">
+          Leaderboard Locked
+        </Text>
+        <Text className="text-xs text-theme-muted mt-2 text-center leading-relaxed font-rajdhani max-w-[280px]">
           Upgrade to the rooka+ subscription to unlock global leaderboards and rank against your friends.
         </Text>
-        <TouchableOpacity
+        <Button
+          variant="primary"
+          size="md"
+          label="Upgrade to rooka+"
+          className="mt-5"
           onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
-          className="mt-6 bg-theme-accent px-6 py-3 rounded-full shadow-md"
-        >
-          <Text className="text-white font-extrabold text-center font-rajdhani">Upgrade to rooka+</Text>
-        </TouchableOpacity>
-      </View>
+        />
+      </Card>
     );
   }
 
+  // Top 3 for Podium
+  const hasPodium = activeList.length >= 3;
+  const top1 = activeList.find((a) => a.rank === 1) || activeList[0];
+  const top2 = activeList.find((a) => a.rank === 2) || activeList[1];
+  const top3 = activeList.find((a) => a.rank === 3) || activeList[2];
+
+  // List rows (from rank 4 if podium exists, otherwise all)
+  const listRows = hasPodium ? activeList.slice(3) : activeList;
+
+  // Signed-in user lookup
+  const currentUserIndex = activeList.findIndex((item) =>
+    user?.id ? item.user_id === user.id : item.username === user?.username
+  );
+  const currentUserEntry = currentUserIndex >= 0 ? activeList[currentUserIndex] : null;
+  // If user is ranked beyond rank 10, pin a sticky copy
+  const isUserOffscreen = currentUserIndex >= 10;
+
   return (
-    <View className="gap-y-4 mb-8">
+    <View className="gap-y-3 pb-8">
+      {/* SECOND-LEVEL FILTER CHIPS: Rooka score | 7-Day Quests */}
       {showSwitcher && (
-        <View className="mb-4">
-          <LeaderboardTypeSwitcher
-            scrollX={scrollX}
-            currentType={currentType}
-            onSwitchType={handleTabSwitch}
+        <View className="flex-row items-center gap-x-2 mb-1">
+          <Chip
+            variant={currentType === 'rooka' ? 'accent' : 'neutral'}
+            size="md"
+            label="rooka score"
+            onPress={() => handleTabSwitch('rooka')}
+          />
+          <Chip
+            variant={currentType === 'quests' ? 'accent' : 'neutral'}
+            size="md"
+            label="7-Day quests"
+            onPress={() => handleTabSwitch('quests')}
           />
         </View>
       )}
 
-      {/* Leaderboard Ranks List */}
       {loading ? (
         <LeaderboardSkeleton count={6} />
       ) : (
-        activeList.map((item) => {
-          const isCurrentUser = user?.id ? item.user_id === user.id : item.username === user?.username;
-          const questsCount = (item as any).completed_quests_count ?? item.quests_completed_7d ?? 0;
-
-          return (
-            <TouchableOpacity
-              key={`rank-${item.user_id || item.rank}-${currentType}`}
-              activeOpacity={0.75}
-              onPress={() => {
-                const athleteTargetId = item.user_id || (item as any).id;
-                if (athleteTargetId && onOpenAthleteProfile) {
-                  onOpenAthleteProfile(athleteTargetId);
-                }
-              }}
-              className={`bg-theme-card border rounded-2xl p-4 mb-2.5 flex-row justify-between items-center shadow-sm ${
-                isCurrentUser ? 'border-theme-accent bg-theme-accent/5' : 'border-theme-border'
-              }`}
-            >
-              <View className="flex-row items-center gap-x-3">
-                <View
-                  className={`w-9 h-9 rounded-full items-center justify-center ${
-                    item.rank === 1
-                      ? 'bg-medal-gold border border-medal-gold'
-                      : item.rank === 2
-                      ? 'bg-medal-silver border border-medal-silver'
-                      : item.rank === 3
-                      ? 'bg-medal-bronze border border-medal-bronze'
-                      : 'bg-theme-bg border border-theme-border'
-                  }`}
+        <>
+          {/* TOP 3 PODIUM */}
+          {hasPodium && top1 && top2 && top3 && (
+            <View className="pt-4 pb-2 mb-2">
+              <View className="flex-row items-end justify-center gap-x-3">
+                {/* 2ND PLACE (SILVER) */}
+                <Animated.View
+                  entering={reducedMotion ? undefined : FadeInDown.delay(40).springify().damping(18)}
+                  className="flex-1 items-center"
                 >
-                  <Text
-                    className={`text-xs font-extrabold ${
-                      item.rank <= 3 ? 'text-slate-950' : 'text-theme-muted'
-                    }`}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => top2 && onOpenAthleteProfile?.(top2.user_id)}
+                    className="items-center w-full"
                   >
-                    #{item.rank}
-                  </Text>
-                </View>
+                    <UserAvatar
+                      size={56}
+                      photoUrl={top2.profile_picture_url}
+                      userId={top2.user_id}
+                      name={top2.username}
+                      ringColor="#A8B0BA"
+                      ringWidth={3}
+                      badgeText="#2"
+                      badgeBg="#A8B0BA"
+                      badgeTextColor="#0F172A"
+                    />
+                    <Text className="text-xs font-bold text-theme-text text-center mt-2.5 max-w-[84px]" numberOfLines={1}>
+                      {top2.username}
+                    </Text>
+                    <Text className="text-sm font-bold font-rajdhani text-theme-accent text-center tabular-nums">
+                      {currentType === 'rooka' ? Math.round(top2.total_rooka_score || 0) : ((top2 as any).completed_quests_count ?? top2.quests_completed_7d ?? 0)}
+                    </Text>
 
-                <View>
-                  <View className="flex-row items-center gap-x-1.5">
-                    <Text className="text-sm font-extrabold text-theme-text">{item.username}</Text>
-                    {isCurrentUser && (
-                      <View className="bg-theme-accent px-1.5 py-0.5 rounded">
-                        <Text className="text-xs font-extrabold text-white">YOU</Text>
+                    {/* Column Base Block */}
+                    <View className="w-full h-14 bg-theme-inset rounded-t-inset items-center justify-center mt-2">
+                      <Text className="text-lg font-bold font-rajdhani text-theme-muted">2</Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+
+                {/* 1ST PLACE (GOLD - RAISED BY 24PT) */}
+                <Animated.View
+                  entering={reducedMotion ? undefined : FadeInDown.springify().damping(16)}
+                  className="flex-1 items-center -mt-6 z-10"
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => top1 && onOpenAthleteProfile?.(top1.user_id)}
+                    className="items-center w-full"
+                  >
+                    <UserAvatar
+                      size={72}
+                      photoUrl={top1.profile_picture_url}
+                      userId={top1.user_id}
+                      name={top1.username}
+                      ringColor="#E5A50A"
+                      ringWidth={3}
+                      badgeText="#1"
+                      badgeBg="#E5A50A"
+                      badgeTextColor="#0F172A"
+                    />
+                    <Text className="text-sm font-bold text-theme-text text-center mt-2.5 max-w-[96px]" numberOfLines={1}>
+                      {top1.username}
+                    </Text>
+                    <Text className="text-base font-bold font-rajdhani text-theme-accent text-center tabular-nums">
+                      {currentType === 'rooka' ? Math.round(top1.total_rooka_score || 0) : ((top1 as any).completed_quests_count ?? top1.quests_completed_7d ?? 0)}
+                    </Text>
+
+                    {/* Raised Column Base Block */}
+                    <View className="w-full h-20 bg-theme-inset rounded-t-inset items-center justify-center mt-2">
+                      <Text className="text-2xl font-bold font-rajdhani text-theme-text">1</Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+
+                {/* 3RD PLACE (BRONZE) */}
+                <Animated.View
+                  entering={reducedMotion ? undefined : FadeInDown.delay(80).springify().damping(18)}
+                  className="flex-1 items-center"
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => top3 && onOpenAthleteProfile?.(top3.user_id)}
+                    className="items-center w-full"
+                  >
+                    <UserAvatar
+                      size={56}
+                      photoUrl={top3.profile_picture_url}
+                      userId={top3.user_id}
+                      name={top3.username}
+                      ringColor="#C97B45"
+                      ringWidth={3}
+                      badgeText="#3"
+                      badgeBg="#C97B45"
+                      badgeTextColor="#FFFFFF"
+                    />
+                    <Text className="text-xs font-bold text-theme-text text-center mt-2.5 max-w-[84px]" numberOfLines={1}>
+                      {top3.username}
+                    </Text>
+                    <Text className="text-sm font-bold font-rajdhani text-theme-accent text-center tabular-nums">
+                      {currentType === 'rooka' ? Math.round(top3.total_rooka_score || 0) : ((top3 as any).completed_quests_count ?? top3.quests_completed_7d ?? 0)}
+                    </Text>
+
+                    {/* Column Base Block */}
+                    <View className="w-full h-10 bg-theme-inset rounded-t-inset items-center justify-center mt-2">
+                      <Text className="text-base font-bold font-rajdhani text-theme-muted">3</Text>
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              </View>
+            </View>
+          )}
+
+          {/* LIST ROWS (RANK 4+ OR ALL ROWS IF NO PODIUM) */}
+          <View className="gap-y-2">
+            {listRows.map((item) => {
+              const isCurrentUser = user?.id ? (item.user_id === user.id || (item as any).id === user.id) : item.username === user?.username;
+              const questsCount = (item as any).completed_quests_count ?? item.quests_completed_7d ?? 0;
+              const scoreVal = currentType === 'rooka' ? Math.round(item.total_rooka_score || 0) : questsCount;
+
+              return (
+                <TouchableOpacity
+                  key={`rank-${item.user_id || item.rank}-${currentType}`}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    const athleteTargetId = item.user_id || (item as any).id;
+                    if (athleteTargetId && onOpenAthleteProfile) {
+                      onOpenAthleteProfile(athleteTargetId);
+                    }
+                  }}
+                >
+                  <Card
+                    variant={isCurrentUser ? 'accent' : 'default'}
+                    padding={12}
+                    className="flex-row justify-between items-center h-16"
+                  >
+                    <View className="flex-row items-center gap-x-3 flex-1 pr-2">
+                      {/* 32pt Rank Circle */}
+                      <View
+                        className={`w-8 h-8 rounded-full items-center justify-center ${
+                          item.rank === 1
+                            ? 'bg-amber-400'
+                            : item.rank === 2
+                            ? 'bg-slate-300 dark:bg-slate-600'
+                            : item.rank === 3
+                            ? 'bg-amber-700'
+                            : 'bg-theme-bg border border-theme-border'
+                        }`}
+                      >
+                        <Text
+                          className={`text-xs font-bold font-rajdhani ${
+                            item.rank <= 3 && !hasPodium ? 'text-slate-950' : 'text-theme-muted'
+                          }`}
+                        >
+                          #{item.rank}
+                        </Text>
                       </View>
-                    )}
-                  </View>
-                  <Text className="text-xs text-theme-muted font-medium font-rajdhani">
-                    Lvl {item.rooka_level || 1} · {questsCount}{' '}
-                    {questsCount === 1 ? 'Quest' : 'Quests'} Completed
-                  </Text>
-                </View>
-              </View>
 
-              <View className="items-end">
-                <Text className="text-base font-extrabold text-theme-accent font-mono font-rajdhani">
-                  {currentType === 'rooka' ? Math.round(item.total_rooka_score || 0) : questsCount}
-                </Text>
-                <Text className="text-xs text-theme-muted font-bold font-rajdhani">
-                  {currentType === 'rooka' ? 'Points' : 'Quests'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })
-      )}
+                      {/* 40pt Avatar */}
+                      <UserAvatar
+                        size={40}
+                        photoUrl={item.profile_picture_url}
+                        userId={item.user_id}
+                        name={item.username}
+                      />
 
-      {/* A three-person board left roughly two thirds of the screen empty with
-          nothing to do in it. The board is only interesting once you have
-          people on it, so the empty space carries the action that fills it. */}
-      {!loading && activeList.length < 5 && (
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'connections' } })}
-          className="mt-2 items-center bg-theme-card border border-dashed border-theme-border rounded-card p-6"
-        >
-          <Ionicons name="people-outline" size={28} color={theme.tint} />
-          <Text className="text-sm font-extrabold text-theme-text mt-3 text-center">
-            {activeList.length === 0 ? 'No one on the board yet' : 'Add more athletes'}
-          </Text>
-          <Text className="text-xs text-theme-muted mt-1 text-center leading-relaxed">
-            A leaderboard needs rivals. Connect with athletes to see how your
-            week stacks up.
-          </Text>
-          <View className="mt-4 px-4 py-2 bg-theme-accent rounded-control">
-            <Text className="text-xs font-extrabold text-white">Find athletes</Text>
+                      {/* Athlete Identity */}
+                      <View className="flex-1">
+                        <View className="flex-row items-center gap-x-1.5 flex-wrap">
+                          <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
+                            {item.username}
+                          </Text>
+                          {isCurrentUser && (
+                            <Chip variant="accent" size="sm" label="You" />
+                          )}
+                        </View>
+                        <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
+                          Lvl {isCurrentUser ? (user?.level || item.rooka_level || 1) : (item.rooka_level || 1)} · {pluralize('quest', questsCount, language)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Metric */}
+                    <View className="items-end pl-2">
+                      <Text className="text-base font-bold text-theme-accent font-rajdhani tabular-nums">
+                        {scoreVal}
+                      </Text>
+                      <Text className="text-[10px] text-theme-muted font-semibold uppercase tracking-wider">
+                        {currentType === 'rooka' ? 'Points' : 'Quests'}
+                      </Text>
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </TouchableOpacity>
+
+          {/* STICKY BOTTOM PINNED CURRENT USER ROW IF OFFSCREEN (> rank 10) */}
+          {isUserOffscreen && currentUserEntry && (
+            <View className="mt-2 pt-2 border-t border-theme-border">
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => onOpenAthleteProfile?.(currentUserEntry.user_id || (currentUserEntry as any).id)}
+              >
+                <Card
+                  variant="accent"
+                  padding={12}
+                  className="flex-row justify-between items-center h-16 shadow-md"
+                >
+                  <View className="flex-row items-center gap-x-3 flex-1 pr-2">
+                    <View className="w-8 h-8 rounded-full items-center justify-center bg-theme-accent-soft border border-theme-accent">
+                      <Text className="text-xs font-bold font-rajdhani text-theme-accent-text">
+                        #{currentUserEntry.rank}
+                      </Text>
+                    </View>
+
+                    <UserAvatar
+                      size={40}
+                      photoUrl={currentUserEntry.profile_picture_url}
+                      userId={currentUserEntry.user_id || (currentUserEntry as any).id}
+                      name={currentUserEntry.username}
+                    />
+
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-x-1.5">
+                        <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
+                          {currentUserEntry.username}
+                        </Text>
+                        <Chip variant="accent" size="sm" label="You" />
+                      </View>
+                      <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
+                        Lvl {user?.level || currentUserEntry.rooka_level || 1} · {pluralize('quest', (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0, language)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View className="items-end pl-2">
+                    <Text className="text-base font-bold text-theme-accent font-rajdhani tabular-nums">
+                      {currentType === 'rooka'
+                        ? Math.round(currentUserEntry.total_rooka_score || 0)
+                        : (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0}
+                    </Text>
+                    <Text className="text-[10px] text-theme-muted font-semibold uppercase tracking-wider">
+                      {currentType === 'rooka' ? 'Points' : 'Quests'}
+                    </Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* EMPTY / ADD ATHLETES CALLOUT (< 10 athletes) */}
+          {activeList.length < 10 && (
+            <Card variant="default" padding={20} className="mt-3 items-center">
+              <Ionicons name="people-outline" size={32} color={theme.tint} />
+              <Text className="text-sm font-bold text-theme-text mt-2.5 text-center">
+                {activeList.length === 0 ? 'No one on the board yet' : 'A leaderboard needs rivals'}
+              </Text>
+              <Text className="text-xs text-theme-muted mt-1 text-center max-w-[280px] leading-relaxed">
+                Connect with athletes to see how your week stacks up.
+              </Text>
+              <Button
+                variant="secondary"
+                size="md"
+                label="Find athletes"
+                className="mt-3.5"
+                onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'connections' } })}
+              />
+            </Card>
+          )}
+        </>
       )}
     </View>
   );

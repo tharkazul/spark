@@ -14,7 +14,7 @@ import { apiClient } from './apiClient';
 // RevenueCat Public API Keys
 export const REVENUECAT_APPLE_KEY = 'appl_xahgRkiLzkQGFIEoOtlnxhMZDEO';
 export const REVENUECAT_TEST_KEY = 'test_ncoYEuNlgOotwSTOKwfVQvBPYxF';
-export const REVENUECAT_GOOGLE_KEY = 'test_ncoYEuNlgOotwSTOKwfVQvBPYxF';
+export const REVENUECAT_GOOGLE_KEY = 'goog_aTEBhTzWrCaKlxOcxRNyBlDCefe';
 
 // Key Entitlement identifier for rooka subscription
 export const ROOKA_ENTITLEMENT_ID = 'rooka';

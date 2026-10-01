@@ -1287,4 +1287,63 @@ router.post("/api/healthkit/sync", authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/healthkit/today
+ * Returns today's biometric record for the logged-in athlete.
+ */
+router.get("/api/healthkit/today", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const todayStr = getAMSDateString ? getAMSDateString() : new Date().toISOString().split('T')[0];
+
+    db.get(
+      `SELECT * FROM biometrics WHERE user_id = ? AND date = ?`,
+      [userId, todayStr],
+      (err, row) => {
+        if (err) {
+          console.error("Error fetching today's biometrics:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+        res.json({
+          success: true,
+          biometrics: row || null,
+        });
+      }
+    );
+  } catch (err) {
+    console.error("Error in /api/healthkit/today:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * GET /api/healthkit/recent
+ * Returns recent biometrics records (default last 7 days).
+ */
+router.get("/api/healthkit/recent", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = Math.min(30, Math.max(1, parseInt(req.query.limit, 10) || 7));
+
+    db.all(
+      `SELECT * FROM biometrics WHERE user_id = ? ORDER BY date DESC LIMIT ?`,
+      [userId, limit],
+      (err, rows) => {
+        if (err) {
+          console.error("Error fetching recent biometrics:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+        res.json({
+          success: true,
+          biometrics: rows || [],
+        });
+      }
+    );
+  } catch (err) {
+    console.error("Error in /api/healthkit/recent:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;
+

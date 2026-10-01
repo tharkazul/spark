@@ -39,13 +39,18 @@ export interface Activity {
   laps?: ActivityLap[];
   type?: SportType | string;
   moving_time?: number;
+  moving_time_s?: number;
   elapsed_time?: number;
+  elapsed_time_s?: number;
   distance?: number;
   total_elevation_gain?: number;
   start_date_local?: string;
   average_speed?: number;
   calories?: number;
   source?: string;
+  is_hidden?: number | boolean;
+  linked_activity_id?: number | string | null;
+  linked_activity_name?: string | null;
 }
 
 export interface PMCDataPoint {

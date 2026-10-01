@@ -1,6 +1,6 @@
 import { BrandColors } from '@/constants/theme';
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
@@ -40,6 +40,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Optimistic UI update
     setStatus('accepted');
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId: targetId, status: 'accepted' });
     if (onConnectionAccepted) onConnectionAccepted();
 
     try {
@@ -49,6 +50,8 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
         await socialApi.acceptUser(targetId);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      DeviceEventEmitter.emit('socialConnectionsChanged');
+      DeviceEventEmitter.emit('connectionRequestUpdated', { friendId: targetId, status: 'accepted' });
     } catch (e) {
       console.error('Accept connection error, rolling back:', e);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -62,6 +65,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Optimistic UI update
     setStatus('declined');
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId: targetId, status: 'declined' });
 
     try {
       if (onDecline) {
@@ -70,6 +74,8 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
         await socialApi.declineUser(targetId);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      DeviceEventEmitter.emit('socialConnectionsChanged');
+      DeviceEventEmitter.emit('connectionRequestUpdated', { friendId: targetId, status: 'declined' });
     } catch (e) {
       console.error('Decline connection error, rolling back:', e);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

@@ -146,7 +146,7 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
 });
 
 router.post("/api/social/accept", authenticateToken, (req, res) => {
-  const { friendId } = req.body;
+  const friendId = parseInt(req.body.friendId, 10) || req.body.friendId;
   db.run(
     `UPDATE connections SET status = 'accepted' WHERE user_id = ? AND friend_id = ?`,
     [req.user.id, friendId],
@@ -233,7 +233,7 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
 });
 
 router.post(["/api/social/decline", "/api/social/reject"], authenticateToken, (req, res) => {
-  const { friendId } = req.body;
+  const friendId = parseInt(req.body.friendId, 10) || req.body.friendId;
   db.run(
     `UPDATE connections SET status = 'declined' WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)`,
     [req.user.id, friendId, friendId, req.user.id],
@@ -283,12 +283,14 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
   db.all(
     `
         SELECT a.*, u.username, u.profile_picture_url, u.total_rooka,
+               (SELECT title FROM user_titles WHERE user_id = u.id AND is_active = 1 LIMIT 1) as equipped_title,
                (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id) as kudos_count,
                (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id AND k.user_id = ?) as has_kudosed,
                (SELECT COUNT(*) FROM activity_comments c WHERE c.activity_id = a.id) as comment_count
         FROM activities a
         JOIN users u ON a.user_id = u.id
-        WHERE a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted')
+        WHERE (a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
+          AND (a.is_hidden IS NULL OR a.is_hidden = 0)
         ORDER BY a.start_date DESC
         LIMIT 20
     `,
@@ -296,9 +298,17 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
     (err, rows) => {
       if (rows) {
         rows.forEach((r) => {
+          r.user_id = r.user_id || r.id;
           r.rooka_level = getRookaLevelInfo(r.total_rooka).level;
           if (typeof r.rooka_score === "number") {
             r.rooka_score = Math.round(r.rooka_score);
+          }
+          if (r.moving_time_min !== undefined && r.moving_time_min !== null) {
+            r.moving_time_s = Math.round(r.moving_time_min * 60);
+            r.elapsed_time_s = Math.round(r.moving_time_min * 60);
+            if (r.moving_time === undefined) {
+              r.moving_time = r.moving_time_s;
+            }
           }
         });
       }
@@ -329,7 +339,7 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
     const mainLeaderboard = await new Promise((resolve, reject) => {
       db.all(
         `
-        SELECT u.id, u.username, u.profile_picture_url, u.total_rooka, 
+        SELECT u.id, u.id as user_id, u.username, u.profile_picture_url, u.total_rooka, 
                (COALESCE(SUM(a.rooka_score), 0) + COALESCE((SELECT SUM(amount) FROM bonus_points WHERE user_id = u.id AND created_at >= datetime('now', '-7 days')), 0)) as total_rooka_score, 
                SUM(a.moving_time_min) as total_minutes, COUNT(a.id) as total_activities,
                COALESCE((SELECT COUNT(*) FROM user_quests WHERE user_id = u.id AND status = 'completed' AND (completed_at >= datetime('now', '-7 days') OR (completed_at IS NULL AND created_at >= datetime('now', '-7 days')))), 0) as quests_completed_7d,
@@ -346,6 +356,7 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
           if (err) return reject(err);
           if (rows) {
             rows.forEach((r) => {
+              r.user_id = r.id;
               r.rooka_level = getRookaLevelInfo(r.total_rooka).level;
               if (typeof r.total_rooka_score === "number") {
                 r.total_rooka_score = Math.round(r.total_rooka_score);
@@ -379,6 +390,7 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
       const total_quest_rooka = userQuests.reduce((sum, q) => sum + (q.reward_points || 0), 0);
       return {
         id: user.id,
+        user_id: user.id,
         username: user.username,
         profile_picture_url: user.profile_picture_url,
         rooka_level: user.rooka_level,
@@ -407,6 +419,7 @@ router.get("/api/social/leaderboard", authenticateToken, async (req, res) => {
             FROM activities a
             JOIN users u ON a.user_id = u.id
             WHERE (u.id = ? OR u.id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
+              AND (a.is_hidden IS NULL OR a.is_hidden = 0)
               AND a.start_date >= datetime('now', '-7 days') AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10))
             ORDER BY a.rooka_score DESC, a.start_date DESC
             LIMIT 3

@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
-import { AnatomicalBodyMap, ActiveNiggle } from './AnatomicalBodyMap';
+import { AnatomicalBodyMap, ActiveNiggle, partMatchesNiggle } from './AnatomicalBodyMap';
 import { NiggleCard } from '../health/NiggleCard';
 import { TrainingReadinessWidget } from './TrainingReadinessWidget';
+import { SonarSleepCard } from '../health/SonarSleepCard';
+import { SonarVitalsCard } from '../health/SonarVitalsCard';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
 import { MuscleFatigueCard } from './MuscleFatigueCard';
 import * as Haptics from 'expo-haptics';
 
 import { useHealth } from '../../context/HealthStore';
+import {
+  AppleHealthDailyBiometrics,
+  getCachedTodayBiometrics,
+  fetchTodayBiometricsFromServer,
+} from '../../services/appleHealthService';
 
 interface HealthTabProps {
   initialNiggles?: ActiveNiggle[];
@@ -26,6 +33,20 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   const { niggles: storeNiggles, saveNiggle: storeSaveNiggle, resolveNiggle: storeResolveNiggle } = useHealth();
   const niggles = storeNiggles as ActiveNiggle[];
   const [modalVisible, setModalVisible] = useState(false);
+  const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCachedTodayBiometrics().then((cached) => {
+      if (!cancelled && cached) setTodayBiometrics(cached);
+    });
+    fetchTodayBiometricsFromServer().then((fresh) => {
+      if (!cancelled && fresh) setTodayBiometrics(fresh);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Form state
   const [selectedPartId, setSelectedPartId] = useState<string>('left_ankle_foot');
@@ -39,7 +60,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
     setSelectedPartName(displayName);
 
     // Check if an issue already exists for this body part
-    const existing = niggles.find((n) => n.body_part.toLowerCase() === partId.toLowerCase());
+    const existing = niggles.find((n) => partMatchesNiggle(partId, n.body_part));
     if (existing) {
       setEditingNiggleId(existing.id || null);
       setSeverity(Number(existing.severity));
@@ -78,7 +99,13 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   return (
     <View className="gap-y-4">
       {/* TRAINING READINESS GAUGE WIDGET */}
-      <TrainingReadinessWidget />
+      <TrainingReadinessWidget biometrics={todayBiometrics} />
+
+      {/* SONAR AI SLEEP ANALYSIS CARD (Appears only if sleep data exists) */}
+      <SonarSleepCard biometrics={todayBiometrics} />
+
+      {/* SONAR AI VITAL TRENDS CARD (Appears only if HRV/RHR/Steps/etc. exist) */}
+      <SonarVitalsCard biometrics={todayBiometrics} />
 
       {/* CYCLE TRACKER & COACH SYNC WIDGET */}
       <CycleTrackingWidget />

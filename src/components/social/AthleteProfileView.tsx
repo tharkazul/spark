@@ -6,6 +6,9 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Card } from '../ui/Card';
+import { Chip } from '../ui/Chip';
+import { LevelProgress } from '../ui/LevelProgress';
+import { SportMedallion } from '../ui/SportMedallion';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { RookaMark } from '../ui/RookaPoints';
 import { Sparkline } from '../common/Sparkline';
@@ -17,7 +20,6 @@ import { PublicAthleteProfile } from '../../types/social';
 import { getRookaLevelInfo } from '../../utils/gamification';
 import { calculateAthleteArchetype } from '../../utils/archetypeUtils';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
-import { getSportFilledIcon } from '../../utils/sportIcons';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { Activity } from '../../types/activity';
 import { AthleteProfileSkeleton } from '../skeletons/AthleteProfileSkeleton';
@@ -133,20 +135,15 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
     ? (currentUser?.total_rooka || profile?.total_rooka || 0)
     : (profile?.total_rooka || 0);
 
-  const effectiveTotalRooka = serverTotalRooka > 0 ? serverTotalRooka : activitiesTotalRooka;
+  const effectiveTotalRooka = Math.round(serverTotalRooka > 0 ? serverTotalRooka : activitiesTotalRooka);
 
-  const levelInfo = (() => {
-    if (profile?.levelInfo && !isSelf) {
-      return profile.levelInfo;
-    }
-    const info = getRookaLevelInfo(effectiveTotalRooka);
-    return {
-      level: info.level,
-      currentXp: info.totalRooka,
-      nextLevelXp: info.nextLevelThreshold,
-      progressPercent: info.progressPercent,
-    };
-  })();
+  const info = getRookaLevelInfo(effectiveTotalRooka);
+  const levelInfo = {
+    level: info.level,
+    currentXp: info.totalRooka,
+    nextLevelXp: info.nextLevelThreshold,
+    progressPercent: info.progressPercent,
+  };
 
   const xpPercent =
     levelInfo.progressPercent !== undefined
@@ -257,10 +254,13 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                 </View>
 
                 {profile.activeTitle && (
-                  <View className="self-start px-2 py-0.5 mt-1 bg-semantic-warning/15 border border-semantic-warning/30 rounded-md">
-                    <Text className="text-xs font-extrabold text-semantic-warning">
-                      {profile.activeTitle.title}
-                    </Text>
+                  <View className="self-start mt-1">
+                    <Chip
+                      variant="tier"
+                      tier="legendary"
+                      size="sm"
+                      label={profile.activeTitle.title}
+                    />
                   </View>
                 )}
 
@@ -325,46 +325,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
 
           {/* LEVEL & ROOKA POINTS CARD */}
           <Card className="mb-4 bg-theme-card p-5">
-            <View className="flex-row items-center justify-between mb-3">
-              <View className="flex-row items-center gap-x-2">
-                <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-                  <RookaMark size={16} color={theme.tint} />
-                </View>
-                <View>
-                  <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                    Level & Points
-                  </Text>
-                  <Text className="text-base font-extrabold text-theme-text">
-                    Level {levelInfo.level}
-                  </Text>
-                </View>
-              </View>
-
-              <View className="items-end">
-                <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                  Total Rooka
-                </Text>
-                <Text className="text-base font-extrabold font-rajdhani text-theme-accent">
-                  {effectiveTotalRooka.toLocaleString()}
-                </Text>
-              </View>
-            </View>
-
-            {/* Level Progress Bar */}
-            <View className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
-              <View
-                className="bg-theme-accent h-full rounded-full"
-                style={{ width: `${Math.min(100, Math.max(0, xpPercent))}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between items-center mt-1.5">
-              <Text className="text-[11px] text-theme-muted">
-                {levelInfo.currentXp.toLocaleString()} XP
-              </Text>
-              <Text className="text-[11px] text-theme-muted">
-                {levelInfo.nextLevelXp ? `${levelInfo.nextLevelXp.toLocaleString()} XP next` : 'Max Level'}
-              </Text>
-            </View>
+            <LevelProgress totalRooka={effectiveTotalRooka} />
           </Card>
 
           {/* ATHLETE ARCHETYPE CARD */}
@@ -492,7 +453,6 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
               </Text>
 
               {profile.recentActivities.map((act: any) => {
-                const sportIcon = getSportFilledIcon(act.sport_type || 'Run');
                 return (
                   <TouchableOpacity
                     key={`profile-act-${act.id}`}
@@ -505,9 +465,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                     className="bg-theme-card border border-theme-border rounded-tile p-4 mb-2.5 flex-row items-center justify-between shadow-xs"
                   >
                     <View className="flex-row items-center gap-x-3 flex-1 pr-2">
-                      <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-                        <Ionicons name={sportIcon as any} size={20} color={theme.tint} />
-                      </View>
+                      <SportMedallion sport={act.sport_type} size={40} className="mr-1" />
                       <View className="flex-1">
                         <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                           {act.name || act.title || 'Workout'}

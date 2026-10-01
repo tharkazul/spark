@@ -5,7 +5,6 @@ import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,10 +16,9 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Switch,
   Text,
   TextInput,
-  View
+  View,
 } from 'react-native';
 import Reanimated, {
   Easing as REasing,
@@ -32,18 +30,12 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { API_BASE_URL } from '../../constants/api';
 import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
 import { dictionaries, useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
-import { useSubscription } from '../../context/SubscriptionStore';
 import { apiClient } from '../../services/apiClient';
-import { discountApi, integrationsApi } from '../../services/apiServices';
-import { DiscountValidationResult, PricingBreakdown } from '../../types/discount';
-import { DiscountCodeField } from '../subscription/DiscountCodeField';
 import { getCoachAvatarSource } from '../../utils/avatarUtils';
 import { MarkdownText } from '../chat/MarkdownText';
-import { DurationRoller } from '../ui/DurationRoller';
 import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
 import { calculateTargetCTL } from '../profile/GoalsTab';
 
@@ -133,12 +125,11 @@ export default function OnboardingWizard() {
     const theme = useTheme();
 
   const { user, refreshUser, updateUser } = useUser();
-  const { packages, purchasePackage, refreshSubscription } = useSubscription();
   const { t, language, setLanguage } = useLanguage();
 
-  // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Gender, 4 = Context/Event, 5 = Schedule, 6 = Integrations, 7 = Paywall)
+  // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Gender, 4 = Goal & Age -> Finalize)
   const [currentStep, setCurrentStep] = useState(0);
-  const totalSteps = 7;
+  const totalSteps = 4;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { height: keyboardHeight } = useKeyboardMotionContext();
 
@@ -330,28 +321,6 @@ export default function OnboardingWizard() {
     return dateObj < today;
   };
 
-  const [garminEmail, setGarminEmail] = useState(
-    (user as any)?.garmin_username || (user as any)?.garminUsername || ''
-  );
-  const [garminPassword, setGarminPassword] = useState('');
-  const [showGarmin, setShowGarmin] = useState(!!user?.garmin_connected);
-  const [isGarminSaved, setIsGarminSaved] = useState(!!user?.garmin_connected);
-  const [isSavingGarmin, setIsSavingGarmin] = useState(false);
-  const [garminSaveSuccessMsg, setGarminSaveSuccessMsg] = useState<string | null>(null);
-  const [garminError, setGarminError] = useState<string | null>(null);
-
-  const [isConnectingStrava, setIsConnectingStrava] = useState(false);
-  const [stravaSuccessMsg, setStravaSuccessMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user?.garmin_connected) {
-      setIsGarminSaved(true);
-      setShowGarmin(true);
-      if ((user as any)?.garmin_username || (user as any)?.garminUsername) {
-        setGarminEmail((user as any)?.garmin_username || (user as any)?.garminUsername);
-      }
-    }
-  }, [user?.garmin_connected]);
   const [goalType, setGoalType] = useState<'race' | 'physiological'>('race');
   const [raceName, setRaceName] = useState(user?.target_event || '');
   const [raceDate, setRaceDate] = useState(() => {
@@ -627,272 +596,15 @@ export default function OnboardingWizard() {
     }
   };
 
-  const handleConfirmContextAndEvent = () => {
-    if (isStreamingMessage) return;
-
-    const eventDesc =
-      goalType === 'race'
-        ? raceName
-          ? targetMode === 'time' && targetValue
-            ? `${raceName} (${targetValue})`
-            : raceName
-          : ''
-        : raceName
-          ? targetWeight
-            ? `${raceName} (${targetWeight} kg)`
-            : raceName
-          : targetWeight
-            ? `Target Weight: ${targetWeight} kg`
-            : 'Physiological Goal';
-
-    if (currentStep === 4) {
-      setCurrentStep(5);
-      const feedback = coachReaction || t('onboarding.contextFeedbackDefault');
-      appendCoachPromptAndCard(
-        eventDesc
-          ? t('onboarding.contextUserEvent', { name: eventDesc, date: raceDate || 'TBD' })
-          : t('onboarding.contextUserBackground'),
-        `${feedback} ${t('onboarding.schedulePrompt')}`,
-        'card_schedule',
-        { type: 'card_context_event', key: 'completed', val: true }
-      );
-    } else {
-      setTimeline((prev) =>
-        prev.map((item) => (item.type === 'card_context_event' ? { ...item, data: { completed: true } } : item))
-      );
-      appendCoachAckOnly(
-        eventDesc
-          ? t('onboarding.contextUserEvent', { name: eventDesc, date: raceDate || 'TBD' })
-          : t('onboarding.contextUserBackground'),
-        t('onboarding.contextFeedbackDefault')
-      );
-    }
+  const handleConfirmContextAndEvent = async () => {
+    if (isStreamingMessage || isSubmitting) return;
+    await handleCompleteSetup(false);
   };
 
-  const handleConfirmScheduleChoice = () => {
-    if (isStreamingMessage) return;
-
-    if (currentStep === 5) {
-      setCurrentStep(6);
-      appendCoachPromptAndCard(
-        t('onboarding.selectedScheduleUser'),
-        t('onboarding.integrationsPrompt'),
-        'card_integrations',
-        { type: 'card_schedule', key: 'completed', val: true }
-      );
-    } else {
-      setTimeline((prev) =>
-        prev.map((item) => (item.type === 'card_schedule' ? { ...item, data: { completed: true } } : item))
-      );
-      appendCoachAckOnly(
-        t('onboarding.selectedScheduleUser'),
-        t('onboarding.updateScheduleBtn')
-      );
-    }
-  };
-
-  const handleSaveGarmin = async (): Promise<boolean> => {
-    if (!garminEmail.trim() || !garminPassword.trim()) {
-      setGarminError(t('onboarding.garminFillError'));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return false;
-    }
-    setIsSavingGarmin(true);
-    setGarminError(null);
-    setGarminSaveSuccessMsg(null);
-    try {
-      const res = await integrationsApi.saveGarminCredentials({
-        garminUsername: garminEmail.trim(),
-        garminPassword: garminPassword.trim(),
-      });
-      await refreshUser();
-      setIsGarminSaved(true);
-      setGarminSaveSuccessMsg(res?.message || t('onboarding.garminSavedSuccess'));
-      setGarminPassword('');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return true;
-    } catch (err: any) {
-      setGarminError(err?.message || 'Failed to save Garmin credentials');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return false;
-    } finally {
-      setIsSavingGarmin(false);
-    }
-  };
-
-  const handleDisconnectGarmin = async () => {
-    setIsSavingGarmin(true);
-    try {
-      await integrationsApi.disconnectGarmin();
-      await refreshUser();
-      setIsGarminSaved(false);
-      setShowGarmin(false);
-      setGarminEmail('');
-      setGarminPassword('');
-      setGarminSaveSuccessMsg(null);
-      setGarminError(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: any) {
-      console.error('Garmin disconnect error:', err);
-    } finally {
-      setIsSavingGarmin(false);
-    }
-  };
-
-  const handleConnectStravaOAuth = async () => {
-    setIsConnectingStrava(true);
-    setStravaSuccessMsg(null);
-    try {
-      const clientId = '208765';
-      const stravaRedirectUri = `${API_BASE_URL}/oauthredirect`;
-      const appDeepLink = Linking.createURL('oauthredirect');
-      const authUrl = `https://www.strava.com/oauth/mobile/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(
-        stravaRedirectUri
-      )}&scope=activity:read_all,activity:write&approval_prompt=force`;
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, appDeepLink);
-      if (result.type === 'success' && result.url) {
-        let code: string | undefined;
-        try {
-          code = new URL(result.url).searchParams.get('code') || undefined;
-        } catch (_) {
-          const match = result.url.match(/[?&]code=([^&]+)/);
-          if (match) code = match[1];
-        }
-        if (code) {
-          const res = await integrationsApi.exchangeStravaCode(code);
-          await refreshUser();
-          setStravaSuccessMsg(res?.message || t('onboarding.stravaSuccessMsg'));
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          Alert.alert(
-            t('onboarding.stravaTitle'),
-            t('onboarding.stravaSuccessMsg')
-          );
-        }
-      }
-    } catch (err: any) {
-      console.error('Onboarding Strava OAuth error:', err);
-      Alert.alert(t('onboarding.stravaTitle'), t('onboarding.stravaErrorMsg'));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } finally {
-      setIsConnectingStrava(false);
-    }
-  };
-
-  const handleDisconnectStrava = async () => {
-    setIsConnectingStrava(true);
-    try {
-      await integrationsApi.disconnectStrava();
-      await refreshUser();
-      setStravaSuccessMsg(null);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: any) {
-      console.error('Strava disconnect error:', err);
-    } finally {
-      setIsConnectingStrava(false);
-    }
-  };
-
-  const handleConfirmIntegrationsChoice = async () => {
-    if (isStreamingMessage) return;
-
-    // If user filled in credentials and has not yet saved, save automatically
-    if (showGarmin && garminEmail.trim() && garminPassword.trim() && !isGarminSaved) {
-      const saved = await handleSaveGarmin();
-      if (!saved) return;
-    }
-
-    if (currentStep === 6) {
-      setCurrentStep(7);
-      appendCoachPromptAndCard(
-        t('onboarding.selectedIntegrationsUser'),
-        t('onboarding.paywallPrompt'),
-        'card_paywall',
-        { type: 'card_integrations', key: 'completed', val: true }
-      );
-    } else {
-      setTimeline((prev) =>
-        prev.map((item) => (item.type === 'card_integrations' ? { ...item, data: { completed: true } } : item))
-      );
-      appendCoachAckOnly(
-        t('onboarding.selectedIntegrationsUser'),
-        t('onboarding.updateIntegrationsBtn')
-      );
-    }
-  };
-
-  /* --- Paywall pricing -----------------------------------------------------
-   * Every number in the two price boxes comes from the server, so the discount
-   * code field only has to hand over the breakdown it was given and the boxes
-   * follow. `pricing === null` means it has not arrived yet, and the boxes fall
-   * back to the static locale strings for that moment.
-   * ---------------------------------------------------------------------- */
-  const [basePricing, setBasePricing] = useState<PricingBreakdown | null>(null);
-  const [discountResult, setDiscountResult] = useState<DiscountValidationResult | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    discountApi
-      .mine()
-      .then((res) => {
-        if (!cancelled) setBasePricing(res.pricing);
-      })
-      .catch(() => {
-        // Offline or an older server build: the boxes keep their locale strings.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const validDiscount = discountResult?.valid ? discountResult : null;
-  const pricing = validDiscount?.pricing || basePricing;
-  const money = (amount: number) =>
-    `${pricing?.currency || '€'}${amount.toFixed(2)}`;
-
-  const handleCompleteSetup = async (isTrial: boolean) => {
+  const handleCompleteSetup = async (isTrial: boolean = false) => {
     setIsSubmitting(true);
-    let subscribedToPlus = false;
 
     try {
-      // If user chooses trial/subscription, prompt RevenueCat in-app purchase
-      if (isTrial && Platform.OS !== 'web') {
-        let targetPkg = selectedPlan === 'annual' ? packages.yearly : packages.monthly;
-
-        // If packages are not loaded yet, attempt a refresh
-        if (!targetPkg && refreshSubscription) {
-          try {
-            await refreshSubscription();
-            targetPkg = selectedPlan === 'annual' ? packages.yearly : packages.monthly;
-          } catch (_) {}
-        }
-
-        if (targetPkg) {
-          const purchaseSuccess = await purchasePackage(targetPkg);
-          if (!purchaseSuccess) {
-            // User cancelled or purchase failed — keep them on the paywall screen without finalizing
-            setIsSubmitting(false);
-            return;
-          }
-          subscribedToPlus = true;
-        } else {
-          // Packages could not be retrieved from RevenueCat / StoreKit
-          setIsSubmitting(false);
-          Alert.alert(
-            'Trial Unavailable',
-            'Unable to connect to the App Store subscription service to activate your trial. Would you like to retry, or continue with the Free Tier for now?',
-            [
-              { text: 'Retry', style: 'cancel' },
-              {
-                text: 'Continue with Free',
-                onPress: () => handleCompleteSetup(false),
-              },
-            ]
-          );
-          return;
-        }
-      }
-
       const formattedMetricsContext = metrics
         .filter((m) => m.label.trim() && m.value.trim())
         .map((m) => `${m.label}: ${m.value}`)
@@ -910,11 +622,16 @@ export default function OnboardingWizard() {
         cleanContext = '';
       }
 
+      const eventName = raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined);
+      const generatedContext = eventName
+        ? `Endurance athlete preparing for ${eventName}.`
+        : 'Endurance athlete.';
+
       const fullContext = cleanContext
         ? `${cleanContext}${formattedMetricsContext ? `\n[Metrics: ${formattedMetricsContext}]` : ''}`
         : formattedMetricsContext
-          ? `Endurance athlete. [Metrics: ${formattedMetricsContext}]`
-          : 'Endurance athlete.';
+          ? `${generatedContext} [Metrics: ${formattedMetricsContext}]`
+          : generatedContext;
 
       try {
         await apiClient('/api/onboarding/finalize', {
@@ -924,7 +641,7 @@ export default function OnboardingWizard() {
             athleteContext: fullContext,
             trainingAvailability: availability,
             gender,
-            subscriptionTier: subscribedToPlus ? 'rooka_plus' : 'free',
+            subscriptionTier: 'free',
             targetEvent: raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined),
             eventDate: raceDate || undefined,
             targetCtl: targetCtl ? parseFloat(targetCtl) : undefined,
@@ -947,7 +664,7 @@ export default function OnboardingWizard() {
           athlete_context: fullContext,
           training_availability: availability as any,
           gender: gender,
-          subscription_tier: subscribedToPlus ? 'rooka_plus' : 'free',
+          subscription_tier: 'free',
           target_event: raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined),
           event_date: raceDate || undefined,
           target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
@@ -957,32 +674,6 @@ export default function OnboardingWizard() {
           target_weight: targetWeight ? parseFloat(targetWeight) : undefined,
           onboarding_completed: true,
         } as any);
-      }
-
-      // Commit the discount code now that the athlete has actually signed up.
-      // Applying it earlier — while they were still typing it — would consume a
-      // one-time code for somebody who never finished onboarding.
-      if (isTrial && validDiscount?.code?.code) {
-        try {
-          await discountApi.apply(validDiscount.code.code);
-        } catch (err: any) {
-          // Losing the discount must not lose the whole onboarding. The code can
-          // be entered again under Account -> Subscription.
-          console.warn('Could not apply discount code during onboarding:', err);
-          Alert.alert(
-            t('onboarding.discountFailedTitle'),
-            err?.data?.error || err?.message || t('onboarding.discountFailedBody')
-          );
-        }
-      }
-
-      if (showGarmin && garminEmail && garminPassword && !isGarminSaved) {
-        try {
-          await integrationsApi.saveGarminCredentials({
-            garminUsername: garminEmail.trim(),
-            garminPassword: garminPassword.trim(),
-          });
-        } catch (_) { }
       }
 
       try {
@@ -998,8 +689,6 @@ export default function OnboardingWizard() {
       setIsSubmitting(false);
     }
   };
-
-  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
 
   return (
     <View style={{ flex: 1 }}>
@@ -1444,48 +1133,6 @@ export default function OnboardingWizard() {
                       </View>
                     </View>
 
-                    {/* Physiological Baselines */}
-                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-2">
-                      <Text className="text-theme-muted text-xs font-bold">
-                        {t('onboarding.baselinesTitle')}
-                      </Text>
-                      {metrics.map((item, idx) => (
-                        <View key={idx} className="flex-row gap-2">
-                          <TextInput
-                            editable={!isStreamingMessage}
-                            placeholder={t('onboarding.baselinePlaceholderLabel')}
-                            placeholderTextColor={theme.textSecondary}
-                            value={item.label}
-                            onChangeText={(val) => {
-                              const updated = [...metrics];
-                              updated[idx].label = val;
-                              setMetrics(updated);
-                            }}
-                            className="flex-1 p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
-                          />
-                          <TextInput
-                            editable={!isStreamingMessage}
-                            placeholder={t('onboarding.baselinePlaceholderValue')}
-                            placeholderTextColor={theme.textSecondary}
-                            value={item.value}
-                            onChangeText={(val) => {
-                              const updated = [...metrics];
-                              updated[idx].value = val;
-                              setMetrics(updated);
-                            }}
-                            className="w-24 p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
-                          />
-                        </View>
-                      ))}
-                      <Pressable
-                        disabled={isStreamingMessage}
-                        onPress={addMetricRow}
-                        className="py-1.5 items-center bg-theme-accent/10 border border-theme-accent/30 rounded-lg mt-1"
-                      >
-                        <Text className="text-theme-accent text-xs font-bold">{t('onboarding.addMetric')}</Text>
-                      </Pressable>
-                    </View>
-
                     {/* Main Goal & Target Setup */}
                     <View className="bg-theme-bg border border-theme-border rounded-xl p-3 gap-3">
                       <Text className="text-theme-muted text-xs font-bold">
@@ -1720,426 +1367,18 @@ export default function OnboardingWizard() {
                     </View>
 
                     <Pressable
-                      disabled={isStreamingMessage}
+                      disabled={isStreamingMessage || isSubmitting}
                       onPress={handleConfirmContextAndEvent}
-                      className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center shadow-md"
+                      className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center shadow-md mt-1"
                     >
-                      <Text className="text-white font-bold text-xs">
-                        {isCompleted ? t('onboarding.updateContextEventBtn') : t('onboarding.confirmContextEventBtn')}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              }
-
-              if (node.type === 'card_schedule') {
-                const isCompleted = !!node.data?.completed;
-                return (
-                  <View
-                    key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
-                    style={!isCompleted ? { borderColor: accentAlpha(0.5) } : undefined}
-                  >
-                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.scheduleTitle')}</Text>
-                    <Text className="text-theme-muted text-xs">
-                      {t('onboarding.scheduleSubtitle')}
-                    </Text>
-
-                    {/* One row per day: the day, then how long they can train,
-                        with the unit spelled out. The previous 0m / 30m / 45m
-                        pills were read as metres rather than minutes. */}
-                    <View className="gap-2 pt-1">
-                      {DAYS.map((day) => {
-                        const currentVal = availability[day]?.maxMinutes || 0;
-                        const isRest = currentVal === 0;
-                        return (
-                          <View
-                            key={day}
-                            className="bg-theme-bg px-3 py-2.5 rounded-xl border border-theme-border flex-row items-center justify-between"
-                          >
-                            <Text className="text-theme-text font-bold text-sm w-12">{day}</Text>
-
-                            <DurationRoller
-                              value={currentVal}
-                              onChange={(minutes) => handleDayDurationChange(day, minutes)}
-                              disabled={isStreamingMessage}
-                              unitLabel={isRest ? t('onboarding.restDay') : t('onboarding.minutesUnit')}
-                            />
-                          </View>
-                        );
-                      })}
-                    </View>
-
-                    <Pressable
-                      disabled={isStreamingMessage}
-                      onPress={handleConfirmScheduleChoice}
-                      className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center shadow-md mt-2"
-                    >
-                      <Text className="text-white font-bold text-xs">
-                        {isCompleted ? t('onboarding.updateScheduleBtn') : t('onboarding.confirmScheduleBtn')}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              }
-
-              if (node.type === 'card_integrations') {
-                const isCompleted = !!node.data?.completed;
-                const isGarminActive = isGarminSaved || !!user?.garmin_connected;
-                const isStravaActive = !!user?.strava_connected;
-
-                return (
-                  <View
-                    key={node.id}
-                    className="bg-theme-card border border-theme-border rounded-card p-4 mb-5 gap-3 shadow-sm"
-                    style={!isCompleted ? { borderColor: accentAlpha(0.5) } : undefined}
-                  >
-                    <Text className="text-theme-text font-bold text-sm">{t('onboarding.integrationsTitle')}</Text>
-
-                    {/* Garmin Connect */}
-                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-3">
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center gap-3 flex-1 mr-2">
-                          <Ionicons name="watch-outline" size={20} color="#007ACC" />
-                          <View className="flex-1">
-                            <View className="flex-row items-center gap-1.5 flex-wrap">
-                              <Text className="text-theme-text font-bold text-xs">{t('onboarding.garminTitle')}</Text>
-                              {isGarminActive && (
-                                <View className="bg-semantic-success/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
-                                  <Ionicons name="checkmark-circle" size={10} color="#22C55E" />
-                                  <Text className="text-semantic-success text-xs font-bold">
-                                    {t('onboarding.garminConnectedBadge')}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text className="text-theme-muted text-xs">{t('onboarding.garminSubtitle')}</Text>
-                          </View>
-                        </View>
-                        <Switch
-                          disabled={isStreamingMessage || isSavingGarmin}
-                          value={showGarmin}
-                          onValueChange={(val) => {
-                            setShowGarmin(val);
-                          }}
-                          trackColor={{ false: '#3A3A3C', true: theme.tint }}
-                        />
-                      </View>
-
-                      {showGarmin && (
-                        <View className="pt-2 gap-2 border border-theme-border">
-                          {isGarminActive && (
-                            <View className="bg-semantic-success/10 border border-semantic-success/20 rounded-lg p-2.5 flex-row items-center justify-between">
-                              <View className="flex-row items-center gap-2 flex-1 mr-2">
-                                <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
-                                <View className="flex-1">
-                                  <Text className="text-semantic-success font-bold text-xs">
-                                    {garminSaveSuccessMsg || t('onboarding.garminSavedSuccess')}
-                                  </Text>
-                                  <Text className="text-theme-muted text-xs" numberOfLines={1}>
-                                    {t('onboarding.garminConnectedStatus')}: {garminEmail || (user as any)?.garmin_username || (user as any)?.garminUsername || 'Garmin User'}
-                                  </Text>
-                                </View>
-                              </View>
-                              <Pressable
-                                disabled={isSavingGarmin}
-                                onPress={handleDisconnectGarmin}
-                                className="px-2 py-1 bg-theme-bg/60 rounded border border-theme-border"
-                              >
-                                <Text className="text-semantic-error font-medium text-xs">
-                                  {t('onboarding.garminDisconnectBtn')}
-                                </Text>
-                              </Pressable>
-                            </View>
-                          )}
-
-                          <TextInput
-                            editable={!isStreamingMessage && !isSavingGarmin}
-                            placeholder={t('onboarding.garminUserPlaceholder')}
-                            placeholderTextColor={theme.textSecondary}
-                            value={garminEmail}
-                            onChangeText={(text) => {
-                              setGarminEmail(text);
-                              setIsGarminSaved(false);
-                              setGarminError(null);
-                              setGarminSaveSuccessMsg(null);
-                            }}
-                            autoCapitalize="none"
-                            className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
-                          />
-                          <TextInput
-                            editable={!isStreamingMessage && !isSavingGarmin}
-                            placeholder={t('onboarding.garminPassPlaceholder')}
-                            placeholderTextColor={theme.textSecondary}
-                            secureTextEntry
-                            value={garminPassword}
-                            onChangeText={(text) => {
-                              setGarminPassword(text);
-                              setIsGarminSaved(false);
-                              setGarminError(null);
-                              setGarminSaveSuccessMsg(null);
-                            }}
-                            autoCapitalize="none"
-                            className="p-2.5 bg-theme-card border border-theme-border rounded-control text-theme-text text-xs"
-                          />
-
-                          {garminError && (
-                            <View className="flex-row items-center gap-1.5 px-1">
-                              <Ionicons name="alert-circle" size={13} color="#EF4444" />
-                              <Text className="text-semantic-error text-xs flex-1">{garminError}</Text>
-                            </View>
-                          )}
-
-                          <Pressable
-                            disabled={isStreamingMessage || isSavingGarmin || !garminEmail.trim() || !garminPassword.trim()}
-                            onPress={handleSaveGarmin}
-                            className={`py-2 px-3 rounded-lg flex-row items-center justify-center gap-1.5 ${!garminEmail.trim() || !garminPassword.trim()
-                                ? 'bg-[#007ACC]/50 opacity-60'
-                                : 'bg-[#007ACC]'
-                              }`}
-                          >
-                            {isSavingGarmin ? (
-                              <>
-                                <ActivityIndicator size="small" color="#FFFFFF" />
-                                <Text className="text-white font-bold text-xs">{t('onboarding.garminSavingBtn')}</Text>
-                              </>
-                            ) : (
-                              <>
-                                <Ionicons name="cloud-upload-outline" size={14} color="#FFFFFF" />
-                                <Text className="text-white font-bold text-xs">{t('onboarding.garminSaveBtn')}</Text>
-                              </>
-                            )}
-                          </Pressable>
-                        </View>
+                      {isSubmitting ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text className="text-white font-bold text-sm">
+                          {t('onboarding.buildPlanBtn')}
+                        </Text>
                       )}
-                    </View>
-
-                    {/* Strava Connect */}
-                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-row items-center gap-2 flex-1 mr-2">
-                          <Ionicons name="bicycle" size={18} color="#FC4C02" />
-                          <View className="flex-1">
-                            <View className="flex-row items-center gap-1.5 flex-wrap">
-                              <Text className="text-theme-text font-bold text-xs">{t('onboarding.stravaTitle')}</Text>
-                              {isStravaActive && (
-                                <View className="bg-semantic-success/10 px-1.5 py-0.5 rounded flex-row items-center gap-1">
-                                  <Ionicons name="checkmark-circle" size={10} color="#22C55E" />
-                                  <Text className="text-semantic-success text-xs font-bold">
-                                    {t('onboarding.stravaConnectedBadge')}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text className="text-theme-muted text-xs">{t('onboarding.stravaSubtitle')}</Text>
-                          </View>
-                        </View>
-
-                        {isStravaActive ? (
-                          <View className="flex-row items-center gap-1.5">
-                            <Pressable
-                              disabled={isStreamingMessage || isConnectingStrava}
-                              onPress={handleConnectStravaOAuth}
-                              className="bg-theme-card border border-theme-border px-2.5 py-1.5 rounded-control flex-row items-center gap-1"
-                            >
-                              {isConnectingStrava ? (
-                                <ActivityIndicator size="small" color={theme.textSecondary} />
-                              ) : (
-                                <Text className="text-theme-muted text-xs font-semibold">
-                                  {t('onboarding.stravaReconnectBtn')}
-                                </Text>
-                              )}
-                            </Pressable>
-                            <Pressable
-                              disabled={isStreamingMessage || isConnectingStrava}
-                              onPress={handleDisconnectStrava}
-                              className="px-2 py-1.5 bg-theme-card border border-theme-border rounded-control"
-                            >
-                              <Text className="text-semantic-error font-medium text-xs">
-                                {t('onboarding.stravaDisconnectBtn')}
-                              </Text>
-                            </Pressable>
-                          </View>
-                        ) : (
-                          <Pressable
-                            disabled={isStreamingMessage || isConnectingStrava}
-                            onPress={handleConnectStravaOAuth}
-                            className="bg-[#FC4C02] px-3 py-1.5 rounded-lg flex-row items-center gap-1.5"
-                          >
-                            {isConnectingStrava ? (
-                              <>
-                                <ActivityIndicator size="small" color="#FFFFFF" />
-                                <Text className="text-white font-bold text-xs">
-                                  {t('onboarding.stravaConnecting')}
-                                </Text>
-                              </>
-                            ) : (
-                              <Text className="text-white font-bold text-xs">
-                                {t('onboarding.connectStrava')}
-                              </Text>
-                            )}
-                          </Pressable>
-                        )}
-                      </View>
-
-                      {stravaSuccessMsg && isStravaActive && (
-                        <View className="bg-semantic-success/10 border border-semantic-success/20 rounded-lg p-2 flex-row items-center gap-1.5 mt-1">
-                          <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-                          <Text className="text-semantic-success font-semibold text-xs flex-1">
-                            {stravaSuccessMsg}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <Pressable
-                      disabled={isStreamingMessage || isSavingGarmin || isConnectingStrava}
-                      onPress={handleConfirmIntegrationsChoice}
-                      className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center shadow-md mt-2"
-                    >
-                      <Text className="text-white font-bold text-xs">
-                        {isCompleted ? t('onboarding.updateIntegrationsBtn') : t('onboarding.confirmIntegrationsBtn')}
-                      </Text>
                     </Pressable>
-                  </View>
-                );
-              }
-
-              if (node.type === 'card_paywall') {
-                return (
-                  <View key={node.id} className="bg-theme-card border border-theme-border rounded-card p-5 mb-6 gap-4 shadow-sm">
-                    <View className="items-center my-1">
-                      <View className="w-12 h-12 rounded-2xl bg-theme-accent items-center justify-center mb-2 shadow-lg">
-                        <RookaMark size={24} color="#FFFFFF" />
-                      </View>
-                      <Text className="text-theme-text font-extrabold text-lg text-center">{t('onboarding.paywallTitle')}</Text>
-                      <Text className="text-theme-muted text-xs text-center mt-1">
-                        {t('onboarding.paywallSubtitle')}
-                      </Text>
-                    </View>
-
-                    {/* Pricing Tiers — every figure below comes from the server
-                        (see server/services/pricing.js), so entering a discount
-                        code re-renders these boxes with the real charge rather
-                        than an estimate computed here. The locale strings are
-                        the fallback for the moment before pricing arrives. */}
-                    <View className="flex-row gap-3">
-                      <Pressable
-                        onPress={() => setSelectedPlan('annual')}
-                        className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
-                        style={
-                          selectedPlan === 'annual'
-                            ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
-                            : undefined
-                        }
-                      >
-                        {!pricing || pricing.annualSavingsPercent > 0 ? (
-                          <View className="self-start px-2 py-0.5 bg-theme-accent rounded-full mb-1.5">
-                            <Text className="text-white font-bold text-xs">
-                              {pricing
-                                ? t('onboarding.savePercentValue', { percent: pricing.annualSavingsPercent })
-                                : t('onboarding.savePercent')}
-                            </Text>
-                          </View>
-                        ) : (
-                          <View className="mb-1.5 h-[19px]" />
-                        )}
-                        <Text className="text-theme-text font-bold text-sm">{t('onboarding.annual')}</Text>
-                        <Text className="text-theme-accent font-bold text-lg mt-0.5">
-                          {pricing ? money(pricing.yearly.perMonth) : t('onboarding.annualPrice')}
-                          <Text className="text-xs text-theme-muted">{t('onboarding.annualPeriod')}</Text>
-                        </Text>
-                        {pricing?.yearly.discounted ? (
-                          <Text className="text-theme-muted text-xs line-through">
-                            {money(pricing.yearly.originalPerMonth)}{t('onboarding.annualPeriod')}
-                          </Text>
-                        ) : null}
-                        <Text className="text-theme-muted text-xs mt-0.5">
-                          {pricing
-                            ? t('onboarding.annualBilledValue', { price: money(pricing.yearly.final) })
-                            : t('onboarding.annualBilled')}
-                        </Text>
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => setSelectedPlan('monthly')}
-                        className="flex-1 p-3.5 rounded-2xl border border-theme-border bg-theme-bg"
-                        style={
-                          selectedPlan === 'monthly'
-                            ? { borderColor: theme.tint, backgroundColor: accentAlpha(0.1) }
-                            : undefined
-                        }
-                      >
-                        <View className="mb-1.5 h-[19px]" />
-                        <Text className="text-theme-text font-bold text-sm">{t('onboarding.monthly')}</Text>
-                        <Text className="text-theme-text font-bold text-lg mt-0.5">
-                          {pricing ? money(pricing.monthly.final) : t('onboarding.monthlyPrice')}
-                          <Text className="text-xs text-theme-muted">{t('onboarding.monthlyPeriod')}</Text>
-                        </Text>
-                        {pricing?.monthly.discounted ? (
-                          <Text className="text-theme-muted text-xs line-through">
-                            {money(pricing.monthly.original)}{t('onboarding.monthlyPeriod')}
-                          </Text>
-                        ) : null}
-                        <Text className="text-theme-muted text-xs mt-0.5">{t('onboarding.monthlyBilled')}</Text>
-                      </Pressable>
-                    </View>
-
-                    {/* Discount code — validated live, committed only when the
-                        athlete finishes setup, so an abandoned onboarding never
-                        burns a one-time code. */}
-                    <View>
-                      <DiscountCodeField
-                        label={t('onboarding.discountLabel')}
-                        placeholder={t('onboarding.discountPlaceholder')}
-                        disabled={isSubmitting}
-                        onResult={setDiscountResult}
-                      />
-                      {validDiscount?.code?.durationMonths ? (
-                        <Text className="text-[11px] text-theme-muted mt-1.5">
-                          {t('onboarding.discountDuration', {
-                            months: validDiscount.code.durationMonths,
-                          })}
-                        </Text>
-                      ) : null}
-                    </View>
-
-                    {/* Feature Checklist */}
-                    <View className="bg-theme-bg border border-theme-border rounded-xl p-3.5 gap-2">
-                      {[
-                        t('onboarding.feat1'),
-                        t('onboarding.feat2'),
-                        t('onboarding.feat3'),
-                        t('onboarding.feat4'),
-                      ].map((feat, idx) => (
-                        <View key={idx} className="flex-row items-center gap-2">
-                          <Ionicons name="checkmark-circle" size={16} color={theme.tint} />
-                          <Text className="text-theme-text text-xs flex-1">{feat}</Text>
-                        </View>
-                      ))}
-                    </View>
-
-                    <View className="gap-2 pt-2">
-                      <Pressable
-                        onPress={() => handleCompleteSetup(true)}
-                        disabled={isSubmitting}
-                        className="w-full py-4 rounded-xl bg-theme-accent items-center justify-center shadow-lg"
-                      >
-                        {isSubmitting ? (
-                          <ActivityIndicator color="white" />
-                        ) : (
-                          <Text className="text-white font-extrabold text-sm">{t('onboarding.startTrialBtn')}</Text>
-                        )}
-                      </Pressable>
-
-                      <Pressable
-                        onPress={() => handleCompleteSetup(false)}
-                        disabled={isSubmitting}
-                        className="w-full py-3 rounded-xl border border-theme-border bg-theme-bg items-center justify-center"
-                      >
-                        <Text className="text-theme-muted text-xs font-bold">{t('onboarding.freeTierBtn')}</Text>
-                      </Pressable>
-                    </View>
                   </View>
                 );
               }

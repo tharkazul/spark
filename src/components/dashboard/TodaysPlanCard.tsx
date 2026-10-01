@@ -4,6 +4,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import { View, Text, TouchableOpacity, useColorScheme, Image } from 'react-native';
 import { Card } from '../ui/Card';
+import { SportMedallion } from '../ui/SportMedallion';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { WorkoutItem, SportType } from '../../types/dashboard';
@@ -123,16 +124,7 @@ export function TodaysPlanCard({
                 >
                   {/* Left: Sport Icon + Title & Duration */}
                   <View className="flex-row items-center gap-3 flex-1 mr-3">
-                    <View
-                      style={{ backgroundColor: cfg.tint }}
-                      className="w-10 h-10 rounded-xl items-center justify-center"
-                    >
-                      <Image
-                        source={cfg.emblem}
-                        style={{ width: 24, height: 24 }}
-                        resizeMode="contain"
-                      />
-                    </View>
+                    <SportMedallion sport={isRest ? 'REST' : workout.type} size={40} />
                     <View className="flex-1">
                       <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
                         {workout.title}

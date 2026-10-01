@@ -298,6 +298,13 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
     });
     responseData.bonus_points = points;
 
+    let streak = 0;
+    try {
+      const gamCtx = await getUserGamificationContext(userId);
+      streak = gamCtx?.streak || 0;
+    } catch (_) {}
+    responseData.streak = streak;
+
     return res.json(responseData);
   } catch (errDb) {
     console.error("Error finalizing gamification response:", errDb);

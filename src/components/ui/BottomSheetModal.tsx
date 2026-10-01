@@ -84,9 +84,10 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
       transparent={true}
       animationType="none"
       onRequestClose={onClose}
+      statusBarTranslucent={true}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         <View className="flex-1 justify-end relative">

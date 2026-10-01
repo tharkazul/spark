@@ -3,93 +3,46 @@ import {
   ScrollView,
   View,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
-  Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { RookaTab } from '../../components/progress/RookaTab';
-import { NutritionTab } from '../../components/progress/NutritionTab';
-import { HealthTab } from '../../components/progress/HealthTab';
-import { MyLogSubTab } from '../../components/social/MyLogSubTab';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { useTabBar } from '../../context/TabBarContext';
-import { useLanguage } from '../../context/LanguageContext';
-
+import { OverviewSubTab } from '../../components/progress/OverviewSubTab';
+import { FitnessSubTab } from '../../components/progress/FitnessSubTab';
+import { BodySubTab } from '../../components/progress/BodySubTab';
+import { MyLogSubTab } from '../../components/social/MyLogSubTab';
+import { NutritionTab } from '../../components/progress/NutritionTab';
+import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
-const TABS = ['rooka', 'nutrition', 'health', 'mylog'] as const;
+import { useTabBar } from '../../context/TabBarContext';
+import { useTabBarInset } from '../../hooks/useTabBarInset';
+
+const TABS = ['overview', 'fitness', 'body', 'history'] as const;
 type TabType = typeof TABS[number];
+
+const PROGRESS_SEGMENTS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'fitness', label: 'Fitness' },
+  { key: 'body', label: 'Body' },
+  { key: 'history', label: 'History' },
+];
 
 export default function ProgressScreen() {
   const router = useRouter();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const { notifyScroll, notifyScrollEnd, tabBarOccupied } = useTabBar();
-  const { t } = useLanguage();
+  const { notifyScroll, notifyScrollEnd } = useTabBar();
+  const tabBarInset = useTabBarInset();
   const insets = useSafeAreaInsets();
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const [activeTab, setActiveTab] = useState<TabType>('rooka');
-
-  const segmentWidth = (SCREEN_WIDTH - 40 - 8) / 4;
-
-  const indicatorTranslateX = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [0, segmentWidth, 2 * segmentWidth, 3 * segmentWidth],
-    extrapolate: 'clamp',
-  });
-
-  const rookaWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-  const rookaGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const nutritionWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [0, 1, 0, 0],
-    extrapolate: 'clamp',
-  });
-  const nutritionGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [1, 0, 1, 1],
-    extrapolate: 'clamp',
-  });
-
-  const healthWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [0, 0, 1, 0],
-    extrapolate: 'clamp',
-  });
-  const healthGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [1, 1, 0, 1],
-    extrapolate: 'clamp',
-  });
-
-  
-  const mylogWhiteOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [0, 0, 0, 1],
-    extrapolate: 'clamp',
-  });
-  const mylogGreyOpacity = scrollX.interpolate({
-    inputRange: [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH, 3 * SCREEN_WIDTH],
-    outputRange: [1, 1, 1, 0],
-    extrapolate: 'clamp',
-  });
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [isNutritionModalOpen, setIsNutritionModalOpen] = useState(false);
 
   const handleOpenActivity = (id: string | number) => {
     Haptics.selectionAsync();
@@ -125,147 +78,100 @@ export default function ProgressScreen() {
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
         <ScreenHeaderTitleRow title="Progress" />
 
-        {/* 3-SEGMENT SUB-TAB PILL SWITCHER */}
-        <View className="relative flex-row bg-theme-card rounded-tile p-1 overflow-hidden">
-          <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent rounded-xl"
-            style={{ left: 4, width: segmentWidth, transform: [{ translateX: indicatorTranslateX }] }}
+        {/* 4-SEGMENT SUB-TAB SWITCHER (D-03) */}
+        <View className="mt-1">
+          <SegmentedControl
+            items={PROGRESS_SEGMENTS}
+            value={activeTab}
+            onChange={(key) => handleTabPress(key as TabType)}
           />
-
-          {/* ROOKA PILL */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('rooka')}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: rookaWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
-                rooka
-              </Animated.Text>
-              <Animated.Text style={{ opacity: rookaGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
-                rooka
-              </Animated.Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* NUTRITION PILL */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('nutrition')}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: nutritionWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
-                Nutrition
-              </Animated.Text>
-              <Animated.Text style={{ opacity: nutritionGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
-                Nutrition
-              </Animated.Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* HEALTH PILL */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('health')}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: healthWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
-                Health
-              </Animated.Text>
-              <Animated.Text style={{ opacity: healthGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
-                Health
-              </Animated.Text>
-            </View>
-          </TouchableOpacity>
-        
-          {/* MY LOG PILL */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('mylog')}
-            className="flex-1 py-2.5 items-center justify-center z-10"
-          >
-            <View className="relative items-center justify-center">
-              <Animated.Text style={{ opacity: mylogWhiteOpacity }} className="text-sm font-extrabold text-white absolute">
-                My Log
-              </Animated.Text>
-              <Animated.Text style={{ opacity: mylogGreyOpacity }} className="text-sm font-extrabold text-theme-muted">
-                My Log
-              </Animated.Text>
-            </View>
-          </TouchableOpacity>
         </View>
-
       </View>
 
       {/* SWIPABLE HORIZONTAL PAGER VIEW */}
-      <Animated.ScrollView
+      <ScrollView
         ref={horizontalScrollViewRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        // Progress, Social and Profile each own a horizontal sub-tab pager, and
-        // the main tabs are now a pager too. Turning off bounce/overscroll is
-        // what makes the two cooperate: while this pager can still scroll in the
-        // drag direction it keeps the gesture, and once it is at its first or
-        // last page it has nowhere to go, so the drag passes up to the tab pager
-        // and you cross into the next main tab. With bounce on, the inner pager
-        // swallows the drag at its edge and rubber-bands instead.
         bounces={false}
         overScrollMode="never"
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false, listener: handleHorizontalScroll }
-        )}
+        onMomentumScrollEnd={handleHorizontalScroll}
         scrollEventThrottle={16}
         className="flex-1"
       >
-        {/* ROOKA PAGE */}
+        {/* PAGE 0: OVERVIEW */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
-            className="flex-1 px-5 pt-0"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            className="flex-1 px-5 pt-2"
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
-            <RookaTab />
+            <OverviewSubTab onOpenNutrition={() => setIsNutritionModalOpen(true)} />
           </ScrollView>
         </View>
 
-        {/* NUTRITION PAGE */}
+        {/* PAGE 1: FITNESS (PMC + TRAINING READINESS) */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
-            <NutritionTab />
+            <FitnessSubTab />
           </ScrollView>
         </View>
 
-        {/* HEALTH PAGE */}
+        {/* PAGE 2: BODY (HEALTH, NIGGLES, SLEEP, VITALS, CYCLE) */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
-            <HealthTab />
+            <BodySubTab />
           </ScrollView>
         </View>
-      
-        {/* MY LOG PAGE */}
+
+        {/* PAGE 3: HISTORY (MY LOG ACTIVITY FEED) */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"
-            contentContainerStyle={{ paddingBottom: tabBarOccupied + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
             <MyLogSubTab onOpenActivityModal={handleOpenActivity} />
           </ScrollView>
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
+
+      {/* NUTRITION MODAL SHEET */}
+      <BottomSheetModal
+        visible={isNutritionModalOpen}
+        onClose={() => setIsNutritionModalOpen(false)}
+        showHandle
+      >
+        <View className="max-h-[80vh] pb-6">
+          <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
+            <Text className="text-base font-extrabold text-theme-text font-jakarta">Daily Fueling & Nutrition</Text>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <NutritionTab />
+          </ScrollView>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 }
-

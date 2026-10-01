@@ -483,6 +483,46 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './apiClient';
 
 const LAST_SYNC_KEY = '@rooka:last_apple_health_sync';
+const PREFS_KEY = '@rooka:apple_health_sync_preferences';
+const TODAY_BIOMETRICS_KEY = '@rooka:today_biometrics_cache';
+
+export interface AppleHealthSyncPreferences {
+  syncSleep: boolean;
+  syncHeartRate: boolean;
+  syncHrv: boolean;
+  syncStepsCalories: boolean;
+  syncBodyMass: boolean;
+  syncVo2Max: boolean;
+  syncWorkouts: boolean;
+}
+
+export const DEFAULT_APPLE_HEALTH_PREFS: AppleHealthSyncPreferences = {
+  syncSleep: true,
+  syncHeartRate: true,
+  syncHrv: true,
+  syncStepsCalories: true,
+  syncBodyMass: true,
+  syncVo2Max: true,
+  syncWorkouts: true,
+};
+
+export async function getAppleHealthPreferences(): Promise<AppleHealthSyncPreferences> {
+  try {
+    const raw = await AsyncStorage.getItem(PREFS_KEY);
+    if (raw) {
+      return { ...DEFAULT_APPLE_HEALTH_PREFS, ...JSON.parse(raw) };
+    }
+  } catch {}
+  return DEFAULT_APPLE_HEALTH_PREFS;
+}
+
+export async function saveAppleHealthPreferences(prefs: AppleHealthSyncPreferences): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch (err) {
+    console.warn('[AppleHealthService] Failed to save preferences:', err);
+  }
+}
 
 export interface AppleHealthDailyBiometrics {
   date: string; // YYYY-MM-DD
@@ -541,32 +581,51 @@ export function isHealthKitAvailable(): boolean {
 
 /**
  * Prompts the athlete with Apple's official Health permission sheet
- * to authorize reading Heart Rate, HRV, Sleep, Steps, Energy, Weight, and Workouts.
+ * to authorize reading the user's enabled health metrics.
  */
-export async function requestFullHealthKitPermissions(): Promise<boolean> {
+export async function requestFullHealthKitPermissions(customPrefs?: Partial<AppleHealthSyncPreferences>): Promise<boolean> {
   if (Platform.OS !== 'ios') return false;
   try {
     const HealthKit = require('@kingstinct/react-native-healthkit').default;
     const { HKQuantityTypeIdentifier, HKCategoryTypeIdentifier } = require('@kingstinct/react-native-healthkit');
 
-    const readTypes = [
-      HKQuantityTypeIdentifier.heartRate,
-      HKQuantityTypeIdentifier.restingHeartRate,
-      HKQuantityTypeIdentifier.heartRateVariabilitySDNN,
-      HKQuantityTypeIdentifier.stepCount,
-      HKQuantityTypeIdentifier.activeEnergyBurned,
-      HKQuantityTypeIdentifier.bodyMass,
-      HKQuantityTypeIdentifier.bodyFatPercentage,
-      HKQuantityTypeIdentifier.vo2Max,
-      HKQuantityTypeIdentifier.distanceWalkingRunning,
-      HKQuantityTypeIdentifier.distanceCycling,
-      HKQuantityTypeIdentifier.distanceSwimming,
-      HKCategoryTypeIdentifier.sleepAnalysis,
-      'HKWorkoutTypeIdentifier',
-    ].filter(Boolean);
+    const prefs = { ...(await getAppleHealthPreferences()), ...(customPrefs || {}) };
+    const readTypes: any[] = [];
+
+    if (prefs.syncHeartRate) {
+      readTypes.push(HKQuantityTypeIdentifier.heartRate);
+      readTypes.push(HKQuantityTypeIdentifier.restingHeartRate);
+    }
+    if (prefs.syncHrv) {
+      readTypes.push(HKQuantityTypeIdentifier.heartRateVariabilitySDNN);
+    }
+    if (prefs.syncStepsCalories) {
+      readTypes.push(HKQuantityTypeIdentifier.stepCount);
+      readTypes.push(HKQuantityTypeIdentifier.activeEnergyBurned);
+      readTypes.push(HKQuantityTypeIdentifier.distanceWalkingRunning);
+      readTypes.push(HKQuantityTypeIdentifier.distanceCycling);
+      readTypes.push(HKQuantityTypeIdentifier.distanceSwimming);
+    }
+    if (prefs.syncSleep) {
+      readTypes.push(HKCategoryTypeIdentifier.sleepAnalysis);
+    }
+    if (prefs.syncBodyMass) {
+      readTypes.push(HKQuantityTypeIdentifier.bodyMass);
+      readTypes.push(HKQuantityTypeIdentifier.bodyFatPercentage);
+    }
+    if (prefs.syncVo2Max) {
+      readTypes.push(HKQuantityTypeIdentifier.vo2Max);
+    }
+    if (prefs.syncWorkouts) {
+      readTypes.push('HKWorkoutTypeIdentifier');
+    }
+
+    if (readTypes.length === 0) {
+      return true;
+    }
 
     await HealthKit.requestAuthorization({
-      toRead: readTypes,
+      toRead: readTypes.filter(Boolean),
     });
 
     return true;
@@ -578,14 +637,18 @@ export async function requestFullHealthKitPermissions(): Promise<boolean> {
 
 /**
  * Fetches daily biometric & recovery data (HR, HRV, Sleep, Steps, Calories, Weight, VO2Max)
- * for the past N days from Apple Health.
+ * for the past N days from Apple Health according to user preferences.
  */
-export async function fetchHealthKitBiometrics(daysBack = 7): Promise<AppleHealthDailyBiometrics[]> {
+export async function fetchHealthKitBiometrics(
+  daysBack = 7,
+  customPrefs?: AppleHealthSyncPreferences
+): Promise<AppleHealthDailyBiometrics[]> {
   if (Platform.OS !== 'ios') return [];
   try {
     const HealthKit = require('@kingstinct/react-native-healthkit').default;
     const { HKQuantityTypeIdentifier, HKCategoryTypeIdentifier } = require('@kingstinct/react-native-healthkit');
 
+    const prefs = customPrefs || (await getAppleHealthPreferences());
     const biometricsMap = new Map<string, AppleHealthDailyBiometrics>();
 
     const now = new Date();
@@ -605,147 +668,161 @@ export async function fetchHealthKitBiometrics(daysBack = 7): Promise<AppleHealt
       });
 
       // 1. Resting Heart Rate
-      try {
-        const restingSamples = await HealthKit.queryQuantitySamples(
-          HKQuantityTypeIdentifier.restingHeartRate,
-          { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 10 }
-        );
-        if (restingSamples && restingSamples.length > 0) {
-          const latest = restingSamples[restingSamples.length - 1];
-          const entry = biometricsMap.get(dateStr)!;
-          entry.resting_hr = Math.round(latest.quantity);
-        }
-      } catch {}
+      if (prefs.syncHeartRate) {
+        try {
+          const restingSamples = await HealthKit.queryQuantitySamples(
+            HKQuantityTypeIdentifier.restingHeartRate,
+            { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 10 }
+          );
+          if (restingSamples && restingSamples.length > 0) {
+            const latest = restingSamples[restingSamples.length - 1];
+            const entry = biometricsMap.get(dateStr)!;
+            entry.resting_hr = Math.round(latest.quantity);
+          }
+        } catch {}
+      }
 
       // 2. Heart Rate Variability (SDNN in ms)
-      try {
-        const hrvSamples = await HealthKit.queryQuantitySamples(
-          HKQuantityTypeIdentifier.heartRateVariabilitySDNN,
-          { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 20 }
-        );
-        if (hrvSamples && hrvSamples.length > 0) {
-          const sum = hrvSamples.reduce((acc: number, s: any) => acc + s.quantity, 0);
-          const entry = biometricsMap.get(dateStr)!;
-          entry.hrv_sdnn = Math.round((sum / hrvSamples.length) * 10) / 10;
-        }
-      } catch {}
+      if (prefs.syncHrv) {
+        try {
+          const hrvSamples = await HealthKit.queryQuantitySamples(
+            HKQuantityTypeIdentifier.heartRateVariabilitySDNN,
+            { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 20 }
+          );
+          if (hrvSamples && hrvSamples.length > 0) {
+            const sum = hrvSamples.reduce((acc: number, s: any) => acc + s.quantity, 0);
+            const entry = biometricsMap.get(dateStr)!;
+            entry.hrv_sdnn = Math.round((sum / hrvSamples.length) * 10) / 10;
+          }
+        } catch {}
+      }
 
       // 3. Heart Rate (Min, Max, Avg)
-      try {
-        const hrSamples = await HealthKit.queryQuantitySamples(
-          HKQuantityTypeIdentifier.heartRate,
-          { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 200 }
-        );
-        if (hrSamples && hrSamples.length > 0) {
-          const quantities = hrSamples.map((s: any) => s.quantity);
-          const entry = biometricsMap.get(dateStr)!;
-          entry.min_hr = Math.round(Math.min(...quantities));
-          entry.max_hr = Math.round(Math.max(...quantities));
-          const sum = quantities.reduce((a: number, b: number) => a + b, 0);
-          entry.avg_hr = Math.round(sum / quantities.length);
-        }
-      } catch {}
+      if (prefs.syncHeartRate) {
+        try {
+          const hrSamples = await HealthKit.queryQuantitySamples(
+            HKQuantityTypeIdentifier.heartRate,
+            { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 200 }
+          );
+          if (hrSamples && hrSamples.length > 0) {
+            const quantities = hrSamples.map((s: any) => s.quantity);
+            const entry = biometricsMap.get(dateStr)!;
+            entry.min_hr = Math.round(Math.min(...quantities));
+            entry.max_hr = Math.round(Math.max(...quantities));
+            const sum = quantities.reduce((a: number, b: number) => a + b, 0);
+            entry.avg_hr = Math.round(sum / quantities.length);
+          }
+        } catch {}
+      }
 
       // 4. Step Count
-      try {
-        const stepSamples = await HealthKit.queryQuantitySamples(
-          HKQuantityTypeIdentifier.stepCount,
-          { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 200 }
-        );
-        if (stepSamples && stepSamples.length > 0) {
-          const totalSteps = stepSamples.reduce((acc: number, s: any) => acc + s.quantity, 0);
-          const entry = biometricsMap.get(dateStr)!;
-          entry.steps = Math.round(totalSteps);
-        }
-      } catch {}
+      if (prefs.syncStepsCalories) {
+        try {
+          const stepSamples = await HealthKit.queryQuantitySamples(
+            HKQuantityTypeIdentifier.stepCount,
+            { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 200 }
+          );
+          if (stepSamples && stepSamples.length > 0) {
+            const totalSteps = stepSamples.reduce((acc: number, s: any) => acc + s.quantity, 0);
+            const entry = biometricsMap.get(dateStr)!;
+            entry.steps = Math.round(totalSteps);
+          }
+        } catch {}
 
-      // 5. Active Energy Burned (Calories)
-      try {
-        const energySamples = await HealthKit.queryQuantitySamples(
-          HKQuantityTypeIdentifier.activeEnergyBurned,
-          { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 200 }
-        );
-        if (energySamples && energySamples.length > 0) {
-          const totalCalories = energySamples.reduce((acc: number, s: any) => acc + s.quantity, 0);
-          const entry = biometricsMap.get(dateStr)!;
-          entry.active_calories = Math.round(totalCalories);
-        }
-      } catch {}
+        // 5. Active Energy Burned (Calories)
+        try {
+          const energySamples = await HealthKit.queryQuantitySamples(
+            HKQuantityTypeIdentifier.activeEnergyBurned,
+            { filter: { startDate: startOfDay, endDate: endOfDay }, limit: 200 }
+          );
+          if (energySamples && energySamples.length > 0) {
+            const totalCalories = energySamples.reduce((acc: number, s: any) => acc + s.quantity, 0);
+            const entry = biometricsMap.get(dateStr)!;
+            entry.active_calories = Math.round(totalCalories);
+          }
+        } catch {}
+      }
 
       // 6. Sleep Analysis (Evening before to afternoon of that day)
-      try {
-        const sleepWindowStart = new Date(startOfDay);
-        sleepWindowStart.setHours(sleepWindowStart.getHours() - 8); // 16:00 previous day
+      if (prefs.syncSleep) {
+        try {
+          const sleepWindowStart = new Date(startOfDay);
+          sleepWindowStart.setHours(sleepWindowStart.getHours() - 8); // 16:00 previous day
 
-        const sleepSamples = await HealthKit.queryCategorySamples(
-          HKCategoryTypeIdentifier.sleepAnalysis,
-          { filter: { startDate: sleepWindowStart, endDate: endOfDay }, limit: 100 }
-        );
+          const sleepSamples = await HealthKit.queryCategorySamples(
+            HKCategoryTypeIdentifier.sleepAnalysis,
+            { filter: { startDate: sleepWindowStart, endDate: endOfDay }, limit: 100 }
+          );
 
-        if (sleepSamples && sleepSamples.length > 0) {
-          let deepMins = 0;
-          let remMins = 0;
-          let coreMins = 0;
-          let awakeMins = 0;
-          let totalAsleepMins = 0;
+          if (sleepSamples && sleepSamples.length > 0) {
+            let deepMins = 0;
+            let remMins = 0;
+            let coreMins = 0;
+            let awakeMins = 0;
+            let totalAsleepMins = 0;
 
-          for (const s of sleepSamples) {
-            const durationMins = (new Date(s.endDate).getTime() - new Date(s.startDate).getTime()) / 60000;
-            if (durationMins <= 0) continue;
+            for (const s of sleepSamples) {
+              const durationMins = (new Date(s.endDate).getTime() - new Date(s.startDate).getTime()) / 60000;
+              if (durationMins <= 0) continue;
 
-            const val = s.value;
-            // HKCategoryValueSleepAnalysis: 4 = Deep, 5 = REM, 3 = Core, 2 = Awake, 1 = Asleep (generic)
-            if (val === 4 || val === 'asleepDeep') {
-              deepMins += durationMins;
-              totalAsleepMins += durationMins;
-            } else if (val === 5 || val === 'asleepREM') {
-              remMins += durationMins;
-              totalAsleepMins += durationMins;
-            } else if (val === 3 || val === 'asleepCore') {
-              coreMins += durationMins;
-              totalAsleepMins += durationMins;
-            } else if (val === 2 || val === 'awake') {
-              awakeMins += durationMins;
-            } else if (val === 1 || val === 'asleepUnspecified' || val === 'asleep') {
-              totalAsleepMins += durationMins;
+              const val = s.value;
+              // HKCategoryValueSleepAnalysis: 4 = Deep, 5 = REM, 3 = Core, 2 = Awake, 1 = Asleep (generic)
+              if (val === 4 || val === 'asleepDeep') {
+                deepMins += durationMins;
+                totalAsleepMins += durationMins;
+              } else if (val === 5 || val === 'asleepREM') {
+                remMins += durationMins;
+                totalAsleepMins += durationMins;
+              } else if (val === 3 || val === 'asleepCore') {
+                coreMins += durationMins;
+                totalAsleepMins += durationMins;
+              } else if (val === 2 || val === 'awake') {
+                awakeMins += durationMins;
+              } else if (val === 1 || val === 'asleepUnspecified' || val === 'asleep') {
+                totalAsleepMins += durationMins;
+              }
             }
-          }
 
-          const entry = biometricsMap.get(dateStr)!;
-          entry.sleep_minutes = Math.round(totalAsleepMins);
-          entry.sleep_deep_minutes = Math.round(deepMins);
-          entry.sleep_rem_minutes = Math.round(remMins);
-          entry.sleep_core_minutes = Math.round(coreMins);
-          entry.sleep_awake_minutes = Math.round(awakeMins);
-        }
-      } catch {}
+            const entry = biometricsMap.get(dateStr)!;
+            entry.sleep_minutes = Math.round(totalAsleepMins);
+            entry.sleep_deep_minutes = Math.round(deepMins);
+            entry.sleep_rem_minutes = Math.round(remMins);
+            entry.sleep_core_minutes = Math.round(coreMins);
+            entry.sleep_awake_minutes = Math.round(awakeMins);
+          }
+        } catch {}
+      }
 
       // 7. Body Mass / Weight
-      try {
-        const weightSample = await HealthKit.getMostRecentQuantitySample(HKQuantityTypeIdentifier.bodyMass);
-        if (weightSample) {
-          const entry = biometricsMap.get(dateStr)!;
-          entry.weight_kg = Math.round(weightSample.quantity * 10) / 10;
-        }
-      } catch {}
+      if (prefs.syncBodyMass) {
+        try {
+          const weightSample = await HealthKit.getMostRecentQuantitySample(HKQuantityTypeIdentifier.bodyMass);
+          if (weightSample) {
+            const entry = biometricsMap.get(dateStr)!;
+            entry.weight_kg = Math.round(weightSample.quantity * 10) / 10;
+          }
+        } catch {}
 
-      // 8. Body Fat Percentage
-      try {
-        const fatSample = await HealthKit.getMostRecentQuantitySample(HKQuantityTypeIdentifier.bodyFatPercentage);
-        if (fatSample) {
-          const entry = biometricsMap.get(dateStr)!;
-          entry.body_fat_percent = Math.round(fatSample.quantity * 1000) / 10;
-        }
-      } catch {}
+        // 8. Body Fat Percentage
+        try {
+          const fatSample = await HealthKit.getMostRecentQuantitySample(HKQuantityTypeIdentifier.bodyFatPercentage);
+          if (fatSample) {
+            const entry = biometricsMap.get(dateStr)!;
+            entry.body_fat_percent = Math.round(fatSample.quantity * 1000) / 10;
+          }
+        } catch {}
+      }
 
       // 9. VO2 Max
-      try {
-        const vo2Sample = await HealthKit.getMostRecentQuantitySample(HKQuantityTypeIdentifier.vo2Max);
-        if (vo2Sample) {
-          const entry = biometricsMap.get(dateStr)!;
-          entry.vo2_max = Math.round(vo2Sample.quantity * 10) / 10;
-        }
-      } catch {}
+      if (prefs.syncVo2Max) {
+        try {
+          const vo2Sample = await HealthKit.getMostRecentQuantitySample(HKQuantityTypeIdentifier.vo2Max);
+          if (vo2Sample) {
+            const entry = biometricsMap.get(dateStr)!;
+            entry.vo2_max = Math.round(vo2Sample.quantity * 10) / 10;
+          }
+        } catch {}
+      }
     }
 
     return Array.from(biometricsMap.values());
@@ -836,10 +913,18 @@ export async function syncAppleHealthData(daysBack = 7): Promise<HealthKitSyncSu
   }
 
   try {
-    const [biometrics, workouts] = await Promise.all([
-      fetchHealthKitBiometrics(daysBack),
-      fetchHealthKitWorkouts(Math.max(daysBack, 14)),
-    ]);
+    const prefs = await getAppleHealthPreferences();
+    const biometricsPromise = fetchHealthKitBiometrics(daysBack, prefs);
+    const workoutsPromise = prefs.syncWorkouts ? fetchHealthKitWorkouts(Math.max(daysBack, 14)) : Promise.resolve([]);
+
+    const [biometrics, workouts] = await Promise.all([biometricsPromise, workoutsPromise]);
+
+    // Cache today's biometrics locally for instant UI access
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayItem = biometrics.find((b) => b.date === todayStr);
+    if (todayItem) {
+      await AsyncStorage.setItem(TODAY_BIOMETRICS_KEY, JSON.stringify(todayItem));
+    }
 
     const res = await apiClient<{
       success: boolean;
@@ -875,5 +960,52 @@ export async function getLastAppleHealthSyncTime(): Promise<string | null> {
     return await AsyncStorage.getItem(LAST_SYNC_KEY);
   } catch {
     return null;
+  }
+}
+
+export async function getCachedTodayBiometrics(): Promise<AppleHealthDailyBiometrics | null> {
+  try {
+    const raw = await AsyncStorage.getItem(TODAY_BIOMETRICS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (parsed.date === todayStr) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+export async function fetchTodayBiometricsFromServer(): Promise<AppleHealthDailyBiometrics | null> {
+  try {
+    const res = await apiClient<{ success: boolean; biometrics?: AppleHealthDailyBiometrics | null }>(
+      '/api/healthkit/today'
+    );
+    if (res.success && res.biometrics) {
+      await AsyncStorage.setItem(TODAY_BIOMETRICS_KEY, JSON.stringify(res.biometrics));
+      return res.biometrics;
+    }
+  } catch (err) {
+    // Fallback to cache if server is offline
+    return getCachedTodayBiometrics();
+  }
+  return getCachedTodayBiometrics();
+}
+
+let lastForegroundSyncTimestamp = 0;
+export async function autoSyncAppleHealthOnForeground(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  const now = Date.now();
+  // 15-minute throttle (900,000 ms)
+  if (now - lastForegroundSyncTimestamp < 15 * 60 * 1000) return;
+  lastForegroundSyncTimestamp = now;
+
+  try {
+    const isAvail = isHealthKitAvailable();
+    if (!isAvail) return;
+    await syncAppleHealthData(3);
+  } catch (err) {
+    console.log('[AppleHealthService] Background auto-sync skipped/failed:', err);
   }
 }

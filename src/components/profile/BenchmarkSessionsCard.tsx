@@ -8,12 +8,16 @@ import {
   Modal,
   ScrollView,
   Alert,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
+import { SportMedallion } from '../ui/SportMedallion';
 import { useTheme } from '@/hooks/use-theme';
 import { benchmarksApi } from '../../services/apiServices';
 import { BenchmarkTest } from '../../types/user';
@@ -25,7 +29,6 @@ interface BenchmarkPreset {
   sport: string;
   title: string;
   subtitle: string;
-  icon: keyof typeof Ionicons.glyphMap;
   color: string;
   prompt: string;
 }
@@ -36,7 +39,6 @@ const PRESET_TESTS: BenchmarkPreset[] = [
     sport: 'Run',
     title: '5k Pace & HR Benchmark Run',
     subtitle: 'Calibrate threshold pace and max aerobic heart rate zones.',
-    icon: 'walk-outline',
     color: '#10B981',
     prompt: 'Please plan a new running benchmark session for me: 5k Pace & HR Baseline Test. I want to test my threshold pace and calibrate my heart rate zones.',
   },
@@ -45,7 +47,6 @@ const PRESET_TESTS: BenchmarkPreset[] = [
     sport: 'Bike',
     title: '20-Min FTP Baseline Test',
     subtitle: 'Functional Threshold Power test to establish cycling wattage zones.',
-    icon: 'bicycle-outline',
     color: '#F59E0B',
     prompt: 'Please plan a new cycling benchmark session for me: 20-Min FTP Baseline Test. I want to test my 20-minute functional threshold power and recalibrate my cycling wattage zones.',
   },
@@ -54,7 +55,6 @@ const PRESET_TESTS: BenchmarkPreset[] = [
     sport: 'Swim',
     title: '400m CSS Swim Test',
     subtitle: 'Critical Swim Speed assessment to set pace per 100m zones.',
-    icon: 'water-outline',
     color: '#06B6D4',
     prompt: 'Please plan a new swim benchmark session for me: 400m CSS (Critical Swim Speed) Test. I want to establish my swim pace per 100m zones.',
   },
@@ -63,7 +63,6 @@ const PRESET_TESTS: BenchmarkPreset[] = [
     sport: 'Strength',
     title: 'Hyrox Functional Fitness Test',
     subtitle: 'Multi-station functional test (sled, burpees, rowing, wall balls).',
-    icon: 'barbell-outline',
     color: '#EC4899',
     prompt: 'Please plan a new functional endurance benchmark session for me: Hyrox Benchmark Assessment (sled push, burpees, rowing, wall balls) to test my functional capacity.',
   },
@@ -72,7 +71,6 @@ const PRESET_TESTS: BenchmarkPreset[] = [
     sport: 'Other',
     title: 'Custom Baseline Assessment',
     subtitle: 'Ask your coach to design an assessment based on your current phase.',
-    icon: 'speedometer-outline',
     color: '#8B5CF6',
     prompt: 'Please plan a new benchmark session for me to test my current fitness levels and calibrate my training zones.',
   },
@@ -80,6 +78,7 @@ const PRESET_TESTS: BenchmarkPreset[] = [
 
 export const BenchmarkSessionsCard: React.FC = () => {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { sendMessage } = useCoachChat();
 
@@ -221,11 +220,11 @@ export const BenchmarkSessionsCard: React.FC = () => {
 
   const getSportDetails = (sport: string) => {
     const s = (sport || '').toLowerCase();
-    if (s.includes('run')) return { icon: 'walk-outline' as const, color: '#10B981', label: 'Run' };
-    if (s.includes('bike') || s.includes('cycl')) return { icon: 'bicycle-outline' as const, color: '#F59E0B', label: 'Bike' };
-    if (s.includes('swim')) return { icon: 'water-outline' as const, color: '#06B6D4', label: 'Swim' };
-    if (s.includes('strength') || s.includes('hyrox')) return { icon: 'barbell-outline' as const, color: '#EC4899', label: 'Hyrox' };
-    return { icon: 'speedometer-outline' as const, color: '#8B5CF6', label: sport || 'Assessment' };
+    if (s.includes('run')) return { color: '#10B981', label: 'Run' };
+    if (s.includes('bike') || s.includes('cycl')) return { color: '#F59E0B', label: 'Bike' };
+    if (s.includes('swim')) return { color: '#06B6D4', label: 'Swim' };
+    if (s.includes('strength') || s.includes('hyrox')) return { color: '#EC4899', label: 'Hyrox' };
+    return { color: '#8B5CF6', label: sport || 'Assessment' };
   };
 
   const parseMetrics = (metricsJson?: string | Record<string, any>): Record<string, any> => {
@@ -251,30 +250,36 @@ export const BenchmarkSessionsCard: React.FC = () => {
   return (
     <Card className="p-4 mb-6">
       {/* Header */}
-      <View className="flex-row items-center justify-between pb-2 mb-1 border-b border-theme-border/30">
-        <View className="flex-row items-center gap-x-2">
-          <Ionicons name="speedometer-outline" size={18} color={theme.tint} />
-          <Text className="text-sm font-bold text-theme-text font-rajdhani">
-            Benchmark Sessions & Assessments
+      <View className="flex-row items-center justify-between pb-2 mb-1 border-b border-theme-border/30 gap-x-2">
+        <View className="flex-row items-center gap-x-1.5 flex-1 min-w-0 mr-1">
+          <Ionicons name="speedometer-outline" size={17} color={theme.tint} />
+          <Text
+            className="text-sm font-bold text-theme-text font-rajdhani flex-1"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            Benchmark Assessments
           </Text>
         </View>
-        <View className="flex-row items-center gap-x-1.5">
-          <TouchableOpacity
+        <View className="flex-row items-center gap-x-1.5 shrink-0">
+          <ScalePressable
             onPress={handleOpenLogModal}
-            activeOpacity={0.7}
+            activeScale={0.92}
+            haptic="light"
             className="px-2 py-1 bg-theme-border/40 rounded-full flex-row items-center gap-x-1"
           >
             <Ionicons name="create-outline" size={12} color={theme.textSecondary} />
             <Text className="text-[11px] font-medium text-theme-muted">Log</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </ScalePressable>
+          <ScalePressable
             onPress={handleOpenRequestModal}
-            activeOpacity={0.7}
+            activeScale={0.92}
+            haptic="light"
             className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center gap-x-1"
           >
             <Ionicons name="chatbubble-ellipses-outline" size={12} color={theme.tint} />
             <Text className="text-xs font-bold text-theme-accent">Request</Text>
-          </TouchableOpacity>
+          </ScalePressable>
         </View>
       </View>
 
@@ -291,13 +296,17 @@ export const BenchmarkSessionsCard: React.FC = () => {
           <Text className="text-[11px] text-theme-muted text-center px-3 mb-3">
             Benchmark tests calibrate your FTP, CSS, threshold heart rate, and training zones. Request a test from your coach to schedule one.
           </Text>
-          <TouchableOpacity
+          <ScalePressable
             onPress={handleOpenRequestModal}
-            className="px-3.5 py-2 bg-theme-accent rounded-lg flex-row items-center gap-x-1.5 shadow-sm"
+            activeScale={0.96}
+            haptic="light"
+            className="px-3.5 py-2 bg-theme-accent rounded-lg flex-row items-center justify-center gap-x-1.5 shadow-sm max-w-full"
           >
             <Ionicons name="chatbubble-ellipses" size={14} color="#FFFFFF" />
-            <Text className="text-white text-xs font-bold font-rajdhani">Request Benchmark Session</Text>
-          </TouchableOpacity>
+            <Text className="text-white text-xs font-bold font-rajdhani text-center" numberOfLines={1}>
+              Request Benchmark Session
+            </Text>
+          </ScalePressable>
         </View>
       ) : (
         <View className="gap-y-2.5">
@@ -313,12 +322,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
               >
                 <View className="flex-row items-center justify-between mb-1.5">
                   <View className="flex-row items-center gap-x-2.5 flex-1 mr-2">
-                    <View
-                      style={{ backgroundColor: `${sportInfo.color}20` }}
-                      className="w-8 h-8 rounded-lg items-center justify-center"
-                    >
-                      <Ionicons name={sportInfo.icon} size={16} color={sportInfo.color} />
-                    </View>
+                    <SportMedallion sport={item.sport_type} size={32} />
                     <View className="flex-1">
                       <Text className="text-xs font-bold text-theme-text font-rajdhani" numberOfLines={1}>
                         {item.test_name}
@@ -383,113 +387,125 @@ export const BenchmarkSessionsCard: React.FC = () => {
         animationType="slide"
         onRequestClose={() => setRequestModalVisible(false)}
       >
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-theme-card rounded-t-3xl p-5 max-h-[85%] border-t border-theme-border">
-            <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
-              <View className="flex-row items-center gap-x-2">
-                <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.tint} />
-                <Text className="text-base font-bold text-theme-text font-rajdhani">
-                  Request Benchmark Session
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          className="flex-1"
+        >
+          <View className="flex-1 bg-black/60 justify-end">
+            <View
+              style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+              className="bg-theme-card rounded-t-3xl p-5 max-h-[85%] border-t border-theme-border"
+            >
+              <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
+                <View className="flex-row items-center gap-x-2 flex-1 min-w-0 mr-2">
+                  <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.tint} />
+                  <Text className="text-base font-bold text-theme-text font-rajdhani flex-1" numberOfLines={1}>
+                    Request Benchmark Session
+                  </Text>
+                </View>
+                <ScalePressable
+                  onPress={() => setRequestModalVisible(false)}
+                  activeScale={0.9}
+                  haptic="light"
+                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center shrink-0"
+                >
+                  <Ionicons name="close" size={18} color={theme.text} />
+                </ScalePressable>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 16 }}
+              >
+                <Text className="text-xs text-theme-muted mb-3">
+                  Choose an assessment to request. Your AI Coach will prepare the protocol, adjust your week's training volume, and schedule it in your calendar.
                 </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setRequestModalVisible(false)}
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color={theme.text} />
-              </TouchableOpacity>
+
+                {/* Presets List */}
+                <View className="gap-y-2 mb-4">
+                  {PRESET_TESTS.map((preset) => {
+                    const isSelected = selectedPreset.id === preset.id;
+                    return (
+                      <ScalePressable
+                        key={preset.id}
+                        onPress={() => {
+                          setSelectedPreset(preset);
+                        }}
+                        activeScale={0.98}
+                        haptic="selection"
+                        className={`p-3 rounded-xl border flex-row items-center justify-between ${
+                          isSelected
+                            ? 'bg-theme-accent/15 border-theme-accent'
+                            : 'bg-theme-bg border-theme-border/50'
+                        }`}
+                      >
+                        <View className="flex-row items-center gap-x-3 flex-1 mr-2">
+                          <SportMedallion sport={preset.sport} size={36} />
+                          <View className="flex-1">
+                            <Text
+                              className={`text-xs font-bold font-rajdhani ${
+                                isSelected ? 'text-theme-accent' : 'text-theme-text'
+                              }`}
+                            >
+                              {preset.title}
+                            </Text>
+                            <Text className="text-[10px] text-theme-muted mt-0.5">
+                              {preset.subtitle}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <Ionicons
+                          name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                          size={18}
+                          color={isSelected ? theme.tint : theme.textSecondary}
+                        />
+                      </ScalePressable>
+                    );
+                  })}
+                </View>
+
+                {/* Optional Athlete Note */}
+                <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                  Timing Preference or Note (Optional)
+                </Text>
+                <TextInput
+                  value={customAthleteNote}
+                  onChangeText={setCustomAthleteNote}
+                  placeholder="e.g., Prefer doing this on Saturday morning on a running track..."
+                  placeholderTextColor={theme.textSecondary}
+                  multiline
+                  numberOfLines={2}
+                  className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text mb-5 min-h-[60px]"
+                  textAlignVertical="top"
+                />
+
+                {/* Send Button */}
+                <ScalePressable
+                  onPress={handleSendRequestToCoach}
+                  disabled={sendingRequest}
+                  activeScale={0.96}
+                  haptic="selection"
+                  className={`bg-theme-accent py-3.5 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-2 ${
+                    sendingRequest ? 'opacity-60' : ''
+                  }`}
+                >
+                  {sendingRequest ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="paper-plane" size={16} color="#FFFFFF" />
+                      <Text className="text-white font-bold text-sm font-rajdhani uppercase tracking-wider">
+                        Send to AI Coach
+                      </Text>
+                    </>
+                  )}
+                </ScalePressable>
+              </ScrollView>
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text className="text-xs text-theme-muted mb-3">
-                Choose an assessment to request. Your AI Coach will prepare the protocol, adjust your week's training volume, and schedule it in your calendar.
-              </Text>
-
-              {/* Presets List */}
-              <View className="gap-y-2 mb-4">
-                {PRESET_TESTS.map((preset) => {
-                  const isSelected = selectedPreset.id === preset.id;
-                  return (
-                    <TouchableOpacity
-                      key={preset.id}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setSelectedPreset(preset);
-                      }}
-                      activeOpacity={0.7}
-                      className={`p-3 rounded-xl border flex-row items-center justify-between ${
-                        isSelected
-                          ? 'bg-theme-accent/15 border-theme-accent'
-                          : 'bg-theme-bg border-theme-border/50'
-                      }`}
-                    >
-                      <View className="flex-row items-center gap-x-3 flex-1 mr-2">
-                        <View
-                          style={{ backgroundColor: `${preset.color}25` }}
-                          className="w-9 h-9 rounded-lg items-center justify-center"
-                        >
-                          <Ionicons name={preset.icon} size={18} color={preset.color} />
-                        </View>
-                        <View className="flex-1">
-                          <Text
-                            className={`text-xs font-bold font-rajdhani ${
-                              isSelected ? 'text-theme-accent' : 'text-theme-text'
-                            }`}
-                          >
-                            {preset.title}
-                          </Text>
-                          <Text className="text-[10px] text-theme-muted mt-0.5">
-                            {preset.subtitle}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Ionicons
-                        name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-                        size={18}
-                        color={isSelected ? theme.tint : theme.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Optional Athlete Note */}
-              <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                Timing Preference or Note (Optional)
-              </Text>
-              <TextInput
-                value={customAthleteNote}
-                onChangeText={setCustomAthleteNote}
-                placeholder="e.g., Prefer doing this on Saturday morning on a running track..."
-                placeholderTextColor={theme.textSecondary}
-                multiline
-                numberOfLines={2}
-                className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text mb-5 min-h-[60px]"
-                textAlignVertical="top"
-              />
-
-              {/* Send Button */}
-              <TouchableOpacity
-                onPress={handleSendRequestToCoach}
-                disabled={sendingRequest}
-                activeOpacity={0.8}
-                className="bg-theme-accent py-3.5 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-4"
-              >
-                {sendingRequest ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Ionicons name="paper-plane" size={16} color="#FFFFFF" />
-                    <Text className="text-white font-bold text-sm font-rajdhani uppercase tracking-wider">
-                      Send to AI Coach
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* LOG BENCHMARK RESULT MODAL */}
@@ -499,165 +515,177 @@ export const BenchmarkSessionsCard: React.FC = () => {
         animationType="slide"
         onRequestClose={() => setLogModalVisible(false)}
       >
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-theme-card rounded-t-3xl p-5 max-h-[85%] border-t border-theme-border">
-            <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
-              <View className="flex-row items-center gap-x-2">
-                <Ionicons name="create-outline" size={20} color={theme.tint} />
-                <Text className="text-base font-bold text-theme-text font-rajdhani">
-                  Log Benchmark Baseline
-                </Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          className="flex-1"
+        >
+          <View className="flex-1 bg-black/60 justify-end">
+            <View
+              style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+              className="bg-theme-card rounded-t-3xl p-5 max-h-[85%] border-t border-theme-border"
+            >
+              <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
+                <View className="flex-row items-center gap-x-2 flex-1 min-w-0 mr-2">
+                  <Ionicons name="create-outline" size={20} color={theme.tint} />
+                  <Text className="text-base font-bold text-theme-text font-rajdhani flex-1" numberOfLines={1}>
+                    Log Benchmark Baseline
+                  </Text>
+                </View>
+                <ScalePressable
+                  onPress={() => setLogModalVisible(false)}
+                  activeScale={0.9}
+                  haptic="light"
+                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center shrink-0"
+                >
+                  <Ionicons name="close" size={18} color={theme.text} />
+                </ScalePressable>
               </View>
-              <ScalePressable
-                onPress={() => setLogModalVisible(false)}
-                activeScale={0.9}
-                haptic="light"
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color={theme.text} />
-              </ScalePressable>
-            </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Sport Selector */}
-              <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                Sport
-              </Text>
-              <View className="flex-row gap-x-2 mb-3">
-                {['Run', 'Bike', 'Swim', 'Strength', 'Other'].map((s) => {
-                  const isSel = logSport === s;
-                  return (
-                    <ScalePressable
-                      key={s}
-                      onPress={() => setLogSport(s)}
-                      activeScale={0.94}
-                      haptic="selection"
-                      className={`px-3 py-1.5 rounded-lg border flex-1 items-center ${
-                        isSel ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs font-bold font-rajdhani ${
-                          isSel ? 'text-white' : 'text-theme-muted'
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 16 }}
+              >
+                {/* Sport Selector */}
+                <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                  Sport
+                </Text>
+                <View className="flex-row gap-x-2 mb-3">
+                  {['Run', 'Bike', 'Swim', 'Strength', 'Other'].map((s) => {
+                    const isSel = logSport === s;
+                    return (
+                      <ScalePressable
+                        key={s}
+                        onPress={() => setLogSport(s)}
+                        activeScale={0.94}
+                        haptic="selection"
+                        className={`px-3 py-1.5 rounded-lg border flex-1 items-center ${
+                          isSel ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'
                         }`}
                       >
-                        {s}
-                      </Text>
-                    </ScalePressable>
-                  );
-                })}
-              </View>
-
-              {/* Test Name */}
-              <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                Assessment Name
-              </Text>
-              <TextInput
-                value={logTestName}
-                onChangeText={setLogTestName}
-                placeholder="e.g., 5k Time Trial, 20-Min FTP Test"
-                placeholderTextColor={theme.textSecondary}
-                className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text mb-3"
-              />
-
-              {/* Metrics Row 1: Pace & Power */}
-              <View className="flex-row gap-x-2 mb-3">
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                    Pace / CSS (e.g. 4:15/km)
-                  </Text>
-                  <TextInput
-                    value={logPace}
-                    onChangeText={setLogPace}
-                    placeholder="4:15 /km"
-                    placeholderTextColor={theme.textSecondary}
-                    className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
-                  />
+                        <Text
+                          className={`text-xs font-bold font-rajdhani ${
+                            isSel ? 'text-white' : 'text-theme-muted'
+                          }`}
+                        >
+                          {s}
+                        </Text>
+                      </ScalePressable>
+                    );
+                  })}
                 </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                    FTP / Power (Watts)
-                  </Text>
-                  <TextInput
-                    value={logPower}
-                    onChangeText={setLogPower}
-                    placeholder="265 W"
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="numeric"
-                    className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
-                  />
-                </View>
-              </View>
 
-              {/* Metrics Row 2: Heart Rate */}
-              <View className="flex-row gap-x-2 mb-3">
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                    Avg HR (bpm)
-                  </Text>
-                  <TextInput
-                    value={logAvgHr}
-                    onChangeText={setLogAvgHr}
-                    placeholder="168"
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="numeric"
-                    className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                    Max HR (bpm)
-                  </Text>
-                  <TextInput
-                    value={logMaxHr}
-                    onChangeText={setLogMaxHr}
-                    placeholder="184"
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="numeric"
-                    className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
-                  />
-                </View>
-              </View>
+                {/* Test Name */}
+                <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                  Assessment Name
+                </Text>
+                <TextInput
+                  value={logTestName}
+                  onChangeText={setLogTestName}
+                  placeholder="e.g., 5k Time Trial, 20-Min FTP Test"
+                  placeholderTextColor={theme.textSecondary}
+                  className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text mb-3"
+                />
 
-              {/* Notes */}
-              <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                Notes & Conditions
-              </Text>
-              <TextInput
-                value={logNotes}
-                onChangeText={setLogNotes}
-                placeholder="e.g., Felt strong, steady pacing on flat course"
-                placeholderTextColor={theme.textSecondary}
-                multiline
-                numberOfLines={2}
-                className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text mb-5 min-h-[50px]"
-                textAlignVertical="top"
-              />
-
-              {/* Save Log Button */}
-              <ScalePressable
-                onPress={handleSaveManualLog}
-                disabled={savingLog}
-                activeScale={0.96}
-                haptic="selection"
-                className={`bg-theme-accent py-3 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-4 ${
-                  savingLog ? 'opacity-50' : ''
-                }`}
-              >
-                {savingLog ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                    <Text className="text-white font-bold text-sm font-rajdhani uppercase tracking-wider">
-                      Save Benchmark Result
+                {/* Metrics Row 1: Pace & Power */}
+                <View className="flex-row gap-x-2 mb-3">
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                      Pace / CSS (e.g. 4:15/km)
                     </Text>
-                  </>
-                )}
-              </ScalePressable>
-            </ScrollView>
+                    <TextInput
+                      value={logPace}
+                      onChangeText={setLogPace}
+                      placeholder="4:15 /km"
+                      placeholderTextColor={theme.textSecondary}
+                      className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                      FTP / Power (Watts)
+                    </Text>
+                    <TextInput
+                      value={logPower}
+                      onChangeText={setLogPower}
+                      placeholder="265 W"
+                      placeholderTextColor={theme.textSecondary}
+                      keyboardType="numeric"
+                      className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
+                    />
+                  </View>
+                </View>
+
+                {/* Metrics Row 2: Heart Rate */}
+                <View className="flex-row gap-x-2 mb-3">
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                      Avg HR (bpm)
+                    </Text>
+                    <TextInput
+                      value={logAvgHr}
+                      onChangeText={setLogAvgHr}
+                      placeholder="168"
+                      placeholderTextColor={theme.textSecondary}
+                      keyboardType="numeric"
+                      className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                      Max HR (bpm)
+                    </Text>
+                    <TextInput
+                      value={logMaxHr}
+                      onChangeText={setLogMaxHr}
+                      placeholder="184"
+                      placeholderTextColor={theme.textSecondary}
+                      keyboardType="numeric"
+                      className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text"
+                    />
+                  </View>
+                </View>
+
+                {/* Notes */}
+                <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
+                  Notes & Conditions
+                </Text>
+                <TextInput
+                  value={logNotes}
+                  onChangeText={setLogNotes}
+                  placeholder="e.g., Felt strong, steady pacing on flat course"
+                  placeholderTextColor={theme.textSecondary}
+                  multiline
+                  numberOfLines={2}
+                  className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text mb-5 min-h-[50px]"
+                  textAlignVertical="top"
+                />
+
+                {/* Save Log Button */}
+                <ScalePressable
+                  onPress={handleSaveManualLog}
+                  disabled={savingLog}
+                  activeScale={0.96}
+                  haptic="selection"
+                  className={`bg-theme-accent py-3 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-2 ${
+                    savingLog ? 'opacity-50' : ''
+                  }`}
+                >
+                  {savingLog ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                      <Text className="text-white font-bold text-sm font-rajdhani uppercase tracking-wider">
+                        Save Benchmark Result
+                      </Text>
+                    </>
+                  )}
+                </ScalePressable>
+              </ScrollView>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </Card>
   );

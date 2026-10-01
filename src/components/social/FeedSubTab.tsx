@@ -14,15 +14,17 @@ import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserStore';
 import { socialApi } from '../../services/apiServices';
 import { wsService } from '../../services/websocket';
 import { SocialFeedActivity } from '../../types/social';
-import { formatPaceOrSpeed } from '../../utils/paceFormat';
+import { formatPaceOrSpeed, getPaceParts } from '../../utils/paceFormat';
 import { formatClock, formatDuration, formatRelativeDayAndTime, pluralize } from '../../utils/format';
 
 import { Card } from '../ui/Card';
 import { Chip } from '../ui/Chip';
 import { SportMedallion } from '../ui/SportMedallion';
+import { StatValue } from '../ui/StatValue';
 import { UserAvatar } from '../ui/UserAvatar';
 import { RoutePreview } from '../ui/RoutePreview';
 import { EmptyState } from '../ui/EmptyState';
@@ -108,6 +110,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
 }) => {
   const theme = useTheme();
   const { language } = useLanguage();
+  const { user } = useUser();
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [feedItems, setFeedItems] = useState<SocialFeedActivity[]>([]);
@@ -175,6 +178,9 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
     const unsubs = [
       wsService.subscribeToEvent('kudos_received', () => loadFeed(false)),
       wsService.subscribeToEvent('comment_received', () => loadFeed(false)),
+      wsService.subscribeToEvent('feed_updated', () => loadFeed(false)),
+      wsService.subscribeToEvent('activity_updated', () => loadFeed(false)),
+      wsService.subscribeToEvent('activity_deleted', () => loadFeed(false)),
       wsService.subscribeToEvent('connection_request', () => {
         fetchPending();
         loadFeed(false);
@@ -261,6 +267,15 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
     const groupMap = new Map<string, FeedDayGroup>();
 
     feedItems.forEach((act) => {
+      // Filter out hidden activities or 0-point linked duplicate activities
+      if (
+        (act as any).is_hidden === 1 ||
+        (act as any).is_hidden === true ||
+        ((act as any).linked_activity_id && (act as any).rooka_score === 0)
+      ) {
+        return;
+      }
+
       const uId = act.user_id || 'unknown';
       const dateKey = act.start_date ? act.start_date.substring(0, 10) : 'recent';
       const key = `${uId}_${dateKey}`;
@@ -370,6 +385,14 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
             true
           );
 
+          const primaryPaceParts = getPaceParts(
+            primaryActivity.distance_km,
+            primaryMovingSec,
+            primaryActivity.sport_type,
+            primaryActivity.name || (primaryActivity as any).title,
+            true
+          );
+
           const hasDistance = typeof primaryActivity.distance_km === 'number' && primaryActivity.distance_km > 0;
 
           return (
@@ -404,9 +427,13 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                       <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                         {group.username}
                       </Text>
-                      {group.rooka_level ? (
-                        <Chip variant="neutral" size="sm" label={`Lvl ${group.rooka_level}`} />
-                      ) : null}
+                      {(() => {
+                        const isCurrentUser = Boolean(user?.id && String(group.user_id) === String(user.id));
+                        const displayLvl = isCurrentUser ? (user?.level || group.rooka_level || 1) : (group.rooka_level || 1);
+                        return displayLvl ? (
+                          <Chip variant="neutral" size="sm" label={`Lvl ${displayLvl}`} />
+                        ) : null;
+                      })()}
                       {group.isMultiSport && (
                         <Chip
                           variant="sport"
@@ -459,31 +486,29 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                     // Split view: Metrics left, Map right
                     <View className="flex-row mt-3 mb-1">
                       <View className="flex-col w-[35%] justify-between space-y-3">
-                        <View>
-                          <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                            {primaryActivity.distance_km?.toFixed(1) || '0.0'}
-                            <Text className="text-xs font-medium text-theme-muted"> km</Text>
-                          </Text>
-                          <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                            DISTANCE
-                          </Text>
-                        </View>
-                        <View>
-                          <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                            {formatClock(primaryMovingSec)}
-                          </Text>
-                          <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                            TIME
-                          </Text>
-                        </View>
-                        <View>
-                          <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                            {primaryPace || '--'}
-                          </Text>
-                          <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                            {primaryPace?.endsWith('km/h') ? 'SPEED' : 'PACE'}
-                          </Text>
-                        </View>
+                        <StatValue
+                          label="DISTANCE"
+                          labelPosition="bottom"
+                          value={primaryActivity.distance_km?.toFixed(1) || '0.0'}
+                          unit="km"
+                          size="md"
+                          align="left"
+                        />
+                        <StatValue
+                          label="TIME"
+                          labelPosition="bottom"
+                          value={formatClock(primaryMovingSec)}
+                          size="md"
+                          align="left"
+                        />
+                        <StatValue
+                          label={primaryPaceParts?.label || 'PACE'}
+                          labelPosition="bottom"
+                          value={primaryPaceParts?.value || '--'}
+                          unit={primaryPaceParts?.unit}
+                          size="md"
+                          align="left"
+                        />
                       </View>
                       <View className="flex-1 pl-2 justify-center items-center">
                         <RoutePreview
@@ -498,54 +523,60 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                     <View className="flex-row justify-between items-start pt-3 pb-1">
                       {/* Metric 1: Distance */}
                       <View className="flex-1">
-                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                          {primaryActivity.distance_km?.toFixed(1) || '0.0'}
-                          <Text className="text-xs font-medium text-theme-muted"> km</Text>
-                        </Text>
-                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                          DISTANCE
-                        </Text>
+                        <StatValue
+                          label="DISTANCE"
+                          labelPosition="bottom"
+                          value={primaryActivity.distance_km?.toFixed(1) || '0.0'}
+                          unit="km"
+                          size="md"
+                          align="left"
+                        />
                       </View>
 
                       {/* Metric 2: Time */}
                       <View className="flex-1 items-center">
-                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                          {formatClock(primaryMovingSec)}
-                        </Text>
-                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                          TIME
-                        </Text>
+                        <StatValue
+                          label="TIME"
+                          labelPosition="bottom"
+                          value={formatClock(primaryMovingSec)}
+                          size="md"
+                          align="center"
+                        />
                       </View>
 
                       {/* Metric 3: Pace or Speed */}
                       <View className="flex-1 items-end">
-                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                          {primaryPace || '--'}
-                        </Text>
-                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                          {primaryPace?.endsWith('km/h') ? 'SPEED' : 'PACE'}
-                        </Text>
+                        <StatValue
+                          label={primaryPaceParts?.label || 'PACE'}
+                          labelPosition="bottom"
+                          value={primaryPaceParts?.value || '--'}
+                          unit={primaryPaceParts?.unit}
+                          size="md"
+                          align="right"
+                        />
                       </View>
                     </View>
                   ) : (
                     // Activities without distance (Strength, Mobility, Yoga)
                     <View className="flex-row justify-between items-start pt-3 pb-1">
                       <View className="flex-1">
-                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                          {formatDuration(primaryActivity.moving_time_min || 0)}
-                        </Text>
-                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                          DURATION
-                        </Text>
+                        <StatValue
+                          label="DURATION"
+                          labelPosition="bottom"
+                          value={formatDuration(primaryActivity.moving_time_min || 0)}
+                          size="md"
+                          align="left"
+                        />
                       </View>
 
                       <View className="flex-1 items-end">
-                        <Text className="text-2xl font-bold font-rajdhani text-theme-text tracking-tight tabular-nums">
-                          +{Math.round(primaryActivity.rooka_score || 0)}
-                        </Text>
-                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider mt-0.5">
-                          EFFORT
-                        </Text>
+                        <StatValue
+                          label="EFFORT"
+                          labelPosition="bottom"
+                          value={`+${Math.round(primaryActivity.rooka_score || 0)}`}
+                          size="md"
+                          align="right"
+                        />
                       </View>
                     </View>
                   )}

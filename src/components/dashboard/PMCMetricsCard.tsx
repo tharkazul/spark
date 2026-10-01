@@ -62,14 +62,14 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
     ? readinessScore 
     : Math.max(0, Math.min(100, Math.round(50 + Math.max(-20, Math.min(20, tsb * 0.5)))));
 
-  let readinessBadge = { text: t('dashboard.optimalBuilding'), color: 'text-semantic-success', bg: 'bg-semantic-success/10', border: '' };
-  if (computedReadiness < 40 || tsb < -30) {
-    readinessBadge = { text: t('dashboard.highFatigueRest'), color: 'text-semantic-error', bg: 'bg-semantic-error/10', border: '' };
-  } else if (computedReadiness < 65 || tsb < -10) {
-    readinessBadge = { text: t('dashboard.productiveBuild'), color: 'text-theme-accent', bg: 'bg-theme-accent/10', border: '' };
-  } else if (tsb > 10) {
-    readinessBadge = { text: t('dashboard.raceReadyFresh'), color: 'text-semantic-success', bg: 'bg-semantic-success/10', border: '' };
-  }
+  const getTsbState = (val: number) => {
+    if (val > 25) return { label: 'Fresh / Undertrained', color: '#38BDF8', bg: 'bg-sky-500/15', text: 'text-sky-500', index: 0 };
+    if (val >= 5) return { label: 'Fresh', color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 1 };
+    if (val >= -10) return { label: 'Optimal', color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 2 };
+    if (val >= -30) return { label: 'High Fatigue', color: '#F59E0B', bg: 'bg-amber-500/15', text: 'text-amber-500', index: 3 };
+    return { label: 'Overreaching', color: '#EF4444', bg: 'bg-rose-500/15', text: 'text-rose-500', index: 4 };
+  };
+  const tsbState = getTsbState(tsb);
 
   return (
     <View className="mb-4">
@@ -77,8 +77,8 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
       <View className="flex-row items-center justify-between mb-3 px-1">
         <View className="flex-row items-center gap-x-2">
           <Ionicons name="pulse-outline" size={18} color={theme.tint} />
-          <Text className="text-xs font-bold text-theme-text">
-            {t('dashboard.performanceManagement')}
+          <Text className="text-xs font-bold text-theme-text uppercase tracking-wider">
+            {t('dashboard.fitnessAndFatigue')}
           </Text>
         </View>
         {tier === 'rooka_plus' && (
@@ -92,23 +92,21 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
       {/* 4 Grid Metric Cards with Sparklines */}
       <View className="flex-row flex-wrap gap-2.5">
         {/* CTL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted">
               {t('dashboard.fitness')}
             </Text>
-            {/* A "+0.0" under an up-arrow is decoration dressed as a
-                measurement. Show a delta only when one actually exists. */}
             {Math.abs(ctlDelta) >= 0.05 && (
-              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${ctlDelta > 0 ? 'bg-semantic-success/10' : 'bg-slate-500/10'}`}>
+              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${ctlDelta > 0 ? 'bg-emerald-500/15' : 'bg-slate-500/15'}`}>
                 <Ionicons name={ctlDelta > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={ctlDelta > 0 ? '#10b981' : '#64748b'} />
-                <Text className={`text-xs font-bold ml-0.5 ${ctlDelta > 0 ? 'text-semantic-success' : 'text-theme-muted'}`}>
+                <Text className={`text-xs font-bold ml-0.5 ${ctlDelta > 0 ? 'text-emerald-500' : 'text-theme-muted'}`}>
                   {ctlDelta > 0 ? '+' : ''}{ctlDelta.toFixed(1)}
                 </Text>
               </View>
             )}
           </View>
-          <Text className="text-2xl font-extrabold text-theme-text font-barlow tracking-tight mb-2">
+          <Text className="text-3xl font-bold text-theme-text font-rajdhani tabular-nums mb-1">
             {ctl.toFixed(1)}
           </Text>
 
@@ -121,25 +119,25 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             height={32}
             width={120}
           />
-          <Text className="text-xs text-theme-muted mt-1">{t('dashboard.chronicLoad')}</Text>
+          <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.chronicLoad')}</Text>
         </View>
 
         {/* ATL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted">
               {t('dashboard.fatigue')}
             </Text>
             {Math.abs(atlDelta) >= 0.05 && (
-              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${atlDelta > 0 ? 'bg-theme-accent/10' : 'bg-slate-500/10'}`}>
+              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${atlDelta > 0 ? 'bg-amber-500/15' : 'bg-slate-500/15'}`}>
                 <Ionicons name={atlDelta > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={atlDelta > 0 ? '#f59e0b' : '#64748b'} />
-                <Text className={`text-xs font-bold ml-0.5 ${atlDelta > 0 ? 'text-theme-accent' : 'text-theme-muted'}`}>
+                <Text className={`text-xs font-bold ml-0.5 ${atlDelta > 0 ? 'text-amber-500' : 'text-theme-muted'}`}>
                   {atlDelta > 0 ? '+' : ''}{atlDelta.toFixed(1)}
                 </Text>
               </View>
             )}
           </View>
-          <Text className="text-2xl font-extrabold text-theme-text font-barlow tracking-tight mb-2">
+          <Text className="text-3xl font-bold text-theme-text font-rajdhani tabular-nums mb-1">
             {atl.toFixed(1)}
           </Text>
 
@@ -152,55 +150,61 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             height={32}
             width={120}
           />
-          <Text className="text-xs text-theme-muted mt-1">{t('dashboard.acuteLoad')}</Text>
+          <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.acuteLoad')}</Text>
         </View>
 
-        {/* Readiness (TSB) Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        {/* Form (TSB) Card */}
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted flex-1 mr-1.5" numberOfLines={1}>
-              {t('dashboard.readiness')}
+              Form (TSB)
             </Text>
-            {/* Label and chip previously overlapped: both were unconstrained in
-                one row, and the chip repeated "TSB" already in the label. */}
             {hasTrainingData && (
-              <Text className={`text-xs font-bold shrink-0 ${tsb >= 0 ? 'text-semantic-success' : 'text-theme-accent'}`}>
-                TSB {tsb > 0 ? `+${tsb.toFixed(1)}` : tsb.toFixed(1)}
-              </Text>
+              <View className={`px-1.5 py-0.5 rounded-md ${tsbState.bg}`}>
+                <Text className={`text-[11px] font-bold ${tsbState.text}`}>
+                  {tsbState.label}
+                </Text>
+              </View>
             )}
           </View>
-          <Text className={`text-2xl font-extrabold font-barlow tracking-tight mb-2 ${hasTrainingData ? readinessBadge.color : 'text-theme-muted'}`}>
-            {hasTrainingData ? computedReadiness : '--'}
-            <Text className="text-xs text-theme-muted">/100</Text>
+          <Text className={`text-3xl font-bold font-rajdhani tabular-nums mb-1 ${hasTrainingData ? tsbState.text : 'text-theme-muted'}`}>
+            {hasTrainingData ? (tsb > 0 ? `+${tsb.toFixed(1)}` : tsb.toFixed(1)) : '--'}
           </Text>
+
+          {/* 5-State Form Scale Bar */}
+          <View className="flex-row gap-1 my-1.5 w-full">
+            {['#38BDF8', '#10B981', '#94A3B8', '#F59E0B', '#EF4444'].map((c, idx) => (
+              <View
+                key={`form-seg-${idx}`}
+                style={{ backgroundColor: hasTrainingData && tsbState.index === idx ? c : `${c}33` }}
+                className="flex-1 h-1.5 rounded-full"
+              />
+            ))}
+          </View>
 
           {/* Sparkline Graph */}
           <Sparkline
             data={tsbHistory}
-            color={tsb >= 0 ? '#10b981' : '#3b82f6'}
-            gradientFrom={tsb >= 0 ? '#10b98144' : '#3b82f644'}
-            gradientTo="#3b82f600"
-            height={32}
+            color={tsbState.color}
+            gradientFrom={`${tsbState.color}44`}
+            gradientTo={`${tsbState.color}00`}
+            height={28}
             width={120}
           />
-          {/* "Productive Build" over zero activities reads as a verdict the
-              app has not earned. */}
-          <View className={`self-start mt-1.5 px-2 py-0.5 rounded-full ${hasTrainingData ? readinessBadge.bg : 'bg-slate-500/10'}`}>
-            <Text className={`text-xs font-bold ${hasTrainingData ? readinessBadge.color : 'text-theme-muted'}`}>
-              {hasTrainingData ? readinessBadge.text : t('dashboard.noDataYet')}
-            </Text>
-          </View>
+          <Text className="text-[11px] text-theme-muted mt-1">
+            {hasTrainingData ? 'Training Stress Balance' : t('dashboard.noDataYet')}
+          </Text>
         </View>
 
         {/* Body Weight Trend Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted">
               {t('physique.weightInput')}
             </Text>
-            <Ionicons name="scale-outline" size={12} color={theme.tint} />
+            <Ionicons name="scale-outline" size={14} color={theme.tint} />
           </View>
-          <Text className="text-2xl font-extrabold text-theme-text font-barlow tracking-tight mb-2">
+          <Text className="text-3xl font-bold text-theme-text font-rajdhani tabular-nums mb-1">
             {weightKg > 0 ? `${weightKg.toFixed(1)} ` : '-- '}
             <Text className="text-xs text-theme-muted font-normal">kg</Text>
           </Text>
@@ -215,8 +219,9 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
                 gradientTo={`${BrandColors.primary}00`}
                 height={32}
                 width={120}
+                minRangePadding={1}
               />
-              <Text className="text-xs text-theme-muted mt-1">{t('dashboard.emaTrendline')}</Text>
+              <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.emaTrendline')}</Text>
             </>
           ) : (
             <View style={{ height: 32 }} className="justify-center">

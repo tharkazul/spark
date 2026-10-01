@@ -1,282 +1,476 @@
+import React, { useState } from 'react';
+import {
+  Text,
+  TouchableOpacity,
+  View,
+  useColorScheme,
+  Modal,
+  Pressable,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks/use-theme';
-import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
-import { Text, TouchableOpacity, View, useColorScheme, Image } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  FadeOutUp,
-  LinearTransition,
-} from 'react-native-reanimated';
 import { SportType, WorkoutItem } from '../../types/dashboard';
 import { Card } from '../ui/Card';
-import { EmptyState } from '../ui/EmptyState';
+import { Button } from '../ui/Button';
+import { Chip } from '../ui/Chip';
+import { SportMedallion } from '../ui/SportMedallion';
 import { DayAgenda } from './MicroPlanAgendaCard';
+import { sportColor } from '../../constants/theme';
+import { calculateWorkoutDurationMinutes, formatDuration } from '../../utils/format';
+import { WorkoutStructureBar } from './WorkoutStructureBar';
 
 interface DetailedDayCardProps {
   day: DayAgenda;
   weatherTemp?: string;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
   onAdaptPress: () => void;
   onAddWorkout: (dayName: string, dateStr: string) => void;
   onSelectWorkout: (workout: WorkoutItem) => void;
   onDeleteWorkout: (workoutId: string) => void;
   onInvitePartner: (workout: WorkoutItem) => void;
+  hasGarmin?: boolean;
+  hasAppleWatch?: boolean;
+  hasAnyDevices?: boolean;
+  onSendWorkoutToDevice?: (workout: WorkoutItem) => void;
 }
+
 
 export function DetailedDayCard({
   day,
   weatherTemp = '22°C',
+  isExpanded = true,
+  onToggleExpand,
   onAdaptPress,
   onAddWorkout,
   onSelectWorkout,
   onDeleteWorkout,
   onInvitePartner,
+  hasGarmin = false,
+  hasAppleWatch = false,
+  hasAnyDevices = false,
+  onSendWorkoutToDevice,
 }: DetailedDayCardProps) {
-    const theme = useTheme();
-    // One palette for every screen; see utils/disciplineConfig.
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const [activeMenuWorkout, setActiveMenuWorkout] = useState<WorkoutItem | null>(null);
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
+  const [syncedWorkoutIds, setSyncedWorkoutIds] = useState<Record<string, boolean>>({});
 
+  const isRest = (sport?: SportType | string) => String(sport || '').toUpperCase() === 'REST';
+  const activeWorkouts = (day.workouts || []).filter((w) => !isRest(w.type));
+  const isRestDay = activeWorkouts.length === 0;
 
-  const isRest = (sport?: SportType | string) => String(sport).toUpperCase() === 'REST';
+  // Primary active workout for collapsed summary
+  const primaryWorkout = activeWorkouts[0];
 
-  /**
-   * A REST entry is a placeholder for "nothing planned", so it stops being true
-   * the moment something is planned. Adding a session to a rest day used to
-   * leave both on the card -- a workout sitting directly beneath a badge saying
-   * the day was a rest day. The placeholder now yields to real sessions.
-   */
-  const visibleWorkouts = day.workouts.some((w) => !isRest(w.type))
-    ? day.workouts.filter((w) => !isRest(w.type))
-    : day.workouts;
-
-  const hasWorkouts = visibleWorkouts.length > 0;
-  const isRestDay = !hasWorkouts || visibleWorkouts.every((w) => isRest(w.type));
-  const restPlaceholder = day.workouts.find((w) => isRest(w.type));
-  const coachNote = restPlaceholder?.coachNote;
-
-  const formatHumanDuration = (durationStr?: string, sport?: SportType | string) => {
-    if (String(sport).toUpperCase() === 'REST') return 'Rest day';
-    if (!durationStr) return `45 min ${sport ? sport.toLowerCase() : 'session'}`;
-    const cleanDur = durationStr.replace(/mins?/i, 'min').trim();
-    const sportName = sport ? sport.toLowerCase() : 'session';
-    return `${cleanDur} ${sportName}`;
-  };
-
-  // Sum across the day's workouts — this is the number the header was assumed
-  // to be showing but never was.
-  const dayTotalRooka = Math.round(
-    (day.workouts || []).reduce((sum, w) => sum + (w.rookaPoints || 0), 0)
-  );
-
-  return (
-    <Card
-      className={`p-4 md:p-5 mb-5 border ${day.isToday
-          ? 'border-theme-accent border-[1.5px] bg-theme-card'
-          : 'border-theme-border bg-theme-card'
-        }`}
-    >
-      {/* Day Header Row matching TodaysPlanCard header format */}
-      <View className="flex-row items-center justify-between pb-3 mb-3.5 border-b border-theme-border/50">
-        <View className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
-            <Ionicons name="calendar-outline" size={20} color={theme.tint} />
+  // -------------------------------------------------------------
+  // 1. COLLAPSED REST DAY ROW (96pt)
+  // -------------------------------------------------------------
+  if (!isExpanded && isRestDay) {
+    return (
+      <Card
+        variant="default"
+        activeScale={1}
+        onPress={() => {
+          onToggleExpand?.();
+        }}
+        className="mb-3 px-4 py-3 min-h-[96px] justify-center"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <View className="w-10 h-10 rounded-full bg-theme-inset items-center justify-center">
+              <Ionicons name="moon" size={18} color="#94A3B8" />
+            </View>
+            <View className="flex-1">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-base font-bold text-theme-text font-jakarta">
+                  {day.dayName} {day.dateStr}
+                </Text>
+                {day.isToday && (
+                  <Chip variant="accent" size="sm" label="Today" />
+                )}
+              </View>
+              <Text numberOfLines={1} className="text-xs text-theme-muted mt-0.5 font-jakarta">
+                Rest Day · Aim for 8 hours of sleep & gentle mobility
+              </Text>
+            </View>
           </View>
 
+          <Button
+            variant="ghost"
+            size="sm"
+            label="Add"
+            onPress={() => onAddWorkout(day.dayName, day.dateStr)}
+          />
+        </View>
+      </Card>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // 2. COLLAPSED WORKOUT ROW (72pt)
+  // -------------------------------------------------------------
+  if (!isExpanded && primaryWorkout) {
+    const durMins = calculateWorkoutDurationMinutes(primaryWorkout);
+
+    return (
+      <Card
+        variant="default"
+        activeScale={1}
+        onPress={() => {
+          onToggleExpand?.();
+        }}
+        className="mb-3 px-4 py-3 h-[72px] justify-center"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <SportMedallion sport={primaryWorkout.type} size={40} />
+            <View className="flex-1">
+              <View className="flex-row items-center gap-2">
+                <Text className="text-xs font-semibold text-theme-muted uppercase font-jakarta">
+                  {day.dayName} {day.dateStr}
+                </Text>
+                {day.isToday && (
+                  <Chip variant="accent" size="sm" label="Today" />
+                )}
+              </View>
+              <Text numberOfLines={1} className="text-sm font-bold text-theme-text font-jakarta mt-0.5">
+                {primaryWorkout.title}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            <Chip variant="points" size="sm" label={Math.round(primaryWorkout.rookaPoints || 0)} />
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </View>
+        </View>
+      </Card>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // 3. EXPANDED DAY CARD
+  // -------------------------------------------------------------
+  return (
+    <Card
+      variant="default"
+      className={`mb-4 ${
+        day.isToday ? 'border-[1.5px] border-theme-accent' : ''
+      }`}
+    >
+      {/* Header Row */}
+      <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40">
+        <View className="flex-row items-center gap-2.5">
           <View>
             <View className="flex-row items-center gap-2">
-              <Text className="text-lg font-extrabold text-theme-text">{day.dayName} {day.dateStr}</Text>
-
+              <Text className="text-lg font-extrabold text-theme-text font-jakarta">
+                {day.dayName} {day.dateStr}
+              </Text>
               {day.isToday && (
-                <View className="bg-theme-accent px-2 py-0.5 rounded-full">
-                  <Text className="text-xs font-extrabold text-white">
-                    Today
-                  </Text>
-                </View>
+                <Chip variant="accent" size="sm" label="Today" />
               )}
             </View>
-
-            <Text className="text-sm text-theme-muted font-rajdhani">
-              {weatherTemp}
-              {dayTotalRooka > 0 ? ` · ${dayTotalRooka} total rooka` : ''}
-            </Text>
+            <View className="flex-row items-center gap-1.5 mt-0.5">
+              <Ionicons name="partly-sunny-outline" size={13} color="#94A3B8" />
+              <Text className="text-xs font-medium text-theme-muted font-jakarta">
+                {weatherTemp}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Adapt Plan Trigger aligned flush to the right card margin */}
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onAdaptPress();
-          }}
-          activeOpacity={0.7}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 12 }}
-          className="py-1 pl-3 pr-0 items-end justify-center"
-        >
-          <Text className="text-xs font-bold text-theme-accent text-right">ADAPT</Text>
-        </TouchableOpacity>
+        {/* Header Actions: Adapt Button & Overflow Menu */}
+        <View className="flex-row items-center gap-1">
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Adapt"
+            leftIcon={<Ionicons name="flash" size={13} color="#0EA5E9" />}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onAdaptPress();
+            }}
+          />
+
+          <TouchableOpacity
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            className="w-10 h-10 items-center justify-center rounded-full"
+            onPress={() => {
+              Haptics.selectionAsync();
+              if (primaryWorkout) {
+                setActiveMenuWorkout(primaryWorkout);
+              } else {
+                onAddWorkout(day.dayName, day.dateStr);
+              }
+            }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Workouts List for this Day */}
+      {/* Workouts List / Rest Day Content */}
       {isRestDay ? (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
-          layout={LinearTransition.springify().damping(16).stiffness(160)}
-        >
-          <EmptyState
-            preset="rest-day"
-            title="Rest Day"
-            coachNote={coachNote}
-            action={{
-              label: "Add Workout",
-              icon: "add",
-              onPress: () => onAddWorkout(day.dayName, day.dateStr),
-              variant: 'primary',
-            }}
-            layout="compact"
+        <View className="py-4 items-center justify-center">
+          <View className="w-12 h-12 rounded-full bg-theme-inset items-center justify-center mb-2">
+            <Ionicons name="moon" size={24} color="#94A3B8" />
+          </View>
+          <Text className="text-base font-bold text-theme-text font-jakarta">
+            Rest Day
+          </Text>
+          <Text className="text-xs text-theme-muted text-center max-w-[260px] mt-1 font-jakarta">
+            Aim for 8 hours of sleep and adequate hydration to prepare for upcoming workouts.
+          </Text>
+          <Button
+            variant="ghost"
+            size="sm"
+            label="+ Add Workout"
+            className="mt-3"
+            onPress={() => onAddWorkout(day.dayName, day.dateStr)}
           />
-        </Animated.View>
+        </View>
       ) : (
-        <Animated.View layout={LinearTransition.springify().damping(16).stiffness(160)}>
-          {visibleWorkouts.map((workout, wIndex) => {
-            const cfg = getDisciplineConfig(workout.type, scheme);
-            const humanDuration = formatHumanDuration(workout.duration, workout.type);
-            const isRestPlaceholder = isRest(workout.type);
+        <View className="pt-2">
+          {activeWorkouts.map((workout, wIdx) => {
+            const sportColorCode = sportColor(workout.type, scheme);
+            const durMins = calculateWorkoutDurationMinutes(workout);
+            const noteExpanded = Boolean(expandedNotes[workout.id]);
+            const isWorkoutSynced = Boolean(workout.isSynced || syncedWorkoutIds[workout.id]);
 
             return (
-              <Animated.View
+              <View
                 key={workout.id}
-                entering={FadeInDown.duration(200).springify().damping(15)}
-                exiting={FadeOutUp.duration(180)}
-                layout={LinearTransition.springify().damping(16).stiffness(160)}
+                className={`py-3.5 ${
+                  wIdx < activeWorkouts.length - 1 ? 'border-b border-theme-border/40' : ''
+                }`}
               >
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => {
                     Haptics.selectionAsync();
                     onSelectWorkout(workout);
                   }}
-                  activeOpacity={0.8}
-                  /* One card level per screen: the day. A workout used to be a
-                     second bordered, rounded, padded box inside it — three
-                     borders deep once you count the page card. It is now
-                     separated by space and a hairline rule instead, and carries
-                     its sport colour once, on the badge.
-
-                     The rule only separates one workout from the NEXT one. Drawn
-                     unconditionally it also fired after the last workout, boxing
-                     in the Add button for no reason. */
-                  className={`py-3.5 flex-col gap-2 ${
-                    wIndex < visibleWorkouts.length - 1 ? 'border-b border-theme-border/40' : ''
-                  }`}
+                  className="flex-row items-start gap-3"
                 >
-                  {/* Top Discipline Line */}
-                  <View className="flex-row items-center justify-between">
-                    <View
-                      style={{ backgroundColor: cfg.tint }}
-                      className="px-2.5 py-0.5 rounded-md flex-row items-center gap-1.5"
+                  {/* Left Sport Rail */}
+                  <View
+                    style={{ backgroundColor: sportColorCode }}
+                    className="w-1 self-stretch rounded-full my-0.5"
+                  />
+
+                  {/* Sport Medallion */}
+                  <SportMedallion sport={workout.type} size={48} />
+
+                  {/* Workout Info */}
+                  <View className="flex-1">
+                    <Text
+                      numberOfLines={2}
+                      className="text-base font-bold text-theme-text font-jakarta leading-snug"
                     >
-                      <Image source={cfg.emblem} style={{ width: 14, height: 14 }} resizeMode="contain" />
-                      <Text style={{ color: cfg.color }} className="text-xs font-extrabold">
-                        {cfg.label}
+                      {workout.title}
+                    </Text>
+
+                    {/* Meta Row */}
+                    <View className="flex-row items-center gap-2 mt-1.5 flex-wrap">
+                      <Text
+                        style={{ fontVariant: ['tabular-nums'] }}
+                        className="text-sm font-bold text-theme-muted font-rajdhani"
+                      >
+                        {formatDuration(durMins)}
                       </Text>
-                    </View>
-
-                    <View className="flex-row items-center gap-2 ml-2">
-                      <Text className="text-sm font-mono font-bold text-theme-accent font-rajdhani">
-                        +{Math.round(workout.rookaPoints || 0)} rooka
-                      </Text>
-
-
+                      <Text className="text-theme-muted/50">·</Text>
+                      <Chip
+                        variant="points"
+                        size="sm"
+                        label={Math.round(workout.rookaPoints || 0)}
+                      />
                       {workout.isCompleted && (
-                        <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
-                          <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                          <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
+                        <View className="flex-row items-center gap-1 bg-semantic-success-bg px-2 py-0.5 rounded-full">
+                          <Ionicons name="checkmark-circle" size={11} color="#10B981" />
+                          <Text className="text-[10px] font-extrabold text-semantic-success-text">
+                            DONE
+                          </Text>
                         </View>
                       )}
                     </View>
                   </View>
+                </TouchableOpacity>
 
-                  {/* Workout Title */}
-                  <Text className="text-base font-extrabold text-theme-text leading-snug">
-                    {workout.title}
-                  </Text>
+                {/* Structure Bar (if structured steps exist) */}
+                {workout.steps && workout.steps.length > 0 && (
+                  <View className="mt-2.5">
+                    <WorkoutStructureBar steps={workout.steps} />
+                  </View>
+                )}
 
-                  {/* The coach's own description of the session. Stored on every
-                      generated plan and pushed to Strava, but never shown here
-                      until now. Only rendered for coach-written sessions — a
-                      workout you built yourself has no coach to quote. */}
-                  {workout.coachNote && (
-                    <View className="flex-row gap-2 p-2.5 rounded-xl bg-theme-accent/5 border-l-2 border-l-theme-accent">
+                {/* Coach Note in Inset Card */}
+                {workout.coachNote && (
+                  <Card variant="inset" className="mt-3 p-3 flex-col">
+                    <View className="flex-row items-start gap-2">
                       <Ionicons
                         name="chatbubble-ellipses-outline"
-                        size={13}
-                        color={theme.tint}
-                        style={{ marginTop: 1 }}
+                        size={14}
+                        color="#0EA5E9"
+                        style={{ marginTop: 2 }}
                       />
-                      <Text className="flex-1 text-sm text-theme-muted leading-relaxed" numberOfLines={3}>
+                      <Text
+                        numberOfLines={noteExpanded ? undefined : 3}
+                        className="flex-1 text-xs text-theme-muted leading-relaxed font-jakarta"
+                      >
                         {workout.coachNote}
                       </Text>
                     </View>
-                  )}
-
-                  {/* Clean Subline & Quick Actions Bar
-                      Skipped entirely for a REST placeholder: "Rest day" merely
-                      restated the REST badge above it, and neither inviting a
-                      partner to a rest day nor deleting one is a thing anyone
-                      wants to do -- the placeholder clears itself as soon as a
-                      real session lands on the day. */}
-                  {!isRestPlaceholder && (
-                  <View className="flex-row items-center justify-between pt-1">
-                    {/* The badge above already states this workout's rooka; the
-                        figure was simply printed twice on the same card. */}
-                    <Text className="text-sm text-theme-muted">
-                      {humanDuration}
-                    </Text>
-
-                    <View className="flex-row items-center gap-2 ml-2">
+                    {workout.coachNote.length > 120 && (
                       <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          onInvitePartner(workout);
+                        onPress={() => {
+                          setExpandedNotes((prev) => ({
+                            ...prev,
+                            [workout.id]: !noteExpanded,
+                          }));
                         }}
-                        className="flex-row items-center gap-1 px-2.5 py-1 bg-theme-card border border-theme-border rounded-control"
+                        className="self-end mt-1"
                       >
-                        <Text className="text-xs font-bold text-theme-muted">Invite</Text>
+                        <Text className="text-[11px] font-bold text-theme-accent-text font-jakarta">
+                          {noteExpanded ? 'Show less' : 'Show more'}
+                        </Text>
                       </TouchableOpacity>
+                    )}
+                  </Card>
+                )}
 
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          onDeleteWorkout(workout.id);
-                        }}
-                        className="flex-row items-center gap-1 px-2 py-1 ml-1.5 bg-semantic-error/10 border border-semantic-error/30 rounded-control"
-                      >
-                        <Text className="text-xs font-bold text-rose-500">Delete</Text>
-                      </TouchableOpacity>
-                    </View>
+                {/* Workout Actions */}
+                <View className="mt-3 flex-row items-center justify-between flex-wrap gap-2">
+                  <View className="flex-row items-center gap-2 flex-wrap">
+                    {hasAnyDevices && onSendWorkoutToDevice && (
+                      isWorkoutSynced ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled
+                          label={hasGarmin && hasAppleWatch ? 'On devices ✓' : hasGarmin ? 'On Garmin ✓' : 'On Watch ✓'}
+                          leftIcon={<Ionicons name="checkmark-circle" size={13} color="#10B981" />}
+                        />
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          label={hasGarmin && hasAppleWatch ? 'Send to devices' : hasGarmin ? 'Send to Garmin' : 'Send to Apple Watch'}
+                          leftIcon={<Ionicons name="watch-outline" size={13} color="#FFFFFF" />}
+                          onPress={async () => {
+                            setSyncedWorkoutIds((prev) => ({ ...prev, [workout.id]: true }));
+                            await onSendWorkoutToDevice(workout);
+                          }}
+                        />
+                      )
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      label="Edit"
+                      onPress={() => onSelectWorkout(workout)}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      label="Invite"
+                      leftIcon={<Ionicons name="people-outline" size={13} color="#0EA5E9" />}
+                      onPress={() => onInvitePartner(workout)}
+                    />
                   </View>
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
+                </View>
+              </View>
             );
           })}
 
-          {/* Add Workout Button for this Day */}
-          <Animated.View layout={LinearTransition.springify().damping(16).stiffness(160)}>
-            <TouchableOpacity
+          {/* Footer: Add Workout button */}
+          <View className="pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              label="+ Add workout"
               onPress={() => onAddWorkout(day.dayName, day.dateStr)}
-              activeOpacity={0.8}
-              className="w-full py-3 mt-1 flex-row items-center justify-center gap-1.5 active:opacity-60"
-            >
-              <Ionicons name="add-circle-outline" size={16} color={theme.tint} />
-              <Text className="text-sm font-extrabold text-theme-accent">+ Add Exercise</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Overflow Menu Modal */}
+      {activeMenuWorkout && (
+        <Modal
+          visible={Boolean(activeMenuWorkout)}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setActiveMenuWorkout(null)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+            onPress={() => setActiveMenuWorkout(null)}
+          >
+            <View className="bg-theme-card p-4 rounded-t-sheet border-t border-theme-border">
+              <Text className="text-base font-bold text-theme-text font-jakarta mb-3 px-2">
+                {activeMenuWorkout.title}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setActiveMenuWorkout(null);
+                  onAddWorkout(day.dayName, day.dateStr);
+                }}
+                className="py-3 px-2 flex-row items-center gap-3 border-b border-theme-border/40"
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#0EA5E9" />
+                <Text className="text-sm font-semibold text-theme-text font-jakarta">Add workout</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setActiveMenuWorkout(null);
+                  onAdaptPress();
+                }}
+                className="py-3 px-2 flex-row items-center gap-3 border-b border-theme-border/40"
+              >
+                <Ionicons name="calendar-outline" size={20} color="#0EA5E9" />
+                <Text className="text-sm font-semibold text-theme-text font-jakarta">Move or adapt session</Text>
+              </TouchableOpacity>
+
+              {hasAnyDevices && onSendWorkoutToDevice && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const target = activeMenuWorkout;
+                    setActiveMenuWorkout(null);
+                    if (target) onSendWorkoutToDevice(target);
+                  }}
+                  className="py-3 px-2 flex-row items-center gap-3 border-b border-theme-border/40"
+                >
+                  <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
+                  <Text className="text-sm font-semibold text-theme-text font-jakarta">
+                    {hasGarmin && hasAppleWatch
+                      ? 'Send to connected devices'
+                      : hasGarmin
+                      ? 'Send to Garmin'
+                      : 'Send to Apple Watch'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={() => {
+                  const toDeleteId = activeMenuWorkout.id;
+                  setActiveMenuWorkout(null);
+                  onDeleteWorkout(toDeleteId);
+                }}
+                className="py-3 px-2 flex-row items-center gap-3"
+              >
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                <Text className="text-sm font-semibold text-rose-500 font-jakarta">Delete workout</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
       )}
     </Card>
   );
 }
+
+export default DetailedDayCard;

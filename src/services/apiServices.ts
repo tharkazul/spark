@@ -7,6 +7,7 @@ import { Quest, UserTitle } from '../types/gamification';
 import { Niggle } from '../types/health';
 import { ChatMessage, TokenUsage } from '../types/chat';
 import { SocialFeedActivity, ActivityComment, SocialConnection, LeaderboardResponse, PublicAthleteProfile } from '../types/social';
+import { DeviceEventEmitter } from 'react-native';
 import {
   ApplyDiscountResponse,
   DiscountValidationResult,
@@ -150,6 +151,21 @@ export const activitiesApi = {
     }),
   deleteComment: (activityId: string | number, commentId: string | number) =>
     apiClient<{ success: boolean; deletedId: string | number }>(`/api/activities/${activityId}/comments/${commentId}`, {
+      method: 'DELETE',
+    }),
+  getCandidatesToLink: (id: string | number) =>
+    apiClient<{ candidates: Activity[] }>(`/api/activities/${id}/candidates-to-link`),
+  linkActivities: (targetId: string | number, sourceId: string | number) =>
+    apiClient<{ success: boolean; message?: string; targetActivityId?: any; sourceActivityId?: any }>(`/api/activities/${targetId}/link`, {
+      method: 'POST',
+      body: JSON.stringify({ sourceActivityId: sourceId }),
+    }),
+  unlinkActivity: (id: string | number) =>
+    apiClient<{ success: boolean; message?: string }>(`/api/activities/${id}/unlink`, {
+      method: 'POST',
+    }),
+  deleteActivity: (id: string | number) =>
+    apiClient<{ success: boolean; message?: string }>(`/api/activities/${id}`, {
       method: 'DELETE',
     }),
 };
@@ -402,26 +418,38 @@ export const socialApi = {
       method: 'POST',
       body: JSON.stringify({ username }),
     }),
-  connectUser: (friendId: number | string) =>
-    apiClient<{ success: boolean }>('/api/social/connect', {
+  connectUser: async (friendId: number | string) => {
+    const res = await apiClient<{ success: boolean }>('/api/social/connect', {
       method: 'POST',
       body: JSON.stringify({ friendId }),
-    }),
-  acceptUser: (friendId: number | string) =>
-    apiClient<{ success: boolean }>('/api/social/accept', {
+    });
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'sent' });
+    return res;
+  },
+  acceptUser: async (friendId: number | string) => {
+    const res = await apiClient<{ success: boolean }>('/api/social/accept', {
       method: 'POST',
       body: JSON.stringify({ friendId }),
-    }),
-  declineUser: (friendId: number | string) =>
-    apiClient<{ success: boolean }>('/api/social/decline', {
+    });
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'accepted' });
+    return res;
+  },
+  declineUser: async (friendId: number | string) => {
+    const res = await apiClient<{ success: boolean }>('/api/social/decline', {
       method: 'POST',
       body: JSON.stringify({ friendId }),
-    }),
-  rejectUser: (friendId: number | string) =>
-    apiClient<{ success: boolean }>('/api/social/decline', {
+    });
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'declined' });
+    return res;
+  },
+  rejectUser: async (friendId: number | string) => {
+    const res = await apiClient<{ success: boolean }>('/api/social/decline', {
       method: 'POST',
       body: JSON.stringify({ friendId }),
-    }),
+    });
+    DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'declined' });
+    return res;
+  },
   getProfile: (userId: number | string) => apiClient<PublicAthleteProfile>(`/api/social/profile/${userId}`),
   acceptInvite: (inviteId: number | string) =>
     apiClient<{ success: boolean; message?: string }>(`/api/social/invite/${inviteId}/accept`, {

@@ -11,6 +11,7 @@ import { wsService } from '../../services/websocket';
 import { chatApi } from '../../services/apiServices';
 import { resolveChatImageUrl } from '../../utils/avatarUtils';
 import { getAuthToken } from '../../services/apiClient';
+import { humanizeIsoDates } from '../../utils/format';
 
 interface MarkdownTextProps {
   content: string;
@@ -138,8 +139,11 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
     if (text.includes('[link to upgrade page]')) {
       text = text.replace(/\[link to upgrade page\](?!\()/gi, '[Upgrade Page](rooka://profile?subtab=account)');
     }
+    if (!isUser) {
+      text = humanizeIsoDates(text);
+    }
     return text.trim();
-  }, [content]);
+  }, [content, isUser]);
 
   const handleLinkPress = useCallback((url: string): boolean => {
     if (onLinkPress) {
@@ -224,8 +228,8 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
   const styles = useMemo(() => StyleSheet.create({
     body: {
       color: textColor,
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: 16,
+      lineHeight: 23,
     },
     heading1: {
       color: textColor,

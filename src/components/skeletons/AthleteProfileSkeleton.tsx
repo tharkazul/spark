@@ -6,7 +6,7 @@ export function AthleteProfileSkeleton() {
   return (
     <View className="p-4 gap-y-4">
       {/* Hero / Identity Card */}
-      <View className="bg-theme-card rounded-card p-5 border border-theme-border/60 shadow-sm">
+      <View className="bg-theme-card rounded-card p-5 border border-theme-border/60">
         <View className="flex-row items-center gap-x-4">
           <Skeleton.Circle size={64} />
           <View className="flex-1 gap-y-2">
@@ -24,7 +24,7 @@ export function AthleteProfileSkeleton() {
       </View>
 
       {/* Rooka Level Card */}
-      <View className="bg-theme-card rounded-card p-4 border border-theme-border/60 shadow-sm">
+      <View className="bg-theme-card rounded-card p-4 border border-theme-border/60">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-x-2">
             <Skeleton.Circle size={32} />
@@ -41,12 +41,12 @@ export function AthleteProfileSkeleton() {
 
       {/* Telemetry Sparklines Cards */}
       <View className="flex-row flex-wrap gap-2.5">
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm border border-theme-border/40">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border/40">
           <Skeleton.Line width={50} height={12} className="mb-2" />
           <Skeleton.Line width={45} height={22} className="mb-2" />
           <Skeleton.Rect width="100%" height={32} borderRadius={6} />
         </View>
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 shadow-sm border border-theme-border/40">
+        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border/40">
           <Skeleton.Line width={50} height={12} className="mb-2" />
           <Skeleton.Line width={45} height={22} className="mb-2" />
           <Skeleton.Rect width="100%" height={32} borderRadius={6} />

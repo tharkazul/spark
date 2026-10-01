@@ -52,8 +52,13 @@ module.exports = {
       // Pills and avatars keep `rounded-full`; those aren't corners.
       borderRadius: {
         card: '20px',
-        tile: '16px',
+        inset: '14px',
         control: '14px',
+        tile: '16px',
+        button: '16px',
+        'button-md': '12px',
+        chip: '999px',
+        sheet: '28px',
         pill: '999px',
       },
       colors: {
@@ -126,13 +131,44 @@ module.exports = {
         theme: {
           bg: 'rgb(var(--bg-main) / <alpha-value>)',
           card: 'rgb(var(--bg-card) / <alpha-value>)',
+          inset: 'rgb(var(--bg-inset) / <alpha-value>)',
           border: 'rgb(var(--border-color) / <alpha-value>)',
           text: 'rgb(var(--text-main) / <alpha-value>)',
           muted: 'rgb(var(--text-muted) / <alpha-value>)',
           accent: 'rgb(var(--accent) / <alpha-value>)',
           'accent-hover': 'rgb(var(--accent-hover) / <alpha-value>)',
           'accent-soft': 'var(--accent-soft)',
-          'accent-border': 'var(--accent-border)'
+          'accent-border': 'var(--accent-border)',
+          'accent-strong': 'var(--accent-strong)',
+          'accent-text': 'var(--accent-text)',
+          warm: 'var(--warm)',
+        },
+        macro: {
+          carbs: 'var(--macro-carbs)',
+          protein: 'var(--macro-protein)',
+          fat: 'var(--macro-fat)',
+        },
+        tier: {
+          common: 'var(--tier-common)',
+          'common-text': 'var(--tier-common-text)',
+          rare: 'var(--tier-rare)',
+          'rare-text': 'var(--tier-rare-text)',
+          epic: 'var(--tier-epic)',
+          'epic-text': 'var(--tier-epic-text)',
+          legendary: 'var(--tier-legendary)',
+          'legendary-text': 'var(--tier-legendary-text)',
+        },
+        podium: {
+          gold: 'var(--podium-gold)',
+          silver: 'var(--podium-silver)',
+          bronze: 'var(--podium-bronze)',
+        },
+        zone: {
+          1: 'var(--zone-1)',
+          2: 'var(--zone-2)',
+          3: 'var(--zone-3)',
+          4: 'var(--zone-4)',
+          5: 'var(--zone-5)',
         },
         // Podium ranks. These had no home, so the leaderboard borrowed
         // `semantic-warning` for 1st AND 3rd -- two of the three medals were

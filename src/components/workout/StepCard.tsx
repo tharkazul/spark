@@ -1,3 +1,4 @@
+import { ExerciseAutocompleteInput } from "./ExerciseAutocompleteInput";
 import { BrandColors, Fonts } from '@/constants/theme';
 import React, { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
@@ -325,8 +326,8 @@ const StepCardComponent = ({
 
   return (
     <Animated.View
-      layout={isActive ? undefined : LinearTransition.springify().damping(16).stiffness(160)}
-      entering={FadeInDown.duration(220).springify().damping(15)}
+      
+      entering={FadeIn.duration(200)}
       exiting={FadeOutUp.duration(180)}
       style={[
         styles.shadowHost,
@@ -393,7 +394,7 @@ const StepCardComponent = ({
             <View className="flex-row items-center gap-2">
               <StepInputPill
                 value={step.iterations !== undefined ? String(step.iterations) : ''}
-                onChangeText={(text) => {
+                onChangeText={(text: string) => {
                   const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
                   if (text === '') updateFn('iterations', undefined);
                   else {
@@ -411,16 +412,13 @@ const StepCardComponent = ({
           ) : (
             <View className="flex-col gap-2.5">
               {isStrengthOrMobility && (
-                <TextInput
+                <ExerciseAutocompleteInput
                   value={step.exerciseName || ''}
-                  onChangeText={(text) => {
+                  onChangeText={(text: string) => {
                     const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
                     updateFn('exerciseName', text);
                   }}
-                  placeholder="Exercise name (e.g. Core Plank / Squats)"
-                  placeholderTextColor={theme.textSecondary}
-                  style={{ color: inputTextColor }}
-                  className="w-full h-9 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-xl px-3 text-xs font-bold"
+                  textColor={inputTextColor as string}
                 />
               )}
 
@@ -475,7 +473,7 @@ const StepCardComponent = ({
                 <Animated.View
                   entering={FadeIn.duration(180)}
                   exiting={FadeOut.duration(140)}
-                  layout={LinearTransition.springify().damping(16).stiffness(160)}
+                  layout={LinearTransition.duration(200)}
                   className="mt-1 p-3 bg-slate-50/80 dark:bg-slate-900/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-col gap-2.5"
                 >
                   <Text className="text-xs font-extrabold text-theme-muted">
@@ -519,7 +517,7 @@ const StepCardComponent = ({
                     <Animated.View
                       entering={FadeIn.duration(150)}
                       exiting={FadeOut.duration(120)}
-                      layout={LinearTransition.springify().damping(16).stiffness(160)}
+                      layout={LinearTransition.duration(200)}
                       className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5"
                     >
                       <Text className="text-xs font-extrabold text-theme-muted">
@@ -568,7 +566,7 @@ const StepCardComponent = ({
                     <Animated.View
                       entering={FadeIn.duration(150)}
                       exiting={FadeOut.duration(120)}
-                      layout={LinearTransition.springify().damping(16).stiffness(160)}
+                      layout={LinearTransition.duration(200)}
                       className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5"
                     >
                       <Text className="text-xs font-extrabold text-theme-muted">
@@ -580,7 +578,7 @@ const StepCardComponent = ({
                             ? String(step.weight !== undefined ? step.weight : '')
                             : stripTargetUnits(step.target_value)
                         }
-                        onChangeText={(text) => {
+                        onChangeText={(text: string) => {
                           const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
                           if (isWeightTarget) {
                             updateFn('weight', text === '' ? undefined : parseFloat(text));
@@ -616,7 +614,7 @@ const StepCardComponent = ({
           {/* Repeat Block Child Steps */}
           {step.type === 'repeat' && step.steps && (
             <Animated.View
-              layout={LinearTransition.springify().damping(16).stiffness(160)}
+              layout={LinearTransition.duration(200)}
               className="mt-3 relative pl-2"
             >
               {/* Vertical nesting track indicator */}
@@ -644,7 +642,7 @@ const StepCardComponent = ({
                 ))}
 
                 {onAddSubStep && (
-                  <Animated.View layout={LinearTransition.springify().damping(16).stiffness(160)}>
+                  <Animated.View layout={LinearTransition.duration(200)}>
                     <ScalePressable
                       onPress={() => onAddSubStep(step.id, 'interval')}
                       activeScale={0.96}

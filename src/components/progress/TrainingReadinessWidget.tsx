@@ -5,30 +5,74 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { useHealth } from '../../context/HealthStore';
 import { useActivities } from '../../context/ActivityStore';
 import { ActiveNiggle } from './AnatomicalBodyMap';
+import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
 
-export const TrainingReadinessWidget: React.FC = () => {
+interface TrainingReadinessWidgetProps {
+  biometrics?: AppleHealthDailyBiometrics | null;
+}
+
+export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = ({ biometrics }) => {
   const { niggles: storeNiggles } = useHealth();
   const { activities } = useActivities();
   const niggles = storeNiggles as ActiveNiggle[];
 
   // Compute readiness score (0 - 100)
-  // 1. Start from baseline 88
-  let score = 88;
+  // 1. Base readiness
+  let score = 85;
 
-  // 2. Active Injury/Soreness deduction
+  // 2. Physiological Biometrics Contribution (if available)
+  if (biometrics) {
+    // Sleep: Target 8 hours (480 mins)
+    if (biometrics.sleep_minutes && biometrics.sleep_minutes > 0) {
+      const sleepHours = biometrics.sleep_minutes / 60;
+      if (sleepHours >= 8) {
+        score += 8;
+      } else if (sleepHours >= 7) {
+        score += 4;
+      } else if (sleepHours < 5.5) {
+        score -= 18;
+      } else if (sleepHours < 6.5) {
+        score -= 8;
+      }
+    }
+
+    // HRV (SDNN):
+    if (biometrics.hrv_sdnn && biometrics.hrv_sdnn > 0) {
+      if (biometrics.hrv_sdnn >= 65) {
+        score += 7;
+      } else if (biometrics.hrv_sdnn >= 45) {
+        score += 3;
+      } else if (biometrics.hrv_sdnn < 30) {
+        score -= 15;
+      } else if (biometrics.hrv_sdnn < 40) {
+        score -= 6;
+      }
+    }
+
+    // Resting HR:
+    if (biometrics.resting_hr && biometrics.resting_hr > 0) {
+      if (biometrics.resting_hr < 52) {
+        score += 4;
+      } else if (biometrics.resting_hr > 75) {
+        score -= 10;
+      }
+    }
+  }
+
+  // 3. Active Injury/Soreness deduction
   const nigglePenalty = niggles.reduce((acc, curr) => acc + Number(curr.severity) * 12, 0);
   score -= nigglePenalty;
 
-  // 3. Workload Fatigue deduction (last 7 days)
+  // 4. Workload Fatigue deduction (last 7 days)
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const recentActs = activities.filter(
     (act) => new Date(act.start_date || Date.now()) >= sevenDaysAgo
   );
   if (recentActs.length >= 5) {
-    score -= 15;
+    score -= 12;
   } else if (recentActs.length >= 3) {
-    score -= 8;
+    score -= 6;
   }
 
   // Clamp score between 10 and 100
@@ -75,16 +119,16 @@ export const TrainingReadinessWidget: React.FC = () => {
   const dotY = cy - R * Math.sin(angleRad);
 
   return (
-    <View className="mb-4 bg-[#1E293B] p-5 rounded-[24px] shadow-md border border-[#334155]">
+    <View className="mb-4 bg-theme-card p-5 rounded-card border border-theme-border">
       {/* Header Row */}
       <View className="flex-row items-center justify-between mb-2">
         <View className="flex-row items-center gap-x-2">
-          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
-          <Text className="text-xs font-bold text-slate-400">
+          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent-strong mr-1.5" />
+          <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider">
             Training Readiness
           </Text>
         </View>
-        <Text className="text-xs font-semibold text-slate-400">Daily Readiness Score</Text>
+        <Text className="text-xs font-semibold text-theme-muted">Daily Readiness Score</Text>
       </View>
 
       {/* Main Gauge & Center Content */}
@@ -94,7 +138,7 @@ export const TrainingReadinessWidget: React.FC = () => {
           <Path
             d="M 34 120 A 86 86 0 0 1 59.2 59.2"
             fill="none"
-            stroke="#F87171"
+            stroke="#EF4444"
             strokeWidth={strokeW}
             strokeLinecap="round"
           />
@@ -103,7 +147,7 @@ export const TrainingReadinessWidget: React.FC = () => {
           <Path
             d="M 64.7 53.7 A 86 86 0 0 1 112.5 34.3"
             fill="none"
-            stroke="#F5A623"
+            stroke="#F59E0B"
             strokeWidth={strokeW}
             strokeLinecap="round"
           />
@@ -126,17 +170,21 @@ export const TrainingReadinessWidget: React.FC = () => {
             strokeLinecap="round"
           />
 
-
           {/* Pin Indicator Dot */}
-          <Circle cx={dotX} cy={dotY} r="7" fill="#F8FAFC" />
+          <Circle cx={dotX} cy={dotY} r="7" fill="#FFFFFF" />
           <Circle cx={dotX} cy={dotY} r="4" fill={activeColor} />
         </Svg>
 
         {/* Center Labels */}
         <View className="items-center mt-[-32px] mb-1">
-          <Text className="text-5xl font-normal text-white tracking-tight">{score}</Text>
-          <Text className="text-base font-bold text-white mt-1">{statusText}</Text>
-          <Text className="text-xs text-slate-300 mt-0.5">{adviceText}</Text>
+          <Text
+            style={{ fontVariant: ['tabular-nums'] }}
+            className="text-5xl font-rajdhani font-bold text-theme-text tracking-tight"
+          >
+            {score}
+          </Text>
+          <Text className="text-base font-bold text-theme-text mt-1">{statusText}</Text>
+          <Text className="text-xs text-theme-muted mt-0.5">{adviceText}</Text>
         </View>
       </View>
     </View>

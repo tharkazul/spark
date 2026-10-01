@@ -8,6 +8,7 @@ import { useUser } from '../../context/UserStore';
 import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
 import { canHideRookaLink } from '../../utils/permissions';
 import { Card } from '../ui/Card';
+import { SportMedallion } from '../ui/SportMedallion';
 
 interface ConnectionsTabProps {
   onOpenGarminModal: () => void;
@@ -34,11 +35,11 @@ const DEFAULT_TOGGLES: Record<SportType, StravaShareFlags> = {
   Strength: { ...ALL_ON },
 };
 
-const SPORT_OPTIONS: { id: SportType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { id: 'Run', label: 'Run', icon: 'walk-outline' },
-  { id: 'Bike', label: 'Cycle', icon: 'bicycle-outline' },
-  { id: 'Swim', label: 'Swim', icon: 'water-outline' },
-  { id: 'Strength', label: 'Strength', icon: 'barbell-outline' },
+const SPORT_OPTIONS: { id: SportType; label: string }[] = [
+  { id: 'Run', label: 'Run' },
+  { id: 'Bike', label: 'Cycle' },
+  { id: 'Swim', label: 'Swim' },
+  { id: 'Strength', label: 'Strength' },
 ];
 
 // `shareStructure` has no toggle: the planned steps go out whenever there is a
@@ -74,8 +75,19 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
   const [appleSyncing, setAppleSyncing] = useState(false);
-  const [isAppleConnected, setIsAppleConnected] = useState(false);
+  const [isHealthKitConnected, setIsHealthKitConnected] = useState(false);
+  const [isWatchConnected, setIsWatchConnected] = useState(false);
   const [appleSupported, setAppleSupported] = useState(false);
+  const [showHealthPrefs, setShowHealthPrefs] = useState(false);
+  const [healthPrefs, setHealthPrefs] = useState<any>({
+    syncSleep: true,
+    syncHeartRate: true,
+    syncHrv: true,
+    syncStepsCalories: true,
+    syncBodyMass: true,
+    syncVo2Max: true,
+    syncWorkouts: true,
+  });
 
   // Strava Automation Toggles per sport type
   const [selectedSport, setSelectedSport] = useState<SportType>('Run');
@@ -93,14 +105,22 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       isWorkoutKitSupported,
       getWorkoutKitAuthorizationStatus,
       getLastAppleHealthSyncTime,
+      getAppleHealthPreferences,
+      isHealthKitAvailable,
     } = require('../../services/appleHealthService');
 
-    setAppleSupported(isWorkoutKitSupported());
+    setAppleSupported(isWorkoutKitSupported() || isHealthKitAvailable());
     getWorkoutKitAuthorizationStatus().then((status: string) => {
-      if (!cancelled) setIsAppleConnected(status === 'authorized');
+      if (!cancelled) setIsWatchConnected(status === 'authorized');
     });
     getLastAppleHealthSyncTime().then((time: string | null) => {
-      if (!cancelled && time) setLastAppleSync(time);
+      if (!cancelled && time) {
+        setLastAppleSync(time);
+        setIsHealthKitConnected(true);
+      }
+    });
+    getAppleHealthPreferences().then((prefs: any) => {
+      if (!cancelled && prefs) setHealthPrefs(prefs);
     });
 
     return () => {
@@ -108,33 +128,11 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     };
   }, []);
 
-  const handleRefreshAppleStatus = async () => {
-    try {
-      setAppleSyncing(true);
-      const {
-        isWorkoutKitSupported,
-        getWorkoutKitAuthorizationStatus,
-        getLastAppleHealthSyncTime,
-      } = require('../../services/appleHealthService');
-
-      setAppleSupported(isWorkoutKitSupported());
-      const status = await getWorkoutKitAuthorizationStatus();
-      setIsAppleConnected(status === 'authorized');
-      const time = await getLastAppleHealthSyncTime();
-      if (time) setLastAppleSync(time);
-    } catch (e) {
-      console.warn('Failed to refresh Apple status:', e);
-    } finally {
-      setAppleSyncing(false);
-    }
-  };
-
   const handleConnectAppleHealth = async () => {
     try {
       const {
         requestFullHealthKitPermissions,
-        requestWorkoutKitAuthorization,
-        isWorkoutKitSupported,
+        isHealthKitAvailable,
       } = require('../../services/appleHealthService');
 
       if (Platform.OS !== 'ios') {
@@ -142,24 +140,19 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         return;
       }
 
-      // 1. Request Apple HealthKit read permissions for HR, HRV, Sleep, Steps, Calories, Workouts
-      const healthKitGranted = await requestFullHealthKitPermissions();
-
-      // 2. Request WorkoutKit scheduling permissions if on iOS 17+
-      let workoutKitGranted = false;
-      if (isWorkoutKitSupported()) {
-        const wStatus = await requestWorkoutKitAuthorization();
-        workoutKitGranted = wStatus === 'authorized';
+      if (!isHealthKitAvailable()) {
+        Alert.alert('Unavailable', 'Apple Health is not available on this device.');
+        return;
       }
 
-      const connected = healthKitGranted || workoutKitGranted;
-      setIsAppleConnected(connected);
+      const healthKitGranted = await requestFullHealthKitPermissions(healthPrefs);
+      setIsHealthKitConnected(healthKitGranted);
 
-      if (connected) {
+      if (healthKitGranted) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           'Apple Health Connected!',
-          'Rooka is now authorized to sync your Heart Rate, HRV, Sleep, Steps, Calories, and Workouts.'
+          'Rooka is now authorized to read your selected health metrics.'
         );
       } else {
         Alert.alert(
@@ -173,6 +166,56 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     }
   };
 
+  const handleConnectAppleWatch = async () => {
+    try {
+      const {
+        requestWorkoutKitAuthorization,
+        isWorkoutKitSupported,
+      } = require('../../services/appleHealthService');
+
+      if (Platform.OS !== 'ios') {
+        Alert.alert('Not Supported', 'Apple Watch sync is only available on iOS.');
+        return;
+      }
+
+      if (!isWorkoutKitSupported()) {
+        Alert.alert(
+          'iOS 17+ Required',
+          'Workout scheduling to Apple Watch requires an iPhone running iOS 17 or newer.'
+        );
+        return;
+      }
+
+      const status = await requestWorkoutKitAuthorization();
+      const connected = status === 'authorized';
+      setIsWatchConnected(connected);
+
+      if (connected) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          'Apple Watch Connected!',
+          'Rooka is now authorized to send planned workouts directly to the Workout app on your Apple Watch.'
+        );
+      } else {
+        Alert.alert(
+          'Permissions Required',
+          'Please open the Apple Watch app on your iPhone > Rooka, and enable workout scheduling.'
+        );
+      }
+    } catch (err: any) {
+      console.error('Apple Watch connect error:', err);
+      Alert.alert('Error', err?.message || 'Failed to authorize Apple Watch.');
+    }
+  };
+
+  const handleToggleHealthPref = async (key: string, value: boolean) => {
+    const { saveAppleHealthPreferences } = require('../../services/appleHealthService');
+    const updated = { ...healthPrefs, [key]: value };
+    setHealthPrefs(updated);
+    Haptics.selectionAsync();
+    await saveAppleHealthPreferences(updated);
+  };
+
   const handleSyncAppleHealth = async () => {
     setAppleSyncing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -182,7 +225,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
       if (res.success) {
         setLastAppleSync(res.lastSyncDate || new Date().toISOString());
-        setIsAppleConnected(true);
+        setIsHealthKitConnected(true);
         await refreshActivities();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
@@ -290,33 +333,39 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <Ionicons name="logo-apple" size={20} color="#FF2D55" />
             <Text className="text-theme-text font-bold text-sm">Apple Health & Watch</Text>
           </View>
-          <View
-            className={`px-2 py-0.5 rounded ${isAppleConnected
-              ? 'bg-semantic-success/10'
-              : 'bg-semantic-error/10'
+          <View className="flex-row items-center gap-1.5">
+            <View
+              className={`px-2 py-0.5 rounded ${
+                isHealthKitConnected ? 'bg-semantic-success/10' : 'bg-semantic-error/10'
               }`}
-          >
-            <Text
-              className={`text-xs font-bold ${isAppleConnected ? 'text-semantic-success' : 'text-semantic-error'
-                }`}
             >
-              {isAppleConnected ? 'Active' : appleSupported ? 'Disconnected' : 'Unavailable'}
-            </Text>
+              <Text
+                className={`text-[11px] font-bold ${
+                  isHealthKitConnected ? 'text-semantic-success' : 'text-semantic-error'
+                }`}
+              >
+                Health: {isHealthKitConnected ? 'Active' : 'Not Connected'}
+              </Text>
+            </View>
+            <View
+              className={`px-2 py-0.5 rounded ${
+                isWatchConnected ? 'bg-semantic-success/10' : 'bg-theme-bg'
+              }`}
+            >
+              <Text
+                className={`text-[11px] font-bold ${
+                  isWatchConnected ? 'text-semantic-success' : 'text-theme-muted'
+                }`}
+              >
+                Watch: {isWatchConnected ? 'Ready' : 'Off'}
+              </Text>
+            </View>
           </View>
         </View>
 
         <Text className="text-theme-muted text-xs mb-3 leading-4">
-          Sync workouts, heart rate, sleep stages, HRV, and daily biometrics from Apple Health (including Garmin & Apple Watch).
+          Sync workouts, heart rate, sleep stages, HRV, and daily recovery biometrics from Apple Health (including Garmin & Apple Watch), or push structured workouts to your Watch.
         </Text>
-
-        {/* Feature Badges */}
-        <View className="flex-row flex-wrap gap-1.5 mb-3">
-          {['Heart Rate', 'Sleep Stages', 'HRV (SDNN)', 'Steps & Calories', 'Workouts', 'VO2 Max'].map((metric) => (
-            <View key={metric} className="bg-theme-bg border border-theme-border px-2 py-1 rounded-md">
-              <Text className="text-[10px] font-bold text-theme-muted">{metric}</Text>
-            </View>
-          ))}
-        </View>
 
         {lastAppleSync && (
           <View className="flex-row items-center gap-1.5 mb-3">
@@ -327,32 +376,112 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           </View>
         )}
 
-        <View className="flex-row flex-wrap gap-2">
+        {/* Primary Symmetrical Buttons */}
+        <View className="flex-row gap-2 mb-2.5">
           <TouchableOpacity
             onPress={handleConnectAppleHealth}
-            className="bg-semantic-error px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+            className={`flex-1 py-2.5 px-3 rounded-xl flex-row items-center justify-center shadow-sm ${
+              isHealthKitConnected ? 'bg-semantic-success/15 border border-semantic-success/30' : 'bg-semantic-error'
+            }`}
           >
-            <Ionicons name="shield-checkmark-outline" size={16} color="#FFF" />
-            <Text className="text-white font-bold text-xs ml-2">
-              Connect
+            <Ionicons
+              name={isHealthKitConnected ? 'shield-checkmark' : 'heart-circle-outline'}
+              size={16}
+              color={isHealthKitConnected ? '#10B981' : '#FFF'}
+            />
+            <Text
+              className={`font-bold text-xs ml-1.5 ${
+                isHealthKitConnected ? 'text-semantic-success' : 'text-white'
+              }`}
+            >
+              {isHealthKitConnected ? 'Health Active' : 'Connect Health'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleSyncAppleHealth}
-            disabled={appleSyncing}
-            className="bg-theme-bg border border-theme-border px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+            onPress={handleConnectAppleWatch}
+            className={`flex-1 py-2.5 px-3 rounded-xl flex-row items-center justify-center shadow-sm ${
+              isWatchConnected ? 'bg-semantic-success/15 border border-semantic-success/30' : 'bg-slate-700'
+            }`}
           >
-            {appleSyncing ? (
-              <ActivityIndicator size="small" color="#FF2D55" />
-            ) : (
-              <>
-                <Ionicons name="sync-outline" size={16} color={theme.textSecondary} />
-                <Text className="text-theme-text font-bold text-xs ml-2">Sync Health</Text>
-              </>
-            )}
+            <Ionicons
+              name={isWatchConnected ? 'checkmark-circle' : 'watch-outline'}
+              size={16}
+              color={isWatchConnected ? '#10B981' : '#FFF'}
+            />
+            <Text
+              className={`font-bold text-xs ml-1.5 ${
+                isWatchConnected ? 'text-semantic-success' : 'text-white'
+              }`}
+            >
+              {isWatchConnected ? 'Watch Ready' : 'Connect Watch'}
+            </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Manual Sync Trigger */}
+        <TouchableOpacity
+          onPress={handleSyncAppleHealth}
+          disabled={appleSyncing}
+          className="w-full bg-theme-bg border border-theme-border py-2.5 rounded-xl flex-row items-center justify-center mb-3"
+        >
+          {appleSyncing ? (
+            <ActivityIndicator size="small" color="#FF2D55" />
+          ) : (
+            <>
+              <Ionicons name="sync-outline" size={15} color={theme.textSecondary} />
+              <Text className="text-theme-text font-bold text-xs ml-2">Sync Health Data Now</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {/* Granular Sharing Preferences Accordion */}
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.selectionAsync();
+            setShowHealthPrefs((prev) => !prev);
+          }}
+          className="flex-row items-center justify-between py-2 border-t border-theme-border/60"
+        >
+          <View className="flex-row items-center gap-1.5">
+            <Ionicons name="options-outline" size={14} color={theme.textSecondary} />
+            <Text className="text-xs font-bold text-theme-muted">Data Sharing Preferences</Text>
+          </View>
+          <Ionicons
+            name={showHealthPrefs ? 'chevron-up-outline' : 'chevron-down-outline'}
+            size={14}
+            color={theme.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {showHealthPrefs && (
+          <View className="gap-y-2.5 pt-2">
+            {[
+              { key: 'syncSleep', label: 'Sleep Analysis & Stages', icon: 'moon-outline' },
+              { key: 'syncHeartRate', label: 'Heart Rate & Resting HR', icon: 'heart-outline' },
+              { key: 'syncHrv', label: 'Heart Rate Variability (HRV)', icon: 'flash-outline' },
+              { key: 'syncStepsCalories', label: 'Steps & Active Energy', icon: 'flame-outline' },
+              { key: 'syncBodyMass', label: 'Body Mass & Body Fat %', icon: 'scale-outline' },
+              { key: 'syncVo2Max', label: 'VO2 Max Score', icon: 'speedometer-outline' },
+              { key: 'syncWorkouts', label: 'Completed Workouts', icon: 'fitness-outline' },
+            ].map((metric) => (
+              <View
+                key={metric.key}
+                className="flex-row items-center justify-between py-1 border-b border-theme-border/30"
+              >
+                <View className="flex-row items-center gap-2">
+                  <Ionicons name={metric.icon as any} size={15} color={theme.textSecondary} />
+                  <Text className="text-xs text-theme-text font-medium">{metric.label}</Text>
+                </View>
+                <Switch
+                  value={!!healthPrefs[metric.key]}
+                  onValueChange={(val) => handleToggleHealthPref(metric.key, val)}
+                  trackColor={{ false: '#DDE3E9', true: theme.tint }}
+                />
+              </View>
+            ))}
+          </View>
+        )}
       </Card>
 
       {/* GARMIN CONNECT INTEGRATION */}
@@ -495,17 +624,19 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <TouchableOpacity
                 key={sport.id}
                 onPress={() => setSelectedSport(sport.id)}
-                className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1 ${isSelected ? 'bg-theme-accent' : 'bg-transparent'
-                  }`}
+                className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1.5 ${
+                  isSelected ? 'bg-theme-accent' : 'bg-transparent'
+                }`}
               >
-                <Ionicons
-                  name={sport.icon}
-                  size={14}
-                  color={isSelected ? '#FFFFFF' : '#8E8E93'}
+                <SportMedallion
+                  sport={sport.id}
+                  size={18}
+                  onAccent={isSelected}
                 />
                 <Text
-                  className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-theme-muted'
-                    }`}
+                  className={`text-xs font-bold ${
+                    isSelected ? 'text-white' : 'text-theme-muted'
+                  }`}
                 >
                   {sport.label}
                 </Text>

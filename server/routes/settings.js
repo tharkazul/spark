@@ -5,7 +5,7 @@ const fs = require("fs");
 const multer = require("multer");
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
-const { getRookaLevelInfo } = require("../services/utils");
+const { getRookaLevelInfo, getUserGamificationContext } = require("../services/utils");
 const athleteZones = require("../services/athleteZones");
 const zoneModel = require("../services/zones");
 
@@ -160,6 +160,12 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             needsZoneSetup = !resolved.hrZones && !resolved.powerZones;
           } catch (_) {}
 
+          let currentStreak = 0;
+          try {
+            const gamCtx = await getUserGamificationContext(req.user.id);
+            currentStreak = gamCtx?.streak || 0;
+          } catch (_) {}
+
           res.json({
             needsZoneSetup,
             id: row.id,
@@ -185,8 +191,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             sparkLevel: sparkLevelInfo,
             level: sparkLevelInfo?.level || 1,
             levelInfo: sparkLevelInfo,
-            total_rooka: row.total_rooka || 0,
-            totalRooka: row.total_rooka || 0,
+            total_rooka: Math.round(row.total_rooka || 0),
+            totalRooka: Math.round(row.total_rooka || 0),
             dailyTokenUsage: dailyUsage,
             dailyTokenLimit: currentLimit,
             subscriptionTier: row.subscription_tier || 'free',
@@ -209,6 +215,9 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             targetWeight: mRow?.target_weight || null,
             target_vo2max: mRow?.target_vo2max || null,
             targetVo2max: mRow?.target_vo2max || null,
+            current_streak: currentStreak,
+            streak_days: currentStreak,
+            streakDays: currentStreak,
           });
         }
       );

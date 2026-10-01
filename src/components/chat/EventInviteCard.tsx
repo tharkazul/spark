@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SportMedallion } from '../ui/SportMedallion';
 import { EventInvitePayload } from '../../types/chat';
 
 interface EventInviteCardProps {
@@ -9,15 +10,6 @@ interface EventInviteCardProps {
   onAccept: (inviteId: number | string) => Promise<void>;
   onDecline: (inviteId: number | string) => Promise<void>;
 }
-
-const getSportIcon = (sport?: string): keyof typeof Ionicons.glyphMap => {
-  const s = (sport || '').toLowerCase();
-  if (s.includes('run')) return 'fitness-outline';
-  if (s.includes('ride') || s.includes('cycl')) return 'bicycle-outline';
-  if (s.includes('swim')) return 'water-outline';
-  if (s.includes('strength') || s.includes('gym')) return 'barbell-outline';
-  return 'calendar-outline';
-};
 
 export const EventInviteCard: React.FC<EventInviteCardProps> = ({
   payload,
@@ -58,9 +50,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
   return (
     <View className="my-3 bg-theme-card/90 border border-theme-border rounded-tile p-4 shadow-sm">
       <View className="flex-row items-center gap-3 mb-3">
-        <View className="w-10 h-10 rounded-full bg-theme-accent/20 items-center justify-center">
-          <Ionicons name={getSportIcon(payload.sport)} size={20} color={theme.tint} />
-        </View>
+        <SportMedallion sport={payload.sport} size={36} />
         <View className="flex-1">
           <Text className="text-theme-text font-bold text-sm">
             {payload.inviter_name ? `${payload.inviter_name} invited you` : 'Event Invitation'}

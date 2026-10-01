@@ -9,7 +9,7 @@ export interface ActiveQuestSkeletonProps {
 export function ActiveQuestSkeleton({ variant = 'full' }: ActiveQuestSkeletonProps) {
   if (variant === 'tile') {
     return (
-      <View className="flex-1 bg-theme-card border border-theme-border/60 rounded-card p-4 justify-between h-[152px] shadow-sm">
+      <View className="flex-1 bg-theme-card border border-theme-border/60 rounded-card p-4 justify-between h-[152px]">
         <View className="gap-y-1.5">
           <Skeleton.Line width={70} height={12} />
           <Skeleton.Line width={50} height={22} borderRadius={4} className="mt-1" />

@@ -4,7 +4,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme, View, ActivityIndicator, DeviceEventEmitter } from 'react-native';
+import { useColorScheme, View, ActivityIndicator, DeviceEventEmitter, AppState } from 'react-native';
 import React, { useEffect } from 'react';
 import { AppProviders } from '../context/AppProviders';
 import { useUser } from '../context/UserStore';
@@ -47,6 +47,27 @@ function PushNotificationListener() {
       return cleanup;
     }
   }, [isAuthenticated]);
+  return null;
+}
+
+function HealthKitAutoSyncListener() {
+  const { isAuthenticated } = useUser();
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const { autoSyncAppleHealthOnForeground } = require('../services/appleHealthService');
+    autoSyncAppleHealthOnForeground();
+
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        autoSyncAppleHealthOnForeground();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated]);
+
   return null;
 }
 
@@ -94,6 +115,7 @@ export default function RootLayout() {
           <KeyboardProvider>
             <KeyboardMotionProvider>
               <PushNotificationListener />
+              <HealthKitAutoSyncListener />
               <OfflineBanner />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

@@ -7,8 +7,10 @@ import { sportColor } from '../constants/theme';
 export interface DisciplineConfig {
   /** Uppercase badge text, e.g. "SWIM". */
   label: string;
-  /** Ionicons name. */
+  /** Icon name (Ionicons or MaterialCommunityIcons). */
   icon: string;
+  /** Icon family. Defaults to Ionicons. */
+  family?: 'Ionicons' | 'MaterialCommunityIcons';
   /** The sport's hue, resolved for the current theme. */
   color: string;
   /** The same hue at 15%, for the badge background. */
@@ -38,19 +40,19 @@ export function getSportEmblem(type: string | undefined): ImageSourcePropType {
   return SPORT_EMBLEMS[raw] || SPORT_EMBLEMS.REST;
 }
 
-const DISCIPLINES: Record<string, { label: string; icon: string }> = {
-  SWIM: { label: 'SWIM', icon: 'water-outline' },
-  BIKE: { label: 'BIKE', icon: 'bicycle-outline' },
-  RIDE: { label: 'BIKE', icon: 'bicycle-outline' },
-  RUN: { label: 'RUN', icon: 'walk-outline' },
-  STRENGTH: { label: 'STRENGTH', icon: 'barbell-outline' },
-  MOBILITY: { label: 'MOBILITY', icon: 'body-outline' },
-  YOGA: { label: 'YOGA', icon: 'body-outline' },
-  WALK: { label: 'WALK', icon: 'footsteps-outline' },
-  HIKE: { label: 'HIKE', icon: 'trail-sign-outline' },
-  CARDIO: { label: 'CARDIO', icon: 'flash-outline' },
-  HIIT: { label: 'HIIT', icon: 'flash-outline' },
-  REST: { label: 'REST', icon: 'moon-outline' },
+const DISCIPLINES: Record<string, { label: string; icon: string; family?: 'Ionicons' | 'MaterialCommunityIcons' }> = {
+  SWIM: { label: 'SWIM', icon: 'swim', family: 'MaterialCommunityIcons' },
+  BIKE: { label: 'BIKE', icon: 'bike', family: 'MaterialCommunityIcons' },
+  RIDE: { label: 'BIKE', icon: 'bike', family: 'MaterialCommunityIcons' },
+  RUN: { label: 'RUN', icon: 'run', family: 'MaterialCommunityIcons' },
+  STRENGTH: { label: 'STRENGTH', icon: 'dumbbell', family: 'MaterialCommunityIcons' },
+  MOBILITY: { label: 'MOBILITY', icon: 'yoga', family: 'MaterialCommunityIcons' },
+  YOGA: { label: 'YOGA', icon: 'yoga', family: 'MaterialCommunityIcons' },
+  WALK: { label: 'WALK', icon: 'walk', family: 'MaterialCommunityIcons' },
+  HIKE: { label: 'HIKE', icon: 'hiking', family: 'MaterialCommunityIcons' },
+  CARDIO: { label: 'CARDIO', icon: 'heart-pulse', family: 'MaterialCommunityIcons' },
+  HIIT: { label: 'HIIT', icon: 'lightning-bolt', family: 'MaterialCommunityIcons' },
+  REST: { label: 'REST', icon: 'weather-night', family: 'MaterialCommunityIcons' },
 };
 
 export function getDisciplineConfig(

@@ -4,6 +4,7 @@ import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import { View, Text, TouchableOpacity, ActivityIndicator, useColorScheme, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { Chip } from '../ui/Chip';
 import { WorkoutItem } from '../../types/dashboard';
 
 export interface DayAgenda {
@@ -304,9 +305,11 @@ export function MicroPlanAgendaCard({
                               </View>
 
                               <View className="flex-row items-center gap-2">
-                                <Text className="text-xs font-mono font-bold text-theme-accent font-rajdhani">
-                                  +{Math.round(workout.rookaPoints || 0)} rooka
-                                </Text>
+                                <Chip
+                                  variant="points"
+                                  size="sm"
+                                  label={Math.round(workout.rookaPoints || 0)}
+                                />
 
                                 {workout.isCompleted && (
                                   <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
@@ -325,7 +328,7 @@ export function MicroPlanAgendaCard({
                             {/* Subline: Human Duration & Chevron */}
                             <View className="flex-row items-center justify-between pt-1">
                               <Text className="text-xs text-theme-muted font-medium font-rajdhani">
-                                {workout.duration || '45 min'} session · +{Math.round(workout.rookaPoints || 0)} rooka
+                                {workout.duration || '45 min'} session
                               </Text>
 
                               {typeof workout.actualMetrics === 'string' && workout.actualMetrics ? (

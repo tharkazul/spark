@@ -62,6 +62,7 @@ export default function TabLayout() {
           // Chat and Progress are expensive to mount; building all five up front
           // would make the first paint of the tab bar noticeably slower.
           lazy: true,
+          lazyPreloadDistance: 1,
         }}
       >
         {/* Tab 1: Planning - Dynamic Date Sheet with current date number */}
