@@ -71,25 +71,25 @@ interface ChatSection {
   data: ChatMessage[];
 }
 
-function formatDateHeader(dateObj: Date): string {
+function formatDateHeader(dateObj: Date, t?: any, locale?: string): string {
   if (!dateObj || isNaN(dateObj.getTime())) return '';
   const now = new Date();
   const dDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
   const nDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diffDays = Math.round((nDate.getTime() - dDate.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
+  if (diffDays === 0) return t ? t('common.today', 'Today') : 'Today';
+  if (diffDays === 1) return t ? t('common.yesterday', 'Yesterday') : 'Yesterday';
   if (diffDays > 1 && diffDays < 7) {
-    return dateObj.toLocaleDateString([], { weekday: 'long' });
+    return dateObj.toLocaleDateString(locale || [], { weekday: 'long' });
   }
   if (dateObj.getFullYear() === now.getFullYear()) {
-    return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+    return dateObj.toLocaleDateString(locale || [], { weekday: 'short', day: 'numeric', month: 'short' });
   }
-  return dateObj.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return dateObj.toLocaleDateString(locale || [], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function formatPillWorkoutDate(dateStr?: string): string {
+function formatPillWorkoutDate(dateStr?: string, t?: any, locale?: string): string {
   if (!dateStr) return '';
   try {
     const [y, m, d] = dateStr.split('-').map((v) => parseInt(v, 10));
@@ -99,11 +99,11 @@ function formatPillWorkoutDate(dateStr?: string): string {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays === -1) return 'Yesterday';
+    if (diffDays === 0) return t ? t('common.today', 'Today') : 'Today';
+    if (diffDays === 1) return t ? t('common.tomorrow', 'Tomorrow') : 'Tomorrow';
+    if (diffDays === -1) return t ? t('common.yesterday', 'Yesterday') : 'Yesterday';
 
-    return target.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return target.toLocaleDateString(locale || 'en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   } catch (_) {
     return dateStr;
   }
@@ -114,7 +114,7 @@ type ChatListItem =
   | { type: 'date'; title: string; id: string }
   | { type: 'thinking'; id: string };
 
-function flattenMessagesChronological(messagesList: ChatMessage[]): ChatListItem[] {
+function flattenMessagesChronological(messagesList: ChatMessage[], t?: any, locale?: string): ChatListItem[] {
   const items: ChatListItem[] = [];
   let currentDateKey = '';
 
@@ -130,7 +130,7 @@ function flattenMessagesChronological(messagesList: ChatMessage[]): ChatListItem
 
     if (dateKey !== currentDateKey) {
       currentDateKey = dateKey;
-      items.push({ type: 'date', title: isNaN(d.getTime()) ? 'Today' : formatDateHeader(d), id: `date-${dateKey}` });
+      items.push({ type: 'date', title: isNaN(d.getTime()) ? (t ? t('common.today', 'Today') : 'Today') : formatDateHeader(d, t, locale), id: `date-${dateKey}` });
     }
 
     let isFirstInRun = true;
@@ -209,6 +209,7 @@ const MessageRow = React.memo(({
   const isUser = item.role === 'user';
   const avatarSrc = getCoachAvatarSource(coachTone, item.mood, user);
   const router = useRouter();
+  const { t } = useLanguage();
 
   const isUpgradePrompt = useMemo(() => {
     if (isUser || !item.content) return false;
@@ -281,7 +282,7 @@ const MessageRow = React.memo(({
           >
             <Ionicons name="sparkles" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
             <Text className="text-white text-xs font-bold font-rajdhani">
-              Upgrade to Rooka+
+              {t('profile.upgradeToRookaPlus', 'Upgrade to Rooka+')}
             </Text>
             <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
           </TouchableOpacity>
@@ -334,7 +335,7 @@ const MessageRow = React.memo(({
       {isUser && item.isError && (
         <TouchableOpacity activeOpacity={0.8} onPress={() => onResend(item.id)} className="mt-1 flex-row items-center self-end mr-1">
           <Ionicons name="reload-circle" size={14} color="#EF4444" />
-          <Text className="text-semantic-error text-xs ml-1 font-medium">Failed to send. Tap to retry.</Text>
+          <Text className="text-semantic-error text-xs ml-1 font-medium">{t('coach.failedToSend', 'Failed to send. Tap to retry.')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -343,7 +344,7 @@ const MessageRow = React.memo(({
 
 export default function CoachScreen() {
   const theme = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const {
     messages,
     refreshMessages,
@@ -424,12 +425,12 @@ export default function CoachScreen() {
   // 1. DATA: reverse the flattened array with thinking indicator at bottom if sending
   const flatItems = useMemo(() => {
     const sorted = sortMessagesChronological(messages);
-    const items = flattenMessagesChronological(sorted).slice().reverse();
+    const items = flattenMessagesChronological(sorted, t, language).slice().reverse();
     if (sending) {
       return [{ type: 'thinking' as const, id: 'pending-thinking' }, ...items];
     }
     return items;
-  }, [messages, sending]);
+  }, [messages, sending, t, language]);
 
   // 2. SCROLL TO BOTTOM: offset 0 is newest message
   const scrollToBottom = useCallback((animated = true) => {
@@ -537,7 +538,7 @@ export default function CoachScreen() {
       } else if (it.type === 'message' && it.data.timestamp) {
         const d = new Date(it.data.timestamp);
         if (!isNaN(d.getTime())) {
-          setFloatingDate(formatDateHeader(d));
+          setFloatingDate(formatDateHeader(d, t, language));
         }
       }
     }
@@ -846,7 +847,7 @@ export default function CoachScreen() {
             (() => {
               const cfg = getSportIconConfig(selectedPillWorkout.sport);
               const isRest = (selectedPillWorkout.sport || '').toLowerCase() === 'rest';
-              const dateLabel = formatPillWorkoutDate(selectedPillWorkout.date);
+              const dateLabel = formatPillWorkoutDate(selectedPillWorkout.date, t, language);
               let steps: any[] = [];
               if (selectedPillWorkout.steps_json) {
                 try {
@@ -863,10 +864,10 @@ export default function CoachScreen() {
                       <SportMedallion sport={selectedPillWorkout.sport} size={40} />
                       <View>
                         <Text className="text-lg font-extrabold text-theme-text">
-                          {isRest ? 'Rest Day' : `${selectedPillWorkout.sport || 'Workout'} Details`}
+                          {isRest ? t('common.restDay', 'Rest Day') : t('dashboard.workoutDetails', 'Workout Details')}
                         </Text>
                         <Text className="text-xs text-theme-muted font-bold">
-                          {dateLabel || selectedPillWorkout.date || 'Scheduled'}
+                          {dateLabel || selectedPillWorkout.date || t('common.today', 'Today')}
                         </Text>
                       </View>
                     </View>
@@ -916,7 +917,7 @@ export default function CoachScreen() {
                     {Array.isArray(steps) && steps.length > 0 && (
                       <View className="mt-2 pt-2 border-t border-theme-border/30 gap-y-1.5">
                         <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider mb-1">
-                          Structured Workout Steps
+                          {t('coach.structuredSteps', 'Structured Workout Steps')}
                         </Text>
                         {steps.map((st: any, sIdx: number) => (
                           <View
@@ -944,7 +945,7 @@ export default function CoachScreen() {
                   <SportMedallion sport={primaryWorkout?.sport || 'Rest'} size={40} />
                   <View>
                     <Text className="text-lg font-extrabold text-theme-text">
-                      {todayWorkouts.length > 1 ? "Today's Workouts" : "Today's Workout"}
+                      {todayWorkouts.length > 1 ? t('coach.todaysWorkouts', "Today's Workouts") : t('coach.todaysWorkout', "Today's Workout")}
                     </Text>
                     <Text className="text-xs text-theme-muted font-bold">{dateBadgeStr}</Text>
                   </View>
@@ -994,8 +995,8 @@ export default function CoachScreen() {
               ) : (
                 <View className="bg-theme-bg p-5 rounded-2xl border border-theme-border/60 mb-5 items-center">
                   <Ionicons name="moon-outline" size={28} color={theme.textSecondary} />
-                  <Text className="text-sm font-bold text-theme-text mt-2">Rest & Recovery Day</Text>
-                  <Text className="text-xs text-theme-muted text-center mt-1">No structured workout scheduled for today.</Text>
+                  <Text className="text-sm font-bold text-theme-text mt-2">{t('coach.restRecoveryDay', 'Rest & Recovery Day')}</Text>
+                  <Text className="text-xs text-theme-muted text-center mt-1">{t('coach.noWorkoutScheduled', 'No structured workout scheduled for today.')}</Text>
                 </View>
               )}
             </>
@@ -1014,7 +1015,7 @@ export default function CoachScreen() {
               className="flex-1 py-3.5 bg-theme-bg border border-theme-border rounded-xl flex-row items-center justify-center gap-2"
             >
               <Ionicons name="calendar-outline" size={16} color={theme.tint} />
-              <Text className="text-xs font-extrabold text-theme-accent">View Full Plan</Text>
+              <Text className="text-xs font-extrabold text-theme-accent">{t('coach.viewFullPlan', 'View Full Plan')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1024,7 +1025,7 @@ export default function CoachScreen() {
               }}
               className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
             >
-              <Text className="text-xs font-extrabold text-white">Got it</Text>
+              <Text className="text-xs font-extrabold text-white">{t('common.gotIt', 'Got it')}</Text>
             </TouchableOpacity>
           </View>
         </BottomSheetModal>
@@ -1041,8 +1042,8 @@ export default function CoachScreen() {
                 <Ionicons name="restaurant-outline" size={20} color={theme.tint} />
               </View>
               <View>
-                <Text className="text-base font-bold text-theme-text font-rajdhani">Today's Fueling</Text>
-                <Text className="text-xs text-theme-muted font-medium">Macro targets & energy budget</Text>
+                <Text className="text-base font-bold text-theme-text font-rajdhani">{t('coach.todaysFueling', "Today's Fueling")}</Text>
+                <Text className="text-xs text-theme-muted font-medium">{t('coach.macroTargetsEnergyBudget', 'Macro targets & energy budget')}</Text>
               </View>
             </View>
             {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
@@ -1057,7 +1058,7 @@ export default function CoachScreen() {
                 className="flex-row items-center gap-1 bg-theme-bg px-2.5 py-1 rounded-full border border-theme-border"
               >
                 <Ionicons name="refresh-outline" size={12} color={theme.textSecondary} />
-                <Text className="text-[11px] font-bold text-theme-muted">Reset</Text>
+                <Text className="text-[11px] font-bold text-theme-muted">{t('common.reset', 'Reset')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1071,7 +1072,7 @@ export default function CoachScreen() {
               {totalTargetKcal.toLocaleString()} <Text className="text-base text-theme-muted font-normal">kcal</Text>
             </Text>
             <Text className="text-xs text-theme-muted mt-0.5 text-center font-medium">
-              Calculated from your training volume and target weight
+              {t('coach.calculatedFromVolume', 'Calculated from your training volume and target weight')}
             </Text>
           </View>
 
@@ -1100,7 +1101,7 @@ export default function CoachScreen() {
           {/* Rationale / Explanation with Form (TSB) Chip */}
           <View className="p-3.5 bg-theme-card rounded-2xl mb-5 border border-theme-border">
             <View className="flex-row items-center justify-between mb-1.5">
-              <Text className="text-xs font-bold text-theme-text">{nutrition?.focusTitle || 'Daily Nutrition Targets'}</Text>
+              <Text className="text-xs font-bold text-theme-text">{nutrition?.focusTitle || t('coach.dailyNutritionTargets', 'Daily Nutrition Targets')}</Text>
               <TouchableOpacity
                 onPress={() => {
                   setIsNutritionModalOpen(false);
@@ -1123,7 +1124,7 @@ export default function CoachScreen() {
               onPress={() => setIsNutritionModalOpen(false)}
               className="flex-1 py-3.5 bg-theme-accent-strong rounded-button items-center justify-center"
             >
-              <Text className="text-xs font-bold text-white">Got it</Text>
+              <Text className="text-xs font-bold text-white">{t('common.gotIt', 'Got it')}</Text>
             </TouchableOpacity>
           </View>
         </BottomSheetModal>
@@ -1140,8 +1141,8 @@ export default function CoachScreen() {
                 <Ionicons name="trophy" size={26} color={theme.tint} />
               </View>
               <View>
-                <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
-                <Text className="text-xs text-theme-muted font-bold">Expires Sunday midnight</Text>
+                <Text className="text-lg font-extrabold text-theme-text">{t('coach.activeQuest', 'Active Quest')}</Text>
+                <Text className="text-xs text-theme-muted font-bold">{t('coach.expiresSundayMidnight', 'Expires Sunday midnight')}</Text>
               </View>
             </View>
             <Chip
@@ -1160,7 +1161,7 @@ export default function CoachScreen() {
           <View className="mb-6">
             <View className="flex-row justify-between items-center mb-2">
               <Text className="text-xs font-bold text-theme-muted">
-                Progress ({Math.round(activeQuest?.progress || 0)} / {Math.round(activeQuest?.target_value || 0)})
+                {t('coach.progressCount', { current: Math.round(activeQuest?.progress || 0), target: Math.round(activeQuest?.target_value || 0) })}
               </Text>
               <Text className="text-sm font-mono font-bold text-theme-accent">
                 {questProgressPercent}%
@@ -1185,7 +1186,7 @@ export default function CoachScreen() {
               ) : (
                 <>
                   <Ionicons name="refresh-outline" size={16} color={theme.textSecondary} />
-                  <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+                  <Text className="text-xs font-bold text-theme-muted">{t('coach.swapChallenge', 'Swap Challenge')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -1194,7 +1195,7 @@ export default function CoachScreen() {
               onPress={() => setIsQuestModalOpen(false)}
               className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
             >
-              <Text className="text-xs font-extrabold text-white">Got it</Text>
+              <Text className="text-xs font-extrabold text-white">{t('common.gotIt', 'Got it')}</Text>
             </TouchableOpacity>
           </View>
         </BottomSheetModal>
@@ -1219,7 +1220,7 @@ export default function CoachScreen() {
                 rooka
               </Text>
               <Text className="text-[11px] text-theme-muted font-medium">
-                Your coach
+                {t('coach.yourCoach', 'Your coach')}
               </Text>
             </View>
           </View>
@@ -1268,8 +1269,18 @@ export default function CoachScreen() {
               <SportMedallion sport={primaryWorkout?.sport || 'Rest'} size={20} />
               <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
                 {primaryWorkout?.sport
-                  ? `${primaryWorkout.sport}${primaryWorkoutDuration ? `, ${primaryWorkoutDuration} min` : ''}`
-                  : 'Rest Day'}
+                  ? `${(() => {
+                      const upper = (primaryWorkout.sport || '').toUpperCase();
+                      if (upper === 'RUN') return t('sports.run', 'Run');
+                      if (upper === 'BIKE' || upper === 'CYCLING') return t('sports.bike', 'Bike');
+                      if (upper === 'SWIM') return t('sports.swim', 'Swim');
+                      if (upper === 'STRENGTH') return t('sports.strength', 'Strength');
+                      if (upper === 'MOBILITY') return t('sports.mobility', 'Mobility');
+                      if (upper === 'WALK') return t('sports.walk', 'Walk');
+                      if (upper === 'REST') return t('common.restDay', 'Rest Day');
+                      return primaryWorkout.sport;
+                    })()}${primaryWorkoutDuration ? `, ${primaryWorkoutDuration} min` : ''}`
+                  : t('common.restDay', 'Rest Day')}
               </Text>
               {primaryWorkout?.target_rooka ? (
                 <RookaPoints value={Math.round(primaryWorkout.target_rooka)} />
@@ -1289,7 +1300,7 @@ export default function CoachScreen() {
               >
                 <Ionicons name="restaurant-outline" size={15} color="#F59E0B" />
                 <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
-                  Nutrition
+                  {t('coach.nutrition', 'Nutrition')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1307,7 +1318,7 @@ export default function CoachScreen() {
               >
                 <Ionicons name="trophy-outline" size={15} color="#FB923C" />
                 <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
-                  Quest
+                  {t('coach.quest', 'Quest')}
                 </Text>
                 <Text className="text-xs font-mono font-bold text-theme-accent-text font-rajdhani">
                   {activeQuest ? `${Math.round(activeQuest.progress || 0)}/${Math.round(activeQuest.target_value || 0)}` : '0/0'}
@@ -1323,7 +1334,7 @@ export default function CoachScreen() {
             <View className="flex-row items-center flex-1 mr-2">
               <Ionicons name="warning-outline" size={16} color="#F59E0B" />
               <Text className="text-theme-accent text-xs font-semibold ml-2">
-                Daily Budget Low: {remainingPercent}% remaining
+                {t('coach.dailyBudgetLow', { percent: remainingPercent })}
               </Text>
             </View>
             {!hasSubscriptionTier(user?.subscription_tier) ? (
@@ -1335,7 +1346,7 @@ export default function CoachScreen() {
                 activeOpacity={0.8}
                 className="bg-theme-accent px-2.5 py-1 rounded-md"
               >
-                <Text className="text-black font-bold text-xs">UPGRADE</Text>
+                <Text className="text-black font-bold text-xs">{t('coach.upgrade', 'UPGRADE')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -1467,7 +1478,7 @@ export default function CoachScreen() {
 
               <RNTextInput
                 ref={inputRef}
-                placeholder="Ask your coach..."
+                placeholder={t('coach.askCoach', 'Ask your coach...')}
                 placeholderTextColor={theme.textSecondary}
                 value={inputText}
                 onChangeText={(text) => {

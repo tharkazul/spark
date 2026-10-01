@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { ScalePressable } from '../ui/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -24,6 +25,7 @@ export function LogWeightModal({
   onSaveWeight,
 }: LogWeightModalProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const [weight, setWeight] = useState<number>(previousWeight || 70.0);
   const [showModal, setShowModal] = useState(visible);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -129,8 +131,8 @@ export function LogWeightModal({
                   <Ionicons name="scale-outline" size={18} color="#16ACBD" />
                 </View>
                 <View>
-                  <Text className="text-lg font-bold text-theme-text">Quick Weight Log</Text>
-                  <Text className="text-xs text-theme-muted">Track body mass for AI recovery load</Text>
+                  <Text className="text-lg font-bold text-theme-text">{t('dashboard.logWeight', 'Quick Weight Log')}</Text>
+                  <Text className="text-xs text-theme-muted">{t('dashboard.weightModalSubtitle', 'Track body mass for AI recovery load')}</Text>
                 </View>
               </View>
             </View>
@@ -144,11 +146,11 @@ export function LogWeightModal({
               {diff !== 0 ? (
                 <View className={`px-3 py-1 rounded-full ${diff > 0 ? 'bg-semantic-warning/15' : 'bg-semantic-success/15'}`}>
                   <Text className={`text-xs font-mono font-bold ${diff > 0 ? 'text-semantic-warning' : 'text-semantic-success'}`}>
-                    {diff > 0 ? `+${diff} kg vs last log` : `${diff} kg vs last log`}
+                    {diff > 0 ? t('dashboard.diffVsLastLog', { diff: `+${diff}` }) : t('dashboard.diffVsLastLog', { diff: `${diff}` })}
                   </Text>
                 </View>
               ) : (
-                <Text className="text-xs text-theme-muted font-medium">Unchanged from last log ({previousWeight} kg)</Text>
+                <Text className="text-xs text-theme-muted font-medium">{t('dashboard.weightUnchanged', { previousWeight })}</Text>
               )}
 
               {/* Stepper Buttons Row */}
@@ -194,10 +196,10 @@ export function LogWeightModal({
             {/* Action Buttons */}
             <View className="flex-row gap-3 pt-2">
               <View className="flex-1">
-                <Button label="Cancel" variant="outline" onPress={onClose} />
+                <Button label={t('common.cancel', 'Cancel')} variant="outline" onPress={onClose} />
               </View>
               <View className="flex-1">
-                <Button label="Log Weight" variant="primary" onPress={handleSave} />
+                <Button label={t('dashboard.logWeight', 'Log Weight')} variant="primary" onPress={handleSave} />
               </View>
             </View>
           </Animated.View>

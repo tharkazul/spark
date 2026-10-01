@@ -318,7 +318,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
           <View className="flex-row items-center gap-x-2 mb-2.5">
             <Ionicons name="person-add" size={16} color={theme.tint} />
             <Text className="text-xs font-bold text-theme-accent uppercase tracking-wider">
-              Friend Requests ({pendingRequests.length})
+              {t('social.friendRequests', 'Friend Requests')} ({pendingRequests.length})
             </Text>
           </View>
           {pendingRequests.map((req) => (
@@ -339,7 +339,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                 onPress={() => handleAcceptRequest(req.friend_id || req.user_id)}
                 className="bg-emerald-600 px-3 py-1.5 rounded-button-md"
               >
-                <Text className="text-xs font-bold text-white">Accept</Text>
+                <Text className="text-xs font-bold text-white">{t('social.acceptRequest', 'Accept')}</Text>
               </TouchableOpacity>
             </View>
           ))}
@@ -349,13 +349,13 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
       {groupedFeed.length === 0 ? (
         <EmptyState
           preset="empty-feed"
-          badge="ATHLETE NETWORK"
-          title="Your Feed is Quiet"
-          subtitle="Connect with teammates, training partners, and club athletes to see their workouts, exchange kudos, and keep each other accountable."
+          badge={t('social.athleteNetwork', 'ATHLETE NETWORK')}
+          title={t('social.feedQuietTitle', 'Your Feed is Quiet')}
+          subtitle={t('social.feedQuietSubtitle', 'Connect with teammates, training partners, and club athletes to see their workouts, exchange kudos, and keep each other accountable.')}
           action={
             onOpenAddFriends
               ? {
-                  label: 'Find & Add Athletes',
+                  label: t('social.findAddAthletes', 'Find & Add Athletes'),
                   icon: 'person-add-outline',
                   onPress: onOpenAddFriends,
                   variant: 'primary',
@@ -439,7 +439,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                           variant="sport"
                           sport="triathlon"
                           size="sm"
-                          label={`Brick (${group.activities.length})`}
+                          label={`${t('social.brick', 'Brick')} (${group.activities.length})`}
                         />
                       )}
                     </View>
@@ -475,7 +475,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                     <View className="flex-row items-center gap-x-2.5 flex-1 pr-2">
                       <SportMedallion sport={primaryActivity.sport_type} size={40} />
                       <Text className="text-base font-bold text-theme-text flex-1" numberOfLines={1}>
-                        {primaryActivity.name || primaryActivity.title || 'Workout'}
+                        {primaryActivity.name || primaryActivity.title || t('quickActions.workout', 'Workout')}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
@@ -487,7 +487,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                     <View className="flex-row mt-3 mb-1">
                       <View className="flex-col w-[35%] justify-between space-y-3">
                         <StatValue
-                          label="DISTANCE"
+                          label={t('social.distance', 'DISTANCE')}
                           labelPosition="bottom"
                           value={primaryActivity.distance_km?.toFixed(1) || '0.0'}
                           unit="km"
@@ -495,14 +495,14 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                           align="left"
                         />
                         <StatValue
-                          label="TIME"
+                          label={t('social.time', 'TIME')}
                           labelPosition="bottom"
                           value={formatClock(primaryMovingSec)}
                           size="md"
                           align="left"
                         />
                         <StatValue
-                          label={primaryPaceParts?.label || 'PACE'}
+                          label={primaryPaceParts?.label || t('social.pace', 'PACE')}
                           labelPosition="bottom"
                           value={primaryPaceParts?.value || '--'}
                           unit={primaryPaceParts?.unit}
@@ -524,7 +524,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                       {/* Metric 1: Distance */}
                       <View className="flex-1">
                         <StatValue
-                          label="DISTANCE"
+                          label={t('social.distance', 'DISTANCE')}
                           labelPosition="bottom"
                           value={primaryActivity.distance_km?.toFixed(1) || '0.0'}
                           unit="km"
@@ -536,7 +536,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                       {/* Metric 2: Time */}
                       <View className="flex-1 items-center">
                         <StatValue
-                          label="TIME"
+                          label={t('social.time', 'TIME')}
                           labelPosition="bottom"
                           value={formatClock(primaryMovingSec)}
                           size="md"
@@ -547,7 +547,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                       {/* Metric 3: Pace or Speed */}
                       <View className="flex-1 items-end">
                         <StatValue
-                          label={primaryPaceParts?.label || 'PACE'}
+                          label={primaryPaceParts?.label || t('social.pace', 'PACE')}
                           labelPosition="bottom"
                           value={primaryPaceParts?.value || '--'}
                           unit={primaryPaceParts?.unit}
@@ -561,7 +561,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                     <View className="flex-row justify-between items-start pt-3 pb-1">
                       <View className="flex-1">
                         <StatValue
-                          label="DURATION"
+                          label={t('progress.duration', 'DURATION')}
                           labelPosition="bottom"
                           value={formatDuration(primaryActivity.moving_time_min || 0)}
                           size="md"
@@ -571,7 +571,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
 
                       <View className="flex-1 items-end">
                         <StatValue
-                          label="EFFORT"
+                          label={t('progress.effort', 'EFFORT')}
                           labelPosition="bottom"
                           value={`+${Math.round(primaryActivity.rooka_score || 0)}`}
                           size="md"
@@ -613,7 +613,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                           <SportMedallion sport={act.sport_type} size={28} />
                           <View className="flex-1">
                             <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
-                              {act.name || act.title || 'Workout'}
+                              {act.name || act.title || t('quickActions.workout', 'Workout')}
                             </Text>
                             <Text className="text-xs text-theme-muted font-medium font-rajdhani tabular-nums">
                               {[
@@ -658,8 +658,8 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                   <Ionicons name="chatbubble-outline" size={17} color={theme.textSecondary} />
                   <Text className="text-xs font-semibold text-theme-muted">
                     {totalComments > 0
-                      ? pluralize('comment', totalComments, language)
-                      : 'Comment'}
+                      ? `${totalComments} ${totalComments === 1 ? t('social.comment', 'Comment') : t('social.comments', 'Comments')}`
+                      : t('social.comment', 'Comment')}
                   </Text>
                 </TouchableOpacity>
               </View>

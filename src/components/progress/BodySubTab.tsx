@@ -13,6 +13,7 @@ import { MuscleFatigueCard } from './MuscleFatigueCard';
 import * as Haptics from 'expo-haptics';
 
 import { useHealth } from '../../context/HealthStore';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   AppleHealthDailyBiometrics,
   getCachedTodayBiometrics,
@@ -29,6 +30,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
   onSaveNiggle,
   onResolveNiggle,
 }) => {
+  const { t } = useLanguage();
   const { niggles: storeNiggles, saveNiggle: storeSaveNiggle, resolveNiggle: storeResolveNiggle } = useHealth();
   const niggles = storeNiggles as ActiveNiggle[];
   const [modalVisible, setModalVisible] = useState(false);
@@ -112,11 +114,11 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
           <View className="flex-row items-center gap-x-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
             <Text className="text-xs font-bold text-theme-muted">
-              Injury & Soreness Heatmap
+              {t('dashboard.injuryHeatmap', 'Injury & Soreness Heatmap')}
             </Text>
           </View>
           <Text className="text-xs font-semibold text-theme-accent">
-            {niggles.length} Active {niggles.length === 1 ? 'Issue' : 'Issues'}
+            {niggles.length} {t('progress.activeIssues', 'Active Issue(s)')}
           </Text>
         </View>
 
@@ -144,7 +146,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
         <View className="flex-row justify-between items-center pb-4 mb-4">
           <View>
             <Text className="text-xs font-bold text-theme-muted">
-              Log Issue / Soreness
+              {t('dashboard.logNiggle', 'Log Issue / Soreness')}
             </Text>
             <Text className="text-lg font-extrabold text-theme-text mt-0.5">
               {selectedPartName}
@@ -155,7 +157,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Severity Chips */}
           <Text className="text-xs font-bold text-theme-muted mb-2">
-            Severity Level
+            {t('dashboard.severityRating', 'Severity Level')}
           </Text>
           <View className="flex-row justify-between mb-4">
             {[1, 2, 3, 4, 5].map((level) => (
@@ -183,19 +185,19 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
           </View>
 
           <View className="flex-row justify-between text-xs text-theme-muted mb-5 px-1">
-            <Text className="text-xs text-theme-muted">1: Gentle Twinge</Text>
-            <Text className="text-xs text-theme-muted">3: Modifies Gait</Text>
-            <Text className="text-xs text-theme-muted">5: Cannot Bear Weight</Text>
+            <Text className="text-xs text-theme-muted">{t('dashboard.gentleTwinge', '1: Gentle Twinge')}</Text>
+            <Text className="text-xs text-theme-muted">{t('dashboard.modifiesGait', '3: Modifies Gait')}</Text>
+            <Text className="text-xs text-theme-muted">{t('dashboard.cannotBearWeight', '5: Cannot Bear Weight')}</Text>
           </View>
 
           {/* Notes Input */}
           <Text className="text-xs font-bold text-theme-muted mb-2">
-            Context & Pain Notes
+            {t('dashboard.notesOptional', 'Context & Pain Notes')}
           </Text>
           <TextInput
             value={notes}
             onChangeText={setNotes}
-            placeholder="e.g. Sharp pain when stepping off curb..."
+            placeholder={t('dashboard.nigglePlaceholder', 'e.g. Sharp pain when stepping off curb...')}
             multiline
             numberOfLines={3}
             className="bg-theme-bg text-theme-text rounded-xl p-3 text-sm mb-6"
@@ -204,11 +206,11 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
 
           {/* Buttons */}
           <View className="gap-y-3 mb-4">
-            <Button label="Save Issue" onPress={handleSave} className="bg-theme-accent mb-2" />
+            <Button label={t('dashboard.saveIssue', 'Save Issue')} onPress={handleSave} className="bg-theme-accent mb-2" />
 
             {editingNiggleId ? (
               <Button
-                label="Mark as Resolved"
+                label={t('progress.markResolved', 'Mark as Resolved')}
                 onPress={() => handleResolve(editingNiggleId)}
                 variant="outline"
                 className="border-semantic-success text-semantic-success"

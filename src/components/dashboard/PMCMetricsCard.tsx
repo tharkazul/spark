@@ -63,11 +63,11 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
     : Math.max(0, Math.min(100, Math.round(50 + Math.max(-20, Math.min(20, tsb * 0.5)))));
 
   const getTsbState = (val: number) => {
-    if (val > 25) return { label: 'Fresh / Undertrained', color: '#38BDF8', bg: 'bg-sky-500/15', text: 'text-sky-500', index: 0 };
-    if (val >= 5) return { label: 'Fresh', color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 1 };
-    if (val >= -10) return { label: 'Optimal', color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 2 };
-    if (val >= -30) return { label: 'High Fatigue', color: '#F59E0B', bg: 'bg-amber-500/15', text: 'text-amber-500', index: 3 };
-    return { label: 'Overreaching', color: '#EF4444', bg: 'bg-rose-500/15', text: 'text-rose-500', index: 4 };
+    if (val > 25) return { label: t('dashboard.tsbFreshUndertrained', 'Fresh / Undertrained'), color: '#38BDF8', bg: 'bg-sky-500/15', text: 'text-sky-500', index: 0 };
+    if (val >= 5) return { label: t('dashboard.tsbFresh', 'Fresh'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 1 };
+    if (val >= -10) return { label: t('dashboard.tsbOptimal', 'Optimal'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 2 };
+    if (val >= -30) return { label: t('dashboard.tsbHighFatigue', 'High Fatigue'), color: '#F59E0B', bg: 'bg-amber-500/15', text: 'text-amber-500', index: 3 };
+    return { label: t('dashboard.tsbOverreaching', 'Overreaching'), color: '#EF4444', bg: 'bg-rose-500/15', text: 'text-rose-500', index: 4 };
   };
   const tsbState = getTsbState(tsb);
 
@@ -192,7 +192,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
             width={120}
           />
           <Text className="text-[11px] text-theme-muted mt-1">
-            {hasTrainingData ? 'Training Stress Balance' : t('dashboard.noDataYet')}
+            {hasTrainingData ? t('dashboard.trainingStressBalance', 'Training Stress Balance') : t('dashboard.noDataYet')}
           </Text>
         </View>
 

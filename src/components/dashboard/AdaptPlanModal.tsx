@@ -12,6 +12,7 @@ import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -27,6 +28,7 @@ export function AdaptPlanModal({
   onConfirmAdapt,
 }: AdaptPlanModalProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const { user } = useUser();
   const { activities } = useActivities();
   const { physiqueLogs } = usePhysique();
@@ -137,11 +139,11 @@ export function AdaptPlanModal({
               </View>
 
               <Text className="text-xl font-extrabold text-theme-text text-center mb-1">
-                Adaptive AI Plan
+                {t('dashboard.adaptModalTitle', 'Adaptive AI Plan')}
               </Text>
 
               <Text className="text-xs text-theme-muted text-center mb-5 leading-relaxed">
-                Your recent fatigue score is <Text className="font-bold text-theme-accent">{atl} ATL</Text>. Would you like rooka AI to optimize today's schedule for maximum adaptation?
+                {t('dashboard.adaptModalSubtitle', { atl: `${atl} ATL` })}
               </Text>
 
               {/* Adaptation Suggestions */}
@@ -155,8 +157,8 @@ export function AdaptPlanModal({
                   >
                     <Ionicons name="time-outline" size={20} color="#16ACBD" />
                     <View className="flex-1">
-                      <Text className="text-xs font-bold text-theme-text">Time Crunch</Text>
-                      <Text className="text-xs text-theme-muted">Shorten session without losing peak stimulus</Text>
+                      <Text className="text-xs font-bold text-theme-text">{t('dashboard.adaptTimeCrunch', 'Time Crunch')}</Text>
+                      <Text className="text-xs text-theme-muted">{t('dashboard.adaptTimeCrunchDesc', 'Shorten session without losing peak stimulus')}</Text>
                     </View>
                   </ScalePressable>
 
@@ -168,8 +170,8 @@ export function AdaptPlanModal({
                   >
                     <Ionicons name="home-outline" size={20} color="#10B981" />
                     <View className="flex-1">
-                      <Text className="text-xs font-bold text-theme-text">Move indoors</Text>
-                      <Text className="text-xs text-theme-muted">Adapt for trainer/treadmill environments</Text>
+                      <Text className="text-xs font-bold text-theme-text">{t('dashboard.adaptMoveIndoors', 'Move indoors')}</Text>
+                      <Text className="text-xs text-theme-muted">{t('dashboard.adaptMoveIndoorsDesc', 'Adapt for trainer/treadmill environments')}</Text>
                     </View>
                   </ScalePressable>
 
@@ -181,8 +183,8 @@ export function AdaptPlanModal({
                   >
                     <Ionicons name="calendar-outline" size={20} color="#F59E0B" />
                     <View className="flex-1">
-                      <Text className="text-xs font-bold text-theme-text">Move all one day</Text>
-                      <Text className="text-xs text-theme-muted">Push entire schedule ahead by 24 hours</Text>
+                      <Text className="text-xs font-bold text-theme-text">{t('dashboard.adaptMoveDay', 'Move all one day')}</Text>
+                      <Text className="text-xs text-theme-muted">{t('dashboard.adaptMoveDayDesc', 'Push entire schedule ahead by 24 hours')}</Text>
                     </View>
                   </ScalePressable>
 
@@ -194,8 +196,8 @@ export function AdaptPlanModal({
                   >
                     <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
                     <View className="flex-1">
-                      <Text className="text-xs font-bold text-theme-text">Cancel completely</Text>
-                      <Text className="text-xs text-theme-muted">Rest up and skip today's workout entirely</Text>
+                      <Text className="text-xs font-bold text-theme-text">{t('dashboard.adaptCancel', 'Cancel completely')}</Text>
+                      <Text className="text-xs text-theme-muted">{t('dashboard.adaptCancelDesc', "Rest up and skip today's workout entirely")}</Text>
                     </View>
                   </ScalePressable>
                 </View>
@@ -204,7 +206,7 @@ export function AdaptPlanModal({
               {/* Buttons */}
               <View className="flex-row gap-3">
                 <View className="flex-1">
-                  <Button label="Keep Current" variant="outline" onPress={onClose} />
+                  <Button label={t('dashboard.keepCurrent', 'Keep Current')} variant="outline" onPress={onClose} />
                 </View>
               </View>
           </Animated.View>

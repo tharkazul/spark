@@ -30,3 +30,8 @@ export const canConfigureCoach = (tier?: SubscriptionTier): boolean => {
 export const canHideRookaLink = (tier?: SubscriptionTier): boolean => {
   return hasSubscriptionTier(tier);
 };
+
+export const canEditWorkouts = (tier?: SubscriptionTier, isSubscribed?: boolean): boolean => {
+  return hasSubscriptionTier(tier) || Boolean(isSubscribed);
+};
+

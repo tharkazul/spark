@@ -2,24 +2,25 @@ import React from 'react';
 import { ScrollView, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Chip } from '../ui/Chip';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface QuickSuggestionsProps {
   suggestions?: string[];
   onSelectSuggestion: (text: string) => void;
 }
 
-const LOCAL_FALLBACKS = [
-  'Adapt today',
-  "I'm tired",
-  'Move to tomorrow',
-  'What should I eat?',
-];
-
 export const QuickSuggestions: React.FC<QuickSuggestionsProps> = ({
   suggestions,
   onSelectSuggestion,
 }) => {
-  const list = suggestions && suggestions.length > 0 ? suggestions : LOCAL_FALLBACKS;
+  const { t } = useLanguage();
+  const localFallbacks = [
+    t('coach.adaptToday', 'Adapt today'),
+    t('coach.imTired', "I'm tired"),
+    t('coach.moveToTomorrow', 'Move to tomorrow'),
+    t('coach.whatShouldIEat', 'What should I eat?'),
+  ];
+  const list = suggestions && suggestions.length > 0 ? suggestions : localFallbacks;
 
   const handleSelect = (text: string) => {
     Haptics.selectionAsync();

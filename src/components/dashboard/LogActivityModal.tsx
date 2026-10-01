@@ -22,6 +22,7 @@ import { SportMedallion } from '../ui/SportMedallion';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useActivities } from '../../context/ActivityStore';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -45,6 +46,7 @@ export function LogActivityModal({
   onSaveActivity,
 }: LogActivityModalProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { addManualActivity } = useActivities();
@@ -188,8 +190,8 @@ export function LogActivityModal({
                     <Ionicons name="fitness-outline" size={18} color="#10B981" />
                   </View>
                   <View>
-                    <Text className="text-lg font-bold text-theme-text">Log Manual Activity</Text>
-                    <Text className="text-xs text-theme-muted">Record an un-synced workout session</Text>
+                    <Text className="text-lg font-bold text-theme-text">{t('activities.logManual', 'Log Workout')}</Text>
+                    <Text className="text-xs text-theme-muted">{t('activities.recordUnsynced', 'Record an un-synced workout session')}</Text>
                   </View>
                 </View>
               </View>
@@ -201,11 +203,16 @@ export function LogActivityModal({
                 {/* Sport Type Selector */}
                 <View className="mb-4 mt-2">
                   <Text className="text-xs font-bold text-theme-muted mb-2">
-                    Sport Type
+                    {t('activities.activityType', 'Sport Type')}
                   </Text>
                   <View className="flex-row gap-2">
                     {SPORTS.map((s) => {
                       const isSelected = sport === s.id;
+                      const label = s.id === 'RUN' ? t('sports.run', 'Run')
+                        : s.id === 'BIKE' ? t('sports.bike', 'Bike')
+                        : s.id === 'SWIM' ? t('sports.swim', 'Swim')
+                        : s.id === 'STRENGTH' ? t('sports.strength', 'Strength')
+                        : t('sports.walk', 'Walk');
                       return (
                         <ScalePressable
                           key={s.id}
@@ -224,7 +231,7 @@ export function LogActivityModal({
                               isSelected ? 'text-theme-accent' : 'text-theme-muted'
                             }`}
                           >
-                            {s.label}
+                            {label}
                           </Text>
                         </ScalePressable>
                       );
@@ -235,12 +242,12 @@ export function LogActivityModal({
                 {/* Activity Name */}
                 <View className="mb-4">
                   <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                    Activity Title
+                    {t('activities.activityTitle', 'Activity Title')}
                   </Text>
                   <TextInput
                     value={title}
                     onChangeText={setTitle}
-                    placeholder="e.g. Morning Trail Run, Gym Workout"
+                    placeholder={t('activities.activityTitlePlaceholder', 'e.g. Morning Trail Run, Gym Workout')}
                   />
                 </View>
 
@@ -248,7 +255,7 @@ export function LogActivityModal({
                 <View className="flex-row gap-3 mb-5">
                   <View className="flex-1">
                     <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                      Duration (Mins)
+                      {t('activities.duration', 'Duration (Mins)')}
                     </Text>
                     <TextInput
                       value={duration}
@@ -259,7 +266,7 @@ export function LogActivityModal({
                   </View>
                   <View className="flex-1">
                     <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                      Distance (Km)
+                      {t('activities.distance', 'Distance (Km)')}
                     </Text>
                     <TextInput
                       value={distance}
@@ -273,10 +280,10 @@ export function LogActivityModal({
                 {/* Action Buttons */}
                 <View className="flex-row gap-3 pt-2">
                   <View className="flex-1">
-                    <Button label="Cancel" variant="outline" onPress={onClose} />
+                    <Button label={t('common.cancel', 'Cancel')} variant="outline" onPress={onClose} />
                   </View>
                   <View className="flex-1">
-                    <Button label="Save Activity" variant="primary" isLoading={isSaving} onPress={handleSave} />
+                    <Button label={t('activities.saveActivity', 'Save Activity')} variant="primary" isLoading={isSaving} onPress={handleSave} />
                   </View>
                 </View>
               </ScrollView>

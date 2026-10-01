@@ -24,11 +24,14 @@ import { useLanguage } from '../../context/LanguageContext';
 import { usePlan } from '../../context/PlanStore';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
+import { useSubscription } from '../../context/SubscriptionStore';
+import { canEditWorkouts } from '../../utils/permissions';
 import { planApi } from '../../services/apiServices';
 
 import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
 import { TodaysPlanSkeleton } from '../../components/skeletons/TodaysPlanSkeleton';
+import { weatherService, DayWeather } from '../../services/weatherService';
 
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
@@ -58,8 +61,18 @@ function formatDateToYYYYMMDD(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatShortDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const getLocaleCode = (lang: string) => {
+  switch (lang) {
+    case 'nl': return 'nl-NL';
+    case 'de': return 'de-DE';
+    case 'es': return 'es-ES';
+    case 'fr': return 'fr-FR';
+    default: return 'en-US';
+  }
+};
+
+function formatShortDate(d: Date, lang = 'en'): string {
+  return d.toLocaleDateString(getLocaleCode(lang), { month: 'short', day: 'numeric' });
 }
 
 export default function PlanningHomeScreen() {
@@ -68,8 +81,10 @@ export default function PlanningHomeScreen() {
   const isDark = colorScheme === 'dark';
   const router = useRouter();
   const { user } = useUser();
+  const { isSubscribed, presentPaywall } = useSubscription();
+  const canEdit = canEditWorkouts(user?.subscription_tier, isSubscribed);
   const { sendMessage, unreadCount } = useCoachChat();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const tabBarInset = useTabBarInset();
   const { plan, loading: planLoading, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
   const { activities } = useActivities();
@@ -83,6 +98,15 @@ export default function PlanningHomeScreen() {
   const [isLogActivityOpen, setIsLogActivityOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [workoutToInvite, setWorkoutToInvite] = useState<WorkoutItem | null>(null);
+  const [weatherForecast, setWeatherForecast] = useState<Record<string, DayWeather>>({});
+
+  useEffect(() => {
+    weatherService.getDailyForecast().then((forecast) => {
+      if (forecast && Object.keys(forecast).length > 0) {
+        setWeatherForecast(forecast);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     refreshPlan();
@@ -90,6 +114,10 @@ export default function PlanningHomeScreen() {
       if (action === 'weight') {
         setIsWeightModalOpen(true);
       } else if (action === 'workout') {
+        if (!canEdit) {
+          presentPaywall();
+          return;
+        }
         setIsAddModalOpen(true);
       } else if (action === 'injury') {
         setIsNiggleModalOpen(true);
@@ -98,7 +126,7 @@ export default function PlanningHomeScreen() {
       }
     });
     return () => sub.remove();
-  }, []);
+  }, [canEdit, presentPaywall]);
 
   const { notifyScroll, notifyScrollEnd } = useTabBar();
   const part3ScrollViewRef = useRef<ScrollView>(null);
@@ -225,9 +253,9 @@ export default function PlanningHomeScreen() {
   const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayYYYYMMDD = formatDateToYYYYMMDD(now);
 
-  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
+  const dayOfWeekShort = now.toLocaleDateString(getLocaleCode(language), { weekday: 'short' });
   const dayOfWeekUpper = dayOfWeekShort.toUpperCase();
-  const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
+  const monthShort = now.toLocaleDateString(getLocaleCode(language), { month: 'short' });
   const dayNum = now.getDate();
   const todayDateStr = `${monthShort} ${dayNum}`;
 
@@ -261,7 +289,7 @@ export default function PlanningHomeScreen() {
 
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekRangeLabel = `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
+  const weekRangeLabel = `${formatShortDate(weekStart, language)} - ${formatShortDate(weekEnd, language)}`;
 
   // Compute 7-Day Agenda Dynamically from weekStart
   const DAYS_HEADER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -272,7 +300,7 @@ export default function PlanningHomeScreen() {
       dayDate.setHours(0, 0, 0, 0);
 
       const dateYYYYMMDD = formatDateToYYYYMMDD(dayDate);
-      const dateStr = formatShortDate(dayDate);
+      const dateStr = formatShortDate(dayDate, language);
       const isToday = dateYYYYMMDD === todayYYYYMMDD;
       const isPast = dayDate < todayMidnight;
 
@@ -333,6 +361,7 @@ export default function PlanningHomeScreen() {
       return {
         dayName,
         dateStr,
+        fullDate: dateYYYYMMDD,
         isToday,
         isPast,
         workouts,
@@ -366,6 +395,10 @@ export default function PlanningHomeScreen() {
   }, [weekStart]);
 
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
+    if (!canEdit) {
+      presentPaywall();
+      return;
+    }
     setSelectedWorkoutForEdit(null);
     const dayIdx = weeklyAgenda.findIndex((d) => d.dayName === dayName || d.dateStr === dateStr);
     let fullDate = todayYYYYMMDD;
@@ -483,7 +516,11 @@ export default function PlanningHomeScreen() {
   ) => {
     const areaPrefix = bodyPartName ? `[${bodyPartName}] ` : '';
     sendMessage(
-      `I have a niggle / injury to report: ${areaPrefix}${description} (Severity: ${severity}/10). Can you provide recovery advice?`
+      t('quickActions.niggleReportMessage', 'I have a niggle / injury to report: {area}{desc} (Severity: {sev}/10). Can you provide recovery advice?', {
+        area: areaPrefix,
+        desc: description,
+        sev: severity,
+      })
     );
     router.push('/coach');
   };
@@ -561,7 +598,7 @@ export default function PlanningHomeScreen() {
             <Button
               variant="ghost"
               size="sm"
-              label="This week"
+              label={t('dashboard.thisWeek', 'This week')}
               onPress={() => {
                 Haptics.selectionAsync();
                 setWeekStart(getMonday(new Date()));
@@ -584,7 +621,11 @@ export default function PlanningHomeScreen() {
         {/* Week Summary Line & Progress Bar */}
         <View className="flex-row items-center justify-between mt-2.5 min-h-[34px]">
           <Text className="text-[12px] text-theme-muted font-jakarta flex-1 pr-2" numberOfLines={1}>
-            {doneCount} of {totalPlannedCount} done · {totalPoints} rooka planned
+            {t('dashboard.weekSummary', '{done} of {total} done · {points} rooka planned', {
+              done: doneCount,
+              total: totalPlannedCount,
+              points: totalPoints,
+            })}
           </Text>
 
           {hasAnyDevices && totalPlannedCount > 0 && (
@@ -669,20 +710,29 @@ export default function PlanningHomeScreen() {
                 }
               }}
             >
-              <DetailedDayCard
-                day={day}
-                isExpanded={selectedDayIndex === idx}
-                onToggleExpand={() => handleSelectDay(idx)}
-                onAdaptPress={() => setIsAdaptModalOpen(true)}
-                onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
-                onSelectWorkout={handleSelectWorkoutForEdit}
-                onDeleteWorkout={handleDeleteWorkout}
-                onInvitePartner={handleInvitePartner}
-                hasGarmin={hasGarmin}
-                hasAppleWatch={hasAppleWatch}
-                hasAnyDevices={hasAnyDevices}
-                onSendWorkoutToDevice={handleSendSingleWorkout}
-              />
+              {(() => {
+                const dayWeather = day.fullDate ? weatherForecast[day.fullDate] : undefined;
+                return (
+                  <DetailedDayCard
+                    day={day}
+                    weatherTemp={dayWeather?.tempMax}
+                    weatherIcon={dayWeather?.icon}
+                    isExpanded={selectedDayIndex === idx}
+                    onToggleExpand={() => handleSelectDay(idx)}
+                    onAdaptPress={() => setIsAdaptModalOpen(true)}
+                    onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
+                    onSelectWorkout={handleSelectWorkoutForEdit}
+                    onDeleteWorkout={handleDeleteWorkout}
+                    onInvitePartner={handleInvitePartner}
+                    hasGarmin={hasGarmin}
+                    hasAppleWatch={hasAppleWatch}
+                    hasAnyDevices={hasAnyDevices}
+                    onSendWorkoutToDevice={handleSendSingleWorkout}
+                    canEdit={canEdit}
+                    onUpgradePress={() => presentPaywall()}
+                  />
+                );
+              })()}
             </Animated.View>
           ))
         )}
@@ -695,6 +745,8 @@ export default function PlanningHomeScreen() {
         targetDateStr={targetAddDay.dateStr}
         targetFullDate={targetAddDay.fullDate}
         initialWorkout={selectedWorkoutForEdit}
+        isReadOnly={!canEdit && Boolean(selectedWorkoutForEdit)}
+        onUpgradePress={() => presentPaywall()}
         onClose={() => {
           setIsAddModalOpen(false);
           setSelectedWorkoutForEdit(null);

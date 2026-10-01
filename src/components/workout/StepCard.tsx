@@ -28,6 +28,7 @@ export type StepCardProps = {
   isActive: boolean;
   drag: () => void;
   isSubStep?: boolean;
+  readOnly?: boolean;
   onUpdate: (id: string | undefined, field: keyof WorkoutStep, val: any) => void;
   onRemove: (id: string | undefined) => void;
   onUpdateSub?: (parentId: string | undefined, subId: string | undefined, field: keyof WorkoutStep, val: any) => void;
@@ -58,6 +59,7 @@ interface StepInputPillProps {
   unit: string;
   onUnitPress?: () => void;
   isUnitInteractive?: boolean;
+  editable?: boolean;
   keyboardType?: KeyboardTypeOptions;
   placeholder?: string;
   textColor?: string;
@@ -75,6 +77,7 @@ const StepInputPill = ({
   unit,
   onUnitPress,
   isUnitInteractive = false,
+  editable = true,
   keyboardType = 'decimal-pad',
   placeholder = '',
   textColor,
@@ -95,6 +98,7 @@ const StepInputPill = ({
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        editable={editable}
         keyboardType={keyboardType}
         placeholder={placeholder}
         placeholderTextColor={theme.textSecondary}
@@ -144,6 +148,7 @@ const StepCardComponent = ({
   isActive,
   drag,
   isSubStep = false,
+  readOnly = false,
   onUpdate,
   onRemove,
   onUpdateSub,
@@ -342,7 +347,7 @@ const StepCardComponent = ({
             className="absolute left-0 top-0 bottom-0 w-1.5"
             style={{ backgroundColor: colorConfig.bar }}
           />
-          {!isSubStep && (
+          {!isSubStep && !readOnly && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPressIn={() => Haptics.selectionAsync()}
@@ -373,20 +378,22 @@ const StepCardComponent = ({
               </Text>
             </View>
 
-            <ScalePressable
-              onPress={() => {
-                if (isSubStep && onRemoveSub) {
-                  onRemoveSub(step.id, step.id);
-                } else {
-                  onRemove(step.id);
-                }
-              }}
-              activeScale={0.88}
-              haptic="light"
-              className="w-6 h-6 rounded-full items-center justify-center bg-slate-100 dark:bg-slate-800"
-            >
-              <Ionicons name="close" size={14} color={theme.textSecondary} />
-            </ScalePressable>
+            {!readOnly && (
+              <ScalePressable
+                onPress={() => {
+                  if (isSubStep && onRemoveSub) {
+                    onRemoveSub(step.id, step.id);
+                  } else {
+                    onRemove(step.id);
+                  }
+                }}
+                activeScale={0.88}
+                haptic="light"
+                className="w-6 h-6 rounded-full items-center justify-center bg-slate-100 dark:bg-slate-800"
+              >
+                <Ionicons name="close" size={14} color={theme.textSecondary} />
+              </ScalePressable>
+            )}
           </View>
 
           {/* Step Config Row */}
@@ -402,6 +409,7 @@ const StepCardComponent = ({
                     if (!isNaN(val)) updateFn('iterations', val);
                   }
                 }}
+                editable={!readOnly}
                 unit="times"
                 keyboardType="number-pad"
                 placeholder="3"
@@ -419,6 +427,7 @@ const StepCardComponent = ({
                     updateFn('exerciseName', text);
                   }}
                   textColor={inputTextColor as string}
+                  editable={!readOnly}
                 />
               )}
 
@@ -429,7 +438,8 @@ const StepCardComponent = ({
                   onChangeText={handleValueChange}
                   unit={unitDisplay}
                   onUnitPress={handleUnitToggle}
-                  isUnitInteractive={true}
+                  isUnitInteractive={!readOnly}
+                  editable={!readOnly}
                   keyboardType={isStrengthOrMobility && condType === 'reps' ? 'number-pad' : 'decimal-pad'}
                   placeholder="0"
                   textColor={inputTextColor}
@@ -439,8 +449,9 @@ const StepCardComponent = ({
                 {/* Target Selector Button with Context Icon */}
                 <ScalePressable
                   onPress={() => {
-                    setIsExpanded(!isExpanded);
+                    if (!readOnly) setIsExpanded(!isExpanded);
                   }}
+                  disabled={readOnly}
                   activeScale={0.96}
                   haptic="selection"
                   className={`h-9 px-2.5 rounded-xl border flex-row items-center gap-1.5 ${
@@ -460,16 +471,18 @@ const StepCardComponent = ({
                       {targetDisplay}
                     </Text>
                   </Text>
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={11}
-                    color={hasActiveTarget ? BrandColors.primary : theme.textSecondary}
-                  />
+                  {!readOnly && (
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={11}
+                      color={hasActiveTarget ? BrandColors.primary : theme.textSecondary}
+                    />
+                  )}
                 </ScalePressable>
               </View>
 
               {/* Clean, Spacious Collapsible Target Picker Panel */}
-              {isExpanded && (
+              {isExpanded && !readOnly && (
                 <Animated.View
                   entering={FadeIn.duration(180)}
                   exiting={FadeOut.duration(140)}
@@ -586,6 +599,7 @@ const StepCardComponent = ({
                             updateFn('target_value', text);
                           }
                         }}
+                        editable={!readOnly}
                         unit={
                           isWeightTarget
                             ? 'kg'
@@ -632,6 +646,7 @@ const StepCardComponent = ({
                     isActive={false}
                     drag={() => {}}
                     isSubStep={true}
+                    readOnly={readOnly}
                     onUpdate={(id, field, val) => {
                       if (onUpdateSub) onUpdateSub(step.id, id, field, val);
                     }}
@@ -641,7 +656,7 @@ const StepCardComponent = ({
                   />
                 ))}
 
-                {onAddSubStep && (
+                {onAddSubStep && !readOnly && (
                   <Animated.View layout={LinearTransition.duration(200)}>
                     <ScalePressable
                       onPress={() => onAddSubStep(step.id, 'interval')}

@@ -69,6 +69,7 @@ export interface NutritionMacro {
 export interface DayAgenda {
   dayName: string;
   dateStr: string;
+  fullDate?: string;
   isToday?: boolean;
   isPast?: boolean;
   workouts: WorkoutItem[];

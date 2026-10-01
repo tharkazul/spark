@@ -18,7 +18,11 @@ import { useTabBar } from '../context/TabBarContext';
 import { useCoachChat } from '../context/CoachChatStore';
 import { usePhysique } from '../context/PhysiqueStore';
 import { usePlan } from '../context/PlanStore';
+import { useUser } from '../context/UserStore';
+import { useSubscription } from '../context/SubscriptionStore';
+import { canEditWorkouts } from '../utils/permissions';
 import { useKeyboardMotionContext } from '../context/KeyboardMotionContext';
+
 import { useLanguage } from '../context/LanguageContext';
 import Animated, {
   useSharedValue,
@@ -49,6 +53,9 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
   const { unreadCount, sendMessage } = useCoachChat();
   const { logPhysique } = usePhysique();
   const { addWorkout } = usePlan();
+  const { user } = useUser();
+  const { isSubscribed, presentPaywall } = useSubscription();
+  const canEdit = canEditWorkouts(user?.subscription_tier, isSubscribed);
   const { progress } = useKeyboardMotionContext();
   const { t } = useLanguage();
 
@@ -262,11 +269,18 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                 }}
               >
                 <Ionicons name="scale-outline" size={15} color="#F59E0B" />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>Weight</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>{t('quickActions.weight', 'Weight')}</Text>
               </ScalePressable>
 
               <ScalePressable
-                onPress={() => handleQuickAction('workout')}
+                onPress={() => {
+                  if (!canEdit) {
+                    closeQuickMenu();
+                    presentPaywall();
+                    return;
+                  }
+                  handleQuickAction('workout');
+                }}
                 activeScale={0.92}
                 haptic="light"
                 style={{
@@ -284,7 +298,10 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                 }}
               >
                 <Ionicons name="add-circle-outline" size={15} color={boltColor} />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>Workout</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>{t('quickActions.workout', 'Workout')}</Text>
+                {!canEdit && (
+                  <Ionicons name="lock-closed" size={11} color={boltColor} style={{ marginLeft: 1 }} />
+                )}
               </ScalePressable>
 
               <ScalePressable
@@ -306,7 +323,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                 }}
               >
                 <Ionicons name="fitness-outline" size={15} color="#10B981" />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>Activity</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>{t('quickActions.activity', 'Activity')}</Text>
               </ScalePressable>
 
               <ScalePressable
@@ -328,7 +345,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                 }}
               >
                 <Ionicons name="bandage-outline" size={15} color="#EF4444" />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>Injury</Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: textCol }}>{t('quickActions.injury', 'Injury')}</Text>
               </ScalePressable>
             </Animated.View>
           </View>
@@ -591,7 +608,11 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
         onSendToCoach={(desc, sev, partId, partName) => {
           const areaPrefix = partName ? `[${partName}] ` : '';
           sendMessage(
-            `I have a niggle / injury to report: ${areaPrefix}${desc} (Severity: ${sev}/10). Can you provide recovery advice?`
+            t('quickActions.niggleReportMessage', 'I have a niggle / injury to report: {area}{desc} (Severity: {sev}/10). Can you provide recovery advice?', {
+              area: areaPrefix,
+              desc,
+              sev,
+            })
           );
           navigation.navigate('coach');
           setActiveModal('none');

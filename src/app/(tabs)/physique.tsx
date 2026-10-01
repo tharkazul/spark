@@ -22,23 +22,25 @@ import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
 import { useTabBar } from '../../context/TabBarContext';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
+import { useLanguage } from '../../context/LanguageContext';
 
 const TABS = ['overview', 'fitness', 'body', 'history'] as const;
 type TabType = typeof TABS[number];
 
-const PROGRESS_SEGMENTS = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'fitness', label: 'Fitness' },
-  { key: 'body', label: 'Body' },
-  { key: 'history', label: 'History' },
-];
-
 export default function ProgressScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { notifyScroll, notifyScrollEnd } = useTabBar();
   const tabBarInset = useTabBarInset();
   const insets = useSafeAreaInsets();
+
+  const progressSegments = [
+    { key: 'overview', label: t('progress.overview', 'Overview') },
+    { key: 'fitness', label: t('progress.fitness', 'Fitness') },
+    { key: 'body', label: t('progress.body', 'Body') },
+    { key: 'history', label: t('progress.history', 'History') },
+  ];
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -76,12 +78,12 @@ export default function ProgressScreen() {
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
       {/* TOP HEADER MATCHING DASHBOARD EXACT POSITIONING */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
-        <ScreenHeaderTitleRow title="Progress" />
+        <ScreenHeaderTitleRow title={t('tabs.progress', 'Progress')} />
 
         {/* 4-SEGMENT SUB-TAB SWITCHER (D-03) */}
         <View className="mt-1">
           <SegmentedControl
-            items={PROGRESS_SEGMENTS}
+            items={progressSegments}
             value={activeTab}
             onChange={(key) => handleTabPress(key as TabType)}
           />
@@ -165,7 +167,7 @@ export default function ProgressScreen() {
       >
         <View className="max-h-[80vh] pb-6">
           <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
-            <Text className="text-base font-extrabold text-theme-text font-jakarta">Daily Fueling & Nutrition</Text>
+            <Text className="text-base font-extrabold text-theme-text font-jakarta">{t('progress.fuelingNutrition', 'Daily Fueling & Nutrition')}</Text>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             <NutritionTab />

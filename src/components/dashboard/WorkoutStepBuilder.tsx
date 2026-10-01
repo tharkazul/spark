@@ -12,6 +12,7 @@ import { StepCard } from '../workout/StepCard';
 import { CARD_COLORS } from '../workout/StepCard.styles';
 import { stepMultiplier } from '../../domain/rookaScore';
 import { ScalePressable } from '@/components/ui/ScalePressable';
+import { useLanguage } from '../../context/LanguageContext';
 
 let DraggableFlatListComponent: any = FlatList;
 let ScaleDecorator: any = ({ children }: any) => <>{children}</>;
@@ -29,6 +30,7 @@ try {
 interface WorkoutStepBuilderProps {
   steps: WorkoutStep[];
   sport?: SportType | string;
+  readOnly?: boolean;
   durationMinutes?: number;
   quickDurations?: number[];
   onDurationChange?: (mins: number) => void;
@@ -40,9 +42,11 @@ interface WorkoutStepBuilderProps {
 const MemoizedHeader = React.memo(({
   ListHeaderComponent,
   stepsLength,
+  readOnly,
   handleAddStep,
   handleAddRepeat
 }: any) => {
+  const { t } = useLanguage();
   return (
     <>
       {ListHeaderComponent}
@@ -55,11 +59,12 @@ const MemoizedHeader = React.memo(({
             <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
               <Ionicons name="layers-outline" size={15} color={BrandColors.primary} />
             </View>
-            <Text className="text-sm font-bold text-theme-text font-jakarta">Structure</Text>
+            <Text className="text-sm font-bold text-theme-text font-jakarta">{t('dashboard.structure', 'Structure')}</Text>
           </View>
         </View>
 
         {/* Add Interval Blocks */}
+        {!readOnly && (
         <View>
           <View className="flex-row flex-wrap gap-2 mb-1">
             <ScalePressable
@@ -69,7 +74,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-emerald-500" />
-              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-jakarta">+ Warmup</Text>
+              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-jakarta">{t('dashboard.addWarmup', '+ Warmup')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -79,7 +84,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-blue-500" />
-              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400 font-jakarta">+ Interval</Text>
+              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400 font-jakarta">{t('dashboard.addInterval', '+ Interval')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -89,7 +94,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-amber-500" />
-              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400 font-jakarta">+ Recovery</Text>
+              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400 font-jakarta">{t('dashboard.addRecovery', '+ Recovery')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -99,7 +104,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-purple-500" />
-              <Text className="text-xs font-bold text-purple-600 dark:text-purple-400 font-jakarta">+ Cooldown</Text>
+              <Text className="text-xs font-bold text-purple-600 dark:text-purple-400 font-jakarta">{t('dashboard.addCooldown', '+ Cooldown')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -109,7 +114,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <Ionicons name="repeat" size={13} color={BrandColors.primary} />
-              <Text className="text-xs font-bold text-theme-accent font-jakarta">Repeat</Text>
+              <Text className="text-xs font-bold text-theme-accent font-jakarta">{t('dashboard.addRepeat', 'Repeat')}</Text>
             </ScalePressable>
           </View>
 
@@ -124,14 +129,15 @@ const MemoizedHeader = React.memo(({
                 <Ionicons name="layers-outline" size={20} color={BrandColors.primary} />
               </View>
               <Text className="text-xs font-bold text-theme-text text-center mb-1 font-jakarta">
-                Build Your Interval Structure
+                {t('dashboard.buildIntervalStructure', 'Build Your Interval Structure')}
               </Text>
               <Text className="text-[11px] text-theme-muted text-center max-w-[240px] font-jakarta">
-                Tap the blocks above to add warmup, work intervals, and recovery targets.
+                {t('dashboard.buildIntervalHint', 'Tap the blocks above to add warmup, work intervals, and recovery targets.')}
               </Text>
             </Animated.View>
           )}
         </View>
+        )}
       </View>
 
       {/* Label for active step cards list */}
@@ -142,7 +148,7 @@ const MemoizedHeader = React.memo(({
           layout={LinearTransition.duration(200)}
         >
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-2 px-1">
-            Steps
+            {t('dashboard.stepsLabel', 'Steps')}
           </Text>
         </Animated.View>
       )}
@@ -195,6 +201,7 @@ export function calculateWbRooka(steps: WorkoutStep[], isStrength: boolean, spor
 export function WorkoutStepBuilder({
   steps,
   sport,
+  readOnly = false,
   durationMinutes = 45,
   quickDurations = [15, 30, 45, 60, 90, 120],
   onDurationChange,
@@ -305,8 +312,9 @@ export function WorkoutStepBuilder({
             step={item}
             isStrength={isStrength}
             sport={sport || 'RUN'}
-            isActive={!!isActive}
-            drag={drag || (() => {})}
+            readOnly={readOnly}
+            isActive={!readOnly && !!isActive}
+            drag={readOnly ? (() => {}) : (drag || (() => {}))}
             onUpdate={handleUpdateStep}
             onRemove={handleRemoveStep}
             onUpdateSub={handleUpdateSubStep}
@@ -316,7 +324,7 @@ export function WorkoutStepBuilder({
         </ScaleDecorator>
       </Animated.View>
     );
-  }, [isStrength, sport, handleUpdateStep, handleRemoveStep, handleUpdateSubStep, handleRemoveSubStep, handleAddSubStep]);
+  }, [isStrength, sport, readOnly, handleUpdateStep, handleRemoveStep, handleUpdateSubStep, handleRemoveSubStep, handleAddSubStep]);
 
   // Shown as a dashed drop-zone in the slot the dragged step will land in if released.
   const renderPlaceholder = useCallback(({ item }: { item: WorkoutStep }) => {
@@ -340,10 +348,11 @@ export function WorkoutStepBuilder({
     <MemoizedHeader
       ListHeaderComponent={ListHeaderComponent}
       stepsLength={steps.length}
+      readOnly={readOnly}
       handleAddStep={handleAddStep}
       handleAddRepeat={handleAddRepeat}
     />
-  ), [ListHeaderComponent, steps.length, handleAddStep, handleAddRepeat]);
+  ), [ListHeaderComponent, steps.length, readOnly, handleAddStep, handleAddRepeat]);
 
   return (
     <DraggableFlatListComponent
@@ -352,6 +361,7 @@ export function WorkoutStepBuilder({
       extraData={steps}
       keyExtractor={(item: any) => item.id!}
       onDragEnd={({ data }: any) => {
+        if (readOnly) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         updateStepsAndNotify(data);
       }}

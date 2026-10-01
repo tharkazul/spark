@@ -30,11 +30,6 @@ import { useTabBarInset } from '../../hooks/useTabBarInset';
 const TABS = ['feed', 'leaderboard'] as const;
 type TabType = typeof TABS[number];
 
-const SOCIAL_SEGMENTS = [
-  { key: 'feed', label: 'Feed' },
-  { key: 'leaderboard', label: 'Leaderboard' },
-];
-
 export default function SocialScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -44,6 +39,11 @@ export default function SocialScreen() {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   const bottomInset = useTabBarInset();
+
+  const socialSegments = [
+    { key: 'feed', label: t('social.feed', 'Feed') },
+    { key: 'leaderboard', label: t('social.leaderboard', 'Leaderboard') },
+  ];
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState<TabType>('feed');
@@ -124,7 +124,7 @@ export default function SocialScreen() {
       {/* HEADER WITH TITLE AND 2-SEGMENT SUB-TAB SWITCHER */}
       <View className="px-5 pt-3 pb-2 bg-theme-bg">
         <ScreenHeaderTitleRow
-          title="Social"
+          title={t('tabs.social', 'Social')}
           rightElement={
             <TouchableOpacity
               onPress={() => {
@@ -143,7 +143,7 @@ export default function SocialScreen() {
         {/* 2-SEGMENT SUB-TAB SWITCHER USING SHARED COMPONENT */}
         <View className="mt-1">
           <SegmentedControl
-            items={SOCIAL_SEGMENTS}
+            items={socialSegments}
             value={activeTab}
             onChange={handleTabPress}
             size="md"

@@ -18,10 +18,36 @@ import { DayAgenda } from './MicroPlanAgendaCard';
 import { sportColor } from '../../constants/theme';
 import { calculateWorkoutDurationMinutes, formatDuration } from '../../utils/format';
 import { WorkoutStructureBar } from './WorkoutStructureBar';
+import { useLanguage } from '../../context/LanguageContext';
+
+export const getLocalizedDayName = (dayName: string, t: any) => {
+  const upper = (dayName || '').toUpperCase();
+  if (upper.startsWith('MON')) return t('days.monShort', 'Mon');
+  if (upper.startsWith('TUE')) return t('days.tueShort', 'Tue');
+  if (upper.startsWith('WED')) return t('days.wedShort', 'Wed');
+  if (upper.startsWith('THU')) return t('days.thuShort', 'Thu');
+  if (upper.startsWith('FRI')) return t('days.friShort', 'Fri');
+  if (upper.startsWith('SAT')) return t('days.satShort', 'Sat');
+  if (upper.startsWith('SUN')) return t('days.sunShort', 'Sun');
+  return dayName;
+};
+
+export const getLocalizedDayAbbr = (dayName: string, t: any) => {
+  const upper = (dayName || '').toUpperCase();
+  if (upper.startsWith('MON')) return t('days.monAbbr', 'MON');
+  if (upper.startsWith('TUE')) return t('days.tueAbbr', 'TUE');
+  if (upper.startsWith('WED')) return t('days.wedAbbr', 'WED');
+  if (upper.startsWith('THU')) return t('days.thuAbbr', 'THU');
+  if (upper.startsWith('FRI')) return t('days.friAbbr', 'FRI');
+  if (upper.startsWith('SAT')) return t('days.satAbbr', 'SAT');
+  if (upper.startsWith('SUN')) return t('days.sunAbbr', 'SUN');
+  return dayName.slice(0, 3).toUpperCase();
+};
 
 interface DetailedDayCardProps {
   day: DayAgenda;
   weatherTemp?: string;
+  weatherIcon?: string;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onAdaptPress: () => void;
@@ -33,12 +59,15 @@ interface DetailedDayCardProps {
   hasAppleWatch?: boolean;
   hasAnyDevices?: boolean;
   onSendWorkoutToDevice?: (workout: WorkoutItem) => void;
+  canEdit?: boolean;
+  onUpgradePress?: () => void;
 }
 
 
 export function DetailedDayCard({
   day,
   weatherTemp = '22°C',
+  weatherIcon = 'partly-sunny-outline',
   isExpanded = true,
   onToggleExpand,
   onAdaptPress,
@@ -50,8 +79,11 @@ export function DetailedDayCard({
   hasAppleWatch = false,
   hasAnyDevices = false,
   onSendWorkoutToDevice,
+  canEdit = true,
+  onUpgradePress,
 }: DetailedDayCardProps) {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const { t } = useLanguage();
   const [activeMenuWorkout, setActiveMenuWorkout] = useState<WorkoutItem | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const [syncedWorkoutIds, setSyncedWorkoutIds] = useState<Record<string, boolean>>({});
@@ -84,14 +116,14 @@ export function DetailedDayCard({
             <View className="flex-1">
               <View className="flex-row items-center gap-2">
                 <Text className="text-base font-bold text-theme-text font-jakarta">
-                  {day.dayName} {day.dateStr}
+                  {getLocalizedDayName(day.dayName, t)} {day.dateStr}
                 </Text>
                 {day.isToday && (
-                  <Chip variant="accent" size="sm" label="Today" />
+                  <Chip variant="accent" size="sm" label={t('common.today', 'Today')} />
                 )}
               </View>
               <Text numberOfLines={1} className="text-xs text-theme-muted mt-0.5 font-jakarta">
-                Rest Day · Aim for 8 hours of sleep & gentle mobility
+                {t('dashboard.restDaySummary', 'Rest Day · Aim for 8 hours of sleep & gentle mobility')}
               </Text>
             </View>
           </View>
@@ -99,8 +131,15 @@ export function DetailedDayCard({
           <Button
             variant="ghost"
             size="sm"
-            label="Add"
-            onPress={() => onAddWorkout(day.dayName, day.dateStr)}
+            label={t('common.add', 'Add')}
+            leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+            onPress={() => {
+              if (!canEdit) {
+                onUpgradePress?.();
+              } else {
+                onAddWorkout(day.dayName, day.dateStr);
+              }
+            }}
           />
         </View>
       </Card>
@@ -128,10 +167,10 @@ export function DetailedDayCard({
             <View className="flex-1">
               <View className="flex-row items-center gap-2">
                 <Text className="text-xs font-semibold text-theme-muted uppercase font-jakarta">
-                  {day.dayName} {day.dateStr}
+                  {getLocalizedDayName(day.dayName, t)} {day.dateStr}
                 </Text>
                 {day.isToday && (
-                  <Chip variant="accent" size="sm" label="Today" />
+                  <Chip variant="accent" size="sm" label={t('common.today', 'Today')} />
                 )}
               </View>
               <Text numberOfLines={1} className="text-sm font-bold text-theme-text font-jakarta mt-0.5">
@@ -165,14 +204,14 @@ export function DetailedDayCard({
           <View>
             <View className="flex-row items-center gap-2">
               <Text className="text-lg font-extrabold text-theme-text font-jakarta">
-                {day.dayName} {day.dateStr}
+                {getLocalizedDayName(day.dayName, t)} {day.dateStr}
               </Text>
               {day.isToday && (
-                <Chip variant="accent" size="sm" label="Today" />
+                <Chip variant="accent" size="sm" label={t('common.today', 'Today')} />
               )}
             </View>
             <View className="flex-row items-center gap-1.5 mt-0.5">
-              <Ionicons name="partly-sunny-outline" size={13} color="#94A3B8" />
+              <Ionicons name={(weatherIcon as any) || 'partly-sunny-outline'} size={13} color="#94A3B8" />
               <Text className="text-xs font-medium text-theme-muted font-jakarta">
                 {weatherTemp}
               </Text>
@@ -185,7 +224,7 @@ export function DetailedDayCard({
           <Button
             variant="secondary"
             size="sm"
-            label="Adapt"
+            label={t('dashboard.adapt', 'Adapt')}
             leftIcon={<Ionicons name="flash" size={13} color="#0EA5E9" />}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -201,7 +240,11 @@ export function DetailedDayCard({
               if (primaryWorkout) {
                 setActiveMenuWorkout(primaryWorkout);
               } else {
-                onAddWorkout(day.dayName, day.dateStr);
+                if (!canEdit) {
+                  onUpgradePress?.();
+                } else {
+                  onAddWorkout(day.dayName, day.dateStr);
+                }
               }
             }}
           >
@@ -217,17 +260,24 @@ export function DetailedDayCard({
             <Ionicons name="moon" size={24} color="#94A3B8" />
           </View>
           <Text className="text-base font-bold text-theme-text font-jakarta">
-            Rest Day
+            {t('common.restDay', 'Rest Day')}
           </Text>
           <Text className="text-xs text-theme-muted text-center max-w-[260px] mt-1 font-jakarta">
-            Aim for 8 hours of sleep and adequate hydration to prepare for upcoming workouts.
+            {t('dashboard.restDayDetails', 'Aim for 8 hours of sleep and adequate hydration to prepare for upcoming workouts.')}
           </Text>
           <Button
             variant="ghost"
             size="sm"
-            label="+ Add Workout"
+            label={t('dashboard.addWorkoutBtn', '+ Add Workout')}
+            leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
             className="mt-3"
-            onPress={() => onAddWorkout(day.dayName, day.dateStr)}
+            onPress={() => {
+              if (!canEdit) {
+                onUpgradePress?.();
+              } else {
+                onAddWorkout(day.dayName, day.dateStr);
+              }
+            }}
           />
         </View>
       ) : (
@@ -289,7 +339,7 @@ export function DetailedDayCard({
                         <View className="flex-row items-center gap-1 bg-semantic-success-bg px-2 py-0.5 rounded-full">
                           <Ionicons name="checkmark-circle" size={11} color="#10B981" />
                           <Text className="text-[10px] font-extrabold text-semantic-success-text">
-                            DONE
+                            {t('common.doneUpper', 'DONE')}
                           </Text>
                         </View>
                       )}
@@ -332,7 +382,7 @@ export function DetailedDayCard({
                         className="self-end mt-1"
                       >
                         <Text className="text-[11px] font-bold text-theme-accent-text font-jakarta">
-                          {noteExpanded ? 'Show less' : 'Show more'}
+                          {noteExpanded ? t('common.showLess', 'Show less') : t('common.showMore', 'Show more')}
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -348,14 +398,14 @@ export function DetailedDayCard({
                           variant="secondary"
                           size="sm"
                           disabled
-                          label={hasGarmin && hasAppleWatch ? 'On devices ✓' : hasGarmin ? 'On Garmin ✓' : 'On Watch ✓'}
+                          label={hasGarmin && hasAppleWatch ? t('dashboard.onDevices', 'On devices ✓') : hasGarmin ? t('dashboard.onGarmin', 'On Garmin ✓') : t('dashboard.onWatch', 'On Watch ✓')}
                           leftIcon={<Ionicons name="checkmark-circle" size={13} color="#10B981" />}
                         />
                       ) : (
                         <Button
                           variant="primary"
                           size="sm"
-                          label={hasGarmin && hasAppleWatch ? 'Send to devices' : hasGarmin ? 'Send to Garmin' : 'Send to Apple Watch'}
+                          label={hasGarmin && hasAppleWatch ? t('dashboard.sendToDevices', 'Send to devices') : hasGarmin ? t('dashboard.sendToGarmin', 'Send to Garmin') : t('dashboard.sendToAppleWatch', 'Send to Apple Watch')}
                           leftIcon={<Ionicons name="watch-outline" size={13} color="#FFFFFF" />}
                           onPress={async () => {
                             setSyncedWorkoutIds((prev) => ({ ...prev, [workout.id]: true }));
@@ -367,13 +417,20 @@ export function DetailedDayCard({
                     <Button
                       variant="ghost"
                       size="sm"
-                      label="Edit"
-                      onPress={() => onSelectWorkout(workout)}
+                      label={t('common.edit', 'Edit')}
+                      leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+                      onPress={() => {
+                        if (!canEdit) {
+                          onUpgradePress?.();
+                        } else {
+                          onSelectWorkout(workout);
+                        }
+                      }}
                     />
                     <Button
                       variant="ghost"
                       size="sm"
-                      label="Invite"
+                      label={t('common.invite', 'Invite')}
                       leftIcon={<Ionicons name="people-outline" size={13} color="#0EA5E9" />}
                       onPress={() => onInvitePartner(workout)}
                     />
@@ -388,8 +445,15 @@ export function DetailedDayCard({
             <Button
               variant="ghost"
               size="sm"
-              label="+ Add workout"
-              onPress={() => onAddWorkout(day.dayName, day.dateStr)}
+              label={t('dashboard.addWorkoutBtn', '+ Add workout')}
+              leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+              onPress={() => {
+                if (!canEdit) {
+                  onUpgradePress?.();
+                } else {
+                  onAddWorkout(day.dayName, day.dateStr);
+                }
+              }}
             />
           </View>
         </View>
@@ -415,12 +479,22 @@ export function DetailedDayCard({
               <TouchableOpacity
                 onPress={() => {
                   setActiveMenuWorkout(null);
-                  onAddWorkout(day.dayName, day.dateStr);
+                  if (!canEdit) {
+                    onUpgradePress?.();
+                  } else {
+                    onAddWorkout(day.dayName, day.dateStr);
+                  }
                 }}
                 className="py-3 px-2 flex-row items-center gap-3 border-b border-theme-border/40"
               >
                 <Ionicons name="add-circle-outline" size={20} color="#0EA5E9" />
-                <Text className="text-sm font-semibold text-theme-text font-jakarta">Add workout</Text>
+                <Text className="text-sm font-semibold text-theme-text font-jakarta flex-1">{t('dashboard.menuAddWorkout', 'Add workout')}</Text>
+                {!canEdit && (
+                  <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
+                    <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
+                    <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
+                  </View>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -431,7 +505,7 @@ export function DetailedDayCard({
                 className="py-3 px-2 flex-row items-center gap-3 border-b border-theme-border/40"
               >
                 <Ionicons name="calendar-outline" size={20} color="#0EA5E9" />
-                <Text className="text-sm font-semibold text-theme-text font-jakarta">Move or adapt session</Text>
+                <Text className="text-sm font-semibold text-theme-text font-jakarta">{t('dashboard.menuMoveAdapt', 'Move or adapt session')}</Text>
               </TouchableOpacity>
 
               {hasAnyDevices && onSendWorkoutToDevice && (
@@ -446,24 +520,34 @@ export function DetailedDayCard({
                   <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
                   <Text className="text-sm font-semibold text-theme-text font-jakarta">
                     {hasGarmin && hasAppleWatch
-                      ? 'Send to connected devices'
+                      ? t('dashboard.menuSendDevices', 'Send to connected devices')
                       : hasGarmin
-                      ? 'Send to Garmin'
-                      : 'Send to Apple Watch'}
+                      ? t('dashboard.sendToGarmin', 'Send to Garmin')
+                      : t('dashboard.sendToAppleWatch', 'Send to Apple Watch')}
                   </Text>
                 </TouchableOpacity>
               )}
 
               <TouchableOpacity
                 onPress={() => {
-                  const toDeleteId = activeMenuWorkout.id;
                   setActiveMenuWorkout(null);
-                  onDeleteWorkout(toDeleteId);
+                  if (!canEdit) {
+                    onUpgradePress?.();
+                  } else {
+                    const toDeleteId = activeMenuWorkout.id;
+                    onDeleteWorkout(toDeleteId);
+                  }
                 }}
                 className="py-3 px-2 flex-row items-center gap-3"
               >
-                <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                <Text className="text-sm font-semibold text-rose-500 font-jakarta">Delete workout</Text>
+                <Ionicons name="trash-outline" size={20} color={canEdit ? "#EF4444" : "#94A3B8"} />
+                <Text className={`text-sm font-semibold ${canEdit ? 'text-rose-500' : 'text-theme-muted'} font-jakarta flex-1`}>{t('dashboard.menuDeleteWorkout', 'Delete workout')}</Text>
+                {!canEdit && (
+                  <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
+                    <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
+                    <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
           </Pressable>

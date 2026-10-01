@@ -4,6 +4,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useHealth } from '../../context/HealthStore';
 import { useActivities } from '../../context/ActivityStore';
+import { useLanguage } from '../../context/LanguageContext';
 import { ActiveNiggle } from './AnatomicalBodyMap';
 import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
 
@@ -12,6 +13,7 @@ interface TrainingReadinessWidgetProps {
 }
 
 export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = ({ biometrics }) => {
+  const { t } = useLanguage();
   const { niggles: storeNiggles } = useHealth();
   const { activities } = useActivities();
   const niggles = storeNiggles as ActiveNiggle[];
@@ -93,10 +95,10 @@ export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = (
    * middling health state weakens it in both places. It's amber now.
    */
   const READINESS_BANDS = [
-    { min: 80, status: 'Prime',    color: '#059669', advice: 'Peak state! Ideal for PR attempts' },
-    { min: 60, status: 'High',     color: '#10B981', advice: 'Good readiness for structured workout efforts' },
-    { min: 35, status: 'Moderate', color: '#F5A623', advice: 'Steady Zone 2 aerobic maintenance recommended' },
-    { min: -Infinity, status: 'Low', color: '#F87171', advice: 'Time to slow down' },
+    { min: 80, status: t('progress.readinessPrime', 'Prime'), color: '#059669', advice: t('progress.peakState', 'Peak state! Ideal for PR attempts') },
+    { min: 60, status: t('progress.readinessHigh', 'High'), color: '#10B981', advice: t('progress.goodReadiness', 'Good readiness for structured workout efforts') },
+    { min: 35, status: t('progress.readinessModerate', 'Moderate'), color: '#F5A623', advice: t('progress.moderateRecovery', 'Steady Zone 2 aerobic maintenance recommended') },
+    { min: -Infinity, status: t('progress.readinessLow', 'Low'), color: '#F87171', advice: t('progress.timeToSlowDown', 'Time to slow down') },
   ] as const;
 
   const band = READINESS_BANDS.find((b) => score >= b.min) ?? READINESS_BANDS[READINESS_BANDS.length - 1];
@@ -125,10 +127,10 @@ export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = (
         <View className="flex-row items-center gap-x-2">
           <View className="w-2.5 h-2.5 rounded-full bg-theme-accent-strong mr-1.5" />
           <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider">
-            Training Readiness
+            {t('progress.trainingReadiness', 'Training Readiness')}
           </Text>
         </View>
-        <Text className="text-xs font-semibold text-theme-muted">Daily Readiness Score</Text>
+        <Text className="text-xs font-semibold text-theme-muted">{t('progress.dailyReadinessScore', 'Daily Readiness Score')}</Text>
       </View>
 
       {/* Main Gauge & Center Content */}

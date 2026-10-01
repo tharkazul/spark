@@ -39,6 +39,7 @@ const {
   normalizeShareSettings,
   canHideRookaLink,
   canAccessQuests,
+  canEditWorkouts,
   STRAVA_SHARE_SPORTS,
   STRAVA_SHARE_FLAGS
 } = require('../services/utils');
@@ -860,6 +861,12 @@ router.post("/api/activities", authenticateToken, async (req, res) => {
 });
 
 router.post("/api/micro-plan", authenticateToken, (req, res) => {
+  if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
+    return res.status(403).json({
+      error: "Creating or editing workouts requires Rooka+.",
+      code: "UPGRADE_REQUIRED",
+    });
+  }
   const { date, sport, description, target_rooka, details, steps_json } =
     req.body;
   db.run(
@@ -912,6 +919,12 @@ router.post("/api/micro-plan/push-forward", authenticateToken, (req, res) => {
 });
 
 router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
+  if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
+    return res.status(403).json({
+      error: "Creating or editing workouts requires Rooka+.",
+      code: "UPGRADE_REQUIRED",
+    });
+  }
   const { date, workouts } = req.body;
   if (!date || !Array.isArray(workouts))
     return res.status(400).json({ error: "Invalid data format" });
@@ -957,6 +970,12 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
 });
 
 router.put("/api/micro-plan/:id", authenticateToken, (req, res) => {
+  if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
+    return res.status(403).json({
+      error: "Creating or editing workouts requires Rooka+.",
+      code: "UPGRADE_REQUIRED",
+    });
+  }
   const { date, sport, description, target_rooka, details, steps_json } =
     req.body;
   db.run(
@@ -984,6 +1003,12 @@ router.put("/api/micro-plan/:id", authenticateToken, (req, res) => {
 });
 
 router.delete("/api/micro-plan/:id", authenticateToken, (req, res) => {
+  if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
+    return res.status(403).json({
+      error: "Creating or editing workouts requires Rooka+.",
+      code: "UPGRADE_REQUIRED",
+    });
+  }
   const planId = req.params.id;
   const numId = parseInt(planId, 10);
 
@@ -1032,6 +1057,12 @@ router.get("/api/micro-plan/deleted", authenticateToken, (req, res) => {
 });
 
 router.post("/api/micro-plan/restore/:id", authenticateToken, (req, res) => {
+  if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
+    return res.status(403).json({
+      error: "Creating or editing workouts requires Rooka+.",
+      code: "UPGRADE_REQUIRED",
+    });
+  }
   const archiveId = req.params.id;
   db.get(
     `SELECT * FROM deleted_micro_plan WHERE id = ? AND user_id = ?`,

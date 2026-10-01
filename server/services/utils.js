@@ -929,6 +929,13 @@ function canAccessQuests(subscriptionTier, role) {
   );
 }
 
+function canEditWorkouts(subscriptionTier, role) {
+  if (role === "admin") return true;
+  return ["subscription", "rooka_plus", "premium", "admin"].includes(
+    String(subscriptionTier || "free"),
+  );
+}
+
 /**
  * A stored entry only records what the athlete turned *off*. Anything absent -
  * a flag with no toggle in the app, or one added after they last saved - stays
@@ -3302,6 +3309,7 @@ module.exports = {
   normalizeShareSettings,
   canHideRookaLink,
   canAccessQuests,
+  canEditWorkouts,
   STRAVA_SHARE_SPORTS,
   STRAVA_SHARE_FLAGS,
   buildStravaUpdatePayload,

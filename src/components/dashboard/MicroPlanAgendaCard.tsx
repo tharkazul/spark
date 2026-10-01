@@ -10,6 +10,7 @@ import { WorkoutItem } from '../../types/dashboard';
 export interface DayAgenda {
   dayName: string; // e.g. 'MON', 'TUE'
   dateStr: string; // e.g. 'Aug 3'
+  fullDate?: string; // e.g. '2026-10-01'
   isToday?: boolean;
   isPast?: boolean;
   workouts: WorkoutItem[];

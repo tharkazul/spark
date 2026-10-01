@@ -7,14 +7,15 @@ interface Props {
   value: string;
   onChangeText: (text: string) => void;
   textColor: string;
+  editable?: boolean;
 }
 
-export function ExerciseAutocompleteInput({ value, onChangeText, textColor }: Props) {
+export function ExerciseAutocompleteInput({ value, onChangeText, textColor, editable = true }: Props) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
 
   const suggestions = useMemo(() => {
-    if (!focused || !value || value.length < 3) return [];
+    if (!editable || !focused || !value || value.length < 3) return [];
     const lower = value.toLowerCase();
     
     // Exact matches or partial matches
@@ -30,13 +31,14 @@ export function ExerciseAutocompleteInput({ value, onChangeText, textColor }: Pr
     });
     
     return matches.slice(0, 5); // Return top 5 suggestions
-  }, [value, focused]);
+  }, [value, focused, editable]);
 
   return (
     <View className="w-full z-50">
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        editable={editable}
         onFocus={() => setFocused(true)}
         onBlur={() => {
           // Delay blur to allow tap on suggestion

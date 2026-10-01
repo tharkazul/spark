@@ -9,11 +9,13 @@ import Animated, {
   useReducedMotion,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../context/LanguageContext';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export interface MacroRingGaugeProps {
   label: 'Protein' | 'Carbs' | 'Fat';
+  displayLabel?: string;
   target: number;
   logged: number;
   size?: number;
@@ -37,11 +39,13 @@ const MACRO_COLORS = {
 
 export function MacroRingGauge({
   label,
+  displayLabel,
   target,
   logged,
   size = 92,
   showCaptionBelow = true,
 }: MacroRingGaugeProps) {
+  const { t } = useLanguage();
   const cfg = MACRO_COLORS[label] || MACRO_COLORS.Carbs;
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
@@ -52,6 +56,12 @@ export function MacroRingGauge({
 
   const rawFraction = target > 0 ? logged / target : 0;
   const clampedFraction = Math.min(1, Math.max(0, rawFraction));
+
+  const macroName = displayLabel || (
+    label === 'Carbs' ? t('dashboard.carbs', 'Carbs') :
+    label === 'Protein' ? t('dashboard.protein', 'Protein') :
+    t('dashboard.fat', 'Fat')
+  );
 
   useEffect(() => {
     if (reducedMotion) {
@@ -124,23 +134,23 @@ export function MacroRingGauge({
           <View className="flex-row items-center gap-x-1.5 mb-0.5">
             <View style={{ backgroundColor: cfg.color }} className="w-1.5 h-1.5 rounded-full" />
             <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">
-              {label}
+              {macroName}
             </Text>
           </View>
 
           <Text className="text-xs text-theme-muted font-medium tabular-nums">
-            of {target} g
+            {t('dashboard.ofGrams', { target })}
           </Text>
 
           <View className="mt-0.5">
             {isTargetMet ? (
               <View className="flex-row items-center gap-x-1">
                 <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                <Text className="text-xs font-bold text-emerald-500">Target met</Text>
+                <Text className="text-xs font-bold text-emerald-500">{t('dashboard.targetMet', 'Target met')}</Text>
               </View>
             ) : (
               <Text style={{ color: cfg.color }} className="text-xs font-bold tabular-nums">
-                {remaining} g left
+                {t('dashboard.gramsLeft', { count: remaining })}
               </Text>
             )}
           </View>

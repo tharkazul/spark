@@ -7,6 +7,7 @@ import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
 import { EmptyState } from '../ui/EmptyState';
 import { ActiveNiggle, BODY_PARTS_LOOKUP } from '../progress/AnatomicalBodyMap';
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface NiggleCardProps {
   niggles: ActiveNiggle[];
@@ -22,6 +23,7 @@ export function NiggleCard({
   onLogNew,
 }: NiggleCardProps) {
   const theme = useTheme();
+  const { t } = useLanguage();
 
   const getSeverityBadge = (sev: number) => {
     let bg = 'bg-semantic-warning/15 border-semantic-warning/30';
@@ -57,7 +59,7 @@ export function NiggleCard({
         <View className="flex-row items-center gap-2">
           <View className="w-2.5 h-2.5 rounded-full bg-semantic-success" />
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-            Active Issues Feed
+            {t('progress.activeIssues', 'Active Issues Feed')}
           </Text>
         </View>
 
@@ -69,7 +71,7 @@ export function NiggleCard({
             className="flex-row items-center gap-1 px-2.5 py-1 rounded-full bg-theme-accent/10 border border-theme-accent/20"
           >
             <Ionicons name="add-circle-outline" size={14} color={theme.tint} />
-            <Text className="text-xs font-extrabold text-theme-accent">Log New</Text>
+            <Text className="text-xs font-extrabold text-theme-accent">{t('progress.logNew', 'Log New')}</Text>
           </ScalePressable>
         )}
       </View>
@@ -79,10 +81,10 @@ export function NiggleCard({
         <EmptyState
           preset="healthy-niggles"
           badge="100% READINESS"
-          title="Healthy & Ready"
-          subtitle="No active niggles reported. Tap to log discomfort early before minor tightness becomes an injury."
+          title={t('progress.healthyReadyTitle', 'Healthy & Ready')}
+          subtitle={t('progress.healthyReadySubtitle', 'No active niggles reported. Tap to log discomfort early before minor tightness becomes an injury.')}
           action={{
-            label: "+ Log Discomfort",
+            label: t('progress.logDiscomfort', '+ Log Discomfort'),
             onPress: onLogNew,
             variant: 'primary',
           }}
@@ -124,7 +126,7 @@ export function NiggleCard({
                     haptic="selection"
                     className="px-3 py-1.5 bg-theme-card border border-theme-border rounded-control"
                   >
-                    <Text className="text-xs font-bold text-theme-text">Edit</Text>
+                    <Text className="text-xs font-bold text-theme-text">{t('common.edit', 'Edit')}</Text>
                   </ScalePressable>
 
                   <ScalePressable
@@ -135,7 +137,7 @@ export function NiggleCard({
                   >
                     <Ionicons name="checkmark-outline" size={13} color="#10B981" />
                     <Text className="text-xs font-bold text-semantic-success">
-                      Mark Resolved
+                      {t('progress.markResolved', 'Mark Resolved')}
                     </Text>
                   </ScalePressable>
                 </View>

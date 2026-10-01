@@ -37,10 +37,13 @@ interface AddWorkoutModalProps {
   targetDateStr?: string;
   targetFullDate?: string;
   initialWorkout?: WorkoutItem | null;
+  isReadOnly?: boolean;
+  onUpgradePress?: () => void;
   onClose: () => void;
   onSave: (workout: Omit<WorkoutItem, 'id'>, existingId?: string) => void;
   onDelete?: (workoutId: string) => void;
 }
+
 
 function normalizeDateToYYYYMMDD(dateStr?: string): string {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -141,6 +144,8 @@ export function AddWorkoutModal({
   targetDateStr = 'Aug 7',
   targetFullDate,
   initialWorkout = null,
+  isReadOnly = false,
+  onUpgradePress,
   onClose,
   onSave,
   onDelete,
@@ -284,9 +289,21 @@ export function AddWorkoutModal({
 
           {/* Top Title Bar with Close Action */}
           <View className="flex-row items-center justify-between px-5 pt-1 pb-3 border-b border-theme-border/60">
-            <Text className="text-xl font-bold text-theme-text">
-              {initialWorkout ? 'Edit Workout' : 'Add Workout'}
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-xl font-bold text-theme-text">
+                {initialWorkout
+                  ? isReadOnly
+                    ? t('dashboard.workoutDetails', 'Workout Details')
+                    : t('dashboard.editWorkout', 'Edit Workout')
+                  : t('dashboard.addWorkoutTitle', 'Add Workout')}
+              </Text>
+              {isReadOnly && (
+                <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
+                  <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
+                  <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
+                </View>
+              )}
+            </View>
             <TouchableOpacity
               onPress={onClose}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -296,11 +313,32 @@ export function AddWorkoutModal({
             </TouchableOpacity>
           </View>
 
+          {isReadOnly && (
+            <View className="mx-5 my-2.5 p-3 bg-theme-accent/10 border border-theme-accent/30 rounded-xl flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2 flex-1 mr-2">
+                <Ionicons name="lock-closed" size={16} color="#0EA5E9" />
+                <Text className="text-xs text-theme-text font-medium flex-1">
+                  {t('dashboard.freeTierViewCoach', 'Free tier can view coach workouts. Upgrade to Rooka+ to edit steps, targets, and create custom workouts.')}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  onClose();
+                  onUpgradePress?.();
+                }}
+                className="px-2.5 py-1.5 bg-theme-accent rounded-lg"
+              >
+                <Text className="text-xs font-bold text-white">{t('dashboard.upgradeToEdit', 'Upgrade')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* SCROLLABLE FORM AREA */}
           <View className="flex-1 px-5">
             <WorkoutStepBuilder
               steps={steps}
               sport={selectedSport}
+              readOnly={isReadOnly}
               durationMinutes={durationMinutes}
               quickDurations={quickDurations}
               onDurationChange={handleDurationChange}
@@ -315,7 +353,8 @@ export function AddWorkoutModal({
                     <TextInput
                       value={title}
                       onChangeText={setTitle}
-                      placeholder="Workout name (optional)"
+                      editable={!isReadOnly}
+                      placeholder={t('dashboard.workoutNamePlaceholder', 'Workout name (optional)')}
                       placeholderTextColor={theme.textSecondary}
                       className="bg-theme-inset px-3.5 py-2.5 rounded-control text-sm font-semibold text-theme-text border border-theme-border"
                     />
@@ -329,17 +368,18 @@ export function AddWorkoutModal({
                       contentContainerStyle={{ gap: 8 }}
                     >
                       {[
-                        { type: 'RUN' as SportType, label: 'Run' },
-                        { type: 'BIKE' as SportType, label: 'Bike' },
-                        { type: 'SWIM' as SportType, label: 'Swim' },
-                        { type: 'STRENGTH' as SportType, label: 'Strength' },
-                        { type: 'MOBILITY' as SportType, label: 'Mobility' },
+                        { type: 'RUN' as SportType, label: t('sports.run', 'Run') },
+                        { type: 'BIKE' as SportType, label: t('sports.bike', 'Bike') },
+                        { type: 'SWIM' as SportType, label: t('sports.swim', 'Swim') },
+                        { type: 'STRENGTH' as SportType, label: t('sports.strength', 'Strength') },
+                        { type: 'MOBILITY' as SportType, label: t('sports.mobility', 'Mobility') },
                       ].map((item) => {
                         const isSelected = selectedSport === item.type;
                         return (
                           <TouchableOpacity
                             key={item.type}
-                            activeOpacity={0.8}
+                            disabled={isReadOnly}
+                            activeOpacity={isReadOnly ? 1 : 0.8}
                             onPress={() => handleSportSelect(item.type)}
                             style={{ width: 64, height: 76 }}
                             className={`rounded-inset items-center justify-center ${
@@ -369,8 +409,9 @@ export function AddWorkoutModal({
                       return (
                         <TouchableOpacity
                           key={`dur-${mins}`}
+                          disabled={isReadOnly}
                           onPress={() => handleDurationChange(mins)}
-                          activeOpacity={0.8}
+                          activeOpacity={isReadOnly ? 1 : 0.8}
                           className={`flex-1 py-2 items-center justify-center rounded-button-md border ${
                             isSelected
                               ? 'bg-theme-accent-strong border-theme-accent-strong'
@@ -390,21 +431,23 @@ export function AddWorkoutModal({
                   </View>
 
                   {/* Build with rooka (Renamed from Quick Build) */}
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    label="Build with rooka"
-                    leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
-                    onPress={() => setIsQuickBuildOpen(true)}
-                    className="w-full"
-                  />
+                  {!isReadOnly && (
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      label={t('dashboard.buildWithRooka', 'Build with rooka')}
+                      leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
+                      onPress={() => setIsQuickBuildOpen(true)}
+                      className="w-full"
+                    />
+                  )}
 
                   {/* Structure Preview Bar (proportional, rounded-full matching dashboard view) */}
                   {steps && steps.length > 0 && (
                     <View className="gap-y-1.5">
                       <View className="flex-row justify-between items-center">
                         <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider">
-                          STRUCTURE PREVIEW
+                          {t('dashboard.structurePreview', 'STRUCTURE PREVIEW')}
                         </Text>
                         <Text className="text-xs font-semibold text-theme-muted font-rajdhani tabular-nums">
                           {durationMinutes} min
@@ -414,7 +457,7 @@ export function AddWorkoutModal({
                     </View>
                   )}
                 </View>
-              ), [selectedSport, title, durationMinutes, calculatedRooka, steps])}
+              ), [selectedSport, title, durationMinutes, calculatedRooka, steps, isReadOnly])}
             />
           </View>
 
@@ -497,37 +540,59 @@ export function AddWorkoutModal({
             <View className="flex-row items-center justify-between gap-x-4">
               <View className="flex-row items-center gap-4">
                 <StatValue
-                  label="DURATION"
+                  label={t('dashboard.durationLabel', 'DURATION')}
                   value={durationMinutes}
                   unit="min"
                   size="sm"
                 />
                 <StatValue
-                  label="ROOKA"
+                  label={t('dashboard.rookaLabel', 'ROOKA')}
                   value={`+${calculatedRooka}`}
                   unit="pts"
                   size="sm"
                 />
               </View>
 
-              <Button
-                variant="primary"
-                size="md"
-                label={t('common.save') || 'Save'}
-                disabled={steps.length === 0}
-                onPress={handleSave}
-                className="flex-1"
-              />
+              {isReadOnly ? (
+                <View className="flex-row items-center gap-2 flex-1">
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    label={t('common.close', 'Close')}
+                    onPress={onClose}
+                  />
+                  <Button
+                    variant="primary"
+                    size="md"
+                    label={t('dashboard.upgradeToEdit', 'Upgrade to Edit')}
+                    leftIcon={<Ionicons name="lock-closed" size={13} color="#FFFFFF" />}
+                    onPress={() => {
+                      onClose();
+                      onUpgradePress?.();
+                    }}
+                    className="flex-1"
+                  />
+                </View>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="md"
+                  label={t('common.save', 'Save')}
+                  disabled={steps.length === 0}
+                  onPress={handleSave}
+                  className="flex-1"
+                />
+              )}
             </View>
 
             {/* Optional Delete action if editing existing workout */}
-            {initialWorkout && (
+            {initialWorkout && !isReadOnly && (
               <TouchableOpacity
                 onPress={handleDelete}
                 className="mt-2.5 items-center justify-center py-1.5"
               >
                 <Text className="text-xs font-semibold text-rose-500">
-                  {t('common.delete') || 'Delete Workout'}
+                  {t('dashboard.deleteWorkout', 'Delete Workout')}
                 </Text>
               </TouchableOpacity>
             )}

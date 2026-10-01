@@ -21,6 +21,7 @@ import { BODY_PARTS_LOOKUP } from '../progress/AnatomicalBodyMap';
 import { Button } from '../ui/Button';
 import { ScalePressable } from '../ui/ScalePressable';
 import { TextInput } from '../ui/TextInput';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -104,6 +105,7 @@ export function LogNiggleModal({
   onSendToCoach,
 }: LogNiggleModalProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const { saveNiggle } = useHealth();
   const [description, setDescription] = useState('');
   const [severity, setSeverity] = useState<number>(3); // 1-10
@@ -199,9 +201,9 @@ export function LogNiggleModal({
   };
 
   const getSeverityBadge = (level: number) => {
-    if (level <= 3) return { label: 'Mild / Stiffness', color: 'text-semantic-success', bg: 'bg-semantic-success/15' };
-    if (level <= 6) return { label: 'Moderate Discomfort', color: 'text-semantic-warning', bg: 'bg-semantic-warning/15' };
-    return { label: 'Severe Pain / Injury', color: 'text-semantic-error', bg: 'bg-semantic-error/15' };
+    if (level <= 3) return { label: t('dashboard.mildStiffness', 'Mild / Stiffness'), color: 'text-semantic-success', bg: 'bg-semantic-success/15' };
+    if (level <= 6) return { label: t('dashboard.moderateDiscomfort', 'Moderate Discomfort'), color: 'text-semantic-warning', bg: 'bg-semantic-warning/15' };
+    return { label: t('dashboard.severePain', 'Severe Pain / Injury'), color: 'text-semantic-error', bg: 'bg-semantic-error/15' };
   };
 
   const badge = getSeverityBadge(severity);
@@ -256,8 +258,8 @@ export function LogNiggleModal({
                   <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
                 </View>
                 <View>
-                  <Text className="text-lg font-bold text-theme-text">Report Injury / Niggle</Text>
-                  <Text className="text-xs text-theme-muted font-rajdhani">Records to Health Tracker & alerts rooka Coach</Text>
+                  <Text className="text-lg font-bold text-theme-text">{t('dashboard.reportInjuryTitle', 'Report Injury / Niggle')}</Text>
+                  <Text className="text-xs text-theme-muted font-rajdhani">{t('dashboard.injuryTrackerAlert', 'Records to Health Tracker & alerts rooka Coach')}</Text>
                 </View>
               </View>
               <ScalePressable
@@ -279,12 +281,12 @@ export function LogNiggleModal({
               {/* Description Text Input */}
               <View className="mb-3.5">
                 <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                  What hurts or feels tight?
+                  {t('dashboard.whatHurtsPlaceholder', 'What hurts or feels tight?')}
                 </Text>
                 <TextInput
                   value={description}
                   onChangeText={handleDescriptionChange}
-                  placeholder="e.g. My heel hurts, achilles tightness after run..."
+                  placeholder={t('dashboard.whatHurtsPlaceholder', 'e.g. My heel hurts, achilles tightness after run...')}
                   multiline
                   numberOfLines={2}
                   style={{ height: 60, textAlignVertical: 'top' }}
@@ -295,7 +297,7 @@ export function LogNiggleModal({
               <View className="mb-3.5">
                 <View className="flex-row justify-between items-center mb-1.5">
                   <Text className="text-xs font-bold text-theme-muted">
-                    Affected Area: <Text className="text-theme-accent font-extrabold">{currentDisplayName}</Text>
+                    {t('dashboard.affectedArea', 'Affected Area:')} <Text className="text-theme-accent font-extrabold">{currentDisplayName}</Text>
                   </Text>
                   {currentRegion?.isBilateral && (
                     <View className="flex-row bg-theme-bg rounded-lg p-0.5 border border-theme-border/60">
@@ -308,7 +310,7 @@ export function LogNiggleModal({
                         haptic="selection"
                         className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'left' ? 'bg-theme-accent' : ''}`}
                       >
-                        <Text className={`text-xs font-bold ${selectedSide === 'left' ? 'text-white' : 'text-theme-muted'}`}>Left</Text>
+                        <Text className={`text-xs font-bold ${selectedSide === 'left' ? 'text-white' : 'text-theme-muted'}`}>{t('common.left', 'Left')}</Text>
                       </ScalePressable>
                       <ScalePressable
                         onPress={() => {
@@ -319,7 +321,7 @@ export function LogNiggleModal({
                         haptic="selection"
                         className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'right' ? 'bg-theme-accent' : ''}`}
                       >
-                        <Text className={`text-xs font-bold ${selectedSide === 'right' ? 'text-white' : 'text-theme-muted'}`}>Right</Text>
+                        <Text className={`text-xs font-bold ${selectedSide === 'right' ? 'text-white' : 'text-theme-muted'}`}>{t('common.right', 'Right')}</Text>
                       </ScalePressable>
                     </View>
                   )}
@@ -363,7 +365,7 @@ export function LogNiggleModal({
               <View className="mb-2">
                 <View className="flex-row justify-between items-center mb-2">
                   <Text className="text-xs font-bold text-theme-muted">
-                    Severity Rating ({severity}/10)
+                    {t('dashboard.severityRatingWithScore', { severity })}
                   </Text>
                   <View className={`px-2.5 py-0.5 rounded-full ${badge.bg}`}>
                     <Text className={`text-xs font-extrabold ${badge.color}`}>{badge.label}</Text>
@@ -405,11 +407,11 @@ export function LogNiggleModal({
             {/* Pinned Action Buttons at Bottom */}
             <View className="flex-row gap-3 pt-3 border border-theme-border/30">
               <View className="flex-1">
-                <Button label="Cancel" variant="outline" onPress={onClose} />
+                <Button label={t('common.cancel', 'Cancel')} variant="outline" onPress={onClose} />
               </View>
               <View className="flex-1">
                 <Button
-                  label="Save"
+                  label={t('common.save', 'Save')}
                   variant="primary"
                   onPress={handleSend}
                   disabled={!description.trim()}

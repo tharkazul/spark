@@ -111,21 +111,21 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
            return (
              <View className="flex-row items-center bg-[#10B981]/15 px-3 py-1 rounded-full">
                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-               <Text className="text-[#10B981] font-bold text-xs ml-1">Accepted</Text>
+               <Text className="text-[#10B981] font-bold text-xs ml-1">{t('common.accepted', 'Accepted')}</Text>
              </View>
            );
         } else if (existingInvite.status === 'declined' || existingInvite.status === 'rejected') {
            return (
              <View className="flex-row items-center bg-red-500/15 px-3 py-1 rounded-full">
                <Ionicons name="close-circle" size={16} color="#EF4444" />
-               <Text className="text-red-500 font-bold text-xs ml-1">Declined</Text>
+               <Text className="text-red-500 font-bold text-xs ml-1">{t('common.declined', 'Declined')}</Text>
              </View>
            );
         } else {
            return (
              <View className="flex-row items-center bg-slate-500/15 px-3 py-1 rounded-full">
                <Ionicons name="time" size={16} color="#64748b" />
-               <Text className="text-slate-500 font-bold text-xs ml-1">Pending</Text>
+               <Text className="text-slate-500 font-bold text-xs ml-1">{t('common.pending', 'Pending')}</Text>
              </View>
            );
         }
@@ -191,7 +191,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     >
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         <View className="flex-row justify-between items-center pb-4 pt-2">
-          <Text className="text-xl font-extrabold text-theme-text">Invite Friends</Text>
+          <Text className="text-xl font-extrabold text-theme-text">{t('dashboard.inviteFriends', 'Invite Friends')}</Text>
           <ScalePressable onPress={onClose} activeScale={0.9} haptic="light" className="p-2 -mr-2 bg-theme-bg rounded-full">
             <Ionicons name="close" size={20} color={theme.textSecondary} />
           </ScalePressable>
@@ -211,28 +211,28 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
 
         <View className="flex-row gap-2 mb-4">
           <View className="flex-1">
-            <Text className="text-xs font-bold text-theme-muted mb-1 uppercase tracking-wider ml-1">Location (Optional)</Text>
+            <Text className="text-xs font-bold text-theme-muted mb-1 uppercase tracking-wider ml-1">{t('dashboard.locationOptional', 'Location (Optional)')}</Text>
             <TextInput
               value={location}
               onChangeText={setLocation}
-              placeholder="e.g. Central Park"
+              placeholder={t('dashboard.locationPlaceholder', 'e.g. Central Park')}
               placeholderTextColor={theme.textSecondary}
               className="bg-theme-bg text-theme-text px-4 py-3 rounded-xl border border-theme-border/50 font-medium"
             />
           </View>
           <View className="flex-1">
-            <Text className="text-xs font-bold text-theme-muted mb-1 uppercase tracking-wider ml-1">Time (Optional)</Text>
+            <Text className="text-xs font-bold text-theme-muted mb-1 uppercase tracking-wider ml-1">{t('dashboard.timeOptional', 'Time (Optional)')}</Text>
             <TextInput
               value={time}
               onChangeText={setTime}
-              placeholder="e.g. 07:00 AM"
+              placeholder={t('dashboard.timePlaceholder', 'e.g. 07:00 AM')}
               placeholderTextColor={theme.textSecondary}
               className="bg-theme-bg text-theme-text px-4 py-3 rounded-xl border border-theme-border/50 font-medium"
             />
           </View>
         </View>
 
-        <Text className="text-xs font-bold text-theme-muted mb-2 uppercase tracking-wider ml-1">Select Connections</Text>
+        <Text className="text-xs font-bold text-theme-muted mb-2 uppercase tracking-wider ml-1">{t('social.selectConnections', 'Select Connections')}</Text>
         
         {loading ? (
           <View className="flex-1 items-center justify-center">
@@ -240,7 +240,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
           </View>
         ) : connections.length === 0 ? (
           <View className="flex-1 items-center justify-center">
-            <Text className="text-theme-muted text-center">No active connections found.</Text>
+            <Text className="text-theme-muted text-center">{t('social.noConnections', 'No active connections found.')}</Text>
           </View>
         ) : (
           <FlatList
@@ -265,7 +265,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text className="text-white font-extrabold text-base">
-                Send {selectedIds.size > 0 ? selectedIds.size : ''} Invite{selectedIds.size !== 1 ? 's' : ''}
+                {t('dashboard.sendInvite', 'Send Invite')} {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
               </Text>
             )}
           </ScalePressable>

@@ -345,9 +345,9 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           <Text className="text-white/90 text-xs mb-4 leading-relaxed font-medium">
             {isMember
               ? (tier === 'admin'
-                  ? 'Your account has full administrator access with a 500k daily token quota, advanced periodization, and direct integrations.'
-                  : 'Your account has unlocked 50,000 daily coach tokens, priority workout adaptation, custom macro periodization, and direct Garmin sync.')
-              : 'Unlock 50,000 daily coach tokens, priority workout adaptation, custom macro periodization, and deeper athletic insights.'}
+                  ? 'Your account has full administrator access with a 500k daily token quota, custom workout building & editing, advanced periodization, and direct integrations.'
+                  : 'Your account has unlocked 50,000 daily coach tokens, custom workout building & editing, priority workout adaptation, and direct Garmin sync.')
+              : 'Unlock 50,000 daily coach tokens, custom workout building & editing, priority workout adaptation, and deeper athletic insights.'}
           </Text>
 
           <View className="bg-white py-2.5 px-5 rounded-full self-start flex-row items-center shadow-sm">

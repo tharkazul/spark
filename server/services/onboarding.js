@@ -121,8 +121,9 @@ const FEATURES_REGISTRY = [
   {
     key: "structured_step_builder",
     name: "Custom Workout Step Builder",
-    description: "Build custom workouts with specific warm-ups, intervals, pace/HR zone targets, and cool-downs.",
-    minTier: "free",
+    description: "Build and edit custom workouts with specific warm-ups, intervals, pace/HR zone targets, and cool-downs.",
+    minTier: "rooka_plus",
+    upgradePrompt: "Want to design and customize your own training sessions? Upgrading to Rooka+ unlocks the custom Workout Builder & Step Editor, allowing you to edit workouts, program exact pace and heart rate intervals, and fine-tune your training.",
     coachPrompt: "Want to design your own custom intervals? When adding or editing a workout, use the Workout Step Builder to set up exact warm-ups, heart rate or power intervals, reps, and recovery intervals.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {

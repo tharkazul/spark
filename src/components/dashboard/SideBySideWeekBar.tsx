@@ -13,6 +13,8 @@ import Animated, {
 import { DayAgenda } from './MicroPlanAgendaCard';
 import { SportType } from '../../types/dashboard';
 import { SportMedallion } from '../ui/SportMedallion';
+import { useLanguage } from '../../context/LanguageContext';
+import { getLocalizedDayAbbr } from './DetailedDayCard';
 
 interface SideBySideWeekBarProps {
   agenda: DayAgenda[];
@@ -35,6 +37,7 @@ interface WeekStripProps {
 }
 
 function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
+  const { t } = useLanguage();
   return (
     <View className="flex-row gap-1.5 w-full">
       {agenda.map((day, idx) => {
@@ -88,7 +91,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                 isSelected ? 'text-white' : 'text-theme-muted'
               }`}
             >
-              {day.dayName.slice(0, 3)}
+              {getLocalizedDayAbbr(day.dayName, t)}
             </Text>
 
             {/* Middle: Date Number in stat-md Rajdhani */}

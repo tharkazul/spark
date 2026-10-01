@@ -120,10 +120,10 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
           <View className="items-center justify-center py-8 px-4">
             <Ionicons name="analytics-outline" size={34} color={theme.textSecondary} />
             <Text className="text-theme-text font-bold text-base mt-3 text-center">
-              No sessions yet
+              {t('progress.noSessionsYet', 'No sessions yet')}
             </Text>
             <Text className="text-theme-muted text-xs mt-1.5 text-center leading-relaxed">
-              Log or sync a workout and your athlete profile will build itself from what you actually train.
+              {t('progress.noSessionsSubtitle', 'Log or sync a workout and your athlete profile will build itself from what you actually train.')}
             </Text>
           </View>
         )}
@@ -142,14 +142,14 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
           <View className="flex-row items-center gap-x-2">
             <Ionicons name="nutrition-outline" size={16} color={theme.tint} />
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              Fueling & Nutrition
+              {t('progress.fuelingNutrition', 'Fueling & Nutrition')}
             </Text>
           </View>
           {onOpenNutrition && (
             <Button
               variant="ghost"
               size="sm"
-              label="View Plan"
+              label={t('progress.viewPlan', 'View Plan')}
               rightIcon={<Ionicons name="chevron-forward" size={14} color="#0EA5E9" />}
               onPress={onOpenNutrition}
             />
@@ -171,26 +171,26 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
               <Text className="text-lg font-bold font-rajdhani text-theme-text">
                 {nutrition.carbsTarget ? Math.round(nutrition.carbsTarget) : (nutrition.carbs ? Math.round(nutrition.carbs) : '—')}g
               </Text>
-              <Text className="text-[10px] text-theme-muted uppercase font-bold">Carbs</Text>
+              <Text className="text-[10px] text-theme-muted uppercase font-bold">{t('dashboard.carbs', 'Carbs')}</Text>
             </View>
             <View className="w-px h-6 bg-theme-border/60" />
             <View className="items-center flex-1">
               <Text className="text-lg font-bold font-rajdhani text-theme-text">
                 {nutrition.proteinTarget ? Math.round(nutrition.proteinTarget) : (nutrition.protein ? Math.round(nutrition.protein) : '—')}g
               </Text>
-              <Text className="text-[10px] text-theme-muted uppercase font-bold">Protein</Text>
+              <Text className="text-[10px] text-theme-muted uppercase font-bold">{t('dashboard.protein', 'Protein')}</Text>
             </View>
             <View className="w-px h-6 bg-theme-border/60" />
             <View className="items-center flex-1">
               <Text className="text-lg font-bold font-rajdhani text-theme-text">
                 {nutrition.fatTarget ? Math.round(nutrition.fatTarget) : (nutrition.fat ? Math.round(nutrition.fat) : '—')}g
               </Text>
-              <Text className="text-[10px] text-theme-muted uppercase font-bold">Fat</Text>
+              <Text className="text-[10px] text-theme-muted uppercase font-bold">{t('dashboard.fat', 'Fat')}</Text>
             </View>
           </View>
         ) : (
           <View className="bg-theme-inset rounded-inset p-3 items-center">
-            <Text className="text-xs text-theme-muted">Daily AI nutrition targets ready to configure.</Text>
+            <Text className="text-xs text-theme-muted">{t('progress.nutritionConfigureHint', 'Daily AI nutrition targets ready to configure.')}</Text>
           </View>
         )}
       </Card>
@@ -234,7 +234,7 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
                 </View>
 
                 <View className="flex-row justify-between items-center mt-2 mb-1">
-                  <Text className="text-xs text-theme-muted">Progress</Text>
+                  <Text className="text-xs text-theme-muted">{t('common.status', 'Progress')}</Text>
                   <Text className="text-xs font-bold text-theme-text">
                     {currentVal} / {targetVal} {activeQuest.unit || ''}
                   </Text>
@@ -251,11 +251,11 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
           ) : (
             <View className="items-center py-4 bg-theme-bg/70 rounded-xl px-4">
               <Text className="text-sm text-theme-muted text-center mb-3">
-                No active quest right now. Generate one to earn bonus Rooka points!
+                {t('progress.noActiveQuest', 'No active quest right now. Generate one to earn bonus Rooka points!')}
               </Text>
               <Button
                 size="sm"
-                label={questActionLoading ? 'Generating...' : 'Generate Quest'}
+                label={questActionLoading ? t('progress.generating', 'Generating...') : t('progress.generateQuest', 'Generate Quest')}
                 disabled={questActionLoading}
                 onPress={handleGenerateQuest}
               />
@@ -271,21 +271,21 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
         showHandle
       >
         <View className="pb-6">
-          <Text className="text-lg font-bold text-theme-text mb-2">Weekly Quest Details</Text>
+          <Text className="text-lg font-bold text-theme-text mb-2">{t('progress.weeklyQuestDetails', 'Weekly Quest Details')}</Text>
           {activeQuest && (
             <>
               <Text className="text-sm text-theme-muted mb-4">{activeQuest.description}</Text>
               <View className="bg-theme-inset rounded-inset p-3 mb-4">
-                <Text className="text-xs text-theme-muted">Reward</Text>
+                <Text className="text-xs text-theme-muted">{t('progress.reward', 'Reward')}</Text>
                 <Text className="text-xl font-bold font-rajdhani text-theme-accent">
-                  +{Math.round(activeQuest.reward_points || 0)} Rooka Points
+                  +{Math.round(activeQuest.reward_points || 0)} {t('progress.rookaPoints', 'Rooka Points')}
                 </Text>
               </View>
             </>
           )}
           <Button
             variant="ghost"
-            label="Swap for New Quest"
+            label={t('progress.swapQuest', 'Swap for New Quest')}
             isLoading={questActionLoading}
             onPress={handleGenerateQuest}
           />
