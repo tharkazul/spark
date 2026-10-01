@@ -12,13 +12,11 @@ import { SportMedallion } from '../ui/SportMedallion';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { RookaMark } from '../ui/RookaPoints';
 import { Sparkline } from '../common/Sparkline';
-import { AthleteRadarChart } from '../progress/AthleteRadarChart';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { socialApi } from '../../services/apiServices';
 import { PublicAthleteProfile } from '../../types/social';
 import { getRookaLevelInfo } from '../../utils/gamification';
-import { calculateAthleteArchetype } from '../../utils/archetypeUtils';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { Activity } from '../../types/activity';
@@ -124,7 +122,6 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
       ? currentUser.athlete_metrics
       : profile?.athlete_metrics;
 
-  const archetype = calculateAthleteArchetype(activities, metrics);
   const hasActivities = activities.length > 0;
 
   const activitiesTotalRooka = Math.round(
@@ -326,48 +323,6 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
           {/* LEVEL & ROOKA POINTS CARD */}
           <Card className="mb-4 bg-theme-card p-5">
             <LevelProgress totalRooka={effectiveTotalRooka} />
-          </Card>
-
-          {/* ATHLETE ARCHETYPE CARD */}
-          <Card className="mb-4 bg-theme-card p-5">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-row items-center gap-x-2">
-                <View className="w-8 h-8 rounded-xl bg-theme-accent/20 items-center justify-center">
-                  <Ionicons name="finger-print-outline" size={16} color={theme.tint} />
-                </View>
-                <View>
-                  <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                    Athlete Archetype
-                  </Text>
-                  <Text className="text-base font-extrabold text-theme-text">
-                    {archetype.title}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {hasActivities ? (
-              <>
-                <AthleteRadarChart data={archetype} size={260} />
-                {archetype.description ? (
-                  <View className="mt-3 pt-3 border-t border-theme-border/40">
-                    <Text className="text-xs text-theme-muted text-center leading-relaxed">
-                      {archetype.description}
-                    </Text>
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <View className="items-center justify-center py-10 px-6">
-                <Ionicons name="analytics-outline" size={34} color={theme.textSecondary} />
-                <Text className="text-theme-text font-bold text-base mt-3 text-center">
-                  No sessions yet
-                </Text>
-                <Text className="text-theme-muted text-sm mt-1.5 text-center leading-relaxed">
-                  Log or sync a workout and your athlete profile will build itself from what you actually train.
-                </Text>
-              </View>
-            )}
           </Card>
 
           {/* PHYSIOLOGY PMC TELEMETRY CARD */}

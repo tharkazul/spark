@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
   useColorScheme,
-  TouchableWithoutFeedback,
   Pressable,
   StyleSheet,
   Modal,
@@ -12,6 +11,7 @@ import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { BrandColors, Elevation } from '../constants/theme';
 import { GlassView } from 'expo-glass-effect';
 import { useTabBar } from '../context/TabBarContext';
@@ -45,7 +45,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { registerScrollListener, registerScrollEndListener, setTabBarOccupied } = useTabBar();
+  const { setTabBarOccupied } = useTabBar();
   const { unreadCount, sendMessage } = useCoachChat();
   const { logPhysique } = usePhysique();
   const { addWorkout } = usePlan();
@@ -112,49 +112,6 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
     }
   );
 
-  const scaleAnim = useSharedValue(1);
-  const opacityAnim = useSharedValue(1);
-  const hideAnim = useSharedValue(0);
-
-  const expandBar = useCallback(() => {
-    if (reducedMotion) {
-      scaleAnim.value = 1;
-      opacityAnim.value = 1;
-      hideAnim.value = 0;
-    } else {
-      scaleAnim.value = withSpring(1, { damping: 26, stiffness: 130 });
-      opacityAnim.value = withTiming(1, { duration: 260 });
-      hideAnim.value = withSpring(0, { damping: 26, stiffness: 130 });
-    }
-  }, [reducedMotion, scaleAnim, opacityAnim, hideAnim]);
-
-  const shrinkBar = useCallback(() => {
-    if (reducedMotion) {
-      scaleAnim.value = 0.96;
-      hideAnim.value = 1;
-    } else {
-      scaleAnim.value = withSpring(0.96, { damping: 15, stiffness: 200 });
-      hideAnim.value = withSpring(1, { damping: 18, stiffness: 220 });
-    }
-    if (isQuickMenuOpen) {
-      closeQuickMenu();
-    }
-  }, [reducedMotion, scaleAnim, hideAnim, isQuickMenuOpen, closeQuickMenu]);
-
-  useEffect(() => {
-    const unsubscribe = registerScrollListener(() => {
-      shrinkBar();
-    });
-    return unsubscribe;
-  }, [registerScrollListener, shrinkBar]);
-
-  useEffect(() => {
-    const unsubscribe = registerScrollEndListener(() => {
-      expandBar();
-    });
-    return unsubscribe;
-  }, [registerScrollEndListener, expandBar]);
-
   // Colors per spec
   const activeColor = isDark ? '#60A5FA' : '#0369A1'; // --accent-text
   const inactiveColor = isDark ? '#94A3B8' : '#64748B'; // text-theme-muted
@@ -175,10 +132,9 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
     const totalOffset = TAB_BAR_HEIGHT + insets.bottom + 32;
     return {
       transform: [
-        { scale: scaleAnim.value },
-        { translateY: progress.value * totalOffset + hideAnim.value * totalOffset },
+        { translateY: progress.value * totalOffset },
       ],
-      opacity: opacityAnim.value * (1 - progress.value),
+      opacity: 1 - progress.value,
     };
   });
 
@@ -227,6 +183,30 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
 
   return (
     <>
+      {/* Soft Background Fade Overlay at the Bottom */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: insets.bottom + TAB_BAR_HEIGHT + 36,
+          zIndex: 998,
+        }}
+        pointerEvents="none"
+      >
+        <LinearGradient
+          colors={[
+            isDark ? 'rgba(15, 23, 42, 0)' : 'rgba(241, 245, 249, 0)',
+            isDark ? 'rgba(15, 23, 42, 0.75)' : 'rgba(241, 245, 249, 0.75)',
+            isDark ? 'rgba(15, 23, 42, 0.98)' : 'rgba(241, 245, 249, 0.98)',
+            isDark ? '#0F172A' : '#F1F5F9',
+          ]}
+          locations={[0, 0.35, 0.75, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
+
       {/* Modal Overlay with Quick Action Bubbles */}
       <Modal
         visible={isQuickMenuOpen}
@@ -368,178 +348,104 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
         }}
         pointerEvents={barInteractive ? 'box-none' : 'none'}
       >
-        <TouchableWithoutFeedback onPress={expandBar}>
-          <Animated.View
-            onLayout={(e) => {
-              setTabBarOccupied(insets.bottom + 8 + e.nativeEvent.layout.height);
-            }}
+        <Animated.View
+          onLayout={(e) => {
+            setTabBarOccupied(insets.bottom + 8 + e.nativeEvent.layout.height);
+          }}
+          style={[
+            {
+              width: '100%',
+              maxWidth: 420,
+              height: TAB_BAR_HEIGHT,
+              borderRadius: 32,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-evenly',
+              paddingHorizontal: 8,
+              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.96)' : 'rgba(255, 255, 255, 0.96)',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+              borderWidth: 1,
+              ...Elevation.elevation1,
+            },
+            animatedStyle,
+          ]}
+        >
+          {/* Background Blur Effect */}
+          <View
             style={[
+              StyleSheet.absoluteFillObject,
               {
-                width: '100%',
-                maxWidth: 420,
-                height: TAB_BAR_HEIGHT,
                 borderRadius: 32,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-evenly',
-                paddingHorizontal: 8,
-                backgroundColor: isDark ? 'rgba(30, 41, 59, 0.96)' : 'rgba(255, 255, 255, 0.96)',
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-                borderWidth: 1,
-                ...Elevation.elevation1,
+                overflow: 'hidden',
               },
-              animatedStyle,
             ]}
+            pointerEvents="none"
           >
-            {/* Background Blur Effect */}
-            <View
-              style={[
-                StyleSheet.absoluteFillObject,
-                {
-                  borderRadius: 32,
-                  overflow: 'hidden',
-                },
-              ]}
-              pointerEvents="none"
-            >
-              <GlassView
-                colorScheme={isDark ? 'dark' : 'light'}
-                glassEffectStyle="regular"
-                style={StyleSheet.absoluteFillObject}
-              />
-            </View>
+            <GlassView
+              colorScheme={isDark ? 'dark' : 'light'}
+              glassEffectStyle="regular"
+              style={StyleSheet.absoluteFillObject}
+            />
+          </View>
 
-            {visibleRoutes.map((route) => {
-              const { options } = descriptors[route.key];
-              const routeIndex = state.routes.findIndex((r) => r.key === route.key);
-              const activeRouteName = state.routes[state.index]?.name;
-              const isFocused =
-                state.index === routeIndex ||
-                (route.name === 'index' && activeRouteName === 'planning');
-              const isCenterButton = route.name === 'coach';
-              const label = getTabLabel(route.name);
+          {visibleRoutes.map((route) => {
+            const { options } = descriptors[route.key];
+            const routeIndex = state.routes.findIndex((r) => r.key === route.key);
+            const activeRouteName = state.routes[state.index]?.name;
+            const isFocused =
+              state.index === routeIndex ||
+              (route.name === 'index' && activeRouteName === 'planning');
+            const isCenterButton = route.name === 'coach';
+            const label = getTabLabel(route.name);
 
-              const onPress = () => {
-                if (isQuickMenuOpen) {
-                  closeQuickMenu();
-                  return;
-                }
-
-                const now = Date.now();
-                if (now - lastTapTimeRef.current < 350 || isTransitioningRef.current) {
-                  return;
-                }
-
-                Haptics.selectionAsync();
-                expandBar();
-
-                const event = navigation.emit({
-                  type: 'tabPress',
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-
-                if (!isFocused && !event.defaultPrevented) {
-                  lastTapTimeRef.current = now;
-                  isTransitioningRef.current = true;
-                  setTimeout(() => {
-                    isTransitioningRef.current = false;
-                  }, 400);
-                  navigation.navigate(route.name);
-                }
-              };
-
-              const onLongPress = () => {
-                expandBar();
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                navigation.emit({
-                  type: 'tabLongPress',
-                  target: route.key,
-                });
-
-                if (isCenterButton) {
-                  openQuickMenu();
-                }
-              };
-
-              if (isCenterButton) {
-                return (
-                  <ScalePressable
-                    key={route.key}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: isFocused }}
-                    accessibilityLabel={label || options.tabBarAccessibilityLabel || 'Coach'}
-                    testID={(options as any).tabBarTestID}
-                    onPress={onPress}
-                    onLongPress={onLongPress}
-                    delayLongPress={280}
-                    activeScale={0.92}
-                    haptic="selection"
-                    style={{
-                      flex: 1,
-                      height: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: 44,
-                      minHeight: 44,
-                    }}
-                  >
-                    <View
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 28,
-                        backgroundColor: boltColor,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginTop: -20,
-                        borderWidth: isFocused ? 3 : 0,
-                        borderColor: boltRingColor,
-                        ...Elevation.elevation1,
-                      }}
-                    >
-                      <RookaMark size={26} color="#FFFFFF" />
-
-                      {unreadCount > 0 && !isFocused && (
-                        <View
-                          style={{
-                            position: 'absolute',
-                            top: -2,
-                            right: -2,
-                            minWidth: 18,
-                            height: 18,
-                            paddingHorizontal: 4,
-                            borderRadius: 9,
-                            backgroundColor: '#EF4444',
-                            borderWidth: 2,
-                            borderColor: isDark ? '#1E293B' : '#FFFFFF',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color: '#FFFFFF',
-                              fontSize: 9,
-                              fontWeight: '900',
-                              textAlign: 'center',
-                            }}
-                          >
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </ScalePressable>
-                );
+            const onPress = () => {
+              if (isQuickMenuOpen) {
+                closeQuickMenu();
+                return;
               }
 
+              const now = Date.now();
+              if (now - lastTapTimeRef.current < 350 || isTransitioningRef.current) {
+                return;
+              }
+
+              Haptics.selectionAsync();
+
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+
+              if (!isFocused && !event.defaultPrevented) {
+                lastTapTimeRef.current = now;
+                isTransitioningRef.current = true;
+                setTimeout(() => {
+                  isTransitioningRef.current = false;
+                }, 400);
+                navigation.navigate(route.name);
+              }
+            };
+
+            const onLongPress = () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              navigation.emit({
+                type: 'tabLongPress',
+                target: route.key,
+              });
+
+              if (isCenterButton) {
+                openQuickMenu();
+              }
+            };
+
+            if (isCenterButton) {
               return (
                 <ScalePressable
                   key={route.key}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isFocused }}
-                  accessibilityLabel={label || options.tabBarAccessibilityLabel}
+                  accessibilityLabel={label || options.tabBarAccessibilityLabel || 'Coach'}
                   testID={(options as any).tabBarTestID}
                   onPress={onPress}
                   onLongPress={onLongPress}
@@ -553,29 +459,99 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                     justifyContent: 'center',
                     minWidth: 44,
                     minHeight: 44,
-                    paddingVertical: 6,
                   }}
                 >
-                  <View style={{ alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-                    <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-                      {renderTabIcon(route.name, isFocused)}
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={{
-                        fontSize: 10,
-                        fontWeight: '600',
-                        color: isFocused ? activeColor : inactiveColor,
-                      }}
-                    >
-                      {label}
-                    </Text>
+                  <View
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      backgroundColor: boltColor,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginTop: -20,
+                      borderWidth: isFocused ? 3 : 0,
+                      borderColor: boltRingColor,
+                      ...Elevation.elevation1,
+                    }}
+                  >
+                    <RookaMark size={26} color="#FFFFFF" />
+
+                    {unreadCount > 0 && !isFocused && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: -2,
+                          right: -2,
+                          minWidth: 18,
+                          height: 18,
+                          paddingHorizontal: 4,
+                          borderRadius: 9,
+                          backgroundColor: '#EF4444',
+                          borderWidth: 2,
+                          borderColor: isDark ? '#1E293B' : '#FFFFFF',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#FFFFFF',
+                            fontSize: 9,
+                            fontWeight: '900',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </ScalePressable>
               );
-            })}
-          </Animated.View>
-        </TouchableWithoutFeedback>
+            }
+
+            return (
+              <ScalePressable
+                key={route.key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isFocused }}
+                accessibilityLabel={label || options.tabBarAccessibilityLabel}
+                testID={(options as any).tabBarTestID}
+                onPress={onPress}
+                onLongPress={onLongPress}
+                delayLongPress={280}
+                activeScale={0.92}
+                haptic="selection"
+                style={{
+                  flex: 1,
+                  height: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: 44,
+                  minHeight: 44,
+                  paddingVertical: 6,
+                }}
+              >
+                <View style={{ alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                  <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+                    {renderTabIcon(route.name, isFocused)}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: '600',
+                      color: isFocused ? activeColor : inactiveColor,
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              </ScalePressable>
+            );
+          })}
+        </Animated.View>
       </View>
 
       {/* Global Modals */}

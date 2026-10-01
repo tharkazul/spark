@@ -62,7 +62,7 @@ The recommendations, recovery calculations, physique estimates, and AI coach out
 - We retain your Personal Data for as long as your account remains active or as needed to provide you with the App services.
 - **Account Deletion:** You have the right to request full deletion of your account and all associated personal data (including physical metrics, chat histories, connected tokens, and physique photos) at any time.
   - **In-App Deletion:** Navigate to **Settings > Account > Delete Account**.
-  - **Web Request:** Visit our web deletion request page or contact us at **privacy@rooka.io** or **rutgervandenberg@live.nl**. Upon request, all personal data is permanently purged from our active databases within 30 days.
+  - **Web Request:** Visit our web deletion request page or contact us at **privacy@rooka.io** or **rutger@rooka.io**. Upon request, all personal data is permanently purged from our active databases within 30 days.
 
 ---
 
@@ -86,5 +86,5 @@ Depending on your jurisdiction, you have the following rights:
 
 If you have questions or concerns about this Privacy Policy or our data practices, please contact us at:
 
-- **Email:** privacy@rooka.io / rutgervandenberg@live.nl
+- **Email:** privacy@rooka.io / rutger@rooka.io
 - **Website:** https://rooka.io/privacy

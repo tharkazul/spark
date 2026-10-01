@@ -148,33 +148,33 @@ export function formatInteger(value: number | null | undefined, locale: string =
  * Format body weight: exactly 1 decimal place with unit "74.2 kg"
  */
 export function formatWeight(kg: number | null | undefined, locale: string = 'en'): string {
-  if (kg === null || kg === undefined || isNaN(kg)) return '--\u00A0kg';
+  if (kg === null || kg === undefined || isNaN(kg)) return '-- kg';
   const formatted = formatNumber(kg, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, locale);
-  return `${formatted}\u00A0kg`;
+  return `${formatted} kg`;
 }
 
 /**
  * Format speed in km/h: 1 decimal place e.g. "28.4 km/h"
  */
 export function formatSpeed(kmh: number | null | undefined, locale: string = 'en'): string {
-  if (kmh === null || kmh === undefined || isNaN(kmh) || kmh <= 0) return '0.0\u00A0km/h';
+  if (kmh === null || kmh === undefined || isNaN(kmh) || kmh <= 0) return '0.0 km/h';
   const formatted = formatNumber(kmh, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, locale);
-  return `${formatted}\u00A0km/h`;
+  return `${formatted} km/h`;
 }
 
 /**
  * Formats kilometers to 1 decimal place with locale decimal separator: "6.4 km"
  */
 export function formatDistance(km: number, locale: string = 'en'): string {
-  if (km === undefined || km === null || isNaN(km)) return '0.0\u00A0km';
+  if (km === undefined || km === null || isNaN(km)) return '0.0 km';
   try {
     const formatted = new Intl.NumberFormat(locale, {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
     }).format(km);
-    return `${formatted}\u00A0km`;
+    return `${formatted} km`;
   } catch {
-    return `${km.toFixed(1)}\u00A0km`;
+    return `${km.toFixed(1)} km`;
   }
 }
 
@@ -183,13 +183,13 @@ export function formatDistance(km: number, locale: string = 'en'): string {
  */
 export function formatPace(minPerKm: number): string {
   if (!minPerKm || isNaN(minPerKm) || minPerKm <= 0 || !isFinite(minPerKm)) {
-    return '--:--\u00A0/km';
+    return '--:-- /km';
   }
   const totalSecs = Math.round(minPerKm * 60);
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
   const ss = secs < 10 ? `0${secs}` : `${secs}`;
-  return `${mins}:${ss}\u00A0/km`;
+  return `${mins}:${ss} /km`;
 }
 
 /**
@@ -197,13 +197,13 @@ export function formatPace(minPerKm: number): string {
  */
 export function formatSwimPace(totalSecsPer100m: number): string {
   if (!totalSecsPer100m || isNaN(totalSecsPer100m) || totalSecsPer100m <= 0 || !isFinite(totalSecsPer100m)) {
-    return '--:--\u00A0/100\u00A0m';
+    return '--:-- /100m';
   }
   const totalSecs = Math.round(totalSecsPer100m);
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
   const ss = secs < 10 ? `0${secs}` : `${secs}`;
-  return `${mins}:${ss}\u00A0/100\u00A0m`;
+  return `${mins}:${ss} /100m`;
 }
 
 /**

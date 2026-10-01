@@ -388,7 +388,7 @@ router.post("/google", async (req, res) => {
   }
 });
 
-const { sendPasswordResetEmail } = require("../services/emailService");
+const { sendPasswordResetEmail, sendWaitlistNotificationEmail } = require("../services/emailService");
 
 // Waitlist / Beta Signup endpoint
 router.post("/waitlist", (req, res) => {
@@ -407,6 +407,9 @@ router.post("/waitlist", (req, res) => {
         return res.status(500).json({ error: "Failed to record waitlist entry." });
       }
       console.log(`✉️ New TestFlight waitlist signup: ${cleanEmail}`);
+      sendWaitlistNotificationEmail({ email: cleanEmail, notes }).catch((e) =>
+        console.warn("Waitlist email notification error:", e.message)
+      );
       res.json({ success: true, message: "Added to TestFlight waitlist successfully." });
     }
   );

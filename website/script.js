@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 7. Early access / TestFlight form handler with email dispatch to rutgervandenberg@live.nl
+  // 7. Early access / TestFlight form handler with email dispatch to rutger@rooka.io
   const betaForm = document.getElementById('beta-signup-form');
   const betaSuccessMsg = document.getElementById('beta-success-msg');
   if (betaForm) {
@@ -296,8 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
           submitBtn.innerHTML = 'Sending...';
         }
 
-        // 1. Dispatch email notification to rutgervandenberg@live.nl via FormSubmit AJAX API
-        const emailPromise = fetch('https://formsubmit.co/ajax/rutgervandenberg@live.nl', {
+        // 1. Dispatch email notification to rutger@rooka.io via FormSubmit AJAX API
+        const emailPromise = fetch('https://formsubmit.co/ajax/rutger@rooka.io', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -306,9 +306,11 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify({
             email: email,
             _subject: `New Rooka TestFlight Beta Invite Request: ${email}`,
+            _replyto: email,
             _template: 'table',
             _captcha: 'false',
             applicant_email: email,
+            inquiry_type: 'TestFlight Beta Invitation Request',
             source: 'rooka.io landing page',
             submitted_at: new Date().toLocaleString()
           })
@@ -325,8 +327,65 @@ document.addEventListener('DOMContentLoaded', () => {
         Promise.allSettled([emailPromise, serverPromise]).then(() => {
           betaForm.style.display = 'none';
           if (betaSuccessMsg) {
-            betaSuccessMsg.innerHTML = `✓ Request received for <strong style="color: white;">${email}</strong>! We've dispatched an email notification to <strong>rutgervandenberg@live.nl</strong> and you'll receive your TestFlight invitation shortly.`;
+            betaSuccessMsg.innerHTML = `✓ Request received for <strong style="color: white;">${email}</strong>! We've received your request and will send your TestFlight invitation link shortly.`;
             betaSuccessMsg.style.display = 'block';
+          }
+        });
+      }
+    });
+  }
+
+  // 8. General Support / Inquiry Form handler with email dispatch to rutger@rooka.io
+  const supportForm = document.getElementById('support-inquiry-form');
+  const supportSuccessMsg = document.getElementById('support-success-msg');
+  if (supportForm) {
+    supportForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nameInput = supportForm.querySelector('input[name="name"]');
+      const emailInput = supportForm.querySelector('input[name="email"]');
+      const topicInput = supportForm.querySelector('select[name="topic"]');
+      const msgInput = supportForm.querySelector('textarea[name="message"]');
+      const submitBtn = supportForm.querySelector('button[type="submit"]');
+
+      if (emailInput && emailInput.value && msgInput && msgInput.value) {
+        const name = nameInput ? nameInput.value.trim() : 'Athlete';
+        const email = emailInput.value.trim();
+        const topic = topicInput ? topicInput.value : 'General Inquiry';
+        const message = msgInput.value.trim();
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = 'Sending...';
+        }
+
+        fetch('https://formsubmit.co/ajax/rutger@rooka.io', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            name: name,
+            email: email,
+            topic: topic,
+            message: message,
+            _subject: `[Rooka Inquiry] ${topic} - ${name} (${email})`,
+            _replyto: email,
+            _template: 'table',
+            _captcha: 'false',
+            submitted_at: new Date().toLocaleString(),
+            source: 'rooka.io support page'
+          })
+        }).then(() => {
+          supportForm.style.display = 'none';
+          if (supportSuccessMsg) {
+            supportSuccessMsg.style.display = 'block';
+          }
+        }).catch(err => {
+          console.warn('Inquiry form submission error:', err);
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Send Inquiry';
           }
         });
       }

@@ -148,8 +148,43 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode }) {
   return info;
 }
 
+/**
+ * Sends a notification email to rutger@rooka.io whenever a new TestFlight inquiry is submitted
+ */
+async function sendWaitlistNotificationEmail({ email, notes }) {
+  try {
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    if (!user || !pass) {
+      return null;
+    }
+    const transporter = getTransporter();
+    const from = process.env.EMAIL_FROM || `Rooka System <${user}>`;
+    const mailOptions = {
+      from,
+      to: "rutger@rooka.io",
+      replyTo: email,
+      subject: `[Rooka Waitlist] New TestFlight Beta Inquiry: ${email}`,
+      text: `A new inquiry was received on rooka.io!\n\nEmail: ${email}\nNotes: ${notes || "None"}\nTimestamp: ${new Date().toISOString()}\n`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; background: #17171A; color: #F5F5F7; border-radius: 12px; border: 1px solid #2D2E33;">
+          <h2 style="color: #FF5F3B; margin-top: 0;">New Rooka TestFlight Beta Inquiry</h2>
+          <p><strong>Applicant Email:</strong> <a href="mailto:${email}" style="color: #38BDF8;">${email}</a></p>
+          <p><strong>Notes:</strong> ${notes || "Website TestFlight Request"}</p>
+          <p><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+        </div>
+      `,
+    };
+    return await transporter.sendMail(mailOptions);
+  } catch (err) {
+    console.warn("Failed to send waitlist notification email:", err.message);
+    return null;
+  }
+}
+
 module.exports = {
   getTransporter,
   verifyEmailConnection,
   sendPasswordResetEmail,
+  sendWaitlistNotificationEmail,
 };

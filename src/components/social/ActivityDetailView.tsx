@@ -205,18 +205,169 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
       ? raw.moving_time_min
       : typeof raw?.moving_time === 'number'
       ? raw.moving_time / 60
+      : typeof raw?.moving_time_s === 'number'
+      ? raw.moving_time_s / 60
+      : typeof raw?.elapsed_time_min === 'number'
+      ? raw.elapsed_time_min
+      : typeof raw?.elapsed_time === 'number'
+      ? raw.elapsed_time / 60
+      : typeof raw?.elapsed_time_s === 'number'
+      ? raw.elapsed_time_s / 60
       : typeof fallback?.moving_time_min === 'number'
       ? fallback.moving_time_min
       : 0;
 
-  const elevation =
+  const sportStr = raw?.sport_type || raw?.type || fallback?.sport_type || 'RUN';
+  const sportUpper = String(sportStr).toUpperCase();
+  const isCycling =
+    sportUpper.includes('BIKE') ||
+    sportUpper.includes('RIDE') ||
+    sportUpper.includes('CYCL');
+  const isSwim = sportUpper.includes('SWIM');
+
+  let normalizedLaps: ActivityLap[] | undefined = undefined;
+  if (Array.isArray(raw?.splits_metric) && raw.splits_metric.length > 0) {
+    normalizedLaps = raw.splits_metric.map((split: any, idx: number) => {
+      const splitDistKm = (split.distance || 1000) / 1000;
+      const splitTimeMin = (split.moving_time || split.elapsed_time || 0) / 60;
+      let paceOrSpeedStr = '';
+
+      if (isCycling) {
+        const speedKmh = split.average_speed
+          ? (split.average_speed * 3.6).toFixed(1)
+          : splitTimeMin > 0
+          ? (splitDistKm / (splitTimeMin / 60)).toFixed(1)
+          : '0.0';
+        paceOrSpeedStr = `${speedKmh} km/h`;
+      } else if (isSwim) {
+        const sec100m = splitDistKm > 0 ? (splitTimeMin * 60) / (splitDistKm * 10) : 0;
+        const m = Math.floor(sec100m / 60);
+        const s = Math.round(sec100m % 60);
+        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /100m`;
+      } else {
+        const paceSec = splitDistKm > 0 ? (splitTimeMin * 60) / splitDistKm : 0;
+        const m = Math.floor(paceSec / 60);
+        const s = Math.round(paceSec % 60);
+        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /km`;
+      }
+
+      return {
+        lap_index: split.split || idx + 1,
+        distance_km: splitDistKm,
+        elapsed_time_min: splitTimeMin,
+        split_pace: paceOrSpeedStr,
+        average_heartrate: split.average_heartrate,
+        elevation_gain_m:
+          typeof split.elevation_difference === 'number'
+            ? Math.max(0, split.elevation_difference)
+            : undefined,
+      };
+    });
+  } else if (Array.isArray(raw?.laps)) {
+    normalizedLaps = raw.laps.map((lap: any, idx: number) => {
+      const lapDist =
+        typeof lap.distance_km === 'number'
+          ? lap.distance_km
+          : typeof lap.distance === 'number'
+          ? lap.distance / 1000
+          : 0;
+      const lapMins =
+        typeof lap.elapsed_time_min === 'number'
+          ? lap.elapsed_time_min
+          : typeof lap.elapsed_time === 'number'
+          ? lap.elapsed_time / 60
+          : typeof lap.moving_time === 'number'
+          ? lap.moving_time / 60
+          : 0;
+
+      return {
+        lap_index: lap.lap_index || idx + 1,
+        distance_km: lapDist,
+        elapsed_time_min: lapMins,
+        split_pace: lap.split_pace,
+        average_heartrate: lap.average_heartrate,
+        elevation_gain_m:
+          typeof lap.elevation_gain_m === 'number'
+            ? lap.elevation_gain_m
+            : typeof lap.total_elevation_gain === 'number'
+            ? lap.total_elevation_gain
+            : typeof lap.elevation_difference === 'number'
+            ? Math.max(0, lap.elevation_difference)
+            : undefined,
+      };
+    });
+  } else if (typeof raw?.laps_json === 'string') {
+    try {
+      const parsed = JSON.parse(raw.laps_json);
+      if (Array.isArray(parsed)) {
+        normalizedLaps = parsed.map((lap: any, idx: number) => ({
+          lap_index: lap.lap_index || idx + 1,
+          distance_km:
+            typeof lap.distance_km === 'number' ? lap.distance_km : (lap.distance || 0) / 1000,
+          elapsed_time_min:
+            typeof lap.elapsed_time_min === 'number'
+              ? lap.elapsed_time_min
+              : (lap.moving_time || lap.elapsed_time || 0) / 60,
+          split_pace: lap.split_pace,
+          average_heartrate: lap.average_heartrate,
+          elevation_gain_m: lap.elevation_gain_m || lap.total_elevation_gain,
+        }));
+      }
+    } catch (_) {}
+  }
+
+  let elevation =
     typeof raw?.elevation_m === 'number'
       ? raw.elevation_m
       : typeof raw?.total_elevation_gain === 'number'
       ? raw.total_elevation_gain
+      : typeof raw?.elevation_gain_m === 'number'
+      ? raw.elevation_gain_m
+      : typeof raw?.elevationGain === 'number'
+      ? raw.elevationGain
+      : typeof raw?.totalElevationGain === 'number'
+      ? raw.totalElevationGain
+      : typeof raw?.elevation === 'number'
+      ? raw.elevation
       : typeof fallback?.elevation_m === 'number'
       ? fallback.elevation_m
+      : typeof fallback?.total_elevation_gain === 'number'
+      ? fallback.total_elevation_gain
       : 0;
+
+  // If elevation is 0 or negative, sum positive elevation gains from splits/laps if available
+  if (elevation <= 0 && normalizedLaps && normalizedLaps.length > 0) {
+    const lapElevSum = normalizedLaps.reduce(
+      (acc, l) => acc + (l.elevation_gain_m && l.elevation_gain_m > 0 ? l.elevation_gain_m : 0),
+      0
+    );
+    if (lapElevSum > 0) {
+      elevation = Math.round(lapElevSum);
+    }
+  }
+
+  // Also check elev_high and elev_low from Strava
+  if (elevation <= 0 && typeof raw?.elev_high === 'number' && typeof raw?.elev_low === 'number') {
+    const diff = Math.round(raw.elev_high - raw.elev_low);
+    if (diff > 0) {
+      elevation = diff;
+    }
+  }
+
+  const rawCalories =
+    typeof raw?.calories === 'number' && raw.calories > 0
+      ? Math.round(raw.calories)
+      : typeof raw?.kilojoules === 'number' && raw.kilojoules > 0
+      ? Math.round(raw.kilojoules * 1.05)
+      : typeof raw?.total_calories === 'number' && raw.total_calories > 0
+      ? Math.round(raw.total_calories)
+      : typeof raw?.active_calories === 'number' && raw.active_calories > 0
+      ? Math.round(raw.active_calories)
+      : typeof raw?.totalEnergyBurned === 'number' && raw.totalEnergyBurned > 0
+      ? Math.round(raw.totalEnergyBurned)
+      : typeof fallback?.calories === 'number' && fallback.calories > 0
+      ? Math.round(fallback.calories)
+      : undefined;
 
   const avgPower =
     typeof raw?.average_power_w === 'number'
@@ -251,40 +402,11 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
     setsJsonStr = fallback.sets_json;
   }
 
-  let normalizedLaps: ActivityLap[] | undefined = undefined;
-  if (Array.isArray(raw?.laps)) {
-    normalizedLaps = raw.laps.map((lap: any, idx: number) => {
-      const lapDist =
-        typeof lap.distance_km === 'number'
-          ? lap.distance_km
-          : typeof lap.distance === 'number'
-          ? lap.distance / 1000
-          : 0;
-      const lapMins =
-        typeof lap.elapsed_time_min === 'number'
-          ? lap.elapsed_time_min
-          : typeof lap.elapsed_time === 'number'
-          ? lap.elapsed_time / 60
-          : typeof lap.moving_time === 'number'
-          ? lap.moving_time / 60
-          : 0;
-
-      return {
-        lap_index: lap.lap_index || idx + 1,
-        distance_km: lapDist,
-        elapsed_time_min: lapMins,
-        split_pace: lap.split_pace,
-        average_heartrate: lap.average_heartrate,
-        elevation_gain_m: lap.elevation_gain_m || lap.total_elevation_gain,
-      };
-    });
-  }
-
   return {
     ...merged,
     id: raw?.id ?? fallback?.id ?? 'temp',
     name: raw?.name || raw?.title || fallback?.name || 'Workout',
-    sport_type: raw?.sport_type || raw?.type || fallback?.sport_type || 'RUN',
+    sport_type: sportStr,
     distance_km: distKm,
     moving_time_min: movingMins,
     elapsed_time: raw?.elapsed_time || fallback?.elapsed_time,
@@ -296,7 +418,7 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
     polyline: polylineStr,
     sets_json: setsJsonStr,
     laps: normalizedLaps || fallback?.laps,
-    calories: raw?.calories ?? fallback?.calories,
+    calories: rawCalories,
     start_date: raw?.start_date || fallback?.start_date || new Date().toISOString(),
     kudos_count: raw?.kudos_count ?? fallback?.kudos_count ?? 0,
     has_kudosed: raw?.has_kudosed ?? fallback?.has_kudosed ?? false,
@@ -618,6 +740,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   const sportLower = (activity?.sport_type || '').toLowerCase();
   const isCycling = sportLower.includes('ride') || sportLower.includes('cycl') || sportLower.includes('bike');
   const isSwim = sportLower.includes('swim');
+  const isStrength = sportLower.includes('strength') || sportLower.includes('weight') || sportLower.includes('gym');
 
   const parseSetsOrEfforts = (): ActivitySetOrEffort[] => {
     if (!activity?.sets_json) return [];
@@ -812,17 +935,38 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
       : '0.0';
 
   const minPerKm = distanceKm > 0 && movingTimeSec > 0 ? (movingTimeSec / 60) / distanceKm : 0;
-  const avgPaceRun = distanceKm > 0 ? formatPace(minPerKm) : '--:--\u00A0/km';
+  const avgPaceRun = distanceKm > 0 ? formatPace(minPerKm) : '--:-- /km';
 
   const swimSecsPer100m = distanceKm > 0 ? movingTimeSec / (distanceKm * 10) : 0;
-  const avgPaceSwim = distanceKm > 0 ? formatSwimPace(swimSecsPer100m) : '--:--\u00A0/100\u00A0m';
+  const avgPaceSwim = distanceKm > 0 ? formatSwimPace(swimSecsPer100m) : '--:-- /100m';
 
   const avgPower = activity?.average_power_w ? Math.round(activity.average_power_w) : null;
   const avgHeartRate = activity?.average_heartrate ? Math.round(activity.average_heartrate) : null;
   const maxHr = activity?.max_heartrate ? Math.round(activity.max_heartrate) : null;
   const hasHrData = Boolean(avgHeartRate && avgHeartRate > 0);
-  const elevation = activity?.elevation_m ? Math.round(activity.elevation_m) : 0;
-  const calories = activity?.calories || Math.round(durationMins * 10.7);
+  const elevation =
+    typeof activity?.elevation_m === 'number' && !isNaN(activity.elevation_m)
+      ? Math.round(activity.elevation_m)
+      : 0;
+
+  const calculatedCalories = useMemo(() => {
+    if (typeof activity?.calories === 'number' && activity.calories > 0) {
+      return Math.round(activity.calories);
+    }
+    const mins = durationMins > 0 ? durationMins : (movingTimeSec > 0 ? movingTimeSec / 60 : 0);
+    if (mins <= 0) return 0;
+    if (isCycling) {
+      return distanceKm > 0 ? Math.round(distanceKm * 32) : Math.round(mins * 8.5);
+    }
+    if (isSwim) {
+      return distanceKm > 0 ? Math.round(distanceKm * 350) : Math.round(mins * 9.0);
+    }
+    if (isStrength) {
+      return Math.round(mins * 7.5);
+    }
+    return distanceKm > 0 ? Math.round(distanceKm * 72) : Math.round(mins * 10.5);
+  }, [activity?.calories, durationMins, movingTimeSec, isCycling, isSwim, isStrength, distanceKm]);
+
   const rookaScore = Math.round(activity?.rooka_score || (activity as any)?.tss || 0);
 
   // Exact elapsed time in seconds (> 30s diff)
@@ -1095,8 +1239,13 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     {isCycling ? 'AVG SPEED' : 'AVG PACE'}
                   </Text>
-                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
-                    {isCycling ? `${avgSpeedKmh}\u00A0km/h` : isSwim ? avgPaceSwim : avgPaceRun}
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums"
+                  >
+                    {isCycling ? `${avgSpeedKmh} km/h` : isSwim ? avgPaceSwim : avgPaceRun}
                   </Text>
                 </View>
 
@@ -1104,7 +1253,12 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     MOVING TIME
                   </Text>
-                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums"
+                  >
                     {formatClock(movingTimeSec)}
                   </Text>
                 </View>
@@ -1113,8 +1267,13 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     {avgHeartRate ? 'AVG HR' : 'AVG POWER'}
                   </Text>
-                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
-                    {avgHeartRate ? `${avgHeartRate}\u00A0bpm` : avgPower ? `${avgPower}\u00A0W` : '--'}
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums"
+                  >
+                    {avgHeartRate ? `${avgHeartRate} bpm` : avgPower ? `${avgPower} W` : '--'}
                   </Text>
                 </View>
               </View>
@@ -1127,8 +1286,13 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     ELEVATION
                   </Text>
-                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
-                    +{elevation}\u00A0m
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums"
+                  >
+                    {elevation > 0 ? `+${elevation} m` : `${elevation} m`}
                   </Text>
                 </View>
 
@@ -1136,8 +1300,13 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     CALORIES
                   </Text>
-                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
-                    {calories}\u00A0kcal
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums"
+                  >
+                    {calculatedCalories > 0 ? `${calculatedCalories} kcal` : '--'}
                   </Text>
                 </View>
 
@@ -1145,13 +1314,18 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
                     {hasSignificantElapsedDiff ? 'ELAPSED' : maxHr ? 'MAX HR' : 'POWER'}
                   </Text>
-                  <Text numberOfLines={1} className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums">
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums"
+                  >
                     {hasSignificantElapsedDiff
                       ? formatClock(elapsedSec)
                       : maxHr
-                      ? `${maxHr}\u00A0bpm`
+                      ? `${maxHr} bpm`
                       : avgPower
-                      ? `${avgPower}\u00A0W`
+                      ? `${avgPower} W`
                       : '--'}
                   </Text>
                 </View>

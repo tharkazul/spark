@@ -9,6 +9,7 @@ import { NiggleCard } from '../health/NiggleCard';
 import { TrainingReadinessWidget } from './TrainingReadinessWidget';
 import { SonarSleepCard } from '../health/SonarSleepCard';
 import { SonarVitalsCard } from '../health/SonarVitalsCard';
+import { AppleHealthStatusCard } from '../health/AppleHealthStatusCard';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
 import { MuscleFatigueCard } from './MuscleFatigueCard';
 import * as Haptics from 'expo-haptics';
@@ -101,10 +102,16 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       {/* TRAINING READINESS GAUGE WIDGET */}
       <TrainingReadinessWidget biometrics={todayBiometrics} />
 
-      {/* SONAR AI SLEEP ANALYSIS CARD (Appears only if sleep data exists) */}
+      {/* APPLE HEALTH CONNECTION & SYNC CARD */}
+      <AppleHealthStatusCard
+        biometrics={todayBiometrics}
+        onSyncCompleted={(fresh) => setTodayBiometrics(fresh)}
+      />
+
+      {/* SONAR AI SLEEP ANALYSIS CARD (Appears when sleep data exists) */}
       <SonarSleepCard biometrics={todayBiometrics} />
 
-      {/* SONAR AI VITAL TRENDS CARD (Appears only if HRV/RHR/Steps/etc. exist) */}
+      {/* SONAR AI VITAL TRENDS CARD (Appears when HRV/RHR/Steps/etc. exist) */}
       <SonarVitalsCard biometrics={todayBiometrics} />
 
       {/* CYCLE TRACKER & COACH SYNC WIDGET */}

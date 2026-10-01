@@ -63,7 +63,7 @@ export function getPaceParts(
     case 'water':
       return {
         value: mmss(totalSecs / (distanceKm * 10)),
-        unit: '/100\u00A0m',
+        unit: '/100m',
         label: 'PACE',
       };
     case 'foot':
@@ -91,6 +91,6 @@ export function formatPaceOrSpeed(
 ): string | null {
   const parts = getPaceParts(distanceKm, movingTimeMinOrSec, sportType, activityName, isExactSeconds);
   if (!parts) return null;
-  return `${parts.value}\u00A0${parts.unit}`;
+  return `${parts.value} ${parts.unit}`;
 }
 

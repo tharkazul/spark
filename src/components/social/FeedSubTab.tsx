@@ -618,10 +618,10 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                             <Text className="text-xs text-theme-muted font-medium font-rajdhani tabular-nums">
                               {[
                                 typeof act.distance_km === 'number' && act.distance_km > 0
-                                  ? `${act.distance_km.toFixed(1)}\u00A0km`
+                                  ? `${act.distance_km.toFixed(1)} km`
                                   : null,
                                 typeof act.moving_time_min === 'number' && act.moving_time_min > 0
-                                  ? `${Math.round(act.moving_time_min)}\u00A0min`
+                                  ? `${Math.round(act.moving_time_min)} min`
                                   : null,
                                 actPace,
                               ]

@@ -68,7 +68,7 @@ To the maximum extent permitted by applicable law, Rooka and its developers, aff
 
 ## 9. Termination
 
-We reserve the right to suspend or terminate your access to the App at our sole discretion, without notice, if we believe you have violated these Terms. You may terminate your account at any time via App Settings or by contacting **support@rooka.io** or **rutgervandenberg@live.nl**.
+We reserve the right to suspend or terminate your access to the App at our sole discretion, without notice, if we believe you have violated these Terms. You may terminate your account at any time via App Settings or by contacting **support@rooka.io** or **rutger@rooka.io**.
 
 ---
 

@@ -70,7 +70,7 @@
           </span>
           <span class="theme-label-text">Day / Night</span>
         </button>
-        <a href="index.html#testflight" class="btn btn-primary btn-sm">TestFlight Beta</a>
+        <a href="index.html#testflight" class="btn btn-primary btn-sm">Request Beta Invite</a>
       </div>
     </div>
   </nav>
@@ -92,15 +92,43 @@
         <p>Our dedicated engineering and coaching support team is here to assist you:</p>
         <ul>
           <li><strong>General &amp; Technical Support:</strong> <a href="mailto:support@rooka.io" style="color: var(--primary); font-weight: 700;">support@rooka.io</a></li>
-          <li><strong>Direct Developer Contact:</strong> <a href="mailto:rutgervandenberg@live.nl" style="color: var(--primary);">rutgervandenberg@live.nl</a></li>
+          <li><strong>Direct Developer Contact:</strong> <a href="mailto:rutger@rooka.io" style="color: var(--primary);">rutger@rooka.io</a></li>
           <li><strong>Privacy &amp; Data Deletion:</strong> <a href="mailto:privacy@rooka.io" style="color: var(--primary);">privacy@rooka.io</a></li>
         </ul>
+
+        <div style="margin: 24px 0 32px; padding: 24px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: var(--radius-md);">
+          <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 18px;">Send an Inquiry</h3>
+          <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 18px;">Have a question about your TestFlight beta invite, wearable syncing, or coaching algorithms? Send us a direct inquiry below.</p>
+          <form id="support-inquiry-form" style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <input type="text" name="name" placeholder="Your Name" required
+                style="padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); background: rgba(8, 12, 20, 0.8); color: white; font-size: 14px;">
+              <input type="email" name="email" placeholder="Your Email Address" required
+                style="padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); background: rgba(8, 12, 20, 0.8); color: white; font-size: 14px;">
+            </div>
+            <select name="topic" style="padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); background: #0b111e; color: white; font-size: 14px;">
+              <option value="General Inquiry">General Inquiry</option>
+              <option value="TestFlight Beta Invitation">TestFlight Beta Invitation</option>
+              <option value="Garmin / Apple Watch Sync">Garmin / Apple Watch Sync</option>
+              <option value="Feedback / Feature Request">Feedback / Feature Request</option>
+              <option value="Bug Report">Bug Report</option>
+            </select>
+            <textarea name="message" rows="4" placeholder="How can we help you?" required
+              style="padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); background: rgba(8, 12, 20, 0.8); color: white; font-size: 14px; resize: vertical;"></textarea>
+            <div>
+              <button type="submit" class="btn btn-primary btn-sm" style="padding: 12px 28px;">Send Inquiry</button>
+            </div>
+          </form>
+          <div id="support-success-msg" style="display: none; color: #10B981; font-weight: 700; margin-top: 14px;">
+            ✓ Thank you! Your inquiry has been dispatched to our team. We will respond shortly.
+          </div>
+        </div>
 
         <h2>2. TestFlight Beta Installation Guide</h2>
         <ol>
           <li>Download and install <strong>Apple TestFlight</strong> from the iOS App Store on your iPhone.</li>
-          <li>Click the <a href="https://testflight.apple.com" target="_blank" rel="noopener noreferrer" style="color: var(--primary); font-weight: 700;">TestFlight Beta Link</a> or submit your Apple ID email on our homepage to receive an invite.</li>
-          <li>Accept the invitation in TestFlight and tap <strong>Install</strong>.</li>
+          <li>Submit your Apple ID email on our <a href="index.html#testflight" style="color: var(--primary); font-weight: 700;">homepage invitation form</a> to request access.</li>
+          <li>Once approved, accept the invitation received in your email or in TestFlight and tap <strong>Install</strong>.</li>
           <li>Open Rooka, create your account, configure your athlete profile, and connect your favorite tracking devices.</li>
         </ol>
 

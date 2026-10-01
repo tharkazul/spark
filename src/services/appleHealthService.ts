@@ -98,7 +98,7 @@ export async function requestWorkoutKitAuthorization(): Promise<AuthorizationSta
 
 /** Back-compat wrapper for callers that only want a yes/no. */
 export async function requestAppleHealthPermissions(): Promise<boolean> {
-  return (await requestWorkoutKitAuthorization()) === 'authorized';
+  return await requestFullHealthKitPermissions();
 }
 
 /**
@@ -586,47 +586,51 @@ export function isHealthKitAvailable(): boolean {
 export async function requestFullHealthKitPermissions(customPrefs?: Partial<AppleHealthSyncPreferences>): Promise<boolean> {
   if (Platform.OS !== 'ios') return false;
   try {
-    const HealthKit = require('@kingstinct/react-native-healthkit').default;
-    const { HKQuantityTypeIdentifier, HKCategoryTypeIdentifier } = require('@kingstinct/react-native-healthkit');
+    const HealthKitModule = require('@kingstinct/react-native-healthkit');
+    const HealthKit = HealthKitModule.default || HealthKitModule;
+    const { HKQuantityTypeIdentifier, HKCategoryTypeIdentifier, WorkoutTypeIdentifier } = HealthKitModule;
 
     const prefs = { ...(await getAppleHealthPreferences()), ...(customPrefs || {}) };
     const readTypes: any[] = [];
 
     if (prefs.syncHeartRate) {
-      readTypes.push(HKQuantityTypeIdentifier.heartRate);
-      readTypes.push(HKQuantityTypeIdentifier.restingHeartRate);
+      if (HKQuantityTypeIdentifier?.heartRate) readTypes.push(HKQuantityTypeIdentifier.heartRate);
+      if (HKQuantityTypeIdentifier?.restingHeartRate) readTypes.push(HKQuantityTypeIdentifier.restingHeartRate);
     }
     if (prefs.syncHrv) {
-      readTypes.push(HKQuantityTypeIdentifier.heartRateVariabilitySDNN);
+      if (HKQuantityTypeIdentifier?.heartRateVariabilitySDNN) readTypes.push(HKQuantityTypeIdentifier.heartRateVariabilitySDNN);
     }
     if (prefs.syncStepsCalories) {
-      readTypes.push(HKQuantityTypeIdentifier.stepCount);
-      readTypes.push(HKQuantityTypeIdentifier.activeEnergyBurned);
-      readTypes.push(HKQuantityTypeIdentifier.distanceWalkingRunning);
-      readTypes.push(HKQuantityTypeIdentifier.distanceCycling);
-      readTypes.push(HKQuantityTypeIdentifier.distanceSwimming);
+      if (HKQuantityTypeIdentifier?.stepCount) readTypes.push(HKQuantityTypeIdentifier.stepCount);
+      if (HKQuantityTypeIdentifier?.activeEnergyBurned) readTypes.push(HKQuantityTypeIdentifier.activeEnergyBurned);
+      if (HKQuantityTypeIdentifier?.distanceWalkingRunning) readTypes.push(HKQuantityTypeIdentifier.distanceWalkingRunning);
+      if (HKQuantityTypeIdentifier?.distanceCycling) readTypes.push(HKQuantityTypeIdentifier.distanceCycling);
+      if (HKQuantityTypeIdentifier?.distanceSwimming) readTypes.push(HKQuantityTypeIdentifier.distanceSwimming);
     }
     if (prefs.syncSleep) {
-      readTypes.push(HKCategoryTypeIdentifier.sleepAnalysis);
+      if (HKCategoryTypeIdentifier?.sleepAnalysis) readTypes.push(HKCategoryTypeIdentifier.sleepAnalysis);
     }
     if (prefs.syncBodyMass) {
-      readTypes.push(HKQuantityTypeIdentifier.bodyMass);
-      readTypes.push(HKQuantityTypeIdentifier.bodyFatPercentage);
+      if (HKQuantityTypeIdentifier?.bodyMass) readTypes.push(HKQuantityTypeIdentifier.bodyMass);
+      if (HKQuantityTypeIdentifier?.bodyFatPercentage) readTypes.push(HKQuantityTypeIdentifier.bodyFatPercentage);
     }
     if (prefs.syncVo2Max) {
-      readTypes.push(HKQuantityTypeIdentifier.vo2Max);
+      if (HKQuantityTypeIdentifier?.vo2Max) readTypes.push(HKQuantityTypeIdentifier.vo2Max);
     }
     if (prefs.syncWorkouts) {
-      readTypes.push('HKWorkoutTypeIdentifier');
+      readTypes.push(WorkoutTypeIdentifier || 'HKWorkoutTypeIdentifier');
     }
 
-    if (readTypes.length === 0) {
+    const validReadTypes = readTypes.filter(Boolean);
+    if (validReadTypes.length === 0) {
       return true;
     }
 
-    await HealthKit.requestAuthorization({
-      toRead: readTypes.filter(Boolean),
-    });
+    if (typeof HealthKit.requestAuthorization === 'function') {
+      await HealthKit.requestAuthorization({
+        toRead: validReadTypes,
+      });
+    }
 
     return true;
   } catch (err: any) {
@@ -867,7 +871,15 @@ export async function fetchHealthKitWorkouts(daysBack = 14): Promise<AppleHealth
         end_date: w.endDate ? new Date(w.endDate).toISOString() : undefined,
         duration_min: Math.max(1, durationMin),
         distance_km: distanceKm,
-        elevation_m: null,
+        elevation_m: w.totalElevationAscent
+          ? Math.round(
+              typeof w.totalElevationAscent === 'number'
+                ? w.totalElevationAscent
+                : typeof w.totalElevationAscent?.quantity === 'number'
+                ? w.totalElevationAscent.quantity
+                : 0
+            ) || null
+          : null,
         avg_heartrate: null,
         calories,
       };
