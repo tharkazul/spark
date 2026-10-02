@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { Button } from '../ui/Button';
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -99,11 +100,11 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
       <View className="pb-4">
         {/* Header */}
         <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/40">
-          <View className="flex-row items-center gap-2">
+          <View className="flex-row items-center gap-2 flex-1 mr-2">
             <View className="w-8 h-8 rounded-full bg-theme-accent/15 items-center justify-center">
               <Ionicons name="sparkles" size={16} color={theme.tint} />
             </View>
-            <View>
+            <View className="flex-1">
               <Text className="text-base font-bold text-theme-text font-jakarta">
                 Why this workout?
               </Text>
@@ -112,6 +113,17 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
               </Text>
             </View>
           </View>
+
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              onClose();
+            }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
+          >
+            <Ionicons name="close" size={18} color={theme.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} className="max-h-[500px]">
@@ -220,6 +232,18 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
             </View>
           </View>
         </ScrollView>
+
+        {/* Done / Dismiss Button */}
+        <View className="pt-3 border-t border-theme-border/40 mt-3">
+          <Button
+            label="Got it"
+            variant="primary"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onClose();
+            }}
+          />
+        </View>
       </View>
     </BottomSheetModal>
   );

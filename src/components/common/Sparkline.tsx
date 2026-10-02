@@ -28,7 +28,7 @@ export const Sparkline: React.FC<SparklineProps> = ({
   width = 100,
   strokeWidth = 2,
   minRangePadding = 0,
-  breakGapDays = 14,
+  breakGapDays,
 }) => {
   if (!data || data.length === 0) {
     return <View style={{ height, width }} />;
@@ -81,8 +81,8 @@ export const Sparkline: React.FC<SparklineProps> = ({
       continue;
     }
 
-    // Check date gap if previous point had date
-    if (currentSegment.length > 0 && pt.date && rawPoints[i - 1]?.date) {
+    // Check date gap if breakGapDays is set and previous point had date
+    if (breakGapDays && currentSegment.length > 0 && pt.date && rawPoints[i - 1]?.date) {
       const prevDate = rawPoints[i - 1].date!;
       const diffDays = Math.abs((pt.date.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
       if (diffDays > breakGapDays) {

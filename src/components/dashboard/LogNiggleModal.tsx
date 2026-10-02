@@ -114,12 +114,21 @@ export function LogNiggleModal({
   const [isManuallySelected, setIsManuallySelected] = useState<boolean>(false);
 
   const [showModal, setShowModal] = useState(visible);
-  const { dragY, panHandlers } = useSheetDismiss(onClose);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const isClosingRef = useRef(false);
+
+  const { panHandlers } = useSheetDismiss(onClose, {
+    animY: slideAnim,
+    backdropOpacity,
+    onWillClose: () => {
+      isClosingRef.current = true;
+    },
+  });
 
   useEffect(() => {
     if (visible) {
+      isClosingRef.current = false;
       setShowModal(true);
       slideAnim.setValue(SCREEN_HEIGHT);
       backdropOpacity.setValue(0);
@@ -140,6 +149,12 @@ export function LogNiggleModal({
         }),
       ]).start();
     } else {
+      if (isClosingRef.current) {
+        setShowModal(false);
+        isClosingRef.current = false;
+        return;
+      }
+
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 0,
@@ -240,14 +255,14 @@ export function LogNiggleModal({
           <Animated.View
             style={[
               {
-                transform: [{ translateY: Animated.add(slideAnim, dragY) }],
+                transform: [{ translateY: slideAnim }],
                 paddingBottom: Math.max(insets.bottom, 20),
               },
             ]}
             className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col max-h-[90%]"
           >
             {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
-            <View {...panHandlers} className="items-center pb-3 pt-1">
+            <View {...panHandlers} className="items-center justify-center py-3 -mt-3 self-stretch">
               <SheetGrabber />
             </View>
 

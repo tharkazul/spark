@@ -77,7 +77,15 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const { dragY, panHandlers } = useSheetDismiss(onClose);
+  const isClosingRef = useRef(false);
+
+  const { panHandlers } = useSheetDismiss(onClose, {
+    animY: slideAnim,
+    backdropOpacity,
+    onWillClose: () => {
+      isClosingRef.current = true;
+    },
+  });
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchUserResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -88,6 +96,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
 
   useEffect(() => {
     if (visible) {
+      isClosingRef.current = false;
       setShowModal(true);
       slideAnim.setValue(SCREEN_HEIGHT);
       backdropOpacity.setValue(0);
@@ -114,6 +123,12 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
       latestDisplayedSearchIdRef.current = 0;
       fetchPendingRequests();
     } else {
+      if (isClosingRef.current) {
+        setShowModal(false);
+        isClosingRef.current = false;
+        return;
+      }
+
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 0,
@@ -129,7 +144,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
         setShowModal(false);
       });
     }
-  }, [visible]);
+  }, [visible, slideAnim, backdropOpacity]);
 
   // Instant active live search on every keystroke
   const handleQueryChange = (text: string) => {
@@ -288,14 +303,14 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
           <Animated.View
             style={[
               {
-                transform: [{ translateY: Animated.add(slideAnim, dragY) }],
+                transform: [{ translateY: slideAnim }],
                 paddingBottom: Math.max(insets.bottom, 20),
               },
             ]}
             className="bg-theme-card border-t border-theme-border rounded-t-[32px] rounded-b-none px-5 pt-3 max-h-[90%] min-h-[460px]"
           >
             {/* TOP PULL HANDLE INDICATOR */}
-            <View {...panHandlers} className="items-center pb-4 pt-1">
+            <View {...panHandlers} className="items-center justify-center py-3 -mt-3 self-stretch">
               <SheetGrabber />
             </View>
 

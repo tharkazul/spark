@@ -60,10 +60,19 @@ export function LogActivityModal({
   const [showModal, setShowModal] = useState(visible);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const { dragY, panHandlers } = useSheetDismiss(onClose);
+  const isClosingRef = useRef(false);
+
+  const { panHandlers } = useSheetDismiss(onClose, {
+    animY: slideAnim,
+    backdropOpacity,
+    onWillClose: () => {
+      isClosingRef.current = true;
+    },
+  });
 
   useEffect(() => {
     if (visible) {
+      isClosingRef.current = false;
       setShowModal(true);
       slideAnim.setValue(SCREEN_HEIGHT);
       backdropOpacity.setValue(0);
@@ -83,6 +92,12 @@ export function LogActivityModal({
         }),
       ]).start();
     } else {
+      if (isClosingRef.current) {
+        setShowModal(false);
+        isClosingRef.current = false;
+        return;
+      }
+
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 0,
@@ -98,7 +113,7 @@ export function LogActivityModal({
         setShowModal(false);
       });
     }
-  }, [visible]);
+  }, [visible, slideAnim, backdropOpacity]);
 
   const handleSave = async () => {
     const defaultSportLabel = SPORTS.find(s => s.id === sport)?.label || 'Activity';
@@ -172,14 +187,14 @@ export function LogActivityModal({
           <Animated.View
             style={[
               {
-                transform: [{ translateY: Animated.add(slideAnim, dragY) }],
+                transform: [{ translateY: slideAnim }],
                 paddingBottom: Math.max(insets.bottom, 24),
               },
             ]}
             className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col"
           >
             {/* TOP PULL HANDLE INDICATOR */}
-            <View {...panHandlers} className="items-center pb-4 pt-1">
+            <View {...panHandlers} className="items-center justify-center py-3 -mt-3 self-stretch">
               <SheetGrabber />
             </View>
 

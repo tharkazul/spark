@@ -222,7 +222,6 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
                 height={32}
                 width={120}
                 minRangePadding={1.5}
-                breakGapDays={14}
               />
               <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.emaTrendline')}</Text>
             </>

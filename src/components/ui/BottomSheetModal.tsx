@@ -36,10 +36,19 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   const [showModal, setShowModal] = useState(visible);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const { dragY, panHandlers } = useSheetDismiss(onClose);
+  const isClosingRef = useRef(false);
+
+  const { panHandlers } = useSheetDismiss(onClose, {
+    animY: translateY,
+    backdropOpacity,
+    onWillClose: () => {
+      isClosingRef.current = true;
+    },
+  });
 
   useEffect(() => {
     if (visible) {
+      isClosingRef.current = false;
       setShowModal(true);
       translateY.setValue(SCREEN_HEIGHT);
       backdropOpacity.setValue(0);
@@ -59,6 +68,12 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
         }),
       ]).start();
     } else {
+      if (isClosingRef.current) {
+        setShowModal(false);
+        isClosingRef.current = false;
+        return;
+      }
+
       Animated.parallel([
         Animated.timing(backdropOpacity, {
           toValue: 0,
@@ -109,7 +124,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           <Animated.View
             style={[
               {
-                transform: [{ translateY: Animated.add(translateY, dragY) }],
+                transform: [{ translateY }],
                 paddingBottom: Math.max(insets.bottom, 20),
               },
               style,
@@ -120,7 +135,10 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
                 affordance that tells you the sheet can be pulled down, and it
                 is the only region that claims the drag gesture, so content
                 inside the sheet still scrolls normally. */}
-            <View {...panHandlers} className="items-center pb-4 pt-1 -mt-3">
+            <View
+              {...panHandlers}
+              className="items-center justify-center py-3 -mt-3 self-stretch"
+            >
               <SheetGrabber />
             </View>
             {children}

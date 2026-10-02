@@ -11,10 +11,6 @@ import Svg, {
   Line,
   Circle,
   Rect,
-  Text as SvgText,
-  Defs,
-  LinearGradient,
-  Stop,
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
@@ -55,11 +51,15 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
 
   const [timeframe, setTimeframe] = useState<Timeframe>('6W');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [measuredWidth, setMeasuredWidth] = useState<number>(0);
 
-  const chartWidth = Math.max(300, windowWidth - 64);
+  // Dynamic measured chart width with safe fallback (accounting for 40px scrollview padding + 32px card padding)
+  const chartWidth = measuredWidth > 0 ? measuredWidth : Math.max(260, windowWidth - 72);
   const chartHeight = 180;
-  const paddingBottom = 24;
+  const paddingBottom = 20;
   const paddingTop = 16;
+  const horizontalPadding = 12;
+  const plotWidth = Math.max(10, chartWidth - horizontalPadding * 2);
   const plotHeight = chartHeight - paddingTop - paddingBottom;
 
   // Filter history to selected timeframe
@@ -70,9 +70,22 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   }, [history, timeframe]);
 
   // Compute min and max across CTL, ATL, and TSB
-  const { minVal, maxVal, ctlPath, atlPath, tsbPath, zeroY } = useMemo(() => {
+  const { minVal, maxVal, ctlPath, atlPath, tsbPath, zeroY, getX } = useMemo(() => {
+    const calcGetX = (idx: number) => {
+      if (filteredHistory.length <= 1) return chartWidth / 2;
+      return horizontalPadding + (idx / (filteredHistory.length - 1)) * plotWidth;
+    };
+
     if (filteredHistory.length === 0) {
-      return { minVal: 0, maxVal: 100, ctlPath: '', atlPath: '', tsbPath: '', zeroY: chartHeight / 2 };
+      return {
+        minVal: 0,
+        maxVal: 100,
+        ctlPath: '',
+        atlPath: '',
+        tsbPath: '',
+        zeroY: chartHeight / 2,
+        getX: calcGetX,
+      };
     }
 
     let min = 0;
@@ -83,15 +96,10 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
       max = Math.max(max, pt.ctl, pt.atl, pt.tsb);
     });
 
-    // Add padding
+    // Add padding to range
     min = Math.floor(min - 5);
     max = Math.ceil(max + 10);
     const range = Math.max(1, max - min);
-
-    const getX = (idx: number) => {
-      if (filteredHistory.length <= 1) return chartWidth / 2;
-      return (idx / (filteredHistory.length - 1)) * (chartWidth - 20) + 10;
-    };
 
     const getY = (val: number) => {
       const normalized = (val - min) / range;
@@ -103,7 +111,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
     let tsbP = '';
 
     filteredHistory.forEach((pt, idx) => {
-      const x = getX(idx);
+      const x = calcGetX(idx);
       const ctlY = getY(pt.ctl);
       const atlY = getY(pt.atl);
       const tsbY = getY(pt.tsb);
@@ -128,8 +136,9 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
       atlPath: atlP,
       tsbPath: tsbP,
       zeroY: zY,
+      getX: calcGetX,
     };
-  }, [filteredHistory, chartWidth, chartHeight, plotHeight, paddingTop]);
+  }, [filteredHistory, chartWidth, chartHeight, plotHeight, paddingTop, plotWidth, horizontalPadding]);
 
   // Active point for tooltip
   const activePoint = useMemo(() => {
@@ -144,7 +153,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   const handleTouch = (event: GestureResponderEvent) => {
     const touchX = event.nativeEvent.locationX;
     if (filteredHistory.length <= 1) return;
-    const progress = Math.max(0, Math.min(1, (touchX - 10) / (chartWidth - 20)));
+    const progress = Math.max(0, Math.min(1, (touchX - horizontalPadding) / plotWidth));
     const idx = Math.round(progress * (filteredHistory.length - 1));
     if (idx !== selectedIndex) {
       Haptics.selectionAsync();
@@ -229,14 +238,14 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   }, [weeklySportData]);
 
   return (
-    <Card className="p-4 bg-theme-card border border-theme-border gap-y-5">
+    <Card className="p-4 bg-theme-card border border-theme-border gap-y-4">
       {/* 1. TIMEFRAME SELECTOR HEADER */}
       <View className="flex-row items-center justify-between">
-        <View>
-          <Text className="text-base font-bold text-theme-text font-jakarta">
+        <View className="flex-1 mr-2">
+          <Text className="text-base font-bold text-theme-text font-jakarta" numberOfLines={1}>
             Performance Curves (PMC)
           </Text>
-          <Text className="text-xs text-theme-muted mt-0.5">
+          <Text className="text-xs text-theme-muted mt-0.5" numberOfLines={1}>
             Fitness (CTL), Fatigue (ATL) & Form (TSB)
           </Text>
         </View>
@@ -315,25 +324,31 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
         </View>
       )}
 
-      {/* 3. MULTI-LINE SVG CHART */}
+      {/* 3. MULTI-LINE SVG CHART WITH EXACT CONTAINER MEASUREMENT */}
       <View
-        className="w-full relative"
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w > 0 && Math.abs(w - measuredWidth) > 1) {
+            setMeasuredWidth(w);
+          }
+        }}
+        className="w-full relative overflow-hidden"
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
         onResponderGrant={handleTouch}
         onResponderMove={handleTouch}
       >
-        <Svg width={chartWidth} height={chartHeight}>
+        <Svg width={chartWidth} height={chartHeight} style={{ overflow: 'hidden' }}>
           {/* Zero baseline for Form (TSB) */}
           <Line
-            x1="10"
+            x1={horizontalPadding}
             y1={zeroY}
-            x2={chartWidth - 10}
+            x2={chartWidth - horizontalPadding}
             y2={zeroY}
             stroke="#94A3B8"
             strokeWidth="1"
             strokeDasharray="4 4"
-            opacity="0.5"
+            opacity="0.45"
           />
 
           {/* Curves */}
@@ -364,44 +379,45 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
           {/* Scrubber vertical line */}
           {activePoint && filteredHistory.length > 1 && (
             <Line
-              x1={(activePoint.index / (filteredHistory.length - 1)) * (chartWidth - 20) + 10}
+              x1={getX(activePoint.index)}
               y1={paddingTop}
-              x2={(activePoint.index / (filteredHistory.length - 1)) * (chartWidth - 20) + 10}
+              x2={getX(activePoint.index)}
               y2={chartHeight - paddingBottom}
               stroke={theme.tint}
-              strokeWidth="1.5"
+              strokeWidth="2"
             />
           )}
         </Svg>
       </View>
 
       {/* 4. WEEKLY TRAINING HOURS BY SPORT BREAKDOWN */}
-      <View className="pt-2 border-t border-theme-border/40">
-        <View className="flex-row items-center justify-between mb-3">
-          <View>
+      <View className="pt-3 border-t border-theme-border/40">
+        <View className="mb-3 gap-y-2">
+          {/* Section Header Row */}
+          <View className="flex-row items-center justify-between">
             <Text className="text-sm font-bold text-theme-text font-jakarta">
               Weekly Volume by Sport
             </Text>
-            <Text className="text-xs text-theme-muted">
+            <Text className="text-xs font-semibold text-theme-accent">
               Avg {avgWeeklyHours}h / week
             </Text>
           </View>
 
-          {/* Sport Legend */}
-          <View className="flex-row items-center gap-2 flex-wrap">
+          {/* Wrapped Legend Chips Row (Never overflows screen width) */}
+          <View className="flex-row items-center gap-x-3 gap-y-1.5 flex-wrap">
             {Object.entries(SPORT_COLORS).map(([sport, color]) => (
-              <View key={sport} className="flex-row items-center gap-1">
+              <View key={sport} className="flex-row items-center gap-1.5">
                 <View style={{ backgroundColor: color }} className="w-2 h-2 rounded-full" />
-                <Text className="text-[10px] font-bold text-theme-muted">{sport}</Text>
+                <Text className="text-[11px] font-bold text-theme-muted">{sport}</Text>
               </View>
             ))}
           </View>
         </View>
 
         {/* Stacked Bars Container */}
-        <View className="flex-row items-end justify-between h-36 px-1 pt-4 pb-6">
+        <View className="flex-row items-end justify-between h-36 px-1 pt-3 pb-2">
           {weeklySportData.map((week, wIdx) => {
-            const barMaxHeight = 90;
+            const barMaxHeight = 85;
             const totalH = week.totalHours;
             const barHeight = Math.max(4, (totalH / maxWeeklyHours) * barMaxHeight);
 

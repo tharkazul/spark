@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   Alert,
   ScrollView,
   TouchableOpacity,
+  Animated,
+  Dimensions,
+  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +21,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useTheme } from '@/hooks/use-theme';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
 import { WorkoutStructureBar } from './WorkoutStructureBar';
 import { QuickBuildModal } from './QuickBuildModal';
@@ -136,6 +140,7 @@ const calculateRookaPoints = (sport: SportType, durationMins: number, stepList: 
   return Math.round(durationMins * (multipliers[sport] || 1.3));
 };
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const quickDurations = [20, 30, 45, 60, 90];
 
 export function AddWorkoutModal({
@@ -154,6 +159,64 @@ export function AddWorkoutModal({
   const { t } = useLanguage();
   const { user } = useUser();
   const insets = useSafeAreaInsets();
+
+  const [showModal, setShowModal] = useState(visible);
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const isClosingRef = useRef(false);
+
+  const { panHandlers } = useSheetDismiss(onClose, {
+    animY: slideAnim,
+    backdropOpacity,
+    onWillClose: () => {
+      isClosingRef.current = true;
+    },
+  });
+
+  useEffect(() => {
+    if (visible) {
+      isClosingRef.current = false;
+      setShowModal(true);
+      slideAnim.setValue(SCREEN_HEIGHT);
+      backdropOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          damping: 24,
+          stiffness: 220,
+          mass: 0.8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      if (isClosingRef.current) {
+        setShowModal(false);
+        isClosingRef.current = false;
+        return;
+      }
+
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShowModal(false);
+      });
+    }
+  }, [visible, slideAnim, backdropOpacity]);
 
   const [selectedSport, setSelectedSport] = useState<SportType>('RUN');
   const [title, setTitle] = useState('');
@@ -269,49 +332,195 @@ export function AddWorkoutModal({
     }
   };
 
+  const listHeaderComponent = useMemo(
+    () => (
+      <View className="pt-3 gap-y-4">
+        {/* Workout Name Input */}
+        <View>
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            editable={!isReadOnly}
+            placeholder={t('dashboard.workoutNamePlaceholder', 'Workout name (optional)')}
+            placeholderTextColor={theme.textSecondary}
+            className="bg-theme-inset px-3.5 py-2.5 rounded-control text-sm font-semibold text-theme-text border border-theme-border"
+          />
+        </View>
+
+        {/* Sport Tiles Strip (64pt wide, 76pt high, 8pt gap) */}
+        <View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+          >
+            {[
+              { type: 'RUN' as SportType, label: t('sports.run', 'Run') },
+              { type: 'BIKE' as SportType, label: t('sports.bike', 'Bike') },
+              { type: 'SWIM' as SportType, label: t('sports.swim', 'Swim') },
+              { type: 'STRENGTH' as SportType, label: t('sports.strength', 'Strength') },
+              { type: 'MOBILITY' as SportType, label: t('sports.mobility', 'Mobility') },
+            ].map((item) => {
+              const isSelected = selectedSport === item.type;
+              return (
+                <TouchableOpacity
+                  key={item.type}
+                  disabled={isReadOnly}
+                  activeOpacity={isReadOnly ? 1 : 0.8}
+                  onPress={() => handleSportSelect(item.type)}
+                  style={{ width: 64, height: 76 }}
+                  className={`rounded-inset items-center justify-center ${
+                    isSelected
+                      ? 'bg-theme-accent-soft border-[1.5px] border-theme-accent'
+                      : 'bg-transparent border border-transparent opacity-70'
+                  }`}
+                >
+                  <SportMedallion sport={item.type} size={40} />
+                  <Text
+                    className={`text-xs font-semibold mt-1.5 ${
+                      isSelected ? 'text-theme-accent font-bold' : 'text-theme-muted'
+                    }`}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Quick Duration Chips (R2-28: 20, 30, 45, 60, 90 min) */}
+        <View className="flex-row items-center gap-2">
+          {quickDurations.map((mins) => {
+            const isSelected = durationMinutes === mins;
+            return (
+              <TouchableOpacity
+                key={`dur-${mins}`}
+                disabled={isReadOnly}
+                onPress={() => handleDurationChange(mins)}
+                activeOpacity={isReadOnly ? 1 : 0.8}
+                className={`flex-1 py-2 items-center justify-center rounded-button-md border ${
+                  isSelected
+                    ? 'bg-theme-accent-strong border-theme-accent-strong'
+                    : 'bg-theme-inset border-theme-border/60'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold font-rajdhani tabular-nums ${
+                    isSelected ? 'text-white' : 'text-theme-text'
+                  }`}
+                >
+                  {mins}m
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Build with rooka (Renamed from Quick Build) */}
+        {!isReadOnly && (
+          <Button
+            variant="secondary"
+            size="md"
+            label={t('dashboard.buildWithRooka', 'Build with rooka')}
+            leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
+            onPress={() => setIsQuickBuildOpen(true)}
+            className="w-full"
+          />
+        )}
+
+        {/* Structure Preview Bar (proportional, rounded-full matching dashboard view) */}
+        {steps && steps.length > 0 && (
+          <View className="gap-y-1.5">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider">
+                {t('dashboard.structurePreview', 'STRUCTURE PREVIEW')}
+              </Text>
+              <Text className="text-xs font-semibold text-theme-muted font-rajdhani tabular-nums">
+                {durationMinutes} min
+              </Text>
+            </View>
+            <WorkoutStructureBar steps={steps} className="my-0" />
+          </View>
+        )}
+      </View>
+    ),
+    [selectedSport, title, durationMinutes, calculatedRooka, steps, isReadOnly, t, theme]
+  );
+
+  if (!showModal) return null;
 
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      visible={showModal}
+      transparent
+      animationType="none"
       onRequestClose={onClose}
+      statusBarTranslucent
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1 bg-theme-card"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
         >
-          {/* Header Drag Handle */}
-          <View className="items-center pt-2.5 pb-1">
-            <SheetGrabber />
-          </View>
-
-          {/* Top Title Bar with Close Action */}
-          <View className="flex-row items-center justify-between px-5 pt-1 pb-3 border-b border-theme-border/60">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-xl font-bold text-theme-text">
-                {initialWorkout
-                  ? isReadOnly
-                    ? t('dashboard.workoutDetails', 'Workout Details')
-                    : t('dashboard.editWorkout', 'Edit Workout')
-                  : t('dashboard.addWorkoutTitle', 'Add Workout')}
-              </Text>
-              {isReadOnly && (
-                <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
-                  <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
-                  <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
-                </View>
-              )}
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
+          <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+            {/* Backdrop: Fades In/Out Simultaneously */}
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFillObject,
+                { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+              ]}
             >
-              <Ionicons name="close" size={18} color={theme.text} />
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={onClose}
+                style={{ flex: 1 }}
+              />
+            </Animated.View>
+
+            {/* Bottom Sheet Modal Container */}
+            <Animated.View
+              style={[
+                {
+                  transform: [{ translateY: slideAnim }],
+                  height: '92%',
+                },
+              ]}
+              className="bg-theme-card rounded-t-[32px] rounded-b-none border-t border-theme-border/50 shadow-2xl flex-col overflow-hidden"
+            >
+              {/* TOP PULL HANDLE INDICATOR — tap-to-dismiss & drag-to-dismiss */}
+              <View
+                {...panHandlers}
+                className="items-center justify-center py-3 self-stretch"
+              >
+                <SheetGrabber />
+              </View>
+
+              {/* Top Title Bar with Close Action */}
+              <View className="flex-row items-center justify-between px-5 pt-0 pb-3 border-b border-theme-border/60">
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-xl font-bold text-theme-text font-jakarta">
+                    {initialWorkout
+                      ? isReadOnly
+                        ? t('dashboard.workoutDetails', 'Workout Details')
+                        : t('dashboard.editWorkout', 'Edit Workout')
+                      : t('dashboard.addWorkoutTitle', 'Add Workout')}
+                  </Text>
+                  {isReadOnly && (
+                    <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
+                      <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
+                      <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={onClose}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
+                >
+                  <Ionicons name="close" size={18} color={theme.text} />
+                </TouchableOpacity>
+              </View>
 
           {isReadOnly && (
             <View className="mx-5 my-2.5 p-3 bg-theme-accent/10 border border-theme-accent/30 rounded-xl flex-row items-center justify-between">
@@ -346,118 +555,7 @@ export function AddWorkoutModal({
                 setSteps(newSteps);
                 setCustomRooka(rooka);
               }}
-              ListHeaderComponent={useMemo(() => (
-                <View className="pt-3 gap-y-4">
-                  {/* Workout Name Input */}
-                  <View>
-                    <TextInput
-                      value={title}
-                      onChangeText={setTitle}
-                      editable={!isReadOnly}
-                      placeholder={t('dashboard.workoutNamePlaceholder', 'Workout name (optional)')}
-                      placeholderTextColor={theme.textSecondary}
-                      className="bg-theme-inset px-3.5 py-2.5 rounded-control text-sm font-semibold text-theme-text border border-theme-border"
-                    />
-                  </View>
-
-                  {/* Sport Tiles Strip (64pt wide, 76pt high, 8pt gap) */}
-                  <View>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={{ gap: 8 }}
-                    >
-                      {[
-                        { type: 'RUN' as SportType, label: t('sports.run', 'Run') },
-                        { type: 'BIKE' as SportType, label: t('sports.bike', 'Bike') },
-                        { type: 'SWIM' as SportType, label: t('sports.swim', 'Swim') },
-                        { type: 'STRENGTH' as SportType, label: t('sports.strength', 'Strength') },
-                        { type: 'MOBILITY' as SportType, label: t('sports.mobility', 'Mobility') },
-                      ].map((item) => {
-                        const isSelected = selectedSport === item.type;
-                        return (
-                          <TouchableOpacity
-                            key={item.type}
-                            disabled={isReadOnly}
-                            activeOpacity={isReadOnly ? 1 : 0.8}
-                            onPress={() => handleSportSelect(item.type)}
-                            style={{ width: 64, height: 76 }}
-                            className={`rounded-inset items-center justify-center ${
-                              isSelected
-                                ? 'bg-theme-accent-soft border-[1.5px] border-theme-accent'
-                                : 'bg-transparent border border-transparent opacity-70'
-                            }`}
-                          >
-                            <SportMedallion sport={item.type} size={40} />
-                            <Text
-                              className={`text-xs font-semibold mt-1.5 ${
-                                isSelected ? 'text-theme-accent font-bold' : 'text-theme-muted'
-                              }`}
-                            >
-                              {item.label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
-
-                  {/* Quick Duration Chips (R2-28: 20, 30, 45, 60, 90 min) */}
-                  <View className="flex-row items-center gap-2">
-                    {quickDurations.map((mins) => {
-                      const isSelected = durationMinutes === mins;
-                      return (
-                        <TouchableOpacity
-                          key={`dur-${mins}`}
-                          disabled={isReadOnly}
-                          onPress={() => handleDurationChange(mins)}
-                          activeOpacity={isReadOnly ? 1 : 0.8}
-                          className={`flex-1 py-2 items-center justify-center rounded-button-md border ${
-                            isSelected
-                              ? 'bg-theme-accent-strong border-theme-accent-strong'
-                              : 'bg-theme-inset border-theme-border/60'
-                          }`}
-                        >
-                          <Text
-                            className={`text-xs font-bold font-rajdhani tabular-nums ${
-                              isSelected ? 'text-white' : 'text-theme-text'
-                            }`}
-                          >
-                            {mins}m
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  {/* Build with rooka (Renamed from Quick Build) */}
-                  {!isReadOnly && (
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      label={t('dashboard.buildWithRooka', 'Build with rooka')}
-                      leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
-                      onPress={() => setIsQuickBuildOpen(true)}
-                      className="w-full"
-                    />
-                  )}
-
-                  {/* Structure Preview Bar (proportional, rounded-full matching dashboard view) */}
-                  {steps && steps.length > 0 && (
-                    <View className="gap-y-1.5">
-                      <View className="flex-row justify-between items-center">
-                        <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider">
-                          {t('dashboard.structurePreview', 'STRUCTURE PREVIEW')}
-                        </Text>
-                        <Text className="text-xs font-semibold text-theme-muted font-rajdhani tabular-nums">
-                          {durationMinutes} min
-                        </Text>
-                      </View>
-                      <WorkoutStructureBar steps={steps} className="my-0" />
-                    </View>
-                  )}
-                </View>
-              ), [selectedSport, title, durationMinutes, calculatedRooka, steps, isReadOnly])}
+              ListHeaderComponent={listHeaderComponent}
             />
           </View>
 
@@ -596,6 +694,8 @@ export function AddWorkoutModal({
                 </Text>
               </TouchableOpacity>
             )}
+          </View>
+            </Animated.View>
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>

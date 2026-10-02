@@ -1,62 +1,131 @@
 import { useMemo, useRef } from 'react';
-import { Animated, PanResponder } from 'react-native';
+import { Animated, PanResponder, Dimensions } from 'react-native';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export interface UseSheetDismissOptions {
+  distanceThreshold?: number;
+  velocityThreshold?: number;
+  animY?: Animated.Value;
+  backdropOpacity?: Animated.Value;
+  onWillClose?: () => void;
+}
 
 /**
- * Swipe-down-to-dismiss for bottom sheets.
+ * Swipe-down-to-dismiss and tap-to-dismiss for bottom sheets.
  *
- * Returns a `dragY` value to add to the sheet's existing entry animation, and
- * pan handlers to spread onto the sheet's grab area.
- *
- * Attach `panHandlers` to the drag handle / header only, never the whole sheet:
- * claiming the gesture at the root would steal vertical drags from any
- * ScrollView, FlatList or text input inside it.
+ * Drives the sheet's `animY` (or an internal `dragY`) continuously,
+ * smoothly sliding off-screen without any intermediate reset glitches.
  */
 export function useSheetDismiss(
   onClose: () => void,
-  options?: { distanceThreshold?: number; velocityThreshold?: number }
+  options?: UseSheetDismissOptions
 ) {
-  const dragY = useRef(new Animated.Value(0)).current;
-  const distanceThreshold = options?.distanceThreshold ?? 110;
-  const velocityThreshold = options?.velocityThreshold ?? 0.8;
+  const fallbackDragY = useRef(new Animated.Value(0)).current;
+  const activeY = options?.animY ?? fallbackDragY;
+  const isDirectAnim = Boolean(options?.animY);
+
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        // Only claim clearly-downward drags, so a horizontal swipe or a tap
-        // still reaches whatever is underneath.
+        onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_evt, g) =>
-          g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+          g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
         onPanResponderMove: (_evt, g) => {
-          if (g.dy > 0) dragY.setValue(g.dy);
+          if (g.dy > 0) {
+            activeY.setValue(g.dy);
+            const backdrop = optionsRef.current?.backdropOpacity;
+            if (backdrop) {
+              const remaining = Math.max(0, 1 - g.dy / (SCREEN_HEIGHT * 0.45));
+              backdrop.setValue(remaining);
+            }
+          }
         },
         onPanResponderRelease: (_evt, g) => {
-          const shouldClose = g.dy > distanceThreshold || g.vy > velocityThreshold;
+          const opts = optionsRef.current;
+          const distanceThreshold = opts?.distanceThreshold ?? 60;
+          const velocityThreshold = opts?.velocityThreshold ?? 0.4;
+          const isTap = Math.abs(g.dy) < 6 && Math.abs(g.dx) < 6;
+          const shouldClose = isTap || g.dy > distanceThreshold || g.vy > velocityThreshold;
+
           if (shouldClose) {
-            onClose();
-            // Reset immediately so the sheet is not left offset when reopened.
-            dragY.setValue(0);
+            opts?.onWillClose?.();
+
+            const animations: Animated.CompositeAnimation[] = [
+              Animated.timing(activeY, {
+                toValue: SCREEN_HEIGHT,
+                duration: 200,
+                useNativeDriver: true,
+              }),
+            ];
+
+            if (opts?.backdropOpacity) {
+              animations.push(
+                Animated.timing(opts.backdropOpacity, {
+                  toValue: 0,
+                  duration: 180,
+                  useNativeDriver: true,
+                })
+              );
+            }
+
+            Animated.parallel(animations).start(() => {
+              onCloseRef.current();
+              if (!isDirectAnim) {
+                setTimeout(() => fallbackDragY.setValue(0), 100);
+              }
+            });
           } else {
-            Animated.spring(dragY, {
-              toValue: 0,
-              damping: 22,
-              stiffness: 260,
-              mass: 0.7,
-              useNativeDriver: true,
-            }).start();
+            const resetAnimations: Animated.CompositeAnimation[] = [
+              Animated.spring(activeY, {
+                toValue: 0,
+                damping: 22,
+                stiffness: 260,
+                mass: 0.7,
+                useNativeDriver: true,
+              }),
+            ];
+
+            if (opts?.backdropOpacity) {
+              resetAnimations.push(
+                Animated.timing(opts.backdropOpacity, {
+                  toValue: 1,
+                  duration: 150,
+                  useNativeDriver: true,
+                })
+              );
+            }
+
+            Animated.parallel(resetAnimations).start();
           }
         },
         onPanResponderTerminate: () => {
-          Animated.spring(dragY, {
+          Animated.spring(activeY, {
             toValue: 0,
             damping: 22,
             stiffness: 260,
             mass: 0.7,
             useNativeDriver: true,
           }).start();
+
+          const backdrop = optionsRef.current?.backdropOpacity;
+          if (backdrop) {
+            Animated.timing(backdrop, {
+              toValue: 1,
+              duration: 150,
+              useNativeDriver: true,
+            }).start();
+          }
         },
       }),
-    [dragY, distanceThreshold, onClose, velocityThreshold]
+    [activeY, isDirectAnim, fallbackDragY]
   );
 
-  return { dragY, panHandlers: panResponder.panHandlers };
+  return { dragY: activeY, panHandlers: panResponder.panHandlers };
 }

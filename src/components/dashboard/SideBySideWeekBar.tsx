@@ -48,6 +48,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
         const hasActiveWorkouts = activeWorkouts.length > 0;
         const isCompleted = hasActiveWorkouts && activeWorkouts.every((w) => w.isCompleted);
         const isMissed = day.isPast && hasActiveWorkouts && !isCompleted;
+        const isRestHonored = !hasActiveWorkouts && (day.isPast || day.isToday);
 
         // Parse day date number from dateStr e.g. "Sep 29" -> "29"
         const dateParts = day.dateStr.split(' ');
@@ -74,8 +75,8 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                 : 'bg-theme-inset border border-transparent'
             }`}
           >
-            {/* Top-Right Status Badge (Green check if completed, warning dot if missed) */}
-            {isCompleted && (
+            {/* Top-Right Status Badge (Green check if completed workout or honored rest day, warning dot if missed) */}
+            {(isCompleted || isRestHonored) && (
               <View className="absolute top-1 right-1 z-10">
                 <Ionicons name="checkmark-circle" size={13} color="#10B981" />
               </View>

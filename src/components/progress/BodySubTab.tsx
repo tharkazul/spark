@@ -184,7 +184,6 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
                 height={36}
                 color={theme.tint}
                 minRangePadding={1.5}
-                breakGapDays={14}
               />
             ) : null}
           </View>

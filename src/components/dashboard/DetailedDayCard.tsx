@@ -93,6 +93,7 @@ export function DetailedDayCard({
   const isRest = (sport?: SportType | string) => String(sport || '').toUpperCase() === 'REST';
   const activeWorkouts = (day.workouts || []).filter((w) => !isRest(w.type));
   const isRestDay = activeWorkouts.length === 0;
+  const isRestExecuted = isRestDay && (day.isPast || day.isToday);
 
   // Primary active workout for collapsed summary
   const primaryWorkout = activeWorkouts[0];
@@ -112,8 +113,13 @@ export function DetailedDayCard({
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-3 flex-1 mr-2">
-            <View className="w-10 h-10 rounded-full bg-theme-inset items-center justify-center">
-              <Ionicons name="moon" size={18} color="#94A3B8" />
+            <View className="w-10 h-10 rounded-full bg-theme-inset items-center justify-center relative">
+              <Ionicons name="moon" size={18} color={isRestExecuted ? "#10B981" : "#94A3B8"} />
+              {isRestExecuted && (
+                <View className="absolute -top-1 -right-1 bg-white dark:bg-theme-card rounded-full">
+                  <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                </View>
+              )}
             </View>
             <View className="flex-1">
               <View className="flex-row items-center gap-2">
@@ -123,9 +129,19 @@ export function DetailedDayCard({
                 {day.isToday && (
                   <Chip variant="accent" size="sm" label={t('common.today', 'Today')} />
                 )}
+                {isRestExecuted && (
+                  <View className="flex-row items-center gap-1 bg-semantic-success-bg px-2 py-0.5 rounded-full">
+                    <Ionicons name="checkmark-circle" size={10} color="#10B981" />
+                    <Text className="text-[9px] font-extrabold text-semantic-success-text">
+                      {t('dashboard.restHonored', 'HONORED')}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text numberOfLines={1} className="text-xs text-theme-muted mt-0.5 font-jakarta">
-                {t('dashboard.restDaySummary', 'Rest Day · Aim for 8 hours of sleep & gentle mobility')}
+                {isRestExecuted
+                  ? t('dashboard.restDayHonoredDetails', 'Great recovery discipline! Rest allows your muscle fibers to repair.')
+                  : t('dashboard.restDaySummary', 'Rest Day · Aim for 8 hours of sleep & gentle mobility')}
               </Text>
             </View>
           </View>
@@ -258,14 +274,31 @@ export function DetailedDayCard({
       {/* Workouts List / Rest Day Content */}
       {isRestDay ? (
         <View className="py-4 items-center justify-center">
-          <View className="w-12 h-12 rounded-full bg-theme-inset items-center justify-center mb-2">
-            <Ionicons name="moon" size={24} color="#94A3B8" />
+          <View className="w-12 h-12 rounded-full bg-theme-inset items-center justify-center mb-2 relative">
+            <Ionicons name="moon" size={24} color={isRestExecuted ? "#10B981" : "#94A3B8"} />
+            {isRestExecuted && (
+              <View className="absolute -top-1 -right-1 bg-white dark:bg-theme-card rounded-full">
+                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+              </View>
+            )}
           </View>
-          <Text className="text-base font-bold text-theme-text font-jakarta">
-            {t('common.restDay', 'Rest Day')}
-          </Text>
+          <View className="flex-row items-center gap-1.5">
+            <Text className="text-base font-bold text-theme-text font-jakarta">
+              {t('common.restDay', 'Rest Day')}
+            </Text>
+            {isRestExecuted && (
+              <View className="flex-row items-center gap-1 bg-semantic-success-bg px-2 py-0.5 rounded-full">
+                <Ionicons name="checkmark-circle" size={11} color="#10B981" />
+                <Text className="text-[10px] font-extrabold text-semantic-success-text">
+                  {t('dashboard.restHonored', 'HONORED')}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text className="text-xs text-theme-muted text-center max-w-[260px] mt-1 font-jakarta">
-            {t('dashboard.restDayDetails', 'Aim for 8 hours of sleep and adequate hydration to prepare for upcoming workouts.')}
+            {isRestExecuted
+              ? t('dashboard.restDayHonoredDetails', 'Great recovery discipline! Rest allows your muscle fibers to repair and cardiovascular adaptations to consolidate.')
+              : t('dashboard.restDayDetails', 'Aim for 8 hours of sleep and adequate hydration to prepare for upcoming workouts.')}
           </Text>
           <Button
             variant="ghost"
@@ -297,14 +330,7 @@ export function DetailedDayCard({
                   wIdx < activeWorkouts.length - 1 ? 'border-b border-theme-border/40' : ''
                 }`}
               >
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    onSelectWorkout(workout);
-                  }}
-                  className="flex-row items-start gap-3"
-                >
+                <View className="flex-row items-start gap-3">
                   {/* Left Sport Rail */}
                   <View
                     style={{ backgroundColor: sportColorCode }}
@@ -312,16 +338,32 @@ export function DetailedDayCard({
                   />
 
                   {/* Sport Medallion */}
-                  <SportMedallion sport={workout.type} size={48} />
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      onSelectWorkout(workout);
+                    }}
+                  >
+                    <SportMedallion sport={workout.type} size={48} />
+                  </TouchableOpacity>
 
                   {/* Workout Info */}
                   <View className="flex-1">
-                    <Text
-                      numberOfLines={2}
-                      className="text-base font-bold text-theme-text font-jakarta leading-snug"
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        onSelectWorkout(workout);
+                      }}
                     >
-                      {workout.title}
-                    </Text>
+                      <Text
+                        numberOfLines={2}
+                        className="text-base font-bold text-theme-text font-jakarta leading-snug"
+                      >
+                        {workout.title}
+                      </Text>
+                    </TouchableOpacity>
 
                     {/* Meta Row */}
                     <View className="flex-row items-center gap-2 mt-1.5 flex-wrap">
@@ -345,9 +387,23 @@ export function DetailedDayCard({
                           </Text>
                         </View>
                       )}
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setWhyWorkout(workout);
+                        }}
+                        activeOpacity={0.7}
+                        className="flex-row items-center gap-1 px-2.5 py-0.5 rounded-full bg-theme-accent/10 border border-theme-accent/25"
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Ionicons name="sparkles" size={11} color="#0EA5E9" />
+                        <Text className="text-[11px] font-bold text-theme-accent-text font-jakarta">
+                          Why this workout
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 {/* Structure Bar (if structured steps exist) */}
                 {workout.steps && workout.steps.length > 0 && (
@@ -392,68 +448,60 @@ export function DetailedDayCard({
                 )}
 
                 {/* Workout Actions */}
-                <View className="mt-3 flex-row items-center justify-between flex-wrap gap-2">
-                  <View className="flex-row items-center gap-2 flex-wrap">
-                    {hasAnyDevices && onSendWorkoutToDevice && (
-                      isWorkoutSynced ? (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled
-                          label={hasGarmin && hasAppleWatch ? t('dashboard.onDevices', 'On devices ✓') : hasGarmin ? t('dashboard.onGarmin', 'On Garmin ✓') : t('dashboard.onWatch', 'On Watch ✓')}
-                          leftIcon={<Ionicons name="checkmark-circle" size={13} color="#10B981" />}
-                        />
-                      ) : (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          label={hasGarmin && hasAppleWatch ? t('dashboard.sendToDevices', 'Send to devices') : hasGarmin ? t('dashboard.sendToGarmin', 'Send to Garmin') : t('dashboard.sendToAppleWatch', 'Send to Apple Watch')}
-                          leftIcon={<Ionicons name="watch-outline" size={13} color="#FFFFFF" />}
-                          onPress={async () => {
-                            setSyncedWorkoutIds((prev) => ({ ...prev, [workout.id]: true }));
-                            await onSendWorkoutToDevice(workout);
-                          }}
-                        />
-                      )
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      label={t('common.edit', 'Edit')}
-                      leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
-                      onPress={() => {
-                        if (!canEdit) {
-                          onUpgradePress?.();
-                        } else {
-                          onSelectWorkout(workout);
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      label="Why this workout"
-                      leftIcon={<Ionicons name="sparkles" size={12} color="#0EA5E9" />}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setWhyWorkout(workout);
-                      }}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      label={t('common.invite', 'Invite')}
-                      leftIcon={<Ionicons name="people-outline" size={13} color="#0EA5E9" />}
-                      onPress={() => onInvitePartner(workout)}
-                    />
-                  </View>
+                <View className="mt-2.5 flex-row items-center gap-2 w-full">
+                  {hasAnyDevices && onSendWorkoutToDevice && (
+                    isWorkoutSynced ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled
+                        className="flex-[1.25]"
+                        label={hasGarmin && hasAppleWatch ? t('dashboard.onDevices', 'On devices ✓') : hasGarmin ? t('dashboard.onGarmin', 'On Garmin ✓') : t('dashboard.onWatch', 'On Watch ✓')}
+                        leftIcon={<Ionicons name="checkmark-circle" size={13} color="#10B981" />}
+                      />
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="flex-[1.25]"
+                        label={hasGarmin && hasAppleWatch ? t('dashboard.sendToDevices', 'Send to devices') : hasGarmin ? t('dashboard.sendToGarmin', 'Send to Garmin') : t('dashboard.sendToAppleWatch', 'Send to Watch')}
+                        leftIcon={<Ionicons name="watch-outline" size={13} color="#FFFFFF" />}
+                        onPress={async () => {
+                          setSyncedWorkoutIds((prev) => ({ ...prev, [workout.id]: true }));
+                          await onSendWorkoutToDevice(workout);
+                        }}
+                      />
+                    )
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    label={t('common.edit', 'Edit')}
+                    leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+                    onPress={() => {
+                      if (!canEdit) {
+                        onUpgradePress?.();
+                      } else {
+                        onSelectWorkout(workout);
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    label={t('common.inviteWithPlus', '+ Invite')}
+                    leftIcon={<Ionicons name="person-add-outline" size={13} color="#0EA5E9" />}
+                    onPress={() => onInvitePartner(workout)}
+                  />
                 </View>
               </View>
             );
           })}
 
           {/* Footer: Add Workout button */}
-          <View className="pt-2">
+          <View className="pt-1.5 items-center">
             <Button
               variant="ghost"
               size="sm"
