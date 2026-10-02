@@ -18,6 +18,7 @@ import {
   AppleHealthDailyBiometrics,
   getCachedTodayBiometrics,
   fetchTodayBiometricsFromServer,
+  fetchRecentBiometricsFromServer,
 } from '../../services/appleHealthService';
 
 interface HealthTabProps {
@@ -34,6 +35,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   const niggles = storeNiggles as ActiveNiggle[];
   const [modalVisible, setModalVisible] = useState(false);
   const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
+  const [recentBiometrics, setRecentBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +44,9 @@ export const HealthTab: React.FC<HealthTabProps> = ({
     });
     fetchTodayBiometricsFromServer().then((fresh) => {
       if (!cancelled && fresh) setTodayBiometrics(fresh);
+    });
+    fetchRecentBiometricsFromServer(7).then((recent) => {
+      if (!cancelled && Array.isArray(recent)) setRecentBiometrics(recent);
     });
     return () => {
       cancelled = true;
@@ -111,7 +116,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       <SonarSleepCard biometrics={todayBiometrics} />
 
       {/* SONAR AI VITAL TRENDS CARD (Appears when HRV/RHR/Steps/etc. exist) */}
-      <SonarVitalsCard biometrics={todayBiometrics} />
+      <SonarVitalsCard biometrics={todayBiometrics} recentBiometrics={recentBiometrics} />
 
       {/* CYCLE TRACKER & COACH SYNC WIDGET */}
       <CycleTrackingWidget />
@@ -131,7 +136,12 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         </View>
 
         {/* Anatomical Mannequin Body Map */}
-        <AnatomicalBodyMap activeNiggles={niggles} onSelectBodyPart={handleSelectBodyPart} />
+        <AnatomicalBodyMap
+          activeNiggles={niggles}
+          onSelectBodyPart={handleSelectBodyPart}
+          biometrics={todayBiometrics}
+          recentBiometrics={recentBiometrics}
+        />
       </Card>
 
       {/* ACTIVE ISSUES FEED & HEALTHY EMPTY STATE */}

@@ -87,6 +87,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [isWatchConnected, setIsWatchConnected] = useState(false);
   const [appleSupported, setAppleSupported] = useState(false);
   const [showHealthPrefs, setShowHealthPrefs] = useState(false);
+  const [showAppleManage, setShowAppleManage] = useState(false);
+  const [showStravaManage, setShowStravaManage] = useState(false);
   const [healthPrefs, setHealthPrefs] = useState<any>({
     syncSleep: true,
     syncHeartRate: true,
@@ -334,281 +336,266 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
   return (
     <View className="gap-y-4">
-      {/* APPLE HEALTH & WORKOUTKIT INTEGRATION */}
+      {/* 1. APPLE HEALTH & WORKOUTKIT INTEGRATION */}
       <Card className="p-4">
-        <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="logo-apple" size={20} color="#FF2D55" />
-            <Text className="text-theme-text font-bold text-sm">{t('connections.appleHealthAndWatch')}</Text>
-          </View>
-          <View className="flex-row items-center gap-1.5">
-            <View
-              className={`px-2 py-0.5 rounded ${
-                isHealthKitConnected ? 'bg-semantic-success/10' : 'bg-semantic-error/10'
-              }`}
-            >
-              <Text
-                className={`text-[11px] font-bold ${
-                  isHealthKitConnected ? 'text-semantic-success' : 'text-semantic-error'
-                }`}
-              >
-                {isHealthKitConnected ? t('connections.healthActiveBadge') : t('connections.healthNotConnectedBadge')}
-              </Text>
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <View className="w-10 h-10 rounded-xl bg-rose-500/10 items-center justify-center">
+              <Ionicons name="logo-apple" size={20} color="#FF2D55" />
             </View>
-            <View
-              className={`px-2 py-0.5 rounded ${
-                isWatchConnected ? 'bg-semantic-success/10' : 'bg-theme-bg'
-              }`}
-            >
-              <Text
-                className={`text-[11px] font-bold ${
-                  isWatchConnected ? 'text-semantic-success' : 'text-theme-muted'
-                }`}
-              >
-                {isWatchConnected ? t('connections.watchReadyBadge') : t('connections.watchOffBadge')}
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.appleHealthAndWatch')}</Text>
+              <Text className="text-xs text-theme-muted mt-0.5">
+                {isHealthKitConnected
+                  ? `${t('connections.connected', 'Connected')} · ${isWatchConnected ? t('connections.watchReadyBadge', 'Watch Ready') : t('connections.watchOffBadge', 'Watch Off')}`
+                  : t('connections.disconnected', 'Not connected')}
               </Text>
             </View>
           </View>
-        </View>
-
-        <Text className="text-theme-muted text-xs mb-3 leading-4">
-          {t('connections.appleHealthDesc')}
-        </Text>
-
-        {lastAppleSync && (
-          <View className="flex-row items-center gap-1.5 mb-3">
-            <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
-            <Text className="text-[11px] text-theme-muted">
-              {t('connections.lastSynced', { time: new Date(lastAppleSync).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' }) })}
-            </Text>
-          </View>
-        )}
-
-        {/* Primary Symmetrical Buttons */}
-        <View className="flex-row gap-2 mb-2.5">
-          <TouchableOpacity
-            onPress={handleConnectAppleHealth}
-            className={`flex-1 py-2.5 px-3 rounded-xl flex-row items-center justify-center shadow-sm ${
-              isHealthKitConnected ? 'bg-semantic-success/15 border border-semantic-success/30' : 'bg-semantic-error'
-            }`}
-          >
-            <Ionicons
-              name={isHealthKitConnected ? 'shield-checkmark' : 'heart-circle-outline'}
-              size={16}
-              color={isHealthKitConnected ? '#10B981' : '#FFF'}
-            />
-            <Text
-              className={`font-bold text-xs ml-1.5 ${
-                isHealthKitConnected ? 'text-semantic-success' : 'text-white'
-              }`}
-            >
-              {isHealthKitConnected ? t('connections.healthActive') : t('connections.connectHealth')}
-            </Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleConnectAppleWatch}
-            className={`flex-1 py-2.5 px-3 rounded-xl flex-row items-center justify-center shadow-sm ${
-              isWatchConnected ? 'bg-semantic-success/15 border border-semantic-success/30' : 'bg-slate-700'
+            onPress={() => {
+              Haptics.selectionAsync();
+              if (isHealthKitConnected) {
+                setShowAppleManage((prev) => !prev);
+              } else {
+                handleConnectAppleHealth();
+              }
+            }}
+            className={`px-3 py-1.5 rounded-lg border ${
+              isHealthKitConnected
+                ? 'bg-theme-bg border-theme-border'
+                : 'bg-theme-accent border-theme-accent'
             }`}
           >
-            <Ionicons
-              name={isWatchConnected ? 'checkmark-circle' : 'watch-outline'}
-              size={16}
-              color={isWatchConnected ? '#10B981' : '#FFF'}
-            />
             <Text
-              className={`font-bold text-xs ml-1.5 ${
-                isWatchConnected ? 'text-semantic-success' : 'text-white'
+              className={`text-xs font-bold ${
+                isHealthKitConnected ? 'text-theme-accent' : 'text-white'
               }`}
             >
-              {isWatchConnected ? t('connections.watchReady') : t('connections.connectWatch')}
+              {isHealthKitConnected ? (showAppleManage ? t('common.done', 'Done') : t('common.manage', 'Manage')) : t('common.connect', 'Connect')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Manual Sync Trigger */}
-        <TouchableOpacity
-          onPress={handleSyncAppleHealth}
-          disabled={appleSyncing}
-          className="w-full bg-theme-bg border border-theme-border py-2.5 rounded-xl flex-row items-center justify-center mb-3"
-        >
-          {appleSyncing ? (
-            <ActivityIndicator size="small" color="#FF2D55" />
-          ) : (
-            <>
-              <Ionicons name="sync-outline" size={15} color={theme.textSecondary} />
-              <Text className="text-theme-text font-bold text-xs ml-2">{t('connections.syncHealthNow')}</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {/* Expandable Manage Area */}
+        {showAppleManage && isHealthKitConnected && (
+          <View className="mt-3 pt-3 border-t border-theme-border/50 gap-y-3">
+            <Text className="text-xs text-theme-muted leading-relaxed">
+              {t('connections.appleHealthDesc')}
+            </Text>
 
-        {/* Granular Sharing Preferences Accordion */}
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.selectionAsync();
-            setShowHealthPrefs((prev) => !prev);
-          }}
-          className="flex-row items-center justify-between py-2 border-t border-theme-border/60"
-        >
-          <View className="flex-row items-center gap-1.5">
-            <Ionicons name="options-outline" size={14} color={theme.textSecondary} />
-            <Text className="text-xs font-bold text-theme-muted">{t('connections.dataSharingPreferences')}</Text>
-          </View>
-          <Ionicons
-            name={showHealthPrefs ? 'chevron-up-outline' : 'chevron-down-outline'}
-            size={14}
-            color={theme.textSecondary}
-          />
-        </TouchableOpacity>
-
-        {showHealthPrefs && (
-          <View className="gap-y-2.5 pt-2">
-            {[
-              { key: 'syncSleep', label: t('connections.sleepAnalysis'), icon: 'moon-outline' },
-              { key: 'syncHeartRate', label: t('connections.heartRateResting'), icon: 'heart-outline' },
-              { key: 'syncHrv', label: t('connections.hrv'), icon: 'flash-outline' },
-              { key: 'syncStepsCalories', label: t('connections.stepsActiveEnergy'), icon: 'flame-outline' },
-              { key: 'syncBodyMass', label: t('connections.bodyMassFat'), icon: 'scale-outline' },
-              { key: 'syncVo2Max', label: t('connections.vo2Max'), icon: 'speedometer-outline' },
-              { key: 'syncWorkouts', label: t('connections.completedWorkouts'), icon: 'fitness-outline' },
-            ].map((metric) => (
-              <View
-                key={metric.key}
-                className="flex-row items-center justify-between py-1 border-b border-theme-border/30"
-              >
-                <View className="flex-row items-center gap-2">
-                  <Ionicons name={metric.icon as any} size={15} color={theme.textSecondary} />
-                  <Text className="text-xs text-theme-text font-medium">{metric.label}</Text>
-                </View>
-                <Switch
-                  value={!!healthPrefs[metric.key]}
-                  onValueChange={(val) => handleToggleHealthPref(metric.key, val)}
-                  trackColor={{ false: '#DDE3E9', true: theme.tint }}
-                />
+            {lastAppleSync && (
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
+                <Text className="text-[11px] text-theme-muted">
+                  {t('connections.lastSynced', { time: new Date(lastAppleSync).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' }) })}
+                </Text>
               </View>
-            ))}
-          </View>
-        )}
-      </Card>
+            )}
 
-      {/* GARMIN CONNECT INTEGRATION */}
-      <Card className="p-4">
-        <View className="flex-row justify-between items-center pb-3 mb-3">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="watch-outline" size={20} color={theme.tint} />
-            <Text className="text-theme-text font-bold text-sm">{t('connections.garminConnect')}</Text>
-          </View>
-          <View
-            className={`px-2 py-0.5 rounded ${isGarminConnected
-              ? 'bg-semantic-success/10'
-              : 'bg-semantic-error/10'
-              }`}
-          >
-            <Text
-              className={`text-xs font-bold ${isGarminConnected ? 'text-semantic-success' : 'text-semantic-error'
-                }`}
-            >
-              {isGarminConnected ? t('connections.connected') : t('connections.disconnected')}
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex-row flex-wrap gap-2">
-          <TouchableOpacity
-            onPress={onOpenGarminModal}
-            className="bg-semantic-info px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
-          >
-            <Ionicons name="settings-outline" size={16} color="#FFF" />
-            <Text className="text-white font-bold text-xs ml-2">
-              {isGarminConnected ? t('connections.manageGarmin') : t('connections.connectGarmin')}
-            </Text>
-          </TouchableOpacity>
-
-          {isGarminConnected && (
-            <TouchableOpacity
-              onPress={handleSyncGarmin}
-              disabled={garminSyncing}
-              className="bg-theme-bg px-4 py-2.5 rounded-xl flex-row items-center justify-center"
-            >
-              {garminSyncing ? (
-                <ActivityIndicator size="small" color={theme.tint} />
-              ) : (
-                <>
-                  <Ionicons name="sync-outline" size={16} color={theme.textSecondary} />
-                  <Text className="text-theme-text font-bold text-xs ml-2">{t('connections.syncWorkouts')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
-      </Card>
-
-      {/* STRAVA INTEGRATION */}
-      <Card className="p-4">
-        <View className="flex-row justify-between items-center pb-3 mb-3">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="fitness-outline" size={20} color={theme.tint} />
-            <Text className="text-theme-text font-bold text-sm">{t('connections.stravaIntegration')}</Text>
-          </View>
-          <View
-            className={`px-2 py-0.5 rounded ${isStravaConnected
-              ? 'bg-semantic-success/10'
-              : 'bg-semantic-error/10'
-              }`}
-          >
-            <Text
-              className={`text-xs font-bold ${isStravaConnected ? 'text-semantic-success' : 'text-semantic-error'
-                }`}
-            >
-              {isStravaConnected ? t('connections.connected') : t('connections.disconnected')}
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex-row flex-wrap gap-2">
-          {!isStravaConnected ? (
-            <TouchableOpacity
-              onPress={onConnectStrava}
-              disabled={stravaLoading}
-              className="bg-theme-accent px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
-            >
-              {stravaLoading ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name="fitness-outline" size={16} color="#FFF" />
-                  <Text className="text-white font-bold text-xs ml-2">{t('connections.connectWithStrava')}</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <>
+            <View className="flex-row gap-2">
               <TouchableOpacity
-                onPress={handleSyncStrava}
-                disabled={stravaSyncing}
-                className="bg-theme-accent px-4 py-2.5 rounded-xl flex-row items-center justify-center shadow-sm"
+                onPress={handleConnectAppleWatch}
+                className="flex-1 py-2 px-3 rounded-lg bg-theme-bg border border-theme-border flex-row items-center justify-center"
               >
-                {stravaSyncing ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                <Ionicons name={isWatchConnected ? 'checkmark-circle' : 'watch-outline'} size={14} color={isWatchConnected ? '#10B981' : theme.tint} />
+                <Text className="text-xs font-bold text-theme-text ml-1.5">
+                  {isWatchConnected ? t('connections.watchReady') : t('connections.connectWatch')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleSyncAppleHealth}
+                disabled={appleSyncing}
+                className="flex-1 py-2 px-3 rounded-lg bg-theme-accent flex-row items-center justify-center"
+              >
+                {appleSyncing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons name="sync-outline" size={16} color="#FFF" />
-                    <Text className="text-white font-bold text-xs ml-2">{t('connections.syncActivities')}</Text>
+                    <Ionicons name="sync-outline" size={14} color="#FFFFFF" />
+                    <Text className="text-xs font-bold text-white ml-1.5">{t('connections.syncHealthNow')}</Text>
                   </>
                 )}
               </TouchableOpacity>
+            </View>
 
+            {/* Granular Sharing Preferences Accordion */}
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowHealthPrefs((prev) => !prev);
+              }}
+              className="flex-row items-center justify-between py-1.5"
+            >
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="options-outline" size={13} color={theme.textSecondary} />
+                <Text className="text-xs font-bold text-theme-muted">{t('connections.dataSharingPreferences')}</Text>
+              </View>
+              <Ionicons
+                name={showHealthPrefs ? 'chevron-up-outline' : 'chevron-down-outline'}
+                size={13}
+                color={theme.textSecondary}
+              />
+            </TouchableOpacity>
+
+            {showHealthPrefs && (
+              <View className="gap-y-2 pt-1 bg-theme-bg/50 p-2.5 rounded-xl border border-theme-border/40">
+                {[
+                  { key: 'syncSleep', label: t('connections.sleepAnalysis'), icon: 'moon-outline' },
+                  { key: 'syncHeartRate', label: t('connections.heartRateResting'), icon: 'heart-outline' },
+                  { key: 'syncHrv', label: t('connections.hrv'), icon: 'flash-outline' },
+                  { key: 'syncStepsCalories', label: t('connections.stepsActiveEnergy'), icon: 'flame-outline' },
+                  { key: 'syncBodyMass', label: t('connections.bodyMassFat'), icon: 'scale-outline' },
+                  { key: 'syncVo2Max', label: t('connections.vo2Max'), icon: 'speedometer-outline' },
+                  { key: 'syncWorkouts', label: t('connections.completedWorkouts'), icon: 'fitness-outline' },
+                ].map((metric) => (
+                  <View
+                    key={metric.key}
+                    className="flex-row items-center justify-between py-1 border-b border-theme-border/20"
+                  >
+                    <View className="flex-row items-center gap-2">
+                      <Ionicons name={metric.icon as any} size={14} color={theme.textSecondary} />
+                      <Text className="text-xs text-theme-text font-medium">{metric.label}</Text>
+                    </View>
+                    <Switch
+                      value={!!healthPrefs[metric.key]}
+                      onValueChange={(val) => handleToggleHealthPref(metric.key, val)}
+                      trackColor={{ false: '#DDE3E9', true: theme.tint }}
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </Card>
+
+      {/* 2. GARMIN CONNECT INTEGRATION */}
+      <Card className="p-4">
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <View className="w-10 h-10 rounded-xl bg-sky-500/10 items-center justify-center">
+              <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.garminConnect')}</Text>
+              <Text className="text-xs text-theme-muted mt-0.5">
+                {isGarminConnected ? `${t('connections.connected', 'Connected')} · Direct Sync` : t('connections.disconnected', 'Not connected')}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            {isGarminConnected && (
               <TouchableOpacity
-                onPress={onDisconnectStrava}
-                disabled={stravaLoading}
-                className="bg-semantic-error/10 border border-semantic-error/30 px-4 py-2.5 rounded-xl flex-row items-center justify-center"
+                onPress={handleSyncGarmin}
+                disabled={garminSyncing}
+                className="p-2 rounded-lg bg-theme-bg border border-theme-border items-center justify-center"
               >
-                <Text className="text-semantic-error font-bold text-xs">{t('connections.disconnect')}</Text>
+                {garminSyncing ? (
+                  <ActivityIndicator size="small" color={theme.tint} />
+                ) : (
+                  <Ionicons name="sync-outline" size={15} color={theme.tint} />
+                )}
               </TouchableOpacity>
-            </>
-          )}
+            )}
+            <TouchableOpacity
+              onPress={onOpenGarminModal}
+              className={`px-3 py-1.5 rounded-lg border ${
+                isGarminConnected
+                  ? 'bg-theme-bg border-theme-border'
+                  : 'bg-theme-accent border-theme-accent'
+              }`}
+            >
+              <Text
+                className={`text-xs font-bold ${
+                  isGarminConnected ? 'text-theme-accent' : 'text-white'
+                }`}
+              >
+                {isGarminConnected ? t('common.manage', 'Manage') : t('common.connect', 'Connect')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      </Card>
+
+      {/* 3. STRAVA INTEGRATION */}
+      <Card className="p-4">
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <View className="w-10 h-10 rounded-xl bg-amber-500/10 items-center justify-center">
+              <Ionicons name="fitness-outline" size={20} color="#EA580C" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.stravaIntegration')}</Text>
+              <Text className="text-xs text-theme-muted mt-0.5">
+                {isStravaConnected ? `${t('connections.connected', 'Connected')} · Sharing active` : t('connections.disconnected', 'Not connected')}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            {isStravaConnected && (
+              <TouchableOpacity
+                onPress={handleSyncStrava}
+                disabled={stravaSyncing}
+                className="p-2 rounded-lg bg-theme-bg border border-theme-border items-center justify-center"
+              >
+                {stravaSyncing ? (
+                  <ActivityIndicator size="small" color={theme.tint} />
+                ) : (
+                  <Ionicons name="sync-outline" size={15} color={theme.tint} />
+                )}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync();
+                if (isStravaConnected) {
+                  setShowStravaManage((prev) => !prev);
+                } else {
+                  onConnectStrava();
+                }
+              }}
+              disabled={stravaLoading}
+              className={`px-3 py-1.5 rounded-lg border ${
+                isStravaConnected
+                  ? 'bg-theme-bg border-theme-border'
+                  : 'bg-theme-accent border-theme-accent'
+              }`}
+            >
+              {stravaLoading ? (
+                <ActivityIndicator size="small" color={isStravaConnected ? theme.tint : '#FFFFFF'} />
+              ) : (
+                <Text
+                  className={`text-xs font-bold ${
+                    isStravaConnected ? 'text-theme-accent' : 'text-white'
+                  }`}
+                >
+                  {isStravaConnected ? (showStravaManage ? t('common.done', 'Done') : t('common.manage', 'Manage')) : t('common.connect', 'Connect')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Expandable Strava Settings */}
+        {showStravaManage && isStravaConnected && (
+          <View className="mt-3 pt-3 border-t border-theme-border/50 gap-y-3">
+            <TouchableOpacity
+              onPress={onDisconnectStrava}
+              disabled={stravaLoading}
+              className="py-2 px-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex-row items-center justify-center"
+            >
+              <Ionicons name="unlink-outline" size={14} color="#EF4444" />
+              <Text className="text-xs font-bold text-rose-500 ml-1.5">
+                {t('connections.disconnect', 'Disconnect Strava')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Card>
 
       {/* STRAVA AUTOMATIONS PER SPORT TYPE */}

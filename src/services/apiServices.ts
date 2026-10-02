@@ -479,10 +479,10 @@ export interface ZonesResponse {
 export const zonesApi = {
   get: (sport: string = 'default') =>
     apiClient<ZonesResponse>(`/api/user/zones?sport=${encodeURIComponent(sport)}`),
-  save: (sport: string, kind: 'hr' | 'power', zones: ZoneBandDto[]) =>
+  save: (sport: string, kind: 'hr' | 'power', zones: ZoneBandDto[], maxHr?: number | null, ftp?: number | null) =>
     apiClient<{ success: boolean }>('/api/user/zones', {
       method: 'PUT',
-      body: JSON.stringify({ sport, kind, zones }),
+      body: JSON.stringify({ sport, kind, zones, maxHr, ftp }),
     }),
   remove: (sport: string) =>
     apiClient<{ success: boolean }>(`/api/user/zones/${encodeURIComponent(sport)}`, {

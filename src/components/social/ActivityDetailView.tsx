@@ -1236,7 +1236,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                     minimumFontScale={0.8}
                     className="text-lg font-bold font-rajdhani text-theme-text mt-0.5 tabular-nums"
                   >
-                    {elevation > 0 ? `+${elevation} m` : `${elevation} m`}
+                    {elevation && elevation > 0 ? `+${elevation}\u00A0m` : '—'}
                   </Text>
                 </View>
 

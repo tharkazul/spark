@@ -53,12 +53,35 @@ export interface CreatedWorkoutPayload {
   workouts: ProposedWorkoutItem[];
 }
 
+export interface WorkoutDebriefPayload {
+  type: 'workout_debrief';
+  activity_id?: number | string;
+  workout_title: string;
+  sport: string;
+  planned: {
+    duration_min: number;
+    distance_km?: number;
+    rooka_points?: number;
+    target_intensity?: string;
+  };
+  actual: {
+    duration_min: number;
+    distance_km?: number;
+    rooka_points?: number;
+    avg_hr?: number;
+    avg_pace?: string;
+  };
+  key_insight: string;
+  whats_next: string;
+}
+
 export type ChatPayload =
   | EventInvitePayload
   | SocialMentionPayload
   | WorkoutProposalPayload
   | ConnectionRequestPayload
-  | CreatedWorkoutPayload;
+  | CreatedWorkoutPayload
+  | WorkoutDebriefPayload;
 
 export interface ChatMessage {
   id: string | number;

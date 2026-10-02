@@ -136,7 +136,9 @@ export function calculatePMC(
   });
 
   const todayStr = new Date().toISOString().split('T')[0];
-  let startDateStr = todayStr;
+  const oneYearAgo = new Date();
+  oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+  let startDateStr = oneYearAgo.toISOString().split('T')[0];
 
   const activityDates = activities
     .map((a) => (a.start_date || a.date)?.split('T')[0])
@@ -145,7 +147,9 @@ export function calculatePMC(
 
   if (activityDates.length > 0 || weightDates.length > 0) {
     const allDates = [...activityDates, ...weightDates].sort();
-    startDateStr = allDates[0];
+    if (allDates[0] < startDateStr) {
+      startDateStr = allDates[0];
+    }
   }
 
   const history: PMCDayPoint[] = [];

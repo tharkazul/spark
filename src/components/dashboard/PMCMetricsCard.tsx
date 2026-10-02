@@ -5,7 +5,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SubscriptionTier } from '../../types/user';
-import { Sparkline } from '../common/Sparkline';
+import { Sparkline, SparklinePoint } from '../common/Sparkline';
 import { useLanguage } from '../../context/LanguageContext';
 import { PMCMetricsSkeleton } from '../skeletons/PMCMetricsSkeleton';
 
@@ -21,6 +21,7 @@ interface PMCMetricsProps {
   atlHistory?: number[];
   tsbHistory?: number[];
   weightHistory?: number[];
+  weightPoints?: SparklinePoint[];
   tier?: SubscriptionTier;
   loading?: boolean;
 }
@@ -37,6 +38,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
   atlHistory = [],
   tsbHistory = [],
   weightHistory = [],
+  weightPoints = [],
   tier = 'free',
   loading = false,
 }) => {
@@ -63,11 +65,11 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
     : Math.max(0, Math.min(100, Math.round(50 + Math.max(-20, Math.min(20, tsb * 0.5)))));
 
   const getTsbState = (val: number) => {
-    if (val > 25) return { label: t('dashboard.tsbFreshUndertrained', 'Fresh / Undertrained'), color: '#38BDF8', bg: 'bg-sky-500/15', text: 'text-sky-500', index: 0 };
-    if (val >= 5) return { label: t('dashboard.tsbFresh', 'Fresh'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 1 };
-    if (val >= -10) return { label: t('dashboard.tsbOptimal', 'Optimal'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-500', index: 2 };
-    if (val >= -30) return { label: t('dashboard.tsbHighFatigue', 'High Fatigue'), color: '#F59E0B', bg: 'bg-amber-500/15', text: 'text-amber-500', index: 3 };
-    return { label: t('dashboard.tsbOverreaching', 'Overreaching'), color: '#EF4444', bg: 'bg-rose-500/15', text: 'text-rose-500', index: 4 };
+    if (val > 25) return { label: t('dashboard.tsbFreshUndertrained', 'Fresh / Undertrained'), color: '#38BDF8', bg: 'bg-sky-500/15', text: 'text-sky-600 dark:text-sky-400', index: 0 };
+    if (val > 5) return { label: t('dashboard.tsbFresh', 'Fresh'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-600 dark:text-emerald-400', index: 1 };
+    if (val >= -10) return { label: t('dashboard.tsbNeutral', 'Neutral'), color: '#0EA5E9', bg: 'bg-sky-500/15', text: 'text-sky-600 dark:text-sky-400', index: 2 };
+    if (val >= -30) return { label: t('dashboard.tsbOptimal', 'Optimal Training'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-600 dark:text-emerald-400', index: 3 };
+    return { label: t('dashboard.tsbOverreaching', 'Overreaching'), color: '#EF4444', bg: 'bg-rose-500/15', text: 'text-rose-600 dark:text-rose-400', index: 4 };
   };
   const tsbState = getTsbState(tsb);
 
@@ -213,13 +215,14 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
           {hasWeightData ? (
             <>
               <Sparkline
-                data={weightHistory}
+                data={weightPoints && weightPoints.length > 0 ? weightPoints : weightHistory}
                 color={theme.tint}
                 gradientFrom={`${BrandColors.primary}44`}
                 gradientTo={`${BrandColors.primary}00`}
                 height={32}
                 width={120}
-                minRangePadding={1}
+                minRangePadding={1.5}
+                breakGapDays={14}
               />
               <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.emaTrendline')}</Text>
             </>

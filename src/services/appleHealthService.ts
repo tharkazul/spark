@@ -1014,6 +1014,174 @@ export async function fetchTodayBiometricsFromServer(): Promise<AppleHealthDaily
   return getCachedTodayBiometrics();
 }
 
+const RECENT_BIOMETRICS_KEY = '@rooka:recent_biometrics_cache';
+
+export async function fetchRecentBiometricsFromServer(limit = 7): Promise<AppleHealthDailyBiometrics[]> {
+  try {
+    const res = await apiClient<{ success: boolean; biometrics?: AppleHealthDailyBiometrics[] }>(
+      `/api/healthkit/recent?limit=${limit}`
+    );
+    if (res.success && Array.isArray(res.biometrics)) {
+      await AsyncStorage.setItem(RECENT_BIOMETRICS_KEY, JSON.stringify(res.biometrics));
+      return res.biometrics;
+    }
+  } catch (err) {
+    try {
+      const cached = await AsyncStorage.getItem(RECENT_BIOMETRICS_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+  }
+  return [];
+}
+
+export interface CardiovascularStrainResult {
+  strainLevel: 'none' | 'moderate' | 'elevated' | 'high';
+  strainScore: number; // 0 - 100
+  restingHr: number | null;
+  avgRhr: number | null;
+  rhrDelta: number | null;
+  rhrStatus: 'optimal' | 'normal' | 'elevated';
+  hrv: number | null;
+  avgHrv: number | null;
+  hrvDelta: number | null;
+  hrvStatus: 'prime' | 'balanced' | 'suppressed';
+  sleepMinutes: number | null;
+  headline: string;
+  description: string;
+  actionAdvice: string;
+}
+
+export function computeCardiovascularStrain(
+  today: AppleHealthDailyBiometrics | null | undefined,
+  recent: AppleHealthDailyBiometrics[] = []
+): CardiovascularStrainResult {
+  if (!today) {
+    return {
+      strainLevel: 'none',
+      strainScore: 0,
+      restingHr: null,
+      avgRhr: null,
+      rhrDelta: null,
+      rhrStatus: 'normal',
+      hrv: null,
+      avgHrv: null,
+      hrvDelta: null,
+      hrvStatus: 'balanced',
+      sleepMinutes: null,
+      headline: 'Cardiovascular State: Stable',
+      description: 'No biometric data synced yet.',
+      actionAdvice: 'Sync Apple Health or Garmin to analyze your autonomic recovery.',
+    };
+  }
+
+  // 1. Calculate 7-Day Baseline RHR & HRV
+  const pastDays = recent.filter((r) => r.date !== today.date);
+  const rhrSamples = pastDays.map((r) => r.resting_hr).filter((v): v is number => typeof v === 'number' && v > 0);
+  const hrvSamples = pastDays.map((r) => r.hrv_sdnn).filter((v): v is number => typeof v === 'number' && v > 0);
+
+  const avgRhr = rhrSamples.length > 0 ? Math.round((rhrSamples.reduce((a, b) => a + b, 0) / rhrSamples.length) * 10) / 10 : null;
+  const avgHrv = hrvSamples.length > 0 ? Math.round((hrvSamples.reduce((a, b) => a + b, 0) / hrvSamples.length) * 10) / 10 : null;
+
+  const currentRhr = today.resting_hr ?? null;
+  const currentHrv = today.hrv_sdnn ?? null;
+  const sleepMinutes = today.sleep_minutes ?? null;
+
+  const rhrDelta = currentRhr && avgRhr ? Math.round((currentRhr - avgRhr) * 10) / 10 : null;
+  const hrvDelta = currentHrv && avgHrv ? Math.round((currentHrv - avgHrv) * 10) / 10 : null;
+
+  // 2. Score Strain (0 = fresh/optimal, 100 = high systemic fatigue)
+  let strainScore = 0;
+
+  // Resting HR analysis
+  let rhrStatus: 'optimal' | 'normal' | 'elevated' = 'normal';
+  if (currentRhr) {
+    if (rhrDelta !== null && rhrDelta >= 5) {
+      strainScore += 45;
+      rhrStatus = 'elevated';
+    } else if (rhrDelta !== null && rhrDelta >= 2.5) {
+      strainScore += 25;
+      rhrStatus = 'elevated';
+    } else if (currentRhr > 74) {
+      strainScore += 35;
+      rhrStatus = 'elevated';
+    } else if (currentRhr > 68) {
+      strainScore += 15;
+    } else if (currentRhr < 54) {
+      rhrStatus = 'optimal';
+    }
+  }
+
+  // HRV analysis
+  let hrvStatus: 'prime' | 'balanced' | 'suppressed' = 'balanced';
+  if (currentHrv) {
+    if (hrvDelta !== null && hrvDelta <= -12) {
+      strainScore += 40;
+      hrvStatus = 'suppressed';
+    } else if (hrvDelta !== null && hrvDelta <= -6) {
+      strainScore += 20;
+      hrvStatus = 'suppressed';
+    } else if (currentHrv < 30) {
+      strainScore += 35;
+      hrvStatus = 'suppressed';
+    } else if (currentHrv < 40) {
+      strainScore += 15;
+    } else if (currentHrv >= 55) {
+      hrvStatus = 'prime';
+    }
+  }
+
+  // Sleep deficit contribution
+  if (sleepMinutes && sleepMinutes > 0) {
+    const sleepHours = sleepMinutes / 60;
+    if (sleepHours < 5.2) {
+      strainScore += 25;
+    } else if (sleepHours < 6.2) {
+      strainScore += 10;
+    }
+  }
+
+  strainScore = Math.min(100, Math.max(0, Math.round(strainScore)));
+
+  let strainLevel: 'none' | 'moderate' | 'elevated' | 'high' = 'none';
+  let headline = 'Cardiovascular Engine: Fresh & Primed';
+  let description = 'Resting heart rate and autonomic tone (HRV) indicate minimal fatigue and optimal recovery.';
+  let actionAdvice = 'Great day for high-intensity training or quality intervals!';
+
+  if (strainScore >= 55) {
+    strainLevel = 'high';
+    headline = 'Cardiovascular Strain: High';
+    description = `Resting HR is elevated${rhrDelta !== null ? ` (+${rhrDelta} bpm vs baseline)` : ''}${currentHrv ? ` and HRV is suppressed (${currentHrv} ms)` : ''}. Your autonomic nervous system is carrying heavy recovery debt.`;
+    actionAdvice = 'Prioritize active recovery, light mobility, or an easy Zone 1 walk.';
+  } else if (strainScore >= 30) {
+    strainLevel = 'elevated';
+    headline = 'Cardiovascular Strain: Elevated';
+    description = `Resting HR is trending upward${rhrDelta !== null ? ` (+${rhrDelta} bpm vs 7d avg)` : ''}${currentHrv ? `, with HRV at ${currentHrv} ms` : ''}. Central recovery demand is elevated.`;
+    actionAdvice = 'Stick to aerobic Zone 2 endurance or reduce total session volume.';
+  } else if (strainScore >= 15) {
+    strainLevel = 'moderate';
+    headline = 'Cardiovascular State: Moderate Recovery';
+    description = 'Slight physiological load detected. Cardiovascular markers are mostly stable.';
+    actionAdvice = 'Proceed with planned workouts, but monitor heart rate drift during efforts.';
+  }
+
+  return {
+    strainLevel,
+    strainScore,
+    restingHr: currentRhr,
+    avgRhr,
+    rhrDelta,
+    rhrStatus,
+    hrv: currentHrv,
+    avgHrv,
+    hrvDelta,
+    hrvStatus,
+    sleepMinutes,
+    headline,
+    description,
+    actionAdvice,
+  };
+}
+
 let lastForegroundSyncTimestamp = 0;
 export async function autoSyncAppleHealthOnForeground(): Promise<void> {
   if (Platform.OS !== 'ios') return;
@@ -1030,3 +1198,4 @@ export async function autoSyncAppleHealthOnForeground(): Promise<void> {
     console.log('[AppleHealthService] Background auto-sync skipped/failed:', err);
   }
 }
+

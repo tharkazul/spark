@@ -42,6 +42,7 @@ import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
 import { WorkoutPill } from '../../components/chat/WorkoutPill';
+import { WorkoutDebriefCard } from '../../components/chat/WorkoutDebriefCard';
 import { CoachChatSkeleton } from '../../components/skeletons/CoachChatSkeleton';
 import { useCoachChat, sortMessagesChronological } from '../../context/CoachChatStore';
 import { useGamification } from '../../context/GamificationStore';
@@ -303,6 +304,10 @@ const MessageRow = React.memo(({
             payload={item.payload_json as any}
             onAccept={onAcceptConnection}
             onDecline={onDeclineConnection}
+          />
+        ) : (item.payload_json as any)?.type === 'workout_debrief' ? (
+          <WorkoutDebriefCard
+            debrief={item.payload_json as any}
           />
         ) : null}
 

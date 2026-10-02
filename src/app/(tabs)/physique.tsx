@@ -116,7 +116,7 @@ export default function ProgressScreen() {
           </ScrollView>
         </View>
 
-        {/* PAGE 1: FITNESS (PMC + TRAINING READINESS) */}
+        {/* PAGE 1: FITNESS (PMC METRICS) */}
         <View style={{ width: SCREEN_WIDTH }} className="flex-1">
           <ScrollView
             className="flex-1 px-5 pt-2"

@@ -120,8 +120,8 @@ export function TrainingZonesCard() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (hrZones.length) await zonesApi.save(sport, 'hr', hrZones);
-      if (powerZones.length) await zonesApi.save(sport, 'power', powerZones);
+      if (hrZones.length) await zonesApi.save(sport, 'hr', hrZones, maxHr, ftp);
+      if (powerZones.length) await zonesApi.save(sport, 'power', powerZones, maxHr, ftp);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await load(sport);
       Alert.alert(
@@ -198,9 +198,46 @@ export function TrainingZonesCard() {
 
       <Text className="text-xs text-theme-muted mb-3 font-rajdhani">
         {t('trainingZones.desc')}
-        {maxHr ? ` ${t('trainingZones.maxHrInfo', { val: maxHr })}` : ''}
-        {ftp ? ` ${t('trainingZones.ftpInfo', { val: ftp })}` : ''}
       </Text>
+
+      {/* STRUCTURED BASELINE THRESHOLDS (Max HR & FTP) */}
+      <View className="bg-theme-bg border border-theme-border rounded-xl p-3 mb-3">
+        <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider mb-2">
+          Structured Thresholds
+        </Text>
+        <View className="flex-row items-center gap-3">
+          <View className="flex-1">
+            <Text className="text-[11px] text-theme-muted font-medium mb-1">Max HR (bpm)</Text>
+            <TextInput
+              value={maxHr ? String(maxHr) : ''}
+              onChangeText={(val) => {
+                const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+                setMaxHr(isNaN(num) ? null : num);
+              }}
+              placeholder="e.g. 185"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="number-pad"
+              style={{ color: theme.tint }}
+              className="text-base font-bold font-rajdhani bg-theme-card border border-theme-border rounded-lg px-3 py-1.5"
+            />
+          </View>
+          <View className="flex-1">
+            <Text className="text-[11px] text-theme-muted font-medium mb-1">FTP (watts)</Text>
+            <TextInput
+              value={ftp ? String(ftp) : ''}
+              onChangeText={(val) => {
+                const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+                setFtp(isNaN(num) ? null : num);
+              }}
+              placeholder="e.g. 260"
+              placeholderTextColor={theme.textSecondary}
+              keyboardType="number-pad"
+              style={{ color: theme.tint }}
+              className="text-base font-bold font-rajdhani bg-theme-card border border-theme-border rounded-lg px-3 py-1.5"
+            />
+          </View>
+        </View>
+      </View>
 
       {/* Sport selector — a sport without its own table inherits the all-sports one. */}
       <View className="flex-row gap-1.5 mb-3">

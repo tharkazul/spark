@@ -18,6 +18,7 @@ import { DayAgenda } from './MicroPlanAgendaCard';
 import { sportColor } from '../../constants/theme';
 import { calculateWorkoutDurationMinutes, formatDuration } from '../../utils/format';
 import { WorkoutStructureBar } from './WorkoutStructureBar';
+import { WhyThisWorkoutSheet } from './WhyThisWorkoutSheet';
 import { useLanguage } from '../../context/LanguageContext';
 
 export const getLocalizedDayName = (dayName: string, t: any) => {
@@ -85,6 +86,7 @@ export function DetailedDayCard({
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const { t } = useLanguage();
   const [activeMenuWorkout, setActiveMenuWorkout] = useState<WorkoutItem | null>(null);
+  const [whyWorkout, setWhyWorkout] = useState<WorkoutItem | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const [syncedWorkoutIds, setSyncedWorkoutIds] = useState<Record<string, boolean>>({});
 
@@ -430,6 +432,16 @@ export function DetailedDayCard({
                     <Button
                       variant="ghost"
                       size="sm"
+                      label="Why this workout"
+                      leftIcon={<Ionicons name="sparkles" size={12} color="#0EA5E9" />}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setWhyWorkout(workout);
+                      }}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       label={t('common.invite', 'Invite')}
                       leftIcon={<Ionicons name="people-outline" size={13} color="#0EA5E9" />}
                       onPress={() => onInvitePartner(workout)}
@@ -553,6 +565,14 @@ export function DetailedDayCard({
           </Pressable>
         </Modal>
       )}
+
+      {/* WHY THIS WORKOUT SHEET */}
+      <WhyThisWorkoutSheet
+        visible={Boolean(whyWorkout)}
+        workout={whyWorkout}
+        dayName={day.dayName}
+        onClose={() => setWhyWorkout(null)}
+      />
     </Card>
   );
 }

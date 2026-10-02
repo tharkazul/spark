@@ -33,17 +33,17 @@ import { useTabBarInset } from '../../hooks/useTabBarInset';
 import { useUser } from '../../context/UserStore';
 import { integrationsApi } from '../../services/apiServices';
 
-import { AccountTab } from '../../components/profile/AccountTab';
 import { ConnectionsTab } from '../../components/profile/ConnectionsTab';
 import { CoachTab } from '../../components/profile/CoachTab';
 import { ProfileTab } from '../../components/profile/ProfileTab';
+import { TrainingTab } from '../../components/profile/TrainingTab';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 import { hasSubscriptionTier } from '../../utils/permissions';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export type ProfileSubTab = 'profile' | 'coach' | 'connections' | 'account';
-const TABS: ProfileSubTab[] = ['profile', 'coach', 'connections', 'account'];
+export type ProfileSubTab = 'profile' | 'training' | 'coach' | 'connections';
+const TABS: ProfileSubTab[] = ['profile', 'training', 'coach', 'connections'];
 
 export default function ProfileScreen() {
   const theme = useTheme();
@@ -64,7 +64,7 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       const rawSubtab = params.subtab;
-      const targetSubtab = rawSubtab === 'goals' ? 'coach' : rawSubtab;
+      const targetSubtab = rawSubtab === 'goals' ? 'training' : rawSubtab;
       if (targetSubtab && TABS.includes(targetSubtab as ProfileSubTab)) {
         const targetTab = targetSubtab as ProfileSubTab;
         const index = TABS.indexOf(targetTab);
@@ -394,9 +394,9 @@ export default function ProfileScreen() {
 
             const labelMap: Record<ProfileSubTab, string> = {
               profile: t('profile.tabProfile') || 'Profile',
+              training: t('profile.tabTraining') || 'Training',
               coach: t('profile.tabCoach') || 'Coach',
               connections: t('profile.tabConnections') || 'Connections',
-              account: t('profile.tabAccount') || 'Account',
             };
             const label = labelMap[tab];
 
@@ -426,13 +426,6 @@ export default function ProfileScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        // Progress, Social and Profile each own a horizontal sub-tab pager, and
-        // the main tabs are now a pager too. Turning off bounce/overscroll is
-        // what makes the two cooperate: while this pager can still scroll in the
-        // drag direction it keeps the gesture, and once it is at its first or
-        // last page it has nowhere to go, so the drag passes up to the tab pager
-        // and you cross into the next main tab. With bounce on, the inner pager
-        // swallows the drag at its edge and rubber-bands instead.
         bounces={false}
         overScrollMode="never"
         onScroll={Animated.event(
@@ -448,14 +441,31 @@ export default function ProfileScreen() {
             className="flex-1 px-4 pt-4"
             contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
             <ProfileTab
               username={username}
               email={email}
               isRookaPlus={isRookaPlus}
+              onLogout={() => logout()}
               renderSettingRow={renderSettingRow}
             />
+          </ScrollView>
+        </View>
+
+        {/* TRAINING TAB PAGE */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <ScrollView
+            className="flex-1 px-4 pt-4"
+            contentContainerStyle={{ paddingBottom: tabBarInset }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
+          >
+            <TrainingTab />
           </ScrollView>
         </View>
 
@@ -465,7 +475,9 @@ export default function ProfileScreen() {
             className="flex-1 px-4 pt-4"
             contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
             <CoachTab />
           </ScrollView>
@@ -477,7 +489,9 @@ export default function ProfileScreen() {
             className="flex-1 px-4 pt-4"
             contentContainerStyle={{ paddingBottom: tabBarInset }}
             showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
             <ConnectionsTab
               onOpenGarminModal={() => setGarminModalVisible(true)}
@@ -485,18 +499,6 @@ export default function ProfileScreen() {
               onDisconnectStrava={handleDisconnectStrava}
               stravaLoading={stravaLoading}
             />
-          </ScrollView>
-        </View>
-
-        {/* ACCOUNT TAB PAGE */}
-        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
-          <ScrollView
-            className="flex-1 px-4 pt-4"
-            contentContainerStyle={{ paddingBottom: tabBarInset }}
-            showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={notifyScroll}            onScrollEndDrag={notifyScrollEnd}            onMomentumScrollEnd={notifyScrollEnd}
-          >
-            <AccountTab onLogout={() => logout()} isRookaPlus={isRookaPlus} />
           </ScrollView>
         </View>
       </ScrollView>

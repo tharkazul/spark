@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Image, useColorScheme, ImageSourcePropType } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { sportColor } from '../../constants/theme';
-import { getSportEmblem } from '../../utils/disciplineConfig';
+import { getSportEmblem, normalizeSportType } from '../../utils/disciplineConfig';
 
 export interface SportMedallionProps {
   sport?: string;
@@ -42,7 +42,7 @@ export function SportMedallion({
   style,
 }: SportMedallionProps) {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const cleanKey = String(sport || 'REST').toUpperCase().trim();
+  const cleanKey = normalizeSportType(sport);
   const color = onAccent ? '#FFFFFF' : sportColor(cleanKey, scheme);
   const isGlyphOnly = size <= 32;
 

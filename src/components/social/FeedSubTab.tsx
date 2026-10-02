@@ -277,7 +277,8 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
       }
 
       const uId = act.user_id || 'unknown';
-      const dateKey = act.start_date ? act.start_date.substring(0, 10) : 'recent';
+      const effectiveDate = act.start_date_local || act.start_date;
+      const dateKey = effectiveDate ? effectiveDate.substring(0, 10) : 'recent';
       const key = `${uId}_${dateKey}`;
 
       if (!groupMap.has(key)) {
@@ -288,7 +289,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
           profile_picture_url: act.profile_picture_url || (act as any).profilePictureUrl,
           rooka_level: act.rooka_level,
           equipped_title: act.equipped_title,
-          dateStr: act.start_date ? formatRelativeDayAndTime(act.start_date, language) : 'Recent',
+          dateStr: effectiveDate ? formatRelativeDayAndTime(effectiveDate, language) : 'Recent',
           totalRooka: Math.round(act.rooka_score || 0),
           activities: [act],
           isMultiSport: false,

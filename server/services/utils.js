@@ -55,44 +55,60 @@ function getUserGamificationContext(userId) {
       `SELECT start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC`,
       [userId],
       (err, rows) => {
-        let streak = 0;
-        if (!err && rows && rows.length > 0) {
-          const todayStr = getAMSDateString();
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStr = getAMSDateString(yesterday);
+        db.all(
+          `SELECT date, sport FROM micro_plan WHERE user_id = ? AND (LOWER(sport) = 'rest' OR LOWER(sport) = 'recovery') ORDER BY date DESC`,
+          [userId],
+          (errPlan, planRows) => {
+            const restDates = new Set(
+              (planRows || [])
+                .map((r) => (r.date ? r.date.substring(0, 10) : ''))
+                .filter(Boolean)
+            );
 
-          // Group by unique days
-          const activityDates = [
-            ...new Set(
-              rows.map((r) => {
-                if (!r.start_date) return '';
-                const parts = r.start_date.split(/[T ]/);
-                return parts[0] || r.start_date.substring(0, 10);
-              })
-            ),
-          ].filter(Boolean);
+            let streak = 0;
+            if (!err && rows && rows.length > 0) {
+              // Group by unique days
+              const activityDates = new Set(
+                rows.map((r) => {
+                  if (!r.start_date) return '';
+                  const parts = r.start_date.split(/[T ]/);
+                  return parts[0] || r.start_date.substring(0, 10);
+                }).filter(Boolean)
+              );
 
-          if (
-            activityDates.includes(todayStr) ||
-            activityDates.includes(yesterdayStr)
-          ) {
-            let currentDate = new Date();
-            if (!activityDates.includes(todayStr)) {
-              currentDate = yesterday;
-            }
+              let checkDate = new Date();
+              let foundStart = false;
 
-            while (true) {
-              const checkDateStr = getAMSDateString(currentDate);
-              if (activityDates.includes(checkDateStr)) {
-                streak++;
-                currentDate.setDate(currentDate.getDate() - 1);
-              } else {
-                break;
+              for (let lookback = 0; lookback <= 3; lookback++) {
+                const dStr = getAMSDateString(checkDate);
+                if (activityDates.has(dStr)) {
+                  foundStart = true;
+                  break;
+                }
+                if (lookback > 0 && !restDates.has(dStr)) {
+                  break;
+                }
+                checkDate.setDate(checkDate.getDate() - 1);
+              }
+
+              if (foundStart) {
+                let consecutiveRest = 0;
+                while (true) {
+                  const checkDateStr = getAMSDateString(checkDate);
+                  if (activityDates.has(checkDateStr)) {
+                    streak++;
+                    consecutiveRest = 0;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                  } else if (restDates.has(checkDateStr)) {
+                    consecutiveRest++;
+                    if (consecutiveRest > 3) break;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                  } else {
+                    break;
+                  }
+                }
               }
             }
-          }
-        }
 
         db.get(
           `SELECT SUM(amount) as total FROM bonus_points WHERE user_id = ?`,
@@ -116,7 +132,9 @@ function getUserGamificationContext(userId) {
         );
       },
     );
-  });
+  },
+);
+});
 }
 
 function getUserLeaderboardString(userId) {
@@ -725,13 +743,29 @@ function extractStravaPolyline(data) {
 
 function mapStravaSportToRooka(stravaSport) {
   if (!stravaSport) return "Other";
-  if (stravaSport.includes("Run")) return "Run";
-  if (stravaSport.includes("Ride") || stravaSport.includes("VirtualRide"))
+  const s = String(stravaSport).toLowerCase();
+  if (s.includes("run") || s.includes("jog") || s.includes("treadmill")) return "Run";
+  if (s.includes("ride") || s.includes("bike") || s.includes("cycle") || s.includes("gravel") || s.includes("spin"))
     return "Bike";
-  if (stravaSport.includes("Swim")) return "Swim";
-  if (stravaSport.includes("WeightTraining") || stravaSport.includes("Workout"))
+  if (s.includes("swim") || s.includes("water")) return "Swim";
+  if (
+    s.includes("weight") ||
+    s.includes("strength") ||
+    s.includes("workout") ||
+    s.includes("gym") ||
+    s.includes("crossfit") ||
+    s.includes("fitness") ||
+    s.includes("lift") ||
+    s.includes("hyrox")
+  )
     return "Strength";
-  return "Other";
+  if (s.includes("yoga") || s.includes("pilates") || s.includes("stretch") || s.includes("mobility"))
+    return "Mobility";
+  if (s.includes("walk") || s.includes("hike"))
+    return "Walk";
+  if (s.includes("cardio") || s.includes("hiit") || s.includes("row") || s.includes("elliptical"))
+    return "Cardio";
+  return "Strength";
 }
 
 /**
@@ -3539,7 +3573,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
       parts.push(`Resting HR: ${todayBiometrics.resting_hr} bpm`);
     }
     if (parts.length > 0) {
-      todayBiometricsNote = `Athlete's fresh morning recovery metrics from Apple Health / Garmin: ${parts.join(', ')}. If sleep was great or HRV is high, celebrate their readiness; if sleep was poor (<5.5h) or HRV low, acknowledge it and suggest listening to their body today. `;
+      todayBiometricsNote = `ATHLETE MORNING RECOVERY BIOMETRICS (Apple Health / Garmin): ${parts.join(', ')}. PROACTIVELY acknowledge and reference their sleep or recovery in your greeting (e.g., if sleep was solid or HRV is high, compliment their recovery state and readiness for today's workout; if sleep was poor or low, acknowledge it and recommend easing in). `;
     }
   }
 

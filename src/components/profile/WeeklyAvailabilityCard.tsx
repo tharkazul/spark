@@ -96,76 +96,156 @@ export const WeeklyAvailabilityCard: React.FC = () => {
     }
   };
 
+  const [selectedDay, setSelectedDay] = useState<string>('Mon');
+
+  const PRESET_MINUTES = [0, 30, 45, 60, 90, 120];
+
   return (
-    <Card className="p-4 mb-6">
-      <View className="flex-row items-center justify-between pb-2 mb-1 border-b border-theme-border/30">
+    <Card className="p-4 mb-4">
+      <View className="flex-row items-center justify-between pb-2 mb-2 border-b border-theme-border/30">
         <View className="flex-row items-center gap-x-2">
           <Ionicons name="calendar-outline" size={18} color={theme.tint} />
           <Text className="text-sm font-bold text-theme-text font-rajdhani">
-            {t('availability.title')}
+            {t('availability.title', 'Weekly Training Availability')}
           </Text>
         </View>
         {hasChanges && !saving && (
           <View className="px-2 py-0.5 rounded-full bg-semantic-warning/15">
-            <Text className="text-[11px] font-bold text-semantic-warning">{t('availability.unsaved')}</Text>
+            <Text className="text-[11px] font-bold text-semantic-warning">{t('availability.unsaved', 'Unsaved')}</Text>
           </View>
         )}
       </View>
 
       <Text className="text-xs text-theme-muted mb-3">
-        {t('availability.desc')}
+        {t('availability.desc', 'Tap a day to set how many minutes you have available for training.')}
       </Text>
 
-      <View className="gap-2 pt-1">
+      {/* 7-COLUMN DAY STRIP */}
+      <View className="flex-row justify-between gap-1 mb-3">
         {DAYS.map((day) => {
           const currentVal = availability[day]?.maxMinutes || 0;
           const isRest = currentVal === 0;
+          const isSelected = selectedDay === day;
           const dayKey = `days.${day.toLowerCase()}Short` as any;
-          const dayLabel = t(dayKey) || day;
-          return (
-            <View
-              key={day}
-              className="bg-theme-bg px-3 py-2.5 rounded-xl border border-theme-border/60 flex-row items-center justify-between"
-            >
-              <Text className="text-theme-text font-bold text-xs w-12">{dayLabel}</Text>
+          const dayLabel = (t(dayKey) || day).slice(0, 3);
 
-              <DurationRoller
-                value={currentVal}
-                onChange={(minutes) => handleDayDurationChange(day, minutes)}
-                disabled={saving}
-                unitLabel={isRest ? t('onboarding.restDay') || 'Rest Day' : t('onboarding.minutesUnit') || 'min'}
-              />
-            </View>
+          return (
+            <TouchableOpacity
+              key={day}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedDay(day);
+              }}
+              activeOpacity={0.75}
+              className={`flex-1 items-center py-2.5 px-1 rounded-xl border ${
+                isSelected
+                  ? 'bg-theme-accent/15 border-theme-accent'
+                  : isRest
+                  ? 'bg-theme-bg border-theme-border/40 opacity-70'
+                  : 'bg-theme-bg border-theme-border/70'
+              }`}
+            >
+              <Text
+                className={`text-[11px] font-bold uppercase mb-1 ${
+                  isSelected ? 'text-theme-accent' : 'text-theme-muted'
+                }`}
+              >
+                {dayLabel}
+              </Text>
+              <View
+                className={`px-1.5 py-0.5 rounded-md ${
+                  isRest
+                    ? 'bg-slate-500/10'
+                    : isSelected
+                    ? 'bg-theme-accent/25'
+                    : 'bg-theme-inset'
+                }`}
+              >
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className={`text-[11px] font-bold font-rajdhani ${
+                    isRest
+                      ? 'text-theme-muted'
+                      : isSelected
+                      ? 'text-theme-accent'
+                      : 'text-theme-text'
+                  }`}
+                >
+                  {isRest ? 'Rest' : `${currentVal}m`}
+                </Text>
+              </View>
+            </TouchableOpacity>
           );
         })}
       </View>
 
-      <ScalePressable
-        onPress={handleSave}
-        disabled={saving || !hasChanges}
-        activeScale={0.96}
-        haptic="selection"
-        className={`w-full py-3 rounded-xl items-center justify-center mt-4 shadow-sm flex-row gap-x-2 ${
-          hasChanges ? 'bg-theme-accent' : 'bg-theme-border/50 opacity-50'
-        }`}
-      >
-        {saving ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <>
-            <Ionicons name="checkmark-sharp" size={15} color={hasChanges ? '#FFFFFF' : theme.textSecondary} />
-            <Text className={`font-bold text-xs ${hasChanges ? 'text-white' : 'text-theme-muted'}`}>
-              {t('availability.saveAvailability')}
-            </Text>
-          </>
-        )}
-      </ScalePressable>
+      {/* ACTIVE DAY DURATION SELECTOR */}
+      <View className="bg-theme-bg p-3 rounded-xl border border-theme-border/60">
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-xs font-bold text-theme-text font-jakarta">
+            {selectedDay} {t('availability.daySettings', 'Target Window')}
+          </Text>
+          <Text className="text-xs font-bold text-theme-accent font-rajdhani">
+            {availability[selectedDay]?.maxMinutes === 0
+              ? t('onboarding.restDay', 'Rest Day')
+              : `${availability[selectedDay]?.maxMinutes} min`}
+          </Text>
+        </View>
+
+        {/* Quick Presets */}
+        <View className="flex-row flex-wrap gap-1.5">
+          {PRESET_MINUTES.map((mins) => {
+            const isActive = (availability[selectedDay]?.maxMinutes || 0) === mins;
+            return (
+              <TouchableOpacity
+                key={`preset-${mins}`}
+                onPress={() => handleDayDurationChange(selectedDay, mins)}
+                activeOpacity={0.7}
+                className={`px-3 py-1.5 rounded-lg border ${
+                  isActive
+                    ? 'bg-theme-accent border-theme-accent'
+                    : 'bg-theme-card border-theme-border'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold font-rajdhani ${
+                    isActive ? 'text-white' : 'text-theme-text'
+                  }`}
+                >
+                  {mins === 0 ? 'Rest' : `${mins}m`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {hasChanges && (
+        <ScalePressable
+          onPress={handleSave}
+          disabled={saving}
+          activeScale={0.96}
+          haptic="selection"
+          className="w-full py-2.5 rounded-xl items-center justify-center mt-3 shadow-sm flex-row gap-x-2 bg-theme-accent"
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-sharp" size={14} color="#FFFFFF" />
+              <Text className="font-bold text-xs text-white">
+                {t('availability.saveAvailability', 'Save Availability')}
+              </Text>
+            </>
+          )}
+        </ScalePressable>
+      )}
 
       {saveSuccess && (
-        <View className="p-2.5 bg-semantic-success/10 rounded-xl mt-3 items-center flex-row justify-center gap-x-1.5 border border-semantic-success/20">
+        <View className="p-2 bg-semantic-success/10 rounded-xl mt-2.5 items-center flex-row justify-center gap-x-1.5 border border-semantic-success/20">
           <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
           <Text className="text-semantic-success font-bold text-xs">
-            {t('availability.availabilitySaved')}
+            {t('availability.availabilitySaved', 'Availability saved')}
           </Text>
         </View>
       )}

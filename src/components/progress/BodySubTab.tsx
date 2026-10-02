@@ -9,14 +9,24 @@ import { NiggleCard } from '../health/NiggleCard';
 import { SonarSleepCard } from '../health/SonarSleepCard';
 import { SonarVitalsCard } from '../health/SonarVitalsCard';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
+import { Sparkline } from '../common/Sparkline';
+import { LogWeightModal } from '../dashboard/LogWeightModal';
+import { ScalePressable } from '../ui/ScalePressable';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useHealth } from '../../context/HealthStore';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUser } from '../../context/UserStore';
+import { useActivities } from '../../context/ActivityStore';
+import { usePhysique } from '../../context/PhysiqueStore';
+import { useTheme } from '@/hooks/use-theme';
+import { calculatePMCMetrics } from '../../utils/pmcUtils';
 import {
   AppleHealthDailyBiometrics,
   getCachedTodayBiometrics,
   fetchTodayBiometricsFromServer,
+  fetchRecentBiometricsFromServer,
 } from '../../services/appleHealthService';
 
 interface BodySubTabProps {
@@ -29,11 +39,18 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
   onSaveNiggle,
   onResolveNiggle,
 }) => {
+  const theme = useTheme();
   const { t } = useLanguage();
+  const { user } = useUser();
+  const { activities } = useActivities();
+  const { physiqueLogs, logPhysique } = usePhysique();
   const { niggles: storeNiggles, saveNiggle: storeSaveNiggle, resolveNiggle: storeResolveNiggle } = useHealth();
   const niggles = storeNiggles as ActiveNiggle[];
+
   const [modalVisible, setModalVisible] = useState(false);
+  const [logWeightModalVisible, setLogWeightModalVisible] = useState(false);
   const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
+  const [recentBiometrics, setRecentBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,10 +60,19 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
     fetchTodayBiometricsFromServer().then((fresh) => {
       if (!cancelled && fresh) setTodayBiometrics(fresh);
     });
+    fetchRecentBiometricsFromServer(7).then((recent) => {
+      if (!cancelled && Array.isArray(recent)) setRecentBiometrics(recent);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const pmcMetrics = calculatePMCMetrics(
+    activities,
+    user?.athlete_metrics?.weight_kg || 0,
+    physiqueLogs
+  );
 
   // Form state
   const [selectedPartId, setSelectedPartId] = useState<string>('left_ankle_foot');
@@ -96,18 +122,76 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
     if (modalVisible) setModalVisible(false);
   };
 
+  const handleSaveWeight = async (newWeight: number) => {
+    try {
+      if (logPhysique) {
+        await logPhysique({ weight_kg: newWeight });
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setLogWeightModalVisible(false);
+    } catch (err) {
+      console.error('Failed to log weight:', err);
+    }
+  };
+
   return (
-    <View className="gap-y-4">
-      {/* 1. SONAR AI SLEEP ANALYSIS CARD */}
-      <SonarSleepCard biometrics={todayBiometrics} />
+    <View className="gap-y-4 pb-8">
+      {/* 1. BODY WEIGHT & TREND CARD */}
+      <Card className="p-4 bg-theme-card border border-theme-border">
+        <View className="flex-row items-center justify-between mb-3">
+          <View className="flex-row items-center gap-2">
+            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
+            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+              {t('dashboard.bodyWeight', 'Body Weight')}
+            </Text>
+          </View>
 
-      {/* 2. SONAR AI VITAL TRENDS CARD (HRV, RHR, Resting) */}
-      <SonarVitalsCard biometrics={todayBiometrics} />
+          <ScalePressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              setLogWeightModalVisible(true);
+            }}
+            activeScale={0.96}
+            haptic="selection"
+            className="flex-row items-center gap-1 px-2.5 py-1 rounded-full bg-theme-accent/10 border border-theme-accent/20"
+          >
+            <Ionicons name="add-circle-outline" size={14} color={theme.tint} />
+            <Text className="text-xs font-extrabold text-theme-accent">{t('dashboard.logWeight', 'Log Weight')}</Text>
+          </ScalePressable>
+        </View>
 
-      {/* 3. CYCLE TRACKER & COACH SYNC WIDGET */}
-      <CycleTrackingWidget />
+        <View className="flex-row items-center justify-between">
+          <View>
+            <View className="flex-row items-baseline gap-1">
+              <Text className="text-3xl font-bold font-rajdhani text-theme-text tabular-nums">
+                {pmcMetrics.weightKg > 0 ? pmcMetrics.weightKg.toFixed(1) : '—'}
+              </Text>
+              <Text className="text-sm font-semibold text-theme-muted">kg</Text>
+            </View>
+            <Text className="text-[11px] text-theme-muted mt-0.5">
+              {pmcMetrics.weightPoints.length > 1
+                ? `${pmcMetrics.weightPoints.length} logs recorded`
+                : 'Baseline body mass'}
+            </Text>
+          </View>
 
-      {/* 4. INJURY TRACKER & ANATOMICAL BODY MAP CARD */}
+          {/* Sparkline trend with date stamps & min range padding */}
+          <View className="w-36 h-10 items-end justify-center">
+            {pmcMetrics.weightPoints.length > 0 ? (
+              <Sparkline
+                data={pmcMetrics.weightPoints}
+                width={140}
+                height={36}
+                color={theme.tint}
+                minRangePadding={1.5}
+                breakGapDays={14}
+              />
+            ) : null}
+          </View>
+        </View>
+      </Card>
+
+      {/* 2. INJURY TRACKER & ANATOMICAL BODY MAP CARD (CAPPED AT 260PT) */}
       <Card className="bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-x-2">
@@ -121,17 +205,31 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
           </Text>
         </View>
 
-        {/* Anatomical Mannequin Body Map */}
-        <AnatomicalBodyMap activeNiggles={niggles} onSelectBodyPart={handleSelectBodyPart} />
+        {/* Anatomical Mannequin Body Map Capped at 260pt */}
+        <AnatomicalBodyMap
+          activeNiggles={niggles}
+          onSelectBodyPart={handleSelectBodyPart}
+          biometrics={todayBiometrics}
+          recentBiometrics={recentBiometrics}
+        />
       </Card>
 
-      {/* 5. ACTIVE ISSUES FEED & HEALTHY EMPTY STATE */}
+      {/* 3. ACTIVE ISSUES FEED & PLAN ADAPTATIONS */}
       <NiggleCard
         niggles={niggles}
         onSelectBodyPart={handleSelectBodyPart}
         onResolveNiggle={handleResolve}
         onLogNew={() => handleSelectBodyPart('left_calf', 'Left Calf')}
       />
+
+      {/* 4. SONAR AI SLEEP ANALYSIS CARD */}
+      <SonarSleepCard biometrics={todayBiometrics} />
+
+      {/* 5. SONAR AI VITAL TRENDS CARD (HRV, RHR, Resting) */}
+      <SonarVitalsCard biometrics={todayBiometrics} recentBiometrics={recentBiometrics} />
+
+      {/* 6. CYCLE TRACKER & COACH SYNC WIDGET */}
+      <CycleTrackingWidget />
 
       {/* NIGGLE LOGGING MODAL / BOTTOM SHEET */}
       <BottomSheetModal
@@ -215,6 +313,16 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
           </View>
         </ScrollView>
       </BottomSheetModal>
+
+      {/* LOG WEIGHT MODAL */}
+      <LogWeightModal
+        visible={logWeightModalVisible}
+        previousWeight={pmcMetrics.weightKg > 0 ? pmcMetrics.weightKg : 70}
+        onClose={() => setLogWeightModalVisible(false)}
+        onSaveWeight={handleSaveWeight}
+      />
     </View>
   );
 };
+
+export default BodySubTab;

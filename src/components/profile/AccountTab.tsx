@@ -17,6 +17,7 @@ import { useSubscription } from '../../context/SubscriptionStore';
 import { AppliedDiscount, DiscountValidationResult, PricingBreakdown } from '../../types/discount';
 import { DiscountCodeField } from '../subscription/DiscountCodeField';
 import { formatDate, formatDiscountSummary } from '../../utils/discountFormat';
+import { formatTokens, formatCompactNumber } from '../../utils/format';
 import { LanguageSelector } from '../LanguageSelector';
 
 interface AccountTabProps {
@@ -292,27 +293,65 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
         </View>
       </Card>
 
-      {/* USAGE STATISTICS */}
-      <Card className="p-4 mb-6">
-        <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
-          <View className="w-2.5 h-2.5 rounded-full bg-purple-500 mr-2" />
-          <Text className="text-theme-text font-bold text-sm">{t('account.usageStatistics')}</Text>
-        </View>
+      {/* USAGE STATISTICS / COACH USAGE METER */}
+      {tier === 'admin' ? (
+        <Card className="p-4 mb-6">
+          <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/20">
+            <View className="flex-row items-center gap-2">
+              <View className="w-2.5 h-2.5 rounded-full bg-purple-500 mr-1" />
+              <Text className="text-theme-text font-bold text-sm">Admin Token Quota</Text>
+            </View>
+            <View className="px-2 py-0.5 rounded bg-purple-500/15">
+              <Text className="text-[10px] font-bold text-purple-600 dark:text-purple-400">ADMIN</Text>
+            </View>
+          </View>
 
-        <View className="p-4 bg-theme-bg rounded-xl flex-row items-center justify-between">
-          <View className="flex-1 pr-3">
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              {t('account.dailyTokenRate')}
-            </Text>
-            <Text className="text-xs text-theme-muted mt-1">
-              {t('account.tokensConsumedToday', { limit: dailyLimit.toLocaleString() })}
+          <View className="p-3.5 bg-theme-bg rounded-xl flex-row items-center justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+                Daily Token Consumption
+              </Text>
+              <Text className="text-xs text-theme-muted mt-0.5">
+                {formatTokens(dailyUsage)} of {formatTokens(dailyLimit)} tokens consumed
+              </Text>
+            </View>
+            <View className="px-3 py-1.5 bg-theme-accent/10 rounded-xl">
+              <Text className="text-base font-bold text-theme-accent">{formatTokens(dailyUsage)}</Text>
+            </View>
+          </View>
+        </Card>
+      ) : (
+        <Card className="p-4 mb-6">
+          <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/20">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="sparkles" size={16} color={theme.tint} />
+              <Text className="text-theme-text font-bold text-sm">Daily Coach Usage</Text>
+            </View>
+            <Text className="text-xs font-bold font-rajdhani text-theme-accent">
+              {Math.min(100, Math.round((dailyUsage / Math.max(1, dailyLimit)) * 100))}%
             </Text>
           </View>
-          <View className="px-3 py-1.5 bg-theme-accent/10 rounded-xl">
-            <Text className="text-lg font-bold text-theme-accent">{dailyUsage.toLocaleString()}</Text>
+
+          <View className="gap-y-2">
+            <View className="w-full h-2 rounded-full bg-theme-inset overflow-hidden">
+              <View
+                style={{
+                  width: `${Math.min(100, Math.max(4, Math.round((dailyUsage / Math.max(1, dailyLimit)) * 100)))}%`,
+                }}
+                className="h-full bg-theme-accent rounded-full"
+              />
+            </View>
+            <View className="flex-row justify-between items-center">
+              <Text className="text-[11px] text-theme-muted">
+                {dailyUsage > 0 ? 'AI analysis & planning active' : 'Ready for daily workouts'}
+              </Text>
+              <Text className="text-[11px] font-medium text-theme-muted">
+                Resets at midnight
+              </Text>
+            </View>
           </View>
-        </View>
-      </Card>
+        </Card>
+      )}
 
       {/* ROOKA+ UPGRADE / MEMBER CARD */}
       <TouchableOpacity

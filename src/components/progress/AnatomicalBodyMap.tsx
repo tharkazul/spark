@@ -2,10 +2,16 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Pressable, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { G, Path, Ellipse, Circle, Line } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { fatiguePercentages, MuscleGroup } from '../../domain/muscleLoad';
+import { BottomSheetModal } from '../ui/BottomSheetModal';
+import {
+  AppleHealthDailyBiometrics,
+  computeCardiovascularStrain,
+} from '../../services/appleHealthService';
 import {
   getBodyModel,
   BodySize,
@@ -28,6 +34,8 @@ export interface AnatomicalBodyMapProps {
   initialSize?: BodySize;
   onSizeChange?: (size: BodySize) => void;
   genderOverride?: BodyGender;
+  biometrics?: AppleHealthDailyBiometrics | null;
+  recentBiometrics?: AppleHealthDailyBiometrics[];
 }
 
 export const BODY_PARTS_LOOKUP: Record<string, string> = {
@@ -345,9 +353,9 @@ export const getBodyPartFromCoordinates = (
   return null;
 };
 
-// Fixed image dimensions so the container never shifts or resizes when toggling size:
-const FIXED_CANVAS_WIDTH = 180;
-const FIXED_CANVAS_HEIGHT = 414;
+// Fixed image dimensions capped at 260pt height:
+const FIXED_CANVAS_WIDTH = 115;
+const FIXED_CANVAS_HEIGHT = 260;
 
 export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   activeNiggles = [],
@@ -355,6 +363,8 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   initialSize,
   onSizeChange,
   genderOverride,
+  biometrics,
+  recentBiometrics = [],
 }) => {
   const { user } = useUser();
   const { activities } = useActivities();
@@ -363,12 +373,18 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   const [view, setView] = useState<BodyView>('front');
   const [size, setSize] = useState<BodySize>(initialSize || 'medium');
+  const [showCardioModal, setShowCardioModal] = useState(false);
   const lastPressTime = useRef<number>(0);
 
   // Compute 7-day workload muscle fatigue percentages from activities:
   const fatigueScores = useMemo(() => {
     return fatiguePercentages(activities as any);
   }, [activities]);
+
+  // Compute systemic cardiovascular & autonomic recovery strain:
+  const cardioStrain = useMemo(() => {
+    return computeCardiovascularStrain(biometrics, recentBiometrics);
+  }, [biometrics, recentBiometrics]);
 
   // Load persisted size preference on mount if not provided as initialSize:
   useEffect(() => {
@@ -423,7 +439,22 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       return { fill: '#F59E0B', stroke: '#FCD34D', strokeWidth: 2.0 };
     }
 
-    // 2. Otherwise: color based on muscle fatigue (fresh = green, fatigued = yellow/orange/red)
+    // 2. Cardiovascular Core Strain: if part is chest or upper core, factor in autonomic/RHR strain
+    const isChest = partId === 'chest_left' || partId === 'chest_right';
+    const isCore = partId === 'abs_left' || partId === 'abs_right';
+    if ((isChest || isCore) && cardioStrain.strainLevel !== 'none') {
+      if (cardioStrain.strainLevel === 'high') {
+        return { fill: isChest ? '#EF4444' : '#F87171', stroke: '#FF4D4D', strokeWidth: 2.0 };
+      }
+      if (cardioStrain.strainLevel === 'elevated') {
+        return { fill: isChest ? '#F59E0B' : '#FBBF24', stroke: '#FCD34D', strokeWidth: 1.8 };
+      }
+      if (cardioStrain.strainLevel === 'moderate') {
+        return { fill: isChest ? '#EAB308' : '#FDE047', stroke: '#FEF08A', strokeWidth: 1.5 };
+      }
+    }
+
+    // 3. Otherwise: color based on muscle fatigue (fresh = green, fatigued = yellow/orange/red)
     const muscleGroup = PART_TO_MUSCLE_GROUP[partId];
     const fatiguePct = muscleGroup && fatigueScores ? (fatigueScores[muscleGroup] ?? 0) : 0;
     const fill = getFatigueColor(fatiguePct);
@@ -439,6 +470,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     lastPressTime.current = now;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // If tapping chest when elevated cardio strain is present, offer to inspect cardio status
+    const isChest = partId === 'chest_left' || partId === 'chest_right';
+    if (isChest && cardioStrain.strainLevel !== 'none' && getNiggleSeverity(partId) === 0) {
+      setShowCardioModal(true);
+      return;
+    }
+
     const name = BODY_PARTS_LOOKUP[partId] || partId.replace('_', ' ');
     onSelectBodyPart(partId, name);
   };
@@ -489,28 +528,60 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Avatar Size Selector: Small, Medium, Large */}
-        <View className="flex-row items-center bg-theme-inset/80 p-1 rounded-xl">
-          {(['small', 'medium', 'large'] as const).map((s) => (
-            <TouchableOpacity
-              key={s}
-              onPress={() => handleSizeSelect(s)}
-              className={`px-3 py-1.5 rounded-lg ${
-                size === s ? 'bg-theme-accent' : 'bg-transparent'
-              }`}
-            >
-              <Text
-                className={`text-xs font-bold capitalize ${
-                  size === s ? 'text-white' : 'text-theme-muted'
-                }`}
-              >
-                {s}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
       </View>
+
+      {/* Interactive Cardiovascular Strain Alert Chip (if strain is elevated/moderate) */}
+      {cardioStrain.strainLevel !== 'none' && (
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowCardioModal(true);
+          }}
+          className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-xl mb-3 border self-stretch justify-between ${
+            cardioStrain.strainLevel === 'high'
+              ? 'bg-red-500/10 border-red-500/30'
+              : cardioStrain.strainLevel === 'elevated'
+              ? 'bg-amber-500/10 border-amber-500/30'
+              : 'bg-yellow-500/10 border-yellow-500/30'
+          }`}
+        >
+          <View className="flex-row items-center gap-2 flex-1 mr-2">
+            <View
+              className="w-2 h-2 rounded-full"
+              style={{
+                backgroundColor:
+                  cardioStrain.strainLevel === 'high'
+                    ? '#EF4444'
+                    : cardioStrain.strainLevel === 'elevated'
+                    ? '#F59E0B'
+                    : '#EAB308',
+              }}
+            />
+            <Text
+              className="text-xs font-bold flex-1"
+              numberOfLines={1}
+              style={{
+                color:
+                  cardioStrain.strainLevel === 'high'
+                    ? '#EF4444'
+                    : cardioStrain.strainLevel === 'elevated'
+                    ? '#F59E0B'
+                    : '#EAB308',
+              }}
+            >
+              {cardioStrain.headline}
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-1">
+            {cardioStrain.rhrDelta !== null && (
+              <Text className="text-[10px] text-theme-muted font-bold">
+                {cardioStrain.rhrDelta >= 0 ? `+${cardioStrain.rhrDelta}` : cardioStrain.rhrDelta} bpm
+              </Text>
+            )}
+            <Ionicons name="chevron-forward" size={13} color="#94A3B8" />
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* SVG Anatomical Mannequin Body Map Canvas - Fixed Container Size */}
       <View className="bg-theme-bg/60 p-4 rounded-2xl shadow-sm relative items-center justify-center">
@@ -608,11 +679,37 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                 );
               })}
             </G>
+
+            {/* Cardio Strain Pulse Marker on Front View */}
+            {cardioStrain.strainLevel !== 'none' && view === 'front' && (
+              <G
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowCardioModal(true);
+                }}
+              >
+                <Circle
+                  cx="100"
+                  cy="100"
+                  r="13"
+                  fill={cardioStrain.strainLevel === 'high' ? '#EF444433' : '#F59E0B33'}
+                  stroke={cardioStrain.strainLevel === 'high' ? '#EF4444' : '#F59E0B'}
+                  strokeWidth="1.2"
+                  strokeDasharray="2 2"
+                />
+                <Circle
+                  cx="100"
+                  cy="100"
+                  r="5"
+                  fill={cardioStrain.strainLevel === 'high' ? '#EF4444' : '#F59E0B'}
+                />
+              </G>
+            )}
           </Svg>
         </Pressable>
 
         {/* Status Heatmap Color Legend: Fresh (Green) -> Fatigued (Orange) -> Injured (Red) */}
-        <View className="flex-row items-center justify-center gap-x-4 mt-3">
+        <View className="flex-row items-center justify-center gap-x-4 mt-3 flex-wrap">
           <View className="flex-row items-center gap-x-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
             <Text className="text-[11px] font-semibold text-theme-muted">Fresh</Text>
@@ -625,12 +722,164 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             <View className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
             <Text className="text-[11px] font-semibold text-theme-muted">Injured</Text>
           </View>
+          {cardioStrain.strainLevel !== 'none' && (
+            <TouchableOpacity
+              onPress={() => setShowCardioModal(true)}
+              className="flex-row items-center gap-x-1.5"
+            >
+              <Ionicons
+                name="heart"
+                size={11}
+                color={cardioStrain.strainLevel === 'high' ? '#EF4444' : '#F59E0B'}
+              />
+              <Text
+                className="text-[11px] font-bold"
+                style={{ color: cardioStrain.strainLevel === 'high' ? '#EF4444' : '#F59E0B' }}
+              >
+                Cardio Load
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Text className="text-[11px] text-theme-muted/80 mt-1.5 font-medium">
           Tap any body region to log an issue or view severity
         </Text>
       </View>
+
+      {/* Cardiovascular Strain Diagnostic Bottom Sheet */}
+      <BottomSheetModal
+        visible={showCardioModal}
+        onClose={() => setShowCardioModal(false)}
+        showHandle={true}
+      >
+        <View className="p-1">
+          {/* Modal Header */}
+          <View className="flex-row items-center gap-3 pb-3 mb-3 border-b border-theme-border/60">
+            <View
+              className="w-10 h-10 rounded-2xl items-center justify-center"
+              style={{
+                backgroundColor:
+                  cardioStrain.strainLevel === 'high'
+                    ? '#EF444420'
+                    : cardioStrain.strainLevel === 'elevated'
+                    ? '#F59E0B20'
+                    : '#EAB30820',
+              }}
+            >
+              <Ionicons
+                name="heart"
+                size={22}
+                color={
+                  cardioStrain.strainLevel === 'high'
+                    ? '#EF4444'
+                    : cardioStrain.strainLevel === 'elevated'
+                    ? '#F59E0B'
+                    : '#EAB308'
+                }
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-extrabold text-theme-text">
+                {cardioStrain.headline}
+              </Text>
+              <Text className="text-xs text-theme-muted font-medium">
+                Autonomic Nervous System & Cardiac Telemetry
+              </Text>
+            </View>
+          </View>
+
+          {/* Metric Tiles (Resting HR & HRV SDNN) */}
+          <View className="flex-row gap-3 mb-4">
+            {/* Resting HR Tile */}
+            <View className="flex-1 bg-slate-800/40 p-3.5 rounded-2xl border border-slate-700/40">
+              <Text className="text-[11px] text-theme-muted font-bold uppercase tracking-wider">
+                Resting Heart Rate
+              </Text>
+              <View className="flex-row items-baseline gap-1 my-1">
+                <Text className="text-2xl font-black text-theme-text">
+                  {cardioStrain.restingHr ?? '--'}
+                </Text>
+                <Text className="text-xs text-theme-muted font-bold">bpm</Text>
+              </View>
+              {cardioStrain.rhrDelta !== null && (
+                <Text
+                  className="text-xs font-bold"
+                  style={{
+                    color:
+                      cardioStrain.rhrDelta > 3
+                        ? '#F59E0B'
+                        : cardioStrain.rhrDelta < 0
+                        ? '#10B981'
+                        : '#38BDF8',
+                  }}
+                >
+                  {cardioStrain.rhrDelta >= 0 ? `▲ +${cardioStrain.rhrDelta}` : `▼ ${cardioStrain.rhrDelta}`} bpm vs 7d avg
+                </Text>
+              )}
+            </View>
+
+            {/* HRV SDNN Tile */}
+            <View className="flex-1 bg-slate-800/40 p-3.5 rounded-2xl border border-slate-700/40">
+              <Text className="text-[11px] text-theme-muted font-bold uppercase tracking-wider">
+                HRV (SDNN)
+              </Text>
+              <View className="flex-row items-baseline gap-1 my-1">
+                <Text className="text-2xl font-black text-theme-text">
+                  {cardioStrain.hrv ?? '--'}
+                </Text>
+                <Text className="text-xs text-theme-muted font-bold">ms</Text>
+              </View>
+              {cardioStrain.hrvDelta !== null && (
+                <Text
+                  className="text-xs font-bold"
+                  style={{
+                    color:
+                      cardioStrain.hrvDelta < -6
+                        ? '#F87171'
+                        : cardioStrain.hrvDelta > 5
+                        ? '#10B981'
+                        : '#38BDF8',
+                  }}
+                >
+                  {cardioStrain.hrvDelta >= 0 ? `▲ +${cardioStrain.hrvDelta}` : `▼ ${cardioStrain.hrvDelta}`} ms vs 7d avg
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Diagnostic Explanation */}
+          <View className="bg-theme-inset/70 p-3.5 rounded-2xl mb-4 border border-theme-border/50">
+            <Text className="text-xs font-bold text-theme-text mb-1">
+              Physiological Recovery Insight
+            </Text>
+            <Text className="text-xs text-theme-muted leading-relaxed">
+              {cardioStrain.description}
+            </Text>
+          </View>
+
+          {/* Actionable Coach Recommendation */}
+          <View className="bg-theme-accent/10 p-3.5 rounded-2xl border border-theme-accent/25 mb-4">
+            <View className="flex-row items-center gap-2 mb-1">
+              <Ionicons name="sparkles" size={14} color="#0EA5E9" />
+              <Text className="text-xs font-bold text-theme-accent">
+                Coach Recommendation
+              </Text>
+            </View>
+            <Text className="text-xs text-theme-text font-medium leading-relaxed">
+              {cardioStrain.actionAdvice}
+            </Text>
+          </View>
+
+          {/* Close Button */}
+          <TouchableOpacity
+            onPress={() => setShowCardioModal(false)}
+            className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center mt-1"
+          >
+            <Text className="text-white font-bold text-sm">Understood</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheetModal>
     </View>
   );
 };

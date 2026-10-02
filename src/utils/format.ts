@@ -145,6 +145,43 @@ export function formatInteger(value: number | null | undefined, locale: string =
 }
 
 /**
+ * Format rooka points with clean thousands grouping (e.g. 2,291 instead of decimal-like 2.291)
+ */
+export function formatRookaPoints(points: number | null | undefined): string {
+  if (points === null || points === undefined || isNaN(points)) return '0';
+  return Math.round(points).toLocaleString('en-US');
+}
+
+/**
+ * Format coach AI tokens cleanly (e.g. 14,823 or 500k)
+ */
+export function formatTokens(tokens: number | null | undefined): string {
+  if (tokens === null || tokens === undefined || isNaN(tokens)) return '0';
+  const rounded = Math.round(tokens);
+  if (rounded >= 100000) {
+    return `${Math.round(rounded / 1000)}k`;
+  }
+  return rounded.toLocaleString('en-US');
+}
+
+/**
+ * Format compact metric numbers (e.g. 500k, 14.8k)
+ */
+export function formatCompactNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined || isNaN(value)) return '0';
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (value >= 100000) {
+    return `${Math.round(value / 1000)}k`;
+  }
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return String(Math.round(value));
+}
+
+/**
  * Format body weight: exactly 1 decimal place with unit "74.2 kg"
  */
 export function formatWeight(kg: number | null | undefined, locale: string = 'en'): string {

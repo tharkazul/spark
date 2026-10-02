@@ -281,7 +281,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               const dateStr = formatHumanizedDate(act.start_date);
               const hasDistance = typeof act.distance_km === 'number' && act.distance_km > 0;
               const primaryStat = hasDistance
-                ? `${act.distance_km!.toFixed(1)}km`
+                ? `${act.distance_km!.toFixed(1)}\u00A0km`
                 : `${Math.round(act.moving_time_min || 0)} mins`;
               const secondaryStat = hasDistance ? formatDuration(act.moving_time_min) : null;
               const secondaryPoints = hasDistance

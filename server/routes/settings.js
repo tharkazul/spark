@@ -264,8 +264,29 @@ router.get("/api/user/zones", authenticateToken, async (req, res) => {
 // Save one table. `sport` may be 'default' or any sport name, which is how a
 // separate Swim or Bike table gets added without a schema change.
 router.put("/api/user/zones", authenticateToken, async (req, res) => {
-  const { sport = "default", kind, zones } = req.body || {};
+  const { sport = "default", kind, zones, maxHr, ftp } = req.body || {};
+
+  // If structured threshold baselines (maxHr, ftp) were provided, persist them in athlete_metrics
+  if (typeof maxHr === 'number' && maxHr > 0) {
+    db.run(
+      `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'max_hr', ?)
+       ON CONFLICT(user_id, metric) DO UPDATE SET value = excluded.value`,
+      [req.user.id, Math.round(maxHr)]
+    );
+  }
+  if (typeof ftp === 'number' && ftp > 0) {
+    db.run(
+      `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'ftp', ?)
+       ON CONFLICT(user_id, metric) DO UPDATE SET value = excluded.value`,
+      [req.user.id, Math.round(ftp)]
+    );
+  }
+
   if (kind !== "hr" && kind !== "power") {
+    // If only thresholds were updated without a specific zones table
+    if (typeof maxHr === 'number' || typeof ftp === 'number') {
+      return res.json({ success: true, maxHr, ftp });
+    }
     return res.status(400).json({ error: "kind must be 'hr' or 'power'" });
   }
   if (!Array.isArray(zones) || zones.length === 0) {
@@ -292,7 +313,7 @@ router.put("/api/user/zones", authenticateToken, async (req, res) => {
 
   try {
     await athleteZones.saveZones(req.user.id, sport, kind, clean, "manual");
-    res.json({ success: true, sport, kind, zones: clean });
+    res.json({ success: true, sport, kind, zones: clean, maxHr, ftp });
   } catch (e) {
     console.error("Failed to save zones:", e);
     res.status(500).json({ error: "Failed to save training zones" });

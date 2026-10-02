@@ -2,6 +2,8 @@ import { calculatePMC } from '../domain/pmc';
 import { Activity } from '../types/activity';
 import { PhysiqueEntry } from '../types/physique';
 
+import { SparklinePoint } from '../components/common/Sparkline';
+
 export interface PMCMetricsData {
   ctl: number;
   atl: number;
@@ -14,6 +16,8 @@ export interface PMCMetricsData {
   atlHistory: number[];
   tsbHistory: number[];
   weightHistory: number[];
+  weightPoints: SparklinePoint[];
+  fullHistory: any[];
 }
 
 export interface ActivityForPMC {
@@ -57,8 +61,14 @@ export function calculatePMCMetrics(
   const logsToUse = recentLogs.length > 0 ? recentLogs : sortedLogs;
 
   const weightHistory: number[] = logsToUse.map((p) => Math.round(p.weight_kg * 10) / 10);
+  const weightPoints: SparklinePoint[] = logsToUse.map((p) => ({
+    val: Math.round(p.weight_kg * 10) / 10,
+    date: p.date,
+  }));
   if (weightHistory.length === 0 && currentWeightKg > 0) {
-    weightHistory.push(Math.round(currentWeightKg * 10) / 10);
+    const defaultVal = Math.round(currentWeightKg * 10) / 10;
+    weightHistory.push(defaultVal);
+    weightPoints.push({ val: defaultVal, date: new Date() });
   }
 
   const runningWeight = logsToUse.length > 0
@@ -77,5 +87,7 @@ export function calculatePMCMetrics(
     atlHistory,
     tsbHistory,
     weightHistory,
+    weightPoints,
+    fullHistory: result.history,
   };
 }

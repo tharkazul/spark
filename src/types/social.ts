@@ -19,6 +19,7 @@ export interface SocialFeedActivity {
   comments_count: number;
   has_kudosed: boolean;
   start_date: string;
+  start_date_local?: string;
   polyline?: string;
   sets_json?: string;
   elevation_m?: number;

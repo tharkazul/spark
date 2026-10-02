@@ -25,6 +25,43 @@ export function NiggleCard({
   const theme = useTheme();
   const { t } = useLanguage();
 
+  const getPlanAdjustmentForNiggle = (bodyPart: string, severity: number): string => {
+    const p = (bodyPart || '').toLowerCase();
+    if (p.includes('foot') || p.includes('ankle') || p.includes('heel')) {
+      return severity >= 3
+        ? 'Impact running suspended. Converted running workouts to aerobic spin/swimming sessions to offload the ankle/foot joint.'
+        : 'Running volume capped at Zone 2 aerobic steady pace; plyometrics and steep downhill strides removed.';
+    }
+    if (p.includes('calf') || p.includes('shin')) {
+      return severity >= 3
+        ? 'Calf eccentric load protected. Hard intervals swapped for low-impact cycling endurance.'
+        : 'Hill repeats removed; strides limited to flat surfaces with extended dynamic warm-ups.';
+    }
+    if (p.includes('knee')) {
+      return severity >= 3
+        ? 'Patellofemoral relief. Heavy squats and outdoor running paused; light spinning with cadence >90 RPM.'
+        : 'Run cadence bumped to 175+ spm to minimize joint braking force; plyometrics deferred.';
+    }
+    if (p.includes('hamstring') || p.includes('glute')) {
+      return severity >= 3
+        ? 'Posterior chain protection. Max-effort sprints and threshold intervals paused; recovery spin scheduled.'
+        : 'Zone 4/5 track work shifted to steady Zone 2 tempo; terminal leg extension restricted.';
+    }
+    if (p.includes('shoulder') || p.includes('neck') || p.includes('arm')) {
+      return severity >= 3
+        ? 'Upper body deload. Swim pull sets converted to kickboard drills; heavy overhead pressing deferred.'
+        : 'Swim main sets focused on kick technique; aero tuck posture minimized on bike rides.';
+    }
+    if (p.includes('back') || p.includes('core')) {
+      return severity >= 3
+        ? 'Lumbar protection. Aggressive aero-bar position restricted; core stabilization emphasized.'
+        : 'Heavy axial loading lifts paused; running replaced with zero-impact swimming.';
+    }
+    return severity >= 3
+      ? 'High-intensity sessions adjusted to aerobic recovery or cross-training until soreness resolves.'
+      : 'Intensity capped at Zone 2 endurance to prevent acute overload.';
+  };
+
   const getSeverityBadge = (sev: number) => {
     let bg = 'bg-semantic-warning/15 border-semantic-warning/30';
     let textColor = 'text-semantic-warning';
@@ -114,10 +151,23 @@ export function NiggleCard({
                 </View>
 
                 {item.notes ? (
-                  <Text className="text-xs text-theme-muted mb-3 leading-relaxed italic bg-theme-card/60 p-2 rounded-lg border border-theme-border/30">
+                  <Text className="text-xs text-theme-muted mb-2.5 leading-relaxed italic bg-theme-card/60 p-2 rounded-lg border border-theme-border/30">
                     &ldquo;{item.notes}&rdquo;
                   </Text>
                 ) : null}
+
+                {/* COACH PLAN ADAPTATION */}
+                <View className="bg-theme-accent/10 border border-theme-accent/20 rounded-xl p-2.5 mb-3">
+                  <View className="flex-row items-center gap-1.5 mb-1">
+                    <Ionicons name="sparkles" size={12} color={theme.tint} />
+                    <Text className="text-[10px] font-extrabold text-theme-accent uppercase tracking-wider">
+                      {t('dashboard.planAdjustment', 'Coach Plan Adjustment')}
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-theme-text font-medium leading-relaxed">
+                    {getPlanAdjustmentForNiggle(item.body_part, item.severity)}
+                  </Text>
+                </View>
 
                 <View className="flex-row justify-end gap-x-2 pt-1 border-t border-theme-border/40">
                   <ScalePressable

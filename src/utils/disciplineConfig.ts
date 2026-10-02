@@ -35,9 +35,69 @@ export const SPORT_EMBLEMS: Record<string, ImageSourcePropType> = {
   REST: require('../../assets/images/sports/rest.png'),
 };
 
+export function normalizeSportType(type: string | undefined): string {
+  if (!type) return 'REST';
+  const clean = String(type).trim().toUpperCase();
+
+  if (clean === 'REST' || clean === 'RECOVERY') return 'REST';
+
+  // Run family
+  if (clean.includes('RUN') || clean.includes('TREADMILL') || clean.includes('JOG')) return 'RUN';
+
+  // Bike family
+  if (
+    clean.includes('BIKE') ||
+    clean.includes('RIDE') ||
+    clean.includes('CYCLE') ||
+    clean.includes('CYCLING') ||
+    clean.includes('SPIN') ||
+    clean.includes('GRAVEL') ||
+    clean.includes('MOUNTAIN')
+  ) {
+    return 'BIKE';
+  }
+
+  // Swim family
+  if (clean.includes('SWIM') || clean.includes('POOL') || clean.includes('WATER')) return 'SWIM';
+
+  // Strength family (WeightTraining, Weights, Gym, Functional, Crossfit, etc.)
+  if (
+    clean.includes('WEIGHT') ||
+    clean.includes('STRENGTH') ||
+    clean.includes('LIFT') ||
+    clean.includes('GYM') ||
+    clean.includes('WORKOUT') ||
+    clean.includes('CROSSFIT') ||
+    clean.includes('BODYBUILDING') ||
+    clean.includes('HYROX') ||
+    clean.includes('FITNESS')
+  ) {
+    return 'STRENGTH';
+  }
+
+  // Mobility / Yoga / Pilates
+  if (clean.includes('YOGA') || clean.includes('PILATES') || clean.includes('STRETCH') || clean.includes('MOBILITY')) {
+    return 'MOBILITY';
+  }
+
+  // Walk / Hike
+  if (clean.includes('WALK')) return 'WALK';
+  if (clean.includes('HIKE')) return 'HIKE';
+
+  // Cardio / HIIT / Rowing
+  if (clean.includes('CARDIO') || clean.includes('HIIT') || clean.includes('ROW') || clean.includes('ELLIPTICAL')) {
+    return 'CARDIO';
+  }
+
+  if (clean.includes('TRIATHLON')) return 'TRIATHLON';
+
+  // Fallback: Default unrecognized active workouts to STRENGTH, never to REST
+  return 'STRENGTH';
+}
+
 export function getSportEmblem(type: string | undefined): ImageSourcePropType {
-  const raw = String(type || 'REST').toUpperCase();
-  return SPORT_EMBLEMS[raw] || SPORT_EMBLEMS.REST;
+  const norm = normalizeSportType(type);
+  return SPORT_EMBLEMS[norm] || SPORT_EMBLEMS.STRENGTH;
 }
 
 const DISCIPLINES: Record<string, { label: string; icon: string; family?: 'Ionicons' | 'MaterialCommunityIcons' }> = {
@@ -52,6 +112,7 @@ const DISCIPLINES: Record<string, { label: string; icon: string; family?: 'Ionic
   HIKE: { label: 'HIKE', icon: 'hiking', family: 'MaterialCommunityIcons' },
   CARDIO: { label: 'CARDIO', icon: 'heart-pulse', family: 'MaterialCommunityIcons' },
   HIIT: { label: 'HIIT', icon: 'lightning-bolt', family: 'MaterialCommunityIcons' },
+  TRIATHLON: { label: 'TRIATHLON', icon: 'trophy-variant', family: 'MaterialCommunityIcons' },
   REST: { label: 'REST', icon: 'weather-night', family: 'MaterialCommunityIcons' },
 };
 
@@ -59,12 +120,10 @@ export function getDisciplineConfig(
   type: string | undefined,
   scheme: 'light' | 'dark' = 'light',
 ): DisciplineConfig {
-  // The plan stores sport in title case ('Bike') while these keys are upper.
-  // Without normalising, every workout fell through to REST and rendered a moon.
-  const raw = String(type || 'REST').toUpperCase();
-  const key = raw in DISCIPLINES ? raw : 'REST';
+  const key = normalizeSportType(type);
+  const discipline = DISCIPLINES[key] || DISCIPLINES.STRENGTH;
   const color = sportColor(key, scheme);
   const emblem = getSportEmblem(key);
-  return { ...DISCIPLINES[key], color, tint: `${color}26`, emblem };
+  return { ...discipline, color, tint: `${color}26`, emblem };
 }
 

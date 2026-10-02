@@ -1,0 +1,452 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  GestureResponderEvent,
+} from 'react-native';
+import Svg, {
+  Path,
+  Line,
+  Circle,
+  Rect,
+  Text as SvgText,
+  Defs,
+  LinearGradient,
+  Stop,
+} from 'react-native-svg';
+import * as Haptics from 'expo-haptics';
+import { Card } from '../ui/Card';
+import { useTheme } from '@/hooks/use-theme';
+import { useLanguage } from '../../context/LanguageContext';
+import { Activity } from '../../types/activity';
+import { normalizeSportType } from '../../utils/disciplineConfig';
+import { PMCDayPoint } from '../../domain/pmc';
+
+export type Timeframe = '6W' | '3M' | '1Y';
+
+interface FitnessTrendsChartProps {
+  history: PMCDayPoint[];
+  activities: Activity[];
+}
+
+const TIMEFRAME_DAYS: Record<Timeframe, number> = {
+  '6W': 42,
+  '3M': 90,
+  '1Y': 365,
+};
+
+const SPORT_COLORS: Record<string, string> = {
+  RUN: '#F97316',
+  BIKE: '#0EA5E9',
+  SWIM: '#14B8A6',
+  STRENGTH: '#F59E0B',
+  OTHER: '#8B5CF6',
+};
+
+export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
+  history = [],
+  activities = [],
+}) => {
+  const theme = useTheme();
+  const { t } = useLanguage();
+  const { width: windowWidth } = useWindowDimensions();
+
+  const [timeframe, setTimeframe] = useState<Timeframe>('6W');
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const chartWidth = Math.max(300, windowWidth - 64);
+  const chartHeight = 180;
+  const paddingBottom = 24;
+  const paddingTop = 16;
+  const plotHeight = chartHeight - paddingTop - paddingBottom;
+
+  // Filter history to selected timeframe
+  const filteredHistory = useMemo(() => {
+    const days = TIMEFRAME_DAYS[timeframe];
+    if (history.length <= days) return history;
+    return history.slice(-days);
+  }, [history, timeframe]);
+
+  // Compute min and max across CTL, ATL, and TSB
+  const { minVal, maxVal, ctlPath, atlPath, tsbPath, zeroY } = useMemo(() => {
+    if (filteredHistory.length === 0) {
+      return { minVal: 0, maxVal: 100, ctlPath: '', atlPath: '', tsbPath: '', zeroY: chartHeight / 2 };
+    }
+
+    let min = 0;
+    let max = 10;
+
+    filteredHistory.forEach((pt) => {
+      min = Math.min(min, pt.ctl, pt.atl, pt.tsb);
+      max = Math.max(max, pt.ctl, pt.atl, pt.tsb);
+    });
+
+    // Add padding
+    min = Math.floor(min - 5);
+    max = Math.ceil(max + 10);
+    const range = Math.max(1, max - min);
+
+    const getX = (idx: number) => {
+      if (filteredHistory.length <= 1) return chartWidth / 2;
+      return (idx / (filteredHistory.length - 1)) * (chartWidth - 20) + 10;
+    };
+
+    const getY = (val: number) => {
+      const normalized = (val - min) / range;
+      return paddingTop + plotHeight - normalized * plotHeight;
+    };
+
+    let ctlP = '';
+    let atlP = '';
+    let tsbP = '';
+
+    filteredHistory.forEach((pt, idx) => {
+      const x = getX(idx);
+      const ctlY = getY(pt.ctl);
+      const atlY = getY(pt.atl);
+      const tsbY = getY(pt.tsb);
+
+      if (idx === 0) {
+        ctlP = `M ${x.toFixed(1)} ${ctlY.toFixed(1)}`;
+        atlP = `M ${x.toFixed(1)} ${atlY.toFixed(1)}`;
+        tsbP = `M ${x.toFixed(1)} ${tsbY.toFixed(1)}`;
+      } else {
+        ctlP += ` L ${x.toFixed(1)} ${ctlY.toFixed(1)}`;
+        atlP += ` L ${x.toFixed(1)} ${atlY.toFixed(1)}`;
+        tsbP += ` L ${x.toFixed(1)} ${tsbY.toFixed(1)}`;
+      }
+    });
+
+    const zY = getY(0);
+
+    return {
+      minVal: min,
+      maxVal: max,
+      ctlPath: ctlP,
+      atlPath: atlP,
+      tsbPath: tsbP,
+      zeroY: zY,
+    };
+  }, [filteredHistory, chartWidth, chartHeight, plotHeight, paddingTop]);
+
+  // Active point for tooltip
+  const activePoint = useMemo(() => {
+    if (filteredHistory.length === 0) return null;
+    if (selectedIndex !== null && filteredHistory[selectedIndex]) {
+      return { point: filteredHistory[selectedIndex], index: selectedIndex };
+    }
+    return { point: filteredHistory[filteredHistory.length - 1], index: filteredHistory.length - 1 };
+  }, [filteredHistory, selectedIndex]);
+
+  // Touch handler to scrub chart
+  const handleTouch = (event: GestureResponderEvent) => {
+    const touchX = event.nativeEvent.locationX;
+    if (filteredHistory.length <= 1) return;
+    const progress = Math.max(0, Math.min(1, (touchX - 10) / (chartWidth - 20)));
+    const idx = Math.round(progress * (filteredHistory.length - 1));
+    if (idx !== selectedIndex) {
+      Haptics.selectionAsync();
+      setSelectedIndex(idx);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // WEEKLY HOURS BY SPORT
+  // -------------------------------------------------------------
+  const weeklySportData = useMemo(() => {
+    const weeksCount = timeframe === '1Y' ? 12 : timeframe === '3M' ? 8 : 6;
+    const weeks: Array<{
+      weekLabel: string;
+      sports: Record<string, number>; // hours
+      totalHours: number;
+    }> = [];
+
+    const now = new Date();
+    // Align to Monday of current week
+    const currentMonday = new Date(now);
+    const dayOfWeek = currentMonday.getDay();
+    const diffToMon = (dayOfWeek + 6) % 7;
+    currentMonday.setDate(currentMonday.getDate() - diffToMon);
+    currentMonday.setHours(0, 0, 0, 0);
+
+    for (let w = weeksCount - 1; w >= 0; w--) {
+      const mon = new Date(currentMonday);
+      mon.setDate(mon.getDate() - w * 7);
+      const sun = new Date(mon);
+      sun.setDate(sun.getDate() + 6);
+      sun.setHours(23, 59, 59, 999);
+
+      const sportHours: Record<string, number> = {
+        RUN: 0,
+        BIKE: 0,
+        SWIM: 0,
+        STRENGTH: 0,
+        OTHER: 0,
+      };
+
+      activities.forEach((act) => {
+        const rawDate = act.start_date || (act as any).date;
+        if (!rawDate) return;
+        const actDate = new Date(rawDate);
+        if (actDate >= mon && actDate <= sun) {
+          const rawType = act.sport_type || act.type || 'OTHER';
+          const norm = normalizeSportType(String(rawType));
+          const targetKey = ['RUN', 'BIKE', 'SWIM', 'STRENGTH'].includes(norm) ? norm : 'OTHER';
+          const durationMins =
+            typeof act.moving_time_min === 'number'
+              ? act.moving_time_min
+              : typeof act.moving_time === 'number'
+              ? act.moving_time / 60
+              : 0;
+          sportHours[targetKey] += durationMins / 60;
+        }
+      });
+
+      const total = Object.values(sportHours).reduce((a, b) => a + b, 0);
+      const label = `${mon.getDate()} ${mon.toLocaleString('default', { month: 'short' })}`;
+
+      weeks.push({
+        weekLabel: label,
+        sports: sportHours,
+        totalHours: Math.round(total * 10) / 10,
+      });
+    }
+
+    return weeks;
+  }, [activities, timeframe]);
+
+  const maxWeeklyHours = useMemo(() => {
+    const maxH = Math.max(...weeklySportData.map((w) => w.totalHours), 5);
+    return Math.ceil(maxH);
+  }, [weeklySportData]);
+
+  const avgWeeklyHours = useMemo(() => {
+    if (weeklySportData.length === 0) return 0;
+    const sum = weeklySportData.reduce((acc, w) => acc + w.totalHours, 0);
+    return Math.round((sum / weeklySportData.length) * 10) / 10;
+  }, [weeklySportData]);
+
+  return (
+    <Card className="p-4 bg-theme-card border border-theme-border gap-y-5">
+      {/* 1. TIMEFRAME SELECTOR HEADER */}
+      <View className="flex-row items-center justify-between">
+        <View>
+          <Text className="text-base font-bold text-theme-text font-jakarta">
+            Performance Curves (PMC)
+          </Text>
+          <Text className="text-xs text-theme-muted mt-0.5">
+            Fitness (CTL), Fatigue (ATL) & Form (TSB)
+          </Text>
+        </View>
+
+        <View className="flex-row bg-theme-inset p-1 rounded-xl">
+          {(['6W', '3M', '1Y'] as Timeframe[]).map((tf) => {
+            const active = timeframe === tf;
+            return (
+              <TouchableOpacity
+                key={tf}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setTimeframe(tf);
+                  setSelectedIndex(null);
+                }}
+                className={`px-3 py-1.5 rounded-lg ${
+                  active ? 'bg-theme-accent' : 'bg-transparent'
+                }`}
+              >
+                <Text
+                  className={`text-xs font-extrabold ${
+                    active ? 'text-white' : 'text-theme-muted'
+                  }`}
+                >
+                  {tf}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* 2. ACTIVE VALUES TELEMETRY BADGES */}
+      {activePoint && (
+        <View className="flex-row items-center justify-between p-3 bg-theme-bg/80 rounded-xl border border-theme-border/60">
+          <View>
+            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
+              {activePoint.point.date}
+            </Text>
+            <Text className="text-xs font-semibold text-theme-text mt-0.5">
+              Load: {Math.round(activePoint.point.rooka || 0)} pts
+            </Text>
+          </View>
+
+          <View className="flex-row items-center gap-3">
+            <View className="items-center">
+              <View className="flex-row items-center gap-1">
+                <View className="w-2 h-2 rounded-full bg-[#6366F1]" />
+                <Text className="text-xs font-bold text-[#6366F1]">
+                  {Math.round(activePoint.point.ctl * 10) / 10}
+                </Text>
+              </View>
+              <Text className="text-[10px] text-theme-muted">CTL</Text>
+            </View>
+
+            <View className="items-center">
+              <View className="flex-row items-center gap-1">
+                <View className="w-2 h-2 rounded-full bg-[#F43F5E]" />
+                <Text className="text-xs font-bold text-[#F43F5E]">
+                  {Math.round(activePoint.point.atl * 10) / 10}
+                </Text>
+              </View>
+              <Text className="text-[10px] text-theme-muted">ATL</Text>
+            </View>
+
+            <View className="items-center">
+              <View className="flex-row items-center gap-1">
+                <View className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <Text className="text-xs font-bold text-[#10B981]">
+                  {activePoint.point.tsb > 0 ? `+${Math.round(activePoint.point.tsb * 10) / 10}` : Math.round(activePoint.point.tsb * 10) / 10}
+                </Text>
+              </View>
+              <Text className="text-[10px] text-theme-muted">TSB</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 3. MULTI-LINE SVG CHART */}
+      <View
+        className="w-full relative"
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={handleTouch}
+        onResponderMove={handleTouch}
+      >
+        <Svg width={chartWidth} height={chartHeight}>
+          {/* Zero baseline for Form (TSB) */}
+          <Line
+            x1="10"
+            y1={zeroY}
+            x2={chartWidth - 10}
+            y2={zeroY}
+            stroke="#94A3B8"
+            strokeWidth="1"
+            strokeDasharray="4 4"
+            opacity="0.5"
+          />
+
+          {/* Curves */}
+          <Path
+            d={ctlPath}
+            fill="none"
+            stroke="#6366F1"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+          <Path
+            d={atlPath}
+            fill="none"
+            stroke="#F43F5E"
+            strokeWidth="2"
+            strokeLinecap="round"
+            opacity="0.85"
+          />
+          <Path
+            d={tsbPath}
+            fill="none"
+            stroke="#10B981"
+            strokeWidth="2"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+
+          {/* Scrubber vertical line */}
+          {activePoint && filteredHistory.length > 1 && (
+            <Line
+              x1={(activePoint.index / (filteredHistory.length - 1)) * (chartWidth - 20) + 10}
+              y1={paddingTop}
+              x2={(activePoint.index / (filteredHistory.length - 1)) * (chartWidth - 20) + 10}
+              y2={chartHeight - paddingBottom}
+              stroke={theme.tint}
+              strokeWidth="1.5"
+            />
+          )}
+        </Svg>
+      </View>
+
+      {/* 4. WEEKLY TRAINING HOURS BY SPORT BREAKDOWN */}
+      <View className="pt-2 border-t border-theme-border/40">
+        <View className="flex-row items-center justify-between mb-3">
+          <View>
+            <Text className="text-sm font-bold text-theme-text font-jakarta">
+              Weekly Volume by Sport
+            </Text>
+            <Text className="text-xs text-theme-muted">
+              Avg {avgWeeklyHours}h / week
+            </Text>
+          </View>
+
+          {/* Sport Legend */}
+          <View className="flex-row items-center gap-2 flex-wrap">
+            {Object.entries(SPORT_COLORS).map(([sport, color]) => (
+              <View key={sport} className="flex-row items-center gap-1">
+                <View style={{ backgroundColor: color }} className="w-2 h-2 rounded-full" />
+                <Text className="text-[10px] font-bold text-theme-muted">{sport}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Stacked Bars Container */}
+        <View className="flex-row items-end justify-between h-36 px-1 pt-4 pb-6">
+          {weeklySportData.map((week, wIdx) => {
+            const barMaxHeight = 90;
+            const totalH = week.totalHours;
+            const barHeight = Math.max(4, (totalH / maxWeeklyHours) * barMaxHeight);
+
+            return (
+              <View key={wIdx} className="flex-1 items-center justify-end mx-1">
+                {/* Total label above bar */}
+                <Text className="text-[10px] font-bold text-theme-muted mb-1" numberOfLines={1}>
+                  {totalH > 0 ? `${totalH}h` : '0'}
+                </Text>
+
+                {/* Stacked Bar segments */}
+                <View
+                  style={{ height: barHeight }}
+                  className="w-full max-w-[28px] rounded-t-md overflow-hidden bg-theme-inset flex-col-reverse"
+                >
+                  {Object.entries(week.sports).map(([sportKey, hours]) => {
+                    if (hours <= 0 || totalH <= 0) return null;
+                    const segmentPct = (hours / totalH) * 100;
+                    return (
+                      <View
+                        key={sportKey}
+                        style={{
+                          height: `${segmentPct}%`,
+                          backgroundColor: SPORT_COLORS[sportKey] || '#8E8E93',
+                        }}
+                        className="w-full"
+                      />
+                    );
+                  })}
+                </View>
+
+                {/* Week Label */}
+                <Text
+                  className="text-[9px] text-theme-muted mt-2 font-medium"
+                  numberOfLines={1}
+                >
+                  {week.weekLabel.split(' ')[0]}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    </Card>
+  );
+};
+
+export default FitnessTrendsChart;

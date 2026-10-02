@@ -7,9 +7,13 @@ import { useLanguage } from '../../context/LanguageContext';
 
 interface SonarVitalsCardProps {
   biometrics: AppleHealthDailyBiometrics | null | undefined;
+  recentBiometrics?: AppleHealthDailyBiometrics[];
 }
 
-export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) => {
+export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({
+  biometrics,
+  recentBiometrics = [],
+}) => {
   const { t } = useLanguage();
   if (!biometrics) return null;
 
@@ -25,17 +29,28 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
     return null;
   }
 
+  // Calculate 7-Day Baseline Averages
+  const pastDays = recentBiometrics.filter((r) => r.date !== biometrics.date);
+  const rhrPast = pastDays.map((r) => r.resting_hr).filter((v): v is number => typeof v === 'number' && v > 0);
+  const hrvPast = pastDays.map((r) => r.hrv_sdnn).filter((v): v is number => typeof v === 'number' && v > 0);
+
+  const avgRhr = rhrPast.length > 0 ? Math.round((rhrPast.reduce((a, b) => a + b, 0) / rhrPast.length) * 10) / 10 : null;
+  const avgHrv = hrvPast.length > 0 ? Math.round((hrvPast.reduce((a, b) => a + b, 0) / hrvPast.length) * 10) / 10 : null;
+
+  const rhrDelta = biometrics.resting_hr && avgRhr ? Math.round((biometrics.resting_hr - avgRhr) * 10) / 10 : null;
+  const hrvDelta = biometrics.hrv_sdnn && avgHrv ? Math.round((biometrics.hrv_sdnn - avgHrv) * 10) / 10 : null;
+
   // Vital Status Helpers
   const getRhrStatus = (rhr: number) => {
-    if (rhr < 55) return { label: t('progress.optimal'), color: '#10B981' };
-    if (rhr <= 70) return { label: t('progress.normal'), color: '#38BDF8' };
-    return { label: t('progress.elevated'), color: '#F59E0B' };
+    if (rhr < 55) return { label: t('progress.optimal', 'Optimal'), color: '#10B981' };
+    if (rhr <= 70) return { label: t('progress.normal', 'Normal'), color: '#38BDF8' };
+    return { label: t('progress.elevated', 'Elevated'), color: '#F59E0B' };
   };
 
   const getHrvStatus = (hrv: number) => {
-    if (hrv >= 55) return { label: t('progress.readinessPrime'), color: '#10B981' };
-    if (hrv >= 35) return { label: t('progress.balanced'), color: '#38BDF8' };
-    return { label: t('progress.suppressed'), color: '#F87171' };
+    if (hrv >= 55) return { label: t('progress.readinessPrime', 'Prime'), color: '#10B981' };
+    if (hrv >= 35) return { label: t('progress.balanced', 'Balanced'), color: '#38BDF8' };
+    return { label: t('progress.suppressed', 'Suppressed'), color: '#F87171' };
   };
 
   return (
@@ -45,11 +60,11 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         <View className="flex-row items-center gap-2">
           <Ionicons name="pulse-outline" size={16} color="#10B981" />
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-            {t('progress.vitalTrends')}
+            {t('progress.vitalTrends', 'Vital Trends')}
           </Text>
         </View>
         <Text className="text-[10px] font-bold text-theme-muted">
-          {t('progress.fromAppleHealth')}
+          {t('progress.fromAppleHealth', 'Apple Health')}
         </Text>
       </View>
 
@@ -59,20 +74,48 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         {hasRhr && (
           <View className="flex-1 min-w-[140px] bg-slate-800/40 p-3 rounded-2xl border border-slate-700/40">
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.restingHr')}</Text>
+              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.restingHr', 'Resting HR')}</Text>
               <Ionicons name="heart-outline" size={14} color="#EF4444" />
             </View>
-            <View className="flex-row items-baseline gap-1 my-0.5">
-              <Text className="text-xl font-extrabold text-theme-text">{biometrics.resting_hr}</Text>
-              <Text className="text-[10px] text-theme-muted font-bold">{t('progress.bpm')}</Text>
+            <View className="flex-row items-baseline justify-between my-0.5">
+              <View className="flex-row items-baseline gap-1">
+                <Text className="text-xl font-extrabold text-theme-text">{biometrics.resting_hr}</Text>
+                <Text className="text-[10px] text-theme-muted font-bold">{t('progress.bpm', 'bpm')}</Text>
+              </View>
+              {rhrDelta !== null && Math.abs(rhrDelta) >= 0.5 && (
+                <View
+                  className={`flex-row items-center px-1.5 py-0.5 rounded-md ${
+                    rhrDelta > 0 ? 'bg-amber-500/15' : 'bg-emerald-500/15'
+                  }`}
+                >
+                  <Ionicons
+                    name={rhrDelta > 0 ? 'arrow-up' : 'arrow-down'}
+                    size={9}
+                    color={rhrDelta > 0 ? '#F59E0B' : '#10B981'}
+                  />
+                  <Text
+                    className={`text-[9px] font-bold ml-0.5 ${
+                      rhrDelta > 0 ? 'text-amber-500' : 'text-emerald-500'
+                    }`}
+                  >
+                    {rhrDelta > 0 ? '+' : ''}
+                    {rhrDelta}
+                  </Text>
+                </View>
+              )}
             </View>
-            <View className="mt-1">
+            <View className="mt-1 flex-row items-center justify-between">
               <Text
                 className="text-[10px] font-bold"
                 style={{ color: getRhrStatus(biometrics.resting_hr!).color }}
               >
                 ● {getRhrStatus(biometrics.resting_hr!).label}
               </Text>
+              {avgRhr && (
+                <Text className="text-[9px] text-theme-muted">
+                  7d: {avgRhr}
+                </Text>
+              )}
             </View>
           </View>
         )}
@@ -81,20 +124,48 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         {hasHrv && (
           <View className="flex-1 min-w-[140px] bg-slate-800/40 p-3 rounded-2xl border border-slate-700/40">
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.hrv')} (SDNN)</Text>
+              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.hrv', 'HRV')} (SDNN)</Text>
               <Ionicons name="flash-outline" size={14} color="#10B981" />
             </View>
-            <View className="flex-row items-baseline gap-1 my-0.5">
-              <Text className="text-xl font-extrabold text-theme-text">{biometrics.hrv_sdnn}</Text>
-              <Text className="text-[10px] text-theme-muted font-bold">{t('progress.ms')}</Text>
+            <View className="flex-row items-baseline justify-between my-0.5">
+              <View className="flex-row items-baseline gap-1">
+                <Text className="text-xl font-extrabold text-theme-text">{biometrics.hrv_sdnn}</Text>
+                <Text className="text-[10px] text-theme-muted font-bold">{t('progress.ms', 'ms')}</Text>
+              </View>
+              {hrvDelta !== null && Math.abs(hrvDelta) >= 1 && (
+                <View
+                  className={`flex-row items-center px-1.5 py-0.5 rounded-md ${
+                    hrvDelta >= 0 ? 'bg-emerald-500/15' : 'bg-rose-500/15'
+                  }`}
+                >
+                  <Ionicons
+                    name={hrvDelta >= 0 ? 'arrow-up' : 'arrow-down'}
+                    size={9}
+                    color={hrvDelta >= 0 ? '#10B981' : '#EF4444'}
+                  />
+                  <Text
+                    className={`text-[9px] font-bold ml-0.5 ${
+                      hrvDelta >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                    }`}
+                  >
+                    {hrvDelta > 0 ? '+' : ''}
+                    {hrvDelta}
+                  </Text>
+                </View>
+              )}
             </View>
-            <View className="mt-1">
+            <View className="mt-1 flex-row items-center justify-between">
               <Text
                 className="text-[10px] font-bold"
                 style={{ color: getHrvStatus(biometrics.hrv_sdnn!).color }}
               >
                 ● {getHrvStatus(biometrics.hrv_sdnn!).label}
               </Text>
+              {avgHrv && (
+                <Text className="text-[9px] text-theme-muted">
+                  7d: {avgHrv}
+                </Text>
+              )}
             </View>
           </View>
         )}
