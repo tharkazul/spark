@@ -9,7 +9,6 @@ import { NiggleCard } from '../health/NiggleCard';
 import { SonarSleepCard } from '../health/SonarSleepCard';
 import { SonarVitalsCard } from '../health/SonarVitalsCard';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
-import { MuscleFatigueCard } from './MuscleFatigueCard';
 import * as Haptics from 'expo-haptics';
 
 import { useHealth } from '../../context/HealthStore';
@@ -126,10 +125,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
         <AnatomicalBodyMap activeNiggles={niggles} onSelectBodyPart={handleSelectBodyPart} />
       </Card>
 
-      {/* 5. MUSCLE FATIGUE SCORES BREAKDOWN CARD */}
-      <MuscleFatigueCard />
-
-      {/* 6. ACTIVE ISSUES FEED & HEALTHY EMPTY STATE */}
+      {/* 5. ACTIVE ISSUES FEED & HEALTHY EMPTY STATE */}
       <NiggleCard
         niggles={niggles}
         onSelectBodyPart={handleSelectBodyPart}

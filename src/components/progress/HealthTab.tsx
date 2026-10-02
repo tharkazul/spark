@@ -11,7 +11,6 @@ import { SonarSleepCard } from '../health/SonarSleepCard';
 import { SonarVitalsCard } from '../health/SonarVitalsCard';
 import { AppleHealthStatusCard } from '../health/AppleHealthStatusCard';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
-import { MuscleFatigueCard } from './MuscleFatigueCard';
 import * as Haptics from 'expo-haptics';
 
 import { useHealth } from '../../context/HealthStore';
@@ -134,10 +133,6 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         {/* Anatomical Mannequin Body Map */}
         <AnatomicalBodyMap activeNiggles={niggles} onSelectBodyPart={handleSelectBodyPart} />
       </Card>
-
-      {/* MUSCLE FATIGUE SCORES BREAKDOWN CARD */}
-      <MuscleFatigueCard />
-
 
       {/* ACTIVE ISSUES FEED & HEALTHY EMPTY STATE */}
       <NiggleCard

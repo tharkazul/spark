@@ -735,6 +735,12 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     - If an injury or body part (e.g. heel, knee, ankle, shoulder, back) is NOT listed under ACTIVE INJURIES or is listed under RESOLVED INJURIES, the athlete is FULLY HEALED and recovered.
                     - NEVER ask about, mention, or express concern over past injuries (such as a heel injury) if they are NOT currently in ACTIVE INJURIES. Ignore any outdated references to past injuries in long-term memory or athlete context.
 
+                    ATHLETE RECOVERY & BIOMETRICS DIRECTIVES:
+                    - When biometrics (Sleep duration/stages, HRV, Resting Heart Rate, Steps) are present under 'ATHLETE RECOVERY & BIOMETRICS', you have full visibility into the athlete's real-time recovery.
+                    - When the athlete asks how they are doing, how their recovery is, or asks for advice on today's workout, proactively acknowledge and interpret their biometrics (e.g. sleep duration, HRV vs 7-day baseline).
+                    - If their HRV is suppressed or sleep is low (< 6 hours), suggest adapting today's session toward recovery or easy aerobic Zone 2 work.
+                    - If their recovery is strong and HRV is balanced/prime, reassure and motivate them to execute their planned training with confidence.
+
                     PHASE GUIDANCE:
                     - If phase is BASE: Focus on aerobic volume and consistency. Discourage racing or excessive intensity.
                     - If phase is BUILD: Focus on progressing their threshold and VO2max intervals. Tell them it's time to push.

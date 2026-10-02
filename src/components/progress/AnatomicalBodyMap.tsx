@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Pressable, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { G, Path, Ellipse, Circle, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { G, Path, Ellipse, Circle, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useUser } from '../../context/UserStore';
+import { useActivities } from '../../context/ActivityStore';
+import { fatiguePercentages, MuscleGroup } from '../../domain/muscleLoad';
 import {
   getBodyModel,
   BodySize,
@@ -104,9 +106,96 @@ export const BODY_PARTS_LOOKUP: Record<string, string> = {
 };
 
 /**
+ * Maps each SVG body part ID to one of the 6 core muscle groups modeled in muscleLoad.ts.
+ */
+export const PART_TO_MUSCLE_GROUP: Record<string, MuscleGroup> = {
+  // Quads
+  quads_left: 'quads',
+  quads_right: 'quads',
+  knee_left: 'quads',
+  knee_right: 'quads',
+
+  // Calves, Shins & Feet
+  calves_left: 'calves',
+  calves_right: 'calves',
+  shin_left: 'calves',
+  shin_right: 'calves',
+  foot_left: 'calves',
+  foot_right: 'calves',
+  heel_left: 'calves',
+  heel_right: 'calves',
+
+  // Hamstrings
+  hamstrings_left: 'hamstrings',
+  hamstrings_right: 'hamstrings',
+
+  // Glutes & Hips
+  glutes_left: 'glutes',
+  glutes_right: 'glutes',
+  hips_left: 'glutes',
+  hips_right: 'glutes',
+
+  // Core & Abdominals & Lower Back
+  abs_left: 'core',
+  abs_right: 'core',
+  obliques_left: 'core',
+  obliques_right: 'core',
+  lower_back_left: 'core',
+  lower_back_right: 'core',
+
+  // Upper Body, Shoulders & Arms
+  chest_left: 'upper',
+  chest_right: 'upper',
+  shoulder_left: 'upper',
+  shoulder_right: 'upper',
+  biceps_left: 'upper',
+  biceps_right: 'upper',
+  forearm_left: 'upper',
+  forearm_right: 'upper',
+  hand_left: 'upper',
+  hand_right: 'upper',
+  traps_left: 'upper',
+  traps_right: 'upper',
+  rear_delt_left: 'upper',
+  rear_delt_right: 'upper',
+  lats_left: 'upper',
+  lats_right: 'upper',
+  triceps_left: 'upper',
+  triceps_right: 'upper',
+  head: 'upper',
+  neck: 'upper',
+};
+
+/**
+ * Calculates continuous RGB color gradient from fresh green towards fatigued red.
+ */
+export function getFatigueColor(pct: number): string {
+  const stops: [number, [number, number, number]][] = [
+    [0, [16, 185, 129]],    // #10B981 (Fresh green)
+    [25, [34, 197, 94]],    // #22C55E (Healthy green)
+    [45, [132, 204, 22]],   // #84CC16 (Lime / Building)
+    [65, [245, 158, 11]],   // #F59E0B (Amber / Moderate)
+    [80, [249, 115, 22]],   // #F97316 (Orange / High)
+    [100, [239, 68, 68]],   // #EF4444 (Red / Exhausted)
+  ];
+
+  const clamped = Math.max(0, Math.min(100, pct));
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [p0, c0] = stops[i];
+    const [p1, c1] = stops[i + 1];
+    if (clamped >= p0 && clamped <= p1) {
+      const ratio = (clamped - p0) / (p1 - p0);
+      const r = Math.round(c0[0] + (c1[0] - c0[0]) * ratio);
+      const g = Math.round(c0[1] + (c1[1] - c0[1]) * ratio);
+      const b = Math.round(c0[2] + (c1[2] - c0[2]) * ratio);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+  }
+  return '#EF4444';
+}
+
+/**
  * Robust matching between SVG part IDs and niggle body_part strings.
- * Handles prefix/suffix sides ('shoulder_left' <-> 'left_shoulder'),
- * singular/plural forms ('quads_left' <-> 'left_quad'), and anatomical groupings.
  */
 export const partMatchesNiggle = (svgPartId: string, nigglePartId: string): boolean => {
   const s = svgPartId.toLowerCase().trim();
@@ -150,9 +239,6 @@ export const partMatchesNiggle = (svgPartId: string, nigglePartId: string): bool
 
 /**
  * Coordinate mapping fallback for touch hit-testing on the 200x460 canvas.
- * Accounts for viewer's left (x < 100) vs viewer's right (x > 100):
- * - On Front view: viewer's left is person's right (_right), viewer's right is person's left (_left)
- * - On Back view: viewer's left is person's left (_left), viewer's right is person's right (_right)
  */
 export const getBodyPartFromCoordinates = (
   x: number,
@@ -259,11 +345,9 @@ export const getBodyPartFromCoordinates = (
   return null;
 };
 
-const SIZE_DIMENSIONS: Record<BodySize, { width: number; height: number }> = {
-  small: { width: 140, height: 322 },
-  medium: { width: 170, height: 391 },
-  large: { width: 200, height: 460 },
-};
+// Fixed image dimensions so the container never shifts or resizes when toggling size:
+const FIXED_CANVAS_WIDTH = 180;
+const FIXED_CANVAS_HEIGHT = 414;
 
 export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   activeNiggles = [],
@@ -273,6 +357,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   genderOverride,
 }) => {
   const { user } = useUser();
+  const { activities } = useActivities();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -280,7 +365,12 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   const [size, setSize] = useState<BodySize>(initialSize || 'medium');
   const lastPressTime = useRef<number>(0);
 
-  // Load persisted size preference on mount if not provided as initialSize
+  // Compute 7-day workload muscle fatigue percentages from activities:
+  const fatigueScores = useMemo(() => {
+    return fatiguePercentages(activities as any);
+  }, [activities]);
+
+  // Load persisted size preference on mount if not provided as initialSize:
   useEffect(() => {
     if (initialSize) {
       setSize(initialSize);
@@ -317,14 +407,30 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     return found ? Number(found.severity) : 0;
   };
 
-  const getPartColor = (partId: string): { fill: string; stroke: string } => {
-    const severity = getNiggleSeverity(partId);
-    if (severity >= 4) return { fill: '#E3494F', stroke: '#FF6B70' };
-    if (severity >= 2) return { fill: '#F98845', stroke: '#FFA56E' };
-    if (severity === 1) return { fill: '#F9CF45', stroke: '#FFE382' };
-    return isDark
-      ? { fill: '#2A343D', stroke: '#404E5A' }
-      : { fill: 'url(#skin)', stroke: '#FFFFFF' };
+  const getPartColor = (
+    partId: string
+  ): { fill: string; stroke: string; strokeWidth: number } => {
+    const niggleSev = getNiggleSeverity(partId);
+
+    // 1. If part has an active injury/niggle: highlight with prominent warning/injury colors
+    if (niggleSev >= 4) {
+      return { fill: '#DC2626', stroke: '#FF4D4D', strokeWidth: 2.4 };
+    }
+    if (niggleSev >= 2) {
+      return { fill: '#F97316', stroke: '#FFA56E', strokeWidth: 2.2 };
+    }
+    if (niggleSev === 1) {
+      return { fill: '#F59E0B', stroke: '#FCD34D', strokeWidth: 2.0 };
+    }
+
+    // 2. Otherwise: color based on muscle fatigue (fresh = green, fatigued = yellow/orange/red)
+    const muscleGroup = PART_TO_MUSCLE_GROUP[partId];
+    const fatiguePct = muscleGroup && fatigueScores ? (fatigueScores[muscleGroup] ?? 0) : 0;
+    const fill = getFatigueColor(fatiguePct);
+    const stroke = isDark ? '#1E293B' : '#FFFFFF';
+    const strokeWidth = 1.3;
+
+    return { fill, stroke, strokeWidth };
   };
 
   const handlePress = (partId: string) => {
@@ -341,11 +447,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     return getBodyModel(effectiveGender, size, view);
   }, [effectiveGender, size, view]);
 
-  const dimensions = SIZE_DIMENSIONS[size];
-
   return (
     <View className="items-center py-2">
-      {/* Top Controls: View Switcher (Front/Back) & Size Selector (Small/Medium/Large) */}
+      {/* Top Controls: View Switcher (Front/Back) & Avatar Size (Small/Medium/Large) */}
       <View className="flex-row items-center justify-between w-full mb-3 px-1 flex-wrap gap-2">
         {/* Front / Back Toggle Buttons */}
         <View className="flex-row bg-theme-inset/80 p-1 rounded-xl">
@@ -386,7 +490,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Size Selector: Small, Medium, Large */}
+        {/* Avatar Size Selector: Small, Medium, Large */}
         <View className="flex-row items-center bg-theme-inset/80 p-1 rounded-xl">
           {(['small', 'medium', 'large'] as const).map((s) => (
             <TouchableOpacity
@@ -408,12 +512,12 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         </View>
       </View>
 
-      {/* SVG Anatomical Mannequin Body Map Canvas */}
+      {/* SVG Anatomical Mannequin Body Map Canvas - Fixed Container Size */}
       <View className="bg-theme-bg/60 p-4 rounded-2xl shadow-sm relative items-center justify-center">
         <Pressable
           onPress={(e) => {
             const { locationX, locationY } = e.nativeEvent;
-            const scale = 200 / dimensions.width;
+            const scale = 200 / FIXED_CANVAS_WIDTH;
             const detectedPart = getBodyPartFromCoordinates(
               locationX * scale,
               locationY * scale,
@@ -423,20 +527,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               handlePress(detectedPart);
             }
           }}
-          style={{ width: dimensions.width, height: dimensions.height }}
+          style={{ width: FIXED_CANVAS_WIDTH, height: FIXED_CANVAS_HEIGHT }}
         >
           <Svg
-            width={dimensions.width}
-            height={dimensions.height}
+            key={`body_svg_${effectiveGender}_${size}_${view}`}
+            width={FIXED_CANVAS_WIDTH}
+            height={FIXED_CANVAS_HEIGHT}
             viewBox="0 0 200 460"
           >
-            <Defs>
-              <LinearGradient id="skin" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={isDark ? '#334155' : '#E9EEF4'} />
-                <Stop offset="1" stopColor={isDark ? '#1E293B' : '#D5DDE7'} />
-              </LinearGradient>
-            </Defs>
-
             {/* Background aesthetic grid / concentric guidelines */}
             <Circle
               cx="100"
@@ -467,16 +565,18 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               opacity="0.08"
             />
 
-            {/* Rendered Body Model */}
+            {/* Rendered Body Model Elements */}
             <G id="body">
               {modelElements.map((el) => {
-                const { fill, stroke } = getPartColor(el.id);
+                const { fill, stroke, strokeWidth } = getPartColor(el.id);
                 const hasNiggle = getNiggleSeverity(el.id) > 0;
+                // Distinct key including view, size, gender and part id prevents native node reuse/caching glitches
+                const elementKey = `${effectiveGender}_${size}_${view}_${el.id}`;
 
                 if (el.type === 'ellipse') {
                   return (
                     <Ellipse
-                      key={el.id}
+                      key={elementKey}
                       id={el.id}
                       cx={el.cx}
                       cy={el.cy}
@@ -484,9 +584,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                       ry={el.ry}
                       fill={fill}
                       stroke={stroke}
-                      strokeWidth={hasNiggle ? 2.2 : 1.4}
+                      strokeWidth={strokeWidth}
                       strokeLinejoin="round"
-                      opacity={hasNiggle ? 0.98 : 0.88}
+                      opacity={hasNiggle ? 1.0 : 0.92}
                       onPress={() => handlePress(el.id)}
                     />
                   );
@@ -494,15 +594,15 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
                 return (
                   <Path
-                    key={el.id}
+                    key={elementKey}
                     id={el.id}
                     d={el.d}
-                    transform={el.transform}
+                    transform={el.transform || undefined}
                     fill={fill}
                     stroke={stroke}
-                    strokeWidth={hasNiggle ? 2.2 : 1.4}
+                    strokeWidth={strokeWidth}
                     strokeLinejoin="round"
-                    opacity={hasNiggle ? 0.98 : 0.88}
+                    opacity={hasNiggle ? 1.0 : 0.92}
                     onPress={() => handlePress(el.id)}
                   />
                 );
@@ -511,7 +611,23 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           </Svg>
         </Pressable>
 
-        <Text className="text-xs text-theme-muted mt-2 font-medium">
+        {/* Status Heatmap Color Legend: Fresh (Green) -> Fatigued (Orange) -> Injured (Red) */}
+        <View className="flex-row items-center justify-center gap-x-4 mt-3">
+          <View className="flex-row items-center gap-x-1.5">
+            <View className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+            <Text className="text-[11px] font-semibold text-theme-muted">Fresh</Text>
+          </View>
+          <View className="flex-row items-center gap-x-1.5">
+            <View className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
+            <Text className="text-[11px] font-semibold text-theme-muted">Fatigued</Text>
+          </View>
+          <View className="flex-row items-center gap-x-1.5">
+            <View className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
+            <Text className="text-[11px] font-semibold text-theme-muted">Injured</Text>
+          </View>
+        </View>
+
+        <Text className="text-[11px] text-theme-muted/80 mt-1.5 font-medium">
           Tap any body region to log an issue or view severity
         </Text>
       </View>
