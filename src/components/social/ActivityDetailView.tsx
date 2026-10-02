@@ -42,7 +42,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { Activity, ActivityLap } from '../../types/activity';
-import { ActivityComment } from '../../types/social';
 import { activitiesApi, socialApi } from '../../services/apiServices';
 import { decodePolyline, Coordinate } from '../../utils/polyline';
 import { getSportIconConfig, getSportPlaceholderImage } from '../../utils/sportIcons';
@@ -66,7 +65,6 @@ import { SegmentedControl } from '../ui/SegmentedControl';
 import { SportMedallion } from '../ui/SportMedallion';
 import { UserAvatar } from '../ui/UserAvatar';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
-import { CommentComposer } from './CommentComposer';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -445,7 +443,6 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   const [activity, setActivity] = useState<Activity | null>(() =>
     initialActivity ? normalizeActivity(initialActivity) : null
   );
-  const [comments, setComments] = useState<ActivityComment[]>([]);
   const [kudosCount, setKudosCount] = useState<number>(0);
   const [hasKudosed, setHasKudosed] = useState<boolean>(false);
   const [isLapsExpanded, setIsLapsExpanded] = useState<boolean>(false);
@@ -512,16 +509,6 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
       })
       .catch((err: any) => console.log('Error fetching activity details:', err));
 
-    activitiesApi
-      .getComments(activityId)
-      .then((res) => {
-        if (!isMounted) return;
-        if (res && res.comments) {
-          setComments(res.comments);
-        }
-      })
-      .catch((err) => console.log('Error fetching comments:', err));
-
     return () => {
       isMounted = false;
     };
@@ -565,49 +552,6 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     } catch (e) {
       setHasKudosed(prevHasKudosed);
       setKudosCount(prevCount);
-    }
-  };
-
-  const handleSendComment = async (text: string) => {
-    if (!activityId || !text.trim()) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    const tempId = `temp-${Date.now()}`;
-    const newComment: ActivityComment = {
-      id: tempId,
-      activity_id: activityId,
-      user_id: Number(user?.id) || 0,
-      username: user?.username || 'You',
-      profile_picture_url: user?.profile_picture_url || undefined,
-      comment: text.trim(),
-      created_at: new Date().toISOString(),
-    };
-
-    setComments((prev) => [...prev, newComment]);
-
-    try {
-      const res = await activitiesApi.postComment(activityId, text.trim());
-      if (res && res.comment) {
-        setComments((prev) => prev.map((c) => (c.id === tempId ? res.comment : c)));
-      }
-    } catch (e) {
-      setComments((prev) => prev.filter((c) => c.id !== tempId));
-      Alert.alert('Error', 'Failed to send comment. Please try again.');
-    }
-  };
-
-  const handleDeleteComment = async (commentId: string | number) => {
-    if (!activityId) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    const prevComments = [...comments];
-    setComments((prev) => prev.filter((c) => c.id !== commentId));
-
-    try {
-      await activitiesApi.deleteComment(activityId, commentId);
-    } catch (e) {
-      setComments(prevComments);
-      Alert.alert('Error', 'Failed to delete comment.');
     }
   };
 
@@ -1391,60 +1335,6 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   {kudosCount}
                 </Text>
               </Pressable>
-
-              <View className="flex-row items-center gap-x-1.5 py-1.5 px-2">
-                <Ionicons name="chatbubble-outline" size={17} color={theme.textSecondary} />
-                <Text className="text-xs font-semibold text-theme-muted">
-                  {comments.length > 0 ? pluralize('comment', comments.length, language) : 'Comment'}
-                </Text>
-              </View>
-            </View>
-
-            {/* COMMENTS SECTION */}
-            <View className="gap-y-2.5">
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                Comments {comments.length > 0 ? `(${comments.length})` : ''}
-              </Text>
-              {comments.length === 0 ? (
-                <Text className="text-xs text-theme-muted text-center py-2.5">
-                  Be the first to comment
-                </Text>
-              ) : (
-                comments.map((c) => (
-                  <View
-                    key={`comm-${c.id}`}
-                    className="bg-theme-inset p-3 rounded-inset flex-row justify-between items-start"
-                  >
-                    <View className="flex-row items-start gap-x-2.5 flex-1 pr-2">
-                      <UserAvatar
-                        size={32}
-                        photoUrl={c.profile_picture_url}
-                        userId={c.user_id}
-                        name={c.username}
-                      />
-                      <View className="flex-1">
-                        <TouchableOpacity
-                          onPress={() => onOpenAthleteProfile?.(c.user_id)}
-                          activeOpacity={0.7}
-                        >
-                          <Text className="text-xs font-bold text-theme-accent">{c.username}</Text>
-                        </TouchableOpacity>
-                        <Text className="text-xs font-medium text-theme-text mt-0.5">{c.comment}</Text>
-                      </View>
-                    </View>
-                    {c.user_id === user?.id && (
-                      <TouchableOpacity
-                        onPress={() => handleDeleteComment(c.id)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        className="p-1"
-                      >
-                        <Ionicons name="trash-outline" size={14} color={theme.textSecondary} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))
-              )}
-              <CommentComposer onSendComment={handleSendComment} />
             </View>
           </View>
 

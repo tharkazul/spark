@@ -649,19 +649,6 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                   onPress={() => handleToggleKudos(primaryActivity)}
                 />
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => onOpenActivityModal && onOpenActivityModal(primaryActivity.id, primaryActivity)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  className="flex-row items-center gap-x-1.5 py-1.5 px-2 rounded-button-md active:opacity-70"
-                >
-                  <Ionicons name="chatbubble-outline" size={17} color={theme.textSecondary} />
-                  <Text className="text-xs font-semibold text-theme-muted">
-                    {totalComments > 0
-                      ? `${totalComments} ${totalComments === 1 ? t('social.comment', 'Comment') : t('social.comments', 'Comments')}`
-                      : t('social.comment', 'Comment')}
-                  </Text>
-                </TouchableOpacity>
               </View>
             </Card>
           );
