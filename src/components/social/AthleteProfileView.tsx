@@ -14,6 +14,7 @@ import { RookaMark } from '../ui/RookaPoints';
 import { Sparkline } from '../common/Sparkline';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
+import { useLanguage } from '../../context/LanguageContext';
 import { socialApi } from '../../services/apiServices';
 import { PublicAthleteProfile } from '../../types/social';
 import { getRookaLevelInfo } from '../../utils/gamification';
@@ -37,6 +38,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
 }) => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const { user: currentUser } = useUser();
   const { activities: currentActivities } = useActivities();
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,7 +64,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
         if (data) {
           setProfile(data);
         } else {
-          setError('Athlete profile not found');
+          setError(t('athleteProfile.profileNotFound'));
         }
       })
       .catch((err) => {
@@ -190,7 +192,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
           </TouchableOpacity>
 
           <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
-            {profile?.username ? `${profile.username}` : 'Athlete Profile'}
+            {profile?.username ? `${profile.username}` : t('athleteProfile.profileNotFound')}
           </Text>
 
           <View className="w-10" />
@@ -207,13 +209,13 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
         <View className="flex-1 items-center justify-center p-8">
           <Ionicons name="alert-circle-outline" size={44} color="#EF4444" />
           <Text className="text-base font-bold text-theme-text mt-3 text-center">
-            {error || 'Unable to load profile'}
+            {error || t('athleteProfile.profileNotFound')}
           </Text>
           <TouchableOpacity
             onPress={onClose}
             className="mt-6 bg-theme-accent px-6 py-2.5 rounded-full"
           >
-            <Text className="text-white font-extrabold text-sm">Close</Text>
+            <Text className="text-white font-extrabold text-sm">{t('athleteProfile.close')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -262,7 +264,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                 )}
 
                 <Text className="text-xs text-theme-muted mt-1">
-                  Member since {(profile as any)?.created_at ? new Date((profile as any).created_at).getFullYear() : '2026'}
+                  {t('athleteProfile.memberSince', { year: (profile as any)?.created_at ? new Date((profile as any).created_at).getFullYear() : '2026' })}
                 </Text>
               </View>
 
@@ -308,12 +310,12 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                     }`}
                   >
                     {profile.connectionStatus === 'accepted'
-                      ? 'Friends'
+                      ? t('athleteProfile.friends')
                       : profile.connectionStatus === 'pending'
-                      ? 'Pending'
+                      ? t('athleteProfile.pending')
                       : profile.connectionStatus === 'pending_received'
-                      ? 'Accept'
-                      : 'Follow'}
+                      ? t('athleteProfile.accept')
+                      : t('athleteProfile.follow')}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -329,15 +331,15 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
           {hasActivities && (
             <Card className="mb-4 bg-theme-card p-5">
               <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-3">
-                Physiology & Fitness Load (PMC)
+                {t('athleteProfile.physiologyLoad')}
               </Text>
 
               <View className="space-y-3">
                 {/* Fitness (CTL) */}
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 pr-2">
-                    <Text className="text-xs font-bold text-theme-text">Fitness (CTL)</Text>
-                    <Text className="text-[11px] text-theme-muted">Chronic Training Load (42d)</Text>
+                    <Text className="text-xs font-bold text-theme-text">{t('athleteProfile.fitnessCtl')}</Text>
+                    <Text className="text-[11px] text-theme-muted">{t('athleteProfile.ctlSub')}</Text>
                   </View>
                   <Text className="text-sm font-extrabold font-mono text-theme-text w-12 text-right mr-3">
                     {Math.round(pmcMetrics.ctl)}
@@ -356,8 +358,8 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                 {/* Fatigue (ATL) */}
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 pr-2">
-                    <Text className="text-xs font-bold text-theme-text">Fatigue (ATL)</Text>
-                    <Text className="text-[11px] text-theme-muted">Acute Training Load (7d)</Text>
+                    <Text className="text-xs font-bold text-theme-text">{t('athleteProfile.fatigueAtl')}</Text>
+                    <Text className="text-[11px] text-theme-muted">{t('athleteProfile.atlSub')}</Text>
                   </View>
                   <Text className="text-sm font-extrabold font-mono text-theme-text w-12 text-right mr-3">
                     {Math.round(pmcMetrics.atl)}
@@ -376,8 +378,8 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                 {/* Form (TSB) */}
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 pr-2">
-                    <Text className="text-xs font-bold text-theme-text">Form (TSB)</Text>
-                    <Text className="text-[11px] text-theme-muted">Training Stress Balance</Text>
+                    <Text className="text-xs font-bold text-theme-text">{t('athleteProfile.formTsb')}</Text>
+                    <Text className="text-[11px] text-theme-muted">{t('athleteProfile.tsbSub')}</Text>
                   </View>
                   <Text
                     className={`text-sm font-extrabold font-mono w-12 text-right mr-3 ${
@@ -404,7 +406,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
           {profile.recentActivities && profile.recentActivities.length > 0 && (
             <View className="mb-6">
               <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-3 px-1">
-                Recent Activities ({profile.recentActivities.length})
+                {t('athleteProfile.recentActivities', { count: profile.recentActivities.length })}
               </Text>
 
               {profile.recentActivities.map((act: any) => {

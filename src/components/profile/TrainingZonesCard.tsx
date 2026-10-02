@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
 import { zonesApi, ZoneBandDto } from '../../services/apiServices';
+import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * Editor for the athlete's heart-rate and power zones.
@@ -18,13 +19,6 @@ import { zonesApi, ZoneBandDto } from '../../services/apiServices';
 
 const SPORTS = ['default', 'Run', 'Bike', 'Swim'] as const;
 type SportKey = (typeof SPORTS)[number];
-
-const SPORT_LABEL: Record<SportKey, string> = {
-  default: 'All sports',
-  Run: 'Run',
-  Bike: 'Bike',
-  Swim: 'Swim',
-};
 
 interface ZoneTableProps {
   title: string;
@@ -83,6 +77,7 @@ function ZoneTable({ title, unit, zones, onChange, disabled }: ZoneTableProps) {
 
 export function TrainingZonesCard() {
   const theme = useTheme();
+  const { t } = useLanguage();
   const [sport, setSport] = useState<SportKey>('default');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,6 +86,14 @@ export function TrainingZonesCard() {
   const [maxHr, setMaxHr] = useState<number | null>(null);
   const [ftp, setFtp] = useState<number | null>(null);
   const [overriddenSports, setOverriddenSports] = useState<string[]>([]);
+
+  const getSportLabel = (s: SportKey) => {
+    if (s === 'default') return t('trainingZones.allSports');
+    if (s === 'Run') return t('sports.run');
+    if (s === 'Bike') return t('sports.bike');
+    if (s === 'Swim') return t('sports.swim');
+    return s;
+  };
 
   const load = useCallback(async (target: SportKey) => {
     setLoading(true);
@@ -122,10 +125,10 @@ export function TrainingZonesCard() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await load(sport);
       Alert.alert(
-        'Zones saved',
+        t('trainingZones.zonesSaved'),
         sport === 'default'
-          ? 'These zones now apply to every sport without its own table.'
-          : `These zones now apply to ${SPORT_LABEL[sport]} only.`
+          ? t('trainingZones.zonesSavedAll')
+          : t('trainingZones.zonesSavedSport', { sport: getSportLabel(sport) })
       );
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -137,12 +140,12 @@ export function TrainingZonesCard() {
 
   const handleReset = () => {
     Alert.alert(
-      'Rebuild from max HR and FTP?',
-      'This replaces your edits for this sport with the standard percentage bands.',
+      t('trainingZones.rebuildPrompt'),
+      t('trainingZones.rebuildDesc'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Rebuild',
+          text: t('trainingZones.rebuild'),
           style: 'destructive',
           onPress: async () => {
             setSaving(true);
@@ -163,12 +166,12 @@ export function TrainingZonesCard() {
 
   const handleRemoveOverride = () => {
     Alert.alert(
-      `Remove the ${SPORT_LABEL[sport]} table?`,
-      `${SPORT_LABEL[sport]} will fall back to your all-sports zones.`,
+      t('trainingZones.removeOverridePrompt', { sport: getSportLabel(sport) }),
+      t('trainingZones.removeOverrideDesc', { sport: getSportLabel(sport) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('benchmarks.remove'),
           style: 'destructive',
           onPress: async () => {
             await zonesApi.remove(sport).catch(() => {});
@@ -186,18 +189,17 @@ export function TrainingZonesCard() {
       <View className="flex-row items-center justify-between mb-1">
         <View className="flex-row items-center gap-2">
           <Ionicons name="speedometer-outline" size={18} color={theme.tint} />
-          <Text className="text-base font-extrabold text-theme-text">Training Zones</Text>
+          <Text className="text-base font-extrabold text-theme-text">{t('trainingZones.title')}</Text>
         </View>
         <TouchableOpacity onPress={handleReset} disabled={saving}>
-          <Text className="text-xs font-bold text-theme-accent">Rebuild</Text>
+          <Text className="text-xs font-bold text-theme-accent">{t('trainingZones.rebuild')}</Text>
         </TouchableOpacity>
       </View>
 
       <Text className="text-xs text-theme-muted mb-3 font-rajdhani">
-        Every rooka score is your time multiplied by the zone you trained in, so these
-        boundaries decide what a session is worth.
-        {maxHr ? ` Max HR ${maxHr} bpm.` : ''}
-        {ftp ? ` FTP ${ftp} W.` : ''}
+        {t('trainingZones.desc')}
+        {maxHr ? ` ${t('trainingZones.maxHrInfo', { val: maxHr })}` : ''}
+        {ftp ? ` ${t('trainingZones.ftpInfo', { val: ftp })}` : ''}
       </Text>
 
       {/* Sport selector — a sport without its own table inherits the all-sports one. */}
@@ -222,7 +224,7 @@ export function TrainingZonesCard() {
                 className="text-xs font-bold"
                 style={{ color: active ? '#FFFFFF' : '#94A3B8' }}
               >
-                {SPORT_LABEL[s]}
+                {getSportLabel(s)}
               </Text>
               {custom && !active ? (
                 <View className="w-1.5 h-1.5 rounded-full bg-theme-accent mt-1" />
@@ -235,8 +237,7 @@ export function TrainingZonesCard() {
       {sport !== 'default' && !hasOverride ? (
         <View className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 mb-3">
           <Text className="text-xs text-theme-muted">
-            {SPORT_LABEL[sport]} currently uses your all-sports zones. Edit and save below to
-            give it its own table.
+            {t('trainingZones.usesAllSports', { sport: getSportLabel(sport) })}
           </Text>
         </View>
       ) : null}
@@ -249,17 +250,17 @@ export function TrainingZonesCard() {
         <View className="py-6 items-center px-4">
           <Ionicons name="help-circle-outline" size={30} color={theme.textSecondary} />
           <Text className="text-theme-text font-bold text-sm mt-2 text-center">
-            No zones yet
+            {t('trainingZones.noZonesYet')}
           </Text>
           <Text className="text-theme-muted text-xs mt-1 text-center font-rajdhani">
-            Add your age and FTP to your athlete details and rooka will build these for you.
+            {t('trainingZones.noZonesDesc')}
           </Text>
         </View>
       ) : (
         <View className="gap-4">
           {hrZones.length > 0 && (
             <ZoneTable
-              title="Heart rate"
+              title={t('trainingZones.heartRate')}
               unit="bpm"
               zones={hrZones}
               onChange={setHrZones}
@@ -268,7 +269,7 @@ export function TrainingZonesCard() {
           )}
           {powerZones.length > 0 && (
             <ZoneTable
-              title="Power"
+              title={t('trainingZones.power')}
               unit="W"
               zones={powerZones}
               onChange={setPowerZones}
@@ -290,7 +291,7 @@ export function TrainingZonesCard() {
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text className="text-white font-bold text-sm">
-                  {sport === 'default' ? 'Save zones' : `Save ${SPORT_LABEL[sport]} zones`}
+                  {sport === 'default' ? t('trainingZones.saveZones') : t('trainingZones.saveSportZones', { sport: getSportLabel(sport) })}
                 </Text>
               )}
             </ScalePressable>

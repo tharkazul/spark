@@ -3,6 +3,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { View, Text, Modal, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../ui/Button';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface QuickBuildModalProps {
   visible: boolean;
@@ -12,6 +13,7 @@ interface QuickBuildModalProps {
 
 export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalProps) {
   const theme = useTheme();
+  const { t } = useLanguage();
   const [mins, setMins] = useState('45');
   const [showModal, setShowModal] = useState(visible);
   const slideAnim = useRef(new Animated.Value(40)).current;
@@ -89,14 +91,14 @@ export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalPr
             className="bg-theme-card rounded-card p-6 shadow-2xl"
           >
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-xl font-extrabold text-theme-text">Quick Build</Text>
+              <Text className="text-xl font-extrabold text-theme-text">{t('quickBuild.title')}</Text>
               <TouchableOpacity onPress={onClose}>
                 <Ionicons name="close" size={24} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <Text className="text-sm text-theme-muted mb-4">
-              Enter target duration (minutes) to auto-generate a structured workout block:
+              {t('quickBuild.desc')}
             </Text>
 
             <View className="bg-theme-bg border border-theme-border rounded-xl px-4 py-3 flex-row items-center mb-6">
@@ -107,10 +109,10 @@ export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalPr
                 autoFocus
                 className="flex-1 text-lg font-bold text-theme-text"
               />
-              <Text className="text-sm font-bold text-theme-muted">mins</Text>
+              <Text className="text-sm font-bold text-theme-muted">{t('quickBuild.mins')}</Text>
             </View>
 
-            <Button label="Auto-Build" variant="primary" onPress={handleBuild} />
+            <Button label={t('quickBuild.autoBuild')} variant="primary" onPress={handleBuild} />
           </Animated.View>
         </KeyboardAvoidingView>
       </View>

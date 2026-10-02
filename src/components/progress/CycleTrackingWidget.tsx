@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { useUser } from '../../context/UserStore';
 import { healthApi } from '../../services/apiServices';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface CycleTrackingWidgetProps {
   avgCycleLength?: number;
@@ -15,7 +16,8 @@ interface CycleTrackingWidgetProps {
 export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
   avgCycleLength = 28,
 }) => {
-    const theme = useTheme();
+  const theme = useTheme();
+  const { t } = useLanguage();
   const { user, updateUser } = useUser();
   const [loading, setLoading] = useState(false);
 
@@ -111,10 +113,10 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
             </View>
             <View>
               <Text className="text-xs font-bold text-theme-muted">
-                Hormonal Cycle Tracking
+                {t('progress.hormonalCycleTracking')}
               </Text>
               <Text className="text-sm font-bold text-theme-text mt-0.5">
-                Disabled / Off
+                {t('progress.disabledOff')}
               </Text>
             </View>
           </View>
@@ -135,7 +137,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
         <View className="flex-row items-center gap-x-2">
           <View className="w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: phaseColor }} />
           <Text className="text-xs font-bold text-theme-muted">
-            Cycle Tracking & Coach Sync
+            {t('progress.cycleTrackingTitle')}
           </Text>
         </View>
 
@@ -143,7 +145,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           onPress={() => handleToggleEnable(false)}
           className="px-2 py-1 bg-theme-bg rounded-lg"
         >
-          <Text className="text-xs font-bold text-theme-muted">Disable</Text>
+          <Text className="text-xs font-bold text-theme-muted">{t('progress.disable')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -176,8 +178,8 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           </Svg>
 
           <View className="absolute inset-0 items-center justify-center">
-            <Text className="text-base font-extrabold text-theme-text">Day {cycleDay}</Text>
-            <Text className="text-xs font-bold text-theme-muted">/ {avgCycleLength}</Text>
+            <Text className="text-base font-extrabold text-theme-text">{t('common.today')}</Text>
+            <Text className="text-xs font-bold text-theme-muted">{cycleDay} / {avgCycleLength}</Text>
           </View>
         </View>
 
@@ -195,7 +197,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
             className="self-start px-3 py-1.5 bg-theme-accent/15 border border-theme-accent/30 rounded-lg flex-row items-center gap-x-1"
           >
             <Ionicons name="add-circle-outline" size={14} color={theme.tint} style={{ marginRight: 4 }} />
-            <Text className="text-xs font-bold text-theme-accent">Log Period Start Today</Text>
+            <Text className="text-xs font-bold text-theme-accent">{t('progress.logPeriodToday')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -204,7 +206,7 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
       <View className="flex-row items-center bg-semantic-success/10 p-2.5 rounded-xl">
         <Ionicons name="analytics-outline" size={16} color="#10B981" style={{ marginRight: 6 }} />
         <Text className="text-xs font-semibold text-semantic-success flex-1 ml-1 font-rajdhani">
-          Synced to Coach Knowledge: rooka AI automatically adjusts training volume and intensity for optimal recovery.
+          {t('progress.cycleCoachSyncBanner')}
         </Text>
       </View>
     </Card>

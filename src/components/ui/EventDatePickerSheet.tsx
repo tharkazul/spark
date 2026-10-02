@@ -6,18 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { BottomSheetModal } from './BottomSheetModal';
-
-const MONTH_NAMES = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-const PRESETS: { months: number; label: string }[] = [
-  { months: 1, label: '+1 Month' },
-  { months: 3, label: '+3 Months' },
-  { months: 6, label: '+6 Months' },
-  { months: 12, label: '+1 Year' },
-];
+import { useLanguage } from '../../context/LanguageContext';
 
 export interface EventDatePickerSheetProps {
   visible: boolean;
@@ -53,10 +42,10 @@ function toDateString(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-function formatDateDisplay(dateStr: string) {
+function formatDateDisplay(dateStr: string, locale: string = 'en-US') {
   const parsed = parseDateString(dateStr);
   if (!parsed) return dateStr;
-  return parsed.toLocaleDateString('en-US', {
+  return parsed.toLocaleDateString(locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -75,14 +64,44 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
   value,
   onClose,
   onConfirm,
-  title = 'Select Event Date',
-  previewLabel = 'Selected Race Date',
-  confirmLabel = 'Confirm Date',
+  title,
+  previewLabel,
+  confirmLabel,
   disallowPast = false,
-  pastWarning = 'That date is already in the past',
+  pastWarning,
   minYear,
 }) => {
-    const theme = useTheme();
+  const theme = useTheme();
+  const { t, language } = useLanguage();
+
+  const localeMap: Record<string, string> = {
+    en: 'en-US',
+    nl: 'nl-NL',
+    de: 'de-DE',
+    es: 'es-ES',
+    fr: 'fr-FR',
+  };
+  const activeLocale = localeMap[language] || 'en-US';
+
+  const activeTitle = title ?? t('datePicker.selectDate');
+  const activePreviewLabel = previewLabel ?? t('datePicker.selectedDate');
+  const activeConfirmLabel = confirmLabel ?? t('datePicker.confirmDate');
+  const activePastWarning = pastWarning ?? t('datePicker.dateInPast');
+
+  const presets = React.useMemo(() => [
+    { months: 1, label: t('datePicker.plus1Month') },
+    { months: 3, label: t('datePicker.plus3Months') },
+    { months: 6, label: t('datePicker.plus6Months') },
+    { months: 12, label: t('datePicker.plus1Year') },
+  ], [t]);
+
+  const monthNames = React.useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(2026, i, 1);
+      const str = d.toLocaleDateString(activeLocale, { month: 'short' });
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    });
+  }, [activeLocale]);
   const thisYear = new Date().getFullYear();
   const floorYear = minYear ?? thisYear;
 
@@ -157,29 +176,29 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
         <View className="flex-row items-center gap-2">
           <Ionicons name="calendar-outline" size={20} color={theme.tint} />
-          <Text className="text-lg font-extrabold text-theme-text">{title}</Text>
+          <Text className="text-lg font-extrabold text-theme-text">{activeTitle}</Text>
         </View>
       </View>
 
       {/* Formatted preview */}
       <View className="p-3 bg-theme-card border border-theme-accent/30 rounded-control mb-4 items-center">
-        <Text className="text-xs font-bold text-theme-muted">{previewLabel}</Text>
+        <Text className="text-xs font-bold text-theme-muted">{activePreviewLabel}</Text>
         <Text className="text-lg font-extrabold text-theme-accent mt-0.5">
-          {formatDateDisplay(selectedDateStr)}
+          {formatDateDisplay(selectedDateStr, activeLocale)}
         </Text>
       </View>
 
       {isInPast && (
         <View className="mb-4 p-2 bg-semantic-error/10 border border-semantic-error/30 rounded-lg flex-row items-center justify-center gap-2">
           <Ionicons name="warning-outline" size={16} color="#ef4444" />
-          <Text className="text-semantic-error text-xs font-bold text-center">{pastWarning}</Text>
+          <Text className="text-semantic-error text-xs font-bold text-center">{activePastWarning}</Text>
         </View>
       )}
 
       {/* Quick presets */}
-      <Text className="text-xs font-bold text-theme-muted mb-2">Quick Presets</Text>
+      <Text className="text-xs font-bold text-theme-muted mb-2">{t('datePicker.quickPresets')}</Text>
       <View className="flex-row flex-wrap gap-2 mb-4">
-        {PRESETS.map((preset) => (
+        {presets.map((preset) => (
           <ScalePressable
             key={preset.label}
             onPress={() => applyPreset(preset.months)}
@@ -194,7 +213,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
 
       {/* Year stepper */}
       <View className="flex-row items-center justify-between mb-3 bg-theme-card p-2 rounded-control">
-        <Text className="text-xs font-bold text-theme-muted">Year</Text>
+        <Text className="text-xs font-bold text-theme-muted">{t('datePicker.year')}</Text>
         <View className="flex-row items-center gap-3">
           <ScalePressable
             onPress={() => stepYear(-1)}
@@ -213,9 +232,9 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       </View>
 
       {/* Month grid */}
-      <Text className="text-xs font-bold text-theme-muted mb-2">Month</Text>
+      <Text className="text-xs font-bold text-theme-muted mb-2">{t('datePicker.month')}</Text>
       <View className="flex-row flex-wrap gap-1.5 mb-4">
-        {MONTH_NAMES.map((mName, idx) => {
+        {monthNames.map((mName, idx) => {
           const isSelected = pickerMonth === idx;
           return (
             <ScalePressable
@@ -236,7 +255,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       </View>
 
       {/* Day strip */}
-      <Text className="text-xs font-bold text-theme-muted mb-2">Day of Month</Text>
+      <Text className="text-xs font-bold text-theme-muted mb-2">{t('datePicker.dayOfMonth')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-5">
         {Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1).map((dNum) => {
           const isSelected = pickerDay === dNum;
@@ -270,7 +289,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
           isInPast ? 'opacity-40' : ''
         }`}
       >
-        <Text className="text-white font-bold text-sm">{confirmLabel}</Text>
+        <Text className="text-white font-bold text-sm">{activeConfirmLabel}</Text>
       </ScalePressable>
     </BottomSheetModal>
   );

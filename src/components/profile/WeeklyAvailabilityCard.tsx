@@ -102,30 +102,32 @@ export const WeeklyAvailabilityCard: React.FC = () => {
         <View className="flex-row items-center gap-x-2">
           <Ionicons name="calendar-outline" size={18} color={theme.tint} />
           <Text className="text-sm font-bold text-theme-text font-rajdhani">
-            Weekly Training Availability
+            {t('availability.title')}
           </Text>
         </View>
         {hasChanges && !saving && (
           <View className="px-2 py-0.5 rounded-full bg-semantic-warning/15">
-            <Text className="text-[11px] font-bold text-semantic-warning">Unsaved</Text>
+            <Text className="text-[11px] font-bold text-semantic-warning">{t('availability.unsaved')}</Text>
           </View>
         )}
       </View>
 
       <Text className="text-xs text-theme-muted mb-3">
-        Set the maximum workout duration you have available per day. Your AI Coach builds your weekly plan around these boundaries.
+        {t('availability.desc')}
       </Text>
 
       <View className="gap-2 pt-1">
         {DAYS.map((day) => {
           const currentVal = availability[day]?.maxMinutes || 0;
           const isRest = currentVal === 0;
+          const dayKey = `days.${day.toLowerCase()}Short` as any;
+          const dayLabel = t(dayKey) || day;
           return (
             <View
               key={day}
               className="bg-theme-bg px-3 py-2.5 rounded-xl border border-theme-border/60 flex-row items-center justify-between"
             >
-              <Text className="text-theme-text font-bold text-xs w-12">{day}</Text>
+              <Text className="text-theme-text font-bold text-xs w-12">{dayLabel}</Text>
 
               <DurationRoller
                 value={currentVal}
@@ -153,7 +155,7 @@ export const WeeklyAvailabilityCard: React.FC = () => {
           <>
             <Ionicons name="checkmark-sharp" size={15} color={hasChanges ? '#FFFFFF' : theme.textSecondary} />
             <Text className={`font-bold text-xs ${hasChanges ? 'text-white' : 'text-theme-muted'}`}>
-              Save Weekly Availability
+              {t('availability.saveAvailability')}
             </Text>
           </>
         )}
@@ -163,7 +165,7 @@ export const WeeklyAvailabilityCard: React.FC = () => {
         <View className="p-2.5 bg-semantic-success/10 rounded-xl mt-3 items-center flex-row justify-center gap-x-1.5 border border-semantic-success/20">
           <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
           <Text className="text-semantic-success font-bold text-xs">
-            Availability saved successfully!
+            {t('availability.availabilitySaved')}
           </Text>
         </View>
       )}

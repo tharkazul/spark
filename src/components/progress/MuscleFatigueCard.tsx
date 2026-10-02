@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { useActivities } from '../../context/ActivityStore';
 import { fatiguePercentages, MuscleGroup } from '../../domain/muscleLoad';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface MuscleScore {
   name: string;
@@ -13,6 +14,7 @@ interface MuscleScore {
 }
 
 export const MuscleFatigueCard: React.FC = () => {
+  const { t } = useLanguage();
   const { activities } = useActivities();
 
   // Per-muscle load from the shared model in domain/muscleLoad.ts. What used to
@@ -26,19 +28,19 @@ export const MuscleFatigueCard: React.FC = () => {
   );
 
   const muscles: MuscleScore[] = [
-    { name: 'Quadriceps', key: 'quads', fatiguePct: scores.quads, icon: 'walk-outline' },
-    { name: 'Calves & Achilles', key: 'calves', fatiguePct: scores.calves, icon: 'footsteps-outline' },
-    { name: 'Hamstrings', key: 'hamstrings', fatiguePct: scores.hamstrings, icon: 'fitness-outline' },
-    { name: 'Glutes & Hip Flexors', key: 'glutes', fatiguePct: scores.glutes, icon: 'bicycle-outline' },
-    { name: 'Core & Abdominals', key: 'core', fatiguePct: scores.core, icon: 'shield-checkmark-outline' },
-    { name: 'Upper Body & Shoulders', key: 'upper', fatiguePct: scores.upper, icon: 'barbell-outline' },
+    { name: t('progress.quads'), key: 'quads', fatiguePct: scores.quads, icon: 'walk-outline' },
+    { name: t('progress.calves'), key: 'calves', fatiguePct: scores.calves, icon: 'footsteps-outline' },
+    { name: t('progress.hamstrings'), key: 'hamstrings', fatiguePct: scores.hamstrings, icon: 'fitness-outline' },
+    { name: t('progress.glutes'), key: 'glutes', fatiguePct: scores.glutes, icon: 'bicycle-outline' },
+    { name: t('progress.core'), key: 'core', fatiguePct: scores.core, icon: 'shield-checkmark-outline' },
+    { name: t('progress.upper'), key: 'upper', fatiguePct: scores.upper, icon: 'barbell-outline' },
   ];
 
   // Helper for color badge
   const getFatigueStyle = (pct: number) => {
-    if (pct >= 65) return { color: '#EF4444', bg: 'bg-semantic-error/15', label: 'High Fatigue' };
-    if (pct >= 35) return { color: '#F98845', bg: 'bg-theme-accent/15', label: 'Moderate' };
-    return { color: '#10B981', bg: 'bg-semantic-success/15', label: 'Fresh / Low' };
+    if (pct >= 65) return { color: '#EF4444', bg: 'bg-semantic-error/15', label: t('progress.highFatigue') };
+    if (pct >= 35) return { color: '#F98845', bg: 'bg-theme-accent/15', label: t('progress.moderate') };
+    return { color: '#10B981', bg: 'bg-semantic-success/15', label: t('progress.freshLow') };
   };
 
   return (
@@ -47,10 +49,10 @@ export const MuscleFatigueCard: React.FC = () => {
         <View className="flex-row items-center gap-x-2">
           <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
           <Text className="text-xs font-bold text-theme-muted">
-            Muscle Fatigue & Breakdown
+            {t('progress.muscleFatigueBreakdown')}
           </Text>
         </View>
-        <Text className="text-xs font-semibold text-theme-muted">7-Day Workload Model</Text>
+        <Text className="text-xs font-semibold text-theme-muted">{t('progress.workloadModel7d')}</Text>
       </View>
 
       <View className="gap-y-3">

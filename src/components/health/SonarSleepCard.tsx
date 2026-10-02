@@ -4,6 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SonarSleepCardProps {
   biometrics: AppleHealthDailyBiometrics | null | undefined;
@@ -19,6 +20,8 @@ function formatDuration(minutes: number | null | undefined): string {
 }
 
 export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) => {
+  const { t } = useLanguage();
+
   if (!biometrics || !biometrics.sleep_minutes || biometrics.sleep_minutes <= 0) {
     return null;
   }
@@ -45,10 +48,10 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
   const mins = totalMin % 60;
 
   const stages = [
-    { label: 'Deep Sleep', minutes: deepMin, color: '#6366F1', max: 120 },
-    { label: 'REM', minutes: remMin, color: '#A855F7', max: 140 },
-    { label: 'Light / Core', minutes: coreMin, color: '#38BDF8', max: 280 },
-    { label: 'Time Awake', minutes: awakeMin, color: '#F59E0B', max: 60 },
+    { label: t('progress.deepSleep'), minutes: deepMin, color: '#6366F1', max: 120 },
+    { label: t('progress.remSleep'), minutes: remMin, color: '#A855F7', max: 140 },
+    { label: t('progress.lightCoreSleep'), minutes: coreMin, color: '#38BDF8', max: 280 },
+    { label: t('progress.timeAwake'), minutes: awakeMin, color: '#F59E0B', max: 60 },
   ];
 
   return (
@@ -58,12 +61,12 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
         <View className="flex-row items-center gap-2">
           <Ionicons name="moon-outline" size={16} color="#818CF8" />
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-            Sleep Analysis
+            {t('progress.sleepAnalysis')}
           </Text>
         </View>
         <View className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
           <Text className="text-[10px] font-bold text-indigo-400">
-            {progressPct}% of 8h goal
+            {t('progress.goal8h', { pct: progressPct })}
           </Text>
         </View>
       </View>
@@ -102,7 +105,7 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
               {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`}
             </Text>
             <Text className="text-[10px] font-bold text-theme-muted">
-              Asleep
+              {t('progress.asleep')}
             </Text>
           </View>
         </View>

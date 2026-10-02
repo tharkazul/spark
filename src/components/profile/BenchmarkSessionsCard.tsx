@@ -22,6 +22,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { benchmarksApi } from '../../services/apiServices';
 import { BenchmarkTest } from '../../types/user';
 import { useCoachChat } from '../../context/CoachChatStore';
+import { useLanguage } from '../../context/LanguageContext';
 import { BenchmarkSkeleton } from '../skeletons/BenchmarkSkeleton';
 
 interface BenchmarkPreset {
@@ -81,6 +82,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { sendMessage } = useCoachChat();
+  const { t, language } = useLanguage();
 
   const [benchmarks, setBenchmarks] = useState<BenchmarkTest[]>([]);
   const [loading, setLoading] = useState(false);
@@ -196,12 +198,12 @@ export const BenchmarkSessionsCard: React.FC = () => {
   const handleDelete = (item: BenchmarkTest) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
-      'Remove Benchmark',
-      `Are you sure you want to remove "${item.test_name}"? This baseline assessment will no longer be referenced in your fitness profile.`,
+      t('benchmarks.removeBenchmark'),
+      t('benchmarks.removeConfirm', { name: item.test_name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('benchmarks.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('benchmarks.remove'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -220,9 +222,9 @@ export const BenchmarkSessionsCard: React.FC = () => {
 
   const getSportDetails = (sport: string) => {
     const s = (sport || '').toLowerCase();
-    if (s.includes('run')) return { color: '#10B981', label: 'Run' };
-    if (s.includes('bike') || s.includes('cycl')) return { color: '#F59E0B', label: 'Bike' };
-    if (s.includes('swim')) return { color: '#06B6D4', label: 'Swim' };
+    if (s.includes('run')) return { color: '#10B981', label: t('sports.run') };
+    if (s.includes('bike') || s.includes('cycl')) return { color: '#F59E0B', label: t('sports.bike') };
+    if (s.includes('swim')) return { color: '#06B6D4', label: t('sports.swim') };
     if (s.includes('strength') || s.includes('hyrox')) return { color: '#EC4899', label: 'Hyrox' };
     return { color: '#8B5CF6', label: sport || 'Assessment' };
   };
@@ -241,7 +243,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
     if (!dateStr) return 'Recorded';
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      return d.toLocaleDateString(language, { month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
       return dateStr.slice(0, 10);
     }
@@ -258,7 +260,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            Benchmark Assessments
+            {t('benchmarks.title')}
           </Text>
         </View>
         <View className="flex-row items-center gap-x-1.5 shrink-0">
@@ -269,7 +271,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
             className="px-2 py-1 bg-theme-border/40 rounded-full flex-row items-center gap-x-1"
           >
             <Ionicons name="create-outline" size={12} color={theme.textSecondary} />
-            <Text className="text-[11px] font-medium text-theme-muted">Log</Text>
+            <Text className="text-[11px] font-medium text-theme-muted">{t('benchmarks.log')}</Text>
           </ScalePressable>
           <ScalePressable
             onPress={handleOpenRequestModal}
@@ -278,13 +280,13 @@ export const BenchmarkSessionsCard: React.FC = () => {
             className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center gap-x-1"
           >
             <Ionicons name="chatbubble-ellipses-outline" size={12} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-accent">Request</Text>
+            <Text className="text-xs font-bold text-theme-accent">{t('benchmarks.request')}</Text>
           </ScalePressable>
         </View>
       </View>
 
       <Text className="text-xs text-theme-muted mb-3">
-        Calibrate your training zones and baseline fitness. Request new benchmark tests directly from your coach or review past results.
+        {t('benchmarks.subtitle')}
       </Text>
 
       {loading ? (
@@ -292,9 +294,9 @@ export const BenchmarkSessionsCard: React.FC = () => {
       ) : benchmarks.length === 0 ? (
         <View className="p-4 bg-theme-bg rounded-xl items-center border border-theme-border/50 my-1">
           <Ionicons name="speedometer-outline" size={26} color={theme.textSecondary} className="mb-1.5 opacity-60" />
-          <Text className="text-xs font-bold text-theme-text mb-0.5">No Benchmark Tests Recorded</Text>
+          <Text className="text-xs font-bold text-theme-text mb-0.5">{t('benchmarks.noTestsRecorded')}</Text>
           <Text className="text-[11px] text-theme-muted text-center px-3 mb-3">
-            Benchmark tests calibrate your FTP, CSS, threshold heart rate, and training zones. Request a test from your coach to schedule one.
+            {t('benchmarks.noTestsDesc')}
           </Text>
           <ScalePressable
             onPress={handleOpenRequestModal}
@@ -304,7 +306,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
           >
             <Ionicons name="chatbubble-ellipses" size={14} color="#FFFFFF" />
             <Text className="text-white text-xs font-bold font-rajdhani text-center" numberOfLines={1}>
-              Request Benchmark Session
+              {t('benchmarks.requestSession')}
             </Text>
           </ScalePressable>
         </View>
@@ -400,7 +402,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 <View className="flex-row items-center gap-x-2 flex-1 min-w-0 mr-2">
                   <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.tint} />
                   <Text className="text-base font-bold text-theme-text font-rajdhani flex-1" numberOfLines={1}>
-                    Request Benchmark Session
+                    {t('benchmarks.requestSession')}
                   </Text>
                 </View>
                 <ScalePressable
@@ -419,7 +421,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 contentContainerStyle={{ paddingBottom: 16 }}
               >
                 <Text className="text-xs text-theme-muted mb-3">
-                  Choose an assessment to request. Your AI Coach will prepare the protocol, adjust your week's training volume, and schedule it in your calendar.
+                  {t('benchmarks.requestModalDesc')}
                 </Text>
 
                 {/* Presets List */}
@@ -468,12 +470,12 @@ export const BenchmarkSessionsCard: React.FC = () => {
 
                 {/* Optional Athlete Note */}
                 <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                  Timing Preference or Note (Optional)
+                  {t('benchmarks.timingPreference')}
                 </Text>
                 <TextInput
                   value={customAthleteNote}
                   onChangeText={setCustomAthleteNote}
-                  placeholder="e.g., Prefer doing this on Saturday morning on a running track..."
+                  placeholder={t('benchmarks.timingPlaceholder')}
                   placeholderTextColor={theme.textSecondary}
                   multiline
                   numberOfLines={2}
@@ -497,7 +499,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                     <>
                       <Ionicons name="paper-plane" size={16} color="#FFFFFF" />
                       <Text className="text-white font-bold text-sm font-rajdhani uppercase tracking-wider">
-                        Send to AI Coach
+                        {t('benchmarks.sendToCoach')}
                       </Text>
                     </>
                   )}
@@ -528,7 +530,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 <View className="flex-row items-center gap-x-2 flex-1 min-w-0 mr-2">
                   <Ionicons name="create-outline" size={20} color={theme.tint} />
                   <Text className="text-base font-bold text-theme-text font-rajdhani flex-1" numberOfLines={1}>
-                    Log Benchmark Baseline
+                    {t('benchmarks.logBaseline')}
                   </Text>
                 </View>
                 <ScalePressable
@@ -548,15 +550,21 @@ export const BenchmarkSessionsCard: React.FC = () => {
               >
                 {/* Sport Selector */}
                 <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                  Sport
+                  {t('benchmarks.sport')}
                 </Text>
                 <View className="flex-row gap-x-2 mb-3">
-                  {['Run', 'Bike', 'Swim', 'Strength', 'Other'].map((s) => {
-                    const isSel = logSport === s;
+                  {[
+                    { id: 'Run', label: t('sports.run') },
+                    { id: 'Bike', label: t('sports.bike') },
+                    { id: 'Swim', label: t('sports.swim') },
+                    { id: 'Strength', label: t('sports.strength') },
+                    { id: 'Other', label: 'Other' },
+                  ].map((s) => {
+                    const isSel = logSport === s.id;
                     return (
                       <ScalePressable
-                        key={s}
-                        onPress={() => setLogSport(s)}
+                        key={s.id}
+                        onPress={() => setLogSport(s.id)}
                         activeScale={0.94}
                         haptic="selection"
                         className={`px-3 py-1.5 rounded-lg border flex-1 items-center ${
@@ -568,7 +576,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                             isSel ? 'text-white' : 'text-theme-muted'
                           }`}
                         >
-                          {s}
+                          {s.label}
                         </Text>
                       </ScalePressable>
                     );
@@ -577,7 +585,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
 
                 {/* Test Name */}
                 <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                  Assessment Name
+                  {t('benchmarks.assessmentName')}
                 </Text>
                 <TextInput
                   value={logTestName}
@@ -591,7 +599,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 <View className="flex-row gap-x-2 mb-3">
                   <View className="flex-1">
                     <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                      Pace / CSS (e.g. 4:15/km)
+                      {t('benchmarks.paceCss')}
                     </Text>
                     <TextInput
                       value={logPace}
@@ -603,7 +611,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                   </View>
                   <View className="flex-1">
                     <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                      FTP / Power (Watts)
+                      {t('benchmarks.ftpPower')}
                     </Text>
                     <TextInput
                       value={logPower}
@@ -620,7 +628,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 <View className="flex-row gap-x-2 mb-3">
                   <View className="flex-1">
                     <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                      Avg HR (bpm)
+                      {t('benchmarks.avgHr')}
                     </Text>
                     <TextInput
                       value={logAvgHr}
@@ -633,7 +641,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                   </View>
                   <View className="flex-1">
                     <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                      Max HR (bpm)
+                      {t('benchmarks.maxHr')}
                     </Text>
                     <TextInput
                       value={logMaxHr}
@@ -648,12 +656,12 @@ export const BenchmarkSessionsCard: React.FC = () => {
 
                 {/* Notes */}
                 <Text className="text-xs font-bold text-theme-text mb-1 font-rajdhani">
-                  Notes & Conditions
+                  {t('benchmarks.notesAndConditions')}
                 </Text>
                 <TextInput
                   value={logNotes}
                   onChangeText={setLogNotes}
-                  placeholder="e.g., Felt strong, steady pacing on flat course"
+                  placeholder={t('benchmarks.notesPlaceholder')}
                   placeholderTextColor={theme.textSecondary}
                   multiline
                   numberOfLines={2}
@@ -677,7 +685,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                     <>
                       <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
                       <Text className="text-white font-bold text-sm font-rajdhani uppercase tracking-wider">
-                        Save Benchmark Result
+                        {t('benchmarks.saveResult')}
                       </Text>
                     </>
                   )}

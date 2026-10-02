@@ -253,16 +253,16 @@ export const NutritionTab: React.FC = () => {
     return (
       <View className="bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center mt-4">
         <Ionicons name="lock-closed-outline" size={48} color={theme.tint} />
-        <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">Nutrition Locked</Text>
+        <Text className="text-lg font-extrabold text-theme-text mt-4 text-center">{t('progress.nutritionLocked')}</Text>
         <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed font-rajdhani">
-          Upgrade to the rooka+ subscription to unlock daily AI nutrition protocols.
+          {t('progress.nutritionLockedSub')}
         </Text>
         <TouchableOpacity
           onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
           className="bg-theme-accent-strong px-6 py-3.5 rounded-button w-full mt-6 items-center justify-center"
           activeOpacity={0.8}
         >
-          <Text className="text-white font-black text-center font-rajdhani text-base">Upgrade to rooka+</Text>
+          <Text className="text-white font-black text-center font-rajdhani text-base">{t('account.upgradeToRookaPlus')}</Text>
         </TouchableOpacity>
       </View>
     );

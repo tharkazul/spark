@@ -3,12 +3,14 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SonarVitalsCardProps {
   biometrics: AppleHealthDailyBiometrics | null | undefined;
 }
 
 export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) => {
+  const { t } = useLanguage();
   if (!biometrics) return null;
 
   const hasRhr = biometrics.resting_hr !== undefined && biometrics.resting_hr !== null && biometrics.resting_hr > 0;
@@ -25,15 +27,15 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
 
   // Vital Status Helpers
   const getRhrStatus = (rhr: number) => {
-    if (rhr < 55) return { label: 'Optimal', color: '#10B981' };
-    if (rhr <= 70) return { label: 'Normal', color: '#38BDF8' };
-    return { label: 'Elevated', color: '#F59E0B' };
+    if (rhr < 55) return { label: t('progress.optimal'), color: '#10B981' };
+    if (rhr <= 70) return { label: t('progress.normal'), color: '#38BDF8' };
+    return { label: t('progress.elevated'), color: '#F59E0B' };
   };
 
   const getHrvStatus = (hrv: number) => {
-    if (hrv >= 55) return { label: 'Prime', color: '#10B981' };
-    if (hrv >= 35) return { label: 'Balanced', color: '#38BDF8' };
-    return { label: 'Suppressed', color: '#F87171' };
+    if (hrv >= 55) return { label: t('progress.readinessPrime'), color: '#10B981' };
+    if (hrv >= 35) return { label: t('progress.balanced'), color: '#38BDF8' };
+    return { label: t('progress.suppressed'), color: '#F87171' };
   };
 
   return (
@@ -43,11 +45,11 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         <View className="flex-row items-center gap-2">
           <Ionicons name="pulse-outline" size={16} color="#10B981" />
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-            Vital Trends
+            {t('progress.vitalTrends')}
           </Text>
         </View>
         <Text className="text-[10px] font-bold text-theme-muted">
-          From Apple Health
+          {t('progress.fromAppleHealth')}
         </Text>
       </View>
 
@@ -57,12 +59,12 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         {hasRhr && (
           <View className="flex-1 min-w-[140px] bg-slate-800/40 p-3 rounded-2xl border border-slate-700/40">
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[11px] text-theme-muted font-bold">Resting HR</Text>
+              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.restingHr')}</Text>
               <Ionicons name="heart-outline" size={14} color="#EF4444" />
             </View>
             <View className="flex-row items-baseline gap-1 my-0.5">
               <Text className="text-xl font-extrabold text-theme-text">{biometrics.resting_hr}</Text>
-              <Text className="text-[10px] text-theme-muted font-bold">bpm</Text>
+              <Text className="text-[10px] text-theme-muted font-bold">{t('progress.bpm')}</Text>
             </View>
             <View className="mt-1">
               <Text
@@ -79,12 +81,12 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         {hasHrv && (
           <View className="flex-1 min-w-[140px] bg-slate-800/40 p-3 rounded-2xl border border-slate-700/40">
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[11px] text-theme-muted font-bold">HRV (SDNN)</Text>
+              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.hrv')} (SDNN)</Text>
               <Ionicons name="flash-outline" size={14} color="#10B981" />
             </View>
             <View className="flex-row items-baseline gap-1 my-0.5">
               <Text className="text-xl font-extrabold text-theme-text">{biometrics.hrv_sdnn}</Text>
-              <Text className="text-[10px] text-theme-muted font-bold">ms</Text>
+              <Text className="text-[10px] text-theme-muted font-bold">{t('progress.ms')}</Text>
             </View>
             <View className="mt-1">
               <Text
@@ -101,14 +103,14 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         {hasSteps && (
           <View className="flex-1 min-w-[140px] bg-slate-800/40 p-3 rounded-2xl border border-slate-700/40">
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[11px] text-theme-muted font-bold">Daily Steps</Text>
+              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.steps')}</Text>
               <Ionicons name="footsteps-outline" size={14} color="#F59E0B" />
             </View>
             <View className="flex-row items-baseline gap-1 my-0.5">
               <Text className="text-xl font-extrabold text-theme-text">
                 {biometrics.steps!.toLocaleString()}
               </Text>
-              <Text className="text-[10px] text-theme-muted font-bold">steps</Text>
+              <Text className="text-[10px] text-theme-muted font-bold">{t('progress.stepsUnit')}</Text>
             </View>
             {/* Progress Bar (Goal: 10k) */}
             <View className="h-1.5 w-full bg-slate-700/50 rounded-full overflow-hidden mt-1.5">
@@ -124,12 +126,12 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         {hasCalories && (
           <View className="flex-1 min-w-[140px] bg-slate-800/40 p-3 rounded-2xl border border-slate-700/40">
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[11px] text-theme-muted font-bold">Active Energy</Text>
+              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.calories')}</Text>
               <Ionicons name="flame-outline" size={14} color="#F97316" />
             </View>
             <View className="flex-row items-baseline gap-1 my-0.5">
               <Text className="text-xl font-extrabold text-theme-text">{biometrics.active_calories}</Text>
-              <Text className="text-[10px] text-theme-muted font-bold">kcal</Text>
+              <Text className="text-[10px] text-theme-muted font-bold">{t('progress.kcal')}</Text>
             </View>
             {/* Progress Bar (Goal: 600 kcal) */}
             <View className="h-1.5 w-full bg-slate-700/50 rounded-full overflow-hidden mt-1.5">
@@ -145,16 +147,16 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({ biometrics }) 
         {hasVo2 && (
           <View className="flex-1 min-w-[140px] bg-slate-800/40 p-3 rounded-2xl border border-slate-700/40">
             <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-[11px] text-theme-muted font-bold">VO2 Max</Text>
+              <Text className="text-[11px] text-theme-muted font-bold">{t('progress.vo2Max')}</Text>
               <Ionicons name="speedometer-outline" size={14} color="#06B6D4" />
             </View>
             <View className="flex-row items-baseline gap-1 my-0.5">
               <Text className="text-xl font-extrabold text-theme-text">{biometrics.vo2_max}</Text>
-              <Text className="text-[10px] text-theme-muted font-bold">ml/kg/min</Text>
+              <Text className="text-[10px] text-theme-muted font-bold">{t('progress.vo2MaxUnit')}</Text>
             </View>
             <View className="mt-1">
               <Text className="text-[10px] font-bold text-cyan-400">
-                ● Cardiorespiratory Fitness
+                ● {t('progress.cardiorespiratoryFitness')}
               </Text>
             </View>
           </View>

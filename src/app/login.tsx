@@ -464,7 +464,7 @@ export default function LoginScreen() {
               <View className="flex-row items-center my-4">
                 <View className="flex-1 h-[1px] bg-theme-border/60" />
                 <Text className="mx-3 text-[11px] font-bold text-theme-muted uppercase tracking-widest">
-                  OR
+                  {t('auth.or')}
                 </Text>
                 <View className="flex-1 h-[1px] bg-theme-border/60" />
               </View>
@@ -498,7 +498,7 @@ export default function LoginScreen() {
               >
                 <GoogleIcon size={20} />
                 <Text className="text-theme-text font-bold text-base ml-3">
-                  {mode === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
+                  {mode === 'login' ? t('auth.signInWithGoogle') : t('auth.signUpWithGoogle')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -629,7 +629,8 @@ export default function LoginScreen() {
                     className="py-2 items-center"
                   >
                     <Text className="text-xs text-theme-muted">
-                      Didn't receive a code? <Text className="text-theme-accent font-semibold">Resend code</Text>
+                      {t('auth.didntReceiveCode')}{' '}
+                      <Text className="text-theme-accent font-semibold">{t('auth.resendCode')}</Text>
                     </Text>
                   </TouchableOpacity>
                 </>

@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { goalsStorage } from '../../services/storage';
 import { useUser } from '../../context/UserStore';
+import { useLanguage } from '../../context/LanguageContext';
 import { gamificationApi, userApi } from '../../services/apiServices';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
@@ -51,6 +52,7 @@ export function calculateTargetCTL(eventName: string): number {
 export const GoalsTab: React.FC = () => {
   const theme = useTheme();
   const { user, refreshUser } = useUser();
+  const { t, language } = useLanguage();
 
   const [guideExpanded, setGuideExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -270,12 +272,19 @@ export const GoalsTab: React.FC = () => {
   };
 
   const formatDateDisplay = (dateStr: string) => {
-    if (!dateStr) return 'Select Date';
+    if (!dateStr) return t('goals.selectDate');
     try {
       const parts = dateStr.split('-').map(Number);
       if (parts.length === 3) {
         const d = new Date(parts[0], parts[1] - 1, parts[2]);
-        return d.toLocaleDateString('en-US', {
+        const localeMap: Record<string, string> = {
+          en: 'en-US',
+          nl: 'nl-NL',
+          de: 'de-DE',
+          es: 'es-ES',
+          fr: 'fr-FR',
+        };
+        return d.toLocaleDateString(localeMap[language] || 'en-US', {
           weekday: 'short',
           month: 'short',
           day: 'numeric',
@@ -293,7 +302,7 @@ export const GoalsTab: React.FC = () => {
         <View className="flex-row justify-between items-center pb-3 mb-4 border-b border-theme-border/50">
           <View className="flex-row items-center gap-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
-            <Text className="text-theme-text font-bold text-sm">Goals & Race Calendar</Text>
+            <Text className="text-theme-text font-bold text-sm">{t('goals.goalsAndCalendar')}</Text>
           </View>
           <ScalePressable
             onPress={handleAddMilestone}
@@ -302,7 +311,7 @@ export const GoalsTab: React.FC = () => {
             className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
           >
             <Ionicons name="add" size={14} color={theme.tint} />
-            <Text className="text-theme-accent font-bold text-xs ml-1">Add Goal</Text>
+            <Text className="text-theme-accent font-bold text-xs ml-1">{t('goals.addGoal')}</Text>
           </ScalePressable>
         </View>
 
@@ -315,7 +324,7 @@ export const GoalsTab: React.FC = () => {
           <View className="flex-row items-center flex-1 pr-2">
             <Ionicons name="information-circle-outline" size={18} color={theme.tint} />
             <Text className="text-theme-text font-bold text-xs ml-2">
-              CTL Target Reference Guide
+              {t('goals.ctlGuideTitle')}
             </Text>
           </View>
           <Ionicons
@@ -354,7 +363,7 @@ export const GoalsTab: React.FC = () => {
               </View>
             </View>
             <Text className="text-xs text-theme-muted italic mt-1 leading-relaxed">
-              *CTL (Fitness) is auto-calculated based on race type, distance, and preparation window.
+              {t('goals.ctlGuideFootnote')}
             </Text>
           </View>
         )}
@@ -364,10 +373,10 @@ export const GoalsTab: React.FC = () => {
           <View className="p-4 bg-theme-bg/60 rounded-xl items-center justify-center my-2">
             <Ionicons name="flag-outline" size={24} color={theme.textSecondary} />
             <Text className="text-theme-text font-bold text-xs mt-2 text-center">
-              No active goals or milestones set
+              {t('goals.noGoalsSet')}
             </Text>
             <Text className="text-theme-muted text-xs mt-1 text-center">
-              Tap "+ Add Goal" above to add your primary race or physiological target.
+              {t('goals.noGoalsSub')}
             </Text>
           </View>
         ) : (
@@ -395,7 +404,7 @@ export const GoalsTab: React.FC = () => {
                         className={`text-xs font-bold ml-1 ${row.isARace ? 'text-theme-accent' : 'text-theme-muted'
                           }`}
                       >
-                        {row.isARace ? 'PRIMARY (MAIN GOAL)' : 'SECONDARY GOAL'}
+                        {row.isARace ? t('goals.primaryGoal') : t('goals.secondaryGoal')}
                       </Text>
                     </TouchableOpacity>
 
@@ -416,7 +425,7 @@ export const GoalsTab: React.FC = () => {
                     >
                       <Ionicons name="flag-outline" size={13} color={isRace ? '#FFFFFF' : theme.textSecondary} />
                       <Text className={`text-xs font-bold ml-1.5 ${isRace ? 'text-white' : 'text-theme-muted'}`}>
-                        Race Goal
+                        {t('goals.raceGoal')}
                       </Text>
                     </TouchableOpacity>
 
@@ -427,7 +436,7 @@ export const GoalsTab: React.FC = () => {
                     >
                       <Ionicons name="fitness-outline" size={13} color={!isRace ? '#FFFFFF' : theme.textSecondary} />
                       <Text className={`text-xs font-bold ml-1.5 ${!isRace ? 'text-white' : 'text-theme-muted'}`}>
-                        Physiological
+                        {t('goals.physiological')}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -439,12 +448,12 @@ export const GoalsTab: React.FC = () => {
                       <>
                         <View>
                           <Text className="text-xs font-bold text-theme-muted mb-1">
-                            Race Event Name
+                            {t('goals.raceEventName')}
                           </Text>
                           <TextInput
                             value={row.eventName}
                             onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
-                            placeholder="e.g. Amsterdam Marathon, 70.3 Ironman..."
+                            placeholder={t('goals.raceEventPlaceholder')}
                             placeholderTextColor={theme.textSecondary}
                             className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
                           />
@@ -453,7 +462,7 @@ export const GoalsTab: React.FC = () => {
                         {/* EVENT DATE */}
                         <View>
                           <Text className="text-xs font-bold text-theme-muted mb-1">
-                            Race Date
+                            {t('goals.raceDate')}
                           </Text>
                           <TouchableOpacity
                             onPress={() => handleOpenDatePicker(row)}
@@ -473,7 +482,7 @@ export const GoalsTab: React.FC = () => {
                         {/* TARGET SELECTION: FINISH RACE vs TIME GOAL */}
                         <View>
                           <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                            Race Target
+                            {t('goals.raceTarget')}
                           </Text>
                           <View className="flex-row gap-2">
                             <TouchableOpacity
@@ -492,7 +501,7 @@ export const GoalsTab: React.FC = () => {
                                 className={`text-xs font-bold ml-1.5 ${row.targetMode === 'finish' ? 'text-theme-accent' : 'text-theme-muted'
                                   }`}
                               >
-                                Finish the Race
+                                {t('goals.finishRace')}
                               </Text>
                             </TouchableOpacity>
 
@@ -512,7 +521,7 @@ export const GoalsTab: React.FC = () => {
                                 className={`text-xs font-bold ml-1.5 ${row.targetMode === 'time' ? 'text-theme-accent' : 'text-theme-muted'
                                   }`}
                               >
-                                Time Goal
+                                {t('goals.timeGoal')}
                               </Text>
                             </TouchableOpacity>
                           </View>
@@ -522,12 +531,12 @@ export const GoalsTab: React.FC = () => {
                         {row.targetMode === 'time' && (
                           <View>
                             <Text className="text-xs font-bold text-theme-muted mb-1">
-                              Target Time
+                              {t('goals.targetTime')}
                             </Text>
                             <TextInput
                               value={row.targetValue}
                               onChangeText={(val) => handleUpdateMilestone(row.id, 'targetValue', val)}
-                              placeholder="e.g. 03:45:00 or 3h 45m"
+                              placeholder={t('goals.targetTimePlaceholder')}
                               placeholderTextColor={theme.textSecondary}
                               className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
                             />
@@ -539,12 +548,12 @@ export const GoalsTab: React.FC = () => {
                       <>
                         <View>
                           <Text className="text-xs font-bold text-theme-muted mb-1">
-                            Goal Title
+                            {t('goals.goalTitle')}
                           </Text>
                           <TextInput
                             value={row.eventName}
                             onChangeText={(val) => handleUpdateMilestone(row.id, 'eventName', val)}
-                            placeholder="e.g. Body Composition & Target Weight"
+                            placeholder={t('goals.goalTitlePlaceholder')}
                             placeholderTextColor={theme.textSecondary}
                             className="bg-theme-card rounded-control p-3 text-xs text-theme-text font-bold border border-theme-border/50"
                           />
@@ -552,7 +561,7 @@ export const GoalsTab: React.FC = () => {
 
                         <View>
                           <Text className="text-xs font-bold text-theme-muted mb-1">
-                            Target Date
+                            {t('goals.targetDate')}
                           </Text>
                           <TouchableOpacity
                             onPress={() => handleOpenDatePicker(row)}
@@ -571,7 +580,7 @@ export const GoalsTab: React.FC = () => {
 
                         <View>
                           <Text className="text-xs font-bold text-theme-muted mb-1">
-                            Goal Weight (kg)
+                            {t('goals.goalWeight')}
                           </Text>
                           <TextInput
                             value={row.targetWeight}
@@ -602,14 +611,14 @@ export const GoalsTab: React.FC = () => {
           }`}
         >
           <Text className="text-white font-bold text-sm">
-            {saving ? 'Saving Goals...' : 'Save Goals & Calendar'}
+            {saving ? t('goals.savingGoals') : t('goals.saveGoalsAndCalendar')}
           </Text>
         </ScalePressable>
 
         {savedSuccess && (
           <View className="p-3 bg-semantic-success/10 rounded-xl mt-3 items-center">
             <Text className="text-semantic-success font-bold text-xs">
-              Goals saved successfully!
+              {t('goals.goalsSavedSuccess')}
             </Text>
           </View>
         )}

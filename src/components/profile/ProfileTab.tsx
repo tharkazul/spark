@@ -158,13 +158,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const profilePicUrl = localPhotoUri || getFullPhotoUrl(user?.profile_picture_url || (user as any)?.profilePictureUrl);
 
   const tier = user?.subscription_tier;
-  let tierLabel = 'Free Member';
+  let tierLabel = t('profile.freeMember');
   if (tier === 'admin') {
-    tierLabel = 'Admin Member';
+    tierLabel = t('profile.adminMember');
   } else if (tier === 'premium') {
-    tierLabel = 'rooka+ Premium';
+    tierLabel = t('profile.premiumMember');
   } else if (tier === 'rooka_plus' || tier === 'subscription') {
-    tierLabel = 'rooka+ Member';
+    tierLabel = t('profile.plusMember');
   }
   const isPaidTier = tier === 'admin' || tier === 'premium' || tier === 'rooka_plus' || tier === 'subscription';
 
@@ -270,7 +270,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* PERSONAL TITLES MANAGER */}
       <Text className="text-theme-muted font-bold text-xs mb-2 ml-1 uppercase tracking-wider">
-        Personal Titles & Accolades
+        {t('profile.personalTitlesAccolades')}
       </Text>
       {!isPaidTier ? (
         <Card className="p-5 mb-2 items-center text-center">
@@ -280,14 +280,14 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <View className="flex-row items-center gap-x-1.5 mb-1">
             <RookaMark size={14} color={theme.tint} />
             <Text className="text-theme-text font-bold text-sm font-rajdhani">
-              Rooka+ Exclusive
+              {t('profile.rookaPlusExclusive')}
             </Text>
           </View>
           <Text className="text-theme-muted text-xs text-center px-4 mb-3">
-            Earn custom athletic titles and accolades based on your races and endurance milestones.
+            {t('profile.titlesDescription')}
           </Text>
           <View className="px-3 py-1 bg-theme-accent/10 rounded-full">
-            <Text className="text-theme-accent text-xs font-bold font-rajdhani">Included with Rooka+</Text>
+            <Text className="text-theme-accent text-xs font-bold font-rajdhani">{t('profile.includedWithRookaPlus')}</Text>
           </View>
         </Card>
       ) : (
@@ -354,7 +354,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                           }`}
                         >
                           <Text className={`text-xs font-bold ${isEquipped ? 'text-white' : 'text-theme-muted'}`}>
-                            {isEquipped ? 'Equipped' : 'Equip'}
+                            {isEquipped ? t('profile.equipped') : t('profile.equip')}
                           </Text>
                         </TouchableOpacity>
                         <Ionicons

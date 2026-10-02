@@ -43,7 +43,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
 }) => {
   const theme = useTheme();
   const { user } = useUser();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const router = useRouter();
   const reducedMotion = useReducedMotion();
 
@@ -104,15 +104,15 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
       <Card variant="default" padding={24} className="items-center justify-center mt-4">
         <Ionicons name="lock-closed-outline" size={44} color={theme.tint} />
         <Text className="text-lg font-bold text-theme-text mt-3 text-center">
-          Leaderboard Locked
+          {t('social.lockedLeaderboard')}
         </Text>
         <Text className="text-xs text-theme-muted mt-2 text-center leading-relaxed font-rajdhani max-w-[280px]">
-          Upgrade to the rooka+ subscription to unlock global leaderboards and rank against your friends.
+          {t('social.lockedLeaderboardSub')}
         </Text>
         <Button
           variant="primary"
           size="md"
-          label="Upgrade to rooka+"
+          label={t('account.upgradeToRookaPlus')}
           className="mt-5"
           onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'account' } })}
         />
@@ -145,13 +145,13 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
           <Chip
             variant={currentType === 'rooka' ? 'accent' : 'neutral'}
             size="md"
-            label="rooka score"
+            label={t('social.rookaScoreChip')}
             onPress={() => handleTabSwitch('rooka')}
           />
           <Chip
             variant={currentType === 'quests' ? 'accent' : 'neutral'}
             size="md"
-            label="7-Day quests"
+            label={t('social.questsChip')}
             onPress={() => handleTabSwitch('quests')}
           />
         </View>
@@ -333,7 +333,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                             {item.username}
                           </Text>
                           {isCurrentUser && (
-                            <Chip variant="accent" size="sm" label="You" />
+                            <Chip variant="accent" size="sm" label={t('common.you')} />
                           )}
                         </View>
                         <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
@@ -348,7 +348,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                         {scoreVal}
                       </Text>
                       <Text className="text-[10px] text-theme-muted font-semibold uppercase tracking-wider">
-                        {currentType === 'rooka' ? 'Points' : 'Quests'}
+                        {currentType === 'rooka' ? t('common.points') : t('social.quests')}
                       </Text>
                     </View>
                   </Card>
@@ -388,7 +388,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                         <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                           {currentUserEntry.username}
                         </Text>
-                        <Chip variant="accent" size="sm" label="You" />
+                        <Chip variant="accent" size="sm" label={t('common.you')} />
                       </View>
                       <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
                         Lvl {user?.level || currentUserEntry.rooka_level || 1} · {pluralize('quest', (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0, language)}
@@ -403,7 +403,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                         : (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0}
                     </Text>
                     <Text className="text-[10px] text-theme-muted font-semibold uppercase tracking-wider">
-                      {currentType === 'rooka' ? 'Points' : 'Quests'}
+                      {currentType === 'rooka' ? t('common.points') : t('social.quests')}
                     </Text>
                   </View>
                 </Card>
@@ -416,15 +416,15 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
             <Card variant="default" padding={20} className="mt-3 items-center">
               <Ionicons name="people-outline" size={32} color={theme.tint} />
               <Text className="text-sm font-bold text-theme-text mt-2.5 text-center">
-                {activeList.length === 0 ? 'No one on the board yet' : 'A leaderboard needs rivals'}
+                {activeList.length === 0 ? t('social.noOneOnBoard') : t('social.leaderboardNeedsRivals')}
               </Text>
               <Text className="text-xs text-theme-muted mt-1 text-center max-w-[280px] leading-relaxed">
-                Connect with athletes to see how your week stacks up.
+                {t('social.connectToSeeWeek')}
               </Text>
               <Button
                 variant="secondary"
                 size="md"
-                label="Find athletes"
+                label={t('social.findAthletes')}
                 className="mt-3.5"
                 onPress={() => router.navigate({ pathname: '/profile', params: { subtab: 'connections' } })}
               />

@@ -436,7 +436,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useUser();
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const reducedMotion = useReducedMotion();
 
   const [activeTabIndex, setActiveTabIndex] = useState<number>(0);
@@ -1179,8 +1179,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
           <View className="my-4">
             <SegmentedControl
               items={[
-                { key: 'details', label: 'Details' },
-                { key: 'results', label: 'Results' },
+                { key: 'details', label: t('common.details') },
+                { key: 'results', label: t('common.results') },
               ]}
               value={activeTabIndex === 0 ? 'details' : 'results'}
               onChange={(key) => handleTabPress(key === 'details' ? 0 : 1)}

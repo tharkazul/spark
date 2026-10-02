@@ -109,7 +109,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
   onOpenAddFriends,
 }) => {
   const theme = useTheme();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { user } = useUser();
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);

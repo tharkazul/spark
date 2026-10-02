@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { ScalePressable } from '../ui/ScalePressable';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -70,6 +71,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   onOpenAthleteProfile,
 }) => {
   const theme = useTheme();
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(visible);
   const [searchQuery, setSearchQuery] = useState('');
@@ -303,7 +305,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
               <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
                 <Ionicons name="person-add" size={16} color={theme.tint} />
               </View>
-              <Text className="text-lg font-extrabold text-theme-text">Find & Add Friends</Text>
+              <Text className="text-lg font-extrabold text-theme-text">{t('social.findAddAthletes')}</Text>
             </View>
           </View>
 
@@ -311,11 +313,11 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             {/* Active Live Search Input */}
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-xs font-bold text-theme-muted">
-                Live Athlete Search
+                {t('social.liveSearch')}
               </Text>
               {searchQuery.trim().length > 0 && (
                 <Text className="text-xs text-theme-accent font-bold tracking-wide">
-                  Searching live
+                  {t('social.searchingLive')}
                 </Text>
               )}
             </View>
@@ -327,7 +329,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                 onChangeText={handleQueryChange}
                 onSubmitEditing={() => executeSearch(searchQuery.trim())}
                 returnKeyType="search"
-                placeholder="Start typing username..."
+                placeholder={t('social.searchAthletePlaceholder')}
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -347,10 +349,10 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
               <View className="mb-6">
                 <View className="flex-row items-center justify-between mb-2">
                   <Text className="text-xs font-bold text-theme-muted">
-                    Matching Accounts ({searchResults.length})
+                    {t('social.matchingAccounts')} ({searchResults.length})
                   </Text>
                   {searchResults.length > 0 && (
-                    <Text className="text-xs text-theme-muted font-medium">Top matches A-Z</Text>
+                    <Text className="text-xs text-theme-muted font-medium">{t('social.topMatchesAZ')}</Text>
                   )}
                 </View>
 
@@ -407,16 +409,16 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                           {/* Action Button per Item */}
                           {item.status === 'self' ? (
                             <View className="bg-theme-accent/15 px-3 py-1.5 rounded-full border border-theme-accent/30">
-                              <Text className="text-xs font-bold text-theme-accent">You</Text>
+                              <Text className="text-xs font-bold text-theme-accent">{t('common.you')}</Text>
                             </View>
                           ) : item.status === 'accepted' ? (
                             <View className="flex-row items-center bg-semantic-success/15 px-3 py-1.5 rounded-full border border-semantic-success/30">
                               <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                              <Text className="text-xs font-bold text-semantic-success ml-1">Connected</Text>
+                              <Text className="text-xs font-bold text-semantic-success ml-1">{t('social.connected')}</Text>
                             </View>
                           ) : item.status === 'pending' ? (
                             <View className="bg-theme-border/30 px-3 py-1.5 rounded-full border border-theme-border">
-                              <Text className="text-xs font-bold text-theme-muted">Requested</Text>
+                              <Text className="text-xs font-bold text-theme-muted">{t('social.requested')}</Text>
                             </View>
                           ) : item.status === 'pending_received' ? (
                             <ScalePressable
@@ -425,7 +427,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               haptic="selection"
                               className="bg-semantic-success px-3.5 py-1.5 rounded-xl"
                             >
-                              <Text className="text-xs font-extrabold text-white">Accept</Text>
+                              <Text className="text-xs font-extrabold text-white">{t('social.acceptRequest')}</Text>
                             </ScalePressable>
                           ) : (
                             <ScalePressable
@@ -434,7 +436,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               haptic="selection"
                               className="bg-theme-accent px-3.5 py-1.5 rounded-xl"
                             >
-                              <Text className="text-xs font-extrabold text-white">+ Add</Text>
+                              <Text className="text-xs font-extrabold text-white">+ {t('social.connect')}</Text>
                             </ScalePressable>
                           )}
                         </View>
@@ -444,7 +446,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                 ) : (
                   <View className="p-4 bg-theme-bg border border-theme-border/60 rounded-2xl items-center">
                     <Text className="text-xs text-theme-muted text-center font-medium">
-                      {`No athletes found matching "${searchQuery.trim()}".`}
+                      {t('social.noAthletesFound', { query: searchQuery.trim() })}
                     </Text>
                   </View>
                 )}
@@ -455,7 +457,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             {pendingRequests.length > 0 && (
               <View className="mb-6">
                 <Text className="text-xs font-bold text-theme-muted mb-2">
-                  Pending Friend Requests ({pendingRequests.length})
+                  {t('social.friendRequests')} ({pendingRequests.length})
                 </Text>
                 {pendingRequests.map((req) => (
                   <View
@@ -481,7 +483,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                       haptic="selection"
                       className="bg-semantic-success px-3.5 py-1.5 rounded-xl"
                     >
-                      <Text className="text-xs font-extrabold text-white">Accept</Text>
+                      <Text className="text-xs font-extrabold text-white">{t('social.acceptRequest')}</Text>
                     </ScalePressable>
                   </View>
                 ))}

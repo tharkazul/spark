@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useActivities } from '../../context/ActivityStore';
 import { useUser } from '../../context/UserStore';
+import { useLanguage } from '../../context/LanguageContext';
 import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
 import { canHideRookaLink } from '../../utils/permissions';
 import { Card } from '../ui/Card';
@@ -44,19 +45,10 @@ const SPORT_OPTIONS: { id: SportType; label: string }[] = [
 
 // `shareStructure` has no toggle: the planned steps go out whenever there is a
 // plan. It rides along in the payload so saving never clears it.
-const TOGGLE_ROWS: { key: keyof StravaShareFlags; title: string }[] = [
-  {
-    key: 'shareScore',
-    title: 'Include rooka score',
-  },
-  {
-    key: 'shareName',
-    title: 'Post Workout Summary Title',
-  },
-  {
-    key: 'shareLink',
-    title: 'Show rooka.io',
-  },
+const TOGGLE_ROWS: { key: keyof StravaShareFlags }[] = [
+  { key: 'shareScore' },
+  { key: 'shareName' },
+  { key: 'shareLink' },
 ];
 
 export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
@@ -67,7 +59,23 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 }) => {
   const theme = useTheme();
   const { user } = useUser();
+  const { t, language } = useLanguage();
   const { syncGarmin, syncStrava, refreshActivities } = useActivities();
+
+  const getSportOptionLabel = (id: SportType) => {
+    if (id === 'Run') return t('sports.run');
+    if (id === 'Bike') return t('sports.bike');
+    if (id === 'Swim') return t('sports.swim');
+    if (id === 'Strength') return t('sports.strength');
+    return id;
+  };
+
+  const getToggleRowTitle = (key: keyof StravaShareFlags) => {
+    if (key === 'shareScore') return t('connections.includeRookaScore');
+    if (key === 'shareName') return t('connections.postWorkoutSummary');
+    if (key === 'shareLink') return t('connections.showRookaLink');
+    return '';
+  };
 
   const isGarminConnected = !!user?.garmin_connected;
   const isStravaConnected = !!user?.strava_connected;
@@ -331,7 +339,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         <View className="flex-row justify-between items-center pb-3 mb-3 border-b border-theme-border">
           <View className="flex-row items-center gap-2">
             <Ionicons name="logo-apple" size={20} color="#FF2D55" />
-            <Text className="text-theme-text font-bold text-sm">Apple Health & Watch</Text>
+            <Text className="text-theme-text font-bold text-sm">{t('connections.appleHealthAndWatch')}</Text>
           </View>
           <View className="flex-row items-center gap-1.5">
             <View
@@ -344,7 +352,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                   isHealthKitConnected ? 'text-semantic-success' : 'text-semantic-error'
                 }`}
               >
-                Health: {isHealthKitConnected ? 'Active' : 'Not Connected'}
+                {isHealthKitConnected ? t('connections.healthActiveBadge') : t('connections.healthNotConnectedBadge')}
               </Text>
             </View>
             <View
@@ -357,21 +365,21 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                   isWatchConnected ? 'text-semantic-success' : 'text-theme-muted'
                 }`}
               >
-                Watch: {isWatchConnected ? 'Ready' : 'Off'}
+                {isWatchConnected ? t('connections.watchReadyBadge') : t('connections.watchOffBadge')}
               </Text>
             </View>
           </View>
         </View>
 
         <Text className="text-theme-muted text-xs mb-3 leading-4">
-          Sync workouts, heart rate, sleep stages, HRV, and daily recovery biometrics from Apple Health (including Garmin & Apple Watch), or push structured workouts to your Watch.
+          {t('connections.appleHealthDesc')}
         </Text>
 
         {lastAppleSync && (
           <View className="flex-row items-center gap-1.5 mb-3">
             <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
             <Text className="text-[11px] text-theme-muted">
-              Last synced: {new Date(lastAppleSync).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+              {t('connections.lastSynced', { time: new Date(lastAppleSync).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' }) })}
             </Text>
           </View>
         )}
@@ -394,7 +402,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 isHealthKitConnected ? 'text-semantic-success' : 'text-white'
               }`}
             >
-              {isHealthKitConnected ? 'Health Active' : 'Connect Health'}
+              {isHealthKitConnected ? t('connections.healthActive') : t('connections.connectHealth')}
             </Text>
           </TouchableOpacity>
 
@@ -414,7 +422,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 isWatchConnected ? 'text-semantic-success' : 'text-white'
               }`}
             >
-              {isWatchConnected ? 'Watch Ready' : 'Connect Watch'}
+              {isWatchConnected ? t('connections.watchReady') : t('connections.connectWatch')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -430,7 +438,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           ) : (
             <>
               <Ionicons name="sync-outline" size={15} color={theme.textSecondary} />
-              <Text className="text-theme-text font-bold text-xs ml-2">Sync Health Data Now</Text>
+              <Text className="text-theme-text font-bold text-xs ml-2">{t('connections.syncHealthNow')}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -445,7 +453,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         >
           <View className="flex-row items-center gap-1.5">
             <Ionicons name="options-outline" size={14} color={theme.textSecondary} />
-            <Text className="text-xs font-bold text-theme-muted">Data Sharing Preferences</Text>
+            <Text className="text-xs font-bold text-theme-muted">{t('connections.dataSharingPreferences')}</Text>
           </View>
           <Ionicons
             name={showHealthPrefs ? 'chevron-up-outline' : 'chevron-down-outline'}
@@ -457,13 +465,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         {showHealthPrefs && (
           <View className="gap-y-2.5 pt-2">
             {[
-              { key: 'syncSleep', label: 'Sleep Analysis & Stages', icon: 'moon-outline' },
-              { key: 'syncHeartRate', label: 'Heart Rate & Resting HR', icon: 'heart-outline' },
-              { key: 'syncHrv', label: 'Heart Rate Variability (HRV)', icon: 'flash-outline' },
-              { key: 'syncStepsCalories', label: 'Steps & Active Energy', icon: 'flame-outline' },
-              { key: 'syncBodyMass', label: 'Body Mass & Body Fat %', icon: 'scale-outline' },
-              { key: 'syncVo2Max', label: 'VO2 Max Score', icon: 'speedometer-outline' },
-              { key: 'syncWorkouts', label: 'Completed Workouts', icon: 'fitness-outline' },
+              { key: 'syncSleep', label: t('connections.sleepAnalysis'), icon: 'moon-outline' },
+              { key: 'syncHeartRate', label: t('connections.heartRateResting'), icon: 'heart-outline' },
+              { key: 'syncHrv', label: t('connections.hrv'), icon: 'flash-outline' },
+              { key: 'syncStepsCalories', label: t('connections.stepsActiveEnergy'), icon: 'flame-outline' },
+              { key: 'syncBodyMass', label: t('connections.bodyMassFat'), icon: 'scale-outline' },
+              { key: 'syncVo2Max', label: t('connections.vo2Max'), icon: 'speedometer-outline' },
+              { key: 'syncWorkouts', label: t('connections.completedWorkouts'), icon: 'fitness-outline' },
             ].map((metric) => (
               <View
                 key={metric.key}
@@ -489,7 +497,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="watch-outline" size={20} color={theme.tint} />
-            <Text className="text-theme-text font-bold text-sm">Garmin Connect Integration</Text>
+            <Text className="text-theme-text font-bold text-sm">{t('connections.garminConnect')}</Text>
           </View>
           <View
             className={`px-2 py-0.5 rounded ${isGarminConnected
@@ -501,12 +509,10 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               className={`text-xs font-bold ${isGarminConnected ? 'text-semantic-success' : 'text-semantic-error'
                 }`}
             >
-              {isGarminConnected ? 'Connected' : 'Disconnected'}
+              {isGarminConnected ? t('connections.connected') : t('connections.disconnected')}
             </Text>
           </View>
         </View>
-
-
 
         <View className="flex-row flex-wrap gap-2">
           <TouchableOpacity
@@ -515,7 +521,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           >
             <Ionicons name="settings-outline" size={16} color="#FFF" />
             <Text className="text-white font-bold text-xs ml-2">
-              {isGarminConnected ? 'Manage Garmin' : 'Connect Garmin'}
+              {isGarminConnected ? t('connections.manageGarmin') : t('connections.connectGarmin')}
             </Text>
           </TouchableOpacity>
 
@@ -530,7 +536,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               ) : (
                 <>
                   <Ionicons name="sync-outline" size={16} color={theme.textSecondary} />
-                  <Text className="text-theme-text font-bold text-xs ml-2">Sync Workouts</Text>
+                  <Text className="text-theme-text font-bold text-xs ml-2">{t('connections.syncWorkouts')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -543,7 +549,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         <View className="flex-row justify-between items-center pb-3 mb-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="fitness-outline" size={20} color={theme.tint} />
-            <Text className="text-theme-text font-bold text-sm">Strava Integration</Text>
+            <Text className="text-theme-text font-bold text-sm">{t('connections.stravaIntegration')}</Text>
           </View>
           <View
             className={`px-2 py-0.5 rounded ${isStravaConnected
@@ -555,12 +561,10 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               className={`text-xs font-bold ${isStravaConnected ? 'text-semantic-success' : 'text-semantic-error'
                 }`}
             >
-              {isStravaConnected ? 'Connected' : 'Disconnected'}
+              {isStravaConnected ? t('connections.connected') : t('connections.disconnected')}
             </Text>
           </View>
         </View>
-
-
 
         <View className="flex-row flex-wrap gap-2">
           {!isStravaConnected ? (
@@ -574,7 +578,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               ) : (
                 <>
                   <Ionicons name="fitness-outline" size={16} color="#FFF" />
-                  <Text className="text-white font-bold text-xs ml-2">Connect with Strava</Text>
+                  <Text className="text-white font-bold text-xs ml-2">{t('connections.connectWithStrava')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -590,7 +594,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 ) : (
                   <>
                     <Ionicons name="sync-outline" size={16} color="#FFF" />
-                    <Text className="text-white font-bold text-xs ml-2">Sync Activities</Text>
+                    <Text className="text-white font-bold text-xs ml-2">{t('connections.syncActivities')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -600,7 +604,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 disabled={stravaLoading}
                 className="bg-semantic-error/10 border border-semantic-error/30 px-4 py-2.5 rounded-xl flex-row items-center justify-center"
               >
-                <Text className="text-semantic-error font-bold text-xs">Disconnect</Text>
+                <Text className="text-semantic-error font-bold text-xs">{t('connections.disconnect')}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -611,10 +615,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       <Card className="p-4">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
           <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
-          <Text className="text-theme-text font-bold text-sm">Strava Automations</Text>
+          <Text className="text-theme-text font-bold text-sm">{t('connections.stravaAutomations')}</Text>
         </View>
-
-
 
         {/* SPORT SELECTOR TABS */}
         <View className="flex-row bg-theme-bg p-1 rounded-xl mb-4 border border-theme-border">
@@ -638,7 +640,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                     isSelected ? 'text-white' : 'text-theme-muted'
                   }`}
                 >
-                  {sport.label}
+                  {getSportOptionLabel(sport.id)}
                 </Text>
               </TouchableOpacity>
             );
@@ -663,7 +665,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 >
                   <View className="flex-1 pr-3">
                     <View className="flex-row items-center gap-1">
-                      <Text className="text-theme-text font-bold text-xs">{row.title}</Text>
+                      <Text className="text-theme-text font-bold text-xs">{getToggleRowTitle(row.key)}</Text>
                       {isLocked && (
                         <View className="px-1.5 py-0.5 rounded bg-theme-accent/10">
                           <Text className="text-theme-accent text-[10px] font-bold font-rajdhani">rooka+</Text>
@@ -672,7 +674,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                     </View>
                     {isLocked && (
                       <Text className="text-theme-muted text-xs font-rajdhani">
-                        Upgrade to rooka+ to remove the credit
+                        {t('connections.upgradeToRemoveCredit')}
                       </Text>
                     )}
                   </View>

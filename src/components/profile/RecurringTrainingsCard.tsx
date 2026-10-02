@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
 import { useTheme } from '@/hooks/use-theme';
+import { useLanguage } from '../../context/LanguageContext';
 import { recurringTrainingsApi } from '../../services/apiServices';
 import { RecurringTraining } from '../../types/user';
 
@@ -36,6 +37,7 @@ const INTENSITIES: Array<'easy' | 'moderate' | 'hard'> = ['easy', 'moderate', 'h
 
 export const RecurringTrainingsCard: React.FC = () => {
   const theme = useTheme();
+  const { t } = useLanguage();
 
   const [trainings, setTrainings] = useState<RecurringTraining[]>([]);
   const [loading, setLoading] = useState(false);
@@ -119,12 +121,12 @@ export const RecurringTrainingsCard: React.FC = () => {
   const handleDelete = (item: RecurringTraining) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
-      'Remove Recurring Activity',
-      `Are you sure you want to remove "${item.title}"? Your AI Coach will no longer automatically put this on your schedule.`,
+      t('recurring.removePrompt'),
+      t('recurring.removeConfirm', { title: item.title }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('benchmarks.remove'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -153,7 +155,7 @@ export const RecurringTrainingsCard: React.FC = () => {
         <View className="flex-row items-center gap-x-2">
           <Ionicons name="repeat-outline" size={18} color={theme.tint} />
           <Text className="text-sm font-bold text-theme-text font-rajdhani">
-            Recurring Trainings & Club Sports
+            {t('recurring.title')}
           </Text>
         </View>
         <TouchableOpacity
@@ -162,12 +164,12 @@ export const RecurringTrainingsCard: React.FC = () => {
           className="px-2.5 py-1 bg-theme-accent/15 rounded-full flex-row items-center gap-x-1"
         >
           <Ionicons name="add" size={13} color={theme.tint} />
-          <Text className="text-xs font-bold text-theme-accent">Add</Text>
+          <Text className="text-xs font-bold text-theme-accent">{t('recurring.add')}</Text>
         </TouchableOpacity>
       </View>
 
       <Text className="text-xs text-theme-muted mb-3">
-        Activities outside Rooka (e.g. hockey training, spinning class, tennis). Your AI Coach automatically places them in your calendar and plans the rest of your weekly volume around them.
+        {t('recurring.desc')}
       </Text>
 
       {loading ? (
@@ -175,16 +177,16 @@ export const RecurringTrainingsCard: React.FC = () => {
       ) : trainings.length === 0 ? (
         <View className="p-4 bg-theme-bg rounded-xl items-center border border-theme-border/50 my-1">
           <Ionicons name="calendar-outline" size={24} color={theme.textSecondary} className="mb-1.5 opacity-60" />
-          <Text className="text-xs font-bold text-theme-text mb-0.5">No Recurring Activities Added</Text>
+          <Text className="text-xs font-bold text-theme-text mb-0.5">{t('recurring.noActivities')}</Text>
           <Text className="text-[11px] text-theme-muted text-center px-2 mb-2.5">
-            Do you play hockey, attend a weekly spinning class, or have club football? Add them here so your AI coach schedules them.
+            {t('recurring.noActivitiesDesc')}
           </Text>
           <TouchableOpacity
             onPress={handleOpenAddModal}
             className="px-3 py-1.5 bg-theme-accent rounded-lg flex-row items-center gap-x-1"
           >
             <Ionicons name="add-circle-outline" size={14} color="#FFFFFF" />
-            <Text className="text-white text-xs font-bold">Add Recurring Activity</Text>
+            <Text className="text-white text-xs font-bold">{t('recurring.addActivity')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -247,7 +249,7 @@ export const RecurringTrainingsCard: React.FC = () => {
               <View className="flex-row items-center gap-x-2">
                 <Ionicons name="add-circle" size={20} color={theme.tint} />
                 <Text className="text-base font-bold text-theme-text font-rajdhani">
-                  Add Recurring Activity
+                  {t('recurring.addActivity')}
                 </Text>
               </View>
               <ScalePressable
@@ -263,7 +265,7 @@ export const RecurringTrainingsCard: React.FC = () => {
             <ScrollView showsVerticalScrollIndicator={false} className="pt-3">
               {/* Quick Presets */}
               <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                Quick Suggestions
+                {t('recurring.quickSuggestions')}
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3.5">
                 <View className="flex-row gap-x-1.5">
@@ -283,23 +285,25 @@ export const RecurringTrainingsCard: React.FC = () => {
 
               {/* Title Input */}
               <Text className="text-xs font-bold text-theme-muted mb-1">
-                Activity Name *
+                {t('recurring.activityName')}
               </Text>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
-                placeholder="e.g. Field Hockey, Tennis, Spinning..."
+                placeholder={t('recurring.activityNamePlaceholder')}
                 placeholderTextColor={theme.textSecondary}
                 className="bg-theme-bg rounded-xl p-3 text-xs text-theme-text font-bold border border-theme-border/60 mb-3.5"
               />
 
               {/* Day of Week */}
               <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                Day of Week *
+                {t('recurring.dayOfWeek')}
               </Text>
               <View className="flex-row justify-between mb-3.5">
                 {DAYS.map((d) => {
                   const isSel = selectedDay === d;
+                  const dayKey = `days.${d.toLowerCase()}Short` as any;
+                  const dayLabel = t(dayKey) || d;
                   return (
                     <ScalePressable
                       key={d}
@@ -313,7 +317,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                       }`}
                     >
                       <Text className={`text-xs font-bold ${isSel ? 'text-white' : 'text-theme-text'}`}>
-                        {d}
+                        {dayLabel}
                       </Text>
                     </ScalePressable>
                   );
@@ -322,7 +326,7 @@ export const RecurringTrainingsCard: React.FC = () => {
 
               {/* Duration */}
               <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                Duration (minutes) *
+                {t('recurring.duration')}
               </Text>
               <View className="flex-row flex-wrap gap-1.5 mb-3.5">
                 {DURATIONS.map((dur) => {
@@ -351,7 +355,7 @@ export const RecurringTrainingsCard: React.FC = () => {
 
               {/* Intensity */}
               <Text className="text-xs font-bold text-theme-muted mb-1.5">
-                Estimated Intensity
+                {t('recurring.estimatedIntensity')}
               </Text>
               <View className="flex-row gap-2 mb-3.5">
                 {INTENSITIES.map((lvl) => {
@@ -380,7 +384,7 @@ export const RecurringTrainingsCard: React.FC = () => {
 
               {/* Optional Start Time */}
               <Text className="text-xs font-bold text-theme-muted mb-1">
-                Typical Start Time (optional)
+                {t('recurring.startTime')}
               </Text>
               <TextInput
                 value={startTime}
@@ -404,7 +408,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text className="text-white font-bold text-xs">
-                    Save Recurring Activity
+                    {t('recurring.saveActivity')}
                   </Text>
                 )}
               </ScalePressable>

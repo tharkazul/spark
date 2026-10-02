@@ -117,12 +117,12 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Delete Account?",
-      "This action cannot be undone. All your workout history, physique logs, chat messages, and account settings will be permanently erased.",
+      t('account.deleteAccountConfirmTitle'),
+      t('account.deleteAccountConfirmBody'),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "Permanently Delete",
+          text: t('account.permanentlyDelete'),
           style: "destructive",
           onPress: async () => {
             setDeleting(true);
@@ -252,23 +252,23 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
           <View className="w-2.5 h-2.5 rounded-full bg-semantic-info mr-2" />
-          <Text className="text-theme-text font-bold text-sm">Account Information</Text>
+          <Text className="text-theme-text font-bold text-sm">{t('account.accountInformation')}</Text>
         </View>
 
         <View className="gap-y-4">
           <View>
-            <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Username (Read-Only)</Text>
+            <Text className="text-xs font-bold text-theme-muted uppercase mb-1">{t('account.usernameReadOnly')}</Text>
             <View className="bg-theme-bg rounded-xl p-3 border border-theme-border/30 opacity-70">
               <Text className="text-theme-text font-bold">{user?.username}</Text>
             </View>
           </View>
           
           <View>
-            <Text className="text-xs font-bold text-theme-muted uppercase mb-1">Email Address</Text>
+            <Text className="text-xs font-bold text-theme-muted uppercase mb-1">{t('account.emailAddress')}</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
-              placeholder="Enter your email"
+              placeholder={t('account.enterEmailPlaceholder')}
               placeholderTextColor="#8E8E93"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -286,7 +286,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             {savingAccount ? (
               <ActivityIndicator color="#FFF" />
             ) : (
-              <Text className="text-white font-bold">Save Account Details</Text>
+              <Text className="text-white font-bold">{t('account.saveAccountDetails')}</Text>
             )}
           </ScalePressable>
         </View>
@@ -296,16 +296,16 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
           <View className="w-2.5 h-2.5 rounded-full bg-purple-500 mr-2" />
-          <Text className="text-theme-text font-bold text-sm">Usage Statistics</Text>
+          <Text className="text-theme-text font-bold text-sm">{t('account.usageStatistics')}</Text>
         </View>
 
         <View className="p-4 bg-theme-bg rounded-xl flex-row items-center justify-between">
           <View className="flex-1 pr-3">
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              Personal Daily Token Use Rate
+              {t('account.dailyTokenRate')}
             </Text>
             <Text className="text-xs text-theme-muted mt-1">
-              Tokens consumed today by AI Coach interactions (Limit: {dailyLimit.toLocaleString()}/day)
+              {t('account.tokensConsumedToday', { limit: dailyLimit.toLocaleString() })}
             </Text>
           </View>
           <View className="px-3 py-1.5 bg-theme-accent/10 rounded-xl">
@@ -331,8 +331,8 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               <RookaMark size={24} color="#FFFFFF" />
               <Text className="text-white text-xl font-extrabold tracking-tight ml-2 font-rajdhani">
                 {isMember
-                  ? (tier === 'admin' ? 'rooka Admin Access' : 'rooka+ Active')
-                  : 'Upgrade to rooka+'}
+                  ? (tier === 'admin' ? t('account.rookaAdminAccess') : t('account.rookaPlusActive'))
+                  : t('account.upgradeToRookaPlus')}
               </Text>
             </View>
             <View className="px-2.5 py-1 bg-white/20 rounded-full">
@@ -355,7 +355,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               <ActivityIndicator size="small" color={theme.tint} />
             ) : (
               <Text className="text-theme-accent font-bold text-xs">
-                {isMember ? 'View Member Benefits' : 'View Premium Benefits'}
+                {isMember ? t('account.viewMemberBenefits') : t('account.viewPremiumBenefits')}
               </Text>
             )}
           </View>
@@ -366,7 +366,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
           <View className="w-2.5 h-2.5 rounded-full bg-semantic-success mr-2" />
-          <Text className="text-theme-text font-bold text-sm">Subscription Management</Text>
+          <Text className="text-theme-text font-bold text-sm">{t('account.subscriptionManagement')}</Text>
         </View>
 
         <TouchableOpacity
@@ -376,8 +376,8 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           <View className="flex-row items-center">
             <Ionicons name="card-outline" size={18} color={theme.textSecondary} />
             <View className="ml-3">
-              <Text className="text-theme-text font-bold text-xs">Manage or Cancel Subscription</Text>
-              <Text className="text-theme-muted text-xs mt-0.5">Customer center, plan switch & cancel</Text>
+              <Text className="text-theme-text font-bold text-xs">{t('account.manageOrCancelSub')}</Text>
+              <Text className="text-theme-muted text-xs mt-0.5">{t('account.customerCenterDesc')}</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
@@ -394,8 +394,8 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             <View className="flex-row items-center">
               <Ionicons name="gift-outline" size={18} color={theme.textSecondary} />
               <View className="ml-3">
-                <Text className="text-theme-text font-bold text-xs">Redeem Apple Promo Code</Text>
-                <Text className="text-theme-muted text-xs mt-0.5">Redeem official App Store offer code</Text>
+                <Text className="text-theme-text font-bold text-xs">{t('account.redeemPromoCode')}</Text>
+                <Text className="text-theme-muted text-xs mt-0.5">{t('account.redeemPromoCodeDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
@@ -407,7 +407,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center flex-1 pr-2">
               <Ionicons name="pricetag-outline" size={18} color={theme.textSecondary} />
-              <Text className="text-theme-text font-bold text-xs ml-3">Manage Discount Code</Text>
+              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.manageDiscountCode')}</Text>
             </View>
             {loadingDiscount ? <ActivityIndicator size="small" color={theme.tint} /> : null}
           </View>
@@ -435,7 +435,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                       discount.active ? 'text-semantic-success' : 'text-semantic-warning'
                     }`}
                   >
-                    {discount.active ? 'Active' : discount.expired ? 'Expired' : 'Inactive'}
+                    {discount.active ? t('common.active') : discount.expired ? 'Expired' : 'Inactive'}
                   </Text>
                 </View>
                 <Text className="text-theme-text text-xs mt-1">
@@ -492,7 +492,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                   disabled={savingDiscount}
                   className="flex-1 py-2.5 rounded-xl bg-theme-accent/15 border border-theme-accent/30 items-center"
                 >
-                  <Text className="text-theme-accent font-bold text-xs">Change Code</Text>
+                  <Text className="text-theme-accent font-bold text-xs">{t('account.changeCode')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleRemoveDiscount}
@@ -502,7 +502,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                   {savingDiscount ? (
                     <ActivityIndicator size="small" color="#EF4444" />
                   ) : (
-                    <Text className="text-semantic-error font-bold text-xs">Remove</Text>
+                    <Text className="text-semantic-error font-bold text-xs">{t('common.remove')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -530,7 +530,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                   {savingDiscount ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
-                    <Text className="text-white font-bold text-xs">Apply Code</Text>
+                    <Text className="text-white font-bold text-xs">{t('account.applyCode')}</Text>
                   )}
                 </TouchableOpacity>
                 {discount ? (
@@ -542,7 +542,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                     disabled={savingDiscount}
                     className="flex-1 py-2.5 rounded-xl border border-theme-border items-center"
                   >
-                    <Text className="text-theme-muted font-bold text-xs">Cancel</Text>
+                    <Text className="text-theme-muted font-bold text-xs">{t('common.cancel')}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -569,7 +569,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       <Card className="p-4 mb-6">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border/20">
           <View className="w-2.5 h-2.5 rounded-full bg-semantic-info mr-2" />
-          <Text className="text-theme-text font-bold text-sm">Legal & Privacy Disclosures</Text>
+          <Text className="text-theme-text font-bold text-sm">{t('account.legalDisclosures')}</Text>
         </View>
 
         <View className="gap-y-3">
@@ -579,7 +579,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           >
             <View className="flex-row items-center">
               <Ionicons name="shield-checkmark-outline" size={18} color={theme.textSecondary} />
-              <Text className="text-theme-text font-bold text-xs ml-3">Privacy Policy</Text>
+              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.privacyPolicy')}</Text>
             </View>
             <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
@@ -590,7 +590,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           >
             <View className="flex-row items-center">
               <Ionicons name="document-text-outline" size={18} color={theme.textSecondary} />
-              <Text className="text-theme-text font-bold text-xs ml-3">Terms of Service & EULA</Text>
+              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.termsOfService')}</Text>
             </View>
             <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
@@ -606,7 +606,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               ) : (
                 <Ionicons name="download-outline" size={18} color={theme.textSecondary} />
               )}
-              <Text className="text-theme-text font-bold text-xs ml-3">Export Account Data</Text>
+              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.exportAccountData')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
@@ -622,7 +622,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               ) : (
                 <Ionicons name="trash-outline" size={18} color="#EF4444" />
               )}
-              <Text className="text-semantic-error font-bold text-xs ml-3">Delete Account & Purge Data</Text>
+              <Text className="text-semantic-error font-bold text-xs ml-3">{t('account.deleteAccount')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#EF4444" />
           </TouchableOpacity>

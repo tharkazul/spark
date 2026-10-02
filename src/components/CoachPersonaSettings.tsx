@@ -13,25 +13,34 @@ import { userApi } from '../services/apiServices';
 import { API_BASE_URL } from '../constants/api';
 import { canConfigureCoach } from '../utils/permissions';
 import { getCoachAvatarSource } from '../utils/avatarUtils';
+import { useLanguage } from '../context/LanguageContext';
 
-const TONE_OPTIONS = [
-  { label: 'Empathetic & Demanding (Default)', value: 'Empathetic but demanding elite endurance coach.' },
-  { label: 'Strict Data Nerd', value: 'Strict with data, but with a dry, snarky British sense of humor.' },
-  { label: 'Enthusiastic Cheerleader', value: 'Enthusiastic cheerleader, extremely positive and forgiving.' },
-  { label: 'Configure own coach (Premium)', value: 'custom', premium: true },
-];
-
-const GENDER_OPTIONS = [
-  { label: 'Male', value: 'Male', icon: 'male-outline' },
-  { label: 'Female', value: 'Female', icon: 'female-outline' },
-  { label: 'Prefer not to share', value: 'Prefer not to share', icon: 'shield-outline' },
-];
+const CANONICAL_TONE_VALUES = {
+  default: 'Empathetic but demanding elite endurance coach.',
+  dataNerd: 'Strict with data, but with a dry, snarky British sense of humor.',
+  cheerleader: 'Enthusiastic cheerleader, extremely positive and forgiving.',
+  custom: 'custom',
+};
 
 export const CoachPersonaSettings: React.FC = () => {
-    const theme = useTheme();
+  const theme = useTheme();
   const { user, refreshUser, updateUser } = useUser();
+  const { t } = useLanguage();
 
-  const [selectedTone, setSelectedTone] = useState<string>('Empathetic but demanding elite endurance coach.');
+  const toneOptions = React.useMemo(() => [
+    { label: t('coachPersona.empatheticDemanding'), value: CANONICAL_TONE_VALUES.default },
+    { label: t('coachPersona.strictDataNerd'), value: CANONICAL_TONE_VALUES.dataNerd },
+    { label: t('coachPersona.enthusiasticCheerleader'), value: CANONICAL_TONE_VALUES.cheerleader },
+    { label: t('coachPersona.configureOwnCoach'), value: CANONICAL_TONE_VALUES.custom, premium: true },
+  ], [t]);
+
+  const genderOptions = React.useMemo(() => [
+    { label: t('coachPersona.male'), value: 'Male', icon: 'male-outline' },
+    { label: t('coachPersona.female'), value: 'Female', icon: 'female-outline' },
+    { label: t('coachPersona.preferNotToShare'), value: 'Prefer not to share', icon: 'shield-outline' },
+  ], [t]);
+
+  const [selectedTone, setSelectedTone] = useState<string>(CANONICAL_TONE_VALUES.default);
   const [coachName, setCoachName] = useState<string>('rooka');
   const [coachContext, setCoachContext] = useState<string>('');
   const [athleteContext, setAthleteContext] = useState<string>('');
@@ -44,8 +53,8 @@ export const CoachPersonaSettings: React.FC = () => {
   useEffect(() => {
     if (user && !isInitialized.current) {
       isInitialized.current = true;
-      const toneVal = user.coach_tone || 'Empathetic but demanding elite endurance coach.';
-      const isCustom = toneVal === 'custom' || toneVal === 'Configure own coach' || !TONE_OPTIONS.some(o => o.value === toneVal);
+      const toneVal = user.coach_tone || CANONICAL_TONE_VALUES.default;
+      const isCustom = toneVal === 'custom' || toneVal === 'Configure own coach' || !Object.values(CANONICAL_TONE_VALUES).includes(toneVal);
       setSelectedTone(isCustom ? 'custom' : toneVal);
       setCoachName(user.coach_name || 'rooka');
       setCoachContext(user.coach_context || '');
@@ -122,16 +131,16 @@ export const CoachPersonaSettings: React.FC = () => {
     <Card className="p-4 mb-6 gap-y-4">
       <View className="flex-row items-center pb-3 mb-2">
         <RookaMark size={20} color={theme.tint} />
-        <Text className="text-base font-bold text-theme-text ml-2">Coach Persona & Settings</Text>
+        <Text className="text-base font-bold text-theme-text ml-2">{t('coachPersona.title')}</Text>
       </View>
 
       {/* Tone Picker */}
       <View className="mb-3">
         <Text className="text-xs font-bold text-theme-muted mb-2">
-          Coach Tone & Style
+          {t('coachPersona.coachToneAndStyle')}
         </Text>
         <View className="gap-y-2">
-          {TONE_OPTIONS.map((opt) => {
+          {toneOptions.map((opt) => {
             const isPremiumOption = (opt as any).premium;
             if (isPremiumOption && !hasPremium) {
               return null;
@@ -185,10 +194,10 @@ export const CoachPersonaSettings: React.FC = () => {
       {isCustomSelected && (
         <View className="p-3 bg-theme-bg opacity-60 rounded-xl gap-y-3 mb-3">
           <View>
-            <Text className="text-xs font-bold text-theme-muted mb-1">Coach Name</Text>
+            <Text className="text-xs font-bold text-theme-muted mb-1">{t('coachPersona.coachName')}</Text>
             <TextInput
               className="bg-theme-card rounded-control p-3 text-theme-text text-sm"
-              placeholder="Coach Name: XXX"
+              placeholder="Coach Name..."
               placeholderTextColor={theme.textSecondary}
               value={coachName}
               onChangeText={setCoachName}
@@ -196,10 +205,10 @@ export const CoachPersonaSettings: React.FC = () => {
           </View>
 
           <View className="mt-2">
-            <Text className="text-xs font-bold text-theme-muted mb-1">Coach Context</Text>
+            <Text className="text-xs font-bold text-theme-muted mb-1">{t('coachPersona.coachContext')}</Text>
             <TextInput
               className="bg-theme-card rounded-control p-3 text-theme-text text-sm min-h-[70px]"
-              placeholder="Coach Context: XXX"
+              placeholder="Coach Context..."
               placeholderTextColor={theme.textSecondary}
               value={coachContext}
               onChangeText={setCoachContext}
@@ -210,16 +219,16 @@ export const CoachPersonaSettings: React.FC = () => {
           {/* 3 Avatar Mood Uploaders */}
           <View className="mt-3">
             <Text className="text-xs font-bold text-theme-muted mb-1">
-              Coach Avatars (3 Moods)
+              {t('coachPersona.coachAvatars')}
             </Text>
             <Text className="text-xs text-theme-muted mb-3">
-              Upload custom images for Neutral, Hype, and Disappointed moods:
+              {t('coachPersona.coachAvatarsDesc')}
             </Text>
 
             <View className="flex-row justify-between">
               {/* Neutral */}
               <View className="items-center flex-1 mr-1">
-                <Text className="text-xs font-bold text-theme-text mb-1">Neutral</Text>
+                <Text className="text-xs font-bold text-theme-text mb-1">{t('coachPersona.neutral')}</Text>
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('neutral')}
                   disabled={uploadingMood === 'neutral'}
@@ -236,14 +245,14 @@ export const CoachPersonaSettings: React.FC = () => {
                   className="bg-theme-accent/15 px-2 py-1 rounded"
                 >
                   <Text className="text-xs font-bold text-theme-accent">
-                    {uploadingMood === 'neutral' ? '...' : 'Upload'}
+                    {uploadingMood === 'neutral' ? '...' : t('coachPersona.upload')}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {/* Hype */}
               <View className="items-center flex-1 mx-1">
-                <Text className="text-xs font-bold text-theme-text mb-1">Hype</Text>
+                <Text className="text-xs font-bold text-theme-text mb-1">{t('coachPersona.hype')}</Text>
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('hype')}
                   disabled={uploadingMood === 'hype'}
@@ -260,14 +269,14 @@ export const CoachPersonaSettings: React.FC = () => {
                   className="bg-theme-accent/15 px-2 py-1 rounded"
                 >
                   <Text className="text-xs font-bold text-theme-accent">
-                    {uploadingMood === 'hype' ? '...' : 'Upload'}
+                    {uploadingMood === 'hype' ? '...' : t('coachPersona.upload')}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {/* Disappointed */}
               <View className="items-center flex-1 ml-1">
-                <Text className="text-xs font-bold text-theme-text mb-1">Disappointed</Text>
+                <Text className="text-xs font-bold text-theme-text mb-1">{t('coachPersona.disappointed')}</Text>
                 <TouchableOpacity
                   onPress={() => handlePickAvatar('disappointed')}
                   disabled={uploadingMood === 'disappointed'}
@@ -284,7 +293,7 @@ export const CoachPersonaSettings: React.FC = () => {
                   className="bg-theme-accent/15 px-2 py-1 rounded"
                 >
                   <Text className="text-xs font-bold text-theme-accent">
-                    {uploadingMood === 'disappointed' ? '...' : 'Upload'}
+                    {uploadingMood === 'disappointed' ? '...' : t('coachPersona.upload')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -296,10 +305,10 @@ export const CoachPersonaSettings: React.FC = () => {
       {/* Gender Selection Field */}
       <View className="mt-3 mb-2">
         <Text className="text-xs font-bold text-theme-muted mb-2">
-          Athlete Gender
+          {t('coachPersona.athleteGender')}
         </Text>
         <View className="flex-row gap-2">
-          {GENDER_OPTIONS.map((opt) => {
+          {genderOptions.map((opt) => {
             const isSelected = gender === opt.value;
             return (
               <TouchableOpacity
@@ -339,11 +348,11 @@ export const CoachPersonaSettings: React.FC = () => {
       {/* Athlete Context Field */}
       <View className="mt-2">
         <Text className="text-xs font-bold text-theme-muted mb-1">
-          Athlete Background Context
+          {t('coachPersona.athleteBackgroundContext')}
         </Text>
         <TextInput
           className="bg-theme-card rounded-control p-3 text-theme-text text-sm min-h-[70px]"
-          placeholder="e.g. Training for marathon, has 2 kids..."
+          placeholder={t('coachPersona.athleteContextPlaceholder')}
           placeholderTextColor={theme.textSecondary}
           value={athleteContext}
           onChangeText={setAthleteContext}
@@ -362,7 +371,7 @@ export const CoachPersonaSettings: React.FC = () => {
         ) : (
           <>
             <Ionicons name="save-outline" size={18} color="#FFF" />
-            <Text className="text-white font-bold text-base ml-2">Save Coach Persona</Text>
+            <Text className="text-white font-bold text-base ml-2">{t('coachPersona.saveCoachPersona')}</Text>
           </>
         )}
       </TouchableOpacity>
