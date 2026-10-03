@@ -6,7 +6,7 @@ import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/use-theme';
 import { useLanguage } from '../../context/LanguageContext';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import { socialApi } from '../../services/apiServices';
 import { SocialConnection } from '../../types/social';
 import { WorkoutItem } from '../../types/dashboard';
@@ -188,14 +188,16 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
       onClose={onClose}
       contentClassName="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 h-[90%] border-t border-theme-border/50 shadow-2xl"
       showHandle={true}
-    >
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+      header={
         <View className="flex-row justify-between items-center pb-4 pt-2">
           <Text className="text-xl font-extrabold text-theme-text">{t('dashboard.inviteFriends', 'Invite Friends')}</Text>
           <ScalePressable onPress={onClose} activeScale={0.9} haptic="light" className="p-2 -mr-2 bg-theme-bg rounded-full">
             <Ionicons name="close" size={20} color={theme.textSecondary} />
           </ScalePressable>
         </View>
+      }
+    >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
 
         {workout && (
           <View className="bg-theme-bg p-3 rounded-xl mb-4 border border-theme-border/50 flex-row items-center">

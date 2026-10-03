@@ -8,7 +8,7 @@ import { LevelProgress } from '../ui/LevelProgress';
 import { RookaMark } from '../ui/RookaPoints';
 import { AthleteRadarChart } from './AthleteRadarChart';
 import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useUser } from '../../context/UserStore';
@@ -199,7 +199,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
               key={`active-${activeQuest.id || 'quest'}`}
               entering={FadeIn.duration(200)}
               exiting={FadeOut.duration(150)}
-              layout={LinearTransition.springify().damping(16).stiffness(160)}
+              layout={LinearTransition.duration(200)}
             >
               <TouchableOpacity
                 onPress={() => {
@@ -257,7 +257,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
               key="no-active-quest"
               entering={FadeIn.duration(200)}
               exiting={FadeOut.duration(150)}
-              layout={LinearTransition.springify().damping(16).stiffness(160)}
+              layout={LinearTransition.duration(200)}
             >
               <TouchableOpacity
                 onPress={handleGenerateQuest}
@@ -316,25 +316,27 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         visible={isQuestModalOpen}
         onClose={() => setIsQuestModalOpen(false)}
         showHandle
-      >
-        <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center gap-3">
-            <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color={theme.tint} />
+        header={
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center gap-3">
+              <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
+                <Ionicons name="trophy" size={26} color={theme.tint} />
+              </View>
+              <View>
+                <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
+                <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
+              </View>
             </View>
-            <View>
-              <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
-              <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
-            </View>
+            {activeQuest?.reward_points ? (
+              <Chip
+                variant="points"
+                size="md"
+                label={Math.round(activeQuest.reward_points)}
+              />
+            ) : null}
           </View>
-          {activeQuest?.reward_points ? (
-            <Chip
-              variant="points"
-              size="md"
-              label={Math.round(activeQuest.reward_points)}
-            />
-          ) : null}
-        </View>
+        }
+      >
 
         <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
           <Text className="text-sm font-bold text-theme-text leading-relaxed font-rajdhani">

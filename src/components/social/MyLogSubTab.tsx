@@ -12,7 +12,7 @@ import { useGamification } from '../../context/GamificationStore';
 import { useUser } from '../../context/UserStore';
 import { Activity } from '../../types/activity';
 import { calculateActivityStreak } from '../../utils/gamification';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import { Chip } from '../ui/Chip';
 import { SportMedallion } from '../ui/SportMedallion';
 import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
@@ -336,25 +336,27 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
         visible={isQuestModalOpen}
         onClose={() => setIsQuestModalOpen(false)}
         showHandle
-      >
-        <View className="flex-row items-center justify-between mb-4">
-          <View className="flex-row items-center gap-3">
-            <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
-              <Ionicons name="trophy" size={26} color={theme.tint} />
+        header={
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center gap-3">
+              <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
+                <Ionicons name="trophy" size={26} color={theme.tint} />
+              </View>
+              <View>
+                <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
+                <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
+              </View>
             </View>
-            <View>
-              <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
-              <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
-            </View>
+            {activeQuest?.reward_points ? (
+              <Chip
+                variant="points"
+                size="md"
+                label={Math.round(activeQuest.reward_points)}
+              />
+            ) : null}
           </View>
-          {activeQuest?.reward_points ? (
-            <Chip
-              variant="points"
-              size="md"
-              label={Math.round(activeQuest.reward_points)}
-            />
-          ) : null}
-        </View>
+        }
+      >
 
         <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
           <Text className="text-sm font-bold text-theme-text leading-relaxed font-rajdhani">

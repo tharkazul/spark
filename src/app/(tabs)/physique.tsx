@@ -16,7 +16,7 @@ import { FitnessSubTab } from '../../components/progress/FitnessSubTab';
 import { BodySubTab } from '../../components/progress/BodySubTab';
 import { MyLogSubTab } from '../../components/social/MyLogSubTab';
 import { NutritionTab } from '../../components/progress/NutritionTab';
-import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../../components/ui/BottomSheetModal';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 
@@ -164,11 +164,13 @@ export default function ProgressScreen() {
         visible={isNutritionModalOpen}
         onClose={() => setIsNutritionModalOpen(false)}
         showHandle
-      >
-        <View className="max-h-[80vh] pb-6">
+        header={
           <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
             <Text className="text-base font-extrabold text-theme-text font-jakarta">{t('progress.fuelingNutrition', 'Daily Fueling & Nutrition')}</Text>
           </View>
+        }
+      >
+        <View className="max-h-[80vh] pb-6">
           <ScrollView showsVerticalScrollIndicator={false}>
             <NutritionTab />
           </ScrollView>

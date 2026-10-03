@@ -5,7 +5,7 @@ import { ScalePressable } from './ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-import { BottomSheetModal } from './BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from './BottomSheetModal';
 import { useLanguage } from '../../context/LanguageContext';
 
 export interface EventDatePickerSheetProps {
@@ -171,14 +171,15 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
       visible={visible}
       onClose={onClose}
       contentClassName="bg-theme-bg px-5 pt-3 rounded-t-[32px] rounded-b-none border-t border-theme-border max-h-[90%]"
-    >
-      {/* Header */}
-      <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
-        <View className="flex-row items-center gap-2">
-          <Ionicons name="calendar-outline" size={20} color={theme.tint} />
-          <Text className="text-lg font-extrabold text-theme-text">{activeTitle}</Text>
+      header={
+        <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="calendar-outline" size={20} color={theme.tint} />
+            <Text className="text-lg font-extrabold text-theme-text">{activeTitle}</Text>
+          </View>
         </View>
-      </View>
+      }
+    >
 
       {/* Formatted preview */}
       <View className="p-3 bg-theme-card border border-theme-accent/30 rounded-control mb-4 items-center">

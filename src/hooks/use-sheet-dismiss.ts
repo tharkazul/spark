@@ -9,6 +9,7 @@ export interface UseSheetDismissOptions {
   animY?: Animated.Value;
   backdropOpacity?: Animated.Value;
   onWillClose?: () => void;
+  tapToDismiss?: boolean;
 }
 
 /**
@@ -35,8 +36,15 @@ export function useSheetDismiss(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => false,
         onMoveShouldSetPanResponder: (_evt, g) =>
           g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+        onMoveShouldSetPanResponderCapture: (_evt, g) =>
+          g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: () => {
+          activeY.stopAnimation();
+        },
         onPanResponderMove: (_evt, g) => {
           if (g.dy > 0) {
             activeY.setValue(g.dy);
@@ -45,6 +53,8 @@ export function useSheetDismiss(
               const remaining = Math.max(0, 1 - g.dy / (SCREEN_HEIGHT * 0.45));
               backdrop.setValue(remaining);
             }
+          } else {
+            activeY.setValue(0);
           }
         },
         onPanResponderRelease: (_evt, g) => {
@@ -52,7 +62,10 @@ export function useSheetDismiss(
           const distanceThreshold = opts?.distanceThreshold ?? 60;
           const velocityThreshold = opts?.velocityThreshold ?? 0.4;
           const isTap = Math.abs(g.dy) < 6 && Math.abs(g.dx) < 6;
-          const shouldClose = isTap || g.dy > distanceThreshold || g.vy > velocityThreshold;
+          const shouldClose =
+            (opts?.tapToDismiss && isTap) ||
+            g.dy > distanceThreshold ||
+            g.vy > velocityThreshold;
 
           if (shouldClose) {
             opts?.onWillClose?.();

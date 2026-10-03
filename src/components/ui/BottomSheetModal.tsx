@@ -1,5 +1,5 @@
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -8,20 +8,52 @@ import {
   Dimensions,
   StyleSheet,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  GestureResponderHandlers,
+  ViewProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-interface BottomSheetModalProps {
+export interface BottomSheetContextValue {
+  panHandlers: GestureResponderHandlers;
+}
+
+export const BottomSheetContext = createContext<BottomSheetContextValue | null>(null);
+
+export const useBottomSheet = () => useContext(BottomSheetContext);
+
+export interface BottomSheetHeaderProps extends ViewProps {
+  children?: React.ReactNode;
+}
+
+export const BottomSheetHeader: React.FC<BottomSheetHeaderProps> = ({
+  children,
+  style,
+  ...props
+}) => {
+  const ctx = useBottomSheet();
+  return (
+    <View
+      {...(ctx?.panHandlers ?? {})}
+      style={style}
+      {...props}
+    >
+      {children}
+    </View>
+  );
+};
+
+export interface BottomSheetModalProps {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
   contentClassName?: string;
   style?: any;
   showHandle?: boolean;
+  header?: React.ReactNode;
 }
 
 export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
@@ -31,6 +63,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   contentClassName = 'bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 max-h-[90%]',
   style,
   showHandle = false,
+  header,
 }) => {
   const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(visible);
@@ -131,17 +164,16 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
             ]}
             className={contentClassName}
           >
-            {/* Grab area. The handle is always rendered now — it is the
-                affordance that tells you the sheet can be pulled down, and it
-                is the only region that claims the drag gesture, so content
-                inside the sheet still scrolls normally. */}
-            <View
-              {...panHandlers}
-              className="items-center justify-center py-3 -mt-3 self-stretch"
-            >
-              <SheetGrabber />
-            </View>
-            {children}
+            <BottomSheetContext.Provider value={{ panHandlers }}>
+              {/* Grab area and header. Draggable downwards to dismiss sheet. */}
+              <View {...panHandlers} className="self-stretch">
+                <View className="items-center justify-center py-3 -mt-3 self-stretch">
+                  <SheetGrabber />
+                </View>
+                {header}
+              </View>
+              {children}
+            </BottomSheetContext.Provider>
           </Animated.View>
         </View>
       </KeyboardAvoidingView>

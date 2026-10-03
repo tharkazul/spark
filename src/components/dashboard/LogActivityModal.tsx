@@ -193,10 +193,11 @@ export function LogActivityModal({
             ]}
             className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col"
           >
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View {...panHandlers} className="items-center justify-center py-3 -mt-3 self-stretch">
-              <SheetGrabber />
-            </View>
+            {/* Draggable Header Region */}
+            <View {...panHandlers} className="self-stretch">
+              <View className="items-center justify-center py-3 -mt-3 self-stretch">
+                <SheetGrabber />
+              </View>
 
               {/* Header */}
               <View className="flex-row items-center justify-between pb-3.5 mb-2 border-b border-theme-border/50">
@@ -210,6 +211,7 @@ export function LogActivityModal({
                   </View>
                 </View>
               </View>
+            </View>
 
               <ScrollView
                 showsVerticalScrollIndicator={false}

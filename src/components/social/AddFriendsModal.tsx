@@ -309,20 +309,22 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
             ]}
             className="bg-theme-card border-t border-theme-border rounded-t-[32px] rounded-b-none px-5 pt-3 max-h-[90%] min-h-[460px]"
           >
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View {...panHandlers} className="items-center justify-center py-3 -mt-3 self-stretch">
-              <SheetGrabber />
-            </View>
-
-          {/* Header */}
-          <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/50">
-            <View className="flex-row items-center gap-x-2">
-              <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
-                <Ionicons name="person-add" size={16} color={theme.tint} />
+            {/* Draggable Header Region */}
+            <View {...panHandlers} className="self-stretch">
+              <View className="items-center justify-center py-3 -mt-3 self-stretch">
+                <SheetGrabber />
               </View>
-              <Text className="text-lg font-extrabold text-theme-text">{t('social.findAddAthletes')}</Text>
+
+              {/* Header */}
+              <View className="flex-row items-center justify-between pb-4 border-b border-theme-border/50">
+                <View className="flex-row items-center gap-x-2">
+                  <View className="w-8 h-8 rounded-full bg-theme-accent/20 items-center justify-center">
+                    <Ionicons name="person-add" size={16} color={theme.tint} />
+                  </View>
+                  <Text className="text-lg font-extrabold text-theme-text">{t('social.findAddAthletes')}</Text>
+                </View>
+              </View>
             </View>
-          </View>
 
           <ScrollView className="flex-1 pt-4" showsVerticalScrollIndicator={false}>
             {/* Active Live Search Input */}

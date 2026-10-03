@@ -216,16 +216,13 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
   };
 
   return (
-    <BottomSheetModal visible={visible} onClose={onClose} showHandle>
-      <ScrollView
-        ref={scrollViewRef}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        style={{ flexShrink: 1 }}
-      >
-        {/* Header */}
+    <BottomSheetModal
+      visible={visible}
+      onClose={onClose}
+      showHandle
+      header={
+        <View className="mb-1">
+          {/* Header */}
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-2">
               <View className="w-8 h-8 rounded-full bg-theme-accent/15 items-center justify-center">
@@ -244,11 +241,21 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
             </Pressable>
           </View>
 
-          <Text className="text-xs text-theme-muted mb-5 leading-relaxed">
+          <Text className="text-xs text-theme-muted mb-3 leading-relaxed">
             {t('onboarding.syncSmartwatchSubtitle')}
           </Text>
-
-          {/* GARMIN CARD */}
+        </View>
+      }
+    >
+      <ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        style={{ flexShrink: 1 }}
+      >
+        {/* GARMIN CARD */}
           <View className="bg-theme-bg border border-theme-border rounded-2xl p-4 mb-4">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3 flex-1 mr-2">

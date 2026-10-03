@@ -143,10 +143,11 @@ export function AdaptPlanModal({
             ]}
             className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col"
           >
-            {/* TOP PULL HANDLE INDICATOR */}
-            <View {...panHandlers} className="items-center justify-center py-3 -mt-3 self-stretch">
-              <SheetGrabber />
-            </View>
+            {/* Draggable Header Region */}
+            <View {...panHandlers} className="self-stretch">
+              <View className="items-center justify-center py-3 -mt-3 self-stretch">
+                <SheetGrabber />
+              </View>
 
               {/* Top Icon */}
               <View className="w-12 h-12 rounded-full bg-theme-accent/20 items-center justify-center self-center mb-3 shadow-md">
@@ -160,6 +161,7 @@ export function AdaptPlanModal({
               <Text className="text-xs text-theme-muted text-center mb-5 leading-relaxed">
                 {t('dashboard.adaptModalSubtitle', { atl: `${atl} ATL` })}
               </Text>
+            </View>
 
               {/* Adaptation Suggestions */}
               <ScrollView showsVerticalScrollIndicator={false} className="mb-6 max-h-[350px]">

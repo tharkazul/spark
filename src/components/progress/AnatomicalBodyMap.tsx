@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { fatiguePercentages, MuscleGroup } from '../../domain/muscleLoad';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import {
   AppleHealthDailyBiometrics,
   computeCardiovascularStrain,
@@ -752,9 +752,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         visible={showCardioModal}
         onClose={() => setShowCardioModal(false)}
         showHandle={true}
-      >
-        <View className="p-1">
-          {/* Modal Header */}
+        header={
           <View className="flex-row items-center gap-3 pb-3 mb-3 border-b border-theme-border/60">
             <View
               className="w-10 h-10 rounded-2xl items-center justify-center"
@@ -788,7 +786,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               </Text>
             </View>
           </View>
-
+        }
+      >
+        <View className="p-1">
           {/* Metric Tiles (Resting HR & HRV SDNN) */}
           <View className="flex-row gap-3 mb-4">
             {/* Resting HR Tile */}
