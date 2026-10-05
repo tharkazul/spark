@@ -885,11 +885,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     }
                     \`\`\`
                     
-                    MANUAL ACTIVITY LOGGING (CRITICAL REQUIREMENT):
-                    If the athlete mentions completing, running, cycling, swimming, lifting, or performing ANY workout, run, or activity in their message (e.g. "I ran 10km", "Just finished 10k", "Did a 45 min run"), YOU MUST output a "log_activity" JSON block at the very end of your response.
-                    DO NOT ONLY praise them in conversational text—YOU MUST INCLUDE THE "log_activity" JSON BLOCK! If you do not include the JSON block, the workout WILL NOT be saved to their activity log ("My Log")!
-                    Always estimate reasonable values for distance_km, moving_time_min, and rooka_score if not explicitly specified.
-                    Format it EXACTLY like this inside triple backticks:
+                    MANUAL ACTIVITY LOGGING (CAUTION - AVOID DUPLICATES):
+                    If the athlete EXPLICITLY asks you to log, save, or record a workout manually (e.g. "Can you log a 10km run for me?", "I didn't have my watch, please log a 45 min ride"), you MUST output a "log_activity" JSON block at the very end of your response.
+                    HOWEVER, if the athlete is simply telling you they finished a workout for coaching feedback (e.g. "I just did my planned ride", "That run was tough"), DO NOT output the "log_activity" JSON block unless they explicitly ask you to manually log it, as they likely have a GPS tracker (Strava/Garmin/Apple Health) that will sync it automatically, and manual logging will cause duplicate activities in their feed!
+                    If you do need to log it manually, format it EXACTLY like this inside triple backticks:
                     \`\`\`json
                     {
                       "type": "log_activity",
