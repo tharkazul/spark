@@ -567,8 +567,11 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
   const handleOpenLinkModal = async () => {
     setShowActionsMenu(false);
-    setShowLinkModal(true);
     setLoadingCandidates(true);
+    // iOS can't present a new native Modal while the previous one is still
+    // animating out (it leaves an invisible touch-blocking overlay = frozen app).
+    await new Promise((r) => setTimeout(r, 450));
+    setShowLinkModal(true);
     try {
       if (activityId) {
         const res = await activitiesApi.getCandidatesToLink(activityId);
@@ -604,6 +607,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   setActivity(normalizeActivity(updated));
                 }
                 refreshActivities?.();
+                await new Promise((r) => setTimeout(r, 450));
                 Alert.alert('Session Linked', 'Telemetry successfully transferred and duplicate points removed.');
               }
             } catch (err: any) {
@@ -617,7 +621,9 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     );
   };
 
-  const handleUnlinkActivity = () => {
+  const handleUnlinkActivity = async () => {
+    setShowActionsMenu(false);
+    await new Promise((r) => setTimeout(r, 450));
     Alert.alert(
       'Unlink Session?',
       'This will separate the linked telemetry and restore both activities.',
@@ -634,7 +640,6 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
               const res = await activitiesApi.unlinkActivity(activityId);
               if (res.success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setShowActionsMenu(false);
                 const updated = await activitiesApi.getActivityDetail(activityId);
                 if (updated) {
                   setActivity(normalizeActivity(updated));
@@ -653,7 +658,9 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     );
   };
 
-  const handleDeleteActivity = () => {
+  const handleDeleteActivity = async () => {
+    setShowActionsMenu(false);
+    await new Promise((r) => setTimeout(r, 450));
     Alert.alert(
       'Delete Activity?',
       'Are you sure you want to delete this activity? This cannot be undone.',
@@ -668,7 +675,6 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               const res = await activitiesApi.deleteActivity(activityId);
               if (res.success) {
-                setShowActionsMenu(false);
                 refreshActivities?.();
                 onClose();
               }
