@@ -12,7 +12,7 @@ import { Button } from '../ui/Button';
 import { LevelProgress } from '../ui/LevelProgress';
 import { AthleteRadarChart } from './AthleteRadarChart';
 import { SeasonRoadmapCard } from '../dashboard/SeasonRoadmapCard';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
 
 import { useUser } from '../../context/UserStore';
@@ -212,7 +212,7 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
               key={`active-${activeQuest.id || 'quest'}`}
               entering={FadeIn.duration(200)}
               exiting={FadeOut.duration(150)}
-              layout={LinearTransition.springify().damping(16).stiffness(160)}
+              layout={LinearTransition.duration(200)}
             >
               <TouchableOpacity
                 onPress={() => {
@@ -269,9 +269,13 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
         visible={isQuestModalOpen}
         onClose={() => setIsQuestModalOpen(false)}
         showHandle
+        header={
+          <View className="mb-2">
+            <Text className="text-lg font-bold text-theme-text">{t('progress.weeklyQuestDetails', 'Weekly Quest Details')}</Text>
+          </View>
+        }
       >
         <View className="pb-6">
-          <Text className="text-lg font-bold text-theme-text mb-2">{t('progress.weeklyQuestDetails', 'Weekly Quest Details')}</Text>
           {activeQuest && (
             <>
               <Text className="text-sm text-theme-muted mb-4">{activeQuest.description}</Text>

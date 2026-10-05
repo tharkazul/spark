@@ -1,4 +1,5 @@
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
+import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
@@ -93,12 +94,26 @@ export default function ProfileScreen() {
   const [showGarminModal, setShowGarminModal] = useState(false);
   const garminSlideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const garminBackdropOpacity = useRef(new Animated.Value(0)).current;
+  const isGarminClosingRef = useRef(false);
+
+  const { panHandlers: garminPanHandlers } = useSheetDismiss(
+    () => setGarminModalVisible(false),
+    {
+      animY: garminSlideAnim,
+      backdropOpacity: garminBackdropOpacity,
+      onWillClose: () => {
+        isGarminClosingRef.current = true;
+      },
+    }
+  );
+
   const [garminUser, setGarminUser] = useState('');
   const [garminPass, setGarminPass] = useState('');
   const [garminLoading, setGarminLoading] = useState(false);
 
   useEffect(() => {
     if (garminModalVisible) {
+      isGarminClosingRef.current = false;
       setShowGarminModal(true);
       garminSlideAnim.setValue(SCREEN_HEIGHT);
       garminBackdropOpacity.setValue(0);
@@ -118,6 +133,12 @@ export default function ProfileScreen() {
         }),
       ]).start();
     } else {
+      if (isGarminClosingRef.current) {
+        setShowGarminModal(false);
+        isGarminClosingRef.current = false;
+        return;
+      }
+
       Animated.parallel([
         Animated.timing(garminBackdropOpacity, {
           toValue: 0,
@@ -538,15 +559,17 @@ export default function ProfileScreen() {
                 }}
                 className="bg-theme-bg px-6 pt-3 rounded-t-[32px] rounded-b-none border-t border-theme-border shadow-2xl"
               >
-                {/* TOP PULL HANDLE INDICATOR */}
-                <View className="items-center pb-4">
-                  <SheetGrabber />
-                </View>
+                {/* Draggable Header Region */}
+                <View {...garminPanHandlers} className="self-stretch">
+                  <View className="items-center pb-4">
+                    <SheetGrabber />
+                  </View>
 
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-row items-center">
-                    <Ionicons name="watch-outline" size={24} color={theme.tint} />
-                    <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
+                  <View className="flex-row items-center justify-between mb-4">
+                    <View className="flex-row items-center">
+                      <Ionicons name="watch-outline" size={24} color={theme.tint} />
+                      <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
+                    </View>
                   </View>
                 </View>
 

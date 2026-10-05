@@ -261,30 +261,32 @@ export function LogNiggleModal({
             ]}
             className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col max-h-[90%]"
           >
-            {/* TOP PULL HANDLE INDICATOR — drag-to-dismiss grab area */}
-            <View {...panHandlers} className="items-center justify-center py-3 -mt-3 self-stretch">
-              <SheetGrabber />
-            </View>
-
-            {/* Header */}
-            <View className="flex-row items-center justify-between pb-3 mb-2 border-b border-theme-border/50">
-              <View className="flex-row items-center gap-2.5">
-                <View className="w-9 h-9 rounded-xl bg-semantic-error/15 items-center justify-center">
-                  <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
-                </View>
-                <View>
-                  <Text className="text-lg font-bold text-theme-text">{t('dashboard.reportInjuryTitle', 'Report Injury / Niggle')}</Text>
-                  <Text className="text-xs text-theme-muted font-rajdhani">{t('dashboard.injuryTrackerAlert', 'Records to Health Tracker & alerts rooka Coach')}</Text>
-                </View>
+            {/* Draggable Header Region */}
+            <View {...panHandlers} className="self-stretch">
+              <View className="items-center justify-center py-3 -mt-3 self-stretch">
+                <SheetGrabber />
               </View>
-              <ScalePressable
-                onPress={onClose}
-                activeScale={0.9}
-                haptic="light"
-                className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
-              >
-                <Ionicons name="close" size={18} color="#8E9BA4" />
-              </ScalePressable>
+
+              {/* Header */}
+              <View className="flex-row items-center justify-between pb-3 mb-2 border-b border-theme-border/50">
+                <View className="flex-row items-center gap-2.5">
+                  <View className="w-9 h-9 rounded-xl bg-semantic-error/15 items-center justify-center">
+                    <Ionicons name="bandage-outline" size={18} color="#F43F5E" />
+                  </View>
+                  <View>
+                    <Text className="text-lg font-bold text-theme-text">{t('dashboard.reportInjuryTitle', 'Report Injury / Niggle')}</Text>
+                    <Text className="text-xs text-theme-muted font-rajdhani">{t('dashboard.injuryTrackerAlert', 'Records to Health Tracker & alerts rooka Coach')}</Text>
+                  </View>
+                </View>
+                <ScalePressable
+                  onPress={onClose}
+                  activeScale={0.9}
+                  haptic="light"
+                  className="w-8 h-8 rounded-full bg-theme-bg items-center justify-center"
+                >
+                  <Ionicons name="close" size={18} color="#8E9BA4" />
+                </ScalePressable>
+              </View>
             </View>
 
             {/* Scrollable Form Content */}

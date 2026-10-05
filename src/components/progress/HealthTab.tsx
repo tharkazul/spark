@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import { AnatomicalBodyMap, ActiveNiggle, partMatchesNiggle } from './AnatomicalBodyMap';
 import { NiggleCard } from '../health/NiggleCard';
 import { TrainingReadinessWidget } from './TrainingReadinessWidget';
@@ -157,18 +157,19 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         showHandle={true}
-      >
-        <View className="flex-row justify-between items-center pb-4 mb-4">
-          <View>
-            <Text className="text-xs font-bold text-theme-muted">
-              Log Issue / Soreness
-            </Text>
-            <Text className="text-lg font-extrabold text-theme-text mt-0.5">
-              {selectedPartName}
-            </Text>
+        header={
+          <View className="flex-row justify-between items-center pb-4 mb-4">
+            <View>
+              <Text className="text-xs font-bold text-theme-muted">
+                Log Issue / Soreness
+              </Text>
+              <Text className="text-lg font-extrabold text-theme-text mt-0.5">
+                {selectedPartName}
+              </Text>
+            </View>
           </View>
-        </View>
-
+        }
+      >
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Severity Chips */}
           <Text className="text-xs font-bold text-theme-muted mb-2">

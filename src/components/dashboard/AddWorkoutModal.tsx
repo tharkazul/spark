@@ -488,38 +488,37 @@ export function AddWorkoutModal({
               ]}
               className="bg-theme-card rounded-t-[32px] rounded-b-none border-t border-theme-border/50 shadow-2xl flex-col overflow-hidden"
             >
-              {/* TOP PULL HANDLE INDICATOR — tap-to-dismiss & drag-to-dismiss */}
-              <View
-                {...panHandlers}
-                className="items-center justify-center py-3 self-stretch"
-              >
-                <SheetGrabber />
-              </View>
-
-              {/* Top Title Bar with Close Action */}
-              <View className="flex-row items-center justify-between px-5 pt-0 pb-3 border-b border-theme-border/60">
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-xl font-bold text-theme-text font-jakarta">
-                    {initialWorkout
-                      ? isReadOnly
-                        ? t('dashboard.workoutDetails', 'Workout Details')
-                        : t('dashboard.editWorkout', 'Edit Workout')
-                      : t('dashboard.addWorkoutTitle', 'Add Workout')}
-                  </Text>
-                  {isReadOnly && (
-                    <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
-                      <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
-                      <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
-                    </View>
-                  )}
+              {/* Draggable Header Region */}
+              <View {...panHandlers} className="self-stretch">
+                <View className="items-center justify-center py-3 self-stretch">
+                  <SheetGrabber />
                 </View>
-                <TouchableOpacity
-                  onPress={onClose}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
-                >
-                  <Ionicons name="close" size={18} color={theme.text} />
-                </TouchableOpacity>
+
+                {/* Top Title Bar with Close Action */}
+                <View className="flex-row items-center justify-between px-5 pt-0 pb-3 border-b border-theme-border/60">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-xl font-bold text-theme-text font-jakarta">
+                      {initialWorkout
+                        ? isReadOnly
+                          ? t('dashboard.workoutDetails', 'Workout Details')
+                          : t('dashboard.editWorkout', 'Edit Workout')
+                        : t('dashboard.addWorkoutTitle', 'Add Workout')}
+                    </Text>
+                    {isReadOnly && (
+                      <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
+                        <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
+                        <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    onPress={onClose}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
+                  >
+                    <Ionicons name="close" size={18} color={theme.text} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
           {isReadOnly && (

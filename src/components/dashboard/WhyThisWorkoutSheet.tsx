@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { BottomSheetModal } from '../ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import { Button } from '../ui/Button';
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { useTheme } from '@/hooks/use-theme';
@@ -96,9 +96,11 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
   const stimulus = getStimulusRationale();
 
   return (
-    <BottomSheetModal visible={visible} onClose={onClose} showHandle={true}>
-      <View className="pb-4">
-        {/* Header */}
+    <BottomSheetModal
+      visible={visible}
+      onClose={onClose}
+      showHandle={true}
+      header={
         <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/40">
           <View className="flex-row items-center gap-2 flex-1 mr-2">
             <View className="w-8 h-8 rounded-full bg-theme-accent/15 items-center justify-center">
@@ -125,7 +127,9 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
             <Ionicons name="close" size={18} color={theme.textSecondary} />
           </TouchableOpacity>
         </View>
-
+      }
+    >
+      <View className="pb-4">
         <ScrollView showsVerticalScrollIndicator={false} className="max-h-[500px]">
           <View className="gap-y-3.5 pt-1">
             {/* 1. INJURY & SORENESS CONSIDERATIONS */}

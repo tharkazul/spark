@@ -1489,12 +1489,15 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         visible={showActionsMenu}
         onClose={() => setShowActionsMenu(false)}
         showHandle
+        header={
+          <View className="pt-2 pb-1">
+            <Text className="text-base font-extrabold text-theme-text mb-3 text-center">
+              Workout Options
+            </Text>
+          </View>
+        }
       >
-        <View className="pb-8 pt-2">
-          <Text className="text-base font-extrabold text-theme-text mb-4 text-center">
-            Workout Options
-          </Text>
-
+        <View className="pb-8">
           {activity?.linked_activity_id ? (
             <TouchableOpacity
               onPress={handleUnlinkActivity}
@@ -1544,15 +1547,18 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         visible={showLinkModal}
         onClose={() => setShowLinkModal(false)}
         showHandle
+        header={
+          <View className="pt-2 pb-2">
+            <Text className="text-base font-extrabold text-theme-text text-center">
+              Link Synced Session
+            </Text>
+            <Text className="text-xs text-theme-muted text-center mt-1 px-2">
+              Select a session from this day to merge into {activity?.name || 'this workout'}. Telemetry will be combined and the other session hidden to prevent duplicate points.
+            </Text>
+          </View>
+        }
       >
-        <View className="pb-8 pt-2">
-          <Text className="text-base font-extrabold text-theme-text text-center">
-            Link Synced Session
-          </Text>
-          <Text className="text-xs text-theme-muted text-center mt-1 mb-4 px-2">
-            Select a session from this day to merge into {activity?.name || 'this workout'}. Telemetry will be combined and the other session hidden to prevent duplicate points.
-          </Text>
-
+        <View className="pb-8 pt-1">
           {loadingCandidates ? (
             <View className="py-8 items-center justify-center">
               <ActivityIndicator size="small" color={theme.tint} />

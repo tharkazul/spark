@@ -60,7 +60,7 @@ import { hasSubscriptionTier } from '../../utils/permissions';
 
 import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
 import { DeviceSyncBanner } from '../../components/dashboard/DeviceSyncBanner';
-import { BottomSheetModal } from '../../components/ui/BottomSheetModal';
+import { BottomSheetModal, BottomSheetHeader } from '../../components/ui/BottomSheetModal';
 import { Chip } from '../../components/ui/Chip';
 import { RookaPoints } from '../../components/ui/RookaPoints';
 import { SportMedallion } from '../../components/ui/SportMedallion';
@@ -847,12 +847,38 @@ export default function CoachScreen() {
             setSelectedPillWorkout(null);
           }}
           showHandle
+          header={
+            selectedPillWorkout ? (
+              <View className="flex-row items-center justify-between mb-4">
+                <View className="flex-row items-center gap-3">
+                  <SportMedallion sport={selectedPillWorkout.sport} size={40} />
+                  <View>
+                    <Text className="text-lg font-extrabold text-theme-text">
+                      {(selectedPillWorkout.sport || '').toLowerCase() === 'rest'
+                        ? t('common.restDay', 'Rest Day')
+                        : t('dashboard.workoutDetails', 'Workout Details')}
+                    </Text>
+                    <Text className="text-xs text-theme-muted font-bold">
+                      {formatPillWorkoutDate(selectedPillWorkout.date, t, language) ||
+                        selectedPillWorkout.date ||
+                        t('common.today', 'Today')}
+                    </Text>
+                  </View>
+                </View>
+                {selectedPillWorkout.target_rooka && selectedPillWorkout.target_rooka > 0 ? (
+                  <Chip
+                    variant="points"
+                    size="md"
+                    label={Math.round(selectedPillWorkout.target_rooka)}
+                  />
+                ) : null}
+              </View>
+            ) : null
+          }
         >
           {selectedPillWorkout ? (
             (() => {
               const cfg = getSportIconConfig(selectedPillWorkout.sport);
-              const isRest = (selectedPillWorkout.sport || '').toLowerCase() === 'rest';
-              const dateLabel = formatPillWorkoutDate(selectedPillWorkout.date, t, language);
               let steps: any[] = [];
               if (selectedPillWorkout.steps_json) {
                 try {
@@ -864,27 +890,6 @@ export default function CoachScreen() {
 
               return (
                 <>
-                  <View className="flex-row items-center justify-between mb-4">
-                    <View className="flex-row items-center gap-3">
-                      <SportMedallion sport={selectedPillWorkout.sport} size={40} />
-                      <View>
-                        <Text className="text-lg font-extrabold text-theme-text">
-                          {isRest ? t('common.restDay', 'Rest Day') : t('dashboard.workoutDetails', 'Workout Details')}
-                        </Text>
-                        <Text className="text-xs text-theme-muted font-bold">
-                          {dateLabel || selectedPillWorkout.date || t('common.today', 'Today')}
-                        </Text>
-                      </View>
-                    </View>
-                    {selectedPillWorkout.target_rooka && selectedPillWorkout.target_rooka > 0 ? (
-                      <Chip
-                        variant="points"
-                        size="md"
-                        label={Math.round(selectedPillWorkout.target_rooka)}
-                      />
-                    ) : null}
-                  </View>
-
                   <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
                     {/* Top Sport Line */}
                     <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
@@ -1040,33 +1045,35 @@ export default function CoachScreen() {
           visible={isNutritionModalOpen}
           onClose={() => setIsNutritionModalOpen(false)}
           showHandle
-        >
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center gap-3">
-              <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center">
-                <Ionicons name="restaurant-outline" size={20} color={theme.tint} />
+          header={
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center gap-3">
+                <View className="w-10 h-10 rounded-full bg-theme-accent/15 items-center justify-center">
+                  <Ionicons name="restaurant-outline" size={20} color={theme.tint} />
+                </View>
+                <View>
+                  <Text className="text-base font-bold text-theme-text font-rajdhani">{t('coach.todaysFueling', "Today's Fueling")}</Text>
+                  <Text className="text-xs text-theme-muted font-medium">{t('coach.macroTargetsEnergyBudget', 'Macro targets & energy budget')}</Text>
+                </View>
               </View>
-              <View>
-                <Text className="text-base font-bold text-theme-text font-rajdhani">{t('coach.todaysFueling', "Today's Fueling")}</Text>
-                <Text className="text-xs text-theme-muted font-medium">{t('coach.macroTargetsEnergyBudget', 'Macro targets & energy budget')}</Text>
-              </View>
+              {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
+                <TouchableOpacity
+                  onPress={async () => {
+                    try {
+                      await clearLoggedNutrition();
+                    } catch (e) {
+                      console.error('Failed to clear nutrition:', e);
+                    }
+                  }}
+                  className="flex-row items-center gap-1 bg-theme-bg px-2.5 py-1 rounded-full border border-theme-border"
+                >
+                  <Ionicons name="refresh-outline" size={12} color={theme.textSecondary} />
+                  <Text className="text-[11px] font-bold text-theme-muted">{t('common.reset', 'Reset')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            {((nutrition?.loggedCarbs || 0) > 0 || (nutrition?.loggedProtein || 0) > 0 || (nutrition?.loggedFat || 0) > 0) && (
-              <TouchableOpacity
-                onPress={async () => {
-                  try {
-                    await clearLoggedNutrition();
-                  } catch (e) {
-                    console.error('Failed to clear nutrition:', e);
-                  }
-                }}
-                className="flex-row items-center gap-1 bg-theme-bg px-2.5 py-1 rounded-full border border-theme-border"
-              >
-                <Ionicons name="refresh-outline" size={12} color={theme.textSecondary} />
-                <Text className="text-[11px] font-bold text-theme-muted">{t('common.reset', 'Reset')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          }
+        >
 
           {/* Total Target Energy Hero */}
           <View className="mb-4 items-center py-1">
@@ -1139,23 +1146,25 @@ export default function CoachScreen() {
           visible={isQuestModalOpen}
           onClose={() => setIsQuestModalOpen(false)}
           showHandle
-        >
-          <View className="flex-row items-center justify-between mb-4">
-            <View className="flex-row items-center gap-3">
-              <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
-                <Ionicons name="trophy" size={26} color={theme.tint} />
+          header={
+            <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center gap-3">
+                <View className="w-12 h-12 rounded-2xl bg-theme-accent/15 items-center justify-center">
+                  <Ionicons name="trophy" size={26} color={theme.tint} />
+                </View>
+                <View>
+                  <Text className="text-lg font-extrabold text-theme-text">{t('coach.activeQuest', 'Active Quest')}</Text>
+                  <Text className="text-xs text-theme-muted font-bold">{t('coach.expiresSundayMidnight', 'Expires Sunday midnight')}</Text>
+                </View>
               </View>
-              <View>
-                <Text className="text-lg font-extrabold text-theme-text">{t('coach.activeQuest', 'Active Quest')}</Text>
-                <Text className="text-xs text-theme-muted font-bold">{t('coach.expiresSundayMidnight', 'Expires Sunday midnight')}</Text>
-              </View>
+              <Chip
+                variant="points"
+                size="md"
+                label={Math.round(activeQuest?.reward_points || 0)}
+              />
             </View>
-            <Chip
-              variant="points"
-              size="md"
-              label={Math.round(activeQuest?.reward_points || 0)}
-            />
-          </View>
+          }
+        >
 
           <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
             <Text className="text-sm font-bold text-theme-text leading-relaxed font-rajdhani">
