@@ -579,7 +579,10 @@ router.post("/api/activities/:id/link", authenticateToken, async (req, res) => {
           const newElevation = source.elevation_m || target.elevation_m || 0;
           const newPolyline = source.polyline || target.polyline || null;
           const newLaps = source.laps_json || target.laps_json || null;
-          const newStravaId = source.strava_activity_id || target.strava_activity_id || null;
+          // NOTE: strava_activity_id deliberately stays on the (hidden) source row.
+          // Copying it to the target violates UNIQUE(user_id, strava_activity_id),
+          // and keeping it there means later Strava syncs update the hidden row
+          // instead of re-creating a duplicate.
 
           db.run(
             `UPDATE activities SET 
@@ -591,7 +594,6 @@ router.post("/api/activities/:id/link", authenticateToken, async (req, res) => {
                elevation_m = ?,
                polyline = ?,
                laps_json = ?,
-               strava_activity_id = ?,
                linked_activity_id = ?,
                linked_activity_name = ?
              WHERE id = ?`,
@@ -604,13 +606,13 @@ router.post("/api/activities/:id/link", authenticateToken, async (req, res) => {
               newElevation,
               newPolyline,
               newLaps,
-              newStravaId,
               source.id,
               source.name || "Synced Session",
               target.id
             ],
             (updateTargetErr) => {
               if (updateTargetErr) {
+                console.error("Link: target update failed:", updateTargetErr.message);
                 return res.status(500).json({ error: "Failed to update target activity with telemetry." });
               }
 
