@@ -143,6 +143,7 @@ export const activitiesApi = {
   getDashboardData: () => apiClient<any>('/api/dashboard-data'),
   syncGarmin: (workouts?: any[]) => apiClient<{ success: boolean; message?: string }>('/api/sync-garmin', { method: 'POST', body: JSON.stringify({ workouts }) }),
   syncStrava: () => apiClient<{ success: boolean; message?: string; count?: number }>('/api/sync-strava', { method: 'POST' }),
+  syncSuunto: () => apiClient<{ success: boolean; message?: string; synced?: number }>('/api/sync-suunto', { method: 'POST' }),
   getComments: (activityId: string | number) => apiClient<{ comments: ActivityComment[] }>(`/api/activities/${activityId}/comments`),
   postComment: (activityId: string | number, comment: string) =>
     apiClient<{ success: boolean; comment: ActivityComment }>(`/api/activities/${activityId}/comments`, {
@@ -218,6 +219,20 @@ export const integrationsApi = {
     }),
   syncStrava: () =>
     apiClient<{ success: boolean; message?: string; count?: number }>('/api/sync-strava', {
+      method: 'POST',
+    }),
+  getSuuntoAuthUrl: () => apiClient<{ url: string }>('/api/user/settings/suunto-auth-url'),
+  exchangeSuuntoCode: (code: string) =>
+    apiClient<{ success?: boolean; message: string }>('/api/user/settings/suunto-exchange', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+  disconnectSuunto: () =>
+    apiClient<{ success?: boolean; message: string }>('/api/user/disconnect/suunto', {
+      method: 'POST',
+    }),
+  syncSuunto: () =>
+    apiClient<{ success: boolean; message?: string; synced?: number }>('/api/sync-suunto', {
       method: 'POST',
     }),
   getStravaShareSettings: () =>

@@ -16,6 +16,9 @@ interface ConnectionsTabProps {
   onConnectStrava: () => void;
   onDisconnectStrava: () => void;
   stravaLoading?: boolean;
+  onConnectSuunto: () => void;
+  onDisconnectSuunto: () => void;
+  suuntoLoading?: boolean;
 }
 
 // rooka's sport buckets, matching STRAVA_SHARE_SPORTS on the server. Strava's
@@ -56,11 +59,14 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   onConnectStrava,
   onDisconnectStrava,
   stravaLoading = false,
+  onConnectSuunto,
+  onDisconnectSuunto,
+  suuntoLoading = false,
 }) => {
   const theme = useTheme();
   const { user } = useUser();
   const { t, language } = useLanguage();
-  const { syncGarmin, syncStrava, refreshActivities } = useActivities();
+  const { syncGarmin, syncStrava, syncSuunto, refreshActivities } = useActivities();
 
   const getSportOptionLabel = (id: SportType) => {
     if (id === 'Run') return t('sports.run');
@@ -79,6 +85,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
   const isGarminConnected = !!user?.garmin_connected;
   const isStravaConnected = !!user?.strava_connected;
+  const isSuuntoConnected = !!user?.suunto_connected;
 
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
@@ -89,6 +96,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [showHealthPrefs, setShowHealthPrefs] = useState(false);
   const [showAppleManage, setShowAppleManage] = useState(false);
   const [showStravaManage, setShowStravaManage] = useState(false);
+  const [showSuuntoManage, setShowSuuntoManage] = useState(false);
+  const [suuntoSyncing, setSuuntoSyncing] = useState(false);
   const [healthPrefs, setHealthPrefs] = useState<any>({
     syncSleep: true,
     syncHeartRate: true,
@@ -332,6 +341,20 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     }
   };
 
+  const handleSyncSuunto = async () => {
+    setSuuntoSyncing(true);
+    try {
+      await syncSuunto();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      console.error('Suunto sync error:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Suunto Sync Failed', err?.message || 'Could not sync with Suunto. Please try again later.');
+    } finally {
+      setSuuntoSyncing(false);
+    }
+  };
+
   const currentToggles = sportToggles[selectedSport] || DEFAULT_TOGGLES[selectedSport];
 
   return (
@@ -519,6 +542,82 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             </TouchableOpacity>
           </View>
         </View>
+      </Card>
+
+      {/* SUUNTO INTEGRATION */}
+      <Card className="p-4">
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <View className="w-10 h-10 rounded-xl bg-red-500/10 items-center justify-center">
+              <Ionicons name="watch-outline" size={20} color="#DC2626" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.suuntoIntegration')}</Text>
+              <Text className="text-xs text-theme-muted mt-0.5">
+                {isSuuntoConnected ? `${t('connections.connected', 'Connected')} · Workout Sync` : t('connections.disconnected', 'Not connected')}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            {isSuuntoConnected && (
+              <TouchableOpacity
+                onPress={handleSyncSuunto}
+                disabled={suuntoSyncing}
+                className="p-2 rounded-lg bg-theme-bg border border-theme-border items-center justify-center"
+              >
+                {suuntoSyncing ? (
+                  <ActivityIndicator size="small" color={theme.tint} />
+                ) : (
+                  <Ionicons name="sync-outline" size={15} color={theme.tint} />
+                )}
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync();
+                if (isSuuntoConnected) {
+                  setShowSuuntoManage((prev) => !prev);
+                } else {
+                  onConnectSuunto();
+                }
+              }}
+              disabled={suuntoLoading}
+              className={`px-3 py-1.5 rounded-lg border ${
+                isSuuntoConnected
+                  ? 'bg-theme-bg border-theme-border'
+                  : 'bg-theme-accent border-theme-accent'
+              }`}
+            >
+              {suuntoLoading ? (
+                <ActivityIndicator size="small" color={isSuuntoConnected ? theme.tint : '#FFFFFF'} />
+              ) : (
+                <Text
+                  className={`text-xs font-bold ${
+                    isSuuntoConnected ? 'text-theme-accent' : 'text-white'
+                  }`}
+                >
+                  {isSuuntoConnected ? (showSuuntoManage ? t('common.done', 'Done') : t('common.manage', 'Manage')) : t('common.connect', 'Connect')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {showSuuntoManage && isSuuntoConnected && (
+          <View className="mt-3 pt-3 border-t border-theme-border/50 gap-y-3">
+            <TouchableOpacity
+              onPress={onDisconnectSuunto}
+              disabled={suuntoLoading}
+              className="py-2 px-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex-row items-center justify-center"
+            >
+              <Ionicons name="unlink-outline" size={14} color="#EF4444" />
+              <Text className="text-xs font-bold text-rose-500 ml-1.5">
+                {t('connections.disconnectSuunto')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Card>
 
       {/* 3. STRAVA INTEGRATION */}

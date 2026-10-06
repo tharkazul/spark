@@ -231,6 +231,26 @@ db.serialize(() => {
   db.run(
     `CREATE TABLE IF NOT EXISTS activities (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, sport_type TEXT, distance_km REAL, elevation_m INTEGER, moving_time_min REAL, average_heartrate REAL, start_date TEXT, tss REAL)`,
   );
+  // Suunto Cloud API OAuth tokens. access/refresh tokens are stored encrypted.
+  db.run(`CREATE TABLE IF NOT EXISTS suunto_tokens (
+        user_id INTEGER PRIMARY KEY,
+        suunto_username TEXT,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`);
+  // External Suunto workout id; NULL for non-Suunto rows (NULLs never collide in
+  // a SQLite unique index). Required for the ON CONFLICT upsert in routes/suunto.js.
+  db.run(`ALTER TABLE activities ADD COLUMN suunto_workout_id TEXT`, () => {
+    db.run(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_activities_user_suunto
+         ON activities(user_id, suunto_workout_id)`,
+      (idxErr) => {
+        if (idxErr) console.error("Could not create idx_activities_user_suunto:", idxErr.message);
+      },
+    );
+  });
   db.run(`ALTER TABLE activities ADD COLUMN rooka_score REAL`, (err) => {
     // Automatically backfill any activities that have a NULL rooka_score, then sync total_rooka
     db.all(

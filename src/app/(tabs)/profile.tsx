@@ -50,7 +50,7 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const { user, logout, refreshUser } = useUser();
   const { t } = useLanguage();
-  const { syncStrava, syncGarmin, refreshActivities } = useActivities();
+  const { syncStrava, syncGarmin, syncSuunto, refreshActivities } = useActivities();
   const { notifyScroll, notifyScrollEnd } = useTabBar();
   const tabBarInset = useTabBarInset();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -158,6 +158,7 @@ export default function ProfileScreen() {
 
   // Strava State
   const [stravaLoading, setStravaLoading] = useState(false);
+  const [suuntoLoading, setSuuntoLoading] = useState(false);
 
   const username = user?.username || 'Athlete';
   const email = user?.email;
@@ -352,6 +353,65 @@ export default function ProfileScreen() {
     );
   };
 
+  // Suunto handlers (OAuth via in-app browser; authorize URL is built server-side)
+  const handleConnectSuuntoOAuth = async () => {
+    setSuuntoLoading(true);
+    try {
+      const { url: authUrl } = await integrationsApi.getSuuntoAuthUrl();
+      const appDeepLink = Linking.createURL('suuntoredirect');
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, appDeepLink);
+      if (result.type === 'success' && result.url) {
+        let code: string | undefined;
+        try {
+          code = new URL(result.url).searchParams.get('code') || undefined;
+        } catch (_) {
+          const match = result.url.match(/[?&]code=([^&]+)/);
+          if (match) code = decodeURIComponent(match[1]);
+        }
+        if (code) {
+          const res = await integrationsApi.exchangeSuuntoCode(code);
+          await refreshUser();
+          // First import so the user sees their workouts straight away.
+          await syncSuunto().catch(() => {});
+          Alert.alert('Suunto Connected', res.message || 'Suunto connected successfully!');
+        } else {
+          Alert.alert('Suunto Error', 'No authorization code returned from Suunto.');
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Suunto Error', err.message || 'Failed to complete Suunto OAuth.');
+    } finally {
+      setSuuntoLoading(false);
+    }
+  };
+
+  const handleDisconnectSuunto = async () => {
+    Alert.alert(
+      'Disconnect Suunto',
+      'Are you sure you want to disconnect Suunto? Already imported workouts are kept.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            setSuuntoLoading(true);
+            try {
+              await integrationsApi.disconnectSuunto();
+              await refreshUser();
+              Alert.alert('Disconnected', 'Suunto disconnected successfully.');
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to disconnect Suunto.');
+            } finally {
+              setSuuntoLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSyncStrava = async () => {
     setStravaLoading(true);
     try {
@@ -519,6 +579,9 @@ export default function ProfileScreen() {
               onConnectStrava={handleConnectStravaOAuth}
               onDisconnectStrava={handleDisconnectStrava}
               stravaLoading={stravaLoading}
+              onConnectSuunto={handleConnectSuuntoOAuth}
+              onDisconnectSuunto={handleDisconnectSuunto}
+              suuntoLoading={suuntoLoading}
             />
           </ScrollView>
         </View>

@@ -166,6 +166,12 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             currentStreak = gamCtx?.streak || 0;
           } catch (_) {}
 
+          const hasSuunto = await new Promise((resolve) =>
+            db.get(`SELECT 1 AS ok FROM suunto_tokens WHERE user_id = ?`, [req.user.id], (e, r) =>
+              resolve(!e && !!r),
+            ),
+          );
+
           res.json({
             needsZoneSetup,
             id: row.id,
@@ -173,6 +179,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             email: row.email,
             hasStrava: !!row.strava_refresh_token,
             hasGarmin: !!row.garmin_username,
+            hasSuunto,
             garminUsername: row.garmin_username,
             coachTone: row.coach_tone,
             coachName: row.coach_name || 'Rooka',

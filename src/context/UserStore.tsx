@@ -77,6 +77,7 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
       data?.profilePictureUrl ?? data?.profile_picture_url ?? (isSameUser ? prev?.profile_picture_url : undefined),
     garmin_connected: data?.hasGarmin ?? data?.garmin_connected ?? false,
     strava_connected: data?.hasStrava ?? data?.strava_connected ?? false,
+    suunto_connected: data?.hasSuunto ?? data?.suunto_connected ?? false,
     onboarding_completed: onboardingVal === true || onboardingVal === 1,
     needsZoneSetup: Boolean(data?.needsZoneSetup ?? (isSameUser ? prev?.needsZoneSetup : false)),
     target_event: data?.targetEvent ?? data?.target_event ?? (isSameUser ? prev?.target_event : undefined),

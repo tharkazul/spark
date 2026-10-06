@@ -13,6 +13,7 @@ interface ActivityContextType {
   refreshActivities: () => Promise<void>;
   syncGarmin: () => Promise<void>;
   syncStrava: () => Promise<void>;
+  syncSuunto: () => Promise<void>;
   addManualActivity: (newAct: Partial<Activity>) => Promise<void>;
 }
 
@@ -144,6 +145,21 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [refreshActivities]);
 
+  const syncSuunto = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      await activitiesApi.syncSuunto();
+      await refreshActivities();
+      setError(null);
+    } catch (err: any) {
+      console.error('Suunto sync error:', err);
+      setError(err.message || 'Suunto sync failed.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshActivities]);
+
   // Hydrate from cache immediately upon mounting or user change
   useEffect(() => {
     if (!isAuthenticated) {
@@ -190,6 +206,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
         refreshActivities,
         syncGarmin,
         syncStrava,
+        syncSuunto,
         addManualActivity,
       }}
     >

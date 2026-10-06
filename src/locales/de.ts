@@ -884,6 +884,8 @@ export const de: TranslationKeys = {
     connectGarmin: 'Garmin Verbinden',
     syncWorkouts: 'Workouts Synchronisieren',
     stravaIntegration: 'Strava Integration',
+    suuntoIntegration: 'Suunto-Integration',
+    disconnectSuunto: 'Suunto trennen',
     connectWithStrava: 'Mit Strava Verbinden',
     syncActivities: 'Aktivitäten Synchronisieren',
     disconnect: 'Trennen',

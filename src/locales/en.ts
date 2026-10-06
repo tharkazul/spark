@@ -882,6 +882,8 @@ export const en = {
     connectGarmin: 'Connect Garmin',
     syncWorkouts: 'Sync Workouts',
     stravaIntegration: 'Strava Integration',
+    suuntoIntegration: 'Suunto Integration',
+    disconnectSuunto: 'Disconnect Suunto',
     connectWithStrava: 'Connect with Strava',
     syncActivities: 'Sync Activities',
     disconnect: 'Disconnect',

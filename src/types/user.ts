@@ -21,6 +21,7 @@ export interface UserProfile {
   profile_picture_url?: string;
   garmin_connected?: boolean;
   strava_connected?: boolean;
+  suunto_connected?: boolean;
   target_event?: string;
   event_date?: string;
   target_ctl?: number;
