@@ -1,5 +1,6 @@
 /**
- * Suunto Cloud API integration (OAuth2 + workout import).
+ * Suunto Cloud API integration (OAuth2 + workout import + planned workout push
+ * as SuuntoPlus Guides).
  *
  * Docs: https://apizone.suunto.com/how-to-start
  *   - Authorization / token: https://cloudapi-oauth.suunto.com
@@ -11,12 +12,18 @@
  *   SUUNTO_SUBSCRIPTION_KEY                  - primary/secondary key of the subscription
  *   SUUNTO_REDIRECT_URI (optional)           - must match the Redirect URI registered in
  *                                              the API Zone. Defaults to <host>/suuntoredirect.
+ *   SUUNTO_APP_NAME (optional)               - application name from the API Zone OAuth settings;
+ *                                              used as the guide `owner`. Defaults to "Rooka".
  */
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const db = require('../services/db');
 const { authenticateToken } = require('../services/auth');
 const { encrypt, decrypt } = require('../services/crypto');
+const { createZip } = require('../services/zip');
+const { resolveZonesForUser } = require('../services/athleteZones');
 const {
   calculateRookaScoreZoned,
   evaluateQuestsAgainstActivity,
@@ -361,4 +368,341 @@ router.post('/api/sync-suunto', authenticateToken, async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Planned workout push (SuuntoPlus Guides)
+// Docs: https://apizone.suunto.com/how-to-use-suuntoplus-guides-api
+//   POST   /v2/guides/files        (zip: guide.json + icon.png) -> 201
+//   PUT    /v2/guides/files/{id}   -> 200
+//   GET    /v2/guides/items        -> list
+//   409 Conflict when externalId already exists for that user.
+// ---------------------------------------------------------------------------
+
+// Must match the application name registered in the Suunto API Zone OAuth settings.
+const SUUNTO_GUIDE_OWNER = process.env.SUUNTO_APP_NAME || 'Rooka';
+const GUIDE_ICON_PATH = path.join(__dirname, '..', 'assets', 'suunto-guide-icon.png');
+let guideIconCache = null;
+function getGuideIcon() {
+  if (!guideIconCache) guideIconCache = fs.readFileSync(GUIDE_ICON_PATH);
+  return guideIconCache;
+}
+
+/** rooka sport -> [Suunto activity id, sport key used for dedupe]. Ids match SUUNTO_ACTIVITY_MAP. */
+function suuntoActivityForSport(sport) {
+  const s = String(sport || '').trim().toLowerCase();
+  if (!s || s === 'rest') return null;
+  if (['run', 'running', 'trail', 'treadmill'].includes(s)) return [1, 'run'];
+  if (['bike', 'cycling', 'cycle', 'biking', 'ride'].includes(s)) return [2, 'bike'];
+  if (['swim', 'swimming'].includes(s)) return [21, 'swim'];
+  if (['strength', 'strength_training', 'gym'].includes(s)) return [23, 'strength'];
+  if (['walk', 'walking', 'hike', 'hiking'].includes(s)) return [0, 'walk'];
+  if (['mobility', 'yoga', 'stretching'].includes(s)) return [51, 'mobility'];
+  return [1, s.replace(/[^a-z0-9]/g, '') || 'other'];
+}
+
+const DEFAULT_SPEED_MS = { run: 1000 / 360, walk: 1000 / 600, bike: 30 / 3.6, swim: 100 / 120 };
+
+function parsePaceSecondsPerKm(v) {
+  const m = String(v || '').match(/(\d+)[:.](\d+)/);
+  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+}
+
+function fmtDistance(m) {
+  return m >= 1000 ? `${Math.round(m / 100) / 10} km` : `${Math.round(m)} m`;
+}
+function fmtDuration(sec) {
+  if (sec % 60 === 0) return `${sec / 60} min`;
+  return sec >= 60 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')} min` : `${sec} s`;
+}
+
+/**
+ * Guides only document duration triggers, so non-time goals are converted to an
+ * estimated duration and the real goal (e.g. "1 km") is kept in the step title.
+ */
+function stepDurationAndGoal(step, sportKey) {
+  const v = Number(step.condition_value) || 0;
+  switch (step.condition_type) {
+    case 'time_sec':
+      return { seconds: Math.round(v), goal: fmtDuration(Math.round(v)) };
+    case 'distance':
+    case 'distance_km': {
+      const meters = step.condition_type === 'distance_km' ? v * 1000 : v;
+      const pace = parsePaceSecondsPerKm(step.target_value);
+      const speed = pace ? 1000 / pace : DEFAULT_SPEED_MS[sportKey] || DEFAULT_SPEED_MS.run;
+      return { seconds: Math.max(30, Math.round(meters / speed)), goal: fmtDistance(meters) };
+    }
+    case 'reps':
+      return { seconds: 60, goal: v ? `${v} reps` : '' };
+    case 'lap.button':
+      return { seconds: Math.round(v > 0 ? v * 60 : 300), goal: '' };
+    case 'time':
+    default: {
+      const sec = Math.max(1, Math.round((v || 5) * 60));
+      return { seconds: sec, goal: fmtDuration(sec) };
+    }
+  }
+}
+
+const STEP_LABEL = {
+  warmup: 'Warm-up',
+  cooldown: 'Cool-down',
+  interval: 'Interval',
+  recovery: 'Recovery',
+  rest: 'Rest',
+  drill: 'Drill',
+};
+
+function buildGuideStep(step, sportKey, hrZones) {
+  if (step.type === 'repeat') {
+    return {
+      type: 'repeat',
+      times: Math.max(1, parseInt(step.iterations || step.times || 1, 10)),
+      steps: (step.steps || []).map((s) => buildGuideStep(s, sportKey, hrZones)),
+    };
+  }
+
+  const { seconds, goal } = stepDurationAndGoal(step, sportKey);
+  const fields = [];
+  let targetLabel = '';
+
+  const zone = parseInt(step.zone, 10);
+  const hrZone = step.target_type === 'heart.rate.zone' && Array.isArray(hrZones)
+    ? hrZones.find((z) => Number(z.zone) === zone)
+    : null;
+  if (hrZone && hrZone.min && hrZone.max) {
+    fields.push({
+      type: 'targetHeartRate',
+      value: Math.round((hrZone.min + hrZone.max) / 2),
+      min: hrZone.min,
+      max: hrZone.max,
+    });
+    targetLabel = `Z${zone}`;
+  } else if (step.target_type === 'heart.rate.zone' && zone) {
+    targetLabel = `HR Z${zone}`;
+  }
+
+  if (step.target_value) targetLabel = String(step.target_value);
+
+  fields.push({ type: 'heartRate' });
+  if (sportKey === 'bike') fields.push({ type: 'power' });
+  fields.push({ type: 'stepDurationCountdown', value: seconds });
+
+  const label = step.exerciseName || STEP_LABEL[step.type] || 'Step';
+  const title = [goal, label, targetLabel ? `@ ${targetLabel}` : '']
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 60);
+
+  return {
+    type: 'fields',
+    trigger: { type: 'stepDuration', value: seconds },
+    title,
+    fields,
+  };
+}
+
+function guideExternalId(userId, date, sportKey) {
+  return `rooka-${userId}-${date}-${sportKey}`;
+}
+
+function buildGuide(userId, workout, hrZones) {
+  const activity = suuntoActivityForSport(workout.sport);
+  if (!activity) return null;
+  const [activityId, sportKey] = activity;
+
+  let steps = Array.isArray(workout.steps) ? workout.steps : [];
+  if (steps.length === 0 && workout.steps_json) {
+    try {
+      const parsed = typeof workout.steps_json === 'string' ? JSON.parse(workout.steps_json) : workout.steps_json;
+      if (Array.isArray(parsed)) steps = parsed;
+    } catch (_) {}
+  }
+  if (steps.length === 0) {
+    const mins = Math.max(5, Math.round(((workout.target_rooka || workout.rookaPoints || 50) / 55) * 60));
+    steps = [{ type: 'interval', condition_type: 'time', condition_value: mins, target_type: 'no.target' }];
+  }
+
+  const title = String(workout.title || workout.description || `${workout.sport} workout`).trim();
+  const description = String(workout.description || title).trim();
+  return {
+    externalId: guideExternalId(userId, workout.date, sportKey),
+    guide: {
+      name: `rooka: ${title}`.slice(0, 60),
+      description: description.slice(0, 500),
+      shortDescription: title.slice(0, 40),
+      localDate: workout.date,
+      type: 'sequence',
+      activities: [activityId],
+      usage: 'workout',
+      owner: SUUNTO_GUIDE_OWNER,
+      externalId: guideExternalId(userId, workout.date, sportKey),
+      steps: steps.map((s) => buildGuideStep(s, sportKey, hrZones)),
+    },
+  };
+}
+
+function guideIdFromResponse(json) {
+  if (!json || typeof json !== 'object') return null;
+  const p = json.payload && typeof json.payload === 'object' ? json.payload : json;
+  const id = p.id ?? p.guideId ?? p.fileId ?? json.id;
+  return id != null ? String(id) : null;
+}
+
+async function suuntoGuideRequest(accessToken, method, pathname, body) {
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    'Ocp-Apim-Subscription-Key': process.env.SUUNTO_SUBSCRIPTION_KEY,
+  };
+  if (body) headers['Content-Type'] = 'application/zip';
+  const res = await fetch(`${SUUNTO_API_BASE}${pathname}`, { method, headers, body });
+  const text = await res.text().catch(() => '');
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch (_) {}
+  return { status: res.status, ok: res.ok, json, text };
+}
+
+/** Looks up an existing guide id by externalId via the list endpoint (used after a 409). */
+async function findGuideIdByExternalId(accessToken, externalId) {
+  const r = await suuntoGuideRequest(accessToken, 'GET', `/v2/guides/items?limit=100&offset=0`);
+  if (!r.ok || !r.json) return null;
+  const items = Array.isArray(r.json.payload) ? r.json.payload : Array.isArray(r.json) ? r.json : [];
+  const hit = items.find((g) => g && (g.externalId === externalId || (g.guide && g.guide.externalId === externalId)));
+  return hit ? guideIdFromResponse(hit) : null;
+}
+
+async function upsertGuide(accessToken, userId, externalId, zipBuf) {
+  const known = await dbGet(`SELECT guide_id FROM suunto_guides WHERE user_id = ? AND external_id = ?`, [userId, externalId]);
+  let guideId = known && known.guide_id;
+
+  if (guideId) {
+    const put = await suuntoGuideRequest(accessToken, 'PUT', `/v2/guides/files/${encodeURIComponent(guideId)}`, zipBuf);
+    if (put.ok) return guideId;
+    if (put.status !== 404) throw new Error(`Suunto rejected guide update (HTTP ${put.status}) ${put.text.slice(0, 200)}`);
+    guideId = null; // deleted on Suunto's side -> create again
+  }
+
+  const post = await suuntoGuideRequest(accessToken, 'POST', '/v2/guides/files', zipBuf);
+  if (post.ok) {
+    guideId = guideIdFromResponse(post.json);
+  } else if (post.status === 409) {
+    guideId = await findGuideIdByExternalId(accessToken, externalId);
+    if (guideId) {
+      const put = await suuntoGuideRequest(accessToken, 'PUT', `/v2/guides/files/${encodeURIComponent(guideId)}`, zipBuf);
+      if (!put.ok) throw new Error(`Suunto rejected guide update (HTTP ${put.status}) ${put.text.slice(0, 200)}`);
+    }
+    // No id found: the guide already exists on Suunto; treat as delivered.
+  } else {
+    throw new Error(`Suunto rejected guide (HTTP ${post.status}) ${post.text.slice(0, 200)}`);
+  }
+
+  await dbRun(
+    `INSERT INTO suunto_guides (user_id, external_id, guide_id, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(user_id, external_id) DO UPDATE SET guide_id = COALESCE(excluded.guide_id, guide_id), updated_at = CURRENT_TIMESTAMP`,
+    [userId, externalId, guideId],
+  );
+  return guideId;
+}
+
+function toYYYYMMDD(d) {
+  const s = String(d || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) return parsed.toLocaleDateString('en-CA', { timeZone: 'Europe/Amsterdam' });
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Amsterdam' });
+}
+
+/**
+ * Pushes planned workouts to the user's Suunto account as SuuntoPlus Guides.
+ * Shared by POST /api/sync-suunto-workouts and POST /api/devices/send-workouts.
+ *
+ * @param {number} userId
+ * @param {Array|null} selectedWorkouts explicit workouts from the client, or null for
+ *   all upcoming micro_plan workouts.
+ * @returns {Promise<{ status: number, body: object }>}
+ */
+async function pushWorkoutsToSuunto(userId, selectedWorkouts) {
+  try {
+    if (!isConfigured()) {
+      return { status: 503, body: { error: 'Suunto integration is not configured on the server.' } };
+    }
+    const accessToken = await getValidAccessToken(userId);
+    if (!accessToken) return { status: 400, body: { error: 'Suunto is not connected.' } };
+
+    let workouts;
+    if (Array.isArray(selectedWorkouts) && selectedWorkouts.length > 0) {
+      workouts = selectedWorkouts.map((w) => ({
+        date: toYYYYMMDD(w.date),
+        sport: w.sport,
+        title: w.title,
+        description: w.description || w.title,
+        rookaPoints: w.rookaPoints || w.target_rooka,
+        steps: Array.isArray(w.steps) ? w.steps : [],
+        steps_json: w.steps_json,
+      }));
+    } else {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Amsterdam' });
+      workouts = await new Promise((resolve, reject) =>
+        db.all(
+          `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
+          [userId, today],
+          (e, rows) => (e ? reject(e) : resolve((rows || []).map((r) => ({ ...r, date: toYYYYMMDD(r.date) })))),
+        ),
+      );
+    }
+
+    const zoneCache = new Map();
+    const icon = getGuideIcon();
+    let syncedCount = 0;
+    let lastError = null;
+
+    for (const w of workouts) {
+      const sportKey = (suuntoActivityForSport(w.sport) || [])[1];
+      if (!sportKey) continue;
+      try {
+        if (!zoneCache.has(sportKey)) {
+          const z = await resolveZonesForUser(userId, w.sport).catch(() => null);
+          zoneCache.set(sportKey, z && z.hrZones);
+        }
+        const built = buildGuide(userId, w, zoneCache.get(sportKey));
+        if (!built) continue;
+        const zip = createZip([
+          { name: 'guide.json', data: JSON.stringify(built.guide) },
+          { name: 'icon.png', data: icon },
+        ]);
+        await upsertGuide(accessToken, userId, built.externalId, zip);
+        syncedCount++;
+      } catch (e) {
+        lastError = e.message;
+        console.error(`Suunto guide push failed for ${w.sport} on ${w.date}:`, e.message);
+      }
+    }
+
+    if (syncedCount === 0) {
+      return {
+        status: lastError ? 502 : 400,
+        body: { error: lastError ? 'Failed to send workouts to Suunto.' : 'No valid workouts found to send.', details: lastError },
+      };
+    }
+    return {
+      status: 200,
+      body: {
+        success: true,
+        message: `Successfully sent ${syncedCount} workout${syncedCount === 1 ? '' : 's'} to Suunto!`,
+        syncedCount,
+      },
+    };
+  } catch (err) {
+    console.error('Suunto guide push error:', err.message);
+    return { status: 500, body: { error: 'Suunto workout push failed.', details: err.message } };
+  }
+}
+
+router.post('/api/sync-suunto-workouts', authenticateToken, async (req, res) => {
+  const selected = Array.isArray(req.body && req.body.workouts) ? req.body.workouts : null;
+  const result = await pushWorkoutsToSuunto(req.user.id, selected);
+  res.status(result.status).json(result.body);
+});
+
 module.exports = router;
+module.exports.pushWorkoutsToSuunto = pushWorkoutsToSuunto;

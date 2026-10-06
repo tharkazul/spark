@@ -12,6 +12,7 @@ import { ScalePressable } from '../ui/ScalePressable';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
+import { usePlan } from '../../context/PlanStore';
 import { useCoachChatStore } from '../../context/CoachChatStore';
 import { useSubscription } from '../../context/SubscriptionStore';
 import { useColorScheme } from 'nativewind';
@@ -47,6 +48,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const { t } = useLanguage();
   const { user, updateUser, refreshUser } = useUser();
   const { activities } = useActivities();
+  const { plan } = usePlan();
   const { tokenUsage } = useCoachChatStore();
   const { presentCustomerCenter, presentPaywall } = useSubscription();
   const { colorScheme, toggleColorScheme } = useColorScheme();
@@ -183,9 +185,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   }, [user?.total_rooka, activities]);
 
   const streakDays = useMemo(() => {
-    const calculated = calculateActivityStreak(activities);
+    const calculated = calculateActivityStreak(activities, plan);
     return calculated || user?.streak_days || (user as any)?.current_streak || 0;
-  }, [activities, user]);
+  }, [activities, plan, user]);
 
   const profilePicUrl = localPhotoUri || getFullPhotoUrl(user?.profile_picture_url || (user as any)?.profilePictureUrl);
 

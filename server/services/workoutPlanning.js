@@ -203,6 +203,261 @@ function buildFallbackPlan(dates, primarySport = 'Run', userLang = 'en') {
 }
 
 /**
+ * Guesses the athlete's primary sport from their free-text context (same heuristic the AI
+ * fallback uses).
+ */
+function guessPrimarySport(athleteContext) {
+  const ctx = (athleteContext || '').toLowerCase();
+  if (ctx.includes('cycl')) return 'Bike';
+  if (ctx.includes('swim')) return 'Swim';
+  return 'Run';
+}
+
+/**
+ * Parses users.training_availability ({ Mon: { available, maxMinutes }, ... }) into a map keyed by
+ * three-letter lowercase day ('mon'..'sun') -> { available: boolean, maxMinutes: number | null }.
+ */
+function parseAvailability(raw) {
+  const out = {};
+  if (!raw) return out;
+  try {
+    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    Object.entries(obj || {}).forEach(([day, data]) => {
+      const key = String(day).trim().slice(0, 3).toLowerCase();
+      const maxM = Number(data?.maxMinutes ?? data?.max_minutes);
+      const blocked = data?.available === false || data?.status === 'blocked' || maxM === 0;
+      out[key] = {
+        available: !blocked,
+        maxMinutes: Number.isFinite(maxM) && maxM > 0 ? maxM : null,
+      };
+    });
+  } catch (_) {}
+  return out;
+}
+
+/**
+ * Builds a rule-based 7-day template plan (no LLM) for athletes who are not active in the app.
+ *
+ * Rules:
+ * - Session pattern (Mon..Sun): easy aerobic, strength, rest, quality, rest, long, rest.
+ * - Blocked days (availability) become rest; a session on a blocked day moves to the nearest free
+ *   available day, and hard sessions (quality, long) are never placed back to back.
+ * - Days with the athlete's own workouts are left untouched (no template rows).
+ * - Recurring sessions (hockey, spinning, ...) take their day; no extra template session there.
+ * - Durations scale with fitness (CTL) and are capped by the day's max minutes.
+ * - Every day without a session gets an explicit Rest entry, so rest days count for the streak.
+ *
+ * @param {string[]} dates 7 dates Mon..Sun (YYYY-MM-DD)
+ * @param {object} opts { primarySport, lang, availability (raw), ctl, recurringByDate, skipDates }
+ * @returns {Array<{date, sport, description, target_rooka, details, steps_json, source}>}
+ */
+function buildTemplatePlan(dates, opts = {}) {
+  const {
+    primarySport = 'Run',
+    lang = 'en',
+    availability = null,
+    ctl = 0,
+    recurringByDate = {},
+    skipDates = [],
+  } = opts;
+
+  // Reuse the localized session texts from the fallback plan.
+  const lib = buildFallbackPlan(dates, primarySport, lang);
+  const sport = lib[0].sport;
+  const sessionDefs = {
+    long: { idx: 5, sport, baseMin: 75, hard: true, rookaPerMin: 1.0, priority: 0 },
+    quality: { idx: 3, sport, baseMin: 50, hard: true, rookaPerMin: 1.2, priority: 1 },
+    easy: { idx: 0, sport, baseMin: 45, hard: false, rookaPerMin: 1.0, priority: 2 },
+    strength: { idx: 1, sport: 'Strength', baseMin: 35, hard: false, rookaPerMin: 1.0, priority: 3 },
+  };
+  // Beginners (low chronic load) get an easy session instead of threshold work.
+  const isBeginner = !(Number(ctl) >= 15);
+  const scale = Number(ctl) >= 50 ? 1.2 : Number(ctl) >= 20 ? 1.0 : 0.8;
+
+  const avail = parseAvailability(availability);
+  const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const days = dates.map((d) => {
+    const key = dayKeys[new Date(d + 'T12:00:00Z').getUTCDay()];
+    const a = avail[key];
+    const hasRecurring = Array.isArray(recurringByDate[d]) && recurringByDate[d].length > 0;
+    const skipped = skipDates.includes(d);
+    return {
+      date: d,
+      available: (a ? a.available : true) && !hasRecurring && !skipped,
+      maxMinutes: a ? a.maxMinutes : null,
+      hasRecurring,
+      skipped,
+      session: null,
+    };
+  });
+
+  const isHard = (i) => i >= 0 && i < days.length && days[i].session && sessionDefs[days[i].session].hard;
+
+  // Place sessions in priority order, preferring the pattern day, then the nearest free day.
+  Object.entries(sessionDefs)
+    .sort((a, b) => a[1].priority - b[1].priority)
+    .forEach(([name, def]) => {
+      const candidates = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6]
+        .map((off) => def.idx + off)
+        .filter((i) => i >= 0 && i < days.length);
+      const slot = candidates.find((i) => {
+        const d = days[i];
+        if (!d.available || d.session) return false;
+        if (def.hard && (isHard(i - 1) || isHard(i + 1))) return false;
+        return true;
+      });
+      if (slot !== undefined) days[slot].session = name;
+    });
+
+  const plan = [];
+  let restCount = 0;
+  const restTemplates = [lib[2], lib[4], lib[6]];
+
+  days.forEach((d) => {
+    if (d.skipped) return; // athlete's own workouts stay as they are
+
+    if (d.hasRecurring) {
+      recurringByDate[d.date].forEach((rt) => {
+        plan.push({
+          date: d.date,
+          sport: rt.sport || 'Other',
+          description: rt.title,
+          target_rooka: rt.intensity === 'hard' ? 65 : rt.intensity === 'easy' ? 30 : 45,
+          details: `${rt.title} (${rt.duration_minutes || 60} min${rt.start_time ? ` at ${rt.start_time}` : ''}) - Scheduled recurring session.`,
+          steps_json: '[]',
+          source: 'recurring',
+        });
+      });
+      return;
+    }
+
+    if (!d.session) {
+      const r = restTemplates[restCount % restTemplates.length];
+      restCount++;
+      plan.push({
+        date: d.date,
+        sport: 'Rest',
+        description: r.description,
+        target_rooka: 0,
+        details: r.details,
+        steps_json: '[]',
+        source: 'template',
+      });
+      return;
+    }
+
+    let name = d.session;
+    const def = sessionDefs[name];
+    // Beginners: swap threshold intervals for a steady aerobic session
+    const content = name === 'quality' && isBeginner ? lib[sessionDefs.easy.idx] : lib[def.idx];
+    let minutes = Math.round((def.baseMin * scale) / 5) * 5;
+    if (d.maxMinutes) minutes = Math.min(minutes, d.maxMinutes);
+    minutes = Math.max(15, minutes);
+    const perMin = name === 'quality' && isBeginner ? sessionDefs.easy.rookaPerMin : def.rookaPerMin;
+
+    plan.push({
+      date: d.date,
+      sport: def.sport,
+      description: `${minutes} min ${content.description}`,
+      target_rooka: Math.round(minutes * perMin),
+      details: content.details,
+      steps_json: '[]',
+      source: 'template',
+    });
+  });
+
+  return plan;
+}
+
+/**
+ * Writes a rule-based template week (source = 'template') for an athlete who is not active in
+ * the app. Costs zero LLM tokens. Never overwrites an AI/coach plan or the athlete's own
+ * workouts; re-running replaces only previous template rows for those dates.
+ *
+ * @returns {Promise<{ written: boolean, reason?: string, count?: number }>}
+ */
+async function generateTemplatePlanForUser(userId, dates) {
+  if (!dates || dates.length !== 7) {
+    throw new Error(`generateTemplatePlanForUser expects exactly 7 dates, received: ${dates?.length}`);
+  }
+  const all = (sql, params) =>
+    new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err || !rows ? [] : rows)));
+  const placeholders = dates.map(() => '?').join(',');
+
+  const user = await new Promise((resolve) =>
+    db.get(
+      `SELECT id, language, athlete_context, training_availability FROM users WHERE id = ?`,
+      [userId],
+      (err, row) => resolve(err ? null : row || null)
+    )
+  );
+  if (!user) return { written: false, reason: 'user_not_found' };
+
+  // Don't replace a plan the coach already made (e.g. the athlete asked the coach on Saturday).
+  const existing = await all(
+    `SELECT date, source FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
+    [userId, ...dates]
+  );
+  if (existing.some((r) => r.source === 'coach' || r.source === null)) {
+    return { written: false, reason: 'coach_plan_exists' };
+  }
+  const skipDates = [...new Set(existing.filter((r) => r.source === 'user').map((r) => r.date))];
+
+  const recurringTrainings = await all(
+    `SELECT * FROM recurring_trainings WHERE user_id = ? AND is_active = 1`,
+    [userId]
+  );
+  const dayKeyMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const recurringByDate = {};
+  dates.forEach((dStr) => {
+    const dayKey = dayKeyMap[new Date(dStr + 'T12:00:00Z').getUTCDay()].toLowerCase();
+    const matches = recurringTrainings.filter(
+      (rt) => (rt.day_of_week || '').trim().slice(0, 3).toLowerCase() === dayKey
+    );
+    if (matches.length > 0) recurringByDate[dStr] = matches;
+  });
+
+  let ctl = 0;
+  try {
+    ({ ctl } = await calculateUserFitnessMetrics(userId));
+  } catch (_) {}
+
+  const plan = buildTemplatePlan(dates, {
+    primarySport: guessPrimarySport(user.athlete_context),
+    lang: user.language || 'en',
+    availability: user.training_availability,
+    ctl,
+    recurringByDate,
+    skipDates,
+  });
+
+  await new Promise((resolve) =>
+    db.run(
+      `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders}) AND source IN ('template', 'recurring')`,
+      [userId, ...dates],
+      () => resolve()
+    )
+  );
+
+  const insertStmt = db.prepare(
+    `INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  plan.forEach((day) => {
+    insertStmt.run(userId, day.date, day.sport, day.description, day.target_rooka, day.details, day.steps_json, day.source);
+  });
+  await new Promise((resolve) => insertStmt.finalize(() => resolve()));
+
+  sendSSEEvent(userId, 'plan_updated', {
+    dates,
+    count: plan.length,
+    timestamp: new Date().toISOString(),
+  });
+
+  return { written: true, count: plan.length };
+}
+
+/**
  * Generates a 7-day workout plan (Monday through Sunday) for a specific user.
  * Uses the specified token pool (defaults to 'common' for background/cron generation).
  */
@@ -500,9 +755,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 
   // Fallback to structured schedule if AI did not return a valid array
   if (!Array.isArray(planData) || planData.length === 0) {
-    const primarySport = user.athlete_context && user.athlete_context.toLowerCase().includes('cycl') ? 'Bike'
-      : user.athlete_context && user.athlete_context.toLowerCase().includes('swim') ? 'Swim' : 'Run';
-    planData = buildFallbackPlan(dates, primarySport, user.language);
+    planData = buildFallbackPlan(dates, guessPrimarySport(user.athlete_context), user.language);
   }
 
   // Filter and sanitize plan data
@@ -581,7 +834,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
     const placeholders = dates.map(() => '?').join(',');
     db.run(
       `DELETE FROM micro_plan 
-       WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source IS NULL)`,
+       WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source = 'template' OR source IS NULL)`,
       [userId, ...dates],
       (err) => {
         if (err) console.error(`[WeeklyPlan] Error clearing prior plan for user ${userId}:`, err);
@@ -663,11 +916,13 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 }
 
 /**
- * Safeguard for inactive free users:
+ * Safeguard for inactive users (any tier):
  * Sends a polite notification and coach chat inquiry asking if they want to plan the next week with the coach.
- * This costs ZERO LLM tokens.
+ * When a template week was written (options.hasTemplatePlan), the message says so and invites the
+ * athlete to have the coach tailor it. This costs ZERO LLM tokens.
  */
-async function sendInactiveUserWeeklyPlanInquiry(user) {
+async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
+  const hasTemplatePlan = Boolean(options.hasTemplatePlan);
   const userId = user.id;
   const coachName = user.coach_name || 'Rooka';
   const lang = user.language || 'en';
@@ -708,6 +963,46 @@ async function sendInactiveUserWeeklyPlanInquiry(user) {
     chatMessage = `Salut ${displayName} ! 👋 J'ai remarqué qu'on a un peu moins bougé cette semaine. Tu veux qu'on prépare ton programme d'entraînement pour la semaine prochaine ensemble ? Dis-moi ce qui t'arrange par ici et je m'en occupe ! 🚀`;
   }
 
+  // Template week written: tell the athlete it's there and offer to tailor it.
+  // Keep the dedupe keywords above ("training plan", "trainingsschema", ...) in every variant.
+  if (hasTemplatePlan) {
+    const tpl = {
+      en: {
+        title: `🗓️ Your week is ready`,
+        body: `Coach ${coachName} set up a standard training plan for you. Tap to make it your own.`,
+        chat: `Hey ${displayName}! 👋 I've put a standard training plan in your calendar for the coming week, so you have something to work with. Want me to tailor it to your schedule, energy and goals? Just reply here and we'll adjust it together! 🚀`,
+      },
+      nl: {
+        title: `🗓️ Je week staat klaar`,
+        body: `Coach ${coachName} heeft een standaard trainingsschema voor je klaargezet. Tik om het persoonlijk te maken.`,
+        chat: `Hey ${displayName}! 👋 Ik heb een standaard trainingsschema voor komende week in je agenda gezet, zodat je meteen aan de slag kunt. Zal ik het afstemmen op jouw planning, energie en doelen? Reageer hier en we passen het samen aan! 🚀`,
+      },
+      de: {
+        title: `🗓️ Deine Woche ist bereit`,
+        body: `Coach ${coachName} hat dir einen Standard-Trainingsplan erstellt. Tippe, um ihn anzupassen.`,
+        chat: `Hey ${displayName}! 👋 Ich habe dir einen Standard-Trainingsplan für die kommende Woche in den Kalender gelegt, damit du direkt loslegen kannst. Soll ich ihn an deinen Zeitplan, deine Energie und deine Ziele anpassen? Antworte einfach hier! 🚀`,
+      },
+      es: {
+        title: `🗓️ Tu semana está lista`,
+        body: `Coach ${coachName} te ha preparado un plan de entrenamiento estándar. Toca para personalizarlo.`,
+        chat: `¡Hola ${displayName}! 👋 He puesto un plan de entrenamiento estándar en tu calendario para la próxima semana, para que tengas algo con lo que empezar. ¿Quieres que lo adapte a tu horario, energía y objetivos? ¡Respóndeme aquí y lo ajustamos juntos! 🚀`,
+      },
+      fr: {
+        title: `🗓️ Ta semaine est prête`,
+        body: `Coach ${coachName} t'a préparé un programme d'entraînement standard. Touche pour le personnaliser.`,
+        chat: `Salut ${displayName} ! 👋 J'ai mis un programme d'entraînement standard dans ton calendrier pour la semaine prochaine, pour que tu aies une base. Tu veux que je l'adapte à ton emploi du temps, ton énergie et tes objectifs ? Réponds-moi ici ! 🚀`,
+      },
+    }[lang] || null;
+    const chosen = tpl || {
+      title: `🗓️ Your week is ready`,
+      body: `Coach ${coachName} set up a standard training plan for you. Tap to make it your own.`,
+      chat: `Hey ${displayName}! 👋 I've put a standard training plan in your calendar for the coming week, so you have something to work with. Want me to tailor it to your schedule, energy and goals? Just reply here and we'll adjust it together! 🚀`,
+    };
+    pushTitle = chosen.title;
+    pushBody = chosen.body;
+    chatMessage = chosen.chat;
+  }
+
   if (!alreadySent) {
     db.run(
       `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'friendly')`,
@@ -737,15 +1032,18 @@ async function sendInactiveUserWeeklyPlanInquiry(user) {
 
 /**
  * Weekly Scheduled Cron Job:
- * Runs on Sunday for all active accounts on the common token budget.
+ * Runs on Sunday evening and plans the coming week.
  *
- * Safeguards:
- * 1. Automatic LLM workout plan generation is only performed for:
- *    - Paid users (tier != 'free' or role == 'admin')
- *    - Free users who have used/opened Rooka in the last 7 days
- * 2. Free users who have NOT opened Rooka in the last 7 days do NOT burn LLM tokens.
- *    Instead, a friendly push notification + coach chat inquiry is sent asking
- *    if they would like to plan the coming week together.
+ * Who gets an AI-generated plan (same rule for every subscription tier — the coach's plan is
+ * the core product, Rooka+ only adds more coach messages to discuss it):
+ *   - athletes who used the app in the last 7 days (users.last_active_at, set by any
+ *     authenticated app request), and
+ *   - admin accounts (internal testing).
+ * Background signals such as Strava/device syncs, push-token refreshes or weight imports do NOT
+ * count as using the app, so we don't spend LLM tokens on athletes who never open Rooka.
+ *
+ * Everyone else gets a friendly push notification + coach chat inquiry asking whether they'd
+ * like to plan the coming week together.
  */
 async function runWeeklyWorkoutPlanningJob(options = {}) {
   console.log('🗓️ [CRON] Starting Sunday weekly workout planning job...');
@@ -770,17 +1068,9 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
   const users = await new Promise((resolve) => {
     db.all(
       `SELECT u.id, u.username, u.subscription_tier, u.role, u.language, u.coach_name,
-         CASE 
-           WHEN (u.subscription_tier IS NOT NULL AND u.subscription_tier != 'free') OR u.role = 'admin' THEN 1 
-           ELSE 0 
-         END AS is_paid,
+         CASE WHEN u.role = 'admin' THEN 1 ELSE 0 END AS is_admin,
          CASE
            WHEN u.last_active_at IS NOT NULL AND u.last_active_at >= datetime('now', '-7 days') THEN 1
-           WHEN u.created_at IS NOT NULL AND u.created_at >= datetime('now', '-7 days') THEN 1
-           WHEN EXISTS (SELECT 1 FROM activities a WHERE a.user_id = u.id AND substr(a.start_date, 1, 10) >= date('now', '-7 days')) THEN 1
-           WHEN EXISTS (SELECT 1 FROM chat_history c WHERE c.user_id = u.id AND c.role = 'user' AND c.timestamp >= datetime('now', '-7 days')) THEN 1
-           WHEN EXISTS (SELECT 1 FROM weight_log w WHERE w.user_id = u.id AND w.date >= date('now', '-7 days')) THEN 1
-           WHEN EXISTS (SELECT 1 FROM push_tokens p WHERE p.user_id = u.id AND p.updated_at >= datetime('now', '-7 days')) THEN 1
            ELSE 0
          END AS is_active_recently
        FROM users u 
@@ -798,24 +1088,22 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
 
   if (!users || users.length === 0) {
     console.log('ℹ️ [CRON] No active users found.');
-    return { successCount: 0, failCount: 0, inquiryCount: 0, total: 0, targetDates: dates };
+    return { successCount: 0, failCount: 0, inquiryCount: 0, templateCount: 0, total: 0, targetDates: dates };
   }
 
-  const eligibleForAutoPlan = users.filter((u) => u.is_paid === 1 || u.is_active_recently === 1);
-  const inactiveFreeUsers = users.filter((u) => u.is_paid === 0 && u.is_active_recently === 0);
-
-  const paidCount = users.filter((u) => u.is_paid === 1).length;
-  const activeFreeCount = users.filter((u) => u.is_paid === 0 && u.is_active_recently === 1).length;
+  const eligibleForAutoPlan = users.filter((u) => u.is_admin === 1 || u.is_active_recently === 1);
+  const inactiveUsers = users.filter((u) => u.is_admin === 0 && u.is_active_recently === 0);
 
   console.log(
-    `👥 [CRON] Total users: ${users.length} | Auto-plan: ${eligibleForAutoPlan.length} (Paid: ${paidCount}, Active Free: ${activeFreeCount}) | Inactive Free (Safeguarded): ${inactiveFreeUsers.length}`
+    `👥 [CRON] Total users: ${users.length} | Auto-plan (active in app last 7 days): ${eligibleForAutoPlan.length} | Inactive (safeguarded, inquiry only): ${inactiveUsers.length}`
   );
 
   let successCount = 0;
   let failCount = 0;
   let inquiryCount = 0;
+  let templateCount = 0;
 
-  // 1. Generate full AI weekly workout plan for paid users and active free users
+  // 1. Generate full AI weekly workout plan for athletes active in the app
   for (const user of eligibleForAutoPlan) {
     try {
       console.log(`⚡ [CRON] Generating weekly plan for ${user.username} (ID: ${user.id}, Tier: ${user.subscription_tier || 'free'})...`);
@@ -831,11 +1119,18 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
     }
   }
 
-  // 2. Safeguard for inactive free users: Skip heavy LLM generation, send coach inquiry notification
-  for (const user of inactiveFreeUsers) {
+  // 2. Safeguard for inactive users (any tier): Skip heavy LLM generation, send coach inquiry notification
+  for (const user of inactiveUsers) {
     try {
-      console.log(`📨 [CRON] Sending weekly plan inquiry notification to inactive free user ${user.username} (ID: ${user.id})...`);
-      await sendInactiveUserWeeklyPlanInquiry(user);
+      let templateResult = { written: false };
+      try {
+        templateResult = await generateTemplatePlanForUser(user.id, dates);
+        if (templateResult.written) templateCount++;
+      } catch (tplErr) {
+        console.error(`❌ [CRON] Template plan failed for ${user.username} (ID: ${user.id}):`, tplErr.message);
+      }
+      console.log(`📨 [CRON] Sending weekly plan inquiry notification to inactive user ${user.username} (ID: ${user.id})...`);
+      await sendInactiveUserWeeklyPlanInquiry(user, { hasTemplatePlan: Boolean(templateResult.written) });
       inquiryCount++;
     } catch (err) {
       console.error(`❌ [CRON] Error sending plan inquiry to ${user.username} (ID: ${user.id}):`, err.message);
@@ -843,16 +1138,17 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
   }
 
   console.log(
-    `🏁 [CRON] Completed Sunday weekly workout planning. Plans generated: ${successCount}, Failures: ${failCount}, Inquiries sent: ${inquiryCount}`
+    `🏁 [CRON] Completed Sunday weekly workout planning. Plans generated: ${successCount}, Failures: ${failCount}, Template weeks: ${templateCount}, Inquiries sent: ${inquiryCount}`
   );
 
   return {
     successCount,
     failCount,
     inquiryCount,
+    templateCount,
     total: users.length,
     autoPlanned: eligibleForAutoPlan.length,
-    safeguarded: inactiveFreeUsers.length,
+    safeguarded: inactiveUsers.length,
     targetDates: dates,
   };
 }
@@ -955,6 +1251,8 @@ module.exports = {
   calculateUserFitnessMetrics,
   calculateWorkoutDurationMinutes,
   buildFallbackPlan,
+  buildTemplatePlan,
+  generateTemplatePlanForUser,
   generateWeeklyPlanForUser,
   sendInactiveUserWeeklyPlanInquiry,
   runWeeklyWorkoutPlanningJob,

@@ -24,6 +24,9 @@ const workouts = [
   { workoutId: 9005, activityId: 99, startTime: Date.now() - 5 * day, totalTime: 1800, totalDistance: 0, totalAscent: 0 }, // unmapped -> Other
 ];
 
+const guides = new Map();
+let nextGuideId = 1;
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   console.log(req.method, url.pathname + url.search);
@@ -56,6 +59,36 @@ const server = http.createServer((req, res) => {
     const list = workouts.filter((w) => w.startTime >= since).slice(offset, offset + limit);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: null, metadata: {}, payload: list }));
+  }
+
+  // SuuntoPlus Guides (planned workout push). Accepts the zip and keeps it in memory.
+  if (url.pathname.startsWith('/v2/guides/')) {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      const m = url.pathname.match(/^\/v2\/guides\/files\/(.+)$/);
+      if (url.pathname === '/v2/guides/files' && req.method === 'POST') {
+        const id = String(nextGuideId++);
+        guides.set(id, Buffer.concat(chunks));
+        console.log(`  -> created guide ${id} (${Buffer.concat(chunks).length} bytes)`);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ id }));
+      }
+      if (m && req.method === 'PUT') {
+        if (!guides.has(m[1])) { res.writeHead(404); return res.end(); }
+        guides.set(m[1], Buffer.concat(chunks));
+        console.log(`  -> updated guide ${m[1]}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end('{}');
+      }
+      if (url.pathname === '/v2/guides/items') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ payload: [...guides.keys()].map((id) => ({ id })) }));
+      }
+      res.writeHead(404);
+      res.end('not found');
+    });
+    return;
   }
 
   res.writeHead(404);

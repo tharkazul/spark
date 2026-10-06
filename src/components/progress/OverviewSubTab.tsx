@@ -40,7 +40,8 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
   const { activities } = useActivities();
   const { nutrition } = usePhysique();
   const { quests, loading: gamificationLoading, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
-  const { hasSeasonGoal, seasonInfo } = useSeasonGoal();
+  const { hasSeasonGoal, seasonInfo, goalsLoaded } = useSeasonGoal();
+  const router = useRouter();
 
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
   const [questActionLoading, setQuestActionLoading] = useState(false);
@@ -133,6 +134,35 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
       {hasSeasonGoal && seasonInfo && (
         <Card className="p-4 md:p-5">
           <SeasonRoadmapCard info={seasonInfo} />
+        </Card>
+      )}
+
+      {/* 3b. NO GOAL YET: invite the athlete to set one instead of showing a phase timeline */}
+      {goalsLoaded && !hasSeasonGoal && (
+        <Card className="p-4 md:p-5">
+          <View className="flex-row items-center gap-3">
+            <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
+              <Ionicons name="flag-outline" size={20} color={theme.tint} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-bold text-theme-text">
+                {t('progress.noGoalTitle', 'Set a goal to unlock training phases')}
+              </Text>
+              <Text className="text-xs text-theme-muted mt-0.5 leading-relaxed">
+                {t('progress.noGoalSubtitle', 'Add a race or target and your coach will build Base, Build, Peak and Taper around it.')}
+              </Text>
+            </View>
+          </View>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-3"
+            label={t('progress.noGoalCta', 'Add a goal')}
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.navigate({ pathname: '/profile', params: { subtab: 'training' } });
+            }}
+          />
         </Card>
       )}
 

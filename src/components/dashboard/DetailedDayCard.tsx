@@ -56,8 +56,6 @@ interface DetailedDayCardProps {
   onSelectWorkout: (workout: WorkoutItem) => void;
   onDeleteWorkout: (workoutId: string) => void;
   onInvitePartner: (workout: WorkoutItem) => void;
-  hasGarmin?: boolean;
-  hasAppleWatch?: boolean;
   hasAnyDevices?: boolean;
   onSendWorkoutToDevice?: (workout: WorkoutItem) => void;
   canEdit?: boolean;
@@ -76,8 +74,6 @@ export function DetailedDayCard({
   onSelectWorkout,
   onDeleteWorkout,
   onInvitePartner,
-  hasGarmin = false,
-  hasAppleWatch = false,
   hasAnyDevices = false,
   onSendWorkoutToDevice,
   canEdit = true,
@@ -93,7 +89,12 @@ export function DetailedDayCard({
   const isRest = (sport?: SportType | string) => String(sport || '').toUpperCase() === 'REST';
   const activeWorkouts = (day.workouts || []).filter((w) => !isRest(w.type));
   const isRestDay = activeWorkouts.length === 0;
-  const isRestExecuted = isRestDay && (day.isPast || day.isToday);
+  // A rest day only counts as "honored" once it is over, and only if the plan actually scheduled
+  // rest (a REST entry). Days with no plan at all are not rest days the athlete committed to.
+  const hasPlannedRest = (day.workouts || []).some((w) => isRest(w.type));
+  const isRestExecuted = isRestDay && hasPlannedRest && Boolean(day.isPast) && !day.isToday;
+  // Today's rest is still in progress: show a neutral "on track" state instead of a green check.
+  const isRestToday = isRestDay && Boolean(day.isToday);
 
   // Primary active workout for collapsed summary
   const primaryWorkout = activeWorkouts[0];
@@ -137,10 +138,20 @@ export function DetailedDayCard({
                     </Text>
                   </View>
                 )}
+                {isRestToday && (
+                  <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
+                    <Ionicons name="time-outline" size={10} color="#0EA5E9" />
+                    <Text className="text-[9px] font-extrabold text-theme-accent">
+                      {t('dashboard.restOnTrack', 'ON TRACK')}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text numberOfLines={1} className="text-xs text-theme-muted mt-0.5 font-jakarta">
                 {isRestExecuted
                   ? t('dashboard.restDayHonoredDetails', 'Great recovery discipline! Rest allows your muscle fibers to repair.')
+                  : isRestToday
+                  ? t('dashboard.restDayTodayDetails', 'Rest today. Aim for good sleep and some gentle mobility.')
                   : t('dashboard.restDaySummary', 'Rest Day · Aim for 8 hours of sleep & gentle mobility')}
               </Text>
             </View>
@@ -294,10 +305,20 @@ export function DetailedDayCard({
                 </Text>
               </View>
             )}
+            {isRestToday && (
+              <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
+                <Ionicons name="time-outline" size={11} color="#0EA5E9" />
+                <Text className="text-[10px] font-extrabold text-theme-accent">
+                  {t('dashboard.restOnTrack', 'ON TRACK')}
+                </Text>
+              </View>
+            )}
           </View>
           <Text className="text-xs text-theme-muted text-center max-w-[260px] mt-1 font-jakarta">
             {isRestExecuted
               ? t('dashboard.restDayHonoredDetails', 'Great recovery discipline! Rest allows your muscle fibers to repair and cardiovascular adaptations to consolidate.')
+              : isRestToday
+              ? t('dashboard.restDayTodayDetails', 'Rest today. Aim for good sleep and some gentle mobility.')
               : t('dashboard.restDayDetails', 'Aim for 8 hours of sleep and adequate hydration to prepare for upcoming workouts.')}
           </Text>
           <Button
@@ -456,7 +477,7 @@ export function DetailedDayCard({
                         size="sm"
                         disabled
                         className="flex-[1.25]"
-                        label={hasGarmin && hasAppleWatch ? t('dashboard.onDevices', 'On devices ✓') : hasGarmin ? t('dashboard.onGarmin', 'On Garmin ✓') : t('dashboard.onWatch', 'On Watch ✓')}
+                        label={t('dashboard.onDevice', 'On device ✓')}
                         leftIcon={<Ionicons name="checkmark-circle" size={13} color="#10B981" />}
                       />
                     ) : (
@@ -464,7 +485,7 @@ export function DetailedDayCard({
                         variant="primary"
                         size="sm"
                         className="flex-[1.25]"
-                        label={hasGarmin && hasAppleWatch ? t('dashboard.sendToDevices', 'Send to devices') : hasGarmin ? t('dashboard.sendToGarmin', 'Send to Garmin') : t('dashboard.sendToAppleWatch', 'Send to Watch')}
+                        label={t('dashboard.sendToDevice', 'Send to device')}
                         leftIcon={<Ionicons name="watch-outline" size={13} color="#FFFFFF" />}
                         onPress={async () => {
                           setSyncedWorkoutIds((prev) => ({ ...prev, [workout.id]: true }));
@@ -579,11 +600,7 @@ export function DetailedDayCard({
                 >
                   <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
                   <Text className="text-sm font-semibold text-theme-text font-jakarta">
-                    {hasGarmin && hasAppleWatch
-                      ? t('dashboard.menuSendDevices', 'Send to connected devices')
-                      : hasGarmin
-                      ? t('dashboard.sendToGarmin', 'Send to Garmin')
-                      : t('dashboard.sendToAppleWatch', 'Send to Apple Watch')}
+                    {t('dashboard.sendToDevice', 'Send to device')}
                   </Text>
                 </TouchableOpacity>
               )}

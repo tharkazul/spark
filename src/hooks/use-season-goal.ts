@@ -30,10 +30,14 @@ export function useSeasonGoal() {
     goalType: 'race' | 'physiological';
     targetCTL?: number;
   }>>([]);
+  // True once goals were resolved from cache or server, so callers can show a "no goal"
+  // empty state without flashing it while goals are still loading.
+  const [goalsLoaded, setGoalsLoaded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     setActiveGoals([]);
+    setGoalsLoaded(false);
 
     if (!user?.id) return;
 
@@ -44,12 +48,13 @@ export function useSeasonGoal() {
           setActiveGoals(
             cached.map((m: any) => ({
               name: m.name || m.eventName || 'Goal',
-              date: m.date || m.eventDate || new Date().toISOString().split('T')[0],
+              date: m.date || m.eventDate || '',
               isMain: m.is_main === 1 || Boolean(m.isARace),
               goalType: (m.goal_type || m.goalType || 'race') as 'race' | 'physiological',
               targetCTL: m.target_ctl || m.targetCtl || (m.name ? calculateTargetCTL(m.name) : 70),
             }))
           );
+          setGoalsLoaded(true);
         }
       } catch (_) {}
 
@@ -58,19 +63,27 @@ export function useSeasonGoal() {
         if (isMounted && milestones && milestones.length > 0) {
           const mapped = milestones.map((m: any) => ({
             name: m.name || m.eventName || 'Goal',
-            date: m.date || m.eventDate || new Date().toISOString().split('T')[0],
+            date: m.date || m.eventDate || '',
             isMain: m.is_main === 1 || Boolean(m.isARace),
             goalType: (m.goal_type || m.goalType || 'race') as 'race' | 'physiological',
             targetCTL: m.target_ctl || m.targetCtl || (m.name ? calculateTargetCTL(m.name) : 70),
           }));
           setActiveGoals(mapped);
           await goalsStorage.setGoals(mapped, user.id);
-        } else if (isMounted && activeGoals.length === 0) {
+        } else if (isMounted) {
+          // No milestones on the server. Only fall back to the profile's goal fields when the
+          // athlete actually set an event date; otherwise there is no goal and the phase card
+          // must stay hidden (previously a placeholder goal dated today showed "Race day").
+          if (!user?.event_date) {
+            setActiveGoals([]);
+            await goalsStorage.setGoals([], user.id);
+            return;
+          }
           const isPhys = Boolean(user?.target_weight) || Boolean(user?.target_vo2max) || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
           const defaultGoals = [
             {
               name: user?.target_event || (isPhys ? 'Health & Fitness Goal' : 'Target Goal'),
-              date: user?.event_date || new Date().toISOString().split('T')[0],
+              date: user.event_date,
               isMain: true,
               goalType: (isPhys ? 'physiological' : ((user as any)?.goal_type || (user as any)?.goalType || 'race')) as 'race' | 'physiological',
               targetCTL: user?.target_ctl || 70,
@@ -80,18 +93,20 @@ export function useSeasonGoal() {
           await goalsStorage.setGoals(defaultGoals, user.id);
         }
       } catch (error) {
-        if (isMounted && activeGoals.length === 0) {
+        if (isMounted && activeGoals.length === 0 && user?.event_date) {
           const isPhys = Boolean(user?.target_weight) || Boolean(user?.target_vo2max) || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
           setActiveGoals([
             {
               name: user?.target_event || (isPhys ? 'Health & Fitness Goal' : 'Target Goal'),
-              date: user?.event_date || new Date().toISOString().split('T')[0],
+              date: user.event_date,
               isMain: true,
               goalType: (isPhys ? 'physiological' : ((user as any)?.goal_type || (user as any)?.goalType || 'race')) as 'race' | 'physiological',
               targetCTL: user?.target_ctl || 70,
             },
           ]);
         }
+      } finally {
+        if (isMounted) setGoalsLoaded(true);
       }
     };
 
@@ -100,9 +115,10 @@ export function useSeasonGoal() {
   }, [user?.id, user?.target_event, user?.event_date, user?.target_weight, user?.target_vo2max, (user as any)?.goal_type, (user as any)?.goalType]);
 
   const nearestGoalInfo = useMemo(() => {
-    if (!activeGoals || activeGoals.length === 0) return null;
+    const datedGoals = (activeGoals || []).filter((g) => Boolean(g.date));
+    if (datedGoals.length === 0) return null;
 
-    const goalsWithDays = activeGoals.map((g) => ({
+    const goalsWithDays = datedGoals.map((g) => ({
       ...g,
       daysRemaining: calculateDaysRemaining(g.date),
     }));
@@ -241,5 +257,5 @@ export function useSeasonGoal() {
     };
   }, [nearestGoalInfo, user?.current_ctl, isPhysiologicalGoal]);
 
-  return { hasSeasonGoal, seasonInfo };
+  return { hasSeasonGoal, seasonInfo, goalsLoaded };
 }

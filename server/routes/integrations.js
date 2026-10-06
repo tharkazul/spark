@@ -724,15 +724,23 @@ router.post("/api/user/disconnect/garmin", authenticateToken, (req, res) => {
   );
 });
 
-router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
-  console.log("DEBUG: Sync route triggered for user:", req.user.id);
-  const selectedWorkouts = Array.isArray(req.body.workouts) ? req.body.workouts : null;
+/**
+ * Pushes structured workouts to the user's Garmin Connect calendar.
+ * Shared by POST /api/sync-garmin and POST /api/devices/send-workouts.
+ *
+ * @param {number} userId
+ * @param {Array|null} selectedWorkouts explicit workouts from the client, or null
+ *   to push every upcoming micro_plan workout.
+ * @returns {Promise<{ status: number, body: object }>} HTTP-style result
+ */
+async function pushWorkoutsToGarmin(userId, selectedWorkouts) {
+  console.log("DEBUG: Garmin workout push triggered for user:", userId);
 
   try {
     const user = await new Promise((resolve, reject) => {
       db.get(
         `SELECT id, garmin_username, garmin_password, garmin_oauth1_token, garmin_oauth2_token FROM users WHERE id = ?`,
-        [req.user.id],
+        [userId],
         (err, row) => {
           if (err || !row || !row.garmin_username || !row.garmin_password) {
             reject(new Error("User Garmin credentials not found. Please connect your Garmin account first."));
@@ -767,7 +775,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       const dbWorkouts = await new Promise((resolve, reject) => {
         db.all(
           `SELECT date, sport, description, target_rooka, steps_json FROM micro_plan WHERE user_id = ? AND date >= ?`,
-          [req.user.id, todayStr],
+          [userId, todayStr],
           (err, rows) => {
             if (err) reject(err);
             else resolve(rows || []);
@@ -790,9 +798,7 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     }
 
     if (workoutsToSync.length === 0)
-      return res
-        .status(400)
-        .json({ error: "No valid workouts found to sync." });
+      return { status: 400, body: { error: "No valid workouts found to sync." } };
 
     let syncedCount = 0;
     let lastSyncError = null;
@@ -1105,17 +1111,23 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
     }
 
     if (workoutsToSync.length > 0 && syncedCount === 0) {
-      return res.status(500).json({
-        error: "Failed to schedule workouts on Garmin calendar.",
-        details: lastSyncError || "Garmin rejected the workout payload or calendar schedule date.",
-      });
+      return {
+        status: 500,
+        body: {
+          error: "Failed to schedule workouts on Garmin calendar.",
+          details: lastSyncError || "Garmin rejected the workout payload or calendar schedule date.",
+        },
+      };
     }
 
-    res.json({
-      success: true,
-      message: `Successfully pushed ${syncedCount} structured workout${syncedCount === 1 ? "" : "s"} to Garmin!`,
-      syncedCount,
-    });
+    return {
+      status: 200,
+      body: {
+        success: true,
+        message: `Successfully pushed ${syncedCount} structured workout${syncedCount === 1 ? "" : "s"} to Garmin!`,
+        syncedCount,
+      },
+    };
   } catch (err) {
     console.error("CRITICAL ERROR in sync-garmin:", err);
     const isRateLimit =
@@ -1124,17 +1136,24 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
       err.response?.status === 429;
 
     if (isRateLimit) {
-      return res.status(429).json({
-        error: "Garmin rate limit reached",
-        details:
-          "Garmin has temporarily throttled authentication attempts for this account/IP. Please wait 15–30 minutes before syncing again. Once connected, your OAuth session will be stored so future syncs do not re-authenticate.",
-      });
+      return {
+        status: 429,
+        body: {
+          error: "Garmin rate limit reached",
+          details:
+            "Garmin has temporarily throttled authentication attempts for this account/IP. Please wait 15–30 minutes before syncing again. Once connected, your OAuth session will be stored so future syncs do not re-authenticate.",
+        },
+      };
     }
 
-    return res
-      .status(500)
-      .json({ error: "Server sync failed", details: err.message });
+    return { status: 500, body: { error: "Server sync failed", details: err.message } };
   }
+}
+
+router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
+  const selectedWorkouts = Array.isArray(req.body.workouts) ? req.body.workouts : null;
+  const result = await pushWorkoutsToGarmin(req.user.id, selectedWorkouts);
+  res.status(result.status).json(result.body);
 });
 
 /**
@@ -1346,4 +1365,5 @@ router.get("/api/healthkit/recent", authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.pushWorkoutsToGarmin = pushWorkoutsToGarmin;
 

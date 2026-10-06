@@ -65,48 +65,31 @@ function getUserGamificationContext(userId) {
                 .filter(Boolean)
             );
 
+            // Streak rule (mirrors src/utils/gamification.ts calculateActivityStreak):
+            // a day counts if an activity was logged, or if the plan scheduled it as rest and the
+            // day is over. Today never breaks the streak; it only counts once an activity exists.
             let streak = 0;
-            if (!err && rows && rows.length > 0) {
-              // Group by unique days
-              const activityDates = new Set(
-                rows.map((r) => {
+            const activityDates = new Set(
+              (!err && rows ? rows : [])
+                .map((r) => {
                   if (!r.start_date) return '';
                   const parts = r.start_date.split(/[T ]/);
                   return parts[0] || r.start_date.substring(0, 10);
-                }).filter(Boolean)
-              );
+                })
+                .filter(Boolean)
+            );
 
-              let checkDate = new Date();
-              let foundStart = false;
+            const checkDate = new Date();
+            if (activityDates.has(getAMSDateString(checkDate))) streak++;
+            checkDate.setDate(checkDate.getDate() - 1);
 
-              for (let lookback = 0; lookback <= 3; lookback++) {
-                const dStr = getAMSDateString(checkDate);
-                if (activityDates.has(dStr)) {
-                  foundStart = true;
-                  break;
-                }
-                if (lookback > 0 && !restDates.has(dStr)) {
-                  break;
-                }
+            for (let i = 0; i < 3650; i++) {
+              const checkDateStr = getAMSDateString(checkDate);
+              if (activityDates.has(checkDateStr) || restDates.has(checkDateStr)) {
+                streak++;
                 checkDate.setDate(checkDate.getDate() - 1);
-              }
-
-              if (foundStart) {
-                let consecutiveRest = 0;
-                while (true) {
-                  const checkDateStr = getAMSDateString(checkDate);
-                  if (activityDates.has(checkDateStr)) {
-                    streak++;
-                    consecutiveRest = 0;
-                    checkDate.setDate(checkDate.getDate() - 1);
-                  } else if (restDates.has(checkDateStr)) {
-                    consecutiveRest++;
-                    if (consecutiveRest > 3) break;
-                    checkDate.setDate(checkDate.getDate() - 1);
-                  } else {
-                    break;
-                  }
-                }
+              } else {
+                break;
               }
             }
 

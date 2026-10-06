@@ -88,7 +88,7 @@ export default function PlanningHomeScreen() {
   const tabBarInset = useTabBarInset();
   const { plan, loading: planLoading, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
   const { activities } = useActivities();
-  const { hasGarmin, hasAppleWatch, hasAnyDevices, isSyncing, syncWorkouts } = useConnectedDevices();
+  const { hasAnyDevices, isSyncing, syncWorkouts } = useConnectedDevices();
   const [isSyncedSuccess, setIsSyncedSuccess] = useState(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -349,9 +349,10 @@ export default function PlanningHomeScreen() {
             executionScore: w.executionScore,
             steps: parsedSteps,
             notes: w.details,
-            isCoachCreated: w.source !== 'user',
+            isCoachCreated: w.source !== 'user' && w.source !== 'template',
+            isTemplate: w.source === 'template',
             coachNote:
-              w.source !== 'user' && w.details && w.details.trim().length > 0
+              w.source !== 'user' && w.source !== 'template' && w.details && w.details.trim().length > 0
                 ? w.details.trim()
                 : undefined,
           } as WorkoutItem;
@@ -635,11 +636,7 @@ export default function PlanningHomeScreen() {
               label={
                 isSyncedSuccess
                   ? t('dashboard.devicesSynced', 'Sent ✓')
-                  : hasGarmin && hasAppleWatch
-                  ? t('dashboard.sendToDevices', 'Send to devices')
-                  : hasGarmin
-                  ? t('dashboard.sendToGarmin', 'Send to Garmin')
-                  : t('dashboard.sendToAppleWatch', 'Send to Apple Watch')
+                  : t('dashboard.sendToDevice', 'Send to device')
               }
               leftIcon={
                 isSyncedSuccess ? (
@@ -659,6 +656,25 @@ export default function PlanningHomeScreen() {
             className="h-full bg-theme-accent-strong rounded-full"
           />
         </View>
+
+        {/* Standard (rule-based) week: invite the athlete to have the coach tailor it */}
+        {weeklyAgenda.some((d) => d.workouts.some((w) => w.isTemplate)) && (
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push('/(tabs)/coach');
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            className="flex-row items-center gap-1.5 mt-2 self-start bg-theme-accent/15 px-2.5 py-1 rounded-full"
+          >
+            <Ionicons name="sparkles-outline" size={12} color="#0EA5E9" />
+            <Text className="text-[11px] font-semibold text-theme-accent font-jakarta">
+              {t('dashboard.templatePlanChip', 'Standard plan · Ask your coach to tailor it')}
+            </Text>
+            <Ionicons name="chevron-forward" size={12} color="#0EA5E9" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ------------------------------------------------------------- */}
@@ -724,8 +740,6 @@ export default function PlanningHomeScreen() {
                     onSelectWorkout={handleSelectWorkoutForEdit}
                     onDeleteWorkout={handleDeleteWorkout}
                     onInvitePartner={handleInvitePartner}
-                    hasGarmin={hasGarmin}
-                    hasAppleWatch={hasAppleWatch}
                     hasAnyDevices={hasAnyDevices}
                     onSendWorkoutToDevice={handleSendSingleWorkout}
                     canEdit={canEdit}

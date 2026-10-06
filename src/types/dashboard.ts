@@ -45,6 +45,8 @@ export interface WorkoutItem {
   notes?: string;
   coachNote?: string;
   isCoachCreated?: boolean;
+  /** Rule-based standard week (no AI); the coach can tailor it on request. */
+  isTemplate?: boolean;
   source?: string;
   isSynced?: boolean;
   syncedToGarmin?: boolean;

@@ -8,6 +8,7 @@ import {
 
 export interface UseConnectedDevicesReturn {
   hasGarmin: boolean;
+  hasSuunto: boolean;
   hasAppleWatch: boolean;
   hasAnyDevices: boolean;
   isChecking: boolean;
@@ -28,6 +29,9 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
       (user as any)?.garmin_username ||
       (user as any)?.garminUsername
   );
+
+  const hasSuunto = Boolean(user?.suunto_connected || (user as any)?.hasSuunto);
+  const hasCloudDevices = hasGarmin || hasSuunto;
 
   const checkDevices = useCallback(async () => {
     try {
@@ -54,7 +58,7 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
   }, [checkDevices, user]);
 
   const hasAppleWatch = isAppleWatchAuthorized;
-  const hasAnyDevices = hasGarmin || hasAppleWatch;
+  const hasAnyDevices = hasCloudDevices || hasAppleWatch;
 
   const syncWorkouts = useCallback(
     async (workouts: WorkoutItem[]): Promise<SyncWorkoutsResult> => {
@@ -70,7 +74,7 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
       setIsSyncing(true);
       try {
         const result = await sendWorkoutsToConnectedDevices(workouts, {
-          hasGarmin,
+          hasCloudDevices,
           hasAppleWatch,
         });
         return result;
@@ -78,11 +82,12 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
         setIsSyncing(false);
       }
     },
-    [hasAnyDevices, hasGarmin, hasAppleWatch]
+    [hasAnyDevices, hasCloudDevices, hasAppleWatch]
   );
 
   return {
     hasGarmin,
+    hasSuunto,
     hasAppleWatch,
     hasAnyDevices,
     isChecking,

@@ -8,6 +8,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { useActivities } from '../../context/ActivityStore';
+import { usePlan } from '../../context/PlanStore';
 import { useGamification } from '../../context/GamificationStore';
 import { useUser } from '../../context/UserStore';
 import { Activity } from '../../types/activity';
@@ -130,9 +131,10 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
     return activities.filter((a) => !(a as any).is_hidden && ((a as any).is_hidden !== 1));
   }, [activities]);
 
+  const { plan } = usePlan();
   const realStreak = useMemo(() => {
-    return calculateActivityStreak(visibleActivities);
-  }, [visibleActivities]);
+    return calculateActivityStreak(visibleActivities, plan);
+  }, [visibleActivities, plan]);
 
   const handleGenerateQuest = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

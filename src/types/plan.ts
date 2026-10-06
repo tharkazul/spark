@@ -46,5 +46,5 @@ export interface PlannedWorkout {
    * only presented as a note from the coach when the coach wrote the row.
    * Rows that predate the column read as 'coach'.
    */
-  source?: 'coach' | 'user';
+  source?: 'coach' | 'user' | 'recurring' | 'template';
 }

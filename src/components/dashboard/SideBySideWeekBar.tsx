@@ -48,7 +48,10 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
         const hasActiveWorkouts = activeWorkouts.length > 0;
         const isCompleted = hasActiveWorkouts && activeWorkouts.every((w) => w.isCompleted);
         const isMissed = day.isPast && hasActiveWorkouts && !isCompleted;
-        const isRestHonored = !hasActiveWorkouts && (day.isPast || day.isToday);
+        // Only completed (past) days that the plan scheduled as rest get a check; today is still in
+        // progress and unplanned days were never committed rest (same rule as the streak).
+        const hasPlannedRest = (day.workouts || []).some((w) => isRest(w.type));
+        const isRestHonored = !hasActiveWorkouts && hasPlannedRest && Boolean(day.isPast) && !isToday;
 
         // Parse day date number from dateStr e.g. "Sep 29" -> "29"
         const dateParts = day.dateStr.split(' ');

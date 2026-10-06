@@ -385,6 +385,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                             ? planRows
                                 .map((p) => {
                                   let line = `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} Rooka)`;
+                                  if (p.source === 'template') {
+                                    line += ` [standard template week, not yet personalized by you]`;
+                                  }
                                   if (p.details && p.details.trim()) {
                                     line += `\n    Details: ${p.details.trim()}`;
                                   }

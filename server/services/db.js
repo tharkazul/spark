@@ -240,6 +240,17 @@ db.serialize(() => {
         expires_at INTEGER NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
+  // Planned workouts pushed to Suunto as SuuntoPlus Guides. Maps our stable
+  // externalId (one guide per user/date/sport) to Suunto's guide id so a re-send
+  // updates the existing guide instead of creating a duplicate.
+  db.run(`CREATE TABLE IF NOT EXISTS suunto_guides (
+        user_id INTEGER NOT NULL,
+        external_id TEXT NOT NULL,
+        guide_id TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, external_id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`);
   // External Suunto workout id; NULL for non-Suunto rows (NULLs never collide in
   // a SQLite unique index). Required for the ON CONFLICT upsert in routes/suunto.js.
   db.run(`ALTER TABLE activities ADD COLUMN suunto_workout_id TEXT`, () => {

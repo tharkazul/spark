@@ -48,6 +48,7 @@ app.use("/", socialRoutes);
 app.use("/", gamificationRoutes);
 app.use("/", integrationsRoutes);
 app.use("/", require("./routes/suunto"));
+app.use("/", require("./routes/devices"));
 app.use("/", physiqueRoutes);
 app.use("/", activitiesRoutes);
 app.use("/", settingsRoutes);

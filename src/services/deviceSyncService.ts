@@ -1,18 +1,26 @@
 import * as Haptics from 'expo-haptics';
-import { syncGarminWorkout, GarminSyncWorkoutPayload } from '../api/integrations';
+import { sendWorkoutsToCloudDevices, DeviceSyncWorkoutPayload } from '../api/integrations';
 import { deployWorkoutToAppleWatch } from './appleHealthService';
 import { WorkoutItem } from '../types/dashboard';
 import { PlannedWorkout } from '../types/plan';
 
 export interface SyncWorkoutsOptions {
-  hasGarmin: boolean;
+  /** Any server-side device platform (Garmin, Suunto, ...) is connected. */
+  hasCloudDevices: boolean;
+  /** Apple Watch via on-device WorkoutKit. */
   hasAppleWatch: boolean;
+}
+
+export interface DeviceSyncOutcome {
+  id: string;
+  name: string;
+  success: boolean;
+  error?: string;
 }
 
 export interface SyncWorkoutsResult {
   success: boolean;
-  garminSuccess?: boolean;
-  appleSuccess?: boolean;
+  devices?: DeviceSyncOutcome[];
   syncedCount: number;
   message: string;
   errors: string[];
@@ -50,20 +58,27 @@ function extractSteps(w: any): any[] {
   return [];
 }
 
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] || '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 /**
- * Sends workouts to all connected hardware devices (Garmin, Apple Watch/WorkoutKit, or both).
+ * Sends workouts to every device the user has connected. Cloud platforms
+ * (Garmin, Suunto, ...) are fanned out by the backend in one call; Apple Watch
+ * is deployed on-device through WorkoutKit.
  */
 export async function sendWorkoutsToConnectedDevices(
   workouts: WorkoutItem[],
   options: SyncWorkoutsOptions
 ): Promise<SyncWorkoutsResult> {
-  const { hasGarmin, hasAppleWatch } = options;
+  const { hasCloudDevices, hasAppleWatch } = options;
 
-  if (!hasGarmin && !hasAppleWatch) {
+  if (!hasCloudDevices && !hasAppleWatch) {
     return {
       success: false,
       syncedCount: 0,
-      message: 'No connected devices found. Connect Garmin or Apple Watch in Profile > Connections.',
+      message: 'No connected devices found. Connect a device in Profile > Connections.',
       errors: ['No devices connected'],
     };
   }
@@ -82,14 +97,12 @@ export async function sendWorkoutsToConnectedDevices(
     };
   }
 
-  let garminSuccess = false;
-  let appleSuccess = false;
-  const errors: string[] = [];
+  const outcomes: DeviceSyncOutcome[] = [];
 
-  // 1. Sync to Garmin Connect if connected
-  if (hasGarmin) {
+  // 1. Cloud-connected devices (backend sends to each connected platform)
+  if (hasCloudDevices) {
     try {
-      const garminPayloads: GarminSyncWorkoutPayload[] = validWorkouts.map((w) => {
+      const payloads: DeviceSyncWorkoutPayload[] = validWorkouts.map((w) => {
         const title = (w.title || (w as any).description || `${w.type || 'RUN'} Workout`).trim();
         return {
           date: normalizeDate(w),
@@ -101,18 +114,21 @@ export async function sendWorkoutsToConnectedDevices(
         };
       });
 
-      await syncGarminWorkout(garminPayloads);
-      garminSuccess = true;
+      const res = await sendWorkoutsToCloudDevices(payloads);
+      for (const d of res.devices || []) {
+        outcomes.push({ id: d.id, name: d.name, success: d.success, error: d.error });
+      }
     } catch (err: any) {
-      console.error('[DeviceSync] Garmin sync failed:', err);
-      errors.push(`Garmin: ${err?.message || 'Sync failed'}`);
+      console.error('[DeviceSync] Cloud device sync failed:', err);
+      outcomes.push({ id: 'cloud', name: 'Connected devices', success: false, error: err?.message || 'Sync failed' });
     }
   }
 
-  // 2. Sync to Apple Watch via WorkoutKit if connected
+  // 2. Apple Watch via WorkoutKit
   if (hasAppleWatch) {
+    const appleErrors: string[] = [];
+    let anyAppleSuccess = false;
     try {
-      let anyAppleSuccess = false;
       for (const w of validWorkouts) {
         const title = (w.title || (w as any).description || `${w.type || 'RUN'} Workout`).trim();
         const applePayload: PlannedWorkout = {
@@ -128,108 +144,56 @@ export async function sendWorkoutsToConnectedDevices(
         if (res.success) {
           anyAppleSuccess = true;
         } else {
-          errors.push(`Apple Watch (${title}): ${res.message}`);
+          appleErrors.push(`${title}: ${res.message}`);
         }
       }
-      appleSuccess = anyAppleSuccess;
     } catch (err: any) {
       console.error('[DeviceSync] Apple Watch sync failed:', err);
-      errors.push(`Apple Watch: ${err?.message || 'Sync failed'}`);
+      appleErrors.push(err?.message || 'Sync failed');
     }
+    outcomes.push({
+      id: 'apple_watch',
+      name: 'Apple Watch',
+      success: anyAppleSuccess,
+      error: appleErrors.length ? appleErrors.join('; ') : undefined,
+    });
   }
 
+  const succeeded = outcomes.filter((o) => o.success);
+  const failed = outcomes.filter((o) => !o.success);
+  const errors = failed.map((o) => `${o.name}: ${o.error || 'Sync failed'}`);
   const targetCount = validWorkouts.length;
   const workoutNoun = targetCount === 1 ? 'workout' : 'workouts';
 
-  // Determine overall outcome and messaging
-  if (hasGarmin && hasAppleWatch) {
-    if (garminSuccess && appleSuccess) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return {
-        success: true,
-        garminSuccess: true,
-        appleSuccess: true,
-        syncedCount: targetCount,
-        message: `Successfully sent ${targetCount} ${workoutNoun} to Garmin Connect and Apple Watch!`,
-        errors,
-      };
-    } else if (garminSuccess) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return {
-        success: true,
-        garminSuccess: true,
-        appleSuccess: false,
-        syncedCount: targetCount,
-        message: `Sent to Garmin Connect (Apple Watch failed: ${errors[0] || 'Unknown error'})`,
-        errors,
-      };
-    } else if (appleSuccess) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      return {
-        success: true,
-        garminSuccess: false,
-        appleSuccess: true,
-        syncedCount: targetCount,
-        message: `Sent to Apple Watch (Garmin failed: ${errors[0] || 'Unknown error'})`,
-        errors,
-      };
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      return {
-        success: false,
-        garminSuccess: false,
-        appleSuccess: false,
-        syncedCount: 0,
-        message: `Failed to send to devices: ${errors.join('; ')}`,
-        errors,
-      };
-    }
-  } else if (hasGarmin) {
-    if (garminSuccess) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return {
-        success: true,
-        garminSuccess: true,
-        syncedCount: targetCount,
-        message: `Successfully sent ${targetCount} ${workoutNoun} to Garmin Connect!`,
-        errors,
-      };
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      return {
-        success: false,
-        garminSuccess: false,
-        syncedCount: 0,
-        message: `Garmin sync failed: ${errors[0] || 'Unknown error'}`,
-        errors,
-      };
-    }
-  } else if (hasAppleWatch) {
-    if (appleSuccess) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return {
-        success: true,
-        appleSuccess: true,
-        syncedCount: targetCount,
-        message: `Successfully sent ${targetCount} ${workoutNoun} to Apple Watch!`,
-        errors,
-      };
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      return {
-        success: false,
-        appleSuccess: false,
-        syncedCount: 0,
-        message: `Apple Watch sync failed: ${errors[0] || 'Unknown error'}`,
-        errors,
-      };
-    }
+  if (succeeded.length === 0) {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    return {
+      success: false,
+      devices: outcomes,
+      syncedCount: 0,
+      message: errors.length ? `Failed to send to device: ${errors.join('; ')}` : 'No connected devices found.',
+      errors,
+    };
   }
 
+  const sentTo = joinNames(succeeded.map((o) => o.name));
+  if (failed.length > 0) {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    return {
+      success: true,
+      devices: outcomes,
+      syncedCount: targetCount,
+      message: `Sent to ${sentTo}. Failed: ${errors.join('; ')}`,
+      errors,
+    };
+  }
+
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   return {
-    success: false,
-    syncedCount: 0,
-    message: 'Unknown sync error',
+    success: true,
+    devices: outcomes,
+    syncedCount: targetCount,
+    message: `Successfully sent ${targetCount} ${workoutNoun} to ${sentTo}!`,
     errors,
   };
 }
