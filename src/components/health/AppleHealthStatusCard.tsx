@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform } from
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   isHealthKitAvailable,
   requestFullHealthKitPermissions,
@@ -20,6 +21,7 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
   onSyncCompleted,
 }) => {
   const [syncing, setSyncing] = useState(false);
+  const { t } = useLanguage();
   const isIos = Platform.OS === 'ios';
   const isAvailable = isIos && isHealthKitAvailable();
   const hasData = Boolean(
@@ -33,12 +35,12 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
 
   const handleConnectOrSync = async () => {
     if (!isIos) {
-      Alert.alert('Not Supported', 'Apple Health integration is only available on iOS devices.');
+      Alert.alert(t('healthConnect.notSupportedTitle'), t('healthConnect.healthIosOnly'));
       return;
     }
 
     if (!isAvailable) {
-      Alert.alert('Unavailable', 'Apple Health is not available on this device.');
+      Alert.alert(t('healthConnect.unavailableTitle'), t('healthConnect.healthUnavailable'));
       return;
     }
 
@@ -50,8 +52,8 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
       const granted = await requestFullHealthKitPermissions();
       if (!granted) {
         Alert.alert(
-          'Permissions Note',
-          'Please ensure Health permissions are enabled in iPhone Settings > Health > Data Access & Devices > Rooka.'
+          t('healthConnect.permissionsNoteTitle'),
+          t('healthConnect.permissionsNoteBody')
         );
       }
 
@@ -66,18 +68,17 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
         onSyncCompleted(fresh);
 
         Alert.alert(
-          'Apple Health Synced! 🎉',
-          res.message ||
-            `Synced ${res.biometricsSynced || 0} daily biometric records and ${res.workoutsSynced || 0} workout(s) from Apple Health.`
+          t('healthConnect.syncedTitle'),
+          res.message || t('healthConnect.syncedBody', { bio: res.biometricsSynced || 0, workouts: res.workoutsSynced || 0 })
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Sync Incomplete', res.message || 'HealthKit sync finished with notes.');
+        Alert.alert(t('healthConnect.syncIncompleteTitle'), res.message || t('healthConnect.syncIncompleteBody'));
       }
     } catch (err: any) {
       console.error('[AppleHealthStatusCard] Sync error:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Sync Error', err?.message || 'Failed to sync with Apple Health.');
+      Alert.alert(t('integrationMsgs.syncErrorTitle'), err?.message || t('healthConnect.syncFailed'));
     } finally {
       setSyncing(false);
     }
@@ -92,7 +93,7 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
           </View>
           <View className="flex-1">
             <View className="flex-row items-center gap-x-2">
-              <Text className="text-sm font-bold text-theme-text">Apple Health Sync</Text>
+              <Text className="text-sm font-bold text-theme-text">{t('healthConnect.cardTitle')}</Text>
               <View
                 className={`px-2 py-0.5 rounded-full ${
                   hasData ? 'bg-emerald-500/15' : 'bg-amber-500/15'
@@ -103,14 +104,14 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
                     hasData ? 'text-emerald-500' : 'text-amber-500'
                   }`}
                 >
-                  {hasData ? 'Active' : 'Pending Authorization'}
+                  {hasData ? t('common.active') : t('healthConnect.pendingAuth')}
                 </Text>
               </View>
             </View>
             <Text className="text-xs text-theme-muted mt-0.5">
               {hasData
-                ? 'Pulling HRV, Resting HR, Sleep, Steps & Workouts'
-                : 'Authorize Rooka to read HealthKit metrics & show recovery trends'}
+                ? t('healthConnect.pullingData')
+                : t('healthConnect.authorizePrompt')}
             </Text>
           </View>
         </View>
@@ -127,7 +128,7 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
             <>
               <Ionicons name="sync-outline" size={14} color="#FFFFFF" />
               <Text className="text-xs font-bold text-white">
-                {hasData ? 'Sync' : 'Connect'}
+                {hasData ? t('healthConnect.sync') : t('healthConnect.connect')}
               </Text>
             </>
           )}

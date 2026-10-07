@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { translate as tr } from '../locales/i18n';
 import { useUser } from '../context/UserStore';
 import { WorkoutItem } from '../types/dashboard';
 import {
@@ -66,7 +67,7 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
         return {
           success: false,
           syncedCount: 0,
-          message: 'No connected devices found.',
+          message: tr('deviceSync.noDevices'),
           errors: ['No devices connected'],
         };
       }

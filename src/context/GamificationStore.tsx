@@ -140,7 +140,7 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
       console.error('Generate quest error:', err.message || err);
       // If error indicates active quest exists, fallback to refresh
       const activeQuest = quests.find((q) => q.status === 'active');
-      if (activeQuest && err.message?.includes('already have an active quest')) {
+      if (activeQuest && String(err?.data?.error_en || err?.message || '').includes('already have an active quest')) {
         await swapQuest(activeQuest.id);
       }
     } finally {

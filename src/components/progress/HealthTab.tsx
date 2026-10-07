@@ -4,7 +4,8 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
 import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
-import { AnatomicalBodyMap, ActiveNiggle, partMatchesNiggle } from './AnatomicalBodyMap';
+import { AnatomicalBodyMap, ActiveNiggle, partMatchesNiggle, getBodyPartLabel } from './AnatomicalBodyMap';
+import { useLanguage } from '../../context/LanguageContext';
 import { NiggleCard } from '../health/NiggleCard';
 import { TrainingReadinessWidget } from './TrainingReadinessWidget';
 import { SonarSleepCard } from '../health/SonarSleepCard';
@@ -33,6 +34,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 }) => {
   const { niggles: storeNiggles, saveNiggle: storeSaveNiggle, resolveNiggle: storeResolveNiggle } = useHealth();
   const niggles = storeNiggles as ActiveNiggle[];
+  const { t } = useLanguage();
   const [modalVisible, setModalVisible] = useState(false);
   const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
   const [recentBiometrics, setRecentBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
@@ -55,7 +57,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
   // Form state
   const [selectedPartId, setSelectedPartId] = useState<string>('left_ankle_foot');
-  const [selectedPartName, setSelectedPartName] = useState<string>('Left Ankle & Foot');
+  const [selectedPartName, setSelectedPartName] = useState<string>(() => getBodyPartLabel('left_ankle_foot'));
   const [severity, setSeverity] = useState<number>(1);
   const [notes, setNotes] = useState<string>('');
   const [editingNiggleId, setEditingNiggleId] = useState<number | string | null>(null);
@@ -127,11 +129,11 @@ export const HealthTab: React.FC<HealthTabProps> = ({
           <View className="flex-row items-center gap-x-2">
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
             <Text className="text-xs font-bold text-theme-muted">
-              Injury & Soreness Heatmap
+              {t('healthTab.heatmapTitle')}
             </Text>
           </View>
           <Text className="text-xs font-semibold text-theme-accent">
-            {niggles.length} Active {niggles.length === 1 ? 'Issue' : 'Issues'}
+            {niggles.length === 1 ? t('healthTab.oneActiveIssue') : t('healthTab.nActiveIssues', { count: niggles.length })}
           </Text>
         </View>
 
@@ -149,7 +151,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         niggles={niggles}
         onSelectBodyPart={handleSelectBodyPart}
         onResolveNiggle={handleResolve}
-        onLogNew={() => handleSelectBodyPart('left_calf', 'Left Calf')}
+        onLogNew={() => handleSelectBodyPart('left_calf', getBodyPartLabel('left_calf'))}
       />
 
       {/* NIGGLE LOGGING MODAL / BOTTOM SHEET */}
@@ -161,7 +163,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
           <View className="flex-row justify-between items-center pb-4 mb-4">
             <View>
               <Text className="text-xs font-bold text-theme-muted">
-                Log Issue / Soreness
+                {t('healthTab.logIssue')}
               </Text>
               <Text className="text-lg font-extrabold text-theme-text mt-0.5">
                 {selectedPartName}
@@ -173,7 +175,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
         <ScrollView showsVerticalScrollIndicator={false}>
           {/* Severity Chips */}
           <Text className="text-xs font-bold text-theme-muted mb-2">
-            Severity Level
+            {t('healthTab.severityLevel')}
           </Text>
           <View className="flex-row justify-between mb-4">
             {[1, 2, 3, 4, 5].map((level) => (
@@ -201,19 +203,19 @@ export const HealthTab: React.FC<HealthTabProps> = ({
           </View>
 
           <View className="flex-row justify-between text-xs text-theme-muted mb-5 px-1">
-            <Text className="text-xs text-theme-muted">1: Gentle Twinge</Text>
-            <Text className="text-xs text-theme-muted">3: Modifies Gait</Text>
-            <Text className="text-xs text-theme-muted">5: Cannot Bear Weight</Text>
+            <Text className="text-xs text-theme-muted">{t('healthTab.sev1')}</Text>
+            <Text className="text-xs text-theme-muted">{t('healthTab.sev3')}</Text>
+            <Text className="text-xs text-theme-muted">{t('healthTab.sev5')}</Text>
           </View>
 
           {/* Notes Input */}
           <Text className="text-xs font-bold text-theme-muted mb-2">
-            Context & Pain Notes
+            {t('healthTab.notesLabel')}
           </Text>
           <TextInput
             value={notes}
             onChangeText={setNotes}
-            placeholder="e.g. Sharp pain when stepping off curb..."
+            placeholder={t('healthTab.notesPlaceholder')}
             multiline
             numberOfLines={3}
             className="bg-theme-bg text-theme-text rounded-xl p-3 text-sm mb-6"
@@ -222,11 +224,11 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
           {/* Buttons */}
           <View className="gap-y-3 mb-4">
-            <Button label="Save Issue" onPress={handleSave} className="bg-theme-accent mb-2" />
+            <Button label={t('healthTab.saveIssue')} onPress={handleSave} className="bg-theme-accent mb-2" />
 
             {editingNiggleId ? (
               <Button
-                label="Mark as Resolved"
+                label={t('healthTab.markResolved')}
                 onPress={() => handleResolve(editingNiggleId)}
                 variant="outline"
                 className="border-semantic-success text-semantic-success"

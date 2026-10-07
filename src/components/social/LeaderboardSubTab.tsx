@@ -337,7 +337,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                           )}
                         </View>
                         <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
-                          Lvl {isCurrentUser ? (user?.level || item.rooka_level || 1) : (item.rooka_level || 1)} · {pluralize('quest', questsCount, language)}
+                          {t('uiExtra.lvl', { level: isCurrentUser ? (user?.level || item.rooka_level || 1) : (item.rooka_level || 1) })} · {pluralize('quest', questsCount, language)}
                         </Text>
                       </View>
                     </View>
@@ -391,7 +391,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                         <Chip variant="accent" size="sm" label={t('common.you')} />
                       </View>
                       <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
-                        Lvl {user?.level || currentUserEntry.rooka_level || 1} · {pluralize('quest', (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0, language)}
+                        {t('uiExtra.lvl', { level: user?.level || currentUserEntry.rooka_level || 1 })} · {pluralize('quest', (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0, language)}
                       </Text>
                     </View>
                   </View>

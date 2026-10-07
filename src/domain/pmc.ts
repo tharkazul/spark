@@ -232,10 +232,10 @@ export function calculatePMC(
       statusText = 'Race day is here! Good luck!';
       statusType = 'ready';
     } else if (rampRateWeekly <= 0.1) {
-      statusText = 'You are not currently building fitness. Start training consistently to project race day CTL.';
+      statusText = 'You are not currently building fitness. Start training consistently to project your race day fitness.';
       statusType = 'warning';
     } else {
-      statusText = `Building at +${rampRateWeekly.toFixed(1)} CTL/wk. Projected race day fitness: ${Math.round(projectedCtl)} CTL.`;
+      statusText = `Fitness building at +${rampRateWeekly.toFixed(1)} per week. Projected race day fitness: ${Math.round(projectedCtl)}.`;
       statusType = projectedCtl >= mainRace.target_ctl ? 'success' : 'accent';
     }
 

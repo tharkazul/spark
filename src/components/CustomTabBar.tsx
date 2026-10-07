@@ -462,7 +462,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
                   key={route.key}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isFocused }}
-                  accessibilityLabel={label || options.tabBarAccessibilityLabel || 'Coach'}
+                  accessibilityLabel={label || options.tabBarAccessibilityLabel || t('tabs.coach', 'Coach')}
                   testID={(options as any).tabBarTestID}
                   onPress={onPress}
                   onLongPress={onLongPress}

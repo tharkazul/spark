@@ -8,6 +8,7 @@ const multer = require('multer');
 const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback, generateImage } = require('../services/ai');
+const i18n = require('../services/i18n');
 const { encrypt, decrypt } = require('../services/crypto');
 const {
   matchGarminExercise,
@@ -40,17 +41,17 @@ const {
   canAccessQuests
 } = require('../services/utils');
 
-function getTimeRemainingStr(expiresAt) {
+function getTimeRemainingStr(expiresAt, lang = "en") {
   if (!expiresAt) return null;
   const diffMs = new Date(expiresAt).getTime() - Date.now();
-  if (diffMs <= 0) return "Expired";
+  if (diffMs <= 0) return i18n.t(lang, "questTime.expired");
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   const days = Math.floor(hours / 24);
   const remainingHours = hours % 24;
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  if (days > 0) return `${days}d ${remainingHours}h left`;
-  if (hours > 0) return `${hours}h ${minutes}m left`;
-  return `${minutes}m left`;
+  if (days > 0) return i18n.t(lang, "questTime.daysHours", { d: days, h: remainingHours });
+  if (hours > 0) return i18n.t(lang, "questTime.hoursMinutes", { h: hours, m: minutes });
+  return i18n.t(lang, "questTime.minutes", { m: minutes });
 }
 
 router.get("/api/milestones", authenticateToken, (req, res) => {
@@ -191,7 +192,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
           qObj.current_value = currentVal;
           qObj.progress = currentVal;
           qObj.progress_percent = Math.min(100, Math.round((currentVal / targetVal) * 100));
-          qObj.time_remaining_str = qObj.status === "active" ? getTimeRemainingStr(qObj.expires_at) : null;
+          qObj.time_remaining_str = qObj.status === "active" ? getTimeRemainingStr(qObj.expires_at, req.headers["x-app-language"] || req.user.language) : null;
 
           // Unit string
           if (qObj.target_metric === "distance_km") qObj.unit = "km";
@@ -213,7 +214,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
             newActive.current_value = 0;
             newActive.progress = 0;
             newActive.progress_percent = 0;
-            newActive.time_remaining_str = getTimeRemainingStr(newActive.expires_at);
+            newActive.time_remaining_str = getTimeRemainingStr(newActive.expires_at, req.headers["x-app-language"] || req.user.language);
             if (newActive.target_metric === "distance_km") newActive.unit = "km";
             else if (newActive.target_metric === "moving_time_min") newActive.unit = "min";
             else if (newActive.target_metric === "rooka_score") newActive.unit = "pts";
@@ -264,10 +265,13 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
     });
 
     if (titles.length > 0) {
+      const isDefaultTitle = (t) => t.milestone_key === 'default_rooka_plus';
       responseData.titles = titles.map((t) => ({
         ...t,
-        title: t.title || t.title_name,
-        title_name: t.title || t.title_name,
+        // The built-in Rooka+ title follows the athlete's current language.
+        description: isDefaultTitle(t) ? i18n.t(req.user.language, 'titles.rookaPlusDesc') : t.description,
+        title: isDefaultTitle(t) ? i18n.t(req.user.language, 'titles.rookaPlusTitle') : (t.title || t.title_name),
+        title_name: isDefaultTitle(t) ? i18n.t(req.user.language, 'titles.rookaPlusTitle') : (t.title || t.title_name),
         is_equipped: t.is_active === 1 ? 1 : 0,
         is_active: t.is_active === 1 ? 1 : 0,
       }));
@@ -275,9 +279,9 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
       const defaultTitle = {
         id: 'default_rooka_plus',
         user_id: userId,
-        title: 'Rooka+ Athlete',
-        title_name: 'Rooka+ Athlete',
-        description: 'Official member of the Rooka+ endurance squad.',
+        title: i18n.t(req.user.language, 'titles.rookaPlusTitle'),
+        title_name: i18n.t(req.user.language, 'titles.rookaPlusTitle'),
+        description: i18n.t(req.user.language, 'titles.rookaPlusDesc'),
         is_active: 1,
         is_equipped: 1,
         milestone_key: 'default_rooka_plus',
@@ -525,7 +529,8 @@ router.post(
             null,
             userId,
             "common",
-            true
+            true,
+            { language: req.user.language }
           );
           const titleData = JSON.parse(aiReply);
 

@@ -20,6 +20,7 @@ import Animated, {
 import { WorkoutStep, SportType } from '../../types/plan';
 import { styles, CARD_COLORS, ZONE_COLORS } from './StepCard.styles';
 import { ScalePressable } from '@/components/ui/ScalePressable';
+import { useLanguage } from '@/context/LanguageContext';
 
 export type StepCardProps = {
   step: WorkoutStep;
@@ -156,6 +157,7 @@ const StepCardComponent = ({
   onAddSubStep,
 }: StepCardProps) => {
     const theme = useTheme();
+  const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
   const { colorScheme } = useColorScheme();
 
@@ -214,27 +216,27 @@ const StepCardComponent = ({
   const targetDisplay = useMemo(() => {
     if (isStrengthOrMobility) {
       if (targetType === 'weight') return `${step.weight || 0} kg`;
-      return 'Open';
+      return t('stepCard.open');
     }
-    if (targetType === 'heart.rate.zone') return `HR Zone ${step.zone || 2}`;
-    if (targetType === 'power.zone') return `Pwr Zone ${step.zone || 2}`;
-    if (targetType === 'pace.zone') return `Pace Zone ${step.zone || 2}`;
-    if (targetType === 'speed.zone') return `Speed Zone ${step.zone || 2}`;
-    if (targetType === 'pace.exact') return `Pace: ${step.target_value || getPacePlaceholder(sport)}`;
-    if (targetType === 'power.exact') return `Pwr: ${step.target_value || '200'}W`;
-    return 'Open';
-  }, [isStrengthOrMobility, targetType, step, sport]);
+    if (targetType === 'heart.rate.zone') return t('stepCard.hrZone', { zone: step.zone || 2 });
+    if (targetType === 'power.zone') return t('stepCard.powerZone', { zone: step.zone || 2 });
+    if (targetType === 'pace.zone') return t('stepCard.paceZone', { zone: step.zone || 2 });
+    if (targetType === 'speed.zone') return t('stepCard.speedZone', { zone: step.zone || 2 });
+    if (targetType === 'pace.exact') return t('stepCard.paceValue', { value: step.target_value || getPacePlaceholder(sport) });
+    if (targetType === 'power.exact') return t('stepCard.powerValue', { value: step.target_value || '200' });
+    return t('stepCard.open');
+  }, [isStrengthOrMobility, targetType, step, sport, t]);
 
   const unitDisplay =
     condType === 'time'
-      ? 'MIN'
+      ? t('stepCard.unitMin')
       : condType === 'time_sec'
-      ? 'SEC'
+      ? t('stepCard.unitSec')
       : condType === 'distance'
       ? 'M'
       : condType === 'distance_km'
       ? 'KM'
-      : 'REPS';
+      : t('stepCard.unitReps');
 
   const handleUnitToggle = () => {
     Haptics.selectionAsync();
@@ -295,19 +297,19 @@ const StepCardComponent = ({
   const targetOptions = useMemo(() => {
     if (isStrengthOrMobility) {
       return [
-        { key: 'no.target', label: 'Open' },
-        { key: 'weight', label: 'Weight' },
+        { key: 'no.target', label: t('stepCard.open') },
+        { key: 'weight', label: t('stepCard.weight') },
       ];
     }
     return [
-      { key: 'no.target', label: 'Open' },
-      { key: 'heart.rate.zone', label: 'HR Z' },
-      { key: 'power.zone', label: 'Pwr Z' },
-      { key: 'power.exact', label: 'Pwr W' },
-      { key: 'pace.exact', label: 'Pace' },
-      { key: 'pace.zone', label: 'Pace Z' },
+      { key: 'no.target', label: t('stepCard.open') },
+      { key: 'heart.rate.zone', label: t('stepCard.hrZ') },
+      { key: 'power.zone', label: t('stepCard.pwrZ') },
+      { key: 'power.exact', label: t('stepCard.pwrW') },
+      { key: 'pace.exact', label: t('stepCard.pace') },
+      { key: 'pace.zone', label: t('stepCard.paceZ') },
     ];
-  }, [isStrengthOrMobility]);
+  }, [isStrengthOrMobility, t]);
 
   const maxZone = targetType === 'power.zone' ? 7 : 5;
 
@@ -462,7 +464,7 @@ const StepCardComponent = ({
                 >
                   {targetIcon}
                   <Text className="text-xs font-bold text-theme-muted dark:text-theme-muted">
-                    Target:{' '}
+                    {t('stepCard.target')}{' '}
                     <Text
                       className={`font-extrabold ${
                         hasActiveTarget ? 'text-theme-accent' : 'text-theme-text'
@@ -490,7 +492,7 @@ const StepCardComponent = ({
                   className="mt-1 p-3 bg-slate-50/80 dark:bg-slate-900/90 border border-slate-200/80 dark:border-white/10 rounded-xl flex-col gap-2.5"
                 >
                   <Text className="text-xs font-extrabold text-theme-muted">
-                    Target Type
+                    {t('stepCard.targetType')}
                   </Text>
 
                   {/* Target Type Chips Row with ScalePressable */}
@@ -534,7 +536,7 @@ const StepCardComponent = ({
                       className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5"
                     >
                       <Text className="text-xs font-extrabold text-theme-muted">
-                        Select Zone
+                        {t('stepCard.selectZone')}
                       </Text>
                       <View className="flex-row flex-wrap items-center gap-1.5">
                         {Array.from({ length: maxZone }, (_, i) => i + 1).map((z) => {
@@ -583,7 +585,7 @@ const StepCardComponent = ({
                       className="flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-white/5"
                     >
                       <Text className="text-xs font-extrabold text-theme-muted">
-                        {isWeightTarget ? 'Target Weight' : isExactPowerTarget ? 'Target Power' : 'Target Pace'}
+                        {isWeightTarget ? t('stepCard.targetWeight') : isExactPowerTarget ? t('stepCard.targetPower') : t('stepCard.targetPace')}
                       </Text>
                       <StepInputPill
                         value={
@@ -666,7 +668,7 @@ const StepCardComponent = ({
                     >
                       <Ionicons name="add" size={14} color={theme.textSecondary} />
                       <Text className="text-xs font-bold text-slate-600 dark:text-theme-muted">
-                        + Sub-step
+                        {t('stepCard.addSubStep')}
                       </Text>
                     </ScalePressable>
                   </Animated.View>

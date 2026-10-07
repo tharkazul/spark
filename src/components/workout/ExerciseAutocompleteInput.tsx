@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, TextInput, Text, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
+import { useLanguage } from '@/context/LanguageContext';
 import { COMMON_GARMIN_EXERCISES } from '../../domain/garminExercises';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function ExerciseAutocompleteInput({ value, onChangeText, textColor, editable = true }: Props) {
+  const { t } = useLanguage();
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
 
@@ -44,7 +46,7 @@ export function ExerciseAutocompleteInput({ value, onChangeText, textColor, edit
           // Delay blur to allow tap on suggestion
           setTimeout(() => setFocused(false), 200);
         }}
-        placeholder="Exercise name (e.g. Core Plank / Squats)"
+        placeholder={t('stepCard.exercisePlaceholder')}
         placeholderTextColor={theme.textSecondary}
         style={{ color: textColor }}
         className="w-full h-9 bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-white/10 rounded-xl px-3 text-xs font-bold"

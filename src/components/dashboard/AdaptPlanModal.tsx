@@ -159,7 +159,7 @@ export function AdaptPlanModal({
               </Text>
 
               <Text className="text-xs text-theme-muted text-center mb-5 leading-relaxed">
-                {t('dashboard.adaptModalSubtitle', { atl: `${atl} ATL` })}
+                {t('dashboard.adaptModalSubtitle', { atl: `${atl}` })}
               </Text>
             </View>
 

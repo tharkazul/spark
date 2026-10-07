@@ -47,7 +47,7 @@ function authenticateToken(req, res, next) {
     }
 
     db.get(
-      `SELECT id, username, subscription_tier, role, deleted_at FROM users WHERE id = ?`,
+      `SELECT id, username, subscription_tier, role, deleted_at, language FROM users WHERE id = ?`,
       [payload.id],
       (dbErr, user) => {
         if (dbErr) {
@@ -74,6 +74,8 @@ function authenticateToken(req, res, next) {
           username: user.username,
           subscription_tier: user.subscription_tier || "free",
           role: user.role || "user",
+          // Request-scoped language: the app's current UI language wins over the saved one.
+          language: req.headers["x-app-language"] || user.language || "en",
         };
         next();
       },

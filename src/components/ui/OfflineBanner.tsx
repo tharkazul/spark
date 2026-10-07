@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import {
   View,
   Text,
@@ -14,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { useOfflineSync } from '../../services/offlineSync';
 
 export function OfflineBanner() {
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { isOnline, isSyncing, pendingCount, flushQueue, checkOnlineStatus } = useOfflineSync();
 
@@ -89,23 +91,25 @@ export function OfflineBanner() {
   // Determine badge styling and copy
   let iconName: keyof typeof Ionicons.glyphMap = 'cloud-offline-outline';
   let iconColor = '#F59E0B'; // Amber
-  let title = 'Offline Mode';
-  let subtitle = 'Changes saved locally';
+  let title = t('uiExtra.offlineTitle');
+  let subtitle = t('uiExtra.offlineSubtitle');
   let badgeText = pendingCount > 0 ? `${pendingCount}` : undefined;
 
   if (isSyncing) {
     iconName = 'sync-outline';
     iconColor = '#F97316'; // Rooka Ember
-    title = 'Syncing...';
-    subtitle = pendingCount > 0 ? `Syncing ${pendingCount} offline ${pendingCount === 1 ? 'change' : 'changes'}` : 'Syncing changes';
+    title = t('uiExtra.syncingTitle');
+    subtitle = pendingCount > 0
+      ? (pendingCount === 1 ? t('uiExtra.syncingOne') : t('uiExtra.syncingMany', { count: pendingCount }))
+      : t('uiExtra.syncingChanges');
   } else if (showSuccessBanner) {
     iconName = 'checkmark-circle-outline';
     iconColor = '#10B981'; // Emerald
-    title = 'Synced';
-    subtitle = 'All changes synced to cloud';
+    title = t('uiExtra.syncedTitle');
+    subtitle = t('uiExtra.syncedSubtitle');
     badgeText = undefined;
   } else if (!isOnline && pendingCount > 0) {
-    subtitle = `${pendingCount} ${pendingCount === 1 ? 'change' : 'changes'} queued • tap to retry`;
+    subtitle = pendingCount === 1 ? t('uiExtra.queuedOne') : t('uiExtra.queuedMany', { count: pendingCount });
   }
 
   const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 44 : 24) + 6;

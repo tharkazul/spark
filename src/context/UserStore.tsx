@@ -17,6 +17,9 @@ import { wsService } from '../services/websocket';
 import { realtimeEngine } from '../realtime/realtimeEngine';
 import { getGoogleSignin } from '../services/googleAuth';
 import { getRookaLevelInfo } from '../utils/gamification';
+import { translate as tr, isLanguage } from '../locales/i18n';
+import { useLanguage } from './LanguageContext';
+import { languageStorage } from '../services/storage';
 
 interface UserContextType {
   user: UserProfile | null;
@@ -108,6 +111,19 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const loggingOutRef = useRef<boolean>(false);
+  const { language, setLanguage } = useLanguage();
+
+  // Adopt the language saved on the account (e.g. after reinstalling or signing in on a new
+  // device) unless the athlete already picked a language on this device.
+  const serverLanguage = (user as any)?.language;
+  useEffect(() => {
+    if (!isLanguage(serverLanguage) || serverLanguage === language) return;
+    (async () => {
+      const saved = await languageStorage.getLanguage();
+      if (!saved) await setLanguage(serverLanguage);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverLanguage]);
 
   useEffect(() => {
     try {
@@ -171,7 +187,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       const res = await authApi.login({ username: identifier, password });
 
       if (!res || !res.token) {
-        throw new Error('Sign in failed: no session token returned.');
+        throw new Error(tr('authErrors.noSessionToken'));
       }
 
       setAuthToken(res.token);
@@ -193,7 +209,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       setAuthToken(null);
       setUser(null);
       setIsAuthenticated(false);
-      const message = err?.message || 'Sign in failed. Please try again.';
+      const message = err?.message || tr('authErrors.signInFailed');
       setError(message);
       throw err instanceof Error ? err : new Error(message);
     } finally {
@@ -212,10 +228,11 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       // Only an existing username falls through to sign-in. A network failure
       // must surface as a failed registration rather than silently attempting a
       // login against an account that may never have been created.
-      if (err.message && err.message.toLowerCase().includes('already exist')) {
+      const rawRegisterError = String(err?.data?.error_en || err?.message || '');
+      if (rawRegisterError.toLowerCase().includes('already exist')) {
         console.log('Register notice, account exists — proceeding to sign in...');
       } else {
-        setError(err.message || 'Registration failed.');
+        setError(err.message || tr('authErrors.registrationFailed'));
         setLoading(false);
         throw err;
       }
@@ -224,7 +241,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     try {
       await login(cleanEmail || cleanUsername, password);
     } catch (loginErr: any) {
-      setError(loginErr.message || 'Auto-login failed.');
+      setError(loginErr.message || tr('authErrors.autoLoginFailed'));
       throw loginErr;
     } finally {
       setLoading(false);
@@ -248,7 +265,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       setAuthToken(null);
       setUser(null);
       setIsAuthenticated(false);
-      const message = err?.message || 'Authentication failed. Please sign in.';
+      const message = err?.message || tr('authErrors.authFailed');
       setError(message);
       throw err instanceof Error ? err : new Error(message);
     } finally {
@@ -270,7 +287,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           await loginWithToken(res.token);
         }
       } catch (err: any) {
-        setError(err.message || 'Password reset failed.');
+        setError(err.message || tr('authErrors.passwordResetFailed'));
         throw err;
       } finally {
         setLoading(false);
@@ -294,9 +311,9 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           await loginWithToken(res.token);
           return { isNewUser: res.isNewUser };
         }
-        throw new Error('No authentication token returned by server.');
+        throw new Error(tr('authErrors.noSessionToken'));
       } catch (err: any) {
-        const msg = err?.message || 'Apple Sign-In failed.';
+        const msg = err?.message || tr('authErrors.appleFailed');
         setError(msg);
         throw err instanceof Error ? err : new Error(msg);
       } finally {
@@ -313,14 +330,14 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       const googleSignin = getGoogleSignin();
       if (!googleSignin) {
         throw new Error(
-          'Google Sign-In is not supported in Expo Go. Please use a development build or sign in with email/password.'
+          tr('authErrors.googleExpoGo')
         );
       }
       await googleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const response = await googleSignin.signIn();
       const idToken = response?.data?.idToken || (response as any)?.idToken;
       if (!idToken) {
-        throw new Error('Google Sign-In failed: No ID token returned.');
+        throw new Error(tr('authErrors.googleNoToken'));
       }
 
       const res = await authApi.googleLogin({
@@ -332,7 +349,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         await loginWithToken(res.token);
         return { isNewUser: res.isNewUser };
       }
-      throw new Error('No authentication token returned by server.');
+      throw new Error(tr('authErrors.noSessionToken'));
     } catch (err: any) {
       if (
         err?.code === 'SIGN_IN_CANCELLED' ||
@@ -341,7 +358,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       ) {
         return;
       }
-      const msg = err?.message || 'Google Sign-In failed.';
+      const msg = err?.message || tr('authErrors.googleFailed');
       setError(msg);
       throw err instanceof Error ? err : new Error(msg);
     } finally {
@@ -401,8 +418,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
       }
       const message =
         reason === 'ACCOUNT_DELETED'
-          ? 'This account has been deleted.'
-          : 'Your session has expired. Please sign in again.';
+          ? tr('authErrors.accountDeleted')
+          : tr('authErrors.sessionExpired');
       logout(message);
     });
 
@@ -457,8 +474,8 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
             // Session really is dead (expired, or the account was deleted).
             await logout(
               err.data?.code === 'ACCOUNT_DELETED'
-                ? 'This account has been deleted.'
-                : 'Your session has expired. Please sign in again.'
+                ? tr('authErrors.accountDeleted')
+                : tr('authErrors.sessionExpired')
             );
             return;
           }
@@ -467,7 +484,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
           // If we had no cached profile, we can't let them in.
           if (!cachedProfile) {
             setAuthToken(null);
-            setError('Could not reach rooka. Check your connection and try again.');
+            setError(tr('authErrors.unreachable'));
           }
         }
       } catch (err) {

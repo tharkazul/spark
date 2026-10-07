@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { translate as tr } from '../locales/i18n';
 import { Platform, Alert } from 'react-native';
 import Purchases, {
   CustomerInfo,
@@ -156,7 +157,7 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
       }
       setLoading(false);
       if (res.error && !res.userCancelled) {
-        Alert.alert('Subscription', res.error);
+        Alert.alert(tr('coachStore.subscriptionTitle'), res.error);
       }
       if (res.success) {
         await syncSubscriptionWithBackend(true);
@@ -175,13 +176,13 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
     }
     setLoading(false);
     if (res.error) {
-      Alert.alert('Restore Purchases', res.error);
+      Alert.alert(tr('coachStore.restoreTitle'), res.error);
     } else if (res.success) {
-      Alert.alert('Success', 'Your subscriptions have been restored.');
+      Alert.alert(tr('common.success'), tr('coachStore.restored'));
       await syncSubscriptionWithBackend(true);
       await refreshUser?.();
     } else {
-      Alert.alert('Restore Purchases', 'No active subscription was found for this account.');
+      Alert.alert(tr('coachStore.restoreTitle'), tr('coachStore.noSubscription'));
     }
     return res.success;
   }, [refreshUser]);

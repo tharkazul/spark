@@ -63,6 +63,16 @@ interface DetailedDayCardProps {
 }
 
 
+/** Small "🔒 ROOKA+" pill shown on actions that need a Rooka+ subscription (tapping opens the paywall). */
+function RookaPlusBadge() {
+  return (
+    <View className="flex-row items-center gap-1 bg-theme-accent/15 px-1.5 py-0.5 rounded-full ml-1">
+      <Ionicons name="lock-closed" size={9} color="#0EA5E9" />
+      <Text className="text-[9px] font-bold text-theme-accent">ROOKA+</Text>
+    </View>
+  );
+}
+
 export function DetailedDayCard({
   day,
   weatherTemp = '22°C',
@@ -149,7 +159,7 @@ export function DetailedDayCard({
               </View>
               <Text numberOfLines={1} className="text-xs text-theme-muted mt-0.5 font-jakarta">
                 {isRestExecuted
-                  ? t('dashboard.restDayHonoredDetails', 'Great recovery discipline! Rest allows your muscle fibers to repair.')
+                  ? t('dashboard.restDayHonoredSummary', 'Rest day completed')
                   : isRestToday
                   ? t('dashboard.restDayTodayDetails', 'Rest today. Aim for good sleep and some gentle mobility.')
                   : t('dashboard.restDaySummary', 'Rest Day · Aim for 8 hours of sleep & gentle mobility')}
@@ -161,7 +171,7 @@ export function DetailedDayCard({
             variant="ghost"
             size="sm"
             label={t('common.add', 'Add')}
-            leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+            rightIcon={!canEdit ? <RookaPlusBadge /> : undefined}
             onPress={() => {
               if (!canEdit) {
                 onUpgradePress?.();
@@ -325,7 +335,7 @@ export function DetailedDayCard({
             variant="ghost"
             size="sm"
             label={t('dashboard.addWorkoutBtn', '+ Add Workout')}
-            leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+            rightIcon={!canEdit ? <RookaPlusBadge /> : undefined}
             className="mt-3"
             onPress={() => {
               if (!canEdit) {
@@ -419,7 +429,7 @@ export function DetailedDayCard({
                       >
                         <Ionicons name="sparkles" size={11} color="#0EA5E9" />
                         <Text className="text-[11px] font-bold text-theme-accent-text font-jakarta">
-                          Why this workout
+                          {t('whyWorkout.titleShort')}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -499,7 +509,7 @@ export function DetailedDayCard({
                     size="sm"
                     className="flex-1"
                     label={t('common.edit', 'Edit')}
-                    leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+                    rightIcon={!canEdit ? <RookaPlusBadge /> : undefined}
                     onPress={() => {
                       if (!canEdit) {
                         onUpgradePress?.();
@@ -527,7 +537,7 @@ export function DetailedDayCard({
               variant="ghost"
               size="sm"
               label={t('dashboard.addWorkoutBtn', '+ Add workout')}
-              leftIcon={!canEdit ? <Ionicons name="lock-closed" size={11} color="#0EA5E9" /> : undefined}
+              rightIcon={!canEdit ? <RookaPlusBadge /> : undefined}
               onPress={() => {
                 if (!canEdit) {
                   onUpgradePress?.();

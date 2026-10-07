@@ -558,7 +558,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `${activity?.name || 'Workout'} - ${distanceKmStr} km on Rooka`,
+        message: t('activityDetail.shareMessage', { name: activity?.name || t('activityDetail.workout'), km: distanceKmStr }),
       });
     } catch (e) {
       console.log('Share error:', e);
@@ -587,12 +587,12 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
   const handleLinkActivity = (source: Activity) => {
     Alert.alert(
-      'Link Workout Session?',
-      `Merge telemetry (distance, pace, heart rate & route) from "${source.name}" into "${activity?.name || 'Workout'}"?\n\n"${source.name}" will be hidden so you don't receive duplicate points.`,
+      t('activityDetail.linkTitle'),
+      t('activityDetail.linkBody', { source: source.name, target: activity?.name || t('activityDetail.workout') }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Link Sessions',
+          text: t('activityDetail.linkSessions'),
           onPress: async () => {
             if (!activityId) return;
             setIsLinking(true);
@@ -608,10 +608,10 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                 }
                 refreshActivities?.();
                 await new Promise((r) => setTimeout(r, 450));
-                Alert.alert('Session Linked', 'Telemetry successfully transferred and duplicate points removed.');
+                Alert.alert(t('activityDetail.linkedTitle'), t('activityDetail.linkedBody'));
               }
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to link activities.');
+              Alert.alert(t('common.error'), err?.message || t('activityDetail.linkFailed'));
             } finally {
               setIsLinking(false);
             }
@@ -625,12 +625,12 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     setShowActionsMenu(false);
     await new Promise((r) => setTimeout(r, 450));
     Alert.alert(
-      'Unlink Session?',
-      'This will separate the linked telemetry and restore both activities.',
+      t('activityDetail.unlinkTitle'),
+      t('activityDetail.unlinkBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Unlink',
+          text: t('activityDetail.unlink'),
           style: 'destructive',
           onPress: async () => {
             if (!activityId) return;
@@ -645,10 +645,10 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   setActivity(normalizeActivity(updated));
                 }
                 refreshActivities?.();
-                Alert.alert('Session Unlinked', 'Activities have been restored.');
+                Alert.alert(t('activityDetail.unlinkedTitle'), t('activityDetail.unlinkedBody'));
               }
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to unlink activities.');
+              Alert.alert(t('common.error'), err?.message || t('activityDetail.unlinkFailed'));
             } finally {
               setIsLinking(false);
             }
@@ -662,12 +662,12 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     setShowActionsMenu(false);
     await new Promise((r) => setTimeout(r, 450));
     Alert.alert(
-      'Delete Activity?',
-      'Are you sure you want to delete this activity? This cannot be undone.',
+      t('activityDetail.deleteTitle'),
+      t('activityDetail.deleteBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             if (!activityId) return;
@@ -679,7 +679,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                 onClose();
               }
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to delete activity.');
+              Alert.alert(t('common.error'), err?.message || t('activityDetail.deleteFailed'));
             }
           },
         },
@@ -1008,8 +1008,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                 pitchEnabled={mapInteractive}
               >
                 <Polyline coordinates={coordinates} strokeColor={theme.tint} strokeWidth={4.5} />
-                {startPt && <Marker coordinate={startPt} title="Start" pinColor="green" />}
-                {endPt && <Marker coordinate={endPt} title="Finish" pinColor="blue" />}
+                {startPt && <Marker coordinate={startPt} title={t('activityDetail.mapStart')} pinColor="green" />}
+                {endPt && <Marker coordinate={endPt} title={t('activityDetail.mapFinish')} pinColor="blue" />}
               </MapView>
             </Pressable>
           ) : (
@@ -1094,7 +1094,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
           {/* Title & Sport Subtitle */}
           <Text className="text-2xl font-extrabold text-theme-text tracking-tight">
-            {activity?.name || 'Workout Telemetry'}
+            {activity?.name || t('activityDetail.workoutTelemetry')}
           </Text>
 
           <View className="flex-row items-center gap-x-2 mt-1 mb-2">
@@ -1110,7 +1110,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
               <View className="flex-row items-center gap-x-2 flex-1 mr-2">
                 <Ionicons name="link" size={16} color={theme.tint} />
                 <Text className="text-xs font-semibold text-primary flex-1" numberOfLines={1}>
-                  Linked with {activity.linked_activity_name || 'watch telemetry'}
+                  {t('activityDetail.linkedWith', { name: activity.linked_activity_name || t('activityDetail.watchTelemetry') })}
                 </Text>
               </View>
               {isOwner && (
@@ -1119,7 +1119,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   disabled={isLinking}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text className="text-xs font-bold text-theme-muted underline">Unlink</Text>
+                  <Text className="text-xs font-bold text-theme-muted underline">{t('activityDetail.unlink')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -1156,7 +1156,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             <Card variant="default" padding={16} className="flex-row justify-between items-center">
               <View className="flex-1">
                 <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                  DISTANCE
+                  {t('activityDetail.distance')}
                 </Text>
                 <View className="flex-row items-baseline mt-1">
                   <Text className="text-4xl font-bold font-rajdhani text-theme-text tabular-nums">
@@ -1170,7 +1170,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
               <View className="flex-1 items-end">
                 <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                  EFFORT
+                  {t('activityDetail.effort')}
                 </Text>
                 <View className="flex-row items-center mt-1 px-3 py-1.5 rounded-inset bg-theme-accent-soft">
                   <Ionicons name="flash" size={16} color="#0EA5E9" />
@@ -1187,7 +1187,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
               <View className="flex-row justify-between items-center">
                 <View className="w-1/3">
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                    {isCycling ? 'AVG SPEED' : 'AVG PACE'}
+                    {isCycling ? t('activityDetail.avgSpeed') : t('activityDetail.avgPace')}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1201,7 +1201,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
                 <View className="w-1/3 items-center">
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                    MOVING TIME
+                    {t('activityDetail.movingTime')}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1215,7 +1215,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
                 <View className="w-1/3 items-end">
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                    {avgHeartRate ? 'AVG HR' : 'AVG POWER'}
+                    {avgHeartRate ? t('activityDetail.avgHr') : t('activityDetail.avgPower')}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1234,7 +1234,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
               <View className="flex-row justify-between items-center">
                 <View className="w-1/3">
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                    ELEVATION
+                    {t('activityDetail.elevation')}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1248,7 +1248,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
                 <View className="w-1/3 items-center">
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                    CALORIES
+                    {t('activityDetail.calories')}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1262,7 +1262,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
                 <View className="w-1/3 items-end">
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                    {hasSignificantElapsedDiff ? 'ELAPSED' : maxHr ? 'MAX HR' : 'POWER'}
+                    {hasSignificantElapsedDiff ? t('activityDetail.elapsed') : maxHr ? t('activityDetail.maxHr') : t('activityDetail.power')}
                   </Text>
                   <Text
                     numberOfLines={1}
@@ -1286,10 +1286,10 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                 <View className="mt-4 pt-4 border-t border-theme-border">
                   <View className="flex-row justify-between items-center mb-2">
                     <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-                      HEART RATE ZONES
+                      {t('activityDetail.hrZones')}
                     </Text>
                     <Text className="text-xs font-semibold text-theme-muted font-rajdhani tabular-nums">
-                      {hrZones.reduce((acc, z) => acc + z.mins, 0)} min total
+                      {t('activityDetail.minTotal', { mins: hrZones.reduce((acc, z) => acc + z.mins, 0) })}
                     </Text>
                   </View>
 
@@ -1351,10 +1351,10 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
               <Card variant="default" padding={16}>
                 <View className="flex-row justify-between items-center mb-3">
                   <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                    {hasMilestones ? 'Best Efforts & Milestones' : 'Strength Sets Breakdown'}
+                    {hasMilestones ? t('activityDetail.bestEfforts') : t('activityDetail.strengthSets')}
                   </Text>
                   <Text className="text-xs font-bold text-theme-accent font-rajdhani">
-                    {setsOrEfforts.length} Recorded
+                    {t('activityDetail.recordedCount', { count: setsOrEfforts.length })}
                   </Text>
                 </View>
 
@@ -1381,7 +1381,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                         <Text className="text-sm font-bold text-theme-text">{item.name}</Text>
                         {item.prRank === 1 && (
                           <View className="bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-2">
-                            <Text className="text-xs font-bold text-amber-600 dark:text-amber-300">PR</Text>
+                            <Text className="text-xs font-bold text-amber-600 dark:text-amber-300">{t('activityDetail.pr')}</Text>
                           </View>
                         )}
                       </View>
@@ -1401,7 +1401,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                     ) : (
                       <Text className="text-xs font-bold font-rajdhani text-theme-accent tabular-nums">
                         {item.weight ? `${item.weight} kg × ` : ''}
-                        {item.reps ? `${item.reps} reps` : 'Complete'}
+                        {item.reps ? t('activityDetail.reps', { count: item.reps }) : t('activityDetail.complete')}
                       </Text>
                     )}
                   </View>
@@ -1414,7 +1414,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
               <Card variant="default" padding={16}>
                 <View className="flex-row justify-between items-center mb-3">
                   <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                    {isCycling ? 'Speed by Lap' : 'Lap Splits Table'} ({laps.length})
+                    {isCycling ? t('activityDetail.speedByLap') : t('activityDetail.lapSplits')} ({laps.length})
                   </Text>
                   {laps.length > 5 && (
                     <TouchableOpacity
@@ -1425,7 +1425,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                       className="flex-row items-center"
                     >
                       <Text className="text-xs font-bold text-theme-accent mr-1">
-                        {isLapsExpanded ? 'Show less' : `Expand all (${laps.length})`}
+                        {isLapsExpanded ? t('common.showLess') : t('activityDetail.expandAll', { count: laps.length })}
                       </Text>
                       <Ionicons
                         name={isLapsExpanded ? 'chevron-up' : 'chevron-down'}
@@ -1439,16 +1439,16 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                 {/* Table Header */}
                 <View className="flex-row justify-between pb-2 border-b border-theme-border px-1 mb-1">
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-12">
-                    LAP
+                    {t('activityDetail.lap')}
                   </Text>
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-20">
-                    DIST
+                    {t('activityDetail.dist')}
                   </Text>
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider flex-1">
-                    {isCycling ? 'SPEED' : 'PACE'}
+                    {isCycling ? t('activityDetail.speed') : t('activityDetail.pace')}
                   </Text>
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-16 text-right">
-                    AVG HR
+                    {t('activityDetail.avgHr')}
                   </Text>
                 </View>
 
@@ -1492,7 +1492,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         header={
           <View className="pt-2 pb-1">
             <Text className="text-base font-extrabold text-theme-text mb-3 text-center">
-              Workout Options
+              {t('activityDetail.workoutOptions')}
             </Text>
           </View>
         }
@@ -1505,8 +1505,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             >
               <Ionicons name="link-outline" size={20} color={theme.tint} />
               <View className="flex-1">
-                <Text className="text-sm font-bold text-theme-text">Unlink Synced Session</Text>
-                <Text className="text-xs text-theme-muted">Restore both workouts as separate entries</Text>
+                <Text className="text-sm font-bold text-theme-text">{t('activityDetail.unlinkSynced')}</Text>
+                <Text className="text-xs text-theme-muted">{t('activityDetail.unlinkSyncedDesc')}</Text>
               </View>
             </TouchableOpacity>
           ) : (
@@ -1516,8 +1516,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             >
               <Ionicons name="link-outline" size={20} color={theme.tint} />
               <View className="flex-1">
-                <Text className="text-sm font-bold text-theme-text">Link With Synced Session</Text>
-                <Text className="text-xs text-theme-muted">Merge GPS route, duration & heart rate into this workout</Text>
+                <Text className="text-sm font-bold text-theme-text">{t('activityDetail.linkSynced')}</Text>
+                <Text className="text-xs text-theme-muted">{t('activityDetail.linkSyncedDesc')}</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -1528,8 +1528,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
           >
             <Ionicons name="trash-outline" size={20} color="#f43f5e" />
             <View className="flex-1">
-              <Text className="text-sm font-bold text-rose-500">Delete Activity</Text>
-              <Text className="text-xs text-rose-500/70">Permanently remove this workout from your log</Text>
+              <Text className="text-sm font-bold text-rose-500">{t('activityDetail.deleteActivity')}</Text>
+              <Text className="text-xs text-rose-500/70">{t('activityDetail.deleteActivityDesc')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -1537,7 +1537,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             onPress={() => setShowActionsMenu(false)}
             className="py-3 items-center justify-center mt-2"
           >
-            <Text className="text-sm font-bold text-theme-muted">Cancel</Text>
+            <Text className="text-sm font-bold text-theme-muted">{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>
@@ -1550,10 +1550,10 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         header={
           <View className="pt-2 pb-2">
             <Text className="text-base font-extrabold text-theme-text text-center">
-              Link Synced Session
+              {t('activityDetail.linkSyncedTitle')}
             </Text>
             <Text className="text-xs text-theme-muted text-center mt-1 px-2">
-              Select a session from this day to merge into {activity?.name || 'this workout'}. Telemetry will be combined and the other session hidden to prevent duplicate points.
+              {t('activityDetail.linkSyncedIntro', { name: activity?.name || t('activityDetail.thisWorkout') })}
             </Text>
           </View>
         }
@@ -1562,16 +1562,16 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
           {loadingCandidates ? (
             <View className="py-8 items-center justify-center">
               <ActivityIndicator size="small" color={theme.tint} />
-              <Text className="text-xs text-theme-muted mt-2">Finding sessions from this day...</Text>
+              <Text className="text-xs text-theme-muted mt-2">{t('activityDetail.findingSessions')}</Text>
             </View>
           ) : linkCandidates.length === 0 ? (
             <View className="py-6 items-center justify-center bg-theme-inset rounded-2xl px-4 my-2">
               <Ionicons name="information-circle-outline" size={24} color={theme.textSecondary} />
               <Text className="text-xs font-semibold text-theme-text mt-2 text-center">
-                No other workouts found on this day
+                {t('activityDetail.noOtherWorkouts')}
               </Text>
               <Text className="text-[11px] text-theme-muted mt-1 text-center">
-                Sessions must be recorded on the same date ({activity?.start_date?.substring(0, 10)}) to be linked.
+                {t('activityDetail.sameDateRule', { date: activity?.start_date?.substring(0, 10) || '' })}
               </Text>
             </View>
           ) : (
@@ -1591,7 +1591,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                       </Text>
                       <Text className="text-xs text-theme-muted mt-0.5">
                         {candidate.distance_km ? `${candidate.distance_km.toFixed(1)} km · ` : ''}
-                        {Math.round(candidate.moving_time_min || 0)} mins
+                        {t('activityDetail.minsShort', { mins: Math.round(candidate.moving_time_min || 0) })}
                         {candidate.average_heartrate ? ` · ${Math.round(candidate.average_heartrate)} bpm` : ''}
                       </Text>
                     </View>
@@ -1618,7 +1618,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             onPress={() => setShowLinkModal(false)}
             className="py-3 items-center justify-center"
           >
-            <Text className="text-sm font-bold text-theme-muted">Cancel</Text>
+            <Text className="text-sm font-bold text-theme-muted">{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>

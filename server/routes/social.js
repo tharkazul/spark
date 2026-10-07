@@ -10,6 +10,7 @@ const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const i18n = require('../services/i18n');
 const {
   matchGarminExercise,
   getAMSDateString,
@@ -104,7 +105,8 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
       db.run(
         `INSERT OR IGNORE INTO connections (user_id, friend_id, status) VALUES (?, ?, 'pending_received')`,
         [friendId, req.user.id],
-        function (err2) {
+        async function (err2) {
+          const friendLang = await i18n.getUserLanguage(friendId);
           sendSSEEvent(friendId, "connection_request", {
             fromUserId: req.user.id,
             username: req.user.username,
@@ -118,7 +120,7 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
             status: "pending",
           };
           const payloadJson = JSON.stringify(payloadObj);
-          const chatMsg = `${req.user.username} wants to connect with you on Rooka! Do you want to accept their connection request?`;
+          const chatMsg = i18n.t(friendLang, 'chat.connectionRequest', { name: req.user.username });
 
           db.run(
             `INSERT INTO chat_history (user_id, role, content, mood, payload_json) VALUES (?, 'coach', ?, 'support', ?)`,
@@ -130,8 +132,8 @@ router.post("/api/social/connect", authenticateToken, (req, res) => {
                 payload_json: payloadObj,
               });
               sendPushToUser(friendId, {
-                title: "New Connection Request! 🏃",
-                body: `${req.user.username} sent you a connection request on Rooka.`,
+                title: i18n.t(friendLang, 'push.connectionRequest.title'),
+                body: i18n.t(friendLang, 'push.connectionRequest.body', { name: req.user.username }),
                 data: { url: "/(tabs)/coach", type: "connection" },
                 badge: 1,
               });
@@ -154,14 +156,15 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
       db.run(
         `UPDATE connections SET status = 'accepted' WHERE user_id = ? AND friend_id = ?`,
         [friendId, req.user.id],
-        function (err2) {
+        async function (err2) {
+          const friendLang = await i18n.getUserLanguage(friendId);
           sendSSEEvent(friendId, "connection_accepted", {
             fromUserId: req.user.id,
             username: req.user.username,
           });
           sendPushToUser(friendId, {
-            title: "Connection Accepted! 🤝",
-            body: `${req.user.username} accepted your connection request!`,
+            title: i18n.t(friendLang, 'push.connectionAccepted.title'),
+            body: i18n.t(friendLang, 'push.connectionAccepted.body', { name: req.user.username }),
             data: { url: "/(tabs)/social", type: "connection" },
           });
 
@@ -198,13 +201,13 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
                 username: req.user.username,
               };
               const confirmPayload = JSON.stringify(confirmPayloadObj);
-              let confirmMsg = `${req.user.username} accepted your connection request! You are now connected on Rooka!`;
+              let confirmMsg = i18n.t(friendLang, 'chat.connectionAccepted', { name: req.user.username });
 
               if (friendUser) {
                 const prompt = `The athlete just connected with their friend ${req.user.username} on the app. Send a short 1-2 sentence message to the athlete welcoming the new connection and telling them to use the friendly competition as motivation!`;
                 const sysPrompt = `You are an elite endurance coach. Your tone is: ${friendUser.coach_tone || "Friendly and motivating"}.`;
                 try {
-                  const aiMsg = await generateWithFallback(prompt, sysPrompt);
+                  const aiMsg = await generateWithFallback(prompt, sysPrompt, null, null, null, "personal", false, { language: friendLang });
                   if (aiMsg) confirmMsg = aiMsg;
                 } catch (e) {
                   console.error(e);
@@ -479,9 +482,10 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
                   });
 
                   db.get(
-                    `SELECT coach_tone FROM users WHERE id = ?`,
+                    `SELECT coach_tone, language FROM users WHERE id = ?`,
                     [act.user_id],
                     async (err, coachUser) => {
+                      const ownerLang = i18n.normalizeLang(coachUser && coachUser.language);
                       if (coachUser) {
                         const prompt = `The athlete just received a Spark (a like/kudos) from their friend ${req.user.username || "Someone"} on their activity "${act.name}". Send a very short 1-sentence message to the athlete acknowledging this and hyping them up.`;
                         const sysPrompt = `You are an elite endurance coach. Your tone is: ${coachUser.coach_tone || "Friendly and motivating"}.`;
@@ -489,6 +493,12 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
                           const msg = await generateWithFallback(
                             prompt,
                             sysPrompt,
+                            null,
+                            null,
+                            null,
+                            "personal",
+                            false,
+                            { language: ownerLang },
                           );
                           db.run(
                             `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
@@ -500,8 +510,8 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
                                   mood: "hype",
                                 });
                                 sendPushToUser(act.user_id, {
-                                  title: "New Spark! ⚡",
-                                  body: `${req.user.username || "A friend"} sent you a spark on ${act.name}!`,
+                                  title: i18n.t(ownerLang, 'push.spark.title'),
+                                  body: i18n.t(ownerLang, 'push.spark.body', { name: req.user.username || i18n.t(ownerLang, 'common.aFriend'), activity: act.name || i18n.t(ownerLang, 'common.activity') }),
                                   data: { url: "/(tabs)/social", type: "spark" },
                                 });
                               }
@@ -547,7 +557,8 @@ router.post("/api/social/invite", authenticateToken, (req, res) => {
           const inviterName = inviterUser?.username || req.user.username || "Friend";
           const inviterAvatar = inviterUser?.profile_picture_url || null;
 
-          invitee_ids.forEach((inviteeId) => {
+          invitee_ids.forEach(async (inviteeId) => {
+            const inviteeLang = await i18n.getUserLanguage(inviteeId);
             db.run(
               `INSERT INTO event_invitations (inviter_id, invitee_id, micro_plan_id, location, time) VALUES (?, ?, ?, ?, ?)`,
               [req.user.id, inviteeId, micro_plan_id, location || '', time || ''],
@@ -572,9 +583,16 @@ router.post("/api/social/invite", authenticateToken, (req, res) => {
                   status: 'pending',
                 };
 
-                const locStr = location ? `\n📍 Location: ${location}` : '';
-                const timeStr = time ? `\n🕒 Time: ${time}` : '';
-                const inviteeMsg = `Hey! **${inviterName}** has invited you to join their upcoming **${plan.sport}** workout: **${plan.description || 'Workout'}**.\n\n📅 Date: ${plan.date}${locStr}${timeStr}\n\nDo you want to accept this invitation and add it to your plan?`;
+                const locStr = location ? `\n${i18n.t(inviteeLang, 'common.location')}: ${location}` : '';
+                const timeStr = time ? `\n${i18n.t(inviteeLang, 'common.time')}: ${time}` : '';
+                const inviteeMsg = i18n.t(inviteeLang, 'chat.eventInvite', {
+                  inviter: inviterName,
+                  sport: i18n.sportLabel(inviteeLang, plan.sport),
+                  description: plan.description || i18n.t(inviteeLang, 'common.workout'),
+                  dateLabel: i18n.t(inviteeLang, 'common.date'),
+                  date: plan.date,
+                  extra: `${locStr}${timeStr}`,
+                });
 
                 db.run(
                   `INSERT INTO chat_history (user_id, role, content, mood, payload_json) VALUES (?, 'coach', ?, 'support', ?)`,
@@ -587,8 +605,8 @@ router.post("/api/social/invite", authenticateToken, (req, res) => {
                         payload_json: payloadObj,
                       });
                       sendPushToUser(inviteeId, {
-                        title: "Workout Invitation! 🏃",
-                        body: `${inviterName} invited you to a ${plan.sport} workout on ${plan.date}!`,
+                        title: i18n.t(inviteeLang, 'push.eventInvite.title'),
+                        body: i18n.t(inviteeLang, 'push.eventInvite.body', { name: inviterName, sport: i18n.sportLabel(inviteeLang, plan.sport), date: plan.date }),
                         data: { url: "/(tabs)/coach", type: "event_invite" },
                       });
                     }
@@ -671,17 +689,18 @@ router.post("/api/social/invite/:id/accept", authenticateToken, (req, res) => {
           );
 
           // Notify inviter
-          db.get(`SELECT username FROM users WHERE id = ?`, [req.user.id], (err, acceptor) => {
-            const acceptorName = acceptor ? acceptor.username : 'Someone';
-            const inviterMsg = `${acceptorName} accepted your invitation for the ${plan.sport} workout on ${plan.date}!`;
+          db.get(`SELECT username FROM users WHERE id = ?`, [req.user.id], async (err, acceptor) => {
+            const inviterLang = await i18n.getUserLanguage(invite.inviter_id);
+            const acceptorName = acceptor ? acceptor.username : i18n.t(inviterLang, 'common.someone');
+            const inviterMsg = i18n.t(inviterLang, 'chat.inviteAccepted', { name: acceptorName, sport: i18n.sportLabel(inviterLang, plan.sport), date: plan.date });
             db.run(
               `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
               [invite.inviter_id, inviterMsg],
               () => {
                 sendSSEEvent(invite.inviter_id, "unread_message", { message: inviterMsg, mood: "hype" });
                 sendPushToUser(invite.inviter_id, {
-                  title: "Invite Accepted! 🎉",
-                  body: `${acceptorName} joined your ${plan.sport} workout on ${plan.date}!`,
+                  title: i18n.t(inviterLang, 'push.inviteAccepted.title'),
+                  body: i18n.t(inviterLang, 'push.inviteAccepted.body', { name: acceptorName, sport: i18n.sportLabel(inviterLang, plan.sport), date: plan.date }),
                   data: { url: "/(tabs)/coach", type: "invite_accepted" },
                 });
               }

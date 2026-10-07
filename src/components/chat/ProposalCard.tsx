@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
   onAccept,
   onReject,
 }) => {
+  const { t } = useLanguage();
     const theme = useTheme();
   if (!plan || plan.length === 0) return null;
 
@@ -31,8 +33,8 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
           <Ionicons name="calendar-outline" size={18} color={theme.tint} />
         </View>
         <View className="flex-1">
-          <Text className="text-theme-text font-bold text-sm font-rajdhani">rooka Workout Proposal</Text>
-          <Text className="text-theme-muted text-xs">{plan.length} workout change{plan.length > 1 ? 's' : ''} suggested</Text>
+          <Text className="text-theme-text font-bold text-sm font-rajdhani">{t('chatCards.proposalTitle')}</Text>
+          <Text className="text-theme-muted text-xs">{plan.length === 1 ? t('chatCards.oneChange') : t('chatCards.nChanges', { count: plan.length })}</Text>
         </View>
       </View>
 
@@ -40,7 +42,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
         {plan.map((item, idx) => (
           <View key={`prop-item-${idx}`} className="p-2.5 rounded-lg bg-theme-bg/60 flex-row items-center justify-between">
             <View className="flex-1 mr-2">
-              <Text className="text-theme-accent font-bold text-xs">{item.date} • {item.sport.toUpperCase()}</Text>
+              <Text className="text-theme-accent font-bold text-xs">{item.date} • {t(`sports.${String(item.sport || '').toLowerCase()}`, item.sport).toUpperCase()}</Text>
               <Text className="text-theme-text text-xs font-medium" numberOfLines={1}>{item.description}</Text>
             </View>
             {item.target_rooka ? (
@@ -57,12 +59,12 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
       {isAccepted ? (
         <View className="flex-row items-center justify-center p-2 rounded-lg bg-semantic-success/20">
           <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-          <Text className="text-semantic-success font-bold text-xs ml-2">Plan Proposal Accepted</Text>
+          <Text className="text-semantic-success font-bold text-xs ml-2">{t('chatCards.proposalAccepted')}</Text>
         </View>
       ) : isRejected ? (
         <View className="flex-row items-center justify-center p-2 rounded-lg bg-semantic-error/20">
           <Ionicons name="close-circle" size={18} color="#EF4444" />
-          <Text className="text-semantic-error font-bold text-xs ml-2">Proposal Rejected</Text>
+          <Text className="text-semantic-error font-bold text-xs ml-2">{t('chatCards.proposalRejected')}</Text>
         </View>
       ) : (
         <View className="flex-row gap-2">
@@ -70,7 +72,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
             onPress={onReject}
             className="flex-1 py-2.5 rounded-lg bg-theme-bg items-center justify-center"
           >
-            <Text className="text-theme-muted font-bold text-xs">Reject</Text>
+            <Text className="text-theme-muted font-bold text-xs">{t('chatCards.reject')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -78,7 +80,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
             className="flex-1 py-2.5 rounded-lg bg-theme-accent items-center justify-center flex-row gap-1"
           >
             <Ionicons name="checkmark" size={16} color="white" />
-            <Text className="text-white font-bold text-xs">Accept Plan</Text>
+            <Text className="text-white font-bold text-xs">{t('chatCards.acceptPlan')}</Text>
           </TouchableOpacity>
         </View>
       )}

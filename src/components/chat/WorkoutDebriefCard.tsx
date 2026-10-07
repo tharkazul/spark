@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
@@ -17,6 +18,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
   debrief,
   onPressActivity,
 }) => {
+  const { t } = useLanguage();
   const theme = useTheme();
 
   const { planned, actual, key_insight, whats_next, workout_title, sport } = debrief;
@@ -31,7 +33,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
             <View className="flex-row items-center gap-1.5">
               <View className="px-2 py-0.5 rounded-full bg-semantic-success-bg border border-semantic-success/20">
                 <Text className="text-[10px] font-extrabold text-semantic-success-text">
-                  POST-WORKOUT DEBRIEF
+                  {t('chatCards.debriefBadge')}
                 </Text>
               </View>
             </View>
@@ -49,21 +51,21 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
       <View className="bg-theme-bg/70 rounded-xl p-3 mb-3 border border-theme-border/40">
         <View className="flex-row items-center justify-between pb-2 mb-2 border-b border-theme-border/30">
           <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider">
-            Metric
+            {t('chatCards.metric')}
           </Text>
           <View className="flex-row items-center gap-6">
             <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider w-16 text-right">
-              Planned
+              {t('chatCards.planned')}
             </Text>
             <Text className="text-[11px] font-bold text-theme-accent uppercase tracking-wider w-16 text-right">
-              Actual
+              {t('chatCards.actual')}
             </Text>
           </View>
         </View>
 
         {/* Duration Row */}
         <View className="flex-row items-center justify-between py-1">
-          <Text className="text-xs font-semibold text-theme-text">Duration</Text>
+          <Text className="text-xs font-semibold text-theme-text">{t('chatCards.duration')}</Text>
           <View className="flex-row items-center gap-6">
             <Text className="text-xs font-bold text-theme-muted font-rajdhani w-16 text-right">
               {formatDuration(planned.duration_min)}
@@ -77,7 +79,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
         {/* Distance Row (if present) */}
         {(planned.distance_km !== undefined || actual.distance_km !== undefined) && (
           <View className="flex-row items-center justify-between py-1">
-            <Text className="text-xs font-semibold text-theme-text">Distance</Text>
+            <Text className="text-xs font-semibold text-theme-text">{t('chatCards.distance')}</Text>
             <View className="flex-row items-center gap-6">
               <Text className="text-xs font-bold text-theme-muted font-rajdhani w-16 text-right">
                 {planned.distance_km ? `${planned.distance_km.toFixed(1)}\u00A0km` : '—'}
@@ -92,7 +94,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
         {/* Rooka Score / Load Row */}
         {(planned.rooka_points !== undefined || actual.rooka_points !== undefined) && (
           <View className="flex-row items-center justify-between py-1">
-            <Text className="text-xs font-semibold text-theme-text">Rooka Load</Text>
+            <Text className="text-xs font-semibold text-theme-text">{t('chatCards.rookaLoad')}</Text>
             <View className="flex-row items-center gap-6">
               <Text className="text-xs font-bold text-theme-muted font-rajdhani w-16 text-right">
                 {planned.rooka_points ? `${Math.round(planned.rooka_points)}\u00A0pts` : '—'}
@@ -107,10 +109,10 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
         {/* Heart Rate / Pace Row */}
         {(actual.avg_hr !== undefined || actual.avg_pace !== undefined) && (
           <View className="flex-row items-center justify-between py-1">
-            <Text className="text-xs font-semibold text-theme-text">Intensity</Text>
+            <Text className="text-xs font-semibold text-theme-text">{t('chatCards.intensity')}</Text>
             <View className="flex-row items-center gap-6">
               <Text className="text-xs font-bold text-theme-muted font-rajdhani w-16 text-right">
-                {planned.target_intensity || 'Target'}
+                {planned.target_intensity || t('chatCards.target')}
               </Text>
               <Text className="text-xs font-bold text-theme-text font-rajdhani w-16 text-right">
                 {actual.avg_hr ? `${actual.avg_hr}\u00A0bpm` : actual.avg_pace || '—'}
@@ -125,7 +127,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
         <View className="flex-row items-center gap-1.5 mb-1">
           <Ionicons name="sparkles" size={13} color={theme.tint} />
           <Text className="text-[11px] font-extrabold text-theme-accent uppercase tracking-wider">
-            Key Coaching Insight
+            {t('chatCards.keyInsight')}
           </Text>
         </View>
         <Text className="text-xs text-theme-text font-medium leading-relaxed">
@@ -138,7 +140,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
         <View className="flex-row items-center gap-1.5 mb-1">
           <Ionicons name="arrow-forward-circle-outline" size={14} color="#0EA5E9" />
           <Text className="text-[11px] font-extrabold text-theme-text uppercase tracking-wider">
-            What&apos;s Next
+            {t('chatCards.whatsNext')}
           </Text>
         </View>
         <Text className="text-xs text-theme-muted leading-relaxed font-medium">

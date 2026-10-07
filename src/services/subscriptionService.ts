@@ -1,5 +1,6 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
+import { translate as tr } from '../locales/i18n';
 import Purchases, {
   CustomerInfo,
   LOG_LEVEL,
@@ -159,7 +160,7 @@ export async function purchasePackage(
   pkg: PurchasesPackage
 ): Promise<{ success: boolean; customerInfo?: CustomerInfo; userCancelled?: boolean; error?: string }> {
   if (!isConfigured || Platform.OS === 'web') {
-    return { success: false, error: 'RevenueCat is not supported on this platform' };
+    return { success: false, error: tr('subscriptionMsgs.unsupported') };
   }
 
   try {
@@ -172,7 +173,7 @@ export async function purchasePackage(
       return { success: false, userCancelled: true };
     }
     console.warn('[RevenueCat] Purchase notice:', error?.message || error);
-    return { success: false, error: error.message || 'Purchase failed.' };
+    return { success: false, error: tr('subscriptionMsgs.purchaseFailed') };
   }
 }
 
@@ -185,7 +186,7 @@ export async function restorePurchases(): Promise<{
   error?: string;
 }> {
   if (!isConfigured || Platform.OS === 'web') {
-    return { success: false, error: 'RevenueCat is not supported on this platform' };
+    return { success: false, error: tr('subscriptionMsgs.unsupported') };
   }
 
   try {
@@ -194,7 +195,7 @@ export async function restorePurchases(): Promise<{
     return { success: hasAccess, customerInfo };
   } catch (error: any) {
     console.error('[RevenueCat] Restore error:', error);
-    return { success: false, error: error.message || 'Failed to restore purchases.' };
+    return { success: false, error: tr('subscriptionMsgs.restoreFailed') };
   }
 }
 

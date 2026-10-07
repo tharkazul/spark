@@ -1,5 +1,6 @@
 import { File, Paths } from 'expo-file-system';
 import { Activity } from '../types/activity';
+import { translate as tr } from '../locales/i18n';
 
 const getSharingModule = () => {
   try {
@@ -11,7 +12,7 @@ const getSharingModule = () => {
 
 export async function exportActivitiesToCSV(activities: Activity[]): Promise<boolean> {
   if (!activities || activities.length === 0) {
-    throw new Error('No activities available to export.');
+    throw new Error(tr('csvExport.noActivities'));
   }
 
   // Generate CSV rows
@@ -21,7 +22,7 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
     const id = act.id || '';
     const date = act.start_date ? act.start_date.substring(0, 10) : '';
     const sport = act.sport_type || 'Activity';
-    const title = `"${(act.name || 'Workout').replace(/"/g, '""')}"`;
+    const title = `"${(act.name || tr('activityDetail.workout')).replace(/"/g, '""')}"`;
     const dist = typeof act.distance_km === 'number' ? act.distance_km.toFixed(2) : '0';
     const dur = typeof act.moving_time_min === 'number' ? act.moving_time_min.toFixed(1) : '0';
     const rooka = act.rooka_score || act.tss || 0;
@@ -45,12 +46,12 @@ export async function exportActivitiesToCSV(activities: Activity[]): Promise<boo
     if (canShare) {
       await Sharing.shareAsync(file.uri, {
         mimeType: 'text/csv',
-        dialogTitle: 'Export rooka Workout History',
+        dialogTitle: tr('csvExport.dialogTitle'),
         UTI: 'public.comma-separated-values-text',
       });
       return true;
     }
   }
 
-  throw new Error('Sharing is not available on this device/environment.');
+  throw new Error(tr('csvExport.sharingUnavailable'));
 }

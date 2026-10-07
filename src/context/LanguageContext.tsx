@@ -1,22 +1,23 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { en, TranslationKeys } from '../locales/en';
-import { nl } from '../locales/nl';
-import { de } from '../locales/de';
-import { es } from '../locales/es';
-import { fr } from '../locales/fr';
+import {
+  Language,
+  dictionaries,
+  isLanguage,
+  setCurrentLanguage,
+  translateFor,
+} from '../locales/i18n';
 import { languageStorage } from '../services/storage';
 import { userApi } from '../services/apiServices';
 import { getAuthToken } from '../services/apiClient';
 
-export type Language = 'en' | 'nl' | 'de' | 'es' | 'fr';
+export type { Language } from '../locales/i18n';
+export { dictionaries } from '../locales/i18n';
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => Promise<void>;
   t: (key: string, fallbackOrParams?: string | Record<string, string | number>, params?: Record<string, string | number>) => string;
 }
-
-export const dictionaries: Record<Language, any> = { en, nl, de, es, fr };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
@@ -26,13 +27,15 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     (async () => {
       const savedLang = await languageStorage.getLanguage();
-      if (savedLang && (['en', 'nl', 'de', 'es', 'fr'] as Language[]).includes(savedLang as Language)) {
-        setLanguageState(savedLang as Language);
+      if (isLanguage(savedLang)) {
+        setCurrentLanguage(savedLang);
+        setLanguageState(savedLang);
       }
     })();
   }, []);
 
   const setLanguage = React.useCallback(async (lang: Language) => {
+    setCurrentLanguage(lang);
     setLanguageState(lang);
     await languageStorage.setLanguage(lang);
     if (getAuthToken()) {
@@ -45,46 +48,8 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   const t = React.useCallback(
-    (path: string, fallbackOrParams?: string | Record<string, string | number>, paramsObj?: Record<string, string | number>): string => {
-      const defaultFallback = typeof fallbackOrParams === 'string' ? fallbackOrParams : undefined;
-      const params = typeof fallbackOrParams === 'object' ? fallbackOrParams : paramsObj;
-
-      const dict = dictionaries[language] || dictionaries.en;
-      const fallbackDict = dictionaries.en;
-
-      const keys = path.split('.');
-      let val: any = dict;
-      let fallbackVal: any = fallbackDict;
-
-      for (const k of keys) {
-        if (val && typeof val === 'object') {
-          val = val[k];
-        } else {
-          val = undefined;
-        }
-
-        if (fallbackVal && typeof fallbackVal === 'object') {
-          fallbackVal = fallbackVal[k];
-        } else {
-          fallbackVal = undefined;
-        }
-      }
-
-      let result = val !== undefined ? val : fallbackVal !== undefined ? fallbackVal : (defaultFallback !== undefined ? defaultFallback : path);
-
-      if (typeof result !== 'string') {
-        return defaultFallback !== undefined ? defaultFallback : path;
-      }
-
-      if (params) {
-        Object.keys(params).forEach((paramKey) => {
-          const regex = new RegExp(`\\{${paramKey}\\}`, 'g');
-          result = result.replace(regex, String(params[paramKey]));
-        });
-      }
-
-      return result;
-    },
+    (path: string, fallbackOrParams?: string | Record<string, string | number>, paramsObj?: Record<string, string | number>): string =>
+      translateFor(language, path, fallbackOrParams, paramsObj),
     [language]
   );
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
   onAccept,
   onDecline,
 }) => {
+  const { t } = useLanguage();
     const theme = useTheme();
   const [status, setStatus] = useState<'pending' | 'accepted' | 'declined'>(payload.status || 'pending');
 
@@ -53,10 +55,10 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
         <SportMedallion sport={payload.sport} size={36} />
         <View className="flex-1">
           <Text className="text-theme-text font-bold text-sm">
-            {payload.inviter_name ? `${payload.inviter_name} invited you` : 'Event Invitation'}
+            {payload.inviter_name ? t('chatCards.invitedYou', { name: payload.inviter_name }) : t('chatCards.eventInvitation')}
           </Text>
           <Text className="text-theme-muted text-xs font-medium mt-0.5">
-            {payload.sport.toUpperCase()} • {payload.date}
+            {t(`sports.${String(payload.sport || '').toLowerCase()}`, payload.sport).toUpperCase()} • {payload.date}
           </Text>
         </View>
       </View>
@@ -74,7 +76,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
             className="flex-1 bg-theme-accent py-2.5 rounded-xl items-center justify-center flex-row gap-1.5 active:opacity-80"
           >
             <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-            <Text className="text-white font-bold text-xs">Accept</Text>
+            <Text className="text-white font-bold text-xs">{t('chatCards.accept')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -82,7 +84,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
             className="flex-1 bg-theme-bg border border-theme-border py-2.5 rounded-xl items-center justify-center flex-row gap-1.5 active:opacity-80"
           >
             <Ionicons name="close" size={16} color="#9CA3AF" />
-            <Text className="text-theme-muted font-bold text-xs">Decline</Text>
+            <Text className="text-theme-muted font-bold text-xs">{t('chatCards.decline')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -102,7 +104,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
                 status === 'accepted' ? 'text-semantic-success' : 'text-semantic-error'
               }`}
             >
-              {status === 'accepted' ? 'Invitation Accepted' : 'Invitation Declined'}
+              {status === 'accepted' ? t('chatCards.invitationAccepted') : t('chatCards.invitationDeclined')}
             </Text>
           </View>
         </View>

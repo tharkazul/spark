@@ -289,7 +289,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
           profile_picture_url: act.profile_picture_url || (act as any).profilePictureUrl,
           rooka_level: act.rooka_level,
           equipped_title: act.equipped_title,
-          dateStr: effectiveDate ? formatRelativeDayAndTime(effectiveDate, language) : 'Recent',
+          dateStr: effectiveDate ? formatRelativeDayAndTime(effectiveDate, language) : t('uiExtra.recent'),
           totalRooka: Math.round(act.rooka_score || 0),
           activities: [act],
           isMultiSport: false,

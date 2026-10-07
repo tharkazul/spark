@@ -140,7 +140,7 @@ export default function ProgressScreen() {
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
           >
-            <BodySubTab />
+            <BodySubTab onOpenNutrition={() => setIsNutritionModalOpen(true)} />
           </ScrollView>
         </View>
 

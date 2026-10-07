@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { translate as tr } from '../locales/i18n';
 import { PhysiqueEntry, NutritionProtocol } from '../types/physique';
 import { physiqueApi } from '../services/apiServices';
 import { useUser } from './UserStore';
@@ -14,8 +15,9 @@ interface PhysiqueContextType {
 }
 
 const defaultNutrition: NutritionProtocol = {
-  focusTitle: 'Daily Fueling & Recovery Protocol',
-  rationale: 'Prioritize complex carbs and lean protein to support muscle recovery and sustain glycogen levels.',
+  // Plain English defaults are only placeholders; the UI swaps them for translations (see focusTitle fallback below).
+  focusTitle: '',
+  rationale: '',
   loggedCarbs: 0,
   carbsTarget: 300,
   loggedProtein: 0,
@@ -72,8 +74,8 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
         const timing = Array.isArray(rawTiming) ? rawTiming : undefined;
 
         setNutrition({
-          focusTitle: suggested.title || p.title || p.focusTitle || 'Daily Endurance Protocol',
-          rationale: suggested.rationale || p.rationale || 'Tailored to your body mass and today\'s training load.',
+          focusTitle: suggested.title || p.title || p.focusTitle || tr('coachStore.nutritionTitle'),
+          rationale: suggested.rationale || p.rationale || tr('coachStore.nutritionRationale'),
           carbs: carbsTarget,
           carbsTarget: carbsTarget,
           protein: proteinTarget,

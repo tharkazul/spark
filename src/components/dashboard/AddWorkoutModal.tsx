@@ -301,7 +301,7 @@ export function AddWorkoutModal({
 
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const finalTitle = title.trim() || `${selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()} Workout`;
+    const finalTitle = title.trim() || t('addWorkoutExtra.defaultTitle', { sport: t(`sports.${selectedSport.toLowerCase()}`, selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase()) });
     onSave(
       {
         day: initialWorkout?.day || targetDayName,
@@ -576,7 +576,7 @@ export function AddWorkoutModal({
                       setIsGarminSyncing(true);
                       try {
                         const { syncGarminWorkout } = require('../../api/integrations');
-                        const finalTitle = title.trim() || `${selectedSport} Workout`;
+                        const finalTitle = title.trim() || t('addWorkoutExtra.defaultTitle', { sport: t(`sports.${selectedSport.toLowerCase()}`, selectedSport) });
                         const workoutDate = targetFullDate || normalizeDateToYYYYMMDD(targetDateStr);
                         await syncGarminWorkout([{
                           date: workoutDate,
@@ -589,7 +589,7 @@ export function AddWorkoutModal({
                         setIsGarminSynced(true);
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                       } catch (err: any) {
-                        Alert.alert('Garmin Sync Failed', err?.message || 'Sync failed');
+                        Alert.alert(t('healthConnect.garminSyncFailedTitle'), err?.message || t('addWorkoutExtra.syncFailed'));
                       } finally {
                         setIsGarminSyncing(false);
                       }
@@ -612,7 +612,7 @@ export function AddWorkoutModal({
                           id: initialWorkout?.id || '1',
                           date: workoutDate,
                           sport: selectedSport,
-                          description: title || `${selectedSport} Workout`,
+                          description: title || t('addWorkoutExtra.defaultTitle', { sport: t(`sports.${selectedSport.toLowerCase()}`, selectedSport) }),
                           target_rooka: calculatedRooka,
                           steps_json: steps,
                         });
@@ -620,10 +620,10 @@ export function AddWorkoutModal({
                         if (result.success) {
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         } else {
-                          Alert.alert('Apple Watch Sync Failed', result.message);
+                          Alert.alert(t('addWorkoutExtra.watchSyncFailedTitle'), result.message);
                         }
                       } catch (err: any) {
-                        Alert.alert('Apple Watch Sync Failed', err?.message || 'Sync failed');
+                        Alert.alert(t('addWorkoutExtra.watchSyncFailedTitle'), err?.message || t('addWorkoutExtra.syncFailed'));
                       } finally {
                         setIsAppleWatchSyncing(false);
                       }

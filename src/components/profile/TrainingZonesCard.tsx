@@ -132,7 +132,7 @@ export function TrainingZonesCard() {
       );
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Could not save zones', err?.message || 'Please try again.');
+      Alert.alert(t('zonesExtra.saveFailed'), err?.message || t('zonesExtra.tryAgain'));
     } finally {
       setSaving(false);
     }
@@ -154,7 +154,7 @@ export function TrainingZonesCard() {
               setHrZones(res.hrZones || []);
               setPowerZones(res.powerZones || []);
             } catch (err: any) {
-              Alert.alert('Could not rebuild zones', err?.message || 'Please try again.');
+              Alert.alert(t('zonesExtra.rebuildFailed'), err?.message || t('zonesExtra.tryAgain'));
             } finally {
               setSaving(false);
             }
@@ -203,11 +203,11 @@ export function TrainingZonesCard() {
       {/* STRUCTURED BASELINE THRESHOLDS (Max HR & FTP) */}
       <View className="bg-theme-bg border border-theme-border rounded-xl p-3 mb-3">
         <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider mb-2">
-          Structured Thresholds
+          {t('zonesExtra.thresholds')}
         </Text>
         <View className="flex-row items-center gap-3">
           <View className="flex-1">
-            <Text className="text-[11px] text-theme-muted font-medium mb-1">Max HR (bpm)</Text>
+            <Text className="text-[11px] text-theme-muted font-medium mb-1">{t('zonesExtra.maxHr')}</Text>
             <TextInput
               value={maxHr ? String(maxHr) : ''}
               onChangeText={(val) => {
@@ -222,7 +222,7 @@ export function TrainingZonesCard() {
             />
           </View>
           <View className="flex-1">
-            <Text className="text-[11px] text-theme-muted font-medium mb-1">FTP (watts)</Text>
+            <Text className="text-[11px] text-theme-muted font-medium mb-1">{t('zonesExtra.ftp')}</Text>
             <TextInput
               value={ftp ? String(ftp) : ''}
               onChangeText={(val) => {

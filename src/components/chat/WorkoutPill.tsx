@@ -15,13 +15,14 @@ interface WorkoutPillProps {
 
 export const WorkoutPill: React.FC<WorkoutPillProps> = ({ workout, onPress }) => {
   const theme = useTheme();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
 
-  const sportName = (workout?.sport || 'WORKOUT').toUpperCase();
-  const relativeDate = workout?.date ? formatRelativeDay(workout.date, language).toUpperCase() : 'TODAY';
+  const sportName = (workout?.sport ? t(`sports.${workout.sport.toLowerCase()}`, workout.sport) : t('activityDetail.workout')).toUpperCase();
+  const todayLabel = formatRelativeDay(new Date(), language).toUpperCase();
+  const relativeDate = workout?.date ? formatRelativeDay(workout.date, language).toUpperCase() : todayLabel;
   const captionLine = `${sportName}, ${relativeDate}`;
 
-  const isToday = relativeDate === 'TODAY' || relativeDate === 'VANDAAG' || relativeDate === 'HEUTE';
+  const isToday = relativeDate === todayLabel;
   const isCompleted = Boolean((workout as any)?.is_completed || (workout as any)?.completed);
   const isMissed = Boolean((workout as any)?.is_missed);
 
@@ -50,7 +51,7 @@ export const WorkoutPill: React.FC<WorkoutPillProps> = ({ workout, onPress }) =>
             numberOfLines={2}
             className="text-sm font-bold text-theme-text mt-0.5 leading-snug"
           >
-            {workout?.description || workout?.sport || 'Workout'}
+            {workout?.description || (workout?.sport ? t(`sports.${workout.sport.toLowerCase()}`, workout.sport) : t('activityDetail.workout'))}
           </Text>
         </View>
       </View>

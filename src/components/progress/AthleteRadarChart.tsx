@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
 import Svg, { Polygon, Line, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -30,16 +31,17 @@ export const AthleteRadarChart: React.FC<AthleteRadarChartProps> = ({
   data = DEFAULT_DATA,
   size = 260,
 }) => {
+  const { t } = useLanguage();
     const theme = useTheme();
   const center = size / 2;
   const radius = (size - 70) / 2;
 
   const metrics = [
-    { label: 'Endurance', value: Math.max(5, Math.min(100, data.endurance || 0)) },
-    { label: 'Strength', value: Math.max(5, Math.min(100, data.strength || 0)) },
-    { label: 'Versatility', value: Math.max(5, Math.min(100, data.versatility || 0)) },
-    { label: 'Explosiveness', value: Math.max(5, Math.min(100, data.explosiveness || 0)) },
-    { label: 'Consistency', value: Math.max(5, Math.min(100, data.consistency ?? 70)) },
+    { label: t('radar.endurance'), value: Math.max(5, Math.min(100, data.endurance || 0)) },
+    { label: t('radar.strength'), value: Math.max(5, Math.min(100, data.strength || 0)) },
+    { label: t('radar.versatility'), value: Math.max(5, Math.min(100, data.versatility || 0)) },
+    { label: t('radar.explosiveness'), value: Math.max(5, Math.min(100, data.explosiveness || 0)) },
+    { label: t('radar.consistency'), value: Math.max(5, Math.min(100, data.consistency ?? 70)) },
   ];
 
   const totalAxes = metrics.length; // 5 axes

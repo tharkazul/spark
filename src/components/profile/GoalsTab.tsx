@@ -1,8 +1,8 @@
 import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useState } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { goalsStorage } from '../../services/storage';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -63,6 +63,11 @@ export const GoalsTab: React.FC = () => {
   const [pickerInitialDate, setPickerInitialDate] = useState<string>('');
 
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);
+  // Autosave: only persist after the athlete actually changed something (not after loading)
+  const dirtyRef = useRef(false);
+  const markDirty = () => {
+    dirtyRef.current = true;
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -128,7 +133,7 @@ export const GoalsTab: React.FC = () => {
             id: '1',
             isARace: true,
             goalType: (isPhys ? 'physiological' : 'race') as 'race' | 'physiological',
-            eventName: user?.target_event || (isPhys ? 'Health & Fitness Goal' : ''),
+            eventName: user?.target_event || (isPhys ? t('seasonPlan.healthGoal') : ''),
             eventDate: user?.event_date || new Date().toISOString().split('T')[0],
             targetMode: (((user as any)?.target_mode || (user as any)?.targetMode || 'finish') as 'finish' | 'time'),
             targetValue: (user as any)?.target_value || (user as any)?.targetValue || '',
@@ -153,13 +158,12 @@ export const GoalsTab: React.FC = () => {
 
   const handleAddMilestone = () => {
     Haptics.selectionAsync();
-    const todayStr = new Date().toISOString().split('T')[0];
     const newRow: MilestoneRow = {
       id: Date.now().toString(),
       isARace: milestones.length === 0,
       goalType: 'race',
       eventName: '',
-      eventDate: todayStr,
+      eventDate: '',
       targetMode: 'finish',
       targetValue: '',
       targetWeight: '',
@@ -171,10 +175,12 @@ export const GoalsTab: React.FC = () => {
   const handleRemoveMilestone = (id: string) => {
     Haptics.selectionAsync();
     setMilestones((prev) => prev.filter((m) => m.id !== id));
+    markDirty();
   };
 
   const handleToggleARace = (id: string) => {
     Haptics.selectionAsync();
+    markDirty();
     setMilestones((prev) =>
       prev.map((m) => ({
         ...m,
@@ -184,6 +190,7 @@ export const GoalsTab: React.FC = () => {
   };
 
   const handleUpdateMilestone = (id: string, field: keyof MilestoneRow, value: any) => {
+    markDirty();
     setMilestones((prev) =>
       prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
     );
@@ -206,7 +213,17 @@ export const GoalsTab: React.FC = () => {
     setSaving(true);
     setSavedSuccess(false);
 
-    const payload = milestones.map((m) => ({
+    // Only complete goals are saved: a date plus a name (race) or a target (physiological).
+    // Rows still being filled in stay on screen and are saved once complete.
+    const completeMilestones = milestones.filter(
+      (m) =>
+        Boolean(m.eventDate) &&
+        (m.goalType === 'physiological'
+          ? Boolean(m.eventName.trim() || m.targetWeight || m.targetVo2max)
+          : Boolean(m.eventName.trim()))
+    );
+
+    const payload = completeMilestones.map((m) => ({
       id: m.id,
       name: m.eventName,
       date: m.eventDate,
@@ -219,7 +236,7 @@ export const GoalsTab: React.FC = () => {
       target_vo2max: m.targetVo2max ? parseFloat(m.targetVo2max) : null,
     }));
 
-    const primaryGoal = milestones.find((m) => m.isARace) || milestones[0];
+    const primaryGoal = completeMilestones.find((m) => m.isARace) || completeMilestones[0];
 
     try {
       await gamificationApi.saveMilestones(payload);
@@ -262,14 +279,24 @@ export const GoalsTab: React.FC = () => {
 
       await refreshUser();
       setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setSavedSuccess(false), 2500);
     } catch (err: any) {
       console.error('Failed to save goals & calendar:', err);
     } finally {
       setSaving(false);
     }
   };
+
+  // Debounced autosave after edits (typing, date picks, toggles, removals)
+  useEffect(() => {
+    if (!dirtyRef.current) return;
+    const timer = setTimeout(() => {
+      dirtyRef.current = false;
+      handleSaveCalendar();
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [milestones]);
 
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return t('goals.selectDate');
@@ -338,28 +365,28 @@ export const GoalsTab: React.FC = () => {
           <View className="p-3 bg-theme-bg/60 rounded-xl mb-4 gap-y-2">
             <View className="flex-row flex-wrap gap-2">
               <View className="w-[48%] p-2 rounded-control bg-theme-card">
-                <Text className="text-theme-text font-bold text-xs">5K / Sprint Tri</Text>
-                <Text className="text-theme-muted text-xs">Target: 30 - 45 CTL</Text>
+                <Text className="text-theme-text font-bold text-xs">{t('goalGuide.sprint')}</Text>
+                <Text className="text-theme-muted text-xs">{t('goals.targetRange', 'Target fitness: {range}', { range: '30 - 45' })}</Text>
               </View>
               <View className="w-[48%] p-2 rounded-control bg-theme-card">
-                <Text className="text-theme-text font-bold text-xs">10K / Olympic Tri</Text>
-                <Text className="text-theme-muted text-xs">Target: 45 - 60 CTL</Text>
+                <Text className="text-theme-text font-bold text-xs">{t('goalGuide.olympic')}</Text>
+                <Text className="text-theme-muted text-xs">{t('goals.targetRange', 'Target fitness: {range}', { range: '45 - 60' })}</Text>
               </View>
               <View className="w-[48%] p-2 rounded-control bg-theme-card">
-                <Text className="text-theme-text font-bold text-xs">Half Marathon</Text>
-                <Text className="text-theme-muted text-xs">Target: 60 - 80 CTL</Text>
+                <Text className="text-theme-text font-bold text-xs">{t('goalGuide.halfMarathon')}</Text>
+                <Text className="text-theme-muted text-xs">{t('goals.targetRange', 'Target fitness: {range}', { range: '60 - 80' })}</Text>
               </View>
               <View className="w-[48%] p-2 rounded-control bg-theme-card">
-                <Text className="text-theme-text font-bold text-xs">70.3 Half Ironman</Text>
-                <Text className="text-theme-muted text-xs">Target: 80 - 110 CTL</Text>
+                <Text className="text-theme-text font-bold text-xs">{t('goalGuide.halfIronman')}</Text>
+                <Text className="text-theme-muted text-xs">{t('goals.targetRange', 'Target fitness: {range}', { range: '80 - 110' })}</Text>
               </View>
               <View className="w-[48%] p-2 rounded-control bg-theme-card">
-                <Text className="text-theme-text font-bold text-xs">Full Marathon</Text>
-                <Text className="text-theme-muted text-xs">Target: 80 - 100+ CTL</Text>
+                <Text className="text-theme-text font-bold text-xs">{t('goalGuide.fullMarathon')}</Text>
+                <Text className="text-theme-muted text-xs">{t('goals.targetRange', 'Target fitness: {range}', { range: '80 - 100+' })}</Text>
               </View>
               <View className="w-[48%] p-2 rounded-control bg-theme-card">
-                <Text className="text-theme-text font-bold text-xs">140.6 Full Ironman</Text>
-                <Text className="text-theme-muted text-xs">Target: 110 - 150+ CTL</Text>
+                <Text className="text-theme-text font-bold text-xs">{t('goalGuide.fullIronman')}</Text>
+                <Text className="text-theme-muted text-xs">{t('goals.targetRange', 'Target fitness: {range}', { range: '110 - 150+' })}</Text>
               </View>
             </View>
             <Text className="text-xs text-theme-muted italic mt-1 leading-relaxed">
@@ -600,25 +627,16 @@ export const GoalsTab: React.FC = () => {
           </View>
         )}
 
-        {/* SAVE BUTTON */}
-        <ScalePressable
-          onPress={handleSaveCalendar}
-          disabled={saving}
-          activeScale={0.96}
-          haptic="selection"
-          className={`bg-theme-accent py-3.5 rounded-xl items-center mt-5 shadow-sm ${
-            saving ? 'opacity-50' : ''
-          }`}
-        >
-          <Text className="text-white font-bold text-sm">
-            {saving ? t('goals.savingGoals') : t('goals.saveGoalsAndCalendar')}
-          </Text>
-        </ScalePressable>
-
-        {savedSuccess && (
-          <View className="p-3 bg-semantic-success/10 rounded-xl mt-3 items-center">
-            <Text className="text-semantic-success font-bold text-xs">
-              {t('goals.goalsSavedSuccess')}
+        {/* AUTOSAVE STATUS */}
+        {(saving || savedSuccess) && (
+          <View className="flex-row items-center justify-center gap-x-1.5 mt-4">
+            {saving ? (
+              <ActivityIndicator size="small" color={theme.tint} />
+            ) : (
+              <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+            )}
+            <Text className={`text-xs font-bold ${saving ? 'text-theme-muted' : 'text-semantic-success'}`}>
+              {saving ? t('goals.savingGoals') : t('goals.goalsSavedSuccess')}
             </Text>
           </View>
         )}

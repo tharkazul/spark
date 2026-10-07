@@ -1,4 +1,5 @@
 import { BrandColors } from '@/constants/theme';
+import { useLanguage } from '@/context/LanguageContext';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
   onDecline,
   onConnectionAccepted,
 }) => {
+  const { t } = useLanguage();
   const targetId = payload.friend_id || payload.fromUserId;
   const initialStatus =
     payload.type === 'connection_accepted' || payload.status === 'accepted'
@@ -108,14 +110,14 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
           </View>
           <View className="ml-2.5 flex-1">
             <Text className="text-sm font-extrabold text-theme-text font-rajdhani" numberOfLines={1}>
-              {payload.username || 'rooka Athlete'}
+              {payload.username || t('chatCards.rookaAthlete')}
             </Text>
             <Text className="text-xs text-theme-muted font-medium">
               {isAccepted
-                ? 'Connected Athlete'
+                ? t('chatCards.connectedAthlete')
                 : isDeclined
-                ? 'Connection Declined'
-                : 'Sent you a connection request'}
+                ? t('chatCards.connectionDeclined')
+                : t('chatCards.sentRequest')}
             </Text>
           </View>
         </View>
@@ -138,7 +140,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
                 isAccepted ? 'text-semantic-success' : 'text-semantic-error'
               }`}
             >
-              {isAccepted ? 'Connected' : 'Declined'}
+              {isAccepted ? t('chatCards.connected') : t('common.declined')}
             </Text>
           </View>
         )}
@@ -152,7 +154,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
             className="flex-1 bg-semantic-success py-2 rounded-xl items-center justify-center flex-row shadow-xs"
           >
             <Ionicons name="checkmark" size={15} color="#FFFFFF" />
-            <Text className="text-xs font-extrabold text-white ml-1">Accept</Text>
+            <Text className="text-xs font-extrabold text-white ml-1">{t('chatCards.accept')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -161,7 +163,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
             className="flex-1 bg-theme-card border border-theme-border py-2 rounded-control items-center justify-center flex-row"
           >
             <Ionicons name="close" size={15} color="#9CA3AF" />
-            <Text className="text-xs font-bold text-theme-muted ml-1">Reject</Text>
+            <Text className="text-xs font-bold text-theme-muted ml-1">{t('chatCards.reject')}</Text>
           </TouchableOpacity>
         </View>
       )}

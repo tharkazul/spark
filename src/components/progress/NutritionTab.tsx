@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useLanguage } from '../../context/LanguageContext';
+import { translate as tr } from '../../locales/i18n';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { usePlan } from '../../context/PlanStore';
 import { NutritionProtocol } from '../../types/physique';
@@ -75,27 +76,27 @@ function resolveFuelingItems(
   if (isRestOrCarbLoad) {
     return [
       {
-        phase: 'Morning Glycogen Primer',
+        phase: tr('fuelingFallback.restMorningPhase'),
         detail:
-          'Low-fiber, easily digestible carbs (white rice, oatmeal, banana, honey) + 25–30g lean protein to start saturating muscle glycogen without GI bulk.',
+          tr('fuelingFallback.restMorningDetail'),
         iconName: 'sunny-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Midday Grazing & Electrolytes',
+        phase: tr('fuelingFallback.restMiddayPhase'),
         detail:
-          'Consistent light carb snacking (rice cakes, pretzels, sports drink 500–750ml). Keep fats low to speed gastric emptying.',
+          tr('fuelingFallback.restMiddayDetail'),
         iconName: 'water-outline',
         iconColor: tintColor,
           bgClass: 'bg-theme-accent/20',
           borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Evening Digestible Carb Dinner',
+        phase: tr('fuelingFallback.restEveningPhase'),
         detail:
-          'Simple carb base (pasta or jasmine rice) with 30–35g lean protein (chicken/fish). Keep fiber and fats minimal for optimal overnight digestion.',
+          tr('fuelingFallback.restEveningDetail'),
         iconName: 'moon-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
@@ -110,26 +111,26 @@ function resolveFuelingItems(
   if (isBike) {
     return [
       {
-        phase: 'Pre-Ride Fueling (60–90 mins prior)',
-        detail: '60–90g complex & simple carbs (oats, toast with jam, banana) + 400ml electrolyte fluid.',
+        phase: tr('fuelingFallback.bikePrePhase'),
+        detail: tr('fuelingFallback.bikePreDetail'),
         iconName: 'time-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Intra-Ride Fueling (On the Bike)',
+        phase: tr('fuelingFallback.bikeIntraPhase'),
         detail:
-          '60–90g carbs/hr via liquid carb mix, energy gels, or chews. Sip electrolytes every 15–20 mins.',
+          tr('fuelingFallback.bikeIntraDetail'),
         iconName: 'flash-outline',
         iconColor: tintColor,
           bgClass: 'bg-theme-accent/20',
           borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Post-Ride Recovery (within 45 mins)',
+        phase: tr('fuelingFallback.bikePostPhase'),
         detail:
-          '30–35g fast whey protein + 75–90g carbs to jumpstart muscle repair and glycogen replenishment.',
+          tr('fuelingFallback.bikePostDetail'),
         iconName: 'fitness-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
@@ -144,26 +145,26 @@ function resolveFuelingItems(
   if (isSwim) {
     return [
       {
-        phase: 'Pre-Swim Fueling (45–60 mins prior)',
+        phase: tr('fuelingFallback.swimPrePhase'),
         detail:
-          'Light, low-acid carbs (1 banana or applesauce + 250ml water), avoiding heavy foods that cause reflux.',
+          tr('fuelingFallback.swimPreDetail'),
         iconName: 'time-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Poolside Hydration',
+        phase: tr('fuelingFallback.swimPoolPhase'),
         detail:
-          'Electrolyte sports bottle at the lane edge; sip between set intervals to maintain cellular hydration.',
+          tr('fuelingFallback.swimPoolDetail'),
         iconName: 'water-outline',
         iconColor: tintColor,
           bgClass: 'bg-theme-accent/20',
           borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Post-Swim Refuel (within 45 mins)',
-        detail: '30g protein + 50–65g carbs (recovery shake or balanced warm meal).',
+        phase: tr('fuelingFallback.swimPostPhase'),
+        detail: tr('fuelingFallback.swimPostDetail'),
         iconName: 'fitness-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
@@ -184,26 +185,26 @@ function resolveFuelingItems(
   if (isStrength) {
     return [
       {
-        phase: 'Pre-Strength Primer (45 mins prior)',
+        phase: tr('fuelingFallback.strengthPrePhase'),
         detail:
-          '20g protein + 30–40g moderate carbs (e.g. Greek yogurt with berries or rice cake with nut butter).',
+          tr('fuelingFallback.strengthPreDetail'),
         iconName: 'time-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
         borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Intra-Workout Hydration',
-        detail: 'Electrolyte water to maintain cellular hydration and muscular power output during working sets.',
+        phase: tr('fuelingFallback.strengthIntraPhase'),
+        detail: tr('fuelingFallback.strengthIntraDetail'),
         iconName: 'flash-outline',
         iconColor: tintColor,
           bgClass: 'bg-theme-accent/20',
           borderClass: 'border-theme-accent/30',
       },
       {
-        phase: 'Post-Strength Protein (within 60 mins)',
+        phase: tr('fuelingFallback.strengthPostPhase'),
         detail:
-          '35–40g high-leucine protein (whey/plant) + moderate carbs to maximize muscle protein synthesis.',
+          tr('fuelingFallback.strengthPostDetail'),
         iconName: 'fitness-outline',
         iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',
@@ -215,24 +216,24 @@ function resolveFuelingItems(
   // Default: Run / Aerobic Training Session
   return [
     {
-      phase: 'Pre-Run Fueling (60 mins prior)',
-      detail: '45–60g fast-acting carbs (banana + oats or toast) + 300ml water.',
+      phase: tr('fuelingFallback.runPrePhase'),
+      detail: tr('fuelingFallback.runPreDetail'),
       iconName: 'time-outline',
       iconColor: tintColor,
       bgClass: 'bg-theme-accent/20',
       borderClass: 'border-theme-accent/30',
     },
     {
-      phase: 'Intra-Run Fueling',
-      detail: '30–60g carbs/hr electrolyte gel or hydrogel drink mix if running over 60 mins.',
+      phase: tr('fuelingFallback.runIntraPhase'),
+      detail: tr('fuelingFallback.runIntraDetail'),
       iconName: 'flash-outline',
       iconColor: tintColor,
           bgClass: 'bg-theme-accent/20',
           borderClass: 'border-theme-accent/30',
     },
     {
-      phase: 'Post-Run Recovery (within 45 mins)',
-      detail: '30–35g whey protein isolate + 60–75g carbs to protect lean muscle and restore glycogen.',
+      phase: tr('fuelingFallback.runPostPhase'),
+      detail: tr('fuelingFallback.runPostDetail'),
       iconName: 'fitness-outline',
       iconColor: tintColor,
         bgClass: 'bg-theme-accent/20',

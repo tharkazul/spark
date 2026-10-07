@@ -70,7 +70,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
       .catch((err) => {
         if (!isMounted) return;
         console.error('Error loading athlete profile:', err);
-        setError('Failed to load athlete profile');
+        setError(t('uiExtra.profileLoadFailed'));
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -425,10 +425,10 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                       <SportMedallion sport={act.sport_type} size={40} className="mr-1" />
                       <View className="flex-1">
                         <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
-                          {act.name || act.title || 'Workout'}
+                          {act.name || act.title || t('activityDetail.workout')}
                         </Text>
                         <Text className="text-xs text-theme-muted mt-0.5">
-                          {act.start_date ? act.start_date.substring(0, 10) : 'Recent'}
+                          {act.start_date ? act.start_date.substring(0, 10) : t('uiExtra.recent')}
                           {typeof act.distance_km === 'number' && act.distance_km > 0
                             ? ` · ${act.distance_km.toFixed(1)} km`
                             : ''}

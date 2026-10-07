@@ -4,9 +4,11 @@ import { gamificationApi } from '../services/apiServices';
 import { goalsStorage } from '../services/storage';
 import { calculateTargetCTL } from '../components/profile/GoalsTab';
 import { MacroPeriodInfo } from '../types/dashboard';
+import { useLanguage } from '../context/LanguageContext';
 
 export function useSeasonGoal() {
   const { user } = useUser();
+  const { t } = useLanguage();
 
   const calculateDaysRemaining = (eventDateStr?: string): number => {
     if (!eventDateStr) return 0;
@@ -82,7 +84,7 @@ export function useSeasonGoal() {
           const isPhys = Boolean(user?.target_weight) || Boolean(user?.target_vo2max) || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
           const defaultGoals = [
             {
-              name: user?.target_event || (isPhys ? 'Health & Fitness Goal' : 'Target Goal'),
+              name: user?.target_event || (isPhys ? t('seasonPlan.healthGoal') : t('seasonPlan.targetGoal')),
               date: user.event_date,
               isMain: true,
               goalType: (isPhys ? 'physiological' : ((user as any)?.goal_type || (user as any)?.goalType || 'race')) as 'race' | 'physiological',
@@ -97,7 +99,7 @@ export function useSeasonGoal() {
           const isPhys = Boolean(user?.target_weight) || Boolean(user?.target_vo2max) || (user as any)?.goal_type === 'physiological' || (user as any)?.goalType === 'physiological';
           setActiveGoals([
             {
-              name: user?.target_event || (isPhys ? 'Health & Fitness Goal' : 'Target Goal'),
+              name: user?.target_event || (isPhys ? t('seasonPlan.healthGoal') : t('seasonPlan.targetGoal')),
               date: user.event_date,
               isMain: true,
               goalType: (isPhys ? 'physiological' : ((user as any)?.goal_type || (user as any)?.goalType || 'race')) as 'race' | 'physiological',
@@ -146,7 +148,7 @@ export function useSeasonGoal() {
 
   const seasonInfo: MacroPeriodInfo | null = useMemo(() => {
     if (!nearestGoalInfo) return null;
-    const goalName = nearestGoalInfo.name || user?.target_event || 'Training Goal';
+    const goalName = nearestGoalInfo.name || user?.target_event || t('seasonPlan.trainingGoal');
     const targetCtl = nearestGoalInfo.targetCTL || user?.target_ctl || 70;
     const currentCtl = user?.current_ctl || 45;
     const daysLeft = nearestGoalInfo.daysRemaining;
@@ -161,8 +163,8 @@ export function useSeasonGoal() {
     const activePhaseProgress = Math.min(100, Math.max(0, Math.round((phaseElapsedDays / phaseLengthDays) * 100)));
 
     const goalLabel = nearestGoalInfo.isMain
-      ? isPhysiologicalGoal ? 'PRIMARY' : 'RACE'
-      : isPhysiologicalGoal ? 'SECONDARY' : 'RACE';
+      ? isPhysiologicalGoal ? t('seasonPlan.labelPrimary') : t('seasonPlan.labelRace')
+      : isPhysiologicalGoal ? t('seasonPlan.labelSecondary') : t('seasonPlan.labelRace');
 
     if (isPhysiologicalGoal) {
       return {
@@ -176,34 +178,34 @@ export function useSeasonGoal() {
         goalLabel,
         phases: [
           {
-            name: 'ADAPT',
-            weeks: 'Weeks 1-4',
-            focus: 'Neuromuscular & Movement Baseline',
-            description: 'Building workout consistency, structural integrity, and foundational movement efficiency with steady volume.',
+            name: t('seasonPlan.adaptName'),
+            weeks: t('seasonPlan.weeks', { range: '1-4' }),
+            focus: t('seasonPlan.adaptFocus'),
+            description: t('seasonPlan.adaptDesc'),
             status: currentPhaseIndex > 0 ? 'completed' : currentPhaseIndex === 0 ? 'active' : 'upcoming',
             progressPercent: currentPhaseIndex === 0 ? activePhaseProgress : undefined,
           },
           {
-            name: 'DEVELOP',
-            weeks: 'Weeks 5-8',
-            focus: 'Targeted Load & Volume',
-            description: 'Incremental load increase, target energy system stimulus, and progressive overload across target disciplines.',
+            name: t('seasonPlan.developName'),
+            weeks: t('seasonPlan.weeks', { range: '5-8' }),
+            focus: t('seasonPlan.developFocus'),
+            description: t('seasonPlan.developDesc'),
             status: currentPhaseIndex > 1 ? 'completed' : currentPhaseIndex === 1 ? 'active' : 'upcoming',
             progressPercent: currentPhaseIndex === 1 ? activePhaseProgress : undefined,
           },
           {
-            name: 'CRUNCH',
-            weeks: 'Weeks 9-12',
-            focus: 'High-Efficiency Output',
-            description: 'Stabilizing physiological adaptations, expanding threshold capacity, and performance benchmark assessments.',
+            name: t('seasonPlan.crunchName'),
+            weeks: t('seasonPlan.weeks', { range: '9-12' }),
+            focus: t('seasonPlan.crunchFocus'),
+            description: t('seasonPlan.crunchDesc'),
             status: currentPhaseIndex > 2 ? 'completed' : currentPhaseIndex === 2 ? 'active' : 'upcoming',
             progressPercent: currentPhaseIndex === 2 ? activePhaseProgress : undefined,
           },
           {
-            name: 'SUSTAIN',
-            weeks: 'Weeks 13-16',
-            focus: 'Continuous Growth & Maintenance',
-            description: 'Sustaining peak fitness gains, long-term habit strength, and resilient baseline fitness maintenance.',
+            name: t('seasonPlan.sustainName'),
+            weeks: t('seasonPlan.weeks', { range: '13-16' }),
+            focus: t('seasonPlan.sustainFocus'),
+            description: t('seasonPlan.sustainDesc'),
             status: currentPhaseIndex === 3 ? 'active' : 'upcoming',
             progressPercent: currentPhaseIndex === 3 ? activePhaseProgress : undefined,
           },
@@ -222,40 +224,44 @@ export function useSeasonGoal() {
       goalLabel,
       phases: [
         {
-          name: 'BASE PHASE',
-          weeks: 'Weeks 1-6',
-          focus: 'Aerobic Volume & Technique',
-          description: 'Building mitochondrial density & base aerobic capacity with low HR long rides and CSS swim threshold sets.',
+          name: t('seasonPlan.baseName'),
+          shortName: t('seasonPlan.baseShort'),
+          weeks: t('seasonPlan.weeks', { range: '1-6' }),
+          focus: t('seasonPlan.baseFocus'),
+          description: t('seasonPlan.baseDesc'),
           status: currentPhaseIndex > 0 ? 'completed' : currentPhaseIndex === 0 ? 'active' : 'upcoming',
           progressPercent: currentPhaseIndex === 0 ? activePhaseProgress : undefined,
         },
         {
-          name: 'BUILD PHASE',
-          weeks: 'Weeks 7-10',
-          focus: 'Strength & Threshold',
-          description: 'Introducing Sweet Spot, VO2max intervals, and brick workouts to simulate race fatigue.',
+          name: t('seasonPlan.buildName'),
+          shortName: t('seasonPlan.buildShort'),
+          weeks: t('seasonPlan.weeks', { range: '7-10' }),
+          focus: t('seasonPlan.buildFocus'),
+          description: t('seasonPlan.buildDesc'),
           status: currentPhaseIndex > 1 ? 'completed' : currentPhaseIndex === 1 ? 'active' : 'upcoming',
           progressPercent: currentPhaseIndex === 1 ? activePhaseProgress : undefined,
         },
         {
-          name: 'PEAK PHASE',
-          weeks: 'Weeks 11-14',
-          focus: 'Race Specificity & Speed',
-          description: 'High intensity, low volume intervals mimicking exact race pace. Dialing in race-day nutrition.',
+          name: t('seasonPlan.peakName'),
+          shortName: t('seasonPlan.peakShort'),
+          weeks: t('seasonPlan.weeks', { range: '11-14' }),
+          focus: t('seasonPlan.peakFocus'),
+          description: t('seasonPlan.peakDesc'),
           status: currentPhaseIndex > 2 ? 'completed' : currentPhaseIndex === 2 ? 'active' : 'upcoming',
           progressPercent: currentPhaseIndex === 2 ? activePhaseProgress : undefined,
         },
         {
-          name: 'TAPER',
-          weeks: 'Weeks 15-16',
-          focus: 'Recovery & Freshness',
-          description: 'Dramatic volume reduction to shed fatigue while maintaining intensity to keep systems firing.',
+          name: t('seasonPlan.taperName'),
+          shortName: t('seasonPlan.taperName'),
+          weeks: t('seasonPlan.weeks', { range: '15-16' }),
+          focus: t('seasonPlan.taperFocus'),
+          description: t('seasonPlan.taperDesc'),
           status: currentPhaseIndex === 3 ? 'active' : 'upcoming',
           progressPercent: currentPhaseIndex === 3 ? activePhaseProgress : undefined,
         },
       ],
     };
-  }, [nearestGoalInfo, user?.current_ctl, isPhysiologicalGoal]);
+  }, [nearestGoalInfo, user?.current_ctl, isPhysiologicalGoal, t]);
 
   return { hasSeasonGoal, seasonInfo, goalsLoaded };
 }

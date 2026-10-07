@@ -87,7 +87,7 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
         res?.message || t('onboarding.garminSavedSuccess')
       );
     } catch (err: any) {
-      const msg = err?.message || 'Failed to save Garmin credentials.';
+      const msg = err?.message || t('integrationMsgs.garminSaveFailed');
       setGarminError(msg);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     } finally {
@@ -99,11 +99,11 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
   const handleDisconnectGarmin = async () => {
     Alert.alert(
       t('onboarding.garminDisconnectBtn'),
-      'Are you sure you want to disconnect Garmin? This will stop rooka from pushing workouts to your watch.',
+      t('integrationMsgs.disconnectGarminBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Disconnect',
+          text: t('integrationMsgs.disconnect'),
           style: 'destructive',
           onPress: async () => {
             setGarminLoading(true);
@@ -112,9 +112,9 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
               await refreshUser();
               setShowGarminFields(false);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('Disconnected', 'Garmin disconnected successfully.');
+              Alert.alert(t('integrationMsgs.disconnectedTitle'), t('integrationMsgs.garminDisconnected'));
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to disconnect Garmin.');
+              Alert.alert(t('common.error'), err?.message || t('integrationMsgs.garminDisconnectFailed'));
             } finally {
               setGarminLoading(false);
             }
@@ -160,28 +160,28 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
           } catch (exchangeErr: any) {
             if (exchangeErr?.data?.code === 'STRAVA_ALREADY_LINKED') {
               Alert.alert(
-                'Already Connected Elsewhere',
-                `This Strava account is already connected to "${exchangeErr.data.linkedUsername}". Connect it to this account as well?`,
+                t('integrationMsgs.alreadyLinkedTitle'),
+                t('integrationMsgs.alreadyLinkedBody', { name: exchangeErr.data.linkedUsername }),
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: t('common.cancel'), style: 'cancel' },
                   {
-                    text: 'Connect Anyway',
+                    text: t('integrationMsgs.connectAnyway'),
                     onPress: () => {
                       finishConnect(true).catch((retryErr: any) =>
-                        Alert.alert('Strava Error', retryErr?.message || 'Failed to connect Strava.')
+                        Alert.alert(t('integrationMsgs.stravaErrorTitle'), retryErr?.message || t('integrationMsgs.stravaConnectFailed'))
                       );
                     },
                   },
                 ]
               );
             } else {
-              Alert.alert('Strava Error', exchangeErr?.message || 'Failed to connect Strava.');
+              Alert.alert(t('integrationMsgs.stravaErrorTitle'), exchangeErr?.message || t('integrationMsgs.stravaConnectFailed'));
             }
           }
         }
       }
     } catch (err: any) {
-      Alert.alert('Strava Error', err?.message || 'Failed to open Strava authentication.');
+      Alert.alert(t('integrationMsgs.stravaErrorTitle'), err?.message || t('integrationMsgs.stravaOpenFailed'));
     } finally {
       setStravaLoading(false);
     }
@@ -191,11 +191,11 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
   const handleDisconnectStrava = async () => {
     Alert.alert(
       t('onboarding.stravaDisconnectBtn'),
-      'Are you sure you want to disconnect Strava? This will unlink your Strava account.',
+      t('integrationMsgs.disconnectStravaBodyUnlink'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Disconnect',
+          text: t('integrationMsgs.disconnect'),
           style: 'destructive',
           onPress: async () => {
             setStravaLoading(true);
@@ -203,9 +203,9 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
               await integrationsApi.disconnectStrava();
               await refreshUser();
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('Disconnected', 'Strava disconnected successfully.');
+              Alert.alert(t('integrationMsgs.disconnectedTitle'), t('integrationMsgs.stravaDisconnected'));
             } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to disconnect Strava.');
+              Alert.alert(t('common.error'), err?.message || t('integrationMsgs.stravaDisconnectFailed'));
             } finally {
               setStravaLoading(false);
             }
@@ -300,7 +300,7 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
                 <View className="flex-row items-center gap-2 flex-1 mr-2">
                   <Ionicons name="person-circle-outline" size={18} color="#22C55E" />
                   <Text className="text-xs text-theme-text font-bold" numberOfLines={1}>
-                    {(user as any)?.garmin_username || (user as any)?.garminUsername || 'Garmin User'}
+                    {(user as any)?.garmin_username || (user as any)?.garminUsername || t('integrationMsgs.garminUser')}
                   </Text>
                 </View>
                 <Pressable

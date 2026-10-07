@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../constants/api';
 import { tokenStorage } from './storage';
+import { getCurrentLanguage, translate } from '../locales/i18n';
 
 export class ApiError extends Error {
   status: number;
@@ -50,6 +51,8 @@ export async function apiClient<T>(
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const headers: Record<string, string> = {
+    // The server localizes its error/success messages (and coach output) into this language.
+    'X-App-Language': getCurrentLanguage(),
     ...(fetchOptions.headers as Record<string, string>),
   };
 
@@ -93,7 +96,7 @@ export async function apiClient<T>(
     if (onNetworkErrorCallback) {
       onNetworkErrorCallback();
     }
-    const errMsg = err?.message || 'Network request failed';
+    const errMsg = translate('apiErrors.network');
     throw new ApiError(errMsg, 0, err);
   }
 
@@ -120,7 +123,7 @@ export async function apiClient<T>(
   // 429 Rate Limit Interceptor
   if (response.status === 429) {
     const rateLimitText = await response.text().catch(() => 'Rate limit exceeded');
-    let message = 'Rate limit or token limit reached. Please try again later.';
+    let message = translate('apiErrors.rateLimit');
     try {
       const parsed = JSON.parse(rateLimitText);
       if (parsed?.error || parsed?.message) {
@@ -146,7 +149,7 @@ export async function apiClient<T>(
       }
     } catch (_) {
       if (errorText.includes('Cannot POST') || errorText.includes('<!DOCTYPE') || response.status === 404) {
-        message = 'Server route not found (HTTP 404). Please restart your backend server process to load the newly registered routes.';
+        message = translate('apiErrors.notFound');
       }
     }
     throw new ApiError(message, response.status, errData);

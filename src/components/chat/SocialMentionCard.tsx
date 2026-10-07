@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +14,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
   payload,
   onPressActivity,
 }) => {
+  const { t } = useLanguage();
     const theme = useTheme();
   return (
     <View className="my-3 bg-theme-card/90 border border-theme-border rounded-tile p-4 shadow-sm">
@@ -22,7 +24,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
         </View>
         <View className="flex-1">
           <Text className="text-theme-text font-bold text-xs">
-            {payload.author_name} mentioned you
+            {t('chatCards.mentionedYou', { name: payload.author_name })}
           </Text>
           {payload.created_at ? (
             <Text className="text-theme-muted text-xs">
@@ -44,7 +46,7 @@ export const SocialMentionCard: React.FC<SocialMentionCardProps> = ({
           className="flex-row items-center justify-between pt-1"
           activeOpacity={0.7}
         >
-          <Text className="text-theme-accent font-bold text-xs">View Activity Details</Text>
+          <Text className="text-theme-accent font-bold text-xs">{t('chatCards.viewActivity')}</Text>
           <Ionicons name="chevron-forward" size={14} color={theme.tint} />
         </TouchableOpacity>
       ) : null}

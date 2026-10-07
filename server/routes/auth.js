@@ -482,6 +482,7 @@ router.post("/forgot-password", (req, res) => {
                     toEmail: targetEmail,
                     username: user.username,
                     resetCode,
+                    language: req.headers["x-app-language"] || user.language,
                   });
                   console.log(`✉️ Password reset OTP sent to ${targetEmail} (user: ${user.username})`);
                   return res.json(genericSuccess);

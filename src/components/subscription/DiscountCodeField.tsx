@@ -5,7 +5,8 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { discountApi } from '../../services/apiServices';
 import { DiscountValidationResult } from '../../types/discount';
-import { DISCOUNT_ERROR_FALLBACK } from '../../utils/discountFormat';
+import { getDiscountErrorFallback } from '../../utils/discountFormat';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface DiscountCodeFieldProps {
   /** Fires whenever the checked result changes — null while empty or in flight. */
@@ -30,12 +31,13 @@ const DEBOUNCE_MS = 400;
  */
 export function DiscountCodeField({
   onResult,
-  placeholder = 'Discount code',
+  placeholder,
   label,
   disabled = false,
   initialValue = '',
 }: DiscountCodeFieldProps) {
   const theme = useTheme();
+  const { t } = useLanguage();
   const [code, setCode] = useState(initialValue);
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<DiscountValidationResult | null>(null);
@@ -77,7 +79,7 @@ export function DiscountCodeField({
         // Not reaching the server is not the same as the code being rejected:
         // say so plainly and leave the prices as they were.
         setResult(null);
-        setNetworkError('Could not check that code right now.');
+        setNetworkError(t('discountFmt.checkFailed'));
         onResultRef.current(null);
       } finally {
         if (seq === requestSeq.current) setChecking(false);
@@ -110,7 +112,7 @@ export function DiscountCodeField({
         <TextInput
           value={code}
           onChangeText={(v) => setCode(v.toUpperCase().replace(/\s+/g, ''))}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('discountFmt.placeholder')}
           placeholderTextColor={theme.textSecondary}
           autoCapitalize="characters"
           autoCorrect={false}
@@ -136,7 +138,7 @@ export function DiscountCodeField({
         </Text>
       ) : showInvalid ? (
         <Text className="text-[11px] font-bold text-semantic-error mt-1.5">
-          {networkError || result?.message || DISCOUNT_ERROR_FALLBACK}
+          {networkError || result?.message || getDiscountErrorFallback()}
         </Text>
       ) : null}
     </View>

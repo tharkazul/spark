@@ -159,7 +159,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
         <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-xs font-bold text-theme-muted flex-1 mr-1.5" numberOfLines={1}>
-              Form (TSB)
+              {t('dashboard.form', 'Form')}
             </Text>
             {hasTrainingData && (
               <View className={`px-1.5 py-0.5 rounded-md ${tsbState.bg}`}>

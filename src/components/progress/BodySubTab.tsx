@@ -4,11 +4,12 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { TextInput } from '../ui/TextInput';
 import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
-import { AnatomicalBodyMap, ActiveNiggle, partMatchesNiggle } from './AnatomicalBodyMap';
+import { AnatomicalBodyMap, ActiveNiggle, partMatchesNiggle, getBodyPartLabel } from './AnatomicalBodyMap';
 import { NiggleCard } from '../health/NiggleCard';
 import { SonarSleepCard } from '../health/SonarSleepCard';
 import { SonarVitalsCard } from '../health/SonarVitalsCard';
 import { CycleTrackingWidget } from './CycleTrackingWidget';
+import { FuelingPreviewCard } from './FuelingPreviewCard';
 import { Sparkline } from '../common/Sparkline';
 import { LogWeightModal } from '../dashboard/LogWeightModal';
 import { ScalePressable } from '../ui/ScalePressable';
@@ -33,11 +34,13 @@ interface BodySubTabProps {
   initialNiggles?: ActiveNiggle[];
   onSaveNiggle?: (niggle: ActiveNiggle) => void;
   onResolveNiggle?: (id: number | string) => void;
+  onOpenNutrition?: () => void;
 }
 
 export const BodySubTab: React.FC<BodySubTabProps> = ({
   onSaveNiggle,
   onResolveNiggle,
+  onOpenNutrition,
 }) => {
   const theme = useTheme();
   const { t } = useLanguage();
@@ -76,7 +79,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
 
   // Form state
   const [selectedPartId, setSelectedPartId] = useState<string>('left_ankle_foot');
-  const [selectedPartName, setSelectedPartName] = useState<string>('Left Ankle & Foot');
+  const [selectedPartName, setSelectedPartName] = useState<string>(() => getBodyPartLabel('left_ankle_foot'));
   const [severity, setSeverity] = useState<number>(1);
   const [notes, setNotes] = useState<string>('');
   const [editingNiggleId, setEditingNiggleId] = useState<number | string | null>(null);
@@ -170,8 +173,8 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
             </View>
             <Text className="text-[11px] text-theme-muted mt-0.5">
               {pmcMetrics.weightPoints.length > 1
-                ? `${pmcMetrics.weightPoints.length} logs recorded`
-                : 'Baseline body mass'}
+                ? t('bodyTab.logsRecorded', { count: pmcMetrics.weightPoints.length })
+                : t('bodyTab.baselineMass')}
             </Text>
           </View>
 
@@ -190,6 +193,9 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
         </View>
       </Card>
 
+      {/* 1b. DAILY FUELING & NUTRITION (moved here from Overview) */}
+      <FuelingPreviewCard onOpenNutrition={onOpenNutrition} />
+
       {/* 2. INJURY TRACKER & ANATOMICAL BODY MAP CARD (CAPPED AT 260PT) */}
       <Card className="bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
@@ -200,7 +206,11 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
             </Text>
           </View>
           <Text className="text-xs font-semibold text-theme-accent">
-            {niggles.length} {t('progress.activeIssues', 'Active Issue(s)')}
+            {niggles.length === 0
+              ? t('progress.noIssues', 'No issues')
+              : niggles.length === 1
+              ? t('progress.oneIssue', '1 issue')
+              : t('progress.issueCount', '{count} issues', { count: niggles.length })}
           </Text>
         </View>
 
@@ -218,7 +228,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
         niggles={niggles}
         onSelectBodyPart={handleSelectBodyPart}
         onResolveNiggle={handleResolve}
-        onLogNew={() => handleSelectBodyPart('left_calf', 'Left Calf')}
+        onLogNew={() => handleSelectBodyPart('left_calf', getBodyPartLabel('left_calf'))}
       />
 
       {/* 4. SONAR AI SLEEP ANALYSIS CARD */}

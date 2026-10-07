@@ -42,12 +42,12 @@ import { calculateTargetCTL } from '../profile/GoalsTab';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const SUPPORTED_LANGUAGES: Array<{ code: string; label: string; flag: string; disabled?: boolean }> = [
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'nl', label: 'Nederlands', flag: '🇳🇱' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'es', label: 'Español', flag: '🇪🇸' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+const SUPPORTED_LANGUAGES: Array<{ code: string; label: string; disabled?: boolean }> = [
+  { code: 'en', label: 'English' },
+  { code: 'nl', label: 'Nederlands' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'es', label: 'Español' },
+  { code: 'fr', label: 'Français' },
 ];
 
 export type ChatItemType =
@@ -530,7 +530,7 @@ export default function OnboardingWizard() {
 
     const targetDict = dictionaries[langCode as keyof typeof dictionaries] || dictionaries.en;
     const userLabel = (targetDict.onboarding?.selectedLanguageUser || 'Language: {lang}').replace('{lang}', langName);
-    const coachPrompt = (targetDict.onboarding?.coachLanguageAck || 'Thank you! I will communicate with you in {lang}. 👋 First, how would you like me to talk to you during workouts and chat?').replace('{lang}', langName);
+    const coachPrompt = (targetDict.onboarding?.coachLanguageAck || 'Thank you! I will communicate with you in {lang}. First, how would you like me to talk to you during workouts and chat?').replace('{lang}', langName);
 
     if (currentStep === 1) {
       setCurrentStep(2);
@@ -545,7 +545,7 @@ export default function OnboardingWizard() {
         prev.map((item) => (item.type === 'card_language' ? { ...item, data: { selected: langCode } } : item))
       );
       const updatedUser = (targetDict.onboarding?.updatedLanguageUser || 'Updated Language: {lang}').replace('{lang}', langName);
-      const updatedAck = (targetDict.onboarding?.updatedLanguageAck || 'Got it! Updated your preferred language to {lang}. 👋').replace('{lang}', langName);
+      const updatedAck = (targetDict.onboarding?.updatedLanguageAck || 'Got it! Updated your preferred language to {lang}.').replace('{lang}', langName);
       appendCoachAckOnly(updatedUser, updatedAck);
     }
   };
@@ -622,7 +622,7 @@ export default function OnboardingWizard() {
         cleanContext = '';
       }
 
-      const eventName = raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined);
+      const eventName = raceName || (goalType === 'physiological' ? t('seasonPlan.healthGoal') : undefined);
       const generatedContext = eventName
         ? `Endurance athlete preparing for ${eventName}.`
         : 'Endurance athlete.';
@@ -642,7 +642,7 @@ export default function OnboardingWizard() {
             trainingAvailability: availability,
             gender,
             subscriptionTier: 'free',
-            targetEvent: raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined),
+            targetEvent: raceName || (goalType === 'physiological' ? t('seasonPlan.healthGoal') : undefined),
             eventDate: raceDate || undefined,
             targetCtl: targetCtl ? parseFloat(targetCtl) : undefined,
             goalType,
@@ -665,7 +665,7 @@ export default function OnboardingWizard() {
           training_availability: availability as any,
           gender: gender,
           subscription_tier: 'free',
-          target_event: raceName || (goalType === 'physiological' ? 'Physiological Goal' : undefined),
+          target_event: raceName || (goalType === 'physiological' ? t('seasonPlan.healthGoal') : undefined),
           event_date: raceDate || undefined,
           target_ctl: targetCtl ? parseFloat(targetCtl) : undefined,
           goal_type: goalType,
@@ -716,7 +716,7 @@ export default function OnboardingWizard() {
             <View>
               <Text className="text-theme-text text-xl font-bold font-barlow tracking-tight">rooka</Text>
               <Text className="text-theme-muted text-xs">
-                {currentStep === 0 ? 'AI Endurance Coach' : t('onboarding.stepOf', { current: currentStep, total: totalSteps })}
+                {currentStep === 0 ? t('seasonPlan.aiEnduranceCoach') : t('onboarding.stepOf', { current: currentStep, total: totalSteps })}
               </Text>
             </View>
           </View>
@@ -873,7 +873,7 @@ export default function OnboardingWizard() {
                 const isSelected = !!node.data?.selected;
                 const languagesList = [
                   ...SUPPORTED_LANGUAGES,
-                  { code: 'more', label: t('onboarding.moreSoon'), flag: '🌐', disabled: true },
+                  { code: 'more', label: t('onboarding.moreSoon'), disabled: true },
                 ];
                 return (
                   <View
@@ -895,7 +895,7 @@ export default function OnboardingWizard() {
                               style={{ width: '48.5%' }}
                               className="py-3 px-3 rounded-xl border border-dashed border-theme-border/60 bg-theme-bg/40 flex-row items-center justify-center gap-2 opacity-60"
                             >
-                              <Text className="text-base">🌐</Text>
+                              <Ionicons name="globe-outline" size={16} color={theme.textSecondary} />
                               <Text className="text-xs font-semibold text-theme-muted">{lang.label}</Text>
                             </View>
                           );
@@ -912,7 +912,6 @@ export default function OnboardingWizard() {
                             onPress={() => handleSelectLanguageChoice(lang.code, lang.label)}
                             className="py-3 px-3 rounded-control border flex-row items-center justify-center gap-2 active:bg-theme-card bg-theme-bg border-theme-border shadow-sm"
                           >
-                            <Text className="text-base">{lang.flag}</Text>
                             <Text
                               className="text-xs font-bold text-theme-text"
                               style={active ? { color: '#FFFFFF' } : undefined}

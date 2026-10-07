@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
-import { ScalePressable } from '../ui/ScalePressable';
 import { DurationRoller } from '../ui/DurationRoller';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -70,7 +69,6 @@ export const WeeklyAvailabilityCard: React.FC = () => {
   };
 
   const handleSave = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSaving(true);
     setSaveSuccess(false);
     try {
@@ -87,14 +85,23 @@ export const WeeklyAvailabilityCard: React.FC = () => {
       await refreshUser();
       setSaveSuccess(true);
       setHasChanges(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err: any) {
       console.error('Failed to update training availability:', err);
     } finally {
       setSaving(false);
     }
   };
+
+  // Autosave shortly after the athlete changes a day
+  useEffect(() => {
+    if (!hasChanges) return;
+    const timer = setTimeout(() => {
+      handleSave();
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availability, hasChanges]);
 
   const [selectedDay, setSelectedDay] = useState<string>('Mon');
 
@@ -109,11 +116,16 @@ export const WeeklyAvailabilityCard: React.FC = () => {
             {t('availability.title', 'Weekly Training Availability')}
           </Text>
         </View>
-        {hasChanges && !saving && (
-          <View className="px-2 py-0.5 rounded-full bg-semantic-warning/15">
-            <Text className="text-[11px] font-bold text-semantic-warning">{t('availability.unsaved', 'Unsaved')}</Text>
+        {saving ? (
+          <ActivityIndicator size="small" color={theme.tint} />
+        ) : saveSuccess ? (
+          <View className="flex-row items-center gap-x-1">
+            <Ionicons name="checkmark-circle" size={13} color="#22C55E" />
+            <Text className="text-[11px] font-bold text-semantic-success">
+              {t('availability.availabilitySaved', 'Saved')}
+            </Text>
           </View>
-        )}
+        ) : null}
       </View>
 
       <Text className="text-xs text-theme-muted mb-3">
@@ -171,7 +183,7 @@ export const WeeklyAvailabilityCard: React.FC = () => {
                       : 'text-theme-text'
                   }`}
                 >
-                  {isRest ? 'Rest' : `${currentVal}m`}
+                  {isRest ? t('zonesExtra.rest') : `${currentVal}m`}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -212,7 +224,7 @@ export const WeeklyAvailabilityCard: React.FC = () => {
                     isActive ? 'text-white' : 'text-theme-text'
                   }`}
                 >
-                  {mins === 0 ? 'Rest' : `${mins}m`}
+                  {mins === 0 ? t('zonesExtra.rest') : `${mins}m`}
                 </Text>
               </TouchableOpacity>
             );
@@ -220,35 +232,6 @@ export const WeeklyAvailabilityCard: React.FC = () => {
         </View>
       </View>
 
-      {hasChanges && (
-        <ScalePressable
-          onPress={handleSave}
-          disabled={saving}
-          activeScale={0.96}
-          haptic="selection"
-          className="w-full py-2.5 rounded-xl items-center justify-center mt-3 shadow-sm flex-row gap-x-2 bg-theme-accent"
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-sharp" size={14} color="#FFFFFF" />
-              <Text className="font-bold text-xs text-white">
-                {t('availability.saveAvailability', 'Save Availability')}
-              </Text>
-            </>
-          )}
-        </ScalePressable>
-      )}
-
-      {saveSuccess && (
-        <View className="p-2 bg-semantic-success/10 rounded-xl mt-2.5 items-center flex-row justify-center gap-x-1.5 border border-semantic-success/20">
-          <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-          <Text className="text-semantic-success font-bold text-xs">
-            {t('availability.availabilitySaved', 'Availability saved')}
-          </Text>
-        </View>
-      )}
     </Card>
   );
 };

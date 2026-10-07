@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { MacroPeriodInfo } from '../../types/dashboard';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SeasonRoadmapCardProps {
   info: MacroPeriodInfo;
@@ -11,6 +12,7 @@ interface SeasonRoadmapCardProps {
 
 export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
   const theme = useTheme();
+  const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const totalPhases = info.phases.length || 4;
@@ -47,7 +49,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
         <View className="flex-1">
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-1.5">
-              <Text className="text-lg font-extrabold text-theme-text">Training Phase</Text>
+              <Text className="text-lg font-extrabold text-theme-text">{t('seasonPlan.trainingPhase')}</Text>
               <Ionicons
                 name={isExpanded ? 'chevron-up' : 'chevron-down'}
                 size={15}
@@ -67,18 +69,18 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           <Text className="text-sm text-theme-muted mt-0.5">
             {info.daysRemaining === 0 ? (
               <Text className="font-extrabold text-semantic-warning">
-                {isPhysiological ? `TARGET DAY FOR ${info.raceTargetName.toUpperCase()}! 🔥` : 'TODAY IS RACE DAY! 🔥'}
+                {isPhysiological ? t('seasonPlan.targetDayFor', { name: info.raceTargetName.toUpperCase() }) : t('seasonPlan.raceDayToday')}
               </Text>
             ) : info.daysRemaining < 0 ? (
               <Text className="font-extrabold text-theme-accent">
-                {isPhysiological ? 'Target Reached 🎉' : 'Race Completed 🎉'}
+                {isPhysiological ? t('seasonPlan.targetReached') : t('seasonPlan.raceCompleted')}
               </Text>
             ) : (
               <>
                 <Text className="font-extrabold text-theme-accent">
-                  {info.daysRemaining} {info.daysRemaining === 1 ? 'day' : 'days'}
+                  {info.daysRemaining === 1 ? t('seasonPlan.oneDay') : t('seasonPlan.nDays', { count: info.daysRemaining })}
                 </Text>
-                {' to '}
+                {` ${t('seasonPlan.to')} `}
               </>
             )}
             {info.daysRemaining === 0 ? ' — ' : info.daysRemaining < 0 ? ' — ' : ''}
@@ -119,7 +121,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                     : 'text-theme-muted'
                 }`}
               >
-                {phase.name.replace(' PHASE', '')}
+                {phase.shortName || phase.name.replace(' PHASE', '')}
               </Text>
             </View>
           );
@@ -131,7 +133,7 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           style={{ left: `${progressPercent}%` }}
         >
           <View className="absolute -top-2.5 -translate-x-1/2 left-0 bg-theme-card px-1 py-0.2 rounded shadow-sm">
-            <Text className="text-xs font-extrabold text-theme-accent">Today</Text>
+            <Text className="text-xs font-extrabold text-theme-accent">{t('common.today')}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -142,9 +144,9 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
           {/* Fitness Projection Bar */}
           <View className="bg-theme-bg/50 p-3 rounded-2xl mb-3 border border-theme-border/40">
             <View className="flex-row justify-between items-center mb-1.5">
-              <Text className="text-sm font-bold text-theme-text">Fitness Projection (CTL)</Text>
+              <Text className="text-sm font-bold text-theme-text">{t('dashboard.fitnessProjection', 'Fitness projection')}</Text>
               <Text className="text-sm font-mono font-bold text-theme-accent">
-                {info.currentCTL} CTL <Text className="text-theme-muted font-normal">/ Target {info.targetCTL} CTL</Text>
+                {info.currentCTL} <Text className="text-theme-muted font-normal">/ {t('dashboard.targetLabel', 'Target')} {info.targetCTL}</Text>
               </Text>
             </View>
             <View className="w-full h-2 bg-theme-bg/80 rounded-full overflow-hidden">
@@ -187,19 +189,19 @@ export function SeasonRoadmapCard({ info }: SeasonRoadmapCardProps) {
                     {isCompleted && (
                       <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
-                        <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
+                        <Text className="text-xs font-extrabold text-semantic-success">{t('common.doneUpper')}</Text>
                       </View>
                     )}
 
                     {isActive && (
                       <View className="bg-theme-accent px-2 py-0.5 rounded-full">
-                        <Text className="text-xs font-extrabold text-white">ACTIVE</Text>
+                        <Text className="text-xs font-extrabold text-white">{t('seasonPlan.activeUpper')}</Text>
                       </View>
                     )}
                   </View>
 
                   <Text className="text-sm font-bold text-theme-text mb-0.5">
-                    Focus: {phase.focus}
+                    {t('seasonPlan.focus', { focus: phase.focus })}
                   </Text>
                   <Text className="text-sm text-theme-muted leading-relaxed">
                     {phase.description}

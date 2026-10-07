@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { View, Text } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -36,6 +37,7 @@ export function LevelProgress({
   levelTitle,
   className = '',
 }: LevelProgressProps) {
+  const { t } = useLanguage();
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
 
@@ -70,10 +72,10 @@ export function LevelProgress({
           </View>
           <View>
             <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider">
-              {levelTitle || 'Athlete Level'}
+              {levelTitle || t('uiExtra.athleteLevel')}
             </Text>
             <Text className="text-base font-extrabold text-theme-text font-rajdhani">
-              Level {displayLevel}
+              {t('uiExtra.level', { level: displayLevel })}
             </Text>
           </View>
         </View>
@@ -103,7 +105,7 @@ export function LevelProgress({
           style={{ fontVariant: ['tabular-nums'] }}
           className="text-xs font-bold text-theme-accent-text font-mono"
         >
-          {formatNumber(levelInfo.xpRemaining)} XP to Level {displayLevel + 1}
+          {t('uiExtra.xpToLevel', { xp: formatNumber(levelInfo.xpRemaining), level: displayLevel + 1 })}
         </Text>
       </View>
     </View>

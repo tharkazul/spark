@@ -79,6 +79,8 @@ export interface DayAgenda {
 
 export interface TrainingPhaseDetail {
   name: string;
+  /** Compact label for the 4-block timeline (falls back to `name`). */
+  shortName?: string;
   weeks: string;
   focus: string;
   description: string;

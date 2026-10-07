@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { translate as tr } from '../locales/i18n';
 import { Activity } from '../types/activity';
 import { activitiesApi } from '../services/apiServices';
 import { wsService } from '../services/websocket';
@@ -123,7 +124,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
       setError(null);
     } catch (err: any) {
       console.error('Garmin sync error:', err);
-      setError(err.message || 'Garmin sync failed.');
+      setError(err.message || tr('integrationMsgs.garminSyncFailed'));
       throw err;
     } finally {
       setLoading(false);
@@ -138,7 +139,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
       setError(null);
     } catch (err: any) {
       console.error('Strava sync error:', err);
-      setError(err.message || 'Strava sync failed.');
+      setError(err.message || tr('integrationMsgs.stravaSyncFailed'));
       throw err;
     } finally {
       setLoading(false);
@@ -153,7 +154,7 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
       setError(null);
     } catch (err: any) {
       console.error('Suunto sync error:', err);
-      setError(err.message || 'Suunto sync failed.');
+      setError(err.message || tr('integrationMsgs.suuntoSyncFailed'));
       throw err;
     } finally {
       setLoading(false);

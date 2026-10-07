@@ -5,6 +5,8 @@ import Svg, { G, Path, Ellipse, Circle, Line } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useUser } from '../../context/UserStore';
+import { useLanguage } from '../../context/LanguageContext';
+import { translate } from '../../locales/i18n';
 import { useActivities } from '../../context/ActivityStore';
 import { fatiguePercentages, MuscleGroup } from '../../domain/muscleLoad';
 import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
@@ -111,6 +113,14 @@ export const BODY_PARTS_LOOKUP: Record<string, string> = {
   right_calf: 'Right Calf & Shin',
   left_ankle_foot: 'Left Ankle & Foot',
   right_ankle_foot: 'Right Ankle & Foot',
+};
+
+/** Localized display name for a body part ID (falls back to a readable version of the ID). */
+export const getBodyPartLabel = (partId: string): string => {
+  if (!partId) return '';
+  const key = `bodyParts.${partId}`;
+  const label = translate(key);
+  return label !== key ? label : BODY_PARTS_LOOKUP[partId] || partId.replace(/_/g, ' ');
 };
 
 /**
@@ -368,6 +378,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 }) => {
   const { user } = useUser();
   const { activities } = useActivities();
+  const { t } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
@@ -384,7 +395,9 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   // Compute systemic cardiovascular & autonomic recovery strain:
   const cardioStrain = useMemo(() => {
     return computeCardiovascularStrain(biometrics, recentBiometrics);
-  }, [biometrics, recentBiometrics]);
+    // `t` changes with the language, so the localized strain copy is recomputed too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biometrics, recentBiometrics, t]);
 
   // Load persisted size preference on mount if not provided as initialSize:
   useEffect(() => {
@@ -478,7 +491,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
       return;
     }
 
-    const name = BODY_PARTS_LOOKUP[partId] || partId.replace('_', ' ');
+    const name = getBodyPartLabel(partId);
     onSelectBodyPart(partId, name);
   };
 
@@ -506,7 +519,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                 view === 'front' ? 'text-white' : 'text-theme-muted'
               }`}
             >
-              Front
+              {t('bodyMap.front')}
             </Text>
           </TouchableOpacity>
 
@@ -524,7 +537,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                 view === 'back' ? 'text-white' : 'text-theme-muted'
               }`}
             >
-              Back
+              {t('bodyMap.back')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -712,15 +725,15 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         <View className="flex-row items-center justify-center gap-x-4 mt-3 flex-wrap">
           <View className="flex-row items-center gap-x-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-            <Text className="text-[11px] font-semibold text-theme-muted">Fresh</Text>
+            <Text className="text-[11px] font-semibold text-theme-muted">{t('bodyMap.fresh')}</Text>
           </View>
           <View className="flex-row items-center gap-x-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
-            <Text className="text-[11px] font-semibold text-theme-muted">Fatigued</Text>
+            <Text className="text-[11px] font-semibold text-theme-muted">{t('bodyMap.fatigued')}</Text>
           </View>
           <View className="flex-row items-center gap-x-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
-            <Text className="text-[11px] font-semibold text-theme-muted">Injured</Text>
+            <Text className="text-[11px] font-semibold text-theme-muted">{t('bodyMap.injured')}</Text>
           </View>
           {cardioStrain.strainLevel !== 'none' && (
             <TouchableOpacity
@@ -736,14 +749,14 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                 className="text-[11px] font-bold"
                 style={{ color: cardioStrain.strainLevel === 'high' ? '#EF4444' : '#F59E0B' }}
               >
-                Cardio Load
+                {t('bodyMap.cardioLoad')}
               </Text>
             </TouchableOpacity>
           )}
         </View>
 
         <Text className="text-[11px] text-theme-muted/80 mt-1.5 font-medium">
-          Tap any body region to log an issue or view severity
+          {t('bodyMap.tapHint')}
         </Text>
       </View>
 
@@ -782,7 +795,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                 {cardioStrain.headline}
               </Text>
               <Text className="text-xs text-theme-muted font-medium">
-                Autonomic Nervous System & Cardiac Telemetry
+                {t('bodyMap.cardioSubtitle')}
               </Text>
             </View>
           </View>
@@ -794,7 +807,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             {/* Resting HR Tile */}
             <View className="flex-1 bg-slate-800/40 p-3.5 rounded-2xl border border-slate-700/40">
               <Text className="text-[11px] text-theme-muted font-bold uppercase tracking-wider">
-                Resting Heart Rate
+                {t('bodyMap.restingHr')}
               </Text>
               <View className="flex-row items-baseline gap-1 my-1">
                 <Text className="text-2xl font-black text-theme-text">
@@ -814,7 +827,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                         : '#38BDF8',
                   }}
                 >
-                  {cardioStrain.rhrDelta >= 0 ? `▲ +${cardioStrain.rhrDelta}` : `▼ ${cardioStrain.rhrDelta}`} bpm vs 7d avg
+                  {cardioStrain.rhrDelta >= 0 ? `▲ +${cardioStrain.rhrDelta}` : `▼ ${cardioStrain.rhrDelta}`} {t('bodyMap.bpmVs7d')}
                 </Text>
               )}
             </View>
@@ -842,7 +855,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
                         : '#38BDF8',
                   }}
                 >
-                  {cardioStrain.hrvDelta >= 0 ? `▲ +${cardioStrain.hrvDelta}` : `▼ ${cardioStrain.hrvDelta}`} ms vs 7d avg
+                  {cardioStrain.hrvDelta >= 0 ? `▲ +${cardioStrain.hrvDelta}` : `▼ ${cardioStrain.hrvDelta}`} {t('bodyMap.msVs7d')}
                 </Text>
               )}
             </View>
@@ -851,7 +864,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           {/* Diagnostic Explanation */}
           <View className="bg-theme-inset/70 p-3.5 rounded-2xl mb-4 border border-theme-border/50">
             <Text className="text-xs font-bold text-theme-text mb-1">
-              Physiological Recovery Insight
+              {t('bodyMap.recoveryInsight')}
             </Text>
             <Text className="text-xs text-theme-muted leading-relaxed">
               {cardioStrain.description}
@@ -863,7 +876,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             <View className="flex-row items-center gap-2 mb-1">
               <Ionicons name="sparkles" size={14} color="#0EA5E9" />
               <Text className="text-xs font-bold text-theme-accent">
-                Coach Recommendation
+                {t('bodyMap.coachRecommendation')}
               </Text>
             </View>
             <Text className="text-xs text-theme-text font-medium leading-relaxed">
@@ -876,7 +889,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
             onPress={() => setShowCardioModal(false)}
             className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center mt-1"
           >
-            <Text className="text-white font-bold text-sm">Understood</Text>
+            <Text className="text-white font-bold text-sm">{t('bodyMap.understood')}</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>

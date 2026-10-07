@@ -327,7 +327,7 @@ export default function PlanningHomeScreen() {
             date: w.date || dateYYYYMMDD,
             type: (w.sport as any) || 'RUN',
             sport: (w.sport as any) || 'RUN',
-            title: w.title || w.description || 'Planned Workout',
+            title: w.title || w.description || t('planningExtra.plannedWorkout'),
             duration: durStr,
             rookaPoints: w.target_rooka || 0,
             sparkPoints: w.target_spark || 0,
@@ -493,11 +493,11 @@ export default function PlanningHomeScreen() {
     } else {
       let prompt = '';
       if (type === 'TIME_CRUNCH')
-        prompt = 'I only have 30 minutes today, please adapt my workout to a time crunch.';
+        prompt = t('planningExtra.adaptTimeCrunch');
       if (type === 'MOVE_INDOORS')
-        prompt = 'I need to move my workout indoors today. Please adapt it for the trainer/treadmill.';
+        prompt = t('planningExtra.adaptIndoors');
       if (type === 'CANCEL_COMPLETELY')
-        prompt = 'I want to cancel my workout completely today. I need to rest.';
+        prompt = t('planningExtra.adaptCancel');
 
       if (prompt) {
         sendMessage(prompt);
@@ -668,7 +668,6 @@ export default function PlanningHomeScreen() {
             accessibilityRole="button"
             className="flex-row items-center gap-1.5 mt-2 self-start bg-theme-accent/15 px-2.5 py-1 rounded-full"
           >
-            <Ionicons name="sparkles-outline" size={12} color="#0EA5E9" />
             <Text className="text-[11px] font-semibold text-theme-accent font-jakarta">
               {t('dashboard.templatePlanChip', 'Standard plan · Ask your coach to tailor it')}
             </Text>

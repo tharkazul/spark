@@ -1,4 +1,5 @@
 const db = require('./db');
+const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("./coachPersona");
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -8,6 +9,7 @@ const zoneModel = require('./zones');
 const athleteZones = require('./athleteZones');
 const { generateWithFallback } = require('./ai');
 const { sendPushToUser } = require('./pushNotificationService');
+const i18n = require('./i18n');
 
 
 let garminExercises = [];
@@ -212,10 +214,11 @@ async function getUserMacroPhase(userId) {
 async function generateAthleteWeeklyDescription(userId) {
   return new Promise((resolve) => {
     db.get(
-      `SELECT id, username FROM users WHERE id = ? AND deleted_at IS NULL`,
+      `SELECT id, username, language FROM users WHERE id = ? AND deleted_at IS NULL`,
       [userId],
       async (err, user) => {
         if (err || !user) return resolve(null);
+        const bioLang = i18n.normalizeLang(user.language);
 
         db.all(
           `SELECT id, name, sport_type, distance_km, moving_time_min, start_date, rooka_score, average_watts
@@ -268,9 +271,9 @@ async function generateAthleteWeeklyDescription(userId) {
               'Multi-Discipline Athlete': 'Disciplined athlete maintaining a strong habit of weekly training sessions and cross-conditioning. Driven by consistent progression, functional fitness, and multi-modal stamina.',
             };
 
-            const defaultFallback =
-              fallbackDescriptions[archetypeName] ||
-              fallbackDescriptions['Multi-Discipline Athlete'];
+            const defaultFallback = bioLang === 'en'
+              ? (fallbackDescriptions[archetypeName] || fallbackDescriptions['Multi-Discipline Athlete'])
+              : i18n.t(bioLang, `bio.${fallbackDescriptions[archetypeName] ? archetypeName : 'Multi-Discipline Athlete'}`);
 
             let finalBio = defaultFallback;
 
@@ -290,7 +293,7 @@ CRITICAL PRIVACY RULES:
 
                 const systemPrompt = `You are an elite sports commentator. You write punchy, engaging 2-sentence public athlete bios focusing entirely on training discipline, athletic capabilities, and sport volume. Strictly omit all personal/private life details.`;
 
-                const aiRes = await generateWithFallback(prompt, systemPrompt);
+                const aiRes = await generateWithFallback(prompt, systemPrompt, null, null, null, "personal", false, { language: bioLang });
                 let text = typeof aiRes === 'string' ? aiRes : aiRes?.text || '';
                 text = text.replace(/^["']|["']$/g, '').trim();
 
@@ -344,7 +347,7 @@ async function generateWeeklyAthleteDescriptionsJob() {
 function generatePublicProfile(targetUserId, viewerUserId = null) {
   return new Promise((resolve) => {
     db.get(
-      `SELECT u.id, u.username, u.public_description, u.profile_picture_url, u.total_rooka, u.rooka_start_date,
+      `SELECT u.id, u.username, u.public_description, u.profile_picture_url, u.total_rooka, u.rooka_start_date, u.language,
               (SELECT status FROM connections WHERE user_id = ? AND friend_id = u.id) as connection_status
        FROM users u
        WHERE (u.id = ? OR u.username = ?) AND u.deleted_at IS NULL`,
@@ -353,7 +356,7 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
         if (err || !user) return resolve(null);
         const targetId = user.id;
 
-        let publicBio = user.public_description || 'Dedicated endurance athlete building consistent training volume and aerobic fitness on Rooka.';
+        let publicBio = user.public_description || i18n.t(user.language, 'bio.default');
 
         db.get(
           `SELECT ftp, weight_kg, max_hr FROM athlete_metrics WHERE user_id = ?`,
@@ -1224,7 +1227,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
               "SELECT coach_name, coach_tone, coach_context, subscription_tier, role, language FROM users WHERE id = ?",
               [internalUserId],
               async (userErr, userRow) => {
-                const coachName = userRow?.coach_name || "Rooka";
+                const coachName = resolveCoachName(userRow);
                 let tone = userRow?.coach_tone || "Friendly and motivating";
                 if (tone === "custom" || tone === "Configure own coach") {
                   tone = userRow?.coach_context ? `Custom tone: ${userRow.coach_context}` : "Custom coach persona";
@@ -1285,10 +1288,10 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
 
                 prompt += ` CRITICAL LANGUAGE MANDATE: You MUST write your coach reaction fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! Keep it under 3 sentences. DO NOT wrap it in JSON.`;
 
-                const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${tone}. ${userRow?.coach_context ? `Coach Custom Context: ${userRow.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}.`;
+                const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${tone}. ${userRow?.coach_context ? `Coach Custom Context: ${userRow.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}. ${PLAIN_LANGUAGE_RULE}`;
 
                 try {
-                  const aiReply = await generateWithFallback(prompt, systemPrompt);
+                  const aiReply = await generateWithFallback(prompt, systemPrompt, null, null, null, "personal", false, { language: userLanguage });
 
                   // Insert into chat_history
                   db.run(
@@ -1314,7 +1317,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
 
                       // Send Push Notification with badge count
                       sendPushToUser(internalUserId, {
-                        title: `${coachName} analyzed your ${rookaSport}! ⚡️`,
+                        title: i18n.t(userLanguage, 'push.coachAnalyzed.title', { coach: coachName, sport: i18n.sportNoun(userLanguage, rookaSport) }),
                         body: aiReply,
                         data: { url: "/(tabs)/coach", type: "coach" },
                         badge: 1,
@@ -2461,10 +2464,31 @@ function saveMilestoneTitleRecord(userId, milestoneKey, title, description, reso
   );
 }
 
+/** Localized static title/description for a milestone (used when no AI title is generated). */
+function localizeMilestoneFallback(lang, englishTitle) {
+  const goalSmash = englishTitle.match(/^(.*) Target Smasher$/);
+  const goalFinish = englishTitle.match(/^(.*) Finisher$/);
+  let key = englishTitle;
+  let params = {};
+  if (goalSmash) { key = 'goalTargetSmasher'; params = { goal: goalSmash[1] }; }
+  else if (goalFinish) { key = 'goalFinisher'; params = { goal: goalFinish[1] }; }
+  const title = i18n.t(lang, `milestones.${key}.title`, params);
+  if (title === `milestones.${key}.title`) return null;
+  return { title, description: i18n.t(lang, `milestones.${key}.desc`, params) };
+}
+
 async function generateAndSaveMilestoneTitle(userId, milestoneKey, milestoneName, activitiesQuery, queryParams, milestoneContext, options = {}) {
+  const milestoneLang = await i18n.getUserLanguage(userId);
   return new Promise((resolve) => {
-    const fallbackTitle = milestoneName.split("(")[0].trim();
-    const fallbackDescription = milestoneContext;
+    let fallbackTitle = milestoneName.split("(")[0].trim();
+    let fallbackDescription = milestoneContext;
+    if (milestoneLang !== 'en') {
+      const localized = localizeMilestoneFallback(milestoneLang, fallbackTitle);
+      if (localized) {
+        fallbackTitle = localized.title;
+        fallbackDescription = localized.description;
+      }
+    }
 
     // ONLY use AI for realtime achievements. Historic or background checks award titles statically with 0 AI calls
     if (!options || !options.isRealtime) {
@@ -2504,7 +2528,8 @@ Please respond using this JSON schema:
           null,
           userId,
           "common",
-          true
+          true,
+          { language: milestoneLang }
         );
         titleData = typeof aiReply === 'string' ? JSON.parse(aiReply) : aiReply;
       } catch (eAi) {
@@ -2550,17 +2575,17 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
       if (!statsStr) statsStr = "No recorded stats yet.";
 
       db.get(
-        `SELECT coach_tone, coach_name, coach_context FROM users WHERE id = ?`,
+        `SELECT coach_tone, coach_name, coach_context, language FROM users WHERE id = ?`,
         [userId],
         async (err, user) => {
           if (err || !user) return;
 
-          const coachName = user.coach_name || "Rooka";
+          const coachName = resolveCoachName(user);
           let toneText = user.coach_tone || "Empathetic but demanding";
           if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
             toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
           }
-          const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread.`;
+          const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread. ${PLAIN_LANGUAGE_RULE}`;
           const prompt = `The athlete just leveled up to Rooka Level ${newLevel}! Here is everything they have done since joining Rooka: ${statsStr}. Write a short, highly motivating congratulatory message (1-3 sentences). Acknowledge their hard work. Only reference the numbers given above — do not invent distances, counts or achievements, and do not imply they have done more than this.`;
 
           try {
@@ -2570,6 +2595,9 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
               null,
               null,
               userId,
+              "personal",
+              false,
+              { language: user.language },
             );
             if (aiReply) {
               db.run(
@@ -2595,12 +2623,13 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
 async function generateQuestForUser(userId, poolType = "personal", previousQuest = null) {
   return new Promise((resolve, reject) => {
     db.get(
-      `SELECT subscription_tier, role FROM users WHERE id = ?`,
+      `SELECT subscription_tier, role, language FROM users WHERE id = ?`,
       [userId],
       (userErr, userRow) => {
         if (!canAccessQuests(userRow && userRow.subscription_tier, userRow && userRow.role)) {
           return resolve(null);
         }
+        const questLang = i18n.normalizeLang(userRow && userRow.language);
 
         db.all(
           `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 5`,
@@ -2608,7 +2637,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
           async (err, recentActivities) => {
         if (!recentActivities || recentActivities.length === 0) {
           const initialQuest = {
-            description: "Log your first activity",
+            description: i18n.t(questLang, 'quests.firstActivity'),
             target_metric: "activity_count",
             target_value: 1,
             target_sport: "Any",
@@ -2673,7 +2702,8 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
             null,
             userId,
             poolType,
-            true
+            true,
+            { language: questLang }
           );
           const questData = JSON.parse(aiReply);
           const daysLimit = Math.max(1, Math.min(7, parseInt(questData.time_limit_days) || 3));
@@ -2706,7 +2736,7 @@ async function generateQuestForUser(userId, poolType = "personal", previousQuest
         } catch (e) {
           console.error("Failed to generate quest via AI, using fallback template:", e);
           const fallbackQuest = {
-            description: "Log 10km total distance over the next 3 days",
+            description: i18n.t(questLang, "quests.fallback10k"),
             target_metric: "distance_km",
             target_value: 10,
             target_sport: "Any",
@@ -3139,13 +3169,13 @@ async function runDailyRecoveryJob() {
                   db.run(`UPDATE athlete_niggles SET severity = 0, status = 'resolved', resolved_date = CURRENT_TIMESTAMP WHERE id = ?`, [niggle.id]);
                   
                   // Notify the user via AI coach
-                  db.get(`SELECT coach_tone FROM users WHERE id = ?`, [niggle.user_id], async (err, user) => {
+                  db.get(`SELECT coach_tone, coach_name, language FROM users WHERE id = ?`, [niggle.user_id], async (err, user) => {
                       const tone = user ? user.coach_tone : "Friendly";
                       const prompt = `The athlete's ${niggle.body_part} injury has automatically fully healed and been marked as resolved after ${diffDays} days. Send a proactive, encouraging message (1-2 sentences) letting them know their ${niggle.body_part} is now cleared for full activity, but they should still listen to their body. DO NOT use JSON.`;
-                      const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
+                      const systemPrompt = `You are ${resolveCoachName(user)}, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread. ${PLAIN_LANGUAGE_RULE}`;
                       
                       try {
-                          const aiReply = await generateWithFallback(prompt, systemPrompt);
+                          const aiReply = await generateWithFallback(prompt, systemPrompt, null, null, null, "personal", false, { language: user ? user.language : 'en' });
                           
                           db.run(
                               `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
@@ -3606,14 +3636,14 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   prompt += `CRITICAL LANGUAGE MANDATE: You MUST write this entire message fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! NEVER mix languages within a sentence or use Dutch activity names inside English sentences. `;
   prompt += `Keep it under 3 sentences. DO NOT wrap it in JSON.`;
 
-  const coachName = user.coach_name || "Rooka";
+  const coachName = resolveCoachName(user);
   let toneText = user.coach_tone || "Friendly";
   if (user.coach_tone === "custom" || user.coach_tone === "Configure own coach") {
     toneText = user.coach_context ? `Custom tone: ${user.coach_context}` : "Custom coach persona";
   }
-  const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}.`;
+  const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${toneText}. ${user.coach_context ? `Coach Custom Context: ${user.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}. ${PLAIN_LANGUAGE_RULE}`;
 
-  const aiReply = await generateWithFallback(prompt, systemPrompt);
+  const aiReply = await generateWithFallback(prompt, systemPrompt, null, null, null, "personal", false, { language: userLanguage });
 
   await new Promise((resolve, reject) => {
     db.run(
@@ -3626,8 +3656,8 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
           mood: "hype"
         });
         const morningTitle = raceToday
-          ? (userLanguage === "nl" ? `🔥 WEDSTRIJDDAG: Veel succes van ${coachName}!` : `🔥 RACE DAY: Good luck from ${coachName}!`)
-          : (userLanguage === "nl" ? `Goedemorgen van ${coachName}! 🌅` : `Good morning from ${coachName}! 🌅`);
+          ? i18n.t(userLanguage, 'push.raceDay.title', { coach: coachName })
+          : i18n.t(userLanguage, 'push.morning.title', { coach: coachName });
         sendPushToUser(user.id, {
           title: morningTitle,
           body: aiReply,

@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { getLocaleTag } from '../../locales/i18n';
 import { Activity } from '../../types/activity';
 import { normalizeSportType } from '../../utils/disciplineConfig';
 import { PMCDayPoint } from '../../domain/pmc';
@@ -46,8 +47,17 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   activities = [],
 }) => {
   const theme = useTheme();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { width: windowWidth } = useWindowDimensions();
+
+  // "2026-10-05" -> "Mon 5 Oct" in the athlete's language
+  const formatPointDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const d = new Date(`${dateStr.substring(0, 10)}T12:00:00`);
+    if (isNaN(d.getTime())) return dateStr;
+    const locale = { en: 'en-GB', nl: 'nl-NL', de: 'de-DE', es: 'es-ES', fr: 'fr-FR' }[language as string] || 'en-GB';
+    return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
+  };
 
   const [timeframe, setTimeframe] = useState<Timeframe>('6W');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -214,7 +224,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
       });
 
       const total = Object.values(sportHours).reduce((a, b) => a + b, 0);
-      const label = `${mon.getDate()} ${mon.toLocaleString('default', { month: 'short' })}`;
+      const label = `${mon.getDate()} ${mon.toLocaleString(getLocaleTag(language), { month: 'short' })}`;
 
       weeks.push({
         weekLabel: label,
@@ -243,10 +253,10 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
       <View className="flex-row items-center justify-between">
         <View className="flex-1 mr-2">
           <Text className="text-base font-bold text-theme-text font-jakarta" numberOfLines={1}>
-            Performance Curves (PMC)
+            {t('progress.trendsTitle', 'Fitness, fatigue & form')}
           </Text>
           <Text className="text-xs text-theme-muted mt-0.5" numberOfLines={1}>
-            Fitness (CTL), Fatigue (ATL) & Form (TSB)
+            {t('progress.trendsSubtitle', 'How your training builds up over time')}
           </Text>
         </View>
 
@@ -283,42 +293,42 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
         <View className="flex-row items-center justify-between p-3 bg-theme-bg/80 rounded-xl border border-theme-border/60">
           <View>
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-              {activePoint.point.date}
+              {formatPointDate(activePoint.point.date)}
             </Text>
             <Text className="text-xs font-semibold text-theme-text mt-0.5">
-              Load: {Math.round(activePoint.point.rooka || 0)} pts
+              {t('progress.trendsLoad', 'Load')}: {Math.round(activePoint.point.rooka || 0)} pts
             </Text>
           </View>
 
           <View className="flex-row items-center gap-3">
             <View className="items-center">
               <View className="flex-row items-center gap-1">
-                <View className="w-2 h-2 rounded-full bg-[#6366F1]" />
-                <Text className="text-xs font-bold text-[#6366F1]">
+                <View className="w-2 h-2 rounded-full bg-[#10B981]" />
+                <Text className="text-xs font-bold text-[#10B981]">
                   {Math.round(activePoint.point.ctl * 10) / 10}
                 </Text>
               </View>
-              <Text className="text-[10px] text-theme-muted">CTL</Text>
+              <Text className="text-[10px] text-theme-muted">{t('dashboard.fitness', 'Fitness')}</Text>
             </View>
 
             <View className="items-center">
               <View className="flex-row items-center gap-1">
-                <View className="w-2 h-2 rounded-full bg-[#F43F5E]" />
-                <Text className="text-xs font-bold text-[#F43F5E]">
+                <View className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+                <Text className="text-xs font-bold text-[#F59E0B]">
                   {Math.round(activePoint.point.atl * 10) / 10}
                 </Text>
               </View>
-              <Text className="text-[10px] text-theme-muted">ATL</Text>
+              <Text className="text-[10px] text-theme-muted">{t('dashboard.fatigue', 'Fatigue')}</Text>
             </View>
 
             <View className="items-center">
               <View className="flex-row items-center gap-1">
-                <View className="w-2 h-2 rounded-full bg-[#10B981]" />
-                <Text className="text-xs font-bold text-[#10B981]">
+                <View className="w-2 h-2 rounded-full bg-[#0EA5E9]" />
+                <Text className="text-xs font-bold text-[#0EA5E9]">
                   {activePoint.point.tsb > 0 ? `+${Math.round(activePoint.point.tsb * 10) / 10}` : Math.round(activePoint.point.tsb * 10) / 10}
                 </Text>
               </View>
-              <Text className="text-[10px] text-theme-muted">TSB</Text>
+              <Text className="text-[10px] text-theme-muted">{t('dashboard.form', 'Form')}</Text>
             </View>
           </View>
         </View>
@@ -355,14 +365,14 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
           <Path
             d={ctlPath}
             fill="none"
-            stroke="#6366F1"
+            stroke="#10B981"
             strokeWidth="2.5"
             strokeLinecap="round"
           />
           <Path
             d={atlPath}
             fill="none"
-            stroke="#F43F5E"
+            stroke="#F59E0B"
             strokeWidth="2"
             strokeLinecap="round"
             opacity="0.85"
@@ -370,7 +380,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
           <Path
             d={tsbPath}
             fill="none"
-            stroke="#10B981"
+            stroke="#0EA5E9"
             strokeWidth="2"
             strokeLinecap="round"
             opacity="0.9"
@@ -383,8 +393,9 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
               y1={paddingTop}
               x2={getX(activePoint.index)}
               y2={chartHeight - paddingBottom}
-              stroke={theme.tint}
-              strokeWidth="2"
+              stroke="#94A3B8"
+              strokeWidth="1.5"
+              strokeDasharray="3,3"
             />
           )}
         </Svg>
@@ -396,10 +407,10 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
           {/* Section Header Row */}
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-bold text-theme-text font-jakarta">
-              Weekly Volume by Sport
+              {t('trendsExtra.weeklyVolume')}
             </Text>
             <Text className="text-xs font-semibold text-theme-accent">
-              Avg {avgWeeklyHours}h / week
+              {t('trendsExtra.avgPerWeek', { hours: avgWeeklyHours })}
             </Text>
           </View>
 

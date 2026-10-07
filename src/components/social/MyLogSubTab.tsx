@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { RookaPoints, RookaMark } from '../ui/RookaPoints';
+import { RookaMark } from '../ui/RookaPoints';
 import { BrandColors, Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
@@ -18,43 +18,19 @@ import { Chip } from '../ui/Chip';
 import { SportMedallion } from '../ui/SportMedallion';
 import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
 import { EmptyState } from '../ui/EmptyState';
+import { StatValue } from '../ui/StatValue';
+import { getPaceParts } from '../../utils/paceFormat';
+import { formatClock, formatDuration, formatRelativeDayAndTime } from '../../utils/format';
+import { useLanguage } from '../../context/LanguageContext';
+import { useSubscription } from '../../context/SubscriptionStore';
+import { canAccessQuests } from '../../utils/permissions';
+import { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import { useRouter } from 'expo-router';
 
 interface MyLogSubTabProps {
   onOpenActivityModal?: (id: string | number, activity?: Partial<Activity>) => void;
 }
 
-function formatHumanizedDate(dateString?: string): string {
-  if (!dateString) return 'Recent';
-  try {
-    const actDate = new Date(dateString);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const target = new Date(actDate.getFullYear(), actDate.getMonth(), actDate.getDate());
-    const diffDays = Math.round((today.getTime() - target.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays > 1 && diffDays < 7) {
-      return actDate.toLocaleDateString('en-US', { weekday: 'short' });
-    }
-
-    return actDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch (e) {
-    return dateString.substring(0, 10);
-  }
-}
-
-function formatDuration(minutes?: number): string {
-  if (!minutes || minutes <= 0) return '0:00';
-  const totalSecs = Math.round(minutes * 60);
-  const hrs = Math.floor(totalSecs / 3600);
-  const mins = Math.floor((totalSecs % 3600) / 60);
-  const secs = totalSecs % 60;
-  if (hrs > 0) {
-    return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
 
 function CircularProgressChamber({
   progress = 0.75,
@@ -109,7 +85,11 @@ function CircularProgressChamber({
 export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal }) => {
   const theme = useTheme();
   const { user } = useUser();
+  const { presentPaywall } = useSubscription();
+  const router = useRouter();
+  const hasQuestAccess = canAccessQuests(user?.subscription_tier);
   const { activities, loading } = useActivities();
+  const { t, language } = useLanguage();
   const { quests, loading: gamificationLoading, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
 
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false);
@@ -159,17 +139,43 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
       <View>
         <View className="flex-row justify-between items-center mb-3 px-0.5">
           <Text className="text-lg font-extrabold text-theme-text tracking-tight">
-            Quests
+            {t('questUi.quests')}
           </Text>
-          <Text className="text-xs font-semibold text-theme-muted">
-            Active
-          </Text>
+          {hasQuestAccess && (
+            <Text className="text-xs font-semibold text-theme-muted">
+              {t('common.active')}
+            </Text>
+          )}
         </View>
 
         {/* 2-CARD FROSTED GLASS ROW */}
         <View className="flex-row gap-3">
           {/* CARD 1: ACTIVE QUEST */}
-          {gamificationLoading && (!quests || quests.length === 0) ? (
+          {!hasQuestAccess ? (
+          // Quests are a Rooka+ feature: free athletes see an unlock card instead
+          <TouchableOpacity
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const res = await presentPaywall();
+              if (res === PAYWALL_RESULT.NOT_PRESENTED || res === PAYWALL_RESULT.ERROR) {
+                router.navigate({ pathname: '/profile', params: { subtab: 'account' } });
+              }
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-center items-center h-[152px] shadow-xs"
+          >
+            <Ionicons name="lock-closed-outline" size={24} color={theme.tint} />
+            <Text className="text-xs font-bold text-theme-text mt-2 text-center">
+              {t('progress.weeklyQuests', 'Weekly quests')}
+            </Text>
+            <View className="mt-3 px-3 py-1.5 bg-theme-accent/15 rounded-lg">
+              <Text className="text-[11px] font-bold text-theme-accent">
+                {t('profile.includedWithRookaPlus', 'Unlock with Rooka+')}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          ) : gamificationLoading && (!quests || quests.length === 0) ? (
             <ActiveQuestSkeleton variant="tile" />
           ) : activeQuest ? (
             <TouchableOpacity
@@ -182,7 +188,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
           >
             <View>
               <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                Active Quest
+                {t('questUi.activeQuest')}
               </Text>
               <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
                 {`${currentProgress} / ${targetVal}`}
@@ -210,7 +216,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-center items-center h-[152px] shadow-xs"
           >
             <Ionicons name="trophy-outline" size={26} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-text mt-2 text-center">No Active Quest</Text>
+            <Text className="text-xs font-bold text-theme-text mt-2 text-center">{t('questUi.noActiveQuest')}</Text>
             
             <View className="mt-3 px-3 py-1.5 bg-theme-accent rounded-lg flex-row items-center gap-1">
               {questActionLoading ? (
@@ -218,7 +224,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               ) : (
                 <>
                   <Ionicons name="add-circle-outline" size={14} color="white" />
-                  <Text className="text-[10px] font-bold text-white uppercase">Start</Text>
+                  <Text className="text-[10px] font-bold text-white uppercase">{t('questUi.start')}</Text>
                 </>
               )}
             </View>
@@ -229,17 +235,17 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
           <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs">
             <View>
               <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                Streak
+                {t('questUi.streak')}
               </Text>
               <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
-                {realStreak} {realStreak === 1 ? 'Day' : 'Days'}
+                {realStreak === 1 ? t('questUi.oneDay') : t('questUi.nDays', { count: realStreak })}
               </Text>
             </View>
 
             <View className="flex-row items-end justify-between">
               <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-theme-border/80 dark:border-white/10">
                 <Text className="text-xs font-bold text-theme-text">
-                  {realStreak > 0 ? 'Keep it up!' : 'Start today!'}
+                  {realStreak > 0 ? t('questUi.keepItUp') : t('questUi.startToday')}
                 </Text>
               </View>
               <CircularProgressChamber
@@ -256,10 +262,10 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
       <View>
         <View className="flex-row justify-between items-center mb-3 px-0.5">
           <Text className="text-lg font-extrabold text-theme-text tracking-tight">
-            Recent Activities
+            {t('dashboard.recentActivities')}
           </Text>
           <Text className="text-xs font-semibold text-theme-muted">
-            {visibleActivities.length} total
+            {t('questUi.totalCount', { count: visibleActivities.length })}
           </Text>
         </View>
 
@@ -267,65 +273,110 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
         {loading && visibleActivities.length === 0 ? (
           <View className="items-center justify-center p-8 bg-theme-card/80 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card">
             <ActivityIndicator size="large" color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-muted mt-3">Loading activities...</Text>
+            <Text className="text-xs font-bold text-theme-muted mt-3">{t('questUi.loadingActivities')}</Text>
           </View>
         ) : visibleActivities.length === 0 ? (
           <EmptyState
             preset="no-activity"
-            badge="TRAINING HISTORY"
-            title="No Workouts Logged Yet"
-            subtitle="Your training log records every ride, run, swim, and session with telemetry, heart rate zones, and rooka points."
+            badge={t('questUi.historyBadge')}
+            title={t('questUi.noWorkoutsTitle')}
+            subtitle={t('questUi.noWorkoutsSubtitle')}
           />
         ) : (
           <View className="gap-y-2.5">
             {visibleActivities.map((act) => {
               const idStr = String(act.id);
-              const dateStr = formatHumanizedDate(act.start_date);
+              const dateStr = act.start_date ? formatRelativeDayAndTime(act.start_date, language) : '';
               const hasDistance = typeof act.distance_km === 'number' && act.distance_km > 0;
-              const primaryStat = hasDistance
-                ? `${act.distance_km!.toFixed(1)}\u00A0km`
-                : `${Math.round(act.moving_time_min || 0)} mins`;
-              const secondaryStat = hasDistance ? formatDuration(act.moving_time_min) : null;
-              const secondaryPoints = hasDistance
-                ? null
-                : Math.round(act.rooka_score || act.tss || 0);
+              const movingSec =
+                typeof (act as any).moving_time_s === 'number' && (act as any).moving_time_s > 0
+                  ? (act as any).moving_time_s
+                  : typeof act.moving_time === 'number' && act.moving_time > 0
+                  ? act.moving_time
+                  : (act.moving_time_min || 0) * 60;
+              const paceParts = getPaceParts(
+                act.distance_km,
+                movingSec,
+                act.sport_type,
+                act.name || (act as any).title,
+                true
+              );
 
+              // Same layout as the Social feed card: title + date, then labelled stats
               return (
                 <TouchableOpacity
                   key={`act-${idStr}`}
                   onPress={() => onOpenActivityModal && onOpenActivityModal(act.id, act)}
                   activeOpacity={0.75}
-                  className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-3.5 flex-row items-center justify-between mb-2.5 shadow-xs"
+                  className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-3.5 mb-2.5 shadow-xs"
                 >
-                  {/* Left: 40pt SportMedallion & Titles */}
-                  <View className="flex-row items-center flex-1 pr-3">
+                  <View className="flex-row items-center">
                     <SportMedallion sport={act.sport_type || act.type} size={40} className="mr-3.5" />
-
                     <View className="flex-1">
                       <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
-                        {act.name || act.sport_type || 'Workout'}
+                        {act.name || act.sport_type || t('activityDetail.workout')}
                       </Text>
                       <Text className="text-xs font-medium text-theme-muted mt-0.5">
                         {dateStr}
                       </Text>
                     </View>
+                    <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
                   </View>
 
-                  {/* Right: Big Metric & Duration/Score */}
-                  <View className="items-end">
-                    <Text className="text-base font-extrabold text-theme-text font-mono">
-                      {primaryStat}
-                    </Text>
-                    {secondaryStat !== null ? (
-                      <Text className="text-xs font-medium text-theme-muted font-mono mt-0.5">
-                        {secondaryStat}
-                      </Text>
-                    ) : (
-                      <View className="mt-0.5">
-                        <RookaPoints value={secondaryPoints ?? 0} color={theme.textSecondary} />
+                  {hasDistance ? (
+                    <View className="flex-row justify-between items-start pt-3">
+                      <View className="flex-1">
+                        <StatValue
+                          label={t('social.distance', 'DISTANCE')}
+                          labelPosition="bottom"
+                          value={act.distance_km!.toFixed(1)}
+                          unit="km"
+                          size="md"
+                          align="left"
+                        />
                       </View>
-                    )}
-                  </View>
+                      <View className="flex-1 items-center">
+                        <StatValue
+                          label={t('social.time', 'TIME')}
+                          labelPosition="bottom"
+                          value={formatClock(movingSec)}
+                          size="md"
+                          align="center"
+                        />
+                      </View>
+                      <View className="flex-1 items-end">
+                        <StatValue
+                          label={paceParts?.label || t('social.pace', 'PACE')}
+                          labelPosition="bottom"
+                          value={paceParts?.value || '--'}
+                          unit={paceParts?.unit}
+                          size="md"
+                          align="right"
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <View className="flex-row justify-between items-start pt-3">
+                      <View className="flex-1">
+                        <StatValue
+                          label={t('progress.duration', 'DURATION')}
+                          labelPosition="bottom"
+                          value={formatDuration(act.moving_time_min || 0)}
+                          size="md"
+                          align="left"
+                        />
+                      </View>
+                      <View className="flex-1 items-end">
+                        <StatValue
+                          label={t('progress.effort', 'EFFORT')}
+                          labelPosition="bottom"
+                          value={`+${Math.round(act.rooka_score || act.tss || 0)}`}
+                          size="md"
+                          align="right"
+                        />
+                      </View>
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -345,8 +396,8 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                 <Ionicons name="trophy" size={26} color={theme.tint} />
               </View>
               <View>
-                <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
-                <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
+                <Text className="text-lg font-extrabold text-theme-text">{t('questUi.activeQuest')}</Text>
+                <Text className="text-xs text-theme-muted font-bold">{t('questUi.weeklyChallenge')}</Text>
               </View>
             </View>
             {activeQuest?.reward_points ? (
@@ -362,14 +413,14 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
         <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
           <Text className="text-sm font-bold text-theme-text leading-relaxed font-rajdhani">
-            {activeQuest?.description || 'Complete your active challenges this week to earn bonus rooka points.'}
+            {activeQuest?.description || t('coachExtra.questFallback')}
           </Text>
         </View>
 
         <View className="mb-6">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-xs font-bold text-theme-muted">
-              Progress ({currentProgress} / {targetVal})
+              {t('questUi.progress', { current: currentProgress, target: targetVal })}
             </Text>
             <Text className="text-sm font-mono font-bold text-theme-accent">
               {questProgressPercent}%
@@ -394,7 +445,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             ) : (
               <>
                 <Ionicons name="refresh-outline" size={16} color={theme.textSecondary} />
-                <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+                <Text className="text-xs font-bold text-theme-muted">{t('questUi.swapChallenge')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -403,7 +454,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             onPress={() => setIsQuestModalOpen(false)}
             className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
           >
-            <Text className="text-xs font-extrabold text-white">Got it</Text>
+            <Text className="text-xs font-extrabold text-white">{t('common.gotIt')}</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>

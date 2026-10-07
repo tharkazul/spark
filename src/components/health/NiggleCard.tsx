@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
 import { EmptyState } from '../ui/EmptyState';
-import { ActiveNiggle, BODY_PARTS_LOOKUP } from '../progress/AnatomicalBodyMap';
+import { ActiveNiggle, getBodyPartLabel } from '../progress/AnatomicalBodyMap';
 import { useLanguage } from '../../context/LanguageContext';
 
 export interface NiggleCardProps {
@@ -29,52 +29,52 @@ export function NiggleCard({
     const p = (bodyPart || '').toLowerCase();
     if (p.includes('foot') || p.includes('ankle') || p.includes('heel')) {
       return severity >= 3
-        ? 'Impact running suspended. Converted running workouts to aerobic spin/swimming sessions to offload the ankle/foot joint.'
-        : 'Running volume capped at Zone 2 aerobic steady pace; plyometrics and steep downhill strides removed.';
+        ? t('niggleAdjust.footHigh')
+        : t('niggleAdjust.footLow');
     }
     if (p.includes('calf') || p.includes('shin')) {
       return severity >= 3
-        ? 'Calf eccentric load protected. Hard intervals swapped for low-impact cycling endurance.'
-        : 'Hill repeats removed; strides limited to flat surfaces with extended dynamic warm-ups.';
+        ? t('niggleAdjust.calfHigh')
+        : t('niggleAdjust.calfLow');
     }
     if (p.includes('knee')) {
       return severity >= 3
-        ? 'Patellofemoral relief. Heavy squats and outdoor running paused; light spinning with cadence >90 RPM.'
-        : 'Run cadence bumped to 175+ spm to minimize joint braking force; plyometrics deferred.';
+        ? t('niggleAdjust.kneeHigh')
+        : t('niggleAdjust.kneeLow');
     }
     if (p.includes('hamstring') || p.includes('glute')) {
       return severity >= 3
-        ? 'Posterior chain protection. Max-effort sprints and threshold intervals paused; recovery spin scheduled.'
-        : 'Zone 4/5 track work shifted to steady Zone 2 tempo; terminal leg extension restricted.';
+        ? t('niggleAdjust.hamstringHigh')
+        : t('niggleAdjust.hamstringLow');
     }
     if (p.includes('shoulder') || p.includes('neck') || p.includes('arm')) {
       return severity >= 3
-        ? 'Upper body deload. Swim pull sets converted to kickboard drills; heavy overhead pressing deferred.'
-        : 'Swim main sets focused on kick technique; aero tuck posture minimized on bike rides.';
+        ? t('niggleAdjust.shoulderHigh')
+        : t('niggleAdjust.shoulderLow');
     }
     if (p.includes('back') || p.includes('core')) {
       return severity >= 3
-        ? 'Lumbar protection. Aggressive aero-bar position restricted; core stabilization emphasized.'
-        : 'Heavy axial loading lifts paused; running replaced with zero-impact swimming.';
+        ? t('niggleAdjust.backHigh')
+        : t('niggleAdjust.backLow');
     }
     return severity >= 3
-      ? 'High-intensity sessions adjusted to aerobic recovery or cross-training until soreness resolves.'
-      : 'Intensity capped at Zone 2 endurance to prevent acute overload.';
+      ? t('niggleAdjust.defaultHigh')
+      : t('niggleAdjust.defaultLow');
   };
 
   const getSeverityBadge = (sev: number) => {
     let bg = 'bg-semantic-warning/15 border-semantic-warning/30';
     let textColor = 'text-semantic-warning';
-    let label = 'Severity 1 (Twinge)';
+    let label = t('niggleAdjust.severityTwinge');
 
     if (sev >= 4) {
       bg = 'bg-semantic-error/15 border-semantic-error/30';
       textColor = 'text-semantic-error';
-      label = `Severity ${sev} (Severe)`;
+      label = t('niggleAdjust.severitySevere', { level: sev });
     } else if (sev >= 2) {
       bg = 'bg-theme-accent/15 border-theme-accent/30';
       textColor = 'text-theme-accent';
-      label = `Severity ${sev} (Moderate)`;
+      label = t('niggleAdjust.severityModerate', { level: sev });
     }
 
     return (
@@ -117,7 +117,7 @@ export function NiggleCard({
       {niggles.length === 0 ? (
         <EmptyState
           preset="healthy-niggles"
-          badge="100% READINESS"
+          badge={t('niggleAdjust.readinessBadge')}
           title={t('progress.healthyReadyTitle', 'Healthy & Ready')}
           subtitle={t('progress.healthyReadySubtitle', 'No active niggles reported. Tap to log discomfort early before minor tightness becomes an injury.')}
           action={{
@@ -131,7 +131,7 @@ export function NiggleCard({
         <View className="gap-y-3">
           {niggles.map((item) => {
             const displayName =
-              BODY_PARTS_LOOKUP[item.body_part] || item.body_part.replace('_', ' ');
+              getBodyPartLabel(item.body_part);
 
             return (
               <View

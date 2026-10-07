@@ -12,7 +12,7 @@ import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
-import { BODY_PARTS_LOOKUP, ActiveNiggle } from '../progress/AnatomicalBodyMap';
+import { getBodyPartLabel, ActiveNiggle } from '../progress/AnatomicalBodyMap';
 import { formatDuration, calculateWorkoutDurationMinutes } from '../../utils/format';
 
 interface WhyThisWorkoutSheetProps {
@@ -63,34 +63,20 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
     const title = (workout.title || '').toLowerCase();
     const sport = String(workout.type || '').toUpperCase();
 
-    if (title.includes('zone 2') || title.includes('base') || title.includes('endurance') || title.includes('easy')) {
-      return {
-        focus: 'Aerobic Base Building & Mitochondrial Density',
-        details: 'Calibrated below ventilatory threshold to maximize fat oxidation without creating autonomic stress.',
-      };
+    // Workout titles are written in the athlete's language, so match keywords in all app languages.
+    if (/zone 2|zone2|base|basis|endurance|easy|duur|rustig|grundlage|locker|fondo|suave|fácil|facile|fondamentale/.test(title)) {
+      return { focus: t('whyWorkout.aerobicFocus'), details: t('whyWorkout.aerobicDetails') };
     }
-    if (title.includes('tempo') || title.includes('threshold') || title.includes('sweet spot')) {
-      return {
-        focus: 'Lactate Threshold & Clearance Efficiency',
-        details: 'Structured intervals to raise sustainable aerobic power while monitoring muscular fatigue.',
-      };
+    if (/tempo|threshold|sweet spot|drempel|schwelle|umbral|seuil/.test(title)) {
+      return { focus: t('whyWorkout.thresholdFocus'), details: t('whyWorkout.thresholdDetails') };
     }
-    if (title.includes('vo2') || title.includes('interval') || title.includes('speed') || title.includes('hiit')) {
-      return {
-        focus: 'VO2 Max & Cardiac Stroke Volume',
-        details: 'High-intensity intervals designed to expand aerobic ceiling, balanced with adequate recovery.',
-      };
+    if (/vo2|interval|speed|hiit|snelheid|sprint|intervall|intervalo|intervalle|vitesse|velocidad/.test(title)) {
+      return { focus: t('whyWorkout.vo2Focus'), details: t('whyWorkout.vo2Details') };
     }
     if (sport === 'STRENGTH') {
-      return {
-        focus: 'Neuromuscular Activation & Structural Resilience',
-        details: 'Endurance-specific strength to bulletproof connective tissues and enhance movement economy.',
-      };
+      return { focus: t('whyWorkout.strengthFocus'), details: t('whyWorkout.strengthDetails') };
     }
-    return {
-      focus: 'Targeted Aerobic Conditioning',
-      details: 'Progressive training stimulus aligned with your macro-cycle and seasonal endurance milestones.',
-    };
+    return { focus: t('whyWorkout.defaultFocus'), details: t('whyWorkout.defaultDetails') };
   };
 
   const stimulus = getStimulusRationale();
@@ -108,7 +94,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
             </View>
             <View className="flex-1">
               <Text className="text-base font-bold text-theme-text font-jakarta">
-                Why this workout?
+                {t('whyWorkout.title')}
               </Text>
               <Text className="text-xs text-theme-muted font-medium" numberOfLines={1}>
                 {workout.title}
@@ -141,20 +127,20 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
                   color={activeNiggles.length > 0 ? '#F59E0B' : '#10B981'}
                 />
                 <Text className="text-xs font-bold text-theme-text uppercase tracking-wider">
-                  Injury & Soreness Protection
+                  {t('whyWorkout.injuryTitle')}
                 </Text>
               </View>
               {activeNiggles.length > 0 ? (
                 <View className="gap-y-2 mt-1">
                   {activeNiggles.map((n) => {
-                    const name = BODY_PARTS_LOOKUP[n.body_part] || n.body_part.replace('_', ' ');
+                    const name = getBodyPartLabel(n.body_part);
                     return (
                       <View key={n.id} className="p-2 bg-theme-bg rounded-lg border border-theme-border/30">
                         <Text className="text-xs font-bold text-theme-text">
-                          {name} · Severity {n.severity}/5
+                          {name} · {t('whyWorkout.severity', { level: n.severity })}
                         </Text>
                         <Text className="text-[11px] text-theme-muted mt-0.5 leading-relaxed">
-                          Session prescribed to minimize high-impact loading on this area while preserving cardiovascular fitness.
+                          {t('whyWorkout.injuryProtected')}
                         </Text>
                       </View>
                     );
@@ -162,7 +148,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
                 </View>
               ) : (
                 <Text className="text-xs text-theme-muted leading-relaxed">
-                  No active niggles reported. Full movement mechanics cleared for prescribed training intensity.
+                  {t('whyWorkout.noNiggles')}
                 </Text>
               )}
             </View>
@@ -173,7 +159,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
                 <View className="flex-row items-center gap-2">
                   <Ionicons name="pulse" size={16} color="#6366F1" />
                   <Text className="text-xs font-bold text-theme-text uppercase tracking-wider">
-                    Form & Training Load
+                    {t('whyWorkout.formTitle')}
                   </Text>
                 </View>
                 <View className="px-2 py-0.5 rounded-full bg-theme-accent/15">
@@ -184,10 +170,10 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
               </View>
               <Text className="text-xs text-theme-muted leading-relaxed">
                 {pmc.tsb < -25
-                  ? 'Fatigue is elevated from recent heavy blocks. This session is throttled to prevent acute overreaching and support immune function.'
+                  ? t('whyWorkout.formFatigued')
                   : pmc.tsb < -10
-                  ? 'Optimal training window. Your fatigue-to-fitness ratio is primed to absorb this specific physiological stimulus.'
-                  : 'Balanced form state. Adequate recovery buffer enables target pacing without excessive cardiovascular strain.'}
+                  ? t('whyWorkout.formOptimal')
+                  : t('whyWorkout.formBalanced')}
               </Text>
             </View>
 
@@ -197,15 +183,15 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
                 <View className="flex-row items-center gap-2">
                   <Ionicons name="time-outline" size={16} color="#0EA5E9" />
                   <Text className="text-xs font-bold text-theme-text uppercase tracking-wider">
-                    Time Window Match
+                    {t('whyWorkout.timeTitle')}
                   </Text>
                 </View>
                 <Text className="text-xs font-bold text-theme-text font-rajdhani">
-                  {formatDuration(durationMin)} / {dayMaxMins}m cap
+                  {formatDuration(durationMin)} / {t('whyWorkout.capMinutes', { mins: dayMaxMins })}
                 </Text>
               </View>
               <Text className="text-xs text-theme-muted leading-relaxed">
-                Structured to fit within your {dayMaxMins}-minute availability for {dayName}. Pacing and rest intervals are optimized for maximum ROI without exceeding your schedule.
+                {t('whyWorkout.timeBody', { mins: dayMaxMins, day: t(`days.${dayName.slice(0, 3).toLowerCase()}`, dayName) })}
               </Text>
             </View>
 
@@ -214,7 +200,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
               <View className="flex-row items-center gap-2 mb-1.5">
                 <Ionicons name="flame" size={16} color={theme.tint} />
                 <Text className="text-xs font-bold text-theme-accent uppercase tracking-wider">
-                  Target Stimulus & Rationale
+                  {t('whyWorkout.stimulusTitle')}
                 </Text>
               </View>
               <Text className="text-xs font-bold text-theme-text mb-1">
@@ -226,7 +212,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
               {workout.coachNote ? (
                 <View className="mt-2.5 pt-2 border-t border-theme-accent/20">
                   <Text className="text-[11px] font-bold text-theme-accent mb-0.5">
-                    Coach Direct Instruction:
+                    {t('whyWorkout.coachInstruction')}
                   </Text>
                   <Text className="text-xs text-theme-text italic">
                     &ldquo;{workout.coachNote}&rdquo;
@@ -240,7 +226,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
         {/* Done / Dismiss Button */}
         <View className="pt-3 border-t border-theme-border/40 mt-3">
           <Button
-            label="Got it"
+            label={t('common.gotIt')}
             variant="primary"
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

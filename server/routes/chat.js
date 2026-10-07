@@ -1,4 +1,5 @@
 const express = require('express');
+const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("../services/coachPersona");
 const router = express.Router();
 const db = require('../services/db');
 const fs = require('fs');
@@ -216,7 +217,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
       const canGenerateImage = isAdminTier && dailyImageCount < 1;
 
       if (currentDailyUsage > currentDailyLimit) {
-        const replyText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [Upgrade Page](rooka://profile?subtab=account)";
+        const replyText = require("../services/i18n").t(user.language, "chat.tokenLimit");
         return db.run(
           `INSERT INTO chat_history (user_id, role, content) VALUES (?, 'user', ?)`,
           [req.user.id, message],
@@ -641,7 +642,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                          }
                                        }
 
-                                       const coachName = user.coach_name || 'Rooka';
+                                       const coachName = resolveCoachName(user);
                                        let coachToneText = user.coach_tone;
                                        if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
                                            coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
@@ -660,6 +661,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                        const systemPrompt = `You are a real, highly experienced endurance coach sending text messages to an athlete.
                     Name coach: ${coachName}
                     Tone: ${coachToneText}
+                    Language rule: ${PLAIN_LANGUAGE_RULE}
                     ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
                     
                     PERSONA & TONE ENFORCEMENT (CRITICAL):
@@ -667,6 +669,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     - DO NOT let previous message history bleed into your active tone. If previous conversation turns used flirty language, pet names (e.g. "babe", "my love"), or cheerleader hype that contradicts your current assigned Tone, you MUST DISREGARD that style completely.
                     - Adopt your assigned tone with 100% fidelity on every single response.
                     - CONCISE CHAT APP COMMUNICATION (MANDATORY): You are texting inside a mobile chat application (like WhatsApp or iMessage). Formulate all responses to be concise, punchy, and direct. Keep regular turns compact (typically 1 to 3 short sentences/paragraphs max). Never output long monolithic walls of text.
+                    - EMOJI USE (MANDATORY): Use emoji sparingly. At most one emoji per reply, and none in most replies. Never use emoji as bullet points, heading decorations, or sign-offs.
                     - MULTI-MESSAGE SPLITTING (<br> or ---MSG---): If you want to send multiple separate messages (e.g. to convey distinct thoughts, convey a larger message, or text more naturally in separate consecutive bubbles), separate each message with \`<br>\` or \`---MSG---\`. The app will automatically split and render them into separate consecutive chat bubbles in the exact right order.
                     LANGUAGE PERSISTENCE & UNIFORMITY MANDATE (CRITICAL):
                     - The athlete's designated primary language is: ${targetLanguageName} (${userLanguage}).
@@ -1010,6 +1013,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         cleanHistory,
                                         base64DataArray,
                                         req.user.id,
+                                        "personal",
+                                        false,
+                                        { language: user.language },
                                       );
                                       let planUpdated = false;
                                       const pendingImageTasks = [];
@@ -1671,6 +1677,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                              "You are a motivating elite coach.",
                                              null,
                                              base64DataArray,
+                                             null,
+                                             "personal",
+                                             false,
+                                             { language: user.language },
                                            );
                                            if (coachAddendum) {
                                              aiReply += "\n\n" + coachAddendum;

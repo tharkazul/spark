@@ -24,6 +24,7 @@ import { socialApi } from '../../services/apiServices';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { ScalePressable } from '../ui/ScalePressable';
 import { useLanguage } from '../../context/LanguageContext';
+import { translate } from '../../locales/i18n';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -48,10 +49,10 @@ export const formatTierLabel = (tier?: string | null, role?: string | null): str
   const normalizedRole = (role || '').toLowerCase().trim();
 
   if (normalizedTier === 'admin' || normalizedRole === 'admin') {
-    return 'rooka admin';
+    return translate('uiExtra.tierAdmin');
   }
   if (normalizedTier === 'premium') {
-    return 'rooka premium user';
+    return translate('uiExtra.tierPremium');
   }
   if (
     normalizedTier === 'rooka_plus' ||
@@ -59,9 +60,9 @@ export const formatTierLabel = (tier?: string | null, role?: string | null): str
     normalizedTier === 'rooka+' ||
     normalizedTier === 'plus'
   ) {
-    return 'rooka+ user';
+    return translate('uiExtra.tierPlus');
   }
-  return 'rooka free user';
+  return translate('uiExtra.tierFree');
 };
 
 export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({

@@ -35,10 +35,14 @@ async function verifyEmailConnection() {
 /**
  * Sends a branded password reset email with a 6-digit OTP code using Rooka's orange brand identity
  */
-async function sendPasswordResetEmail({ toEmail, username, resetCode }) {
+async function sendPasswordResetEmail({ toEmail, username, resetCode, language }) {
+  const { t, normalizeLang } = require("./i18n");
+  const lang = normalizeLang(language);
   const transporter = getTransporter();
   const from = process.env.EMAIL_FROM || `Rooka <${process.env.SMTP_USER || "no-reply@rooka.io"}>`;
-  const athleteName = username ? username : "Athlete";
+  const athleteName = username ? username : t(lang, "common.athlete");
+  const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const nameHtml = `<strong style="color: #F5F5F7;">${escapeHtml(athleteName)}</strong>`;
 
   // Check for local logo asset
   const logoPath = path.join(__dirname, "../public/logo-mark.png");
@@ -56,16 +60,16 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode }) {
   const mailOptions = {
     from,
     to: toEmail,
-    subject: `Your Rooka verification code: ${resetCode}`,
-    text: `Hi ${athleteName},\n\nYour 6-digit verification code to reset your Rooka account password is: ${resetCode}\n\nThis code will expire in 15 minutes. If you did not request this, you can safely ignore this email.\n\nKeep pushing,\nTeam Rooka`,
+    subject: t(lang, "email.resetSubject", { code: resetCode }),
+    text: t(lang, "email.resetText", { name: athleteName, code: resetCode }),
     attachments,
     html: `
       <!DOCTYPE html>
-      <html>
+      <html lang="${lang}">
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Reset Your Rooka Password</title>
+          <title>${t(lang, "email.resetHtmlTitle")}</title>
         </head>
         <body style="margin: 0; padding: 0; background-color: #17171A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #F5F5F7;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #17171A; padding: 40px 16px;">
@@ -90,9 +94,9 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode }) {
                   <!-- Main Message -->
                   <tr>
                     <td style="padding-bottom: 20px;">
-                      <h2 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #F5F5F7;">Password Reset Code</h2>
+                      <h2 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #F5F5F7;">${t(lang, "email.resetHeading")}</h2>
                       <p style="margin: 0; font-size: 14px; line-height: 22px; color: #9A9AA2;">
-                        Hi <strong style="color: #F5F5F7;">${athleteName}</strong>, we received a request to reset your password. Use the verification code below to set a new password in the app.
+                        ${escapeHtml(t(lang, "email.resetIntro", { name: "__NAME__" })).replace("__NAME__", nameHtml)}
                       </p>
                     </td>
                   </tr>
@@ -112,7 +116,7 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode }) {
                   <tr>
                     <td style="padding-bottom: 24px;">
                       <p style="margin: 0; font-size: 13px; color: #9A9AA2; text-align: center;">
-                        ⏳ This code expires in <strong style="color: #FF6B45;">15 minutes</strong>.
+                        ⏳ ${escapeHtml(t(lang, "email.resetExpires", { mins: "__MINS__" })).replace("__MINS__", `<strong style="color: #FF6B45;">${t(lang, "email.fifteenMinutes")}</strong>`)}
                       </p>
                     </td>
                   </tr>
@@ -121,7 +125,7 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode }) {
                   <tr>
                     <td style="border-top: 1px solid #2D2E33; padding-top: 20px;">
                       <p style="margin: 0; font-size: 12px; line-height: 18px; color: #6F6F79;">
-                        If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+                        ${t(lang, "email.resetIgnore")}
                       </p>
                     </td>
                   </tr>
@@ -130,7 +134,7 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode }) {
                   <tr>
                     <td style="padding-top: 24px; text-align: center;">
                       <p style="margin: 0; font-size: 12px; color: #6F6F79;">
-                        © ${new Date().getFullYear()} Rooka Endurance HQ. All rights reserved.
+                        © ${new Date().getFullYear()} Rooka Endurance HQ. ${t(lang, "email.rightsReserved")}
                       </p>
                     </td>
                   </tr>

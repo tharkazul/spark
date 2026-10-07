@@ -181,7 +181,7 @@ export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> =
           <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
             <View className="flex-row justify-between items-start mb-1">
               <Text className="text-xs font-bold text-theme-muted">
-                {t('progress.hrv', 'HRV')} (SDNN)
+                {t('progress.hrv', 'Heart rate variability')}
               </Text>
               {strain.hrvDelta !== null && Math.abs(strain.hrvDelta) >= 1 && (
                 <View

@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { translate as tr } from '../locales/i18n';
 import { sendWorkoutsToCloudDevices, DeviceSyncWorkoutPayload } from '../api/integrations';
 import { deployWorkoutToAppleWatch } from './appleHealthService';
 import { WorkoutItem } from '../types/dashboard';
@@ -60,7 +61,7 @@ function extractSteps(w: any): any[] {
 
 function joinNames(names: string[]): string {
   if (names.length <= 1) return names[0] || '';
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `${names.slice(0, -1).join(', ')} ${tr('deviceSync.and')} ${names[names.length - 1]}`;
 }
 
 /**
@@ -78,7 +79,7 @@ export async function sendWorkoutsToConnectedDevices(
     return {
       success: false,
       syncedCount: 0,
-      message: 'No connected devices found. Connect a device in Profile > Connections.',
+      message: tr('deviceSync.noDevicesHint'),
       errors: ['No devices connected'],
     };
   }
@@ -92,7 +93,7 @@ export async function sendWorkoutsToConnectedDevices(
     return {
       success: false,
       syncedCount: 0,
-      message: 'No active workouts to send.',
+      message: tr('deviceSync.noWorkouts'),
       errors: ['No active workouts'],
     };
   }
@@ -161,9 +162,8 @@ export async function sendWorkoutsToConnectedDevices(
 
   const succeeded = outcomes.filter((o) => o.success);
   const failed = outcomes.filter((o) => !o.success);
-  const errors = failed.map((o) => `${o.name}: ${o.error || 'Sync failed'}`);
+  const errors = failed.map((o) => `${o.name}: ${o.error || tr('addWorkoutExtra.syncFailed')}`);
   const targetCount = validWorkouts.length;
-  const workoutNoun = targetCount === 1 ? 'workout' : 'workouts';
 
   if (succeeded.length === 0) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -171,7 +171,7 @@ export async function sendWorkoutsToConnectedDevices(
       success: false,
       devices: outcomes,
       syncedCount: 0,
-      message: errors.length ? `Failed to send to device: ${errors.join('; ')}` : 'No connected devices found.',
+      message: errors.length ? tr('deviceSync.sendFailed', { errors: errors.join('; ') }) : tr('deviceSync.noDevices'),
       errors,
     };
   }
@@ -183,7 +183,7 @@ export async function sendWorkoutsToConnectedDevices(
       success: true,
       devices: outcomes,
       syncedCount: targetCount,
-      message: `Sent to ${sentTo}. Failed: ${errors.join('; ')}`,
+      message: tr('deviceSync.partial', { devices: sentTo, errors: errors.join('; ') }),
       errors,
     };
   }
@@ -193,7 +193,7 @@ export async function sendWorkoutsToConnectedDevices(
     success: true,
     devices: outcomes,
     syncedCount: targetCount,
-    message: `Successfully sent ${targetCount} ${workoutNoun} to ${sentTo}!`,
+    message: targetCount === 1 ? tr('deviceSync.sentOne', { devices: sentTo }) : tr('deviceSync.sentMany', { count: targetCount, devices: sentTo }),
     errors,
   };
 }

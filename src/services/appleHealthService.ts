@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { translate as tr } from '../locales/i18n';
 import { requireOptionalNativeModule } from 'expo';
 import type ReactNativeWorkouts from 'react-native-workouts';
 import type {
@@ -111,23 +112,22 @@ export async function requestAppleHealthPermissions(): Promise<boolean> {
  */
 export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promise<HealthKitSyncResult> {
   if (Platform.OS !== 'ios') {
-    return { success: false, message: 'Apple Watch sync is only available on iPhone.' };
+    return { success: false, message: tr('appleHealthMsgs.watchIphoneOnly') };
   }
   if (parseInt(String(Platform.Version), 10) < 17) {
-    return { success: false, message: 'Sending workouts to Apple Watch needs iOS 17 or newer.' };
+    return { success: false, message: tr('appleHealthMsgs.watchNeedsIos17') };
   }
   const kit = getWorkoutKit();
   if (!kit) {
     return {
       success: false,
-      message:
-        'This build of rooka does not include Apple Watch support. Reinstall the latest build and try again.',
+      message: tr('appleHealthMsgs.watchNotInBuild'),
     };
   }
   if (kit.isAvailable !== true) {
     return {
       success: false,
-      message: 'Apple Health is unavailable on this device, so workouts cannot be sent to a Watch.',
+      message: tr('appleHealthMsgs.healthUnavailableWatch'),
     };
   }
 
@@ -136,14 +136,14 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
     status = await requestWorkoutKitAuthorization();
   }
   if (status !== 'authorized') {
-    return { success: false, message: WORKOUT_KIT_DENIED_MESSAGE };
+    return { success: false, message: getWorkoutKitDeniedMessage() };
   }
 
   const config = buildCustomWorkoutConfig(workout);
   if (!config) {
     return {
       success: false,
-      message: `rooka cannot send "${workout.sport}" sessions to Apple Watch.`,
+      message: tr('appleHealthMsgs.cannotSendSport', { sport: workout.sport }),
     };
   }
 
@@ -170,22 +170,22 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
  */
 export async function previewWorkoutOnAppleWatch(workout: PlannedWorkout): Promise<HealthKitSyncResult> {
   if (!isWorkoutKitSupported()) {
-    return { success: false, message: 'Apple Watch preview needs an iPhone on iOS 17 or newer.' };
+    return { success: false, message: tr('appleHealthMsgs.previewNeedsIos17') };
   }
 
   const config = buildCustomWorkoutConfig(workout);
   if (!config) {
-    return { success: false, message: `rooka cannot preview "${workout.sport}" sessions on Apple Watch.` };
+    return { success: false, message: tr('appleHealthMsgs.cannotPreviewSport', { sport: workout.sport }) };
   }
 
   const kit = getWorkoutKit();
-  if (!kit) return { success: false, message: 'Apple Watch preview is unavailable in this build.' };
+  if (!kit) return { success: false, message: tr('appleHealthMsgs.previewNotInBuild') };
 
   let plan: WorkoutPlan | null = null;
   try {
     plan = await kit.createCustomWorkoutPlan(config);
     await plan.preview();
-    return { success: true, message: 'Preview opened.' };
+    return { success: true, message: tr('appleHealthMsgs.previewOpened') };
   } catch (err) {
     return { success: false, message: describeError(err) };
   } finally {
@@ -193,8 +193,7 @@ export async function previewWorkoutOnAppleWatch(workout: PlannedWorkout): Promi
   }
 }
 
-export const WORKOUT_KIT_DENIED_MESSAGE =
-  'rooka is not allowed to schedule workouts yet. Open the Watch app on your iPhone, tap rooka, and turn on workout scheduling.';
+export const getWorkoutKitDeniedMessage = (): string => tr('appleHealthMsgs.workoutKitDenied');
 
 // -----------------------------------------------------------------------------
 // rooka steps -> WorkoutKit CustomWorkout
@@ -382,7 +381,7 @@ async function schedule(
   degraded: boolean,
 ): Promise<HealthKitSyncResult> {
   const kit = getWorkoutKit();
-  if (!kit) throw new Error('Apple Watch support is unavailable in this build.');
+  if (!kit) throw new Error(tr('appleHealthMsgs.watchSupportUnavailable'));
 
   let plan: WorkoutPlan | null = null;
   try {
@@ -393,8 +392,8 @@ async function schedule(
       degraded,
       scheduledId: result.id,
       message: degraded
-        ? `"${config.displayName}" is on your Apple Watch, but Apple does not support those targets for this sport, so the steps went over without them.`
-        : `"${config.displayName}" is on your Apple Watch.`,
+        ? tr('appleHealthMsgs.onWatchDegraded', { name: config.displayName ?? '' })
+        : tr('appleHealthMsgs.onWatch', { name: config.displayName ?? '' }),
     };
   } finally {
     plan?.release();
@@ -470,9 +469,9 @@ function isValidationError(err: any): boolean {
 }
 
 function describeError(err: any): string {
-  if (!err) return 'Something went wrong sending this workout to your Apple Watch.';
-  if (typeof err === 'string') return err;
-  return err.message || err.code || 'Something went wrong sending this workout to your Apple Watch.';
+  // Native WorkoutKit errors are English-only, so always show our own localized message.
+  if (err) console.warn('[AppleWatch] send failed:', typeof err === 'string' ? err : err.message || err.code);
+  return tr('appleHealthMsgs.sendFailed');
 }
 
 // =============================================================================
@@ -930,7 +929,7 @@ function mapHKActivityTypeToSport(typeId: number | string): string {
  */
 export async function syncAppleHealthData(daysBack = 7): Promise<HealthKitSyncSummary> {
   if (Platform.OS !== 'ios') {
-    return { success: false, message: 'Apple Health sync is only available on iOS.' };
+    return { success: false, message: tr('appleHealthMsgs.syncIosOnly') };
   }
 
   try {
@@ -962,7 +961,7 @@ export async function syncAppleHealthData(daysBack = 7): Promise<HealthKitSyncSu
 
     return {
       success: true,
-      message: res.message || 'Apple Health sync completed successfully.',
+      message: res.message || tr('appleHealthMsgs.syncDone'),
       biometricsSynced: res.biometricsSynced ?? biometrics.length,
       workoutsSynced: res.workoutsSynced ?? workouts.length,
       lastSyncDate: nowISO,
@@ -971,7 +970,7 @@ export async function syncAppleHealthData(daysBack = 7): Promise<HealthKitSyncSu
     console.error('[AppleHealthService] Sync failed:', err?.message || err);
     return {
       success: false,
-      message: err?.message || 'Failed to sync Apple Health data with server.',
+      message: err?.message || tr('appleHealthMsgs.syncFailed'),
     };
   }
 }
@@ -1068,9 +1067,9 @@ export function computeCardiovascularStrain(
       hrvDelta: null,
       hrvStatus: 'balanced',
       sleepMinutes: null,
-      headline: 'Cardiovascular State: Stable',
-      description: 'No biometric data synced yet.',
-      actionAdvice: 'Sync Apple Health or Garmin to analyze your autonomic recovery.',
+      headline: tr('cardioStrain.stableHeadline'),
+      description: tr('cardioStrain.noDataDesc'),
+      actionAdvice: tr('cardioStrain.noDataAdvice'),
     };
   }
 
@@ -1143,25 +1142,31 @@ export function computeCardiovascularStrain(
   strainScore = Math.min(100, Math.max(0, Math.round(strainScore)));
 
   let strainLevel: 'none' | 'moderate' | 'elevated' | 'high' = 'none';
-  let headline = 'Cardiovascular Engine: Fresh & Primed';
-  let description = 'Resting heart rate and autonomic tone (HRV) indicate minimal fatigue and optimal recovery.';
-  let actionAdvice = 'Great day for high-intensity training or quality intervals!';
+  let headline = tr('cardioStrain.freshHeadline');
+  let description = tr('cardioStrain.freshDesc');
+  let actionAdvice = tr('cardioStrain.freshAdvice');
 
   if (strainScore >= 55) {
     strainLevel = 'high';
-    headline = 'Cardiovascular Strain: High';
-    description = `Resting HR is elevated${rhrDelta !== null ? ` (+${rhrDelta} bpm vs baseline)` : ''}${currentHrv ? ` and HRV is suppressed (${currentHrv} ms)` : ''}. Your autonomic nervous system is carrying heavy recovery debt.`;
-    actionAdvice = 'Prioritize active recovery, light mobility, or an easy Zone 1 walk.';
+    headline = tr('cardioStrain.highHeadline');
+    description = tr('cardioStrain.highDesc', {
+      rhr: rhrDelta !== null ? tr('cardioStrain.rhrVsBaseline', { delta: rhrDelta }) : '',
+      hrv: currentHrv ? tr('cardioStrain.hrvSuppressed', { hrv: currentHrv }) : '',
+    });
+    actionAdvice = tr('cardioStrain.highAdvice');
   } else if (strainScore >= 30) {
     strainLevel = 'elevated';
-    headline = 'Cardiovascular Strain: Elevated';
-    description = `Resting HR is trending upward${rhrDelta !== null ? ` (+${rhrDelta} bpm vs 7d avg)` : ''}${currentHrv ? `, with HRV at ${currentHrv} ms` : ''}. Central recovery demand is elevated.`;
-    actionAdvice = 'Stick to aerobic Zone 2 endurance or reduce total session volume.';
+    headline = tr('cardioStrain.elevatedHeadline');
+    description = tr('cardioStrain.elevatedDesc', {
+      rhr: rhrDelta !== null ? tr('cardioStrain.rhrVs7d', { delta: rhrDelta }) : '',
+      hrv: currentHrv ? tr('cardioStrain.hrvAt', { hrv: currentHrv }) : '',
+    });
+    actionAdvice = tr('cardioStrain.elevatedAdvice');
   } else if (strainScore >= 15) {
     strainLevel = 'moderate';
-    headline = 'Cardiovascular State: Moderate Recovery';
-    description = 'Slight physiological load detected. Cardiovascular markers are mostly stable.';
-    actionAdvice = 'Proceed with planned workouts, but monitor heart rate drift during efforts.';
+    headline = tr('cardioStrain.moderateHeadline');
+    description = tr('cardioStrain.moderateDesc');
+    actionAdvice = tr('cardioStrain.moderateAdvice');
   }
 
   return {

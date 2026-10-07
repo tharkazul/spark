@@ -1,4 +1,6 @@
 const express = require('express');
+const { resolveCoachName } = require("../services/coachPersona");
+const i18n = require("../services/i18n");
 const router = express.Router();
 const db = require('../services/db');
 const fs = require('fs');
@@ -212,7 +214,7 @@ router.get("/api/fatigue/insight", authenticateToken, (req, res) => {
           if (niggleErr) return res.status(500).json({ error: "Failed to fetch niggles." });
 
           const prompt = `
-          You are Rooka Coach, an AI athletic coach. Analyze the user's current muscle fatigue, development scores, and active injuries.
+          You are the athlete's AI athletic coach. Analyze the user's current muscle fatigue, development scores, and active injuries.
           Write exactly 1-2 short, encouraging sentences summarizing their current physical state and giving a brief recommendation for today's training focus.
           Keep it very concise, empathetic, and conversational.
           
@@ -221,11 +223,11 @@ router.get("/api/fatigue/insight", authenticateToken, (req, res) => {
           `;
 
           try {
-            const aiResponse = await generateWithFallback(prompt);
-            res.json({ insight: aiResponse || "Looking closely at your muscle data... taking it easy today might be a good idea!" });
+            const aiResponse = await generateWithFallback(prompt, null, null, null, null, "personal", false, { language: req.user.language });
+            res.json({ insight: aiResponse || i18n.t(req.user.language, "physique.insightLoading") });
           } catch (e) {
             console.error("AI Insight Error:", e);
-            res.json({ insight: "Based on your data, pay attention to any soreness today and prioritize recovery where needed." });
+            res.json({ insight: i18n.t(req.user.language, "physique.insightFallback") });
           }
         }
       );
@@ -357,17 +359,21 @@ router.post(
               prompt += `Review their status. Keep it under 2 sentences, act as their friendly elite endurance coach, and give them a short piece of advice or encouragement based on their numbers (and the photo if attached).`;
 
               db.get(
-                "SELECT coach_tone FROM users WHERE id = ?",
+                "SELECT coach_tone, coach_name, language FROM users WHERE id = ?",
                 [req.user.id],
                 async (err, row) => {
                   const tone = row ? row.coach_tone : "Friendly";
-                  const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
+                  const systemPrompt = `You are ${resolveCoachName(row)}, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread.`;
                   try {
                     const aiReply = await generateWithFallback(
                       prompt,
                       systemPrompt,
                       null,
                       imageBase64,
+                      null,
+                      "personal",
+                      false,
+                      { language: row ? row.language : req.user.language },
                     );
                     db.run(
                       `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'support')`,
@@ -482,7 +488,11 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
     async (err, cachedRow) => {
       if (cachedRow && cachedRow.protocol_json) {
         try {
-          return sendNutritionResponse(JSON.parse(cachedRow.protocol_json));
+          const cached = JSON.parse(cachedRow.protocol_json);
+          // Regenerate when the athlete switched language since this protocol was cached.
+          if ((cached._lang || "en") === i18n.normalizeLang(req.user.language)) {
+            return sendNutritionResponse(cached);
+          }
         } catch (e) {
           // Parse error, ignore and regenerate
           console.error("Cache parse error", e);
@@ -502,8 +512,8 @@ router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
             (err, userRow) => {
               if (userRow && userRow.subscription_tier === 'free') {
                 return sendNutritionResponse({
-                  title: "Nutrition Locked",
-                  rationale: "Upgrade to Rooka+ to unlock daily AI nutrition protocols.",
+                  title: i18n.t(req.user.language, "physique.nutritionLockedTitle"),
+                  rationale: i18n.t(req.user.language, "physique.nutritionLockedRationale"),
                   carbs: 0,
                   protein: 0,
                   fat: 0
@@ -605,10 +615,12 @@ Please respond using this JSON schema:
                       null,
                       req.user.id,
                       "common",
-                      true
+                      true,
+                      { language: req.user.language }
                     );
 
                     const protocol = JSON.parse(aiReply);
+                    protocol._lang = i18n.normalizeLang(req.user.language);
 
                     // Cache the result
                     db.run(
@@ -621,9 +633,8 @@ Please respond using this JSON schema:
                     console.error("Nutrition AI failed:", e);
                     // Fallback to a safe baseline if AI fails to parse
                     sendNutritionResponse({
-                      title: "Balanced Maintenance",
-                      rationale:
-                        "AI is currently resting. Here is a balanced baseline protocol for your weight.",
+                      title: i18n.t(req.user.language, "physique.nutritionFallbackTitle"),
+                      rationale: i18n.t(req.user.language, "physique.nutritionFallbackRationale"),
                       carbs: Math.round(weight * 4),
                       protein: Math.round(weight * 1.8),
                       fat: Math.round(weight * 1),

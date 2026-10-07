@@ -83,7 +83,7 @@ export default function ActivitiesScreen() {
               {item.paceParts ? (
                 <View className="flex-1 items-end">
                   <StatValue
-                    label={t('activities.pace', item.paceParts.label === 'SPEED' ? 'Speed' : 'Pace')}
+                    label={item.paceParts.label === 'SPEED' ? t('activities.speed') : t('activities.pace')}
                     labelPosition="top"
                     value={item.paceParts.value}
                     unit={item.paceParts.unit}

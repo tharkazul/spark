@@ -1,4 +1,5 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { translate as tr } from '../locales/i18n';
 import { AppState, DeviceEventEmitter } from 'react-native';
 import { chatApi, planApi, socialApi } from '../services/apiServices';
 import { clearBadgeCountAsync, setBadgeCountAsync, setNotificationChatActive } from '../services/notificationService';
@@ -34,25 +35,14 @@ interface CoachChatContextType {
   checkin: () => Promise<void>;
 }
 
-const defaultWelcomeMessage: ChatMessage = {
+// Built on demand so it always follows the language currently selected in the app.
+const getDefaultWelcomeMessage = (): ChatMessage => ({
   id: 'welcome-msg',
-  content: `Welcome to your personalized endurance journey! ⚡️ I'm your AI endurance coach.
-
-🎯 **Your First Step: Baseline Assessment Test**
-Before we dial in high-load workouts, we need to calibrate your baseline fitness. Your initial benchmark test is scheduled in your plan to calculate your exact heart rate, power, and pace training zones.
-
-📅 **First Week Overview**:
-- **Days 1–2**: 🏁 **Baseline Assessment Workout** (record your max sustained effort)
-- **Following Days**: Active recovery, controlled Zone 2 aerobic base building, and foundational training.
-
-🧭 **Next Steps**:
-1. Check your **Today** / **Plan** tab to view your scheduled benchmark workout and its specific intervals.
-2. Connect your heart rate monitor or smartwatch before starting.
-3. Complete the assessment effort so I can analyze your metrics and calculate your training zones!`,
+  content: tr('coachStore.welcome'),
   role: 'coach',
   timestamp: '2024-01-01T00:00:00.000Z',
   mood: 'motivated',
-};
+});
 
 const splitCoachReply = (text?: string): string[] => {
   if (!text) return [];
@@ -147,7 +137,7 @@ export const sortMessagesChronological = (messagesList: ChatMessage[]): ChatMess
 const CoachChatContext = createContext<CoachChatContextType | undefined>(undefined);
 
 export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [messages, setMessagesState] = useState<ChatMessage[]>([defaultWelcomeMessage]);
+  const [messages, setMessagesState] = useState<ChatMessage[]>([getDefaultWelcomeMessage()]);
   const [sending, setSending] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -200,8 +190,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   // Load last read timestamp and chat history when user changes or signs out
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
-      setMessagesState([defaultWelcomeMessage]);
-      messagesRef.current = [defaultWelcomeMessage];
+      setMessagesState([getDefaultWelcomeMessage()]);
+      messagesRef.current = [getDefaultWelcomeMessage()];
       setLastReadTimestamp(0);
       setIsReadInitialized(false);
       setUnreadCount(0);
@@ -212,8 +202,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     }
 
     // A valid user is logged in
-    setMessagesState([defaultWelcomeMessage]);
-    messagesRef.current = [defaultWelcomeMessage];
+    setMessagesState([getDefaultWelcomeMessage()]);
+    messagesRef.current = [getDefaultWelcomeMessage()];
     setIsReadInitialized(false);
 
     chatReadStorage.getLastReadTimestamp(user.id).then((savedTs) => {
@@ -391,7 +381,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
             setTokenUsage(response.tokenUsage);
           }
         } else {
-          setMessagesState([defaultWelcomeMessage]);
+          setMessagesState([getDefaultWelcomeMessage()]);
         }
       }
       setError(null);
@@ -516,7 +506,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         prev.map(m => (m.id === userMsg.id || m.clientId === userMsg.clientId) ? { ...m, isError: true } : m)
       );
       if (err.status === 429) {
-        const fallbackText = "You have run out of tokens today, if you are eager to chat more, consider subscribing [Upgrade Page](rooka://profile?subtab=account)";
+        const fallbackText = tr('coachStore.tokenLimit');
         const fallbackParts = splitCoachReply(fallbackText);
         const baseErrTimestamp = Date.now();
         for (let i = 0; i < fallbackParts.length; i++) {
@@ -568,20 +558,20 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } catch (e) {
       console.log('Clear history server call fallback:', e);
     }
-    setMessages([defaultWelcomeMessage]);
+    setMessages([getDefaultWelcomeMessage()]);
   };
 
   const acceptProposal = async (messageId: string | number, plan: ProposedWorkoutItem[]) => {
     let prevMessagesSnapshot: ChatMessage[] = [];
     const confirmMsg: ChatMessage = {
       id: `user-accept-${Date.now()}`,
-      content: `Accepted proposed plan changes!`,
+      content: tr('coachStore.acceptedProposal'),
       role: 'user',
       timestamp: new Date().toISOString(),
     };
     const ackMsg: ChatMessage = {
       id: `coach-ack-${Date.now()}`,
-      content: `Awesome! I've updated your schedule. Let's make it count! 🚀`,
+      content: tr('coachStore.proposalAck'),
       role: 'coach',
       timestamp: new Date().toISOString(),
     };

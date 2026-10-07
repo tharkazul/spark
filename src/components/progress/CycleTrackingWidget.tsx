@@ -40,29 +40,29 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
   let cycleDay = (rawDiffDays % avgCycleLength) + 1;
 
   // Phase determination logic
-  let phaseName = 'Follicular Phase';
-  let phaseDesc = 'High energy capacity. Prime time for heavy strength and VO2 max intervals.';
+  let phaseName = t('cyclePhases.follicular');
+  let phaseDesc = t('cyclePhases.defaultDesc');
   let phaseColor = '#10B981'; // Emerald
   let phaseIcon = 'flash-outline';
 
   if (cycleDay >= 1 && cycleDay <= 5) {
-    phaseName = 'Menstrual Phase';
-    phaseDesc = 'Hormones low. Focus on mobility, low-intensity aerobic recovery, and extra hydration.';
+    phaseName = t('cyclePhases.menstrual');
+    phaseDesc = t('cyclePhases.menstrualDesc');
     phaseColor = '#EF4444'; // Red
     phaseIcon = 'water-outline';
   } else if (cycleDay >= 6 && cycleDay <= 13) {
-    phaseName = 'Follicular Phase';
-    phaseDesc = 'Estrogen rising. High energy & stamina capacity — prime for peak interval training.';
+    phaseName = t('cyclePhases.follicular');
+    phaseDesc = t('cyclePhases.follicularDesc');
     phaseColor = '#3B82F6'; // Blue
     phaseIcon = 'trending-up-outline';
   } else if (cycleDay === 14) {
-    phaseName = 'Ovulatory Phase';
-    phaseDesc = 'Peak force production & neuromuscular response. Ideal for PR attempts.';
+    phaseName = t('cyclePhases.ovulatory');
+    phaseDesc = t('cyclePhases.ovulatoryDesc');
     phaseColor = '#F59E0B'; // Amber
     phaseIcon = 'sparkles-outline';
   } else {
-    phaseName = 'Luteal Phase';
-    phaseDesc = 'Progesterone rising. Steady-state aerobic zone recommended with longer warmups.';
+    phaseName = t('cyclePhases.luteal');
+    phaseDesc = t('cyclePhases.lutealDesc');
     phaseColor = '#8B5CF6'; // Purple
     phaseIcon = 'moon-outline';
   }

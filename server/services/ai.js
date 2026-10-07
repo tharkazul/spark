@@ -108,9 +108,17 @@ async function generateWithFallback(
   imagesBase64 = null,
   userId = null,
   poolType = "personal",
-  isJson = false
+  isJson = false,
+  options = {}
 ) {
   let lastError = null;
+
+  // Athlete-facing output must be in the athlete's selected language.
+  // Pass { language } for every prompt whose output is shown to the athlete.
+  if (options && options.language) {
+    const { languageDirective } = require("./i18n");
+    systemInstruction = (systemInstruction || "") + languageDirective(options.language);
+  }
 
   for (let i = 0; i < geminiConfigs.length; i++) {
     const config = geminiConfigs[i];

@@ -1,7 +1,9 @@
 const db = require("./db");
+const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("./coachPersona");
 const { generateWithFallback } = require("./ai");
 const { sendSSEEvent } = require("./sse");
 const { sendPushToUser } = require("./pushNotificationService");
+const i18n = require("./i18n");
 const { planDayTargetRooka } = require("./zones");
 const muscleLoad = require("./muscleLoad");
 const { getUserMacroPhase } = require("./utils");
@@ -134,72 +136,83 @@ function calculateUserFitnessMetrics(userId) {
 /**
  * Builds a fallback 7-day plan if the LLM output is unavailable or unparseable.
  */
+// Localized copy for the rule-based fallback / template week: [description, details] per day.
+const FALLBACK_PLAN_TEXT = {
+  en: [
+    ['Aerobic Base Foundation', 'Steady conversational pace endurance training (Zone 2).'],
+    ['Core & Kinetic Chain Strength', 'Focus on hip stability, core activation, and postural control.'],
+    ['Active Recovery & Mobility', 'Gentle walking, hydration, and muscle tissue recovery.'],
+    ['Threshold Tempo Intervals', 'Controlled threshold intervals with full recoveries.'],
+    ['Rest & Tissue Adaptation', 'Prioritize deep sleep and restorative nutrition before the weekend.'],
+    ['Long Aerobic Progression', 'Steady distance building aerobic capacity and pacing discipline.'],
+    ['Weekly Reflection & Rest', 'Light mobility, foam rolling, and preparing for the upcoming week.'],
+  ],
+  nl: [
+    ['Aerobe Basisduur', 'Rustige duurtraining op praattempo (Zone 2).'],
+    ['Core & Spierversterking', 'Focus op heupstabiliteit, core en neuromusculaire controle.'],
+    ['Hersteldag & Mobiliteit', 'Lichte wandeling, hydratatie en spierherstel.'],
+    ['Tempo Interval Training', 'Progressieve intervallen rond je lactaatdrempel, met volledig herstel.'],
+    ['Volledige Rustdag', 'Voldoende slaap en herstel ter voorbereiding op het weekend.'],
+    ['Lange Duurtraining', 'Gestage lange afstand met focus op hydratatie en energie-inname.'],
+    ['Weekevaluatie & Rust', 'Lichte mobiliteit, foamrollen en rustig afronden van de trainingsweek.'],
+  ],
+  de: [
+    ['Grundlagen-Dauerlauf', 'Lockeres Ausdauertraining im Gesprächstempo (Zone 2).'],
+    ['Core & Rumpfaufbau', 'Fokus auf Hüftstabilität, Rumpfaktivierung und Haltungskontrolle.'],
+    ['Regeneration & Mobilität', 'Lockeres Gehen, ausreichend trinken und Muskelregeneration.'],
+    ['Tempo-Intervalle', 'Kontrollierte Intervalle an der Schwelle mit vollständiger Erholung.'],
+    ['Ruhetag', 'Viel Schlaf und regenerative Ernährung vor dem Wochenende.'],
+    ['Langer Dauerlauf', 'Gleichmäßige lange Einheit für aerobe Kapazität und Pacing-Disziplin.'],
+    ['Wochenrückblick & Erholung', 'Leichte Mobilität, Faszienrolle und Vorbereitung auf die neue Woche.'],
+  ],
+  es: [
+    ['Base Aeróbica', 'Entrenamiento de resistencia a ritmo conversacional (Zona 2).'],
+    ['Fuerza y Core', 'Enfoque en estabilidad de cadera, activación del core y control postural.'],
+    ['Recuperación Activa', 'Caminata suave, hidratación y recuperación muscular.'],
+    ['Intervalos de Tempo', 'Intervalos controlados al umbral con recuperaciones completas.'],
+    ['Día de Descanso', 'Prioriza el sueño profundo y una nutrición reparadora antes del fin de semana.'],
+    ['Tirada Larga Aeróbica', 'Distancia constante para desarrollar capacidad aeróbica y disciplina de ritmo.'],
+    ['Descanso y Evaluación', 'Movilidad suave, rodillo de espuma y preparación para la próxima semana.'],
+  ],
+  fr: [
+    ['Endurance Fondamentale', 'Endurance à allure de conversation (Zone 2).'],
+    ['Renforcement Musculaire', 'Accent sur la stabilité des hanches, le gainage et le contrôle postural.'],
+    ['Récupération & Mobilité', 'Marche légère, hydratation et récupération musculaire.'],
+    ['Intervalles Tempo', 'Intervalles contrôlés au seuil avec récupérations complètes.'],
+    ['Repos Total', 'Priorité au sommeil profond et à une alimentation réparatrice avant le week-end.'],
+    ['Sortie Longue', 'Distance régulière pour développer la capacité aérobie et la gestion de l\'allure.'],
+    ['Repos & Bilan', 'Mobilité légère, rouleau de massage et préparation de la semaine suivante.'],
+  ],
+};
+
+const RECURRING_DETAILS = {
+  en: (title, mins, time) => `${title} (${mins} min${time ? ` at ${time}` : ''}) - Scheduled recurring session.`,
+  nl: (title, mins, time) => `${title} (${mins} min${time ? ` om ${time}` : ''}) - Vaste terugkerende training.`,
+  de: (title, mins, time) => `${title} (${mins} Min.${time ? ` um ${time}` : ''}) - Regelmäßige, fest geplante Einheit.`,
+  es: (title, mins, time) => `${title} (${mins} min${time ? ` a las ${time}` : ''}) - Sesión recurrente programada.`,
+  fr: (title, mins, time) => `${title} (${mins} min${time ? ` à ${time}` : ''}) - Séance récurrente programmée.`,
+};
+
 function buildFallbackPlan(dates, primarySport = 'Run', userLang = 'en') {
-  const isDutch = userLang === 'nl';
-  const isGerman = userLang === 'de';
-  const isSpanish = userLang === 'es';
-  const isFrench = userLang === 'fr';
-
+  const text = FALLBACK_PLAN_TEXT[userLang] || FALLBACK_PLAN_TEXT.en;
   const sport = primarySport && primarySport !== 'Rest' ? primarySport : 'Run';
-
-  return [
-    {
-      date: dates[0],
-      sport: sport,
-      description: isDutch ? 'Aerobe Basisduur' : isGerman ? 'Grundlagen-Dauerlauf' : isSpanish ? 'Base Aeróbica' : isFrench ? 'Endurance Fondamentale' : 'Aerobic Base Foundation',
-      target_rooka: 45,
-      details: isDutch ? 'Rustige duurtraining op praattempo (Zone 2).' : 'Steady conversational pace endurance training (Zone 2).',
-      steps_json: '[]',
-    },
-    {
-      date: dates[1],
-      sport: 'Strength',
-      description: isDutch ? 'Core & Spierversterking' : isGerman ? 'Core & Rumpfaufbau' : isSpanish ? 'Fuerza y Core' : isFrench ? 'Renforcement Musculaire' : 'Core & Kinetic Chain Strength',
-      target_rooka: 35,
-      details: isDutch ? 'Focus op heupstabiliteit, core en neuromusculaire controle.' : 'Focus on hip stability, core activation, and postural control.',
-      steps_json: '[]',
-    },
-    {
-      date: dates[2],
-      sport: 'Rest',
-      description: isDutch ? 'Hersteldag & Mobiliteit' : isGerman ? 'Regeneration & Mobilität' : isSpanish ? 'Recuperación Activa' : isFrench ? 'Récupération & Mobilité' : 'Active Recovery & Mobility',
-      target_rooka: 0,
-      details: isDutch ? 'Lichte wandeling, hydratatie en spierherstel.' : 'Gentle walking, hydration, and muscle tissue recovery.',
-      steps_json: '[]',
-    },
-    {
-      date: dates[3],
-      sport: sport,
-      description: isDutch ? 'Tempo Interval Training' : isGerman ? 'Tempo-Intervalle' : isSpanish ? 'Intervalos de Tempo' : isFrench ? 'Intervalles Tempo' : 'Threshold Tempo Intervals',
-      target_rooka: 60,
-      details: isDutch ? 'Progressieve intervals rond lactaatdrempel.' : 'Controlled threshold intervals with full recoveries.',
-      steps_json: '[]',
-    },
-    {
-      date: dates[4],
-      sport: 'Rest',
-      description: isDutch ? 'Volledige Rustdag' : isGerman ? 'Ruhetag' : isSpanish ? 'Día de Descanso' : isFrench ? 'Repos Total' : 'Rest & Tissue Adaptation',
-      target_rooka: 0,
-      details: isDutch ? 'Voldoende slaap en herstel ter voorbereiding op het weekend.' : 'Prioritize deep sleep and restorative nutrition before the weekend.',
-      steps_json: '[]',
-    },
-    {
-      date: dates[5],
-      sport: sport,
-      description: isDutch ? 'Lange Duurtraining' : isGerman ? 'Langer Dauerlauf' : isSpanish ? 'Tirada Larga Aeróbica' : isFrench ? 'Sortie Longue' : 'Long Aerobic Progression',
-      target_rooka: 75,
-      details: isDutch ? 'Gestage lange afstand met focus op hydratatie en energie-inname.' : 'Steady distance building aerobic capacity and pacing discipline.',
-      steps_json: '[]',
-    },
-    {
-      date: dates[6],
-      sport: 'Rest',
-      description: isDutch ? 'Weekevaluatie & Rust' : isGerman ? 'Wochenrückblick & Erholung' : isSpanish ? 'Descanso y Evaluación' : isFrench ? 'Repos & Bilan' : 'Weekly Reflection & Rest',
-      target_rooka: 0,
-      details: isDutch ? 'Rustig afronden van de trainingsweek.' : 'Light mobility, foam rolling, and preparing for the upcoming week.',
-      steps_json: '[]',
-    },
+  const layout = [
+    { sport, target_rooka: 45 },
+    { sport: 'Strength', target_rooka: 35 },
+    { sport: 'Rest', target_rooka: 0 },
+    { sport, target_rooka: 60 },
+    { sport: 'Rest', target_rooka: 0 },
+    { sport, target_rooka: 75 },
+    { sport: 'Rest', target_rooka: 0 },
   ];
+  return layout.map((day, i) => ({
+    date: dates[i],
+    sport: day.sport,
+    description: text[i][0],
+    target_rooka: day.target_rooka,
+    details: text[i][1],
+    steps_json: '[]',
+  }));
 }
 
 /**
@@ -323,7 +336,7 @@ function buildTemplatePlan(dates, opts = {}) {
           sport: rt.sport || 'Other',
           description: rt.title,
           target_rooka: rt.intensity === 'hard' ? 65 : rt.intensity === 'easy' ? 30 : 45,
-          details: `${rt.title} (${rt.duration_minutes || 60} min${rt.start_time ? ` at ${rt.start_time}` : ''}) - Scheduled recurring session.`,
+          details: (RECURRING_DETAILS[lang] || RECURRING_DETAILS.en)(rt.title, rt.duration_minutes || 60, rt.start_time),
           steps_json: '[]',
           source: 'recurring',
         });
@@ -613,13 +626,13 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
   };
   const targetLanguageName = langMap[user.language] || 'English';
 
-  const coachName = user.coach_name || 'Rooka';
+  const coachName = resolveCoachName(user);
   let coachToneText = user.coach_tone || 'Empathetic but demanding elite endurance coach.';
   if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
     coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
   }
 
-  const systemPrompt = `You are Coach ${coachName}, an elite endurance and athletic performance coach.
+  const systemPrompt = `You are Coach ${coachName}, an elite endurance and athletic performance coach. ${PLAIN_LANGUAGE_RULE}
 Tone: ${coachToneText}
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
 Athlete Context: ${user.athlete_context || "General endurance athlete"}
@@ -733,7 +746,9 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
       null,
       null,
       userId,
-      poolType
+      poolType,
+      false,
+      { language: user.language }
     );
   } catch (errAi) {
     console.warn(`[WeeklyPlan] AI generation warning for user ${userId}:`, errAi.message);
@@ -899,10 +914,8 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   });
 
   sendPushToUser(userId, {
-    title: user.language === 'nl' ? '📅 Nieuw trainingsschema klaar' : '📅 Weekly Training Plan Ready',
-    body: user.language === 'nl'
-      ? `Coach ${coachName} heeft je trainingen voor komende week (ma-zo) klaargezet.`
-      : `Coach ${coachName} has prepared your workouts for the coming week (Mon–Sun).`,
+    title: i18n.t(user.language, 'push.weeklyPlanReady.title'),
+    body: i18n.t(user.language, 'push.weeklyPlanReady.body', { coach: coachName }),
     data: { url: '/(tabs)/coach', type: 'plan_updated', dates },
     badge: 1,
   }).catch((err) => console.error(`[WeeklyPlan] Push error for user ${userId}:`, err?.message));
@@ -924,7 +937,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
   const hasTemplatePlan = Boolean(options.hasTemplatePlan);
   const userId = user.id;
-  const coachName = user.coach_name || 'Rooka';
+  const coachName = resolveCoachName(user);
   const lang = user.language || 'en';
   const displayName = user.username || '';
 
@@ -941,26 +954,26 @@ async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
     );
   });
 
-  let pushTitle = `🗓️ Plan next week with Coach ${coachName}?`;
+  let pushTitle = `Plan next week with Coach ${coachName}?`;
   let pushBody = `Hey ${displayName}! Would you like me to prepare your training schedule for next week? Tap to chat!`;
-  let chatMessage = `Hey ${displayName}! 👋 I noticed we haven't trained together much this past week. Would you like me to build a personalized training plan for the coming week? Just reply here with your schedule or goals, or let me know "let's do it" and I'll tailor the week for you! 🚀`;
+  let chatMessage = `Hey ${displayName}! I noticed we haven't trained together much this past week. Would you like me to build a personalized training plan for the coming week? Just reply here with your schedule or goals, or let me know "let's do it" and I'll tailor the week for you!`;
 
   if (lang === 'nl') {
-    pushTitle = `🗓️ Komende week inplannen met Coach ${coachName}?`;
+    pushTitle = `Komende week inplannen met Coach ${coachName}?`;
     pushBody = `Hey ${displayName}! Zullen we samen je trainingen voor komende week plannen? Tik hier om te openen!`;
-    chatMessage = `Hey ${displayName}! 👋 Ik zag dat we afgelopen week wat minder getraind hebben. Zullen we samen je schema voor komende week inplannen? Laat me hier weten wat je doelen of beschikbaarheid zijn, of zeg gewoon "maak maar een schema" en ik zet het voor je klaar! 🚀`;
+    chatMessage = `Hey ${displayName}! Ik zag dat we afgelopen week wat minder getraind hebben. Zullen we samen je schema voor komende week inplannen? Laat me hier weten wat je doelen of beschikbaarheid zijn, of zeg gewoon "maak maar een schema" en ik zet het voor je klaar!`;
   } else if (lang === 'de') {
-    pushTitle = `🗓️ Nächste Woche mit Coach ${coachName} planen?`;
+    pushTitle = `Nächste Woche mit Coach ${coachName} planen?`;
     pushBody = `Hey ${displayName}! Wollen wir dein Training für die kommende Woche vorbereiten? Tippe hier!`;
-    chatMessage = `Hey ${displayName}! 👋 Ich habe gesehen, dass wir letzte Woche etwas ruhiger unterwegs waren. Möchtest du, dass wir dein Training für die kommende Woche zusammen planen? Sag mir einfach hier Bescheid oder antworte mit "Erstelle einen Plan" und ich lege los! 🚀`;
+    chatMessage = `Hey ${displayName}! Ich habe gesehen, dass wir letzte Woche etwas ruhiger unterwegs waren. Möchtest du, dass wir dein Training für die kommende Woche zusammen planen? Sag mir einfach hier Bescheid oder antworte mit "Erstelle einen Plan" und ich lege los!`;
   } else if (lang === 'es') {
-    pushTitle = `🗓️ ¿Planificamos la semana con Coach ${coachName}?`;
+    pushTitle = `¿Planificamos la semana con Coach ${coachName}?`;
     pushBody = `¡Hola ${displayName}! ¿Te gustaría que preparemos tus entrenamientos de la próxima semana? ¡Toca aquí!`;
-    chatMessage = `¡Hola ${displayName}! 👋 He notado que hemos entrenado un poco menos esta semana. ¿Te gustaría que preparemos juntos tu plan de entrenamiento para la próxima semana? ¡Dime tus objetivos o disponibilidad por aquí y lo organizamos! 🚀`;
+    chatMessage = `¡Hola ${displayName}! He notado que hemos entrenado un poco menos esta semana. ¿Te gustaría que preparemos juntos tu plan de entrenamiento para la próxima semana? ¡Dime tus objetivos o disponibilidad por aquí y lo organizamos!`;
   } else if (lang === 'fr') {
-    pushTitle = `🗓️ Planifier la semaine avec Coach ${coachName} ?`;
+    pushTitle = `Planifier la semaine avec Coach ${coachName} ?`;
     pushBody = `Salut ${displayName} ! Tu veux préparer tes entraînements pour la semaine prochaine ? Touche ici !`;
-    chatMessage = `Salut ${displayName} ! 👋 J'ai remarqué qu'on a un peu moins bougé cette semaine. Tu veux qu'on prépare ton programme d'entraînement pour la semaine prochaine ensemble ? Dis-moi ce qui t'arrange par ici et je m'en occupe ! 🚀`;
+    chatMessage = `Salut ${displayName} ! J'ai remarqué qu'on a un peu moins bougé cette semaine. Tu veux qu'on prépare ton programme d'entraînement pour la semaine prochaine ensemble ? Dis-moi ce qui t'arrange par ici et je m'en occupe !`;
   }
 
   // Template week written: tell the athlete it's there and offer to tailor it.
@@ -968,35 +981,35 @@ async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
   if (hasTemplatePlan) {
     const tpl = {
       en: {
-        title: `🗓️ Your week is ready`,
+        title: `Your week is ready`,
         body: `Coach ${coachName} set up a standard training plan for you. Tap to make it your own.`,
-        chat: `Hey ${displayName}! 👋 I've put a standard training plan in your calendar for the coming week, so you have something to work with. Want me to tailor it to your schedule, energy and goals? Just reply here and we'll adjust it together! 🚀`,
+        chat: `Hey ${displayName}! I've put a standard training plan in your calendar for the coming week, so you have something to work with. Want me to tailor it to your schedule, energy and goals? Just reply here and we'll adjust it together!`,
       },
       nl: {
-        title: `🗓️ Je week staat klaar`,
+        title: `Je week staat klaar`,
         body: `Coach ${coachName} heeft een standaard trainingsschema voor je klaargezet. Tik om het persoonlijk te maken.`,
-        chat: `Hey ${displayName}! 👋 Ik heb een standaard trainingsschema voor komende week in je agenda gezet, zodat je meteen aan de slag kunt. Zal ik het afstemmen op jouw planning, energie en doelen? Reageer hier en we passen het samen aan! 🚀`,
+        chat: `Hey ${displayName}! Ik heb een standaard trainingsschema voor komende week in je agenda gezet, zodat je meteen aan de slag kunt. Zal ik het afstemmen op jouw planning, energie en doelen? Reageer hier en we passen het samen aan!`,
       },
       de: {
-        title: `🗓️ Deine Woche ist bereit`,
+        title: `Deine Woche ist bereit`,
         body: `Coach ${coachName} hat dir einen Standard-Trainingsplan erstellt. Tippe, um ihn anzupassen.`,
-        chat: `Hey ${displayName}! 👋 Ich habe dir einen Standard-Trainingsplan für die kommende Woche in den Kalender gelegt, damit du direkt loslegen kannst. Soll ich ihn an deinen Zeitplan, deine Energie und deine Ziele anpassen? Antworte einfach hier! 🚀`,
+        chat: `Hey ${displayName}! Ich habe dir einen Standard-Trainingsplan für die kommende Woche in den Kalender gelegt, damit du direkt loslegen kannst. Soll ich ihn an deinen Zeitplan, deine Energie und deine Ziele anpassen? Antworte einfach hier!`,
       },
       es: {
-        title: `🗓️ Tu semana está lista`,
+        title: `Tu semana está lista`,
         body: `Coach ${coachName} te ha preparado un plan de entrenamiento estándar. Toca para personalizarlo.`,
-        chat: `¡Hola ${displayName}! 👋 He puesto un plan de entrenamiento estándar en tu calendario para la próxima semana, para que tengas algo con lo que empezar. ¿Quieres que lo adapte a tu horario, energía y objetivos? ¡Respóndeme aquí y lo ajustamos juntos! 🚀`,
+        chat: `¡Hola ${displayName}! He puesto un plan de entrenamiento estándar en tu calendario para la próxima semana, para que tengas algo con lo que empezar. ¿Quieres que lo adapte a tu horario, energía y objetivos? ¡Respóndeme aquí y lo ajustamos juntos!`,
       },
       fr: {
-        title: `🗓️ Ta semaine est prête`,
+        title: `Ta semaine est prête`,
         body: `Coach ${coachName} t'a préparé un programme d'entraînement standard. Touche pour le personnaliser.`,
-        chat: `Salut ${displayName} ! 👋 J'ai mis un programme d'entraînement standard dans ton calendrier pour la semaine prochaine, pour que tu aies une base. Tu veux que je l'adapte à ton emploi du temps, ton énergie et tes objectifs ? Réponds-moi ici ! 🚀`,
+        chat: `Salut ${displayName} ! J'ai mis un programme d'entraînement standard dans ton calendrier pour la semaine prochaine, pour que tu aies une base. Tu veux que je l'adapte à ton emploi du temps, ton énergie et tes objectifs ? Réponds-moi ici !`,
       },
     }[lang] || null;
     const chosen = tpl || {
-      title: `🗓️ Your week is ready`,
+      title: `Your week is ready`,
       body: `Coach ${coachName} set up a standard training plan for you. Tap to make it your own.`,
-      chat: `Hey ${displayName}! 👋 I've put a standard training plan in your calendar for the coming week, so you have something to work with. Want me to tailor it to your schedule, energy and goals? Just reply here and we'll adjust it together! 🚀`,
+      chat: `Hey ${displayName}! I've put a standard training plan in your calendar for the coming week, so you have something to work with. Want me to tailor it to your schedule, energy and goals? Just reply here and we'll adjust it together!`,
     };
     pushTitle = chosen.title;
     pushBody = chosen.body;
@@ -1067,7 +1080,7 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
 
   const users = await new Promise((resolve) => {
     db.all(
-      `SELECT u.id, u.username, u.subscription_tier, u.role, u.language, u.coach_name,
+      `SELECT u.id, u.username, u.subscription_tier, u.role, u.language, u.coach_name, u.coach_tone,
          CASE WHEN u.role = 'admin' THEN 1 ELSE 0 END AS is_admin,
          CASE
            WHEN u.last_active_at IS NOT NULL AND u.last_active_at >= datetime('now', '-7 days') THEN 1

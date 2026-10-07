@@ -95,7 +95,7 @@ export default function LoginScreen() {
 
     if (mode === 'login') {
       if (!email || !password) {
-        setErrorMessage('Enter your email or username, and your password.');
+        setErrorMessage(t('loginErrors.enterCredentials'));
         return;
       }
       setSubmitting(true);
@@ -103,17 +103,17 @@ export default function LoginScreen() {
         await login(email, password);
         router.replace('/(tabs)/coach');
       } catch (err: any) {
-        setErrorMessage(err.message || 'Failed to sign in.');
+        setErrorMessage(err.message || t('authErrors.signInFailed'));
       } finally {
         setSubmitting(false);
       }
     } else if (mode === 'register') {
       if (!email || !password) {
-        setErrorMessage('Please fill in both email and password.');
+        setErrorMessage(t('loginErrors.fillEmailPassword'));
         return;
       }
       if (password.length < 6) {
-        setErrorMessage('Password must be at least 6 characters.');
+        setErrorMessage(t('loginErrors.passwordMin'));
         return;
       }
       setSubmitting(true);
@@ -121,7 +121,7 @@ export default function LoginScreen() {
         await register(email, password, username || undefined);
         router.replace('/(tabs)/coach');
       } catch (err: any) {
-        setErrorMessage(err.message || 'Failed to create account.');
+        setErrorMessage(err.message || t('loginErrors.createFailed'));
       } finally {
         setSubmitting(false);
       }
@@ -145,7 +145,7 @@ export default function LoginScreen() {
       setForgotStep(2);
       setSuccessMessage(t('auth.resetCodeSent'));
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to send verification code.');
+      setErrorMessage(err.message || t('loginErrors.sendCodeFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -157,7 +157,7 @@ export default function LoginScreen() {
       return;
     }
     if (newPassword.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
+      setErrorMessage(t('loginErrors.passwordMin'));
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -175,7 +175,7 @@ export default function LoginScreen() {
         router.replace('/(tabs)/coach');
       }, 500);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to reset password.');
+      setErrorMessage(err.message || t('authErrors.passwordResetFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -193,7 +193,7 @@ export default function LoginScreen() {
       });
 
       if (!credential.identityToken) {
-        throw new Error('Apple Sign-In failed: No identity token received.');
+        throw new Error(t('loginErrors.appleNoToken'));
       }
 
       setSubmitting(true);
@@ -209,7 +209,7 @@ export default function LoginScreen() {
       if (e.code === 'ERR_REQUEST_CANCELED') {
         return;
       }
-      setErrorMessage(e.message || 'Failed to sign in with Apple.');
+      setErrorMessage(e.message || t('authErrors.appleFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -232,7 +232,7 @@ export default function LoginScreen() {
       ) {
         return;
       }
-      setErrorMessage(e.message || 'Failed to sign in with Google.');
+      setErrorMessage(e.message || t('authErrors.googleFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -358,7 +358,7 @@ export default function LoginScreen() {
                   <View className="flex-row items-center bg-theme-card rounded-control px-4 min-h-[56px]">
                     <Ionicons name="person-outline" size={20} color={theme.textSecondary} />
                     <TextInput
-                      placeholder="Athlete Username"
+                      placeholder={t('loginErrors.usernamePlaceholder')}
                       placeholderTextColor={theme.textSecondary}
                       value={username}
                       onChangeText={setUsername}

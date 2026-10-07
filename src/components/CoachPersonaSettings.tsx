@@ -41,11 +41,14 @@ export const CoachPersonaSettings: React.FC = () => {
   ], [t]);
 
   const [selectedTone, setSelectedTone] = useState<string>(CANONICAL_TONE_VALUES.default);
-  const [coachName, setCoachName] = useState<string>('rooka');
+  const [coachName, setCoachName] = useState<string>('');
   const [coachContext, setCoachContext] = useState<string>('');
   const [athleteContext, setAthleteContext] = useState<string>('');
   const [gender, setGender] = useState<string>(user?.gender || 'Prefer not to share');
   const [saving, setSaving] = useState<boolean>(false);
+  const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
+  // Autosave: only after the athlete edits something (not when the form is first filled)
+  const dirtyRef = useRef<boolean>(false);
   const [uploadingMood, setUploadingMood] = useState<string | null>(null);
 
   const isInitialized = useRef<boolean>(false);
@@ -56,7 +59,7 @@ export const CoachPersonaSettings: React.FC = () => {
       const toneVal = user.coach_tone || CANONICAL_TONE_VALUES.default;
       const isCustom = toneVal === 'custom' || toneVal === 'Configure own coach' || !Object.values(CANONICAL_TONE_VALUES).includes(toneVal);
       setSelectedTone(isCustom ? 'custom' : toneVal);
-      setCoachName(user.coach_name || 'rooka');
+      setCoachName(user.coach_name && user.coach_name.toLowerCase() !== 'rooka' ? user.coach_name : '');
       setCoachContext(user.coach_context || '');
       setAthleteContext(user.athlete_context || '');
       setGender(user.gender || 'Prefer not to share');
@@ -68,19 +71,30 @@ export const CoachPersonaSettings: React.FC = () => {
     try {
       await updateUser({
         coach_tone: selectedTone,
-        coach_name: coachName,
+        coach_name: coachName.trim() || 'Rooka',
         coach_context: coachContext,
         athlete_context: athleteContext,
         gender: gender,
       });
       await refreshUser();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
     } catch (err: any) {
       console.error('Coach settings save error:', err);
     } finally {
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    if (!dirtyRef.current) return;
+    const timer = setTimeout(() => {
+      dirtyRef.current = false;
+      handleSave();
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTone, coachName, coachContext, athleteContext]);
 
   const handlePickAvatar = async (mood: string) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -102,7 +116,7 @@ export const CoachPersonaSettings: React.FC = () => {
         // Save current persona text fields to backend first so active draft text isn't lost
         await userApi.updateSettings({
           coach_tone: selectedTone,
-          coach_name: coachName,
+          coach_name: coachName.trim() || 'Rooka',
           coach_context: coachContext,
           athlete_context: athleteContext,
         });
@@ -154,18 +168,21 @@ export const CoachPersonaSettings: React.FC = () => {
                 key={opt.value}
                 onPress={() => {
                   Haptics.selectionAsync();
+                  dirtyRef.current = true;
                   setSelectedTone(opt.value);
                 }}
                 activeOpacity={0.7}
-                className={`p-3 rounded-xl flex-row items-center justify-between mb-2 ${
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                className={`p-3 rounded-xl flex-row items-center justify-between mb-2 border ${
                   isSelected
-                    ? 'bg-theme-accent'
-                    : 'bg-theme-bg opacity-60'
+                    ? 'bg-theme-accent/10 border-theme-accent'
+                    : 'bg-theme-card border-theme-border'
                 }`}
               >
                 <View className="flex-row items-center flex-1">
                   {avatarSrc ? (
-                    <View className={`w-8 h-8 rounded-full overflow-hidden mr-3 bg-theme-bg ${isSelected ? 'border border-white/40' : 'border border-theme-border'}`}>
+                    <View className={`w-8 h-8 rounded-full overflow-hidden mr-3 bg-theme-bg border ${isSelected ? 'border-theme-accent' : 'border-theme-border'}`}>
                       <Image
                         source={avatarSrc}
                         style={{ width: '100%', height: '100%' }}
@@ -173,16 +190,16 @@ export const CoachPersonaSettings: React.FC = () => {
                       />
                     </View>
                   ) : (
-                    <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${isSelected ? 'bg-white/20' : 'bg-theme-accent/20'}`}>
-                      <RookaMark size={16} color={isSelected ? '#FFFFFF' : BrandColors.primary} />
+                    <View className="w-8 h-8 rounded-full items-center justify-center mr-3 bg-theme-accent/20">
+                      <RookaMark size={16} color={BrandColors.primary} />
                     </View>
                   )}
-                  <Text className={`text-sm flex-1 ${isSelected ? 'font-bold text-white' : 'text-theme-text font-medium'}`}>
+                  <Text className={`text-sm flex-1 text-theme-text ${isSelected ? 'font-bold' : 'font-medium'}`}>
                     {opt.label}
                   </Text>
                 </View>
                 {isSelected && (
-                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                  <Ionicons name="checkmark-circle" size={18} color={theme.tint} />
                 )}
               </TouchableOpacity>
             );
@@ -192,27 +209,28 @@ export const CoachPersonaSettings: React.FC = () => {
 
       {/* Custom Coach Fields */}
       {isCustomSelected && (
-        <View className="p-3 bg-theme-bg opacity-60 rounded-xl gap-y-3 mb-3">
+        <View className="p-3 bg-theme-bg rounded-xl gap-y-3 mb-3 border border-theme-border">
           <View>
             <Text className="text-xs font-bold text-theme-muted mb-1">{t('coachPersona.coachName')}</Text>
             <TextInput
-              className="bg-theme-card rounded-control p-3 text-theme-text text-sm"
-              placeholder="Coach Name..."
+              className="bg-theme-bg border border-theme-border rounded-control p-3 text-theme-text text-sm"
+              placeholder={t('zonesExtra.coachNamePlaceholder')}
               placeholderTextColor={theme.textSecondary}
               value={coachName}
-              onChangeText={setCoachName}
+              onChangeText={(v) => { dirtyRef.current = true; setCoachName(v); }}
             />
           </View>
 
           <View className="mt-2">
             <Text className="text-xs font-bold text-theme-muted mb-1">{t('coachPersona.coachContext')}</Text>
             <TextInput
-              className="bg-theme-card rounded-control p-3 text-theme-text text-sm min-h-[70px]"
-              placeholder="Coach Context..."
+              className="bg-theme-bg border border-theme-border rounded-control p-3 text-theme-text text-sm min-h-[70px]"
+              placeholder={t('zonesExtra.coachContextPlaceholder')}
               placeholderTextColor={theme.textSecondary}
               value={coachContext}
-              onChangeText={setCoachContext}
+              onChangeText={(v) => { dirtyRef.current = true; setCoachContext(v); }}
               multiline
+              textAlignVertical="top"
             />
           </View>
 
@@ -319,23 +337,25 @@ export const CoachPersonaSettings: React.FC = () => {
                   updateUser({ gender: opt.value }).catch(() => {});
                 }}
                 activeOpacity={0.7}
-                className={`flex-1 p-3 rounded-xl flex-row items-center justify-center gap-x-1.5 ${
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                className={`flex-1 p-3 rounded-xl flex-row items-center justify-center gap-x-1.5 border ${
                   isSelected
-                    ? 'bg-theme-accent'
-                    : 'bg-theme-bg opacity-60'
+                    ? 'bg-theme-accent/10 border-theme-accent'
+                    : 'bg-theme-card border-theme-border'
                 }`}
               >
                 <Ionicons
                   name={opt.icon as any}
                   size={15}
-                  color={isSelected ? '#FFFFFF' : '#8E9BA4'}
+                  color={isSelected ? theme.tint : '#8E9BA4'}
                   style={{ marginRight: 4 }}
                 />
                 <Text
-                  className={`text-xs font-bold ${
-                    isSelected ? 'text-white' : 'text-theme-text'
+                  className={`text-xs font-bold text-center flex-shrink ${
+                    isSelected ? 'text-theme-accent' : 'text-theme-text'
                   }`}
-                  numberOfLines={1}
+                  numberOfLines={2}
                 >
                   {opt.label}
                 </Text>
@@ -351,30 +371,29 @@ export const CoachPersonaSettings: React.FC = () => {
           {t('coachPersona.athleteBackgroundContext')}
         </Text>
         <TextInput
-          className="bg-theme-card rounded-control p-3 text-theme-text text-sm min-h-[70px]"
+          className="bg-theme-bg border border-theme-border rounded-control p-3 text-theme-text text-sm min-h-[70px]"
           placeholder={t('coachPersona.athleteContextPlaceholder')}
           placeholderTextColor={theme.textSecondary}
           value={athleteContext}
-          onChangeText={setAthleteContext}
+          onChangeText={(v) => { dirtyRef.current = true; setAthleteContext(v); }}
           multiline
+          textAlignVertical="top"
         />
       </View>
 
-      {/* Save Button */}
-      <TouchableOpacity
-        onPress={handleSave}
-        disabled={saving}
-        className="bg-theme-accent py-3.5 rounded-xl items-center flex-row justify-center mt-3"
-      >
-        {saving ? (
-          <ActivityIndicator color="#FFF" />
-        ) : (
-          <>
-            <Ionicons name="save-outline" size={18} color="#FFF" />
-            <Text className="text-white font-bold text-base ml-2">{t('coachPersona.saveCoachPersona')}</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {/* Autosave status */}
+      {(saving || savedSuccess) && (
+        <View className="flex-row items-center justify-center gap-x-1.5 mt-1">
+          {saving ? (
+            <ActivityIndicator size="small" color={theme.tint} />
+          ) : (
+            <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+          )}
+          <Text className={`text-xs font-bold ${saving ? 'text-theme-muted' : 'text-semantic-success'}`}>
+            {saving ? t('goals.savingGoals', 'Saving…') : t('goals.goalsSavedSuccess', 'Saved')}
+          </Text>
+        </View>
+      )}
     </Card>
   );
 };

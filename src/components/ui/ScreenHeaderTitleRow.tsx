@@ -1,4 +1,6 @@
 import React from 'react';
+import { getLocaleTag } from '../../locales/i18n';
+import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,14 +29,15 @@ export function ScreenHeaderTitleRow({
   unreadCount,
   onCoachPress,
 }: ScreenHeaderTitleRowProps) {
+  const { t } = useLanguage();
   const theme = useTheme();
   const router = useRouter();
   const { unreadCount: storeUnreadCount } = useCoachChat();
   const effectiveUnreadCount = unreadCount !== undefined ? unreadCount : storeUnreadCount;
 
   const now = new Date();
-  const dayOfWeekShort = now.toLocaleDateString('en-US', { weekday: 'short' });
-  const monthShort = now.toLocaleDateString('en-US', { month: 'short' });
+  const dayOfWeekShort = now.toLocaleDateString(getLocaleTag(), { weekday: 'short' });
+  const monthShort = now.toLocaleDateString(getLocaleTag(), { month: 'short' });
   const dayNum = now.getDate();
   const formattedDate = dateLabel || `${dayOfWeekShort}, ${monthShort} ${dayNum}`;
 
@@ -60,11 +63,11 @@ export function ScreenHeaderTitleRow({
             onPress={handleCoachPress}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Coach chat, ${effectiveUnreadCount} unread message${effectiveUnreadCount > 1 ? 's' : ''}`}
+            accessibilityLabel={effectiveUnreadCount === 1 ? t('uiExtra.coachUnreadOne') : t('uiExtra.coachUnreadMany', { count: effectiveUnreadCount })}
             className="flex-row items-center bg-theme-card border border-theme-border rounded-full pl-2.5 pr-2 py-1 shadow-sm"
           >
             <RookaMark size={14} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-text ml-1.5 mr-1.5">Coach</Text>
+            <Text className="text-xs font-bold text-theme-text ml-1.5 mr-1.5">{t('tabs.coach', 'Coach')}</Text>
             <View className="bg-red-500 rounded-full min-w-[18px] h-[18px] px-1 items-center justify-center">
               <Text className="text-white text-[10px] font-black leading-none">
                 {effectiveUnreadCount > 9 ? '9+' : effectiveUnreadCount}

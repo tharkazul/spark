@@ -155,12 +155,12 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       } = require('../../services/appleHealthService');
 
       if (Platform.OS !== 'ios') {
-        Alert.alert('Not Supported', 'Apple Health integration is only available on iOS devices.');
+        Alert.alert(t('healthConnect.notSupportedTitle'), t('healthConnect.healthIosOnly'));
         return;
       }
 
       if (!isHealthKitAvailable()) {
-        Alert.alert('Unavailable', 'Apple Health is not available on this device.');
+        Alert.alert(t('healthConnect.unavailableTitle'), t('healthConnect.healthUnavailable'));
         return;
       }
 
@@ -170,18 +170,18 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       if (healthKitGranted) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          'Apple Health Connected!',
-          'Rooka is now authorized to read your selected health metrics.'
+          t('healthConnect.healthConnectedTitle'),
+          t('healthConnect.healthConnectedBody')
         );
       } else {
         Alert.alert(
-          'Permissions Note',
-          'Please ensure Health permissions are enabled in Settings > Health > Data Access & Devices > Rooka.'
+          t('healthConnect.permissionsNoteTitle'),
+          t('healthConnect.permissionsNoteBody')
         );
       }
     } catch (err: any) {
       console.error('Apple Health connect error:', err);
-      Alert.alert('Error', err?.message || 'Failed to request Apple Health permissions.');
+      Alert.alert(t('common.error'), err?.message || t('healthConnect.healthPermissionFailed'));
     }
   };
 
@@ -193,14 +193,14 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       } = require('../../services/appleHealthService');
 
       if (Platform.OS !== 'ios') {
-        Alert.alert('Not Supported', 'Apple Watch sync is only available on iOS.');
+        Alert.alert(t('healthConnect.notSupportedTitle'), t('healthConnect.watchIosOnly'));
         return;
       }
 
       if (!isWorkoutKitSupported()) {
         Alert.alert(
-          'iOS 17+ Required',
-          'Workout scheduling to Apple Watch requires an iPhone running iOS 17 or newer.'
+          t('healthConnect.ios17Title'),
+          t('healthConnect.ios17Body')
         );
         return;
       }
@@ -212,18 +212,18 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       if (connected) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          'Apple Watch Connected!',
-          'Rooka is now authorized to send planned workouts directly to the Workout app on your Apple Watch.'
+          t('healthConnect.watchConnectedTitle'),
+          t('healthConnect.watchConnectedBody')
         );
       } else {
         Alert.alert(
-          'Permissions Required',
-          'Please open the Apple Watch app on your iPhone > Rooka, and enable workout scheduling.'
+          t('healthConnect.permissionsRequiredTitle'),
+          t('healthConnect.permissionsRequiredBody')
         );
       }
     } catch (err: any) {
       console.error('Apple Watch connect error:', err);
-      Alert.alert('Error', err?.message || 'Failed to authorize Apple Watch.');
+      Alert.alert(t('common.error'), err?.message || t('healthConnect.watchAuthFailed'));
     }
   };
 
@@ -248,17 +248,17 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         await refreshActivities();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          'Apple Health Synced! 🎉',
-          res.message || `Synced ${res.biometricsSynced || 0} daily biometric records and ${res.workoutsSynced || 0} workout(s) from Apple Health (including Garmin).`
+          t('healthConnect.syncedTitle'),
+          res.message || t('healthConnect.syncedBodyGarmin', { bio: res.biometricsSynced || 0, workouts: res.workoutsSynced || 0 })
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Sync Incomplete', res.message);
+        Alert.alert(t('healthConnect.syncIncompleteTitle'), res.message || t('healthConnect.syncIncompleteBody'));
       }
     } catch (err: any) {
       console.error('Apple Health sync error:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Sync Error', err?.message || 'Failed to sync with Apple Health.');
+      Alert.alert(t('integrationMsgs.syncErrorTitle'), err?.message || t('healthConnect.syncFailed'));
     } finally {
       setAppleSyncing(false);
     }
@@ -309,7 +309,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       // server never accepted.
       console.log('Strava share settings save failed:', err?.message || err);
       setSportToggles(previous);
-      Alert.alert('Could not save', 'Your Strava caption settings were not updated. Please try again.');
+      Alert.alert(t('healthConnect.couldNotSave'), t('healthConnect.stravaCaptionNotSaved'));
     });
   };
 
@@ -321,7 +321,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     } catch (err: any) {
       console.error('Garmin sync error:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Garmin Sync Failed', err?.message || 'Could not sync with Garmin. Please try again later.');
+      Alert.alert(t('healthConnect.garminSyncFailedTitle'), err?.message || t('healthConnect.garminSyncFailedBody'));
     } finally {
       setGarminSyncing(false);
     }
@@ -335,7 +335,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     } catch (err: any) {
       console.error('Strava sync error:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Strava Sync Failed', err?.message || 'Could not sync with Strava. Please try again later.');
+      Alert.alert(t('healthConnect.stravaSyncFailedTitle'), err?.message || t('healthConnect.stravaSyncFailedBody'));
     } finally {
       setStravaSyncing(false);
     }
@@ -349,7 +349,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     } catch (err: any) {
       console.error('Suunto sync error:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Suunto Sync Failed', err?.message || 'Could not sync with Suunto. Please try again later.');
+      Alert.alert(t('healthConnect.suuntoSyncFailedTitle'), err?.message || t('healthConnect.suuntoSyncFailedBody'));
     } finally {
       setSuuntoSyncing(false);
     }
@@ -505,7 +505,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <View className="flex-1">
               <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.garminConnect')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
-                {isGarminConnected ? `${t('connections.connected', 'Connected')} · Direct Sync` : t('connections.disconnected', 'Not connected')}
+                {isGarminConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.directSync')}` : t('connections.disconnected', 'Not connected')}
               </Text>
             </View>
           </View>
@@ -554,7 +554,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <View className="flex-1">
               <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.suuntoIntegration')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
-                {isSuuntoConnected ? `${t('connections.connected', 'Connected')} · Workout Sync` : t('connections.disconnected', 'Not connected')}
+                {isSuuntoConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.workoutSync')}` : t('connections.disconnected', 'Not connected')}
               </Text>
             </View>
           </View>
@@ -630,7 +630,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             <View className="flex-1">
               <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.stravaIntegration')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
-                {isStravaConnected ? `${t('connections.connected', 'Connected')} · Sharing active` : t('connections.disconnected', 'Not connected')}
+                {isStravaConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.sharingActive')}` : t('connections.disconnected', 'Not connected')}
               </Text>
             </View>
           </View>

@@ -161,11 +161,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     try {
       await userApi.updateAccountDetails({ email });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Success', 'Account email updated successfully.');
+      Alert.alert(t('common.success'), t('accountMsgs.emailUpdated'));
       await refreshUser();
     } catch (err: any) {
       console.error('Update account error:', err);
-      Alert.alert('Error', err.response?.data?.error || err.message || 'Failed to update account.');
+      Alert.alert(t('common.error'), err.response?.data?.error || err.message || t('accountMsgs.accountUpdateFailed'));
     } finally {
       setSavingAccount(false);
     }
@@ -349,15 +349,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 : [
                     {
                       id: 'default_rooka_plus',
-                      title: 'Rooka+ Athlete',
-                      title_name: 'Rooka+ Athlete',
-                      description: 'Official member of the Rooka+ endurance squad.',
+                      title: t('accountMsgs.rookaPlusAthlete'),
+                      title_name: t('accountMsgs.rookaPlusAthlete'),
+                      description: t('accountMsgs.rookaPlusAthleteDesc'),
                       is_equipped: 1,
                       is_active: 1,
                     },
                   ]
               ).map((item) => {
-                const titleName = item.title_name || item.title || 'Rooka+ Athlete';
+                const titleName = item.title_name || item.title || t('accountMsgs.rookaPlusAthlete');
                 const isEquipped = Boolean(item.is_equipped || item.is_active);
                 const isExpanded = expandedTitleId === item.id;
 
@@ -430,27 +430,27 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* 4. DAILY COACH USAGE METER (or Admin Token Quota) */}
       <Text className="text-theme-muted font-bold text-xs -mb-3 ml-1 uppercase tracking-wider">
-        AI Coach Telemetry
+        {t('accountMsgs.aiCoachTelemetry')}
       </Text>
       {tier === 'admin' ? (
         <Card className="p-4">
           <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/20">
             <View className="flex-row items-center gap-2">
               <View className="w-2.5 h-2.5 rounded-full bg-purple-500 mr-1" />
-              <Text className="text-theme-text font-bold text-sm">Admin Token Quota</Text>
+              <Text className="text-theme-text font-bold text-sm">{t('accountMsgs.adminTokenQuota')}</Text>
             </View>
             <View className="px-2 py-0.5 rounded bg-purple-500/15">
-              <Text className="text-[10px] font-bold text-purple-600 dark:text-purple-400">ADMIN</Text>
+              <Text className="text-[10px] font-bold text-purple-600 dark:text-purple-400">{t('accountMsgs.adminBadge')}</Text>
             </View>
           </View>
 
           <View className="p-3.5 bg-theme-bg rounded-xl flex-row items-center justify-between">
             <View className="flex-1 pr-3">
               <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                Daily Token Consumption
+                {t('accountMsgs.dailyTokenConsumption')}
               </Text>
               <Text className="text-xs text-theme-muted mt-0.5">
-                {formatTokens(dailyUsage)} of {formatTokens(dailyLimit)} tokens consumed
+                {t('accountMsgs.tokensConsumed', { used: formatTokens(dailyUsage), limit: formatTokens(dailyLimit) })}
               </Text>
             </View>
             <View className="px-3 py-1.5 bg-theme-accent/10 rounded-xl">
@@ -463,7 +463,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/20">
             <View className="flex-row items-center gap-2">
               <Ionicons name="sparkles" size={16} color={theme.tint} />
-              <Text className="text-theme-text font-bold text-sm">Daily Coach Usage</Text>
+              <Text className="text-theme-text font-bold text-sm">{t('accountMsgs.dailyCoachUsage')}</Text>
             </View>
             <Text className="text-xs font-bold font-rajdhani text-theme-accent">
               {Math.min(100, Math.round((dailyUsage / Math.max(1, dailyLimit)) * 100))}%
@@ -481,10 +481,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             </View>
             <View className="flex-row justify-between items-center">
               <Text className="text-[11px] text-theme-muted">
-                {dailyUsage > 0 ? 'AI analysis & planning active' : 'Ready for daily workouts'}
+                {dailyUsage > 0 ? t('accountMsgs.aiActive') : t('accountMsgs.readyForWorkouts')}
               </Text>
               <Text className="text-[11px] font-medium text-theme-muted">
-                Resets at midnight
+                {t('accountMsgs.resetsAtMidnight')}
               </Text>
             </View>
           </View>
@@ -493,7 +493,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* 5. APP PREFERENCES */}
       <Text className="text-theme-muted font-bold text-xs -mb-3 ml-1 uppercase tracking-wider">
-        Preferences
+        {t('accountMsgs.preferences')}
       </Text>
       <Card className="p-2">
         {renderSettingRow(
@@ -510,10 +510,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           t('profile.pushNotifications'),
           <Switch value={true} trackColor={{ false: '#DDE3E9', true: theme.tint }} />
         )}
-        <View className="px-4 py-3 flex-row items-center justify-between">
+        <View className="py-4 gap-3">
           <View className="flex-row items-center">
-            <Ionicons name="language" size={20} color={theme.textSecondary} className="mr-3" />
-            <Text className="text-theme-text text-base ml-2">{t('profile.languageSettingTitle', 'Language')}</Text>
+            <Ionicons name="language" size={22} color={theme.textSecondary} className="mr-4" />
+            <Text className="text-theme-text text-base flex-1 ml-3">{t('profile.languageSettingTitle', 'Language')}</Text>
           </View>
           <LanguageSelector compact={true} />
         </View>
@@ -521,13 +521,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* 6. ACCOUNT & MEMBERSHIP */}
       <Text className="text-theme-muted font-bold text-xs -mb-3 ml-1 uppercase tracking-wider">
-        Account & Membership
+        {t('accountMsgs.accountMembership')}
       </Text>
       <Card className="p-4">
         <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/20">
           <View className="flex-row items-center gap-2">
             <RookaMark size={16} color={theme.tint} />
-            <Text className="text-theme-text font-bold text-sm">Membership Plan</Text>
+            <Text className="text-theme-text font-bold text-sm">{t('accountMsgs.membershipPlan')}</Text>
           </View>
           <ScalePressable
             onPress={() => {
@@ -542,7 +542,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             className="px-3 py-1 bg-theme-accent/15 rounded-full"
           >
             <Text className="text-xs font-bold text-theme-accent">
-              {isPaidTier ? 'Manage Plan' : 'Upgrade to Rooka+'}
+              {isPaidTier ? t('accountMsgs.managePlan') : t('accountMsgs.upgradeRookaPlus')}
             </Text>
           </ScalePressable>
         </View>
@@ -571,7 +571,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   {savingAccount ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
-                    <Text className="text-white font-bold text-xs">Save</Text>
+                    <Text className="text-white font-bold text-xs">{t('common.save')}</Text>
                   )}
                 </ScalePressable>
               )}

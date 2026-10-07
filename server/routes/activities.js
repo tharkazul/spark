@@ -1,4 +1,5 @@
 const express = require('express');
+const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("../services/coachPersona");
 const router = express.Router();
 const db = require('../services/db');
 const fs = require('fs');
@@ -11,6 +12,7 @@ const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const { sendPushToUser } = require('../services/pushNotificationService');
 const { getUserGoalPromptContext } = require('../services/goalPromptContext');
+const i18n = require('../services/i18n');
 const {
   matchGarminExercise,
   getAMSDateString,
@@ -908,7 +910,7 @@ router.post("/api/micro-plan/push-forward", authenticateToken, (req, res) => {
       if (err)
         return res.status(500).json({ error: "Failed to update micro plan." });
 
-      const msg = `I've shifted your schedule starting from ${date} forward by one day. Take it easy and recover!`;
+      const msg = i18n.t(req.user.language, 'chat.scheduleShifted', { date });
       db.run(
         `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'assistant', ?, 'empathetic')`,
         [userId, msg],
@@ -1237,13 +1239,13 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                   };
                   const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith('nl') ? 'Dutch (Nederlands)' : 'English');
 
-                  const coachName = user.coach_name || 'Rooka';
+                  const coachName = resolveCoachName(user);
                   let coachToneText = user.coach_tone || 'Empathetic but demanding elite endurance coach.';
                   if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
                     coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
                   }
 
-                  const systemPrompt = `You are Coach ${coachName}, an elite endurance and athletic performance coach.
+                  const systemPrompt = `You are Coach ${coachName}, an elite endurance and athletic performance coach. ${PLAIN_LANGUAGE_RULE}
                 Tone: ${coachToneText}
                 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
                 Athlete Context: ${user.athlete_context || "General endurance athlete"}
@@ -1305,10 +1307,10 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                - OPEN / NO TARGET: For warmup, cooldown, mobility drills, or open efforts: set "target_type": "no.target".
             10. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
             11. BENCHMARK ASSESSMENT: If the athlete is new or setting up an onboarding plan, Day 1 or Day 2 MUST contain exactly ONE sport-tailored Benchmark Assessment workout to establish baseline capabilities:
-                 - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run ("sport": "Run", "description": "🎯 Benchmark Assessment: 5k Pace & HR Test").
-                 - For CYCLING focus: Schedule a 20-min FTP Baseline Test ("sport": "Bike", "description": "🎯 Benchmark Assessment: 20-Min FTP Baseline Test").
-                 - For SWIMMING focus: Schedule a 400m CSS Swim Test ("sport": "Swim", "description": "🎯 Benchmark Assessment: 400m CSS Swim Test").
-                 - For HYROX / FUNCTIONAL FITNESS focus: Schedule a Hyrox Benchmark Test ("sport": "Strength", "description": "🎯 Benchmark Assessment: Hyrox Functional Fitness Test").
+                 - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run ("sport": "Run", "description": "Benchmark Assessment: 5k Pace & HR Test").
+                 - For CYCLING focus: Schedule a 20-min FTP Baseline Test ("sport": "Bike", "description": "Benchmark Assessment: 20-Min FTP Baseline Test").
+                 - For SWIMMING focus: Schedule a 400m CSS Swim Test ("sport": "Swim", "description": "Benchmark Assessment: 400m CSS Swim Test").
+                 - For HYROX / FUNCTIONAL FITNESS focus: Schedule a Hyrox Benchmark Test ("sport": "Strength", "description": "Benchmark Assessment: Hyrox Functional Fitness Test").
                  - NEVER assign a running test to pure swimmers/cyclists or a cycling test to Hyrox athletes. Respect their specific sport/goal context strictly.
             12. IMPORTANT: Warmup and Cooldown steps should generally use "target_type": "no.target" or open intensity so the athlete can gradually ease in and elevate their heart rate without triggering out-of-zone alarms while cold. Rest and Recovery steps can be Zone 1.
             13. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL):
@@ -1360,6 +1362,12 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     let aiReply = await generateWithFallback(
                       userPrompt,
                       systemPrompt,
+                      null,
+                      null,
+                      null,
+                      "personal",
+                      false,
+                      { language: user.language },
                     );
                     let planUpdated = false;
 
@@ -1459,8 +1467,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     )
                       mood = "disappointed";
 
-                    const simulatedUserMessage = `Can you build my plan for next week, Rooka?`;
-                    const coachAcknowledgement = `I've just crunched your latest numbers and pushed a fresh ${phase} phase plan to your dashboard. Go check it out—you're going to crush it!`;
+                    const simulatedUserMessage = i18n.t(user.language, 'chat.planRequestUser');
+                    const coachAcknowledgement = i18n.t(user.language, 'chat.planBuiltAck', { phase: i18n.phaseName(user.language, phase) });
 
                     db.run(
                       `INSERT INTO chat_history (user_id, role, content) VALUES (?, 'user', ?)`,
@@ -1529,11 +1537,13 @@ router.post("/api/activities/:id/comments", authenticateToken, (req, res) => {
           db.get(
             `SELECT user_id, name FROM activities WHERE id = ?`,
             [activityId],
-            (errAct, act) => {
+            async (errAct, act) => {
               if (act && act.user_id !== req.user.id) {
-                const commenterName = req.user.username || "Someone";
-                const activityName = act.name || "activity";
-                const coachMsg = `${commenterName} left a comment on your "${activityName}": "${comment.trim()}"`;
+                // Messages go to the activity owner, so use the owner's language.
+                const ownerLang = await i18n.getUserLanguage(act.user_id);
+                const commenterName = req.user.username || i18n.t(ownerLang, 'common.someone');
+                const activityName = act.name || i18n.t(ownerLang, 'common.activity');
+                const coachMsg = i18n.t(ownerLang, 'chat.commentReceived', { name: commenterName, activity: activityName, comment: comment.trim() });
 
                 db.run(
                   `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'support')`,
@@ -1555,8 +1565,8 @@ router.post("/api/activities/:id/comments", authenticateToken, (req, res) => {
                 });
 
                 sendPushToUser(act.user_id, {
-                  title: "New Comment on Your Workout! 💬",
-                  body: `${commenterName} commented on "${activityName}": "${comment.trim()}"`,
+                  title: i18n.t(ownerLang, 'push.newComment.title'),
+                  body: i18n.t(ownerLang, 'push.newComment.body', { name: commenterName, activity: activityName, comment: comment.trim() }),
                   data: { url: "/(tabs)/social", type: "comment" },
                 });
               }

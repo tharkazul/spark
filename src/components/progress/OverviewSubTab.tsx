@@ -17,7 +17,6 @@ import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
 
 import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
-import { usePhysique } from '../../context/PhysiqueStore';
 import { useGamification } from '../../context/GamificationStore';
 import { useSeasonGoal } from '../../hooks/use-season-goal';
 import { useLanguage } from '../../context/LanguageContext';
@@ -38,7 +37,6 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
   const { t } = useLanguage();
   const { user } = useUser();
   const { activities } = useActivities();
-  const { nutrition } = usePhysique();
   const { quests, loading: gamificationLoading, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
   const { hasSeasonGoal, seasonInfo, goalsLoaded } = useSeasonGoal();
   const router = useRouter();
@@ -166,65 +164,6 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
         </Card>
       )}
 
-      {/* 4. FUELING & NUTRITION PREVIEW CARD */}
-      <Card className="bg-theme-card p-4">
-        <View className="flex-row items-center justify-between mb-3">
-          <View className="flex-row items-center gap-x-2">
-            <Ionicons name="nutrition-outline" size={16} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-              {t('progress.fuelingNutrition', 'Fueling & Nutrition')}
-            </Text>
-          </View>
-          {onOpenNutrition && (
-            <Button
-              variant="ghost"
-              size="sm"
-              label={t('progress.viewPlan', 'View Plan')}
-              rightIcon={<Ionicons name="chevron-forward" size={14} color="#0EA5E9" />}
-              onPress={onOpenNutrition}
-            />
-          )}
-        </View>
-
-        {nutrition ? (
-          <View className="flex-row items-center justify-between bg-theme-inset rounded-inset p-3">
-            <View className="items-center flex-1">
-              <Text className="text-lg font-bold font-rajdhani text-theme-text">
-                {nutrition.carbsTarget || nutrition.proteinTarget || nutrition.fatTarget
-                  ? Math.round((nutrition.carbsTarget || 0) * 4 + (nutrition.proteinTarget || 0) * 4 + (nutrition.fatTarget || 0) * 9)
-                  : '—'}
-              </Text>
-              <Text className="text-[10px] text-theme-muted uppercase font-bold">kcal</Text>
-            </View>
-            <View className="w-px h-6 bg-theme-border/60" />
-            <View className="items-center flex-1">
-              <Text className="text-lg font-bold font-rajdhani text-theme-text">
-                {nutrition.carbsTarget ? Math.round(nutrition.carbsTarget) : (nutrition.carbs ? Math.round(nutrition.carbs) : '—')}g
-              </Text>
-              <Text className="text-[10px] text-theme-muted uppercase font-bold">{t('dashboard.carbs', 'Carbs')}</Text>
-            </View>
-            <View className="w-px h-6 bg-theme-border/60" />
-            <View className="items-center flex-1">
-              <Text className="text-lg font-bold font-rajdhani text-theme-text">
-                {nutrition.proteinTarget ? Math.round(nutrition.proteinTarget) : (nutrition.protein ? Math.round(nutrition.protein) : '—')}g
-              </Text>
-              <Text className="text-[10px] text-theme-muted uppercase font-bold">{t('dashboard.protein', 'Protein')}</Text>
-            </View>
-            <View className="w-px h-6 bg-theme-border/60" />
-            <View className="items-center flex-1">
-              <Text className="text-lg font-bold font-rajdhani text-theme-text">
-                {nutrition.fatTarget ? Math.round(nutrition.fatTarget) : (nutrition.fat ? Math.round(nutrition.fat) : '—')}g
-              </Text>
-              <Text className="text-[10px] text-theme-muted uppercase font-bold">{t('dashboard.fat', 'Fat')}</Text>
-            </View>
-          </View>
-        ) : (
-          <View className="bg-theme-inset rounded-inset p-3 items-center">
-            <Text className="text-xs text-theme-muted">{t('progress.nutritionConfigureHint', 'Daily AI nutrition targets ready to configure.')}</Text>
-          </View>
-        )}
-      </Card>
-
       {/* 5. WEEKLY QUESTS CARD */}
       {canAccessQuests(user?.subscription_tier) && (
         <Card className="bg-theme-card">
@@ -254,7 +193,7 @@ export const OverviewSubTab: React.FC<OverviewSubTabProps> = ({
               >
                 <View className="flex-row justify-between items-start mb-1">
                   <Text className="text-sm font-bold text-theme-text flex-1 mr-2" numberOfLines={2}>
-                    {activeQuest.description || 'Active Weekly Quest'}
+                    {activeQuest.description || t('questUi.activeWeeklyQuest')}
                   </Text>
                   <Chip
                     variant="points"

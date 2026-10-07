@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
 import { View, Text, TouchableOpacity, ActivityIndicator, useColorScheme, Image } from 'react-native';
@@ -37,6 +38,7 @@ export function MicroPlanAgendaCard({
   onAddWorkoutToDay,
   onSelectWorkout,
 }: MicroPlanAgendaCardProps) {
+  const { t } = useLanguage();
     const theme = useTheme();
   // Track expanded state per day
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
@@ -109,7 +111,7 @@ export function MicroPlanAgendaCard({
             <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
               <Ionicons name="calendar-outline" size={16} color="#38BDF8" />
             </View>
-            <Text className="text-lg font-extrabold text-theme-text">Week Plan</Text>
+            <Text className="text-lg font-extrabold text-theme-text">{t('weekPlan.title')}</Text>
           </View>
 
           {/* Week Selector Navigator */}
@@ -141,14 +143,14 @@ export function MicroPlanAgendaCard({
             <View className="flex-row items-center justify-center gap-2">
               <ActivityIndicator size="small" color="#FFFFFF" />
               <Text className="text-sm font-extrabold text-white">
-                Building your training week...
+                {t('weekPlan.building')}
               </Text>
             </View>
           ) : (
             <View className="flex-row items-center justify-center gap-2">
               <Ionicons name="flash" size={16} color="#FFFFFF" />
               <Text className="text-sm font-extrabold text-white">
-                Auto-Generate Week with AI Coach
+                {t('weekPlan.autoGenerate')}
               </Text>
             </View>
           )}
@@ -172,7 +174,7 @@ export function MicroPlanAgendaCard({
                 >
                   <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
                     <Text className="text-xs font-extrabold text-theme-muted shrink-0">
-                      {day.dayName} {day.dateStr}
+                      {t(`days.${day.dayName.slice(0, 3).toLowerCase()}Abbr`, day.dayName)} {day.dateStr}
                     </Text>
 
                     {/* Summary Badges */}
@@ -201,7 +203,7 @@ export function MicroPlanAgendaCard({
                     ) : (
                       <View className="px-2 py-0.5 rounded-md bg-slate-700/20 flex-row items-center gap-1">
                         <Image source={getDisciplineConfig('REST', scheme).emblem} style={{ width: 12, height: 12 }} resizeMode="contain" />
-                        <Text className="text-xs font-bold text-slate-400">Rest / Recovery Day</Text>
+                        <Text className="text-xs font-bold text-slate-400">{t('weekPlan.restDay')}</Text>
                       </View>
                     )}
                   </View>
@@ -210,7 +212,7 @@ export function MicroPlanAgendaCard({
                     {hasWorkouts && day.workouts.every((w) => w.isCompleted) && (
                       <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                         <Ionicons name="checkmark-circle" size={11} color="#10B981" />
-                        <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
+                        <Text className="text-xs font-extrabold text-semantic-success">{t('common.doneUpper')}</Text>
                       </View>
                     )}
 
@@ -241,14 +243,14 @@ export function MicroPlanAgendaCard({
                   >
                     <View className="flex-row items-center gap-2">
                       <Text className="text-xs font-extrabold text-theme-muted">
-                        {day.dayName}
+                        {t(`days.${day.dayName.slice(0, 3).toLowerCase()}Abbr`, day.dayName)}
                       </Text>
                       <Text className="text-xs font-extrabold text-theme-text">{day.dateStr}</Text>
 
                       {day.isToday && (
                         <View className="bg-theme-accent px-2.5 py-0.5 rounded-full">
                           <Text className="text-xs font-extrabold text-white">
-                            Today
+                            {t('common.today')}
                           </Text>
                         </View>
                       )}
@@ -267,7 +269,7 @@ export function MicroPlanAgendaCard({
                       className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-theme-accent/15 active:bg-theme-accent/30"
                     >
                       <Ionicons name="add-circle-outline" size={14} color="#38BDF8" />
-                      <Text className="text-xs font-extrabold text-theme-accent">Add</Text>
+                      <Text className="text-xs font-extrabold text-theme-accent">{t('common.add')}</Text>
                     </TouchableOpacity>
                   </TouchableOpacity>
 
@@ -276,7 +278,7 @@ export function MicroPlanAgendaCard({
                     {!hasWorkouts ? (
                       <View className="py-3 px-3.5 bg-theme-bg/40 rounded-xl flex-row items-center gap-2">
                         <Image source={getDisciplineConfig('REST', scheme).emblem} style={{ width: 16, height: 16 }} resizeMode="contain" />
-                        <Text className="text-xs font-bold text-theme-muted">Rest / Recovery Day</Text>
+                        <Text className="text-xs font-bold text-theme-muted">{t('weekPlan.restDay')}</Text>
                       </View>
                     ) : (
                       day.workouts.map((workout) => {
@@ -315,7 +317,7 @@ export function MicroPlanAgendaCard({
                                 {workout.isCompleted && (
                                   <View className="flex-row items-center gap-1 bg-semantic-success/15 px-2 py-0.5 rounded-full">
                                     <Ionicons name="checkmark-circle" size={12} color="#10B981" />
-                                    <Text className="text-xs font-extrabold text-semantic-success">DONE</Text>
+                                    <Text className="text-xs font-extrabold text-semantic-success">{t('common.doneUpper')}</Text>
                                   </View>
                                 )}
                               </View>
@@ -329,7 +331,7 @@ export function MicroPlanAgendaCard({
                             {/* Subline: Human Duration & Chevron */}
                             <View className="flex-row items-center justify-between pt-1">
                               <Text className="text-xs text-theme-muted font-medium font-rajdhani">
-                                {workout.duration || '45 min'} session
+                                {t('weekPlan.session', { duration: workout.duration || '45 min' })}
                               </Text>
 
                               {typeof workout.actualMetrics === 'string' && workout.actualMetrics ? (

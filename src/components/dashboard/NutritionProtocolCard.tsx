@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +13,7 @@ interface NutritionProtocolCardProps {
 }
 
 export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps) {
+  const { t } = useLanguage();
     const theme = useTheme();
   const { clearLoggedNutrition } = usePhysique();
 
@@ -43,8 +45,8 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
             <Ionicons name="restaurant-outline" size={16} color={theme.tint} />
           </View>
           <View>
-            <Text className="text-sm font-extrabold text-theme-text">Today's Fueling Plan</Text>
-            <Text className="text-xs text-theme-muted font-bold">Macro Fueling & Meal Targets</Text>
+            <Text className="text-sm font-extrabold text-theme-text">{t('fuelingCard.title')}</Text>
+            <Text className="text-xs text-theme-muted font-bold">{t('fuelingCard.subtitle')}</Text>
           </View>
         </View>
 
@@ -54,7 +56,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
             className="flex-row items-center gap-1 bg-theme-card px-3 py-1.5 rounded-full border border-theme-border"
           >
             <Ionicons name="refresh-outline" size={12} color={theme.textSecondary} />
-            <Text className="text-xs font-bold text-theme-muted">Reset Today</Text>
+            <Text className="text-xs font-bold text-theme-muted">{t('dashboard.resetToday')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -64,8 +66,8 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
         <View className="p-4 bg-theme-bg/60 rounded-2xl border border-theme-border/40">
           {/* Rationale Banner */}
           <View className="p-3.5 bg-theme-accent/10 dark:bg-theme-accent/15 rounded-xl mb-4 border border-theme-accent/20">
-            <Text className="text-xs font-extrabold text-theme-accent mb-1">{nutrition.focusTitle}</Text>
-            <Text className="text-xs text-theme-text font-medium leading-relaxed">{nutrition.rationale}</Text>
+            <Text className="text-xs font-extrabold text-theme-accent mb-1">{nutrition.focusTitle || t('coachStore.defaultNutritionTitle')}</Text>
+            <Text className="text-xs text-theme-text font-medium leading-relaxed">{nutrition.rationale || t('coachStore.defaultNutritionRationale')}</Text>
           </View>
 
           {/* 3 Macro Rings Row (Carbs, Protein, Fat) */}
@@ -95,7 +97,7 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
           {/* Logged Meal Items List */}
           {loggedItems.length > 0 && (
             <View className="mt-4 pt-3 border border-theme-border/30">
-              <Text className="text-xs font-extrabold text-theme-text mb-2">Logged Foods Today</Text>
+              <Text className="text-xs font-extrabold text-theme-text mb-2">{t('fuelingCard.loggedFoods')}</Text>
               <View className="gap-y-1.5">
                 {loggedItems.map((item: any, idx: number) => (
                   <View

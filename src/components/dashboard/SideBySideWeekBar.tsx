@@ -68,7 +68,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
             activeOpacity={0.8}
             accessibilityRole="tab"
             accessibilityState={{ selected: isSelected }}
-            accessibilityLabel={`${day.dayName} ${day.dateStr}${hasActiveWorkouts ? `, ${activeWorkouts[0].type}` : ', Rest'}`}
+            accessibilityLabel={`${getLocalizedDayAbbr(day.dayName, t)} ${day.dateStr}, ${hasActiveWorkouts ? t(`sports.${String(activeWorkouts[0].type || '').toLowerCase()}`, String(activeWorkouts[0].type || '')) : t('common.restDay')}`}
             style={{ height: 84 }}
             className={`flex-1 rounded-[14px] items-center justify-between py-2 relative overflow-hidden ${
               isSelected

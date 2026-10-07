@@ -8,12 +8,12 @@ interface LanguageSelectorProps {
   compact?: boolean;
 }
 
-const OPTIONS: { id: Language; label: string; flag: string }[] = [
-  { id: 'en', label: 'English', flag: '🇬🇧' },
-  { id: 'nl', label: 'Nederlands', flag: '🇳🇱' },
-  { id: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { id: 'es', label: 'Español', flag: '🇪🇸' },
-  { id: 'fr', label: 'Français', flag: '🇫🇷' },
+const OPTIONS: { id: Language; label: string }[] = [
+  { id: 'en', label: 'English' },
+  { id: 'nl', label: 'Nederlands' },
+  { id: 'de', label: 'Deutsch' },
+  { id: 'es', label: 'Español' },
+  { id: 'fr', label: 'Français' },
 ];
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = false }) => {
@@ -41,7 +41,6 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
                 active && styles.activeButton,
               ]}
             >
-              <Text style={styles.compactFlag}>{opt.flag}</Text>
               <Text
                 style={[
                   styles.compactText,
@@ -82,7 +81,6 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
               },
             ]}
           >
-            <Text style={styles.optionFlag}>{opt.flag}</Text>
             <Text
               style={[
                 styles.optionLabel,
@@ -99,21 +97,23 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
 };
 
 const styles = StyleSheet.create({
+  // Full-width segmented control: each option takes an equal share of the row,
+  // so five languages always fit without overflowing the card.
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 4,
+    alignSelf: 'stretch',
+    padding: 3,
     borderRadius: 9999,
-    flexWrap: 'wrap',
-    gap: 4,
+    gap: 2,
   },
   compactButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 6,
     borderRadius: 9999,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
   },
   activeButton: {
     backgroundColor: BrandColors.primary,
@@ -123,12 +123,10 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  compactFlag: {
-    fontSize: 10,
-  },
   compactText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   fullContainer: {
     flexDirection: 'row',
@@ -151,9 +149,6 @@ const styles = StyleSheet.create({
     flexBasis: '30%',
     flexGrow: 1,
     minWidth: 0,
-  },
-  optionFlag: {
-    fontSize: 14,
   },
   optionLabel: {
     fontSize: 12,

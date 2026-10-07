@@ -131,9 +131,9 @@ export const BenchmarkSessionsCard: React.FC = () => {
   const handleSendRequestToCoach = async () => {
     setSendingRequest(true);
     try {
-      let finalPrompt = selectedPreset.prompt;
+      let finalPrompt = t(`benchmarkPresets.${selectedPreset.id}Prompt`, selectedPreset.prompt);
       if (customAthleteNote.trim()) {
-        finalPrompt += `\n\nAthlete Note / Timing Preference: "${customAthleteNote.trim()}".`;
+        finalPrompt += `\n\n${t('benchmarkPresets.athleteNote', { note: customAthleteNote.trim() })}`;
       }
 
       await sendMessage(finalPrompt);
@@ -144,7 +144,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
       router.push('/(tabs)/coach');
     } catch (err: any) {
       console.error('Failed to dispatch benchmark request:', err);
-      Alert.alert('Request Error', 'Could not send benchmark request to coach. Please try again.');
+      Alert.alert(t('benchmarkPresets.requestErrorTitle'), t('benchmarkPresets.requestErrorBody'));
     } finally {
       setSendingRequest(false);
     }
@@ -164,7 +164,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
 
   const handleSaveManualLog = async () => {
     if (!logTestName.trim()) {
-      Alert.alert('Test Name Required', 'Please enter a test name (e.g. 5k Pace Test, 20-Min FTP).');
+      Alert.alert(t('benchmarkPresets.nameRequiredTitle'), t('benchmarkPresets.nameRequiredBody'));
       return;
     }
 
@@ -189,7 +189,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
       await fetchBenchmarks();
     } catch (err: any) {
       console.error('Failed to log benchmark result:', err);
-      Alert.alert('Save Failed', err.message || 'Could not record benchmark result.');
+      Alert.alert(t('benchmarkPresets.saveFailedTitle'), err.message || t('benchmarkPresets.saveFailedBody'));
     } finally {
       setSavingLog(false);
     }
@@ -212,7 +212,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
               setBenchmarks((prev) => prev.filter((b) => b.id !== item.id));
             } catch (err: any) {
               console.error('Failed to delete benchmark:', err);
-              Alert.alert('Error', 'Failed to delete benchmark test.');
+              Alert.alert(t('common.error'), t('benchmarkPresets.deleteFailed'));
             }
           },
         },
@@ -226,7 +226,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
     if (s.includes('bike') || s.includes('cycl')) return { color: '#F59E0B', label: t('sports.bike') };
     if (s.includes('swim')) return { color: '#06B6D4', label: t('sports.swim') };
     if (s.includes('strength') || s.includes('hyrox')) return { color: '#EC4899', label: 'Hyrox' };
-    return { color: '#8B5CF6', label: sport || 'Assessment' };
+    return { color: '#8B5CF6', label: s === 'other' || !sport ? t('benchmarkPresets.assessment') : sport };
   };
 
   const parseMetrics = (metricsJson?: string | Record<string, any>): Record<string, any> => {
@@ -240,7 +240,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
   };
 
   const formatTestDate = (dateStr?: string) => {
-    if (!dateStr) return 'Recorded';
+    if (!dateStr) return t('benchmarkPresets.recorded');
     try {
       const d = new Date(dateStr);
       return d.toLocaleDateString(language, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -372,7 +372,11 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 {Boolean(item.coach_notes) && (
                   <View className="mt-1.5 p-2 rounded-lg bg-theme-card/60 border-l-2 border-theme-accent">
                     <Text className="text-[10px] text-theme-muted italic">
-                      "{item.coach_notes}"
+                      "{item.coach_notes === 'Initial Onboarding Baseline Assessment'
+                        ? t('benchmarkPresets.onboardingNote')
+                        : item.coach_notes === 'Manually logged benchmark baseline'
+                        ? t('benchmarkPresets.manualNote')
+                        : item.coach_notes}"
                     </Text>
                   </View>
                 )}
@@ -450,10 +454,10 @@ export const BenchmarkSessionsCard: React.FC = () => {
                                 isSelected ? 'text-theme-accent' : 'text-theme-text'
                               }`}
                             >
-                              {preset.title}
+                              {t(`benchmarkPresets.${preset.id}Title`, preset.title)}
                             </Text>
                             <Text className="text-[10px] text-theme-muted mt-0.5">
-                              {preset.subtitle}
+                              {t(`benchmarkPresets.${preset.id}Subtitle`, preset.subtitle)}
                             </Text>
                           </View>
                         </View>
@@ -558,7 +562,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                     { id: 'Bike', label: t('sports.bike') },
                     { id: 'Swim', label: t('sports.swim') },
                     { id: 'Strength', label: t('sports.strength') },
-                    { id: 'Other', label: 'Other' },
+                    { id: 'Other', label: t('benchmarkPresets.other') },
                   ].map((s) => {
                     const isSel = logSport === s.id;
                     return (
@@ -590,7 +594,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                 <TextInput
                   value={logTestName}
                   onChangeText={setLogTestName}
-                  placeholder="e.g., 5k Time Trial, 20-Min FTP Test"
+                  placeholder={t('benchmarkPresets.namePlaceholder')}
                   placeholderTextColor={theme.textSecondary}
                   className="bg-theme-bg border border-theme-border rounded-xl px-3 py-2 text-xs text-theme-text mb-3"
                 />

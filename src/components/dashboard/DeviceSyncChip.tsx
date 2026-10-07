@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/use-theme';
@@ -28,6 +29,7 @@ export function DeviceSyncChip({
   onPress,
   disabled = false,
 }: DeviceSyncChipProps) {
+  const { t } = useLanguage();
   const theme = useTheme();
 
   const isGarmin = device === 'garmin';
@@ -57,9 +59,9 @@ export function DeviceSyncChip({
       }`}
       style={isSynced ? styles.syncedGlow : undefined}
       accessibilityRole="button"
-      accessibilityLabel={`Sync workout to ${deviceName}${isSynced ? ', Synced' : isSyncing ? ', Syncing' : ''}`}
+      accessibilityLabel={`${t('deviceSyncChip.syncTo', { device: deviceName })}${isSynced ? `, ${t('deviceSyncChip.synced')}` : isSyncing ? `, ${t('deviceSyncChip.syncing')}` : ''}`}
       accessibilityState={{ disabled: isSyncing, checked: isSynced }}
-      accessibilityHint={`Pushes this structured workout to your ${deviceName}`}
+      accessibilityHint={t('deviceSyncChip.hint', { device: deviceName })}
     >
       <View className="flex-row items-center gap-2.5 flex-1 pr-1">
         <View

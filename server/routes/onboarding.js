@@ -1,4 +1,5 @@
 const express = require('express');
+const { resolveCoachName } = require("../services/coachPersona");
 const router = express.Router();
 const db = require('../services/db');
 const { authenticateToken } = require('../services/auth');
@@ -32,7 +33,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
       return {
         sport: 'Run',
         testName: '5k Pace & HR Baseline Test',
-        desc: '🎯 Benchmark Assessment: 5k Pace & HR Test',
+        desc: 'Benchmark Assessment: 5k Pace & HR Test',
         details: 'Warm-up 10 mins easy jog + 4 dynamic strides. Main Set: 5k (or 20 mins) at race-pace / maximum sustained effort. Cool-down 8 mins.',
         targetRooka: 50,
         targetSpark: 50
@@ -51,7 +52,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
       return {
         sport: 'Bike',
         testName: '20-Min FTP Baseline Test',
-        desc: '🎯 Benchmark Assessment: 20-Min FTP Baseline Test',
+        desc: 'Benchmark Assessment: 20-Min FTP Baseline Test',
         details: 'Warm-up 15 mins with 3x1-min high cadence efforts. Main Set: 20-minute maximum sustainable effort. Keep cadence steady (85-95 rpm). Cool-down 10 mins.',
         targetRooka: 60,
         targetSpark: 60
@@ -67,7 +68,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
       return {
         sport: 'Strength',
         testName: 'Hyrox Functional Fitness Test',
-        desc: '🎯 Benchmark Assessment: Hyrox Functional Fitness Test',
+        desc: 'Benchmark Assessment: Hyrox Functional Fitness Test',
         details: 'Warm-up 8 mins light row/jog. Main Set: 1000m Row/Ski-Erg + 50 Wallballs (6/9kg) + 40 Burpee Broad Jumps + 200m Farmers Carry. Record total completion time.',
         targetRooka: 55,
         targetSpark: 55
@@ -83,7 +84,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
       return {
         sport: 'Swim',
         testName: '400m CSS Swim Test',
-        desc: '🎯 Benchmark Assessment: 400m CSS Swim Test',
+        desc: 'Benchmark Assessment: 400m CSS Swim Test',
         details: 'Warm-up 200m easy. Main Set: 400m TT (record time), 100m easy recovery, 50m TT (record time). Cool-down 150m easy.',
         targetRooka: 45,
         targetSpark: 45
@@ -98,7 +99,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
       return {
         sport: 'Run',
         testName: '5k Pace & HR Baseline Test',
-        desc: '🎯 Benchmark Assessment: 5k Pace & HR Test',
+        desc: 'Benchmark Assessment: 5k Pace & HR Test',
         details: 'Warm-up 10 mins easy jog + 4 dynamic strides. Main Set: 5k (or 20 mins) at race-pace / maximum sustained effort. Cool-down 8 mins.',
         targetRooka: 50,
         targetSpark: 50
@@ -123,7 +124,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
     return {
       sport: 'Run',
       testName: '5k Pace & HR Baseline Test',
-      desc: '🎯 Benchmark Assessment: 5k Pace & HR Test',
+      desc: 'Benchmark Assessment: 5k Pace & HR Test',
       details: 'Warm-up 10 mins easy jog + 4 dynamic strides. Main Set: 5k (or 20 mins) at race-pace / maximum sustained effort. Cool-down 8 mins.',
       targetRooka: 50,
       targetSpark: 50
@@ -142,7 +143,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
     return {
       sport: 'Bike',
       testName: '20-Min FTP Baseline Test',
-      desc: '🎯 Benchmark Assessment: 20-Min FTP Baseline Test',
+      desc: 'Benchmark Assessment: 20-Min FTP Baseline Test',
       details: 'Warm-up 15 mins with 3x1-min high cadence efforts. Main Set: 20-minute maximum sustainable effort. Keep cadence steady (85-95 rpm). Cool-down 10 mins.',
       targetRooka: 60,
       targetSpark: 60
@@ -160,7 +161,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
     return {
       sport: 'Strength',
       testName: 'Hyrox Functional Fitness Test',
-      desc: '🎯 Benchmark Assessment: Hyrox Functional Fitness Test',
+      desc: 'Benchmark Assessment: Hyrox Functional Fitness Test',
       details: 'Warm-up 8 mins light row/jog. Main Set: 1000m Row/Ski-Erg + 50 Wallballs (6/9kg) + 40 Burpee Broad Jumps + 200m Farmers Carry. Record total completion time.',
       targetRooka: 55,
       targetSpark: 55
@@ -176,7 +177,7 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
     return {
       sport: 'Swim',
       testName: '400m CSS Swim Test',
-      desc: '🎯 Benchmark Assessment: 400m CSS Swim Test',
+      desc: 'Benchmark Assessment: 400m CSS Swim Test',
       details: 'Warm-up 200m easy. Main Set: 400m TT (record time), 100m easy recovery, 50m TT (record time). Cool-down 150m easy.',
       targetRooka: 45,
       targetSpark: 45
@@ -187,11 +188,52 @@ function getBenchmarkInfoForUser(athleteContext, targetEvent) {
   return {
     sport: 'Run',
     testName: '5k Pace & HR Baseline Test',
-    desc: '🎯 Benchmark Assessment: 5k Pace & HR Test',
+    desc: 'Benchmark Assessment: 5k Pace & HR Test',
     details: 'Warm-up 10 mins easy jog + 4 dynamic strides. Main Set: 5k (or 20 mins) at race-pace / maximum sustained effort. Cool-down 8 mins.',
     targetRooka: 50,
     targetSpark: 50
   };
+}
+
+// Localized benchmark copy, keyed by the English testName from getBenchmarkInfoForUser().
+const BENCHMARK_I18N = {
+  '5k Pace & HR Baseline Test': {
+    nl: ['5 km tempo- & hartslagtest', 'Nulmeting: 5 km tempo- & hartslagtest', 'Warming-up 10 min rustig joggen + 4 dynamische versnellingen. Kern: 5 km (of 20 min) op wedstrijdtempo / maximale constante inspanning. Cooling-down 8 min.'],
+    de: ['5-km-Tempo- & HF-Test', 'Leistungstest: 5-km-Tempo- & HF-Test', 'Aufwärmen 10 Min. lockeres Joggen + 4 Steigerungsläufe. Hauptteil: 5 km (oder 20 Min.) im Wettkampftempo / maximal haltbarer Belastung. Auslaufen 8 Min.'],
+    es: ['Test de ritmo y FC en 5 km', 'Prueba de referencia: test de ritmo y FC en 5 km', 'Calentamiento: 10 min de trote suave + 4 progresivos. Parte principal: 5 km (o 20 min) a ritmo de carrera / máximo esfuerzo sostenido. Vuelta a la calma: 8 min.'],
+    fr: ['Test allure & FC sur 5 km', 'Test de référence : allure & FC sur 5 km', 'Échauffement 10 min de footing léger + 4 accélérations. Corps de séance : 5 km (ou 20 min) à allure course / effort maximal soutenu. Retour au calme 8 min.'],
+  },
+  '20-Min FTP Baseline Test': {
+    nl: ['20-minuten FTP-test', 'Nulmeting: 20-minuten FTP-test', 'Warming-up 15 min met 3x1 min hoge cadans. Kern: 20 minuten maximale constante inspanning. Houd je cadans stabiel (85-95 rpm). Cooling-down 10 min.'],
+    de: ['20-Min-FTP-Test', 'Leistungstest: 20-Min-FTP-Test', 'Aufwärmen 15 Min. mit 3x1 Min. hoher Trittfrequenz. Hauptteil: 20 Minuten maximal haltbare Belastung. Trittfrequenz konstant halten (85-95 U/min). Ausfahren 10 Min.'],
+    es: ['Test de FTP de 20 min', 'Prueba de referencia: test de FTP de 20 min', 'Calentamiento: 15 min con 3x1 min a cadencia alta. Parte principal: 20 minutos al máximo esfuerzo sostenible. Mantén la cadencia estable (85-95 rpm). Vuelta a la calma: 10 min.'],
+    fr: ['Test FTP de 20 min', 'Test de référence : FTP de 20 min', 'Échauffement 15 min avec 3x1 min à haute cadence. Corps de séance : 20 minutes à effort maximal soutenable. Gardez une cadence stable (85-95 tr/min). Retour au calme 10 min.'],
+  },
+  'Hyrox Functional Fitness Test': {
+    nl: ['Hyrox functionele fitheidstest', 'Nulmeting: Hyrox functionele fitheidstest', 'Warming-up 8 min licht roeien/joggen. Kern: 1000 m roeien/SkiErg + 50 wallballs (6/9 kg) + 40 burpee broad jumps + 200 m farmers carry. Noteer je totale tijd.'],
+    de: ['Hyrox-Funktionsfitnesstest', 'Leistungstest: Hyrox-Funktionsfitnesstest', 'Aufwärmen 8 Min. lockeres Rudern/Joggen. Hauptteil: 1000 m Rudern/SkiErg + 50 Wallballs (6/9 kg) + 40 Burpee Broad Jumps + 200 m Farmers Carry. Gesamtzeit notieren.'],
+    es: ['Test funcional Hyrox', 'Prueba de referencia: test funcional Hyrox', 'Calentamiento: 8 min de remo/trote suave. Parte principal: 1000 m de remo/SkiErg + 50 wall balls (6/9 kg) + 40 burpee broad jumps + 200 m de farmers carry. Anota el tiempo total.'],
+    fr: ['Test fonctionnel Hyrox', 'Test de référence : test fonctionnel Hyrox', 'Échauffement 8 min rameur/footing léger. Corps de séance : 1000 m rameur/SkiErg + 50 wall balls (6/9 kg) + 40 burpee broad jumps + 200 m farmers carry. Notez votre temps total.'],
+  },
+  '400m CSS Swim Test': {
+    nl: ['400 m CSS-zwemtest', 'Nulmeting: 400 m CSS-zwemtest', 'Inzwemmen 200 m rustig. Kern: 400 m tijdrit (noteer tijd), 100 m rustig herstel, 50 m tijdrit (noteer tijd). Uitzwemmen 150 m rustig.'],
+    de: ['400-m-CSS-Schwimmtest', 'Leistungstest: 400-m-CSS-Schwimmtest', 'Einschwimmen 200 m locker. Hauptteil: 400 m Zeitschwimmen (Zeit notieren), 100 m locker, 50 m Zeitschwimmen (Zeit notieren). Ausschwimmen 150 m locker.'],
+    es: ['Test de natación CSS 400 m', 'Prueba de referencia: test de natación CSS 400 m', 'Calentamiento: 200 m suaves. Parte principal: 400 m contrarreloj (anota el tiempo), 100 m de recuperación suave, 50 m contrarreloj (anota el tiempo). Vuelta a la calma: 150 m suaves.'],
+    fr: ['Test de natation CSS 400 m', 'Test de référence : natation CSS 400 m', 'Échauffement 200 m facile. Corps de séance : 400 m chrono (notez votre temps), 100 m de récupération facile, 50 m chrono (notez votre temps). Retour au calme 150 m facile.'],
+  },
+};
+const BENCHMARK_STEP_NAMES = {
+  nl: ['Dynamische warming-up', 'Rustige cooling-down'],
+  de: ['Dynamisches Aufwärmen', 'Lockeres Auslaufen'],
+  es: ['Calentamiento dinámico', 'Vuelta a la calma suave'],
+  fr: ['Échauffement dynamique', 'Retour au calme facile'],
+};
+
+function localizeBenchmarkInfo(info, lang) {
+  const t = BENCHMARK_I18N[info.testName] && BENCHMARK_I18N[info.testName][lang];
+  if (!t) return { ...info, warmupName: 'Dynamic Warm-up', cooldownName: 'Easy Cool-down' };
+  const [warmupName, cooldownName] = BENCHMARK_STEP_NAMES[lang];
+  return { ...info, testName: t[0], desc: t[1], details: t[2], warmupName, cooldownName };
 }
 
 // POST /finalize or POST /api/onboarding/finalize
@@ -433,7 +475,7 @@ router.post('/finalize', authenticateToken, async (req, res) => {
     // 3. Register baseline test entry into benchmark_tests table.
     // Clear any earlier still-pending onboarding baseline first so a user never
     // ends up with two competing "do your baseline test" assessments.
-    const benchmarkInfo = getBenchmarkInfoForUser(athleteContext, targetEvent);
+    const benchmarkInfo = localizeBenchmarkInfo(getBenchmarkInfoForUser(athleteContext, targetEvent), selectedLang);
     await new Promise((resolve) => {
       db.run(
         `DELETE FROM benchmark_tests WHERE user_id = ? AND coach_notes = 'Initial Onboarding Baseline Assessment' AND completed_at IS NULL`,
@@ -472,9 +514,9 @@ router.post('/finalize', authenticateToken, async (req, res) => {
         details: benchmarkInfo.details,
         is_benchmark: true,
         steps: [
-          { type: 'warmup', exerciseName: 'Dynamic Warm-up', condition_type: 'time', condition_value: 10, target_type: 'no.target' },
+          { type: 'warmup', exerciseName: benchmarkInfo.warmupName, condition_type: 'time', condition_value: 10, target_type: 'no.target' },
           { type: 'interval', exerciseName: benchmarkInfo.testName, condition_type: benchmarkInfo.sport === 'Run' ? 'distance' : 'time', condition_value: benchmarkInfo.sport === 'Run' ? 5000 : 20, target_type: 'no.target' },
-          { type: 'cooldown', exerciseName: 'Easy Cool-down', condition_type: 'time', condition_value: 8, target_type: 'no.target' }
+          { type: 'cooldown', exerciseName: benchmarkInfo.cooldownName, condition_type: 'time', condition_value: 8, target_type: 'no.target' }
         ]
       },
       {
@@ -533,7 +575,7 @@ router.post('/finalize', authenticateToken, async (req, res) => {
         sport: 'Rest',
         description: selectedLang === 'nl' ? 'Herstel & Weekevaluatie' : selectedLang === 'de' ? 'Regeneration & Wochenrückblick' : selectedLang === 'es' ? 'Recuperación y Resumen Semanal' : selectedLang === 'fr' ? 'Récupération & Bilan Semaine' : 'Recovery & Weekly Reflection',
         target_rooka: 0,
-        details: selectedLang === 'nl' ? 'Lichte wandeling, foam rolling en voorbereiding op week 2.' : selectedLang === 'de' ? 'Leichter Spaziergang, Faszienrolle und Vorbereitung auf Woche 2.' : selectedLang === 'es' ? 'Caminata suave, foam roller y preparación para la semana 2.' : selectedLang === 'fr' ? 'Marche douce, rouleau de massage en voorbereiding op week 2.' : 'Easy walk, foam rolling, and reviewing week 1 progress.',
+        details: selectedLang === 'nl' ? 'Lichte wandeling, foam rolling en voorbereiding op week 2.' : selectedLang === 'de' ? 'Leichter Spaziergang, Faszienrolle und Vorbereitung auf Woche 2.' : selectedLang === 'es' ? 'Caminata suave, foam roller y preparación para la semana 2.' : selectedLang === 'fr' ? 'Marche douce, rouleau de massage et préparation de la semaine 2.' : 'Easy walk, foam rolling, and reviewing week 1 progress.',
         steps: []
       }
     ];
@@ -569,72 +611,72 @@ router.post('/finalize', authenticateToken, async (req, res) => {
 
     // 5. Post initial Coach Welcome message in chat_history immediately
     const welcomeMessages = {
-      nl: `Welkom bij je gepersonaliseerde trainingsprogramma! ⚡️ Ik heb je profiel en doelen verwerkt en je eerste 7-daagse schema direct klaargezet.
+      nl: `Welkom bij je gepersonaliseerde trainingsprogramma! Ik heb je profiel en doelen verwerkt en je eerste 7-daagse schema direct klaargezet.
 
-🎯 **Je Eerste Stap: De Benchmark Test (${benchmarkInfo.testName})**
+**Je Eerste Stap: De Benchmark Test (${benchmarkInfo.testName})**
 Voordat we gerichte trainingsintensiteiten kunnen programmeren, moeten we je huidige fysieke basislijn vastleggen. Deze test kalibreert je hartslag- en tempozones zodat elke toekomstige workout exact op het juiste inspanningsniveau plaatsvindt.
 
-📅 **Wat staat er deze eerste week op het programma?**
-- **Dag 1–2**: 🏁 **${benchmarkInfo.testName}** — Uitvoeren op geplande wedstrijdinspanning om je nulmeting te bepalen.
+**Wat staat er deze eerste week op het programma?**
+- **Dag 1–2**: **${benchmarkInfo.testName}** — Uitvoeren op geplande wedstrijdinspanning om je nulmeting te bepalen.
 - **Vervolg van de week**: Actief herstel, gecontroleerde Zone 2 aerobe opbouw en een langere duurtraining afgestemd op jouw weekbeschikbaarheid.
 
-🧭 **Wat moet je nu doen?**
+**Wat moet je nu doen?**
 1. Ga naar het **Vandaag** / **Schema** tabblad om de opwarmings- en kerninstructies van je benchmark test te bekijken.
 2. Koppel je sporthorloge of hartslagmeter voor vertrek.
 3. Voer de test uit zoals beschreven. Zodra je workout binnenkomt, analyseer ik je data en bereken ik je persoonlijke trainingszones!`,
 
-      de: `Willkommen bei deinem maßgeschneiderten Trainingsprogramm! ⚡️ Ich habe dein Profil und deine Ziele analysiert und deinen ersten 7-Tage-Trainingsplan erstellt.
+      de: `Willkommen bei deinem maßgeschneiderten Trainingsprogramm! Ich habe dein Profil und deine Ziele analysiert und deinen ersten 7-Tage-Trainingsplan erstellt.
 
-🎯 **Dein Erster Schritt: Der Baseline-Test (${benchmarkInfo.testName})**
+**Dein Erster Schritt: Der Baseline-Test (${benchmarkInfo.testName})**
 Bevor wir gezielte Intensitätsbereiche festlegen können, müssen wir dein aktuelles Leistungsniveau ermitteln. Dieser Test kalibriert deine Herzfrequenz- und Leistungszonen, damit jedes Workout optimal auf dich abgestimmt ist.
 
-📅 **Dein Überblick für die erste Woche:**
-- **Tag 1–2**: 🏁 **${benchmarkInfo.testName}** — Durchführung im angestrebten Wettkampftempo zur Ermittlung deiner Ausgangswerte.
+**Dein Überblick für die erste Woche:**
+- **Tag 1–2**: **${benchmarkInfo.testName}** — Durchführung im angestrebten Wettkampftempo zur Ermittlung deiner Ausgangswerte.
 - **Rest der Woche**: Aktive Regeneration, kontrollierter Zone-2-Grundlagenaufbau und ein längerer Dauerlauf/Ausdauereinheit gemäß deinen Zeitfenstern.
 
-🧭 **Deine nächsten Schritte:**
+**Deine nächsten Schritte:**
 1. Öffne den Tab **Heute** / **Trainingsplan**, um die genauen Aufwärm- und Hauptteil-Schritte deines Baseline-Tests einzusehen.
 2. Verbinde deine Sportuhr bzw. deinen Pulsgurt vor Beginn.
 3. Absolviere den Test wie beschrieben. Sobald die Aktivität synchronisiert ist, berechne ich deine individuellen Trainingszonen!`,
 
-      es: `¡Bienvenido a tu programa de entrenamiento personalizado! ⚡️ He analizado tu perfil y objetivos, y he programado tu plan inicial de 7 días.
+      es: `¡Bienvenido a tu programa de entrenamiento personalizado! He analizado tu perfil y objetivos, y he programado tu plan inicial de 7 días.
 
-🎯 **Tu Primer Paso: Prueba de Referencia (${benchmarkInfo.testName})**
+**Tu Primer Paso: Prueba de Referencia (${benchmarkInfo.testName})**
 Antes de comenzar con entrenamientos intensivos, necesitamos medir tu estado físico actual. Esta prueba calibrará tus zonas de frecuencia cardíaca y ritmo para que cada sesión futura tenga la intensidad exacta.
 
-📅 **Resumen de tu primera semana:**
-- **Días 1–2**: 🏁 **${benchmarkInfo.testName}** — Realízala al esfuerzo objetivo para establecer tus marcas base.
+**Resumen de tu primera semana:**
+- **Días 1–2**: **${benchmarkInfo.testName}** — Realízala al esfuerzo objetivo para establecer tus marcas base.
 - **Resto de la semana**: Recuperación activa, desarrollo aeróbico en Zona 2 y una sesión de resistencia adaptada a tu disponibilidad.
 
-🧭 **Instrucciones para comenzar:**
+**Instrucciones para comenzar:**
 1. Ve a la pestaña **Hoy** / **Plan** para ver las instrucciones exactas de calentamiento y esfuerzo de tu prueba.
 2. Conecta tu pulsómetro o reloj GPS antes de empezar.
 3. Completa la prueba según lo indicado. ¡En cuanto se sincronice, analizaré tus métricas y calibraré tus zonas de entrenamiento!`,
 
-      fr: `Bienvenue dans votre programme d'entraînement personnalisé ! ⚡️ J'ai analysé votre profil et vos objectifs, et j'ai programmé votre semaine initiale de 7 jours.
+      fr: `Bienvenue dans votre programme d'entraînement personnalisé ! J'ai analysé votre profil et vos objectifs, et j'ai programmé votre semaine initiale de 7 jours.
 
-🎯 **Votre Première Étape : Le Test de Référence (${benchmarkInfo.testName})**
+**Votre Première Étape : Le Test de Référence (${benchmarkInfo.testName})**
 Avant de programmer des intensités précises, nous devons évaluer votre niveau de forme actuel. Ce test étalonnera vos zones de fréquence cardiaque et d'allure pour garantir l'efficacité de vos futures séances.
 
-📅 **Aperçu de votre première semaine :**
-- **Jours 1–2** : 🏁 **${benchmarkInfo.testName}** — À réaliser à l'allure cible pour établir votre référence initiale.
+**Aperçu de votre première semaine :**
+- **Jours 1–2** : **${benchmarkInfo.testName}** — À réaliser à l'allure cible pour établir votre référence initiale.
 - **Reste de la semaine** : Récupération active, développement aérobie en Zone 2 et sortie longue adaptée à vos disponibilités.
 
-🧭 **Que faire maintenant ?**
+**Que faire maintenant ?**
 1. Rendez-vous sur l'onglet **Aujourd'hui** / **Programme** pour consulter les détails et l'échauffement de votre test.
 2. Associez votre montre GPS ou ceinture cardiaque avant de partir.
 3. Réalisez le test comme prescrit. Dès synchronisation, j'analyserai vos données pour calculer vos zones d'entraînement personnalisées !`,
 
-      en: `Welcome to your personalized training program! ⚡️ I've analyzed your profile and goals, and created your initial 7-day training schedule.
+      en: `Welcome to your personalized training program! I've analyzed your profile and goals, and created your initial 7-day training schedule.
 
-🎯 **Your First Step: The Baseline Assessment (${benchmarkInfo.testName})**
+**Your First Step: The Baseline Assessment (${benchmarkInfo.testName})**
 Before we dial in structured training loads, we need to measure your current fitness benchmarks. This test calibrates your heart rate, power, and pace zones so that every future workout is tuned to the exact right physiological intensity.
 
-📅 **What your first week looks like:**
-- **Days 1–2**: 🏁 **${benchmarkInfo.testName}** — Execute at your target effort to lock in your baseline.
+**What your first week looks like:**
+- **Days 1–2**: **${benchmarkInfo.testName}** — Execute at your target effort to lock in your baseline.
 - **Rest of the week**: Active recovery, controlled Zone 2 aerobic base building, and foundational endurance tailored to your weekly availability.
 
-🧭 **Next Steps (What to do right now):**
+**Next Steps (What to do right now):**
 1. Check your **Today** / **Schedule** tab to review the exact warm-up, main set, and cool-down intervals for your benchmark test.
 2. Connect your heart rate monitor or GPS watch (Garmin, Strava, Apple Watch) before heading out.
 3. Complete the assessment effort as prescribed. Once synced, I will analyze your data and compute your personalized training zones!`
@@ -674,7 +716,7 @@ Before we dial in structured training loads, we need to measure your current fit
         const discipline = detectAthleteGoalDiscipline({ target_event: targetEvent, athlete_context: athleteContext }, []);
         const goalPrompt = getGoalDependentPromptContext(discipline);
 
-        const systemPrompt = `You are Coach Rooka, an elite endurance AI coach.
+        const systemPrompt = `You are Coach ${resolveCoachName({ coach_tone: coachTone })}, an elite endurance AI coach.
 Tone: ${coachTone || 'Empathetic but demanding elite endurance coach.'}
 Athlete Context: ${athleteContext || 'Endurance athlete.'}
 Gender: ${gender || 'Prefer not to say'}
@@ -718,7 +760,7 @@ Example format:
 
         let aiReply = '';
         try {
-          aiReply = await generateWithFallback(userPrompt, systemPrompt, null, null, userId, 'common');
+          aiReply = await generateWithFallback(userPrompt, systemPrompt, null, null, userId, 'common', false, { language: selectedLang });
         } catch (errAi) {
           console.warn('[Onboarding] Background AI plan generation warning:', errAi);
         }

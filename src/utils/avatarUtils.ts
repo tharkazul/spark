@@ -46,6 +46,23 @@ export function getCoachAvatarSource(
 }
 
 /**
+ * Display name of the athlete's coach. The three standard personas have fixed human names
+ * (Benjamin, Leon, Elyanna); a custom coach (Rooka+) uses the name the athlete gave it.
+ * Mirrors resolveCoachName() in server/services/coachPersona.js.
+ */
+export function getCoachDisplayName(user?: Pick<UserProfile, 'coach_tone' | 'coach_name'> | null): string {
+  const tone = (user?.coach_tone || '').toLowerCase();
+  const isCustom = tone.includes('custom') || tone.includes('configure own coach');
+  if (isCustom) {
+    const name = (user?.coach_name || '').trim();
+    return name && name.toLowerCase() !== 'rooka' ? name : 'Coach';
+  }
+  if (tone.includes('cheerleader')) return 'Elyanna';
+  if (tone.includes('strict')) return 'Leon';
+  return 'Benjamin';
+}
+
+/**
  * Resolves a profile picture path (relative like /uploads/profiles/... or full URL)
  * into an absolute URL that React Native Image can load.
  */

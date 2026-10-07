@@ -1,4 +1,5 @@
 const db = require("./db");
+const { resolveCoachName } = require("./coachPersona");
 const { generateWithFallback } = require("./ai");
 const { sendSSEEvent } = require("./sse");
 
@@ -443,7 +444,7 @@ async function getNextUnusedFeatureForUser(userId, cachedUser = null) {
 
   const user = cachedUser || (await new Promise((resolve) => {
     db.get(
-      `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender,
+      `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender, u.language,
               u.garmin_username, u.garmin_oauth1_token,
               (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
        FROM users u WHERE u.id = ?`,
@@ -497,7 +498,7 @@ async function runWeeklyFeatureOnboardingJob() {
 
   const users = await new Promise((resolve, reject) => {
     db.all(
-      `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender,
+      `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender, u.language,
               u.garmin_username, u.garmin_oauth1_token,
               (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
        FROM users u WHERE u.deleted_at IS NULL`,
@@ -550,12 +551,18 @@ Instructions:
 - DO NOT wrap in JSON.`;
       }
 
-      const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${user.coach_tone || "Empathetic but demanding elite endurance coach."}. Act like a real human coach in a text thread.`;
+      const systemPrompt = `You are ${resolveCoachName(user)}, an elite endurance coach. Your tone is: ${user.coach_tone || "Empathetic but demanding elite endurance coach."}. Act like a real human coach in a text thread.`;
 
       let aiReply;
       try {
-        aiReply = await generateWithFallback(prompt, systemPrompt, null, null, user.id, "common");
+        aiReply = await generateWithFallback(prompt, systemPrompt, null, null, user.id, "common", false, { language: user.language });
       } catch (aiErr) {
+        // The static fallback copy is English-only; for other languages skip this week
+        // (the feature stays un-introduced and is retried next run) instead of sending English.
+        if (user.language && user.language !== "en") {
+          console.warn(`[Onboarding Job] AI failed for ${nextFeature.key}; skipping non-English user ${user.id} this week.`);
+          continue;
+        }
         console.warn(`[Onboarding Job] AI generation fallback used for feature ${nextFeature.key}:`, aiErr.message);
         aiReply = isUpgradeTeaser ? (nextFeature.upgradePrompt || nextFeature.coachPrompt) : nextFeature.coachPrompt;
       }

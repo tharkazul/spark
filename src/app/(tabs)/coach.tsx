@@ -47,6 +47,7 @@ import { CoachChatSkeleton } from '../../components/skeletons/CoachChatSkeleton'
 import { useCoachChat, sortMessagesChronological } from '../../context/CoachChatStore';
 import { useGamification } from '../../context/GamificationStore';
 import { useLanguage } from '../../context/LanguageContext';
+import { getLocaleTag } from '../../locales/i18n';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { usePlan } from '../../context/PlanStore';
 import { useSubscription } from '../../context/SubscriptionStore';
@@ -55,7 +56,7 @@ import { useUser } from '../../context/UserStore';
 import { getAuthToken } from '../../services/apiClient';
 import { tokenStorage } from '../../services/storage';
 import { ChatMessage, ProposedWorkoutItem } from '../../types/chat';
-import { getCoachAvatarSource, resolveChatImageUrl } from '../../utils/avatarUtils';
+import { getCoachAvatarSource, getCoachDisplayName, resolveChatImageUrl } from '../../utils/avatarUtils';
 import { hasSubscriptionTier } from '../../utils/permissions';
 
 import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
@@ -233,7 +234,7 @@ const MessageRow = React.memo(({
               resizeMode="cover"
             />
           </TouchableOpacity>
-          <Text className="text-theme-accent-text font-bold text-xs mr-2 font-rajdhani">rooka</Text>
+          <Text className="text-theme-accent-text font-bold text-xs mr-2 font-rajdhani">{getCoachDisplayName(user)}</Text>
         </View>
       )}
 
@@ -627,7 +628,7 @@ export default function CoachScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (isRecording) {
       setIsRecording(false);
-      setInputText((prev) => (prev ? `${prev} (voice input completed)` : "My calf is feeling a bit tight today."));
+      setInputText((prev) => (prev ? `${prev} ${t('coachExtra.voiceCompleted')}` : t('coachExtra.voiceSample')));
     } else {
       setIsRecording(true);
     }
@@ -637,16 +638,12 @@ export default function CoachScreen() {
     const crisisRegex = /(suicide|self-harm|self harm|kill myself|want to die|ending my life|end my life|hurting myself|hurt myself|cut myself|overdose|take my life|hopeless|can't go on|give up on life|mental breakdown)/i;
     if (crisisRegex.test(text)) {
       Alert.alert(
-        "Mental Health & Crisis Support",
-        "If you are experiencing thoughts of self-harm or distress, please know that confidential help is available 24/7:\n\n" +
-        "• US/Canada: Call/text 988 (Suicide & Crisis Lifeline) or text HOME to 741741.\n" +
-        "• Netherlands/EU: Call 113 or 112 (113 Zelfmoordpreventie).\n" +
-        "• UK: Call 111 or Samaritans at 116 123.\n\n" +
-        "rooka AI Coach is an athletic fitness tool and cannot replace professional medical or crisis support.",
+        t('coachExtra.crisisTitle'),
+        t('coachExtra.crisisBody'),
         [
-          { text: "Call 988 (US)", onPress: () => Linking.openURL("tel:988") },
-          { text: "Call 113 (NL)", onPress: () => Linking.openURL("tel:113") },
-          { text: "Close", style: "cancel" }
+          { text: t('coachExtra.crisisCallUs'), onPress: () => Linking.openURL("tel:988") },
+          { text: t('coachExtra.crisisCallNl'), onPress: () => Linking.openURL("tel:113") },
+          { text: t('common.close'), style: "cancel" }
         ]
       );
       return true;
@@ -701,7 +698,7 @@ export default function CoachScreen() {
               style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }}
               resizeMode="cover"
             />
-            <Text className="text-theme-accent-text font-bold text-xs mr-2 font-rajdhani">rooka</Text>
+            <Text className="text-theme-accent-text font-bold text-xs mr-2 font-rajdhani">{getCoachDisplayName(user)}</Text>
           </View>
           <View className="px-4 py-3 flex-row items-center bg-theme-card border border-theme-border rounded-2xl rounded-bl-[6px]">
             <ActivityIndicator size="small" color="#0EA5E9" />
@@ -784,7 +781,7 @@ export default function CoachScreen() {
 
 
   const now = new Date();
-  const dateBadgeStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const dateBadgeStr = now.toLocaleDateString(getLocaleTag(language), { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
     <SafeAreaView className="flex-1 dark:bg-dark-canvas bg-neutral-50" edges={['top']}>
@@ -901,7 +898,7 @@ export default function CoachScreen() {
                           <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
                         </View>
                         <Text className="text-sm font-extrabold text-theme-text">
-                          {selectedPillWorkout.sport || 'Workout'}
+                          {selectedPillWorkout.sport ? t(`sports.${selectedPillWorkout.sport.toLowerCase()}`, selectedPillWorkout.sport) : t('activityDetail.workout')}
                         </Text>
                       </View>
                       {selectedPillWorkout.target_rooka && selectedPillWorkout.target_rooka > 0 ? (
@@ -978,7 +975,7 @@ export default function CoachScreen() {
                         <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
                           <View className="flex-row items-center gap-2">
                             <SportMedallion sport={w.sport || 'Workout'} size={24} />
-                            <Text className="text-sm font-extrabold text-theme-text">{w.sport || 'Workout'}</Text>
+                            <Text className="text-sm font-extrabold text-theme-text">{w.sport ? t(`sports.${w.sport.toLowerCase()}`, w.sport) : t('activityDetail.workout')}</Text>
                           </View>
                           {w.target_rooka ? (
                             <RookaPoints value={Math.round(w.target_rooka)} variant="badge" />
@@ -1122,11 +1119,11 @@ export default function CoachScreen() {
                 className="bg-emerald-500/15 px-2 py-0.5 rounded-full flex-row items-center gap-1"
               >
                 <View className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <Text className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Fresh (TSB)</Text>
+                <Text className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{t('dashboard.tsbFresh', 'Fresh')}</Text>
               </TouchableOpacity>
             </View>
             <Text className="text-xs text-theme-muted leading-relaxed font-medium">
-              {nutrition?.rationale || 'Prioritize consistent protein distribution and targeted hydration throughout the day.'}
+              {nutrition?.rationale || t('coachExtra.nutritionFallback')}
             </Text>
           </View>
 
@@ -1168,7 +1165,7 @@ export default function CoachScreen() {
 
           <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
             <Text className="text-sm font-bold text-theme-text leading-relaxed font-rajdhani">
-              {activeQuest?.description || 'Complete your active challenges this week to earn bonus rooka points.'}
+              {activeQuest?.description || t('coachExtra.questFallback')}
             </Text>
           </View>
 
@@ -1231,10 +1228,7 @@ export default function CoachScreen() {
             </TouchableOpacity>
             <View>
               <Text className="text-theme-text text-base font-bold font-rajdhani leading-tight">
-                rooka
-              </Text>
-              <Text className="text-[11px] text-theme-muted font-medium">
-                {t('coach.yourCoach', 'Your coach')}
+                {getCoachDisplayName(user)}
               </Text>
             </View>
           </View>

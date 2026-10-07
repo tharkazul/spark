@@ -7,6 +7,7 @@
  */
 
 import { PublicDiscountCode } from '../types/discount';
+import { translate as tr, getLocaleTag } from '../locales/i18n';
 
 export const formatMoney = (amount: number, currency = '€') =>
   `${currency}${amount.toFixed(2)}`;
@@ -23,11 +24,11 @@ export function formatDiscountEffect(
 ): string {
   switch (code.discountType) {
     case 'percent':
-      return `${code.percentOff ?? 0}% off`;
+      return tr('discountFmt.percentOff', { percent: code.percentOff ?? 0 });
     case 'fixed_yearly':
-      return `${formatMoney(code.fixedYearlyPrice ?? 0, currency)}/year`;
+      return tr('discountFmt.perYear', { price: formatMoney(code.fixedYearlyPrice ?? 0, currency) });
     case 'fixed_monthly':
-      return `${formatMoney(code.fixedMonthlyPrice ?? 0, currency)}/month`;
+      return tr('discountFmt.perMonth', { price: formatMoney(code.fixedMonthlyPrice ?? 0, currency) });
     case 'fixed_both':
       return `${formatMoney(code.fixedMonthlyPrice ?? 0, currency)}/mo · ${formatMoney(
         code.fixedYearlyPrice ?? 0,
@@ -40,8 +41,8 @@ export function formatDiscountEffect(
 
 /** "for 3 months" / "for the whole subscription". */
 export function formatDuration(durationMonths: number | null): string {
-  if (!durationMonths) return 'for as long as you stay subscribed';
-  return durationMonths === 1 ? 'for 1 month' : `for ${durationMonths} months`;
+  if (!durationMonths) return tr('discountFmt.forever');
+  return durationMonths === 1 ? tr('discountFmt.oneMonth') : tr('discountFmt.nMonths', { count: durationMonths });
 }
 
 /**
@@ -62,7 +63,7 @@ export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(getLocaleTag(), {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -70,4 +71,4 @@ export function formatDate(iso: string | null | undefined): string {
 }
 
 /** Why a code was rejected, in the athlete's words. */
-export const DISCOUNT_ERROR_FALLBACK = 'That discount code cannot be used.';
+export const getDiscountErrorFallback = (): string => tr('discountFmt.cannotUse');

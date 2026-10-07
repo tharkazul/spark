@@ -160,7 +160,7 @@ export default function ProfileScreen() {
   const [stravaLoading, setStravaLoading] = useState(false);
   const [suuntoLoading, setSuuntoLoading] = useState(false);
 
-  const username = user?.username || 'Athlete';
+  const username = user?.username || t('misc.athlete');
   const email = user?.email;
   const isRookaPlus = hasSubscriptionTier(user?.subscription_tier);
 
@@ -202,7 +202,7 @@ export default function ProfileScreen() {
   // Garmin handlers
   const handleConnectGarmin = async () => {
     if (!garminUser.trim() || !garminPass.trim()) {
-      Alert.alert('Error', 'Please enter both your Garmin username and password.');
+      Alert.alert(t('common.error'), t('integrationMsgs.enterGarminCreds'));
       return;
     }
     setGarminLoading(true);
@@ -214,10 +214,10 @@ export default function ProfileScreen() {
       await refreshUser();
       setGarminUser('');
       setGarminPass('');
-      Alert.alert('Garmin Connected', res.message || 'Garmin credentials saved successfully!');
+      Alert.alert(t('integrationMsgs.garminConnectedTitle'), res.message || t('integrationMsgs.garminSaved'));
       setGarminModalVisible(false);
     } catch (err: any) {
-      Alert.alert('Garmin Error', err.message || 'Failed to save Garmin credentials.');
+      Alert.alert(t('integrationMsgs.garminErrorTitle'), err.message || t('integrationMsgs.garminSaveFailed'));
     } finally {
       setGarminLoading(false);
     }
@@ -225,22 +225,22 @@ export default function ProfileScreen() {
 
   const handleDisconnectGarmin = async () => {
     Alert.alert(
-      'Disconnect Garmin',
-      'Are you sure you want to disconnect Garmin? This will stop rooka from pushing structured workouts to your watch.',
+      t('integrationMsgs.disconnectGarminTitle'),
+      t('integrationMsgs.disconnectGarminBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Disconnect',
+          text: t('integrationMsgs.disconnect'),
           style: 'destructive',
           onPress: async () => {
             setGarminLoading(true);
             try {
               await integrationsApi.disconnectGarmin();
               await refreshUser();
-              Alert.alert('Disconnected', 'Garmin disconnected successfully.');
+              Alert.alert(t('integrationMsgs.disconnectedTitle'), t('integrationMsgs.garminDisconnected'));
               setGarminModalVisible(false);
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to disconnect Garmin.');
+              Alert.alert(t('common.error'), err.message || t('integrationMsgs.garminDisconnectFailed'));
             } finally {
               setGarminLoading(false);
             }
@@ -254,9 +254,9 @@ export default function ProfileScreen() {
     setGarminLoading(true);
     try {
       await syncGarmin();
-      Alert.alert('Garmin Sync', 'Garmin sync completed successfully!');
+      Alert.alert(t('integrationMsgs.garminSyncTitle'), t('integrationMsgs.garminSyncDone'));
     } catch (err: any) {
-      Alert.alert('Sync Error', err.message || 'Garmin sync failed.');
+      Alert.alert(t('integrationMsgs.syncErrorTitle'), err.message || t('integrationMsgs.garminSyncFailed'));
     } finally {
       setGarminLoading(false);
     }
@@ -287,7 +287,7 @@ export default function ProfileScreen() {
             const res = await integrationsApi.exchangeStravaCode(code!, allowShared);
             await refreshUser();
             await refreshActivities();
-            Alert.alert('Strava Connected', res.message || 'Strava connected successfully!');
+            Alert.alert(t('integrationMsgs.stravaConnectedTitle'), res.message || t('integrationMsgs.stravaConnected'));
           };
 
           try {
@@ -298,15 +298,15 @@ export default function ProfileScreen() {
             // first, since it is usually a mistake.
             if (exchangeErr?.data?.code === 'STRAVA_ALREADY_LINKED') {
               Alert.alert(
-                'Already Connected Elsewhere',
-                `This Strava account is already connected to "${exchangeErr.data.linkedUsername}". Connect it to this account as well? Both accounts will keep their own copy of your activities.`,
+                t('integrationMsgs.alreadyLinkedTitle'),
+                t('integrationMsgs.alreadyLinkedBodyLong', { name: exchangeErr.data.linkedUsername }),
                 [
-                  { text: 'Cancel', style: 'cancel' },
+                  { text: t('common.cancel'), style: 'cancel' },
                   {
-                    text: 'Connect Anyway',
+                    text: t('integrationMsgs.connectAnyway'),
                     onPress: () => {
                       finishConnect(true).catch((retryErr: any) =>
-                        Alert.alert('Strava Error', retryErr?.message || 'Failed to connect Strava.')
+                        Alert.alert(t('integrationMsgs.stravaErrorTitle'), retryErr?.message || t('integrationMsgs.stravaConnectFailed'))
                       );
                     },
                   },
@@ -317,11 +317,11 @@ export default function ProfileScreen() {
             }
           }
         } else {
-          Alert.alert('Strava Error', 'No authorization code returned from Strava.');
+          Alert.alert(t('integrationMsgs.stravaErrorTitle'), t('integrationMsgs.stravaNoCode'));
         }
       }
     } catch (err: any) {
-      Alert.alert('Strava Error', err.message || 'Failed to complete Strava OAuth.');
+      Alert.alert(t('integrationMsgs.stravaErrorTitle'), err.message || t('integrationMsgs.stravaOauthFailed'));
     } finally {
       setStravaLoading(false);
     }
@@ -329,21 +329,21 @@ export default function ProfileScreen() {
 
   const handleDisconnectStrava = async () => {
     Alert.alert(
-      'Disconnect Strava',
-      'Are you sure you want to disconnect Strava?',
+      t('integrationMsgs.disconnectStravaTitle'),
+      t('integrationMsgs.disconnectStravaBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Disconnect',
+          text: t('integrationMsgs.disconnect'),
           style: 'destructive',
           onPress: async () => {
             setStravaLoading(true);
             try {
               await integrationsApi.disconnectStrava();
               await refreshUser();
-              Alert.alert('Disconnected', 'Strava disconnected successfully.');
+              Alert.alert(t('integrationMsgs.disconnectedTitle'), t('integrationMsgs.stravaDisconnected'));
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to disconnect Strava.');
+              Alert.alert(t('common.error'), err.message || t('integrationMsgs.stravaDisconnectFailed'));
             } finally {
               setStravaLoading(false);
             }
@@ -374,13 +374,13 @@ export default function ProfileScreen() {
           await refreshUser();
           // First import so the user sees their workouts straight away.
           await syncSuunto().catch(() => {});
-          Alert.alert('Suunto Connected', res.message || 'Suunto connected successfully!');
+          Alert.alert(t('integrationMsgs.suuntoConnectedTitle'), res.message || t('integrationMsgs.suuntoConnected'));
         } else {
-          Alert.alert('Suunto Error', 'No authorization code returned from Suunto.');
+          Alert.alert(t('integrationMsgs.suuntoErrorTitle'), t('integrationMsgs.suuntoNoCode'));
         }
       }
     } catch (err: any) {
-      Alert.alert('Suunto Error', err.message || 'Failed to complete Suunto OAuth.');
+      Alert.alert(t('integrationMsgs.suuntoErrorTitle'), err.message || t('integrationMsgs.suuntoOauthFailed'));
     } finally {
       setSuuntoLoading(false);
     }
@@ -388,21 +388,21 @@ export default function ProfileScreen() {
 
   const handleDisconnectSuunto = async () => {
     Alert.alert(
-      'Disconnect Suunto',
-      'Are you sure you want to disconnect Suunto? Already imported workouts are kept.',
+      t('integrationMsgs.disconnectSuuntoTitle'),
+      t('integrationMsgs.disconnectSuuntoBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Disconnect',
+          text: t('integrationMsgs.disconnect'),
           style: 'destructive',
           onPress: async () => {
             setSuuntoLoading(true);
             try {
               await integrationsApi.disconnectSuunto();
               await refreshUser();
-              Alert.alert('Disconnected', 'Suunto disconnected successfully.');
+              Alert.alert(t('integrationMsgs.disconnectedTitle'), t('integrationMsgs.suuntoDisconnected'));
             } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to disconnect Suunto.');
+              Alert.alert(t('common.error'), err.message || t('integrationMsgs.suuntoDisconnectFailed'));
             } finally {
               setSuuntoLoading(false);
             }
@@ -416,9 +416,9 @@ export default function ProfileScreen() {
     setStravaLoading(true);
     try {
       await syncStrava();
-      Alert.alert('Strava Sync', 'Strava activities synced successfully!');
+      Alert.alert(t('integrationMsgs.stravaSyncTitle'), t('integrationMsgs.stravaSyncDone'));
     } catch (err: any) {
-      Alert.alert('Sync Error', err.message || 'Strava sync failed.');
+      Alert.alert(t('integrationMsgs.syncErrorTitle'), err.message || t('integrationMsgs.stravaSyncFailed'));
     } finally {
       setStravaLoading(false);
     }
@@ -637,14 +637,14 @@ export default function ProfileScreen() {
                 </View>
 
                 <Text className="text-sm text-theme-muted mb-6">
-                  Connect your Garmin account to automatically push structured micro-plan workouts directly to your Garmin watch.
+                  {t('integrationMsgs.garminModalDesc')}
                 </Text>
 
                 {isGarminConnected ? (
                   <View className="gap-y-4 mb-4">
                     <View className="p-4 rounded-xl bg-semantic-success/10 border border-semantic-success/30 flex-row items-center mb-2">
                       <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-                      <Text className="text-semantic-success font-bold ml-2">Garmin is connected</Text>
+                      <Text className="text-semantic-success font-bold ml-2">{t('integrationMsgs.garminIsConnected')}</Text>
                     </View>
 
                     <TouchableOpacity
@@ -657,7 +657,7 @@ export default function ProfileScreen() {
                       ) : (
                         <>
                           <Ionicons name="sync" size={18} color="#FFF" />
-                          <Text className="text-white font-bold text-base ml-2">Sync Workouts to Garmin</Text>
+                          <Text className="text-white font-bold text-base ml-2">{t('integrationMsgs.syncWorkoutsToGarmin')}</Text>
                         </>
                       )}
                     </TouchableOpacity>
@@ -667,13 +667,13 @@ export default function ProfileScreen() {
                       disabled={garminLoading}
                       className="border border-semantic-error/40 bg-semantic-error/10 py-3.5 rounded-xl items-center"
                     >
-                      <Text className="text-semantic-error font-bold text-base">Disconnect Garmin</Text>
+                      <Text className="text-semantic-error font-bold text-base">{t('integrationMsgs.disconnectGarminTitle')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <View className="gap-y-4 mb-4">
                     <View>
-                      <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Username / Email</Text>
+                      <Text className="text-xs font-bold text-theme-muted mb-1">{t('integrationMsgs.garminUsernameLabel')}</Text>
                       <TextInput
                         className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
                         placeholder="email@example.com"
@@ -686,7 +686,7 @@ export default function ProfileScreen() {
                     </View>
 
                     <View className="mt-3">
-                      <Text className="text-xs font-bold text-theme-muted mb-1">Garmin Password</Text>
+                      <Text className="text-xs font-bold text-theme-muted mb-1">{t('integrationMsgs.garminPasswordLabel')}</Text>
                       <TextInput
                         className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
                         placeholder="••••••••"
@@ -705,7 +705,7 @@ export default function ProfileScreen() {
                       {garminLoading ? (
                         <ActivityIndicator color="#FFF" />
                       ) : (
-                        <Text className="text-white font-bold text-base">Save & Connect Garmin</Text>
+                        <Text className="text-white font-bold text-base">{t('integrationMsgs.saveConnectGarmin')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>

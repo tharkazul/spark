@@ -148,11 +148,10 @@ export const RookaTab: React.FC<RookaTabProps> = ({
           <View className="items-center justify-center py-8 px-4">
             <Ionicons name="analytics-outline" size={34} color={theme.textSecondary} />
             <Text className="text-theme-text font-bold text-base mt-3 text-center">
-              No sessions yet
+              {t('questUi.noSessionsYet')}
             </Text>
             <Text className="text-theme-muted text-xs mt-1.5 text-center leading-relaxed">
-              Log or sync a workout and your athlete profile will build itself from
-              what you actually train.
+              {t('questUi.noSessionsBody')}
             </Text>
           </View>
         )}
@@ -211,7 +210,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
               >
                 <View className="flex-row justify-between items-start mb-1">
                   <Text className="text-sm font-bold text-theme-text flex-1 mr-2" numberOfLines={2}>
-                    {activeQuest.description || 'Active Weekly Quest'}
+                    {activeQuest.description || t('questUi.activeWeeklyQuest')}
                   </Text>
                   <Chip
                     variant="points"
@@ -242,7 +241,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
                   <View className="flex-row items-center gap-x-1">
                     <Ionicons name="time-outline" size={13} color={theme.textSecondary} />
                     <Text className="text-[11px] font-medium text-theme-muted">
-                      {activeQuest.time_remaining_str || 'Expires Sunday midnight'}
+                      {activeQuest.time_remaining_str || t('questUi.expiresSunday')}
                     </Text>
                   </View>
 
@@ -266,9 +265,9 @@ export const RookaTab: React.FC<RookaTabProps> = ({
                 className="bg-theme-bg/70 rounded-xl p-5 items-center justify-center"
               >
                 <Ionicons name="trophy-outline" size={28} color={theme.tint} />
-                <Text className="text-sm font-bold text-theme-text mt-2">No Active Quest</Text>
+                <Text className="text-sm font-bold text-theme-text mt-2">{t('questUi.noActiveQuest')}</Text>
                 <Text className="text-xs text-theme-muted mt-0.5 text-center">
-                  Tap to start a new weekly fitness challenge
+                  {t('questUi.tapToStart')}
                 </Text>
                 <View className="mt-3 px-4 py-2 bg-theme-accent rounded-xl flex-row items-center gap-1.5">
                   {questActionLoading ? (
@@ -276,7 +275,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
                   ) : (
                     <>
                       <Ionicons name="add-circle-outline" size={16} color="white" />
-                      <Text className="text-xs font-bold text-white">Start Challenge</Text>
+                      <Text className="text-xs font-bold text-white">{t('questUi.startChallenge')}</Text>
                     </>
                   )}
                 </View>
@@ -288,10 +287,10 @@ export const RookaTab: React.FC<RookaTabProps> = ({
         <Card className="mb-6 bg-theme-card border border-theme-border rounded-card p-6 items-center justify-center">
           <Ionicons name="lock-closed-outline" size={44} color={theme.tint} />
           <Text className="text-lg font-extrabold text-theme-text mt-3 text-center">
-            Weekly Quests Locked
+            {t('questUi.lockedTitle')}
           </Text>
           <Text className="text-sm text-theme-muted mt-2 text-center leading-relaxed font-rajdhani">
-            Upgrade to the rooka+ subscription to unlock weekly fitness quests, custom challenges, and bonus rooka points.
+            {t('questUi.lockedBody')}
           </Text>
           <TouchableOpacity
             onPress={async () => {
@@ -305,7 +304,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             activeOpacity={0.8}
           >
             <Text className="text-white font-black text-center font-rajdhani text-base">
-              Upgrade to rooka+
+              {t('questUi.upgrade')}
             </Text>
           </TouchableOpacity>
         </Card>
@@ -323,8 +322,8 @@ export const RookaTab: React.FC<RookaTabProps> = ({
                 <Ionicons name="trophy" size={26} color={theme.tint} />
               </View>
               <View>
-                <Text className="text-lg font-extrabold text-theme-text">Active Quest</Text>
-                <Text className="text-xs text-theme-muted font-bold">Weekly Challenge</Text>
+                <Text className="text-lg font-extrabold text-theme-text">{t('questUi.activeQuest')}</Text>
+                <Text className="text-xs text-theme-muted font-bold">{t('questUi.weeklyChallenge')}</Text>
               </View>
             </View>
             {activeQuest?.reward_points ? (
@@ -340,14 +339,14 @@ export const RookaTab: React.FC<RookaTabProps> = ({
 
         <View className="bg-theme-bg p-4 rounded-2xl border border-theme-border/60 mb-5">
           <Text className="text-sm font-bold text-theme-text leading-relaxed font-rajdhani">
-            {activeQuest?.description || 'Complete your active challenges this week to earn bonus rooka points.'}
+            {activeQuest?.description || t('coachExtra.questFallback')}
           </Text>
         </View>
 
         <View className="mb-6">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-xs font-bold text-theme-muted">
-              Progress ({currentVal} / {targetVal} {activeQuest?.unit || ''})
+              {t('questUi.progress', { current: currentVal, target: `${targetVal} ${activeQuest?.unit || ''}`.trim() })}
             </Text>
             <Text className="text-sm font-mono font-bold text-theme-accent">
               {progressPercent}%
@@ -372,7 +371,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             ) : (
               <>
                 <Ionicons name="refresh-outline" size={16} color={theme.textSecondary} />
-                <Text className="text-xs font-bold text-theme-muted">Swap Challenge</Text>
+                <Text className="text-xs font-bold text-theme-muted">{t('questUi.swapChallenge')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -381,7 +380,7 @@ export const RookaTab: React.FC<RookaTabProps> = ({
             onPress={() => setIsQuestModalOpen(false)}
             className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
           >
-            <Text className="text-xs font-extrabold text-white">Got it</Text>
+            <Text className="text-xs font-extrabold text-white">{t('common.gotIt')}</Text>
           </TouchableOpacity>
         </View>
       </BottomSheetModal>

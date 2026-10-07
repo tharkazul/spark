@@ -12,6 +12,8 @@ const server = http.createServer(app);
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "50mb" }));
+// Localize API error/success messages into the athlete's selected language.
+app.use(require("./services/i18n").localizeResponses);
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));

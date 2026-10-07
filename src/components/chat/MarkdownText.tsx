@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
 import { RookaMark } from '../ui/RookaPoints';
 import { BrandColors, accentAlpha } from '@/constants/theme';
 import { View, Text, StyleSheet, Platform, useColorScheme, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
@@ -41,6 +42,7 @@ const LoadingImagePlaceholder: React.FC<{
   mutedColor: string;
   onImagePress?: (uri: string) => void;
 }> = ({ pendingKey, alt, isDark, textColor, mutedColor, onImagePress }) => {
+  const { t } = useLanguage();
   const [resolvedUri, setResolvedUri] = useState<string | null>(null);
 
   useEffect(() => {
@@ -113,12 +115,12 @@ const LoadingImagePlaceholder: React.FC<{
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
         <RookaMark size={16} color={BrandColors.primary} />
         <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>
-          Developing Visual Coaching Guide...
+          {t('chatCards.visualGuideLoading')}
         </Text>
       </View>
       <ActivityIndicator size="small" color={BrandColors.primary} style={{ marginVertical: 8 }} />
       <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center' }}>
-        {alt || 'High-resolution technique photo is generating in the background...'}
+        {alt || t('chatCards.visualGuideGenerating')}
       </Text>
     </View>
   );

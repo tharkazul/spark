@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { useHealth } from '../../context/HealthStore';
-import { BODY_PARTS_LOOKUP } from '../progress/AnatomicalBodyMap';
+import { getBodyPartLabel } from '../progress/AnatomicalBodyMap';
 import { Button } from '../ui/Button';
 import { ScalePressable } from '../ui/ScalePressable';
 import { TextInput } from '../ui/TextInput';
@@ -190,7 +190,7 @@ export function LogNiggleModal({
   };
 
   const currentBodyPartId = getFullBodyPartId(selectedBaseKey, selectedSide);
-  const currentDisplayName = BODY_PARTS_LOOKUP[currentBodyPartId] || currentBodyPartId;
+  const currentDisplayName = getBodyPartLabel(currentBodyPartId);
   const currentRegion = BODY_REGIONS.find((r) => r.key === selectedBaseKey);
 
   const handleSend = async () => {

@@ -84,7 +84,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     if (!workout || selectedIds.size === 0) return;
     
     if (String(workout.id).startsWith('w-')) {
-      Alert.alert("Please wait a moment for the workout to finish saving before inviting.");
+      Alert.alert(t('weekPlan.waitForSave'));
       return;
     }
 

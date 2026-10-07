@@ -1,4 +1,5 @@
 const express = require("express");
+const { resolveCoachName } = require("../services/coachPersona");
 const router = express.Router();
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
@@ -30,13 +31,13 @@ router.post("/api/admin/simulate-24h", authenticateToken, async (req, res) => {
   console.log(`🤖 Simulating 24h inactivity for user ${user.id}...`);
 
   db.get(
-    `SELECT coach_tone FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name FROM users WHERE id = ?`,
     [user.id],
     async (err, row) => {
       const lbString = await getUserLeaderboardString(user.id);
       const prompt = `The user has not logged any activities or sent any messages in over 24 hours. Write a short, proactive message checking in on them and asking how their training is going. Use the tone: ${row ? row.coach_tone : "Friendly and motivating"}. Keep it under 2 sentences. If applicable, playfully use their standing on the leaderboard to motivate them: ${lbString}`;
       try {
-        const systemPrompt = `You are Rooka, an elite endurance coach. Your tone is: ${row ? row.coach_tone : "Friendly and motivating"}. Act like a real human in a continuous text message thread.`;
+        const systemPrompt = `You are ${resolveCoachName(row)}, an elite endurance coach. Your tone is: ${row ? row.coach_tone : "Friendly and motivating"}. Act like a real human in a continuous text message thread.`;
         const aiReply = await generateWithFallback(prompt, systemPrompt);
         db.run(
           `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'curious')`,

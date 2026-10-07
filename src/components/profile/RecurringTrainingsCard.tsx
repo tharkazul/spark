@@ -21,15 +21,15 @@ import { RecurringTraining } from '../../types/user';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const QUICK_ACTIVITIES = [
-  { title: 'Field Hockey', sport: 'Hockey', defaultMins: 90, intensity: 'hard' },
-  { title: 'Spinning Class', sport: 'Spinning', defaultMins: 45, intensity: 'moderate' },
-  { title: 'Tennis Match', sport: 'Tennis', defaultMins: 60, intensity: 'moderate' },
-  { title: 'Football / Soccer', sport: 'Soccer', defaultMins: 90, intensity: 'hard' },
-  { title: 'Padel Match', sport: 'Padel', defaultMins: 60, intensity: 'moderate' },
-  { title: 'Pilates / Core', sport: 'Strength', defaultMins: 50, intensity: 'easy' },
-  { title: 'Yoga Flow', sport: 'CrossTraining', defaultMins: 60, intensity: 'easy' },
-  { title: 'CrossFit / WOD', sport: 'Strength', defaultMins: 60, intensity: 'hard' },
-  { title: 'Swim Club / Masters', sport: 'Swim', defaultMins: 60, intensity: 'moderate' },
+  { key: 'fieldHockey', title: 'Field Hockey', sport: 'Hockey', defaultMins: 90, intensity: 'hard' },
+  { key: 'spinning', title: 'Spinning Class', sport: 'Spinning', defaultMins: 45, intensity: 'moderate' },
+  { key: 'tennis', title: 'Tennis Match', sport: 'Tennis', defaultMins: 60, intensity: 'moderate' },
+  { key: 'football', title: 'Football / Soccer', sport: 'Soccer', defaultMins: 90, intensity: 'hard' },
+  { key: 'padel', title: 'Padel Match', sport: 'Padel', defaultMins: 60, intensity: 'moderate' },
+  { key: 'pilates', title: 'Pilates / Core', sport: 'Strength', defaultMins: 50, intensity: 'easy' },
+  { key: 'yoga', title: 'Yoga Flow', sport: 'CrossTraining', defaultMins: 60, intensity: 'easy' },
+  { key: 'crossfit', title: 'CrossFit / WOD', sport: 'Strength', defaultMins: 60, intensity: 'hard' },
+  { key: 'swimClub', title: 'Swim Club / Masters', sport: 'Swim', defaultMins: 60, intensity: 'moderate' },
 ];
 
 const DURATIONS = [30, 45, 60, 75, 90, 105, 120];
@@ -83,7 +83,7 @@ export const RecurringTrainingsCard: React.FC = () => {
 
   const handleSelectQuick = (item: typeof QUICK_ACTIVITIES[0]) => {
     Haptics.selectionAsync();
-    setTitle(item.title);
+    setTitle(t(`recurringQuick.${item.key}`, item.title));
     setSport(item.sport);
     setDurationMins(item.defaultMins);
     setIntensity(item.intensity as any);
@@ -91,7 +91,7 @@ export const RecurringTrainingsCard: React.FC = () => {
 
   const handleSaveActivity = async () => {
     if (!title.trim()) {
-      Alert.alert('Title Required', 'Please enter a name for this recurring activity (e.g. Field Hockey, Spinning).');
+      Alert.alert(t('recurringQuick.titleRequired'), t('recurringQuick.titleRequiredBody'));
       return;
     }
 
@@ -112,7 +112,7 @@ export const RecurringTrainingsCard: React.FC = () => {
       await fetchTrainings();
     } catch (err: any) {
       console.error('Failed to save recurring training:', err);
-      Alert.alert('Save Failed', err.message || 'Could not save recurring training.');
+      Alert.alert(t('benchmarkPresets.saveFailedTitle'), err.message || t('recurringQuick.saveFailed'));
     } finally {
       setSavingNew(false);
     }
@@ -135,7 +135,7 @@ export const RecurringTrainingsCard: React.FC = () => {
               setTrainings((prev) => prev.filter((t) => t.id !== item.id));
             } catch (err: any) {
               console.error('Failed to delete recurring training:', err);
-              Alert.alert('Error', 'Failed to delete activity.');
+              Alert.alert(t('common.error'), t('activityDetail.deleteFailed'));
             }
           },
         },
@@ -201,7 +201,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                 <View className="flex-row items-center gap-x-3 flex-1 mr-2">
                   <View className="w-10 h-10 rounded-xl bg-theme-accent/15 items-center justify-center">
                     <Text className="text-xs font-bold text-theme-accent uppercase font-rajdhani">
-                      {item.day_of_week}
+                      {t(`days.${String(item.day_of_week || '').toLowerCase()}Short`, item.day_of_week)}
                     </Text>
                   </View>
 
@@ -277,7 +277,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                       haptic="selection"
                       className="px-3 py-1.5 bg-theme-bg rounded-lg border border-theme-border/60"
                     >
-                      <Text className="text-xs text-theme-text font-medium">{qa.title}</Text>
+                      <Text className="text-xs text-theme-text font-medium">{t(`recurringQuick.${qa.key}`, qa.title)}</Text>
                     </ScalePressable>
                   ))}
                 </View>
@@ -389,7 +389,7 @@ export const RecurringTrainingsCard: React.FC = () => {
               <TextInput
                 value={startTime}
                 onChangeText={setStartTime}
-                placeholder="e.g. 19:30 or 08:00"
+                placeholder={t('recurringQuick.timePlaceholder')}
                 placeholderTextColor={theme.textSecondary}
                 className="bg-theme-bg rounded-xl p-3 text-xs text-theme-text font-bold border border-theme-border/60 mb-5"
               />

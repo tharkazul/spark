@@ -54,7 +54,11 @@ router.post("/api/notifications/unregister-token", authenticateToken, (req, res)
 // Test Push Notification endpoint
 router.post("/api/notifications/test", authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  const { title = "Rooka Coach", body = "Your workout is ready for today! ⚡" } = req.body;
+  const { t } = require("../services/i18n");
+  const {
+    title = t(req.user.language, "push.testDefault.title"),
+    body = t(req.user.language, "push.testDefault.body"),
+  } = req.body;
 
   try {
     const result = await sendPushToUser(userId, {

@@ -72,11 +72,11 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
     try {
       await userApi.updateAccountDetails({ email });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Success", "Account details updated successfully.");
+      Alert.alert(t('common.success'), t('accountMsgs.accountUpdated'));
       await refreshUser();
     } catch (err: any) {
       console.error('Update account error:', err);
-      Alert.alert("Error", err.response?.data?.error || err.message || "Failed to update account details.");
+      Alert.alert(t('common.error'), err.response?.data?.error || err.message || t('accountMsgs.accountUpdateFailed'));
     } finally {
       setSavingAccount(false);
     }
@@ -108,7 +108,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
     try {
       await userApi.requestAccountData();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Data Export Requested", "Your personal account data summary has been compiled successfully.");
+      Alert.alert(t('accountMsgs.dataExportTitle'), t('accountMsgs.dataExportBody'));
     } catch (err: any) {
       console.error('Export data error:', err);
     } finally {
@@ -133,7 +133,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               onLogout();
             } catch (err: any) {
               console.error('Deletion error:', err);
-              Alert.alert("Error", err.message || "Failed to delete account.");
+              Alert.alert(t('common.error'), err.message || t('accountMsgs.deleteFailed'));
             } finally {
               setDeleting(false);
             }
@@ -183,7 +183,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
       await loadDiscount();
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Discount Code', err?.data?.error || err?.message || 'Could not apply that code.');
+      Alert.alert(t('accountMsgs.discountTitle'), err?.data?.error || err?.message || t('accountMsgs.discountApplyFailed'));
     } finally {
       setSavingDiscount(false);
     }
@@ -191,14 +191,14 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
 
   const handleRemoveDiscount = () => {
     Alert.alert(
-      'Remove Discount Code?',
-      `Your subscription will go back to the standard price${
-        discountPricing ? ` of ${discountPricing.currency}${discountPricing.yearly.original.toFixed(2)} per year` : ''
-      }.`,
+      t('accountMsgs.removeDiscountTitle'),
+      discountPricing
+        ? t('accountMsgs.removeDiscountBodyPrice', { price: `${discountPricing.currency}${discountPricing.yearly.original.toFixed(2)}` })
+        : t('accountMsgs.removeDiscountBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Remove',
+          text: t('common.remove'),
           style: 'destructive',
           onPress: async () => {
             setSavingDiscount(true);
@@ -209,7 +209,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               setPendingDiscount(null);
               await loadDiscount();
             } catch (err: any) {
-              Alert.alert('Discount Code', err?.message || 'Could not remove the code.');
+              Alert.alert(t('accountMsgs.discountTitle'), err?.message || t('accountMsgs.discountRemoveFailed'));
             } finally {
               setSavingDiscount(false);
             }
@@ -299,20 +299,20 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/20">
             <View className="flex-row items-center gap-2">
               <View className="w-2.5 h-2.5 rounded-full bg-purple-500 mr-1" />
-              <Text className="text-theme-text font-bold text-sm">Admin Token Quota</Text>
+              <Text className="text-theme-text font-bold text-sm">{t('accountMsgs.adminTokenQuota')}</Text>
             </View>
             <View className="px-2 py-0.5 rounded bg-purple-500/15">
-              <Text className="text-[10px] font-bold text-purple-600 dark:text-purple-400">ADMIN</Text>
+              <Text className="text-[10px] font-bold text-purple-600 dark:text-purple-400">{t('accountMsgs.adminBadge')}</Text>
             </View>
           </View>
 
           <View className="p-3.5 bg-theme-bg rounded-xl flex-row items-center justify-between">
             <View className="flex-1 pr-3">
               <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-                Daily Token Consumption
+                {t('accountMsgs.dailyTokenConsumption')}
               </Text>
               <Text className="text-xs text-theme-muted mt-0.5">
-                {formatTokens(dailyUsage)} of {formatTokens(dailyLimit)} tokens consumed
+                {t('accountMsgs.tokensConsumed', { used: formatTokens(dailyUsage), limit: formatTokens(dailyLimit) })}
               </Text>
             </View>
             <View className="px-3 py-1.5 bg-theme-accent/10 rounded-xl">
@@ -325,7 +325,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/20">
             <View className="flex-row items-center gap-2">
               <Ionicons name="sparkles" size={16} color={theme.tint} />
-              <Text className="text-theme-text font-bold text-sm">Daily Coach Usage</Text>
+              <Text className="text-theme-text font-bold text-sm">{t('accountMsgs.dailyCoachUsage')}</Text>
             </View>
             <Text className="text-xs font-bold font-rajdhani text-theme-accent">
               {Math.min(100, Math.round((dailyUsage / Math.max(1, dailyLimit)) * 100))}%
@@ -343,10 +343,10 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             </View>
             <View className="flex-row justify-between items-center">
               <Text className="text-[11px] text-theme-muted">
-                {dailyUsage > 0 ? 'AI analysis & planning active' : 'Ready for daily workouts'}
+                {dailyUsage > 0 ? t('accountMsgs.aiActive') : t('accountMsgs.readyForWorkouts')}
               </Text>
               <Text className="text-[11px] font-medium text-theme-muted">
-                Resets at midnight
+                {t('accountMsgs.resetsAtMidnight')}
               </Text>
             </View>
           </View>
@@ -376,7 +376,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             </View>
             <View className="px-2.5 py-1 bg-white/20 rounded-full">
               <Text className="text-white text-xs font-extrabold uppercase tracking-wider">
-                {isMember ? (tier === 'admin' ? 'ADMIN' : 'ACTIVE') : 'PRO TIER'}
+                {isMember ? (tier === 'admin' ? t('accountMsgs.adminBadge') : t('accountMsgs.activeBadge')) : t('accountMsgs.proTier')}
               </Text>
             </View>
           </View>
@@ -384,9 +384,9 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           <Text className="text-white/90 text-xs mb-4 leading-relaxed font-medium">
             {isMember
               ? (tier === 'admin'
-                  ? 'Your account has full administrator access with a 500k daily token quota, custom workout building & editing, advanced periodization, and direct integrations.'
-                  : 'Your account has unlocked 50,000 daily coach tokens, custom workout building & editing, priority workout adaptation, and direct Garmin sync.')
-              : 'Unlock 50,000 daily coach tokens, custom workout building & editing, priority workout adaptation, and deeper athletic insights.'}
+                  ? t('accountMsgs.adminPerks')
+                  : t('accountMsgs.memberPerks'))
+              : t('accountMsgs.upgradePerks')}
           </Text>
 
           <View className="bg-white py-2.5 px-5 rounded-full self-start flex-row items-center shadow-sm">
@@ -474,7 +474,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                       discount.active ? 'text-semantic-success' : 'text-semantic-warning'
                     }`}
                   >
-                    {discount.active ? t('common.active') : discount.expired ? 'Expired' : 'Inactive'}
+                    {discount.active ? t('common.active') : discount.expired ? t('accountMsgs.expired') : t('accountMsgs.inactive')}
                   </Text>
                 </View>
                 <Text className="text-theme-text text-xs mt-1">
@@ -483,8 +483,8 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                 {discount.expiresAt ? (
                   <Text className="text-theme-muted text-[10px] mt-0.5">
                     {discount.expired
-                      ? `Ended ${formatDate(discount.expiresAt)}`
-                      : `Runs until ${formatDate(discount.expiresAt)}`}
+                      ? t('accountMsgs.endedOn', { date: formatDate(discount.expiresAt) })
+                      : t('accountMsgs.runsUntil', { date: formatDate(discount.expiresAt) })}
                   </Text>
                 ) : null}
               </View>
@@ -493,7 +493,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
               {discountPricing ? (
                 <View className="flex-row justify-between p-3 bg-theme-card rounded-tile mb-2">
                   <View>
-                    <Text className="text-[10px] font-bold text-theme-muted uppercase">Monthly</Text>
+                    <Text className="text-[10px] font-bold text-theme-muted uppercase">{t('accountMsgs.monthly')}</Text>
                     <View className="flex-row items-baseline gap-1.5">
                       <Text className="text-sm font-extrabold text-theme-text">
                         {discountPricing.currency}{discountPricing.monthly.final.toFixed(2)}
@@ -506,7 +506,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
                     </View>
                   </View>
                   <View className="items-end">
-                    <Text className="text-[10px] font-bold text-theme-muted uppercase">Yearly</Text>
+                    <Text className="text-[10px] font-bold text-theme-muted uppercase">{t('accountMsgs.yearly')}</Text>
                     <View className="flex-row items-baseline gap-1.5">
                       <Text className="text-sm font-extrabold text-theme-text">
                         {discountPricing.currency}{discountPricing.yearly.final.toFixed(2)}
@@ -550,13 +550,13 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             <>
               <Text className="text-theme-muted text-[11px] mb-2">
                 {discount
-                  ? `Enter a different code to replace ${discount.code}.`
-                  : 'Have a discount code? Enter it here to lower your subscription price.'}
+                  ? t('accountMsgs.replaceCode', { code: discount.code })
+                  : t('accountMsgs.haveCode')}
               </Text>
               <DiscountCodeField
                 onResult={setPendingDiscount}
                 disabled={savingDiscount}
-                placeholder="DISCOUNT CODE"
+                placeholder={t('accountMsgs.discountPlaceholder')}
               />
               <View className="flex-row gap-2 mt-2.5">
                 <TouchableOpacity

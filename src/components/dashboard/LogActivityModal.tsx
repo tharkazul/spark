@@ -116,8 +116,8 @@ export function LogActivityModal({
   }, [visible, slideAnim, backdropOpacity]);
 
   const handleSave = async () => {
-    const defaultSportLabel = SPORTS.find(s => s.id === sport)?.label || 'Activity';
-    const finalTitle = title.trim() || `Manual ${defaultSportLabel}`;
+    const defaultSportLabel = SPORTS.find(s => s.id === sport) ? t(`sports.${sport.toLowerCase()}`, SPORTS.find(s => s.id === sport)!.label) : t('weekPlan.activity');
+    const finalTitle = title.trim() || t('weekPlan.manualTitle', { sport: defaultSportLabel });
     
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const durNum = parseInt(duration, 10) || 30;
