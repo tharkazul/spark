@@ -1,6 +1,6 @@
-# Rooka Promotional Website & Legal Hub (rooka.io)
+# rooka Promotional Website & Legal Hub (rooka.io)
 
-This directory contains the standalone production website for **Rooka** (`rooka.io`), including the modern promotional landing page, App Store/TestFlight compliant **Privacy Policy**, **Terms of Service (EULA)**, and **Support Help Center**.
+This directory contains the standalone production website for **rooka** (`rooka.io`), including the modern promotional landing page, App Store/TestFlight compliant **Privacy Policy**, **Terms of Service (EULA)**, and **Support Help Center**.
 
 ---
 
@@ -8,14 +8,20 @@ This directory contains the standalone production website for **Rooka** (`rooka.
 
 ```
 website/
-├── index.html       # Main high-converting promotional landing page with live interactive phone preview & AI Coach simulator
-├── privacy.html     # Comprehensive GDPR & Apple App Store / TestFlight compliant Privacy Policy
-├── terms.html       # Terms of Service & End User License Agreement (EULA)
-├── support.html     # Athlete Help Center & Support contact page
-├── style.css        # Modern dark-mode athletic styling with glassmorphism & responsive typography
-├── script.js        # Interactive AI simulator, FAQ accordion, and navigation script
-└── README.md        # Deployment instructions
+├── index.html       # Landing page: season planning, Adapt, features, coaches, pricing, beta signup, FAQ
+├── privacy.html     # Privacy policy (App Store / Play Store privacy URL)
+├── terms.html       # Terms of service & EULA
+├── support.html     # Support page with contact form (support URL)
+├── style.css        # Shared styles; colour tokens mirror the app (src/global.css), light + dark
+├── script.js        # Theme toggle, mobile menu, beta invite + support forms
+├── images/app/      # Current app screenshots and coach avatars used by the site
+└── README.md        # This file
 ```
+
+Keep facts on the site in line with the app: prices come from `src/locales/en.ts` (onboarding paywall),
+rooka+ gating from `src/utils/permissions.ts`, coach names from `coachPersona` in the locale files.
+The season chart on the homepage is an example season computed with the app's PMC model (`src/domain/pmc.ts`).
+After editing, copy the changed files to `server/public/` as well.
 
 ---
 
