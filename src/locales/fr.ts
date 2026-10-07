@@ -136,6 +136,7 @@ export const fr: TranslationKeys = {
     strength: 'Renforcement',
     mobility: 'Mobilité',
     walk: 'Marche',
+    other: 'Autres',
     rest: 'Repos',
   },
   onboarding: {
@@ -923,6 +924,7 @@ export const fr: TranslationKeys = {
     postWorkoutSummary: 'Publier le titre du résumé de séance',
     showRookaLink: 'Afficher rooka.io',
     upgradeToRemoveCredit: 'Passez à rooka+ pour retirer la mention',
+    rookaPlusOnly: 'rooka+ uniquement',
     sleepAnalysis: 'Analyse du Sommeil & Phases',
     heartRateResting: 'Fréquence Cardiaque & FC au Repos',
     hrv: 'Variabilité de la Fréquence Cardiaque (VFC)',

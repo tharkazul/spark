@@ -16,6 +16,7 @@ import type {
   WorkoutStep as KitWorkoutStep,
 } from 'react-native-workouts';
 import { PlannedWorkout, WorkoutStep } from '../types/plan';
+import { zonesApi, ZoneBandDto } from './apiServices';
 
 type WorkoutKitModule = typeof ReactNativeWorkouts;
 
@@ -139,7 +140,7 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
     return { success: false, message: getWorkoutKitDeniedMessage() };
   }
 
-  const config = buildCustomWorkoutConfig(workout);
+  const config = buildCustomWorkoutConfig(workout, await fetchOwnHrZones(workout.sport));
   if (!config) {
     return {
       success: false,
@@ -173,7 +174,7 @@ export async function previewWorkoutOnAppleWatch(workout: PlannedWorkout): Promi
     return { success: false, message: tr('appleHealthMsgs.previewNeedsIos17') };
   }
 
-  const config = buildCustomWorkoutConfig(workout);
+  const config = buildCustomWorkoutConfig(workout, await fetchOwnHrZones(workout.sport));
   if (!config) {
     return { success: false, message: tr('appleHealthMsgs.cannotPreviewSport', { sport: workout.sport }) };
   }
@@ -205,7 +206,10 @@ export const getWorkoutKitDeniedMessage = (): string => tr('appleHealthMsgs.work
  * rooka `repeat` step becomes a block with iterations; every other step becomes a
  * one-iteration block of its own.
  */
-export function buildCustomWorkoutConfig(workout: PlannedWorkout): CustomWorkoutConfig | null {
+export function buildCustomWorkoutConfig(
+  workout: PlannedWorkout,
+  hrZones: ZoneBandDto[] | null = null,
+): CustomWorkoutConfig | null {
   const activity = getAppleActivity(workout.sport);
   if (!activity) return null;
 
@@ -218,19 +222,19 @@ export function buildCustomWorkoutConfig(workout: PlannedWorkout): CustomWorkout
 
   for (const step of steps) {
     if (step.type === 'warmup' && !warmup && blocks.length === 0) {
-      warmup = toKitStep(step, activityType);
+      warmup = toKitStep(step, activityType, hrZones);
       continue;
     }
 
     if (step.type === 'repeat') {
-      const nested = (step.steps || []).map((s) => toIntervalStep(s, activityType));
+      const nested = (step.steps || []).map((s) => toIntervalStep(s, activityType, hrZones));
       if (nested.length > 0) {
         blocks.push({ iterations: Math.max(1, step.iterations || 1), steps: nested });
       }
       continue;
     }
 
-    blocks.push({ iterations: 1, steps: [toIntervalStep(step, activityType)] });
+    blocks.push({ iterations: 1, steps: [toIntervalStep(step, activityType, hrZones)] });
   }
 
   // Only the trailing cooldown can move into the cooldown slot; an early one has
@@ -262,8 +266,8 @@ export function buildCustomWorkoutConfig(workout: PlannedWorkout): CustomWorkout
   };
 }
 
-function toIntervalStep(step: WorkoutStep, activityType: ActivityType): IntervalStep {
-  const kit = toKitStep(step, activityType);
+function toIntervalStep(step: WorkoutStep, activityType: ActivityType, hrZones: ZoneBandDto[] | null): IntervalStep {
+  const kit = toKitStep(step, activityType, hrZones);
   return {
     purpose: step.type === 'recovery' || step.type === 'rest' ? 'recovery' : 'work',
     goal: kit.goal,
@@ -271,12 +275,12 @@ function toIntervalStep(step: WorkoutStep, activityType: ActivityType): Interval
   };
 }
 
-function toKitStep(step: WorkoutStep, activityType: ActivityType): KitWorkoutStep {
+function toKitStep(step: WorkoutStep, activityType: ActivityType, hrZones: ZoneBandDto[] | null): KitWorkoutStep {
   // Warmup steps are meant for ramping up from resting heart rate.
   // Attaching a strict heart rate zone alert to a warmup causes Apple Watch to chime
   // and vocalize "Below Zone" every 20 seconds while the athlete is still cold.
   const isColdWarmup = step.type === 'warmup' && step.target_type === 'heart.rate.zone';
-  const alert = isColdWarmup ? undefined : toAlert(step, activityType);
+  const alert = isColdWarmup ? undefined : toAlert(step, activityType, hrZones);
   return { goal: toGoal(step), alert };
 }
 
@@ -311,7 +315,7 @@ function toGoal(step: WorkoutStep): WorkoutGoal {
  * accepts are offered: heart rate anywhere, pace on foot sports, power and speed
  * on the bike.
  */
-function toAlert(step: WorkoutStep, activityType: ActivityType): WorkoutAlert | undefined {
+function toAlert(step: WorkoutStep, activityType: ActivityType, hrZones: ZoneBandDto[] | null): WorkoutAlert | undefined {
   const onFoot = activityType === 'running' || activityType === 'walking' || activityType === 'hiking';
   const onBike = activityType === 'cycling';
 
@@ -319,6 +323,12 @@ function toAlert(step: WorkoutStep, activityType: ActivityType): WorkoutAlert | 
     case 'heart.rate.zone': {
       const zone = Number(step.zone);
       if (!Number.isFinite(zone) || zone < 1 || zone > 5) return undefined;
+      // The athlete's own bpm range when the profile has one; otherwise the
+      // zone number, which the Watch resolves against its own zones.
+      const band = hrZones?.find((z) => Number(z.zone) === zone);
+      if (band && band.min > 0 && band.max != null && band.max > band.min) {
+        return { type: 'heartRate', min: band.min, max: band.max };
+      }
       return { type: 'heartRate', zone };
     }
 
@@ -349,6 +359,24 @@ function toAlert(step: WorkoutStep, activityType: ActivityType): WorkoutAlert | 
 
     default:
       return undefined;
+  }
+}
+
+/**
+ * The HR table in effect for this sport (its own, else 'default'), but only when
+ * the athlete or coach set it. A 'derived' table is the same age-based estimate
+ * the Watch already makes, so it is no reason to override the Watch's zones.
+ * Mirrors resolveWatchHrZones on the server, which does this for Garmin.
+ */
+async function fetchOwnHrZones(sport: string): Promise<ZoneBandDto[] | null> {
+  try {
+    const { tables } = await zonesApi.get(sport);
+    const hr = (tables || []).filter((t) => t.kind === 'hr');
+    const table = hr.find((t) => t.sport === sport) || hr.find((t) => t.sport === 'default');
+    return table && table.source !== 'derived' ? table.zones : null;
+  } catch {
+    // Offline or signed out: zone numbers still get a usable workout onto the Watch.
+    return null;
   }
 }
 

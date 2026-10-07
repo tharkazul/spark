@@ -137,6 +137,80 @@ function saveZones(userId, sport, kind, zonesArray, source = "manual") {
   });
 }
 
+/**
+ * The HR table in effect for a sport (its own, else 'default'), but only when
+ * it is the athlete's own: entered on the profile or set with the coach. A
+ * 'derived' table is the same %-of-max-HR estimate a watch already makes from
+ * age, so it is no reason to override the zones configured on the watch.
+ */
+function getHrTables(userId) {
+  return new Promise((resolve) => {
+    db.all(
+      `SELECT sport, zones_json, source FROM athlete_zones WHERE user_id = ? AND kind = 'hr'`,
+      [userId],
+      (err, rows) => {
+        const out = {};
+        if (!err && rows) {
+          for (const r of rows) {
+            try {
+              out[r.sport] = { zones: JSON.parse(r.zones_json), source: r.source };
+            } catch (_) {}
+          }
+        }
+        resolve(out);
+      }
+    );
+  });
+}
+
+function ownHrTable(tables, sport) {
+  const table = (sport && tables[sport]) || tables.default;
+  return table && table.source !== "derived" && Array.isArray(table.zones) ? table.zones : null;
+}
+
+async function resolveWatchHrZones(userId, sport) {
+  return ownHrTable(await getHrTables(userId), sport);
+}
+
+/**
+ * The bpm limits for one zone, or null when the table leaves either bound open.
+ * Null means "send the zone number and let the watch resolve it".
+ */
+function hrBandForZone(hrZones, zone) {
+  if (!Array.isArray(hrZones)) return null;
+  const z = hrZones.find((b) => Number(b.zone) === Number(zone));
+  if (!z) return null;
+  const min = Number(z.min);
+  const max = z.max == null ? NaN : Number(z.max);
+  return min > 0 && max > min ? { min: Math.round(min), max: Math.round(max) } : null;
+}
+
+/** The athlete's HR zones for a coach prompt, plus how the watches will use them. */
+async function formatHrZonesForPrompt(userId) {
+  const tables = await getHrTables(userId);
+  const fmt = (zones) =>
+    [...zones]
+      .sort((a, b) => a.zone - b.zone)
+      .map((z) => `Z${z.zone} ${z.min}-${z.max == null ? "max" : z.max} bpm`)
+      .join(", ");
+
+  const lines = [];
+  const defaultZones = ownHrTable(tables, "default");
+  if (defaultZones) lines.push(`- All sports: ${fmt(defaultZones)}`);
+  for (const sport of ["Run", "Bike", "Swim"]) {
+    if (!tables[sport]) continue;
+    const zones = ownHrTable(tables, sport);
+    lines.push(zones ? `- ${sport}: ${fmt(zones)}` : `- ${sport}: no personal zones (zone numbers only)`);
+  }
+
+  if (!lines.some((l) => l.includes("bpm"))) {
+    return `No personal heart-rate zones set yet (only an estimate from max HR). Heart-rate steps go to the watch as a zone number and the watch applies its own zone settings. Refer to HR zones by number only; do not quote bpm ranges.`;
+  }
+  return `The athlete's own heart-rate zones (from their profile; a sport line overrides "All sports"):
+${lines.join("\n")}
+When a step targets heart rate, keep "target_type": "heart.rate.zone" with "zone": <1-5>. Rooka sends that zone to the watch as these exact bpm limits instead of the watch's generic age-based zones, so a zone number means this athlete's bpm range. Whenever you name a HR zone in text or details, quote its bpm range from this table (e.g. "Z2 (132-145 bpm)"), never generic %-of-max-HR zones.`;
+}
+
 function deleteZones(userId, sport) {
   return new Promise((resolve) => {
     db.run(
@@ -162,4 +236,7 @@ module.exports = {
   saveZones,
   deleteZones,
   seedDefaultZones,
+  resolveWatchHrZones,
+  hrBandForZone,
+  formatHrZonesForPrompt,
 };

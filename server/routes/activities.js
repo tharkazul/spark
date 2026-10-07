@@ -12,6 +12,7 @@ const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const { sendPushToUser } = require('../services/pushNotificationService');
 const { getUserGoalPromptContext } = require('../services/goalPromptContext');
+const { formatHrZonesForPrompt } = require('../services/athleteZones');
 const constraintsService = require('../services/athleteConstraints');
 const i18n = require('../services/i18n');
 const {
@@ -291,16 +292,37 @@ router.post("/api/user/strava-share-settings", authenticateToken, (req, res) => 
           .json({ error: "No recognised sport settings in payload." });
       }
 
-      db.run(
-        `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'strava_share_settings', ?) 
-            ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
-        [req.user.id, JSON.stringify(clean)],
-        (err) => {
-          if (err)
-            return res
-              .status(500)
-              .json({ error: "Failed to update Strava share settings." });
-          res.json({ success: true, shareSettings: clean, linkIsOptional });
+      // Merge over what is stored rather than replacing it: app builds from
+      // before the "Other" tab only send four sports, and a save from one of
+      // them must not quietly switch "Other" back on.
+      db.get(
+        `SELECT value FROM athlete_metrics WHERE user_id = ? AND metric = 'strava_share_settings'`,
+        [req.user.id],
+        (readErr, row) => {
+          let stored = {};
+          if (row && row.value) {
+            try {
+              stored = JSON.parse(row.value) || {};
+            } catch (_) {}
+          }
+          const merged = {};
+          for (const sport of STRAVA_SHARE_SPORTS) {
+            const entry = clean[sport] || stored[sport];
+            if (entry) merged[sport] = entry;
+          }
+
+          db.run(
+            `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'strava_share_settings', ?) 
+                ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
+            [req.user.id, JSON.stringify(merged)],
+            (err) => {
+              if (err)
+                return res
+                  .status(500)
+                  .json({ error: "Failed to update Strava share settings." });
+              res.json({ success: true, shareSettings: merged, linkIsOptional });
+            },
+          );
         },
       );
     },
@@ -1140,6 +1162,7 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
             metricsRows && metricsRows.length > 0
               ? metricsRows.map((m) => `${m.metric}: ${m.value}`).join(", ")
               : "None explicitly recorded yet.";
+          const hrZonesText = await formatHrZonesForPrompt(req.user.id).catch(() => "");
 
           db.all(
             `SELECT sport_type, start_date, sets_json FROM activities WHERE user_id = ? AND sets_json IS NOT NULL AND sets_json != '[]' ORDER BY start_date DESC LIMIT 5`,
@@ -1267,6 +1290,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                 Recurring Sports & Periodical Trainings (Non-Rooka Activities):
                 ${recurringTrainingsText}
                 Key Physiological Metrics: ${metricsText}
+                HEART-RATE ZONES:
+                ${hrZonesText}
                 MUSCLE LOAD OVER THE LAST 7 DAYS (0-100% of a reference load, derived from completed activities):
                     ${muscleStatusText}
                 Recent Strength & PB History:

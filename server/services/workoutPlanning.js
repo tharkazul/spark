@@ -8,6 +8,7 @@ const { planDayTargetRooka } = require("./zones");
 const muscleLoad = require("./muscleLoad");
 const { getUserMacroPhase } = require("./utils");
 const { getUserGoalPromptContext } = require("./goalPromptContext");
+const { formatHrZonesForPrompt } = require("./athleteZones");
 const constraintsService = require("./athleteConstraints");
 
 /**
@@ -570,6 +571,7 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
   const phase = await getUserMacroPhase(userId);
   const { ctl, atl, tsb } = await calculateUserFitnessMetrics(userId);
   const goalContext = await getUserGoalPromptContext(userId, user);
+  const hrZonesText = await formatHrZonesForPrompt(userId).catch(() => "");
 
   // 7. Check for athlete's pre-scheduled manual sessions (source = 'user')
   const userManualWorkouts = await new Promise((resolve) => {
@@ -693,6 +695,8 @@ ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gen
 Schedule Boundaries:
 ${availabilityText}
 Key Physiological Metrics: ${metricsText}
+HEART-RATE ZONES:
+${hrZonesText}
 MUSCLE LOAD OVER THE LAST 7 DAYS:
 ${muscleStatusText}
 Recent Strength & PB History:

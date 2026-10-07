@@ -12,6 +12,7 @@ const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
+const athleteZones = require('../services/athleteZones');
 const {
   matchGarminExercise,
   getAMSDateString,
@@ -104,6 +105,18 @@ const CONDITION_TYPE_MAP = {
   "lap.button": { id: 1, key: "lap.button" },
   reps: { id: 10, key: "reps" },
 };
+
+// A heart-rate step goes out as the athlete's own bpm range when their profile
+// has one for that zone. Without it the zone number stays, and the watch
+// resolves it against its own (usually age-based) zones.
+function applyHrRange(stepDTO, step, hrZones) {
+  if (step.target_type !== "heart.rate.zone") return;
+  const band = athleteZones.hrBandForZone(hrZones, step.zone);
+  if (!band) return;
+  stepDTO.targetValueOne = band.min;
+  stepDTO.targetValueTwo = band.max;
+  stepDTO.zoneNumber = null;
+}
 
 router.get("/webhook/strava", (req, res) => {
   const VERIFY_TOKEN = process.env.STRAVA_VERIFY_TOKEN || "STRAVA";
@@ -803,6 +816,7 @@ async function pushWorkoutsToGarmin(userId, selectedWorkouts) {
     let syncedCount = 0;
     let lastSyncError = null;
     const monthCalendarCache = new Map();
+    const hrZonesBySport = new Map();
 
     for (const workout of workoutsToSync) {
       const sportDef = getGarminSportDef(workout.sport);
@@ -810,6 +824,13 @@ async function pushWorkoutsToGarmin(userId, selectedWorkouts) {
         console.warn(`[Garmin Sync] Skipping unsupported or rest sport: "${workout.sport}"`);
         continue;
       }
+      if (!hrZonesBySport.has(workout.sport)) {
+        hrZonesBySport.set(
+          workout.sport,
+          await athleteZones.resolveWatchHrZones(userId, workout.sport).catch(() => null),
+        );
+      }
+      const hrZones = hrZonesBySport.get(workout.sport);
       let stepsArray = [];
       if (Array.isArray(workout.steps) && workout.steps.length > 0) {
         stepsArray = workout.steps;
@@ -911,6 +932,7 @@ async function pushWorkoutsToGarmin(userId, selectedWorkouts) {
                   }
                 }
               }
+              applyHrRange(sDTO, subStep, hrZones);
               if (subStep.condition_type === "distance") {
                 sDTO.preferredEndConditionUnit = {
                   unitId: 1,
@@ -1001,6 +1023,7 @@ async function pushWorkoutsToGarmin(userId, selectedWorkouts) {
           }
         }
 
+        applyHrRange(stepDTO, step, hrZones);
         if (step.condition_type === "distance") {
           stepDTO.preferredEndConditionUnit = {
             unitId: 1,

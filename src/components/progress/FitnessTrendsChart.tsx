@@ -20,6 +20,7 @@ import { getLocaleTag } from '../../locales/i18n';
 import { Activity } from '../../types/activity';
 import { normalizeSportType } from '../../utils/disciplineConfig';
 import { PMCDayPoint } from '../../domain/pmc';
+import { usePagerLock } from '../../context/PagerLockContext';
 
 export type Timeframe = '6W' | '3M' | '1Y';
 
@@ -159,7 +160,9 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
     return { point: filteredHistory[filteredHistory.length - 1], index: filteredHistory.length - 1 };
   }, [filteredHistory, selectedIndex]);
 
-  // Touch handler to scrub chart
+  // Touch handler to scrub chart. While scrubbing, the Progress pager is
+  // locked so a horizontal drag doesn't flip to the neighbouring sub-tab.
+  const setPagerLocked = usePagerLock();
   const handleTouch = (event: GestureResponderEvent) => {
     const touchX = event.nativeEvent.locationX;
     if (filteredHistory.length <= 1) return;
@@ -345,8 +348,14 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
         className="w-full relative overflow-hidden"
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
-        onResponderGrant={handleTouch}
+        onResponderTerminationRequest={() => false}
+        onResponderGrant={(e) => {
+          setPagerLocked(true);
+          handleTouch(e);
+        }}
         onResponderMove={handleTouch}
+        onResponderRelease={() => setPagerLocked(false)}
+        onResponderTerminate={() => setPagerLocked(false)}
       >
         <Svg width={chartWidth} height={chartHeight} style={{ overflow: 'hidden' }}>
           {/* Zero baseline for Form (TSB) */}

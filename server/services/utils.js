@@ -921,11 +921,21 @@ function formatStepsForStrava(stepsJson) {
 // Share settings are stored per Rooka sport bucket, not per Strava sport_type:
 // one "Run" entry has to cover Run, TrailRun, VirtualRun and the rest of
 // Strava's list, which `mapStravaSportToRooka` already collapses for us.
-const STRAVA_SHARE_SPORTS = ["Run", "Bike", "Swim", "Strength"];
+// "Other" covers whatever lands outside those four (walks, hikes, yoga,
+// rowing, HIIT...). Those used to have no entry at all, so they were always
+// tagged with everything on and the athlete had no way to stop it.
+const STRAVA_SHARE_SPORTS = ["Run", "Bike", "Swim", "Strength", "Other"];
 
-// `shareStructure` has no toggle in the app - the planned steps always go out
-// when there is a plan. It stays in the model because buildStravaUpdatePayload
-// reads it, and because normalizeShareSettings defaults absent flags to on.
+function stravaShareBucket(sportType) {
+  const sport = mapStravaSportToRooka(sportType);
+  return STRAVA_SHARE_SPORTS.includes(sport) ? sport : "Other";
+}
+
+// `shareStructure` has no toggle in the app, so it follows "Include rooka
+// score": the planned steps and the score are the same block of Rooka content
+// in the description. It used to default to on independently, which meant an
+// athlete who switched every visible toggle off still had the planned workout
+// written into their Strava description whenever there was a plan.
 const STRAVA_SHARE_FLAGS = ["shareName", "shareScore", "shareStructure", "shareLink"];
 
 const ALL_SHARING_ON = { shareName: true, shareScore: true, shareStructure: true, shareLink: true };
@@ -968,11 +978,12 @@ function normalizeShareSettings(raw) {
       if (flag in raw) out[flag] = !!raw[flag];
     }
   }
+  out.shareStructure = out.shareScore;
   return out;
 }
 
 function getStravaShareSettings(userId, sportType) {
-  const bucket = mapStravaSportToRooka(sportType);
+  const bucket = stravaShareBucket(sportType);
 
   return new Promise((resolve) => {
     db.get(

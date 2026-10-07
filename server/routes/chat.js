@@ -38,6 +38,7 @@ const { generateWithFallback, generateImage } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const muscleLoad = require('../services/muscleLoad');
 const { getUserGoalPromptContext } = require('../services/goalPromptContext');
+const { formatHrZonesForPrompt } = require('../services/athleteZones');
 const constraintsService = require('../services/athleteConstraints');
 const longTermMemory = require('../services/longTermMemory');
 const {
@@ -280,6 +281,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                 metricsRows && metricsRows.length > 0
                   ? metricsRows.map((m) => `${m.metric}: ${m.value}`).join(", ")
                   : "None explicitly recorded yet.";
+              const hrZonesText = await formatHrZonesForPrompt(req.user.id).catch(() => "");
 
               const recentBiometrics = await new Promise((resolve) => {
                 db.all(
@@ -711,6 +713,9 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                     PHYSIOLOGICAL METRICS:
                     ${metricsText}
+
+                    HEART-RATE ZONES:
+                    ${hrZonesText}
 
                     ATHLETE RECOVERY & BIOMETRICS (FROM APPLE HEALTH / GARMIN):
                     ${biometricsContextText}

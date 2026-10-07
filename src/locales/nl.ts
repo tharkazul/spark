@@ -136,6 +136,7 @@ export const nl: TranslationKeys = {
     strength: 'Kracht',
     mobility: 'Mobiliteit',
     walk: 'Wandelen',
+    other: 'Overig',
     rest: 'Rust',
   },
   onboarding: {
@@ -923,6 +924,7 @@ export const nl: TranslationKeys = {
     postWorkoutSummary: 'Titel Trainingssamenvatting Plaatsen',
     showRookaLink: 'Toon rooka.io',
     upgradeToRemoveCredit: 'Upgrade naar rooka+ om de vermelding te verwijderen',
+    rookaPlusOnly: 'Alleen rooka+',
     sleepAnalysis: 'Slaapanalyse & Fasen',
     heartRateResting: 'Hartslag & Rusthartslag',
     hrv: 'Hartslagvariabiliteit (HRV)',

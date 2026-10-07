@@ -23,6 +23,7 @@ import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 import { useTabBar } from '../../context/TabBarContext';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
 import { useLanguage } from '../../context/LanguageContext';
+import { PagerLockContext } from '../../context/PagerLockContext';
 
 const TABS = ['overview', 'fitness', 'body', 'history'] as const;
 type TabType = typeof TABS[number];
@@ -45,6 +46,7 @@ export default function ProgressScreen() {
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isNutritionModalOpen, setIsNutritionModalOpen] = useState(false);
+  const [isPagerLocked, setIsPagerLocked] = useState(false);
 
   const handleOpenActivity = (id: string | number) => {
     Haptics.selectionAsync();
@@ -91,10 +93,12 @@ export default function ProgressScreen() {
       </View>
 
       {/* SWIPABLE HORIZONTAL PAGER VIEW */}
+      <PagerLockContext.Provider value={setIsPagerLocked}>
       <ScrollView
         ref={horizontalScrollViewRef}
         horizontal
         pagingEnabled
+        scrollEnabled={!isPagerLocked}
         showsHorizontalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
@@ -158,6 +162,7 @@ export default function ProgressScreen() {
           </ScrollView>
         </View>
       </ScrollView>
+      </PagerLockContext.Provider>
 
       {/* NUTRITION MODAL SHEET */}
       <BottomSheetModal

@@ -22,8 +22,9 @@ interface ConnectionsTabProps {
 }
 
 // rooka's sport buckets, matching STRAVA_SHARE_SPORTS on the server. Strava's
-// own sport_type list is much longer; the server collapses it onto these four.
-export type SportType = 'Run' | 'Bike' | 'Swim' | 'Strength';
+// own sport_type list is much longer; the server collapses it onto these, with
+// 'Other' catching walks, yoga, rowing and anything else outside the first four.
+export type SportType = 'Run' | 'Bike' | 'Swim' | 'Strength' | 'Other';
 
 const ALL_ON: StravaShareFlags = {
   shareName: true,
@@ -37,6 +38,7 @@ const DEFAULT_TOGGLES: Record<SportType, StravaShareFlags> = {
   Bike: { ...ALL_ON },
   Swim: { ...ALL_ON },
   Strength: { ...ALL_ON },
+  Other: { ...ALL_ON },
 };
 
 const SPORT_OPTIONS: { id: SportType; label: string }[] = [
@@ -44,10 +46,11 @@ const SPORT_OPTIONS: { id: SportType; label: string }[] = [
   { id: 'Bike', label: 'Cycle' },
   { id: 'Swim', label: 'Swim' },
   { id: 'Strength', label: 'Strength' },
+  { id: 'Other', label: 'Other' },
 ];
 
-// `shareStructure` has no toggle: the planned steps go out whenever there is a
-// plan. It rides along in the payload so saving never clears it.
+// `shareStructure` has no toggle: the server makes it follow `shareScore`, so
+// switching the score off also keeps the planned steps out of the description.
 const TOGGLE_ROWS: { key: keyof StravaShareFlags }[] = [
   { key: 'shareScore' },
   { key: 'shareName' },
@@ -73,6 +76,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     if (id === 'Bike') return t('sports.bike');
     if (id === 'Swim') return t('sports.swim');
     if (id === 'Strength') return t('sports.strength');
+    if (id === 'Other') return t('sports.other');
     return id;
   };
 
@@ -717,11 +721,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 }`}
               >
                 <SportMedallion
-                  sport={sport.id}
+                  // 'Other' would normalise to the Strength dumbbell.
+                  sport={sport.id === 'Other' ? 'Cardio' : sport.id}
                   size={18}
                   onAccent={isSelected}
                 />
                 <Text
+                  numberOfLines={1}
                   className={`text-xs font-bold ${
                     isSelected ? 'text-white' : 'text-theme-muted'
                   }`}
@@ -750,26 +756,26 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                     }`}
                 >
                   <View className="flex-1 pr-3">
-                    <View className="flex-row items-center gap-1">
-                      <Text className="text-theme-text font-bold text-xs">{getToggleRowTitle(row.key)}</Text>
-                      {isLocked && (
-                        <View className="px-1.5 py-0.5 rounded bg-theme-accent/10">
-                          <Text className="text-theme-accent text-[10px] font-bold font-rajdhani">rooka+</Text>
-                        </View>
-                      )}
-                    </View>
+                    <Text className="text-theme-text font-bold text-xs">{getToggleRowTitle(row.key)}</Text>
                     {isLocked && (
                       <Text className="text-theme-muted text-xs font-rajdhani">
                         {t('connections.upgradeToRemoveCredit')}
                       </Text>
                     )}
                   </View>
-                  <Switch
-                    value={currentToggles[row.key]}
-                    disabled={isLocked}
-                    onValueChange={(val) => handleToggleChange(row.key, val)}
-                    trackColor={{ false: '#DDE3E9', true: theme.tint }}
-                  />
+                  {isLocked ? (
+                    // A greyed-out switch stuck on read as broken: free athletes
+                    // turned everything off and still saw the credit on Strava.
+                    <View className="px-2.5 py-1 rounded-full bg-theme-accent/10">
+                      <Text className="text-theme-accent text-xs font-bold">{t('connections.rookaPlusOnly')}</Text>
+                    </View>
+                  ) : (
+                    <Switch
+                      value={currentToggles[row.key]}
+                      onValueChange={(val) => handleToggleChange(row.key, val)}
+                      trackColor={{ false: '#DDE3E9', true: theme.tint }}
+                    />
+                  )}
                 </View>
               );
             })}

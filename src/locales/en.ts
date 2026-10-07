@@ -134,6 +134,7 @@ export const en = {
     strength: 'Strength',
     mobility: 'Mobility',
     walk: 'Walk',
+    other: 'Other',
     rest: 'Rest',
   },
   onboarding: {
@@ -921,6 +922,7 @@ export const en = {
     postWorkoutSummary: 'Post Workout Summary Title',
     showRookaLink: 'Show rooka.io',
     upgradeToRemoveCredit: 'Upgrade to rooka+ to remove the credit',
+    rookaPlusOnly: 'rooka+ only',
     sleepAnalysis: 'Sleep Analysis & Stages',
     heartRateResting: 'Heart Rate & Resting HR',
     hrv: 'Heart Rate Variability (HRV)',
