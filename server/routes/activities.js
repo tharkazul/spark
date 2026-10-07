@@ -12,6 +12,7 @@ const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const { sendPushToUser } = require('../services/pushNotificationService');
 const { getUserGoalPromptContext } = require('../services/goalPromptContext');
+const constraintsService = require('../services/athleteConstraints');
 const i18n = require('../services/i18n');
 const {
   matchGarminExercise,
@@ -1245,6 +1246,13 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
                   }
 
+                  const planStart = /^\d{4}-\d{2}-\d{2}$/.test(targetDate || "") ? targetDate : new Date().toISOString().slice(0, 10);
+                  const planEndDate = new Date(planStart + "T12:00:00Z");
+                  planEndDate.setUTCDate(planEndDate.getUTCDate() + 6);
+                  const promptConstraints = await constraintsService
+                    .getConstraintsForRange(req.user.id, planStart, planEndDate.toISOString().slice(0, 10))
+                    .catch(() => []);
+
                   const systemPrompt = `You are Coach ${coachName}, an elite endurance and athletic performance coach. ${PLAIN_LANGUAGE_RULE}
                 Tone: ${coachToneText}
                 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
@@ -1265,6 +1273,8 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                 ${recentSetsText}
                 ACTIVE INJURIES/NIGGLES:
                 ${nigglesText}
+                HARD TRAINING CONSTRAINTS (TRAVEL / ILLNESS / EQUIPMENT, AGREED WITH THE ATHLETE; every workout on a covered date MUST satisfy them):
+                ${constraintsService.formatConstraintsForPrompt(promptConstraints)}
 
                 ${goalContext.promptContext}
             
@@ -1374,7 +1384,15 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
                     const jsonMatch = aiReply.match(/```json([\s\S]*?)```/);
                     if (jsonMatch) {
                       try {
-                        const planData = JSON.parse(jsonMatch[1]);
+                        let planData = JSON.parse(jsonMatch[1]);
+                        // Dated constraints (travel, illness) are enforced in code, not just prompted.
+                        const planDates = planData.map((day) => day.date).filter(Boolean).sort();
+                        if (planDates.length > 0) {
+                          const planConstraints = await constraintsService
+                            .getConstraintsForRange(req.user.id, planDates[0], planDates[planDates.length - 1])
+                            .catch(() => []);
+                          planData = constraintsService.repairPlan(planData, planConstraints, user.language).plan;
+                        }
                         const affectedDates = [
                           ...new Set(planData.map((day) => day.date)),
                         ];

@@ -31,6 +31,12 @@ db.serialize(() => {
     `ALTER TABLE users ADD COLUMN long_term_memory TEXT DEFAULT ''`,
     (err) => {},
   );
+  // Read by the chat, generate-plan and weekly planner queries; its migration had gone
+  // missing, so a fresh database made the Sunday auto-plan throw for every athlete.
+  db.run(
+    `ALTER TABLE users ADD COLUMN cycle_tracking_enabled INTEGER DEFAULT 1`,
+    (err) => {},
+  );
   db.run(
     `ALTER TABLE users ADD COLUMN daily_token_usage INTEGER DEFAULT 0`,
     (err) => {},
@@ -498,6 +504,18 @@ db.serialize(() => {
     },
   );
 
+  // Where a coach row came from: 'chat' when the athlete agreed it with the coach in
+  // conversation, 'weekly_job' for the Sunday auto-plan. The Sunday job keeps 'chat'
+  // rows instead of overwriting what the athlete just discussed.
+  db.run(
+    `ALTER TABLE micro_plan ADD COLUMN origin TEXT`,
+    (err) => {
+      if (err && !err.message.includes("duplicate column name")) {
+        console.error("Error adding micro_plan origin column:", err.message);
+      }
+    },
+  );
+
   // Migration: check if micro_plan is missing the 'id' column. If so, rebuild it.
   // This also implicitly drops the legacy UNIQUE(user_id, date, sport) constraint so users can have 2 runs in a day.
   db.all(`PRAGMA table_info(micro_plan);`, (err, rows) => {
@@ -817,6 +835,26 @@ db.serialize(() => {
     )`);
 
   db.run(`ALTER TABLE athlete_niggles ADD COLUMN resolved_date DATETIME`, (err) => {});
+
+  // Dated training constraints (travel, illness, missing equipment). Like niggles, these
+  // are the single source of truth for every plan writer; see services/athleteConstraints.js.
+  db.run(`CREATE TABLE IF NOT EXISTS athlete_constraints (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'other',
+        start_date TEXT NOT NULL,
+        end_date TEXT NOT NULL,
+        allowed_sports TEXT,
+        blocked_sports TEXT,
+        max_minutes INTEGER,
+        no_intensity INTEGER DEFAULT 0,
+        note TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_athlete_constraints_user_dates ON athlete_constraints(user_id, status, start_date, end_date)`);
 
   db.run(`CREATE TABLE IF NOT EXISTS athlete_muscle_status (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

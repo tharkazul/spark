@@ -38,6 +38,8 @@ const { generateWithFallback, generateImage } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const muscleLoad = require('../services/muscleLoad');
 const { getUserGoalPromptContext } = require('../services/goalPromptContext');
+const constraintsService = require('../services/athleteConstraints');
+const longTermMemory = require('../services/longTermMemory');
 const {
   extractAndCleanFoodItems,
   matchGarminExercise,
@@ -388,6 +390,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                   let line = `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} Rooka)`;
                                   if (p.source === 'template') {
                                     line += ` [standard template week, not yet personalized by you]`;
+                                  } else if (p.source === 'user') {
+                                    line += ` [added by the athlete themselves: kept unless you output this date with the same sport or Rest]`;
+                                  } else if (p.origin === 'chat') {
+                                    line += ` [agreed with the athlete in chat]`;
                                   }
                                   if (p.details && p.details.trim()) {
                                     line += `\n    Details: ${p.details.trim()}`;
@@ -487,7 +493,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             }
 
                                             db.all(
-                                              `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 6) ORDER BY id ASC`,
+                                              `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 24) ORDER BY id ASC`,
                                               [req.user.id],
                                               async (err, historyRows) => {
                                                 const todayStr = getAMSDateString();
@@ -642,6 +648,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                          }
                                        }
 
+                                       const activeConstraints = await constraintsService
+                                         .getCurrentAndUpcomingConstraints(req.user.id, todayStr)
+                                         .catch(() => []);
+                                       const constraintsText = constraintsService.formatConstraintsForPrompt(activeConstraints, todayStr);
+
                                        const coachName = resolveCoachName(user);
                                        let coachToneText = user.coach_tone;
                                        if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
@@ -714,6 +725,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                     RECURRING SPORTS & PERIODICAL TRAININGS (NON-ROOKA ACTIVITIES):
                     ${recurringTrainingsText}
+
+                    TRAINING CONSTRAINTS: TRAVEL / ILLNESS / EQUIPMENT (REAL-TIME SINGLE SOURCE OF TRUTH):
+                    ${constraintsText}
+                    - These are dated facts the athlete told you. Every workout you schedule on a covered date MUST respect them; the app also enforces them and will rewrite any workout that breaks one.
+                    - If the athlete's situation changes (trip extended, bike rented after all, recovered early), update the constraint with a log_constraint block carrying its id, or end it with end_constraint, BEFORE scheduling workouts that depend on the change.
 
                     UPCOMING SCHEDULED WORKOUTS (Microplan):
                     ${planText}
@@ -821,7 +837,8 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                            * DO NOT prescribe cycling or bike FTP workouts if they do not have their bike with them.
                            * DO NOT prescribe aggressive threshold or VO2max intervals on unfamiliar or dark trails/roads where safety or footing is compromised.
                            * Focus on flexible, enjoyable aerobic maintenance (Zone 2 running, walking steep hills, scenic daylight jogs, bodyweight mobility).
-                           * You MUST commit this travel/holiday fact, location, dates, and training focus to long-term memory using a JSON memory block!
+                           * You MUST record it as a log_constraint block (see TRAINING CONSTRAINT LOGGING) with exact dates and rules, AND as a memory block with the destination and context.
+                           * If you don't know the dates or which sports they can do, ASK before assuming. Until they answer, log your best estimate and update it later.
                      20. PLAN COMMITMENT MANDATE (CRITICAL):
                          - If you tell the athlete in your text: "I'm adjusting your plan", "I've updated your workouts", "I've shifted your focus for the rest of your holiday", or promise any schedule alteration:
                            * YOU MUST NEVER JUST SAY IT IN TEXT!
@@ -875,9 +892,33 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                      \`\`\`json
                      {
                        "type": "memory",
-                       "data": "Traveling in Italy until Oct 4. Training focus: flexible daylight Zone 2 aerobic runs only. No gym, no bike, no high intensity."
+                       "data": "Holiday in Italy YYYY-MM-DD to YYYY-MM-DD with family. Training focus: flexible daylight Zone 2 runs only. No gym, no bike, no high intensity."
                      }
                      \`\`\`
+
+                    TRAINING CONSTRAINT LOGGING (CRITICAL):
+                     Whenever the athlete tells you about a period that limits their training (trip, holiday, business travel, illness, no bike or gym, a crazy work week), output a log_constraint block with ABSOLUTE dates (convert "next week", "this weekend" etc. using TIME CONTEXT above):
+                     \`\`\`json
+                     {
+                       "type": "log_constraint",
+                       "data": {
+                         "kind": "travel",
+                         "start_date": "YYYY-MM-DD",
+                         "end_date": "YYYY-MM-DD",
+                         "allowed_sports": ["Run"],
+                         "blocked_sports": [],
+                         "max_minutes": null,
+                         "no_intensity": true,
+                         "note": "Holiday in Italy, no bike, no gym"
+                       }
+                     }
+                     \`\`\`
+                     - kind: travel, illness, injury, equipment, schedule or other.
+                     - allowed_sports: the ONLY sports possible in that period (Run, Bike, Swim, Strength, Walk, Mobility). Leave it null if any sport is fine; use [] for rest only (e.g. fever).
+                     - blocked_sports: sports that are impossible (e.g. ["Bike"] when the bike stays home but everything else is fine).
+                     - max_minutes: per-session cap, or null. no_intensity: true when only easy aerobic work makes sense.
+                     - To change an existing constraint, include its "id" (from TRAINING CONSTRAINTS) in data with the updated fields. To end or cancel one: {"type": "end_constraint", "data": {"id": 12}}.
+                     - Also output the updated workouts JSON for any already-scheduled days in that period.
 
                     ATHLETE METRICS MEMORY (CRITICAL):
                     If the athlete mentions a new personal best, physiological metric, or baseline number (e.g., FTP, 5K pace, Max HR, resting heart rate, swim threshold), you MUST output an additional JSON block at the very end of your response to commit it to your long-term memory. Format it exactly like this inside triple backticks:
@@ -1038,9 +1079,37 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                       // Fallback: if no fenced code block was found, check if a raw JSON object exists in the reply
                                       if (jsonMatches.length === 0) {
-                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|memory|life_event|travel|generate_image)"[\s\S]*?\}/);
+                                        const rawJsonMatch = aiReply.match(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|memory|life_event|travel|log_constraint|end_constraint|cancel_constraint|generate_image)"[\s\S]*?\}/);
                                         if (rawJsonMatch) {
                                           jsonMatches.push([rawJsonMatch[0], rawJsonMatch[0]]);
+                                        }
+                                      }
+
+                                      // Constraints first, so workouts in the same reply are checked
+                                      // against the rules the coach just recorded.
+                                      let constraintsChanged = false;
+                                      for (const match of jsonMatches) {
+                                        let parsedDirective = null;
+                                        try {
+                                          parsedDirective = JSON.parse(match[1]);
+                                        } catch (_) {
+                                          continue;
+                                        }
+                                        if (
+                                          parsedDirective &&
+                                          ["log_constraint", "end_constraint", "cancel_constraint"].includes(parsedDirective.type)
+                                        ) {
+                                          try {
+                                            const result = await constraintsService.applyConstraintDirective(
+                                              req.user.id,
+                                              parsedDirective,
+                                              getAMSDateString(),
+                                            );
+                                            console.log(`[Constraints] ${parsedDirective.type} for user ${req.user.id}: ${result.action}${result.id ? ` #${result.id}` : ""}`);
+                                            if (result.id) constraintsChanged = true;
+                                          } catch (constraintErr) {
+                                            console.error("Failed to apply constraint directive from chat:", constraintErr);
+                                          }
                                         }
                                       }
 
@@ -1060,6 +1129,27 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                             ];
 
                                             if (affectedDates.length > 0) {
+                                              // The athlete's own sessions on these dates stay, unless the coach
+                                              // re-sent that same sport (an edit) or cleared the day with Rest.
+                                              const userRowsOnDates = await new Promise((resolveRows) => {
+                                                db.all(
+                                                  `SELECT id, date, sport FROM micro_plan WHERE user_id = ? AND source = 'user' AND date IN (${affectedDates.map(() => "?").join(",")})`,
+                                                  [req.user.id, ...affectedDates],
+                                                  (rowsErr, rows) => resolveRows(rowsErr || !rows ? [] : rows),
+                                                );
+                                              });
+                                              const replacedUserIds = userRowsOnDates
+                                                .filter((r) => {
+                                                  const sameDay = planData.filter((d) => d.date === r.date);
+                                                  const canon = constraintsService.canonicalSport(r.sport);
+                                                  return (
+                                                    sameDay.some((d) => constraintsService.canonicalSport(d.sport) === canon) ||
+                                                    sameDay.every((d) => constraintsService.canonicalSport(d.sport) === "Rest")
+                                                  );
+                                                })
+                                                .map((r) => r.id);
+                                              const replaceableClause = `((source IS NULL OR source != 'user')${replacedUserIds.length > 0 ? ` OR id IN (${replacedUserIds.join(",")})` : ""})`;
+
                                               await new Promise((resolvePlan) => {
                                                 const placeholders = affectedDates
                                                   .map(() => "?")
@@ -1070,7 +1160,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                     `INSERT INTO deleted_micro_plan (original_id, user_id, date, sport, description, target_rooka, details, steps_json, source, deleted_at)
                                                      SELECT id, user_id, date, sport, description, target_rooka, details, steps_json, source, datetime('now')
                                                      FROM micro_plan 
-                                                     WHERE user_id = ? AND date IN (${placeholders}) AND (LOWER(sport) != 'rest' OR (details IS NOT NULL AND details != ''))`,
+                                                     WHERE user_id = ? AND date IN (${placeholders}) AND ${replaceableClause} AND (LOWER(sport) != 'rest' OR (details IS NOT NULL AND details != ''))`,
                                                     [req.user.id, ...affectedDates],
                                                     (archiveErr) => {
                                                       if (archiveErr)
@@ -1082,7 +1172,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                   );
 
                                                   db.run(
-                                                    `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders})`,
+                                                    `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${placeholders}) AND ${replaceableClause}`,
                                                     [req.user.id, ...affectedDates],
                                                     (err) => {
                                                       if (err)
@@ -1093,9 +1183,10 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                     }
                                                   );
 
+                                                  // origin 'chat': the Sunday auto-plan keeps these days.
                                                   const stmt = db.prepare(`
-                                                      INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source) 
-                                                      VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
+                                                      INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source, origin) 
+                                                      VALUES (?, ?, ?, ?, ?, ?, ?, 'coach', 'chat')
                                                   `);
 
                                                   planData.forEach((day) => {
@@ -1159,26 +1250,11 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                                ? parsedData.data
                                                : (parsedData.text || parsedData.notes || JSON.stringify(parsedData.data));
                                              if (memoryNote && memoryNote.trim()) {
-                                               await new Promise((resolveMem) => {
-                                                 db.get(
-                                                   "SELECT long_term_memory FROM users WHERE id = ?",
-                                                   [req.user.id],
-                                                   (err, uRow) => {
-                                                     const existingMem = (uRow?.long_term_memory || "").trim();
-                                                     const cleanNote = memoryNote.trim();
-                                                     const newNote = cleanNote.startsWith("-") ? cleanNote : "- " + cleanNote;
-                                                     const updatedMem = existingMem ? existingMem + "\n" + newNote : newNote;
-                                                     db.run(
-                                                       "UPDATE users SET long_term_memory = ? WHERE id = ?",
-                                                       [updatedMem, req.user.id],
-                                                       (upErr) => {
-                                                         if (upErr) console.error("Failed to update long_term_memory from chat:", upErr);
-                                                         resolveMem();
-                                                       }
-                                                     );
-                                                   }
-                                                 );
-                                               });
+                                               try {
+                                                 await longTermMemory.appendMemoryNote(req.user.id, memoryNote);
+                                               } catch (memErr) {
+                                                 console.error("Failed to update long_term_memory from chat:", memErr);
+                                               }
                                              }
                                            } else if (
                                              parsedData &&
@@ -1514,10 +1590,32 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                        aiReply = aiReply
                                          .replace(/```(?:json)?[\s\S]*?```/gi, "")
-                                         .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|memory|life_event|travel|generate_image)"[\s\S]*?\}/gi, "")
+                                         .replace(/\{\s*"type"\s*:\s*"(?:log_diet|log_nutrition|log_activity|log_weight|log_cycle|log_niggle|resolve_niggle|metrics|memory|life_event|travel|log_constraint|end_constraint|cancel_constraint|generate_image)"[\s\S]*?\}/gi, "")
                                          .trim();
                                          
                                        aiReply = aiReply.replace(/[^.!?\n]*:\s*$/i, "").trim();
+
+                                       // Last line of defence: rewrite any stored coach day that breaks a
+                                       // constraint (including ones the coach wrote just now) and say so.
+                                       if (planUpdated || constraintsChanged) {
+                                         try {
+                                           const repairFrom = getAMSDateString();
+                                           const upcomingConstraints = await constraintsService.getCurrentAndUpcomingConstraints(req.user.id, repairFrom);
+                                           if (upcomingConstraints.length > 0) {
+                                             const repairTo = upcomingConstraints.reduce((max, c) => (c.end_date > max ? c.end_date : max), repairFrom);
+                                             const repairChanges = await constraintsService.repairStoredPlan(req.user.id, repairFrom, repairTo, user.language);
+                                             if (repairChanges.length > 0) {
+                                               planUpdated = true;
+                                               aiReply += `\n---MSG---\n${constraintsService.describeChangesForChat(repairChanges, user.language)}`;
+                                               if (createdWorkouts && createdWorkouts.length > 0) {
+                                                 createdWorkouts = constraintsService.repairPlan(createdWorkouts, upcomingConstraints, user.language).plan;
+                                               }
+                                             }
+                                           }
+                                         } catch (repairErr) {
+                                           console.error("Failed to enforce constraints on the stored plan:", repairErr);
+                                         }
+                                       }
 
                                        for (const task of pendingImageTasks) {
                                          aiReply += `\n\n![${task.caption}](loading://${task.pendingKey})`;
@@ -1627,22 +1725,12 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                          }
                                        }
 
-                                       db.get(
-                                         `SELECT COUNT(*) as count FROM chat_history WHERE user_id = ?`,
-                                         [req.user.id],
-                                         (err, row) => {
-                                           const userMsgLower = (message || "").toLowerCase();
-                                           const hasLifeEvent = /holiday|vacation|travel|italy|trip|flight|hotel|airbnb|vakantie|reis|italie|ziek|sick|ill|injury|blessure/i.test(userMsgLower);
-                                           if (
-                                             hasLifeEvent ||
-                                             (row && row.count > 0 && row.count % 6 === 0)
-                                           ) {
-                                             triggerBackgroundSummary(
-                                               req.user.id,
-                                             );
-                                           }
-                                         },
-                                       );
+                                       longTermMemory
+                                         .shouldSummarizeAfterMessage(req.user.id, message)
+                                         .then((due) => {
+                                           if (due || constraintsChanged) triggerBackgroundSummary(req.user.id);
+                                         })
+                                         .catch((summaryErr) => console.error("Failed to check memory summary trigger:", summaryErr));
 
                                        try {
                                          await new Promise((resolve, reject) => {

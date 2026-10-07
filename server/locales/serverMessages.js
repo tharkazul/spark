@@ -53,6 +53,52 @@ const messages = {
     "RACE WEEK": { en: "race week", nl: "wedstrijdweek", de: "Wettkampfwoche", es: "semana de carrera", fr: "semaine de course" },
     "RACE DAY": { en: "race day", nl: "wedstrijddag", de: "Wettkampftag", es: "día de carrera", fr: "jour de course" },
   },
+  // Sessions rewritten by services/athleteConstraints.js when a plan breaks a dated constraint.
+  constraints: {
+    kinds: {
+      travel: { en: "your trip", nl: "je reis", de: "deine Reise", es: "tu viaje", fr: "ton voyage" },
+      illness: { en: "your recovery from illness", nl: "je herstel van ziekte", de: "deine Genesung", es: "tu recuperación", fr: "ta récupération" },
+      injury: { en: "your injury", nl: "je blessure", de: "deine Verletzung", es: "tu lesión", fr: "ta blessure" },
+      equipment: { en: "the equipment you have available", nl: "de spullen die je bij je hebt", de: "die Ausrüstung, die du dabeihast", es: "el material que tienes disponible", fr: "ton matériel disponible" },
+      schedule: { en: "your schedule", nl: "je planning", de: "deinen Zeitplan", es: "tu agenda", fr: "ton emploi du temps" },
+      other: { en: "what we agreed", nl: "wat we hebben afgesproken", de: "unsere Absprache", es: "lo que acordamos", fr: "ce qu'on a convenu" },
+    },
+    easyTitle: {
+      en: "{minutes} min easy {sport}",
+      nl: "{minutes} min rustig {sport}",
+      de: "{minutes} Min. {sport} (locker)",
+      es: "{minutes} min {sport} suave",
+      fr: "{minutes} min {sport} facile",
+    },
+    easyDetails: {
+      en: "Adjusted to fit {reason}. Relaxed Zone 2 at a conversational pace, no intervals. Keep it enjoyable and stop early if you feel off.",
+      nl: "Aangepast aan {reason}. Ontspannen in zone 2 op praattempo, geen intervallen. Houd het leuk en stop eerder als je je niet goed voelt.",
+      de: "Angepasst an {reason}. Locker in Zone 2 im Gesprächstempo, keine Intervalle. Genieß es und hör früher auf, wenn du dich nicht gut fühlst.",
+      es: "Ajustado a {reason}. Zona 2 relajada a ritmo conversacional, sin intervalos. Disfrútalo y para antes si no te encuentras bien.",
+      fr: "Adapté à {reason}. Zone 2 tranquille à allure de conversation, sans intervalles. Fais-toi plaisir et arrête plus tôt si tu ne te sens pas bien.",
+    },
+    restTitle: {
+      en: "Rest day",
+      nl: "Rustdag",
+      de: "Ruhetag",
+      es: "Día de descanso",
+      fr: "Jour de repos",
+    },
+    restDetails: {
+      en: "No training today because of {reason}. A short walk or some light mobility is fine if you feel like it.",
+      nl: "Vandaag geen training vanwege {reason}. Een korte wandeling of wat lichte mobiliteit mag als je daar zin in hebt.",
+      de: "Heute kein Training, wir berücksichtigen {reason}. Ein kurzer Spaziergang oder etwas leichte Mobility ist okay, wenn dir danach ist.",
+      es: "Hoy no hay entrenamiento por {reason}. Un paseo corto o algo de movilidad suave está bien si te apetece.",
+      fr: "Pas d'entraînement aujourd'hui à cause de {reason}. Une petite marche ou un peu de mobilité légère, c'est ok si tu en as envie.",
+    },
+    chatNote: {
+      en: "I adjusted {days} so the plan fits {reason}.",
+      nl: "Ik heb {days} aangepast zodat het schema past bij {reason}.",
+      de: "Ich habe {days} angepasst, damit der Plan {reason} berücksichtigt.",
+      es: "He ajustado {days} para que el plan encaje con {reason}.",
+      fr: "J'ai ajusté {days} pour que le plan colle à {reason}.",
+    },
+  },
   api: {
     genericError: {
       en: "Something went wrong. Please try again.",

@@ -1625,94 +1625,10 @@ async function syncAllStravaUsersOnStartup() {
   );
 }
 
-async function triggerBackgroundSummary(userId) {
-  console.log(`🤖 Triggering background rolling summary for user ${userId}...`);
-
-  db.get(
-    `SELECT long_term_memory, coach_tone FROM users WHERE id = ?`,
-    [userId],
-    async (err, user) => {
-      if (err || !user) return;
-
-      db.all(
-        `SELECT body_part, severity, notes, status FROM athlete_niggles WHERE user_id = ?`,
-        [userId],
-        async (err, niggleRows) => {
-          const activeNiggles = (niggleRows || []).filter((n) => n.status === "active");
-          const resolvedNiggles = (niggleRows || []).filter((n) => n.status === "resolved");
-
-          const activeText =
-            activeNiggles.length > 0
-              ? activeNiggles
-                  .map(
-                    (n) =>
-                      `- ${n.body_part}: Severity ${n.severity}/5. ${n.notes || ""}`,
-                  )
-                  .join("\n")
-              : "No active injuries or niggles reported. Athlete is 100% healthy.";
-
-          const resolvedText =
-            resolvedNiggles.length > 0
-              ? resolvedNiggles
-                  .map((n) => `- ${n.body_part}: HEALED / RESOLVED`)
-                  .join("\n")
-              : "None.";
-
-          db.all(
-            `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 12) ORDER BY id ASC`,
-            [userId],
-            async (err, historyRows) => {
-              if (err) return;
-
-              const historyText =
-                historyRows && historyRows.length > 0
-                  ? historyRows
-                      .map((r) => `${r.role.toUpperCase()}: ${r.content}`)
-                      .join("\n")
-                  : "No recent chat.";
-
-              const currentSummary = user.long_term_memory || "No summary yet.";
-
-              const prompt = `You are a background AI assistant for an endurance coach app. Your job is to update the athlete's long-term memory summary based on recent chat history and REAL-TIME injury records.
-
-CURRENT LONG-TERM MEMORY:
-${currentSummary}
-
-REAL-TIME ACTIVE INJURIES (REALITY / TRUTH):
-${activeText}
-
-REAL-TIME RESOLVED / HEALED INJURIES (REALITY / TRUTH):
-${resolvedText}
-
-RECENT CHAT HISTORY:
-${historyText}
-
-INSTRUCTIONS & CRITICAL RULES:
-1. INJURY TRUTH: Refer strictly to the ACTIVE INJURIES list above. If an injury (e.g. heel, knee, ankle, back) is listed under RESOLVED INJURIES or is NOT in ACTIVE INJURIES, REMOVE IT COMPLETELY from current physical issues in the summary! Note it as fully healed or omit it.
-2. DO NOT state that a resolved or non-active injury is currently hurting, bothering, or limiting the athlete.
-3. TRAVEL, VACATIONS, HOLIDAYS & SCHEDULE/EQUIPMENT CONSTRAINTS (CRITICAL): If the athlete mentions traveling, taking a holiday, going on vacation (e.g. "in Italy for 1.5 weeks"), being away from home, lacking access to equipment/gym/bike, or illness, you MUST RECORD THIS PROMINENTLY including destination, duration/dates, and agreed training modifications (e.g. "In Italy until Oct 4; running flexible daylight Zone 2 only, no gym/weights, no bike/FTP").
-4. Update the long-term memory summary to incorporate any new important facts (new goals, shifts in mood, new baseline numbers).
-5. Keep it concise (under 200 words). Do not include pleasantries. Only output the updated summary text.`;
-
-              try {
-                const newSummary = await generateWithFallback(prompt);
-                db.run(`UPDATE users SET long_term_memory = ? WHERE id = ?`, [
-                  newSummary.trim(),
-                  userId,
-                ]);
-                console.log(`✅ Updated long-term memory for user ${userId}`);
-              } catch (e) {
-                console.error(
-                  `❌ Failed to update long-term memory for user ${userId}:`,
-                  e,
-                );
-              }
-            },
-          );
-        },
-      );
-    },
-  );
+// Lives in longTermMemory.js (serialized writes, dated summaries); kept here because every
+// route imports it from utils.
+function triggerBackgroundSummary(userId) {
+  return require("./longTermMemory").triggerBackgroundSummary(userId);
 }
 
 function updateUserRookaAndCheckLevel(userId, options = {}) {
@@ -3603,7 +3519,13 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   let prompt = `It is morning (${todayStr}). You are the athlete's coach. Write a short, proactive, energetic morning message. `;
   if (user.long_term_memory) {
     prompt += `\nATHLETE LIFE CONTEXT & LONG-TERM MEMORY:\n${user.long_term_memory}\n`;
-    prompt += `CRITICAL TRAVEL & LIFE EVENT DIRECTIVE: If the athlete is currently traveling, on vacation/holiday, or away (e.g. in Italy), align your morning greeting with that exact reality. Do NOT urge them to go to a gym, ride an indoor bike / do FTP sessions, or follow rigid track intervals unless their context explicitly supports it. Cheer their flexible aerobic running or vacation rest! `;
+    prompt += `CRITICAL TRAVEL & LIFE EVENT DIRECTIVE: If the athlete is currently traveling, on vacation/holiday, or away, align your morning greeting with that exact reality. Do NOT urge them to go to a gym, ride an indoor bike / do FTP sessions, or follow rigid track intervals unless their context explicitly supports it. Cheer their flexible aerobic running or vacation rest! `;
+  }
+  const todayConstraints = await require("./athleteConstraints")
+    .getConstraintsForRange(userId, todayStr, todayStr)
+    .catch(() => []);
+  if (todayConstraints.length > 0) {
+    prompt += `\nCONSTRAINTS THAT APPLY TODAY (agreed with the athlete, these are facts):\n${require("./athleteConstraints").formatConstraintsForPrompt(todayConstraints, todayStr)}\nYour message MUST fit these constraints: never suggest a sport, intensity or duration they rule out, and treat any recurring session that conflicts with them as cancelled today. `;
   }
   if (todayAvailabilityNote) {
     prompt += `${todayAvailabilityNote} `;

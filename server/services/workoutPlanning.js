@@ -8,6 +8,7 @@ const { planDayTargetRooka } = require("./zones");
 const muscleLoad = require("./muscleLoad");
 const { getUserMacroPhase } = require("./utils");
 const { getUserGoalPromptContext } = require("./goalPromptContext");
+const constraintsService = require("./athleteConstraints");
 
 /**
  * Calculates the exact 7 consecutive dates (YYYY-MM-DD) from Monday to Sunday
@@ -435,7 +436,7 @@ async function generateTemplatePlanForUser(userId, dates) {
     ({ ctl } = await calculateUserFitnessMetrics(userId));
   } catch (_) {}
 
-  const plan = buildTemplatePlan(dates, {
+  const templatePlan = buildTemplatePlan(dates, {
     primarySport: guessPrimarySport(user.athlete_context),
     lang: user.language || 'en',
     availability: user.training_availability,
@@ -443,6 +444,8 @@ async function generateTemplatePlanForUser(userId, dates) {
     recurringByDate,
     skipDates,
   });
+  const constraints = await constraintsService.getConstraintsForRange(userId, dates[0], dates[6]).catch(() => []);
+  const { plan } = constraintsService.repairPlan(templatePlan, constraints, user.language || 'en');
 
   await new Promise((resolve) =>
     db.run(
@@ -583,6 +586,47 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
       userManualWorkouts.map((w) => `- ${w.date}: ${w.sport} - ${w.description}`).join("\n");
   }
 
+  // 7a. Days the athlete already agreed with the coach in chat stay as they are; overwriting
+  // them made the conversation feel pointless. options.replaceChatPlans overrides (admin).
+  const lockedChatRows = options.replaceChatPlans
+    ? []
+    : await new Promise((resolve) => {
+        db.all(
+          `SELECT date, sport, description FROM micro_plan
+           WHERE user_id = ? AND date IN (${dates.map(() => '?').join(',')}) AND source = 'coach' AND origin = 'chat'`,
+          [userId, ...dates],
+          (err, rows) => resolve(err || !rows ? [] : rows)
+        );
+      });
+  const lockedDates = new Set(lockedChatRows.map((r) => r.date));
+  let lockedChatNotice = "";
+  if (lockedChatRows.length > 0) {
+    lockedChatNotice = `\nDAYS ALREADY AGREED WITH THE ATHLETE IN CHAT (KEPT AS THEY ARE, DO NOT OUTPUT THESE DATES; PLAN THE REST OF THE WEEK AROUND THEM):\n` +
+      lockedChatRows.map((w) => `- ${w.date}: ${w.sport} - ${w.description}`).join("\n");
+  }
+
+  // 7c. Dated constraints (travel, illness, equipment) are hard rules, checked in code below.
+  const constraints = await constraintsService.getConstraintsForRange(userId, dates[0], dates[6]).catch(() => []);
+  const constraintsNotice = constraints.length > 0
+    ? `\nHARD TRAINING CONSTRAINTS FOR THIS WEEK (TRAVEL / ILLNESS / EQUIPMENT, AGREED WITH THE ATHLETE):\n${constraintsService.formatConstraintsForPrompt(constraints)}\nEvery workout on a covered date MUST satisfy its constraint. Recurring sessions that conflict with a constraint are suspended on those dates. Any workout that breaks a constraint will be rejected.`
+    : "";
+
+  // 7d. What the athlete said recently, so the plan doesn't depend on the memory summary alone.
+  const recentChatRows = await new Promise((resolve) => {
+    db.all(
+      `SELECT role, content, timestamp FROM chat_history
+       WHERE user_id = ? AND timestamp >= datetime('now', '-7 days') AND role IN ('user', 'coach')
+       ORDER BY id DESC LIMIT 40`,
+      [userId],
+      (err, rows) => resolve(err || !rows ? [] : rows.reverse())
+    );
+  });
+  const recentChatText = recentChatRows.length > 0
+    ? recentChatRows
+        .map((r) => `[${String(r.timestamp || '').slice(0, 10)}] ${r.role === 'user' ? 'ATHLETE' : 'COACH'}: ${String(r.content || '').replace(/\s+/g, ' ').slice(0, 500)}`)
+        .join("\n")
+    : "No conversation in the last 7 days.";
+
   // 7b. Fetch recurring trainings (non-Rooka recurring sports like hockey, tennis, spinning)
   const dayKeyMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const recurringTrainings = await new Promise((resolve) => {
@@ -602,8 +646,13 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
       const rtDay = (rt.day_of_week || "").trim().slice(0, 3).toLowerCase();
       return rtDay === dayKey.toLowerCase();
     });
-    if (matches.length > 0) {
-      dateToRecurringMap[dStr] = matches;
+    // A recurring session the constraints rule out (club hockey during a trip) is suspended.
+    const rule = constraintsService.effectiveRuleForDate(constraints, dStr);
+    const allowedMatches = rule
+      ? matches.filter((rt) => constraintsService.checkWorkout({ date: dStr, sport: rt.sport || 'Other', description: rt.title, duration_minutes: rt.duration_minutes }, rule).length === 0)
+      : matches;
+    if (allowedMatches.length > 0) {
+      dateToRecurringMap[dStr] = allowedMatches;
     }
   });
 
@@ -651,7 +700,12 @@ ${recentSetsText}
 ACTIVE INJURIES/NIGGLES:
 ${nigglesText}
 ${userWorkoutsNotice}
+${lockedChatNotice}
 ${recurringTrainingsNotice}
+${constraintsNotice}
+
+CONVERSATION WITH THE ATHLETE IN THE LAST 7 DAYS (each line starts with the date it was sent; anything they told you about the coming week, such as travel, illness, time pressure or wishes, MUST shape this plan):
+${recentChatText}
 
 ${goalContext.promptContext}
 
@@ -668,7 +722,7 @@ CRITICAL RULES:
    - Sunday: ${dates[6]}
 3. SCHEDULE BOUNDARIES: You MUST adhere to daily time constraints. If a day is marked 'blocked' or max_minutes is 0, schedule 'Rest'.
 3b. RECURRING NON-ROOKA ACTIVITIES: If any recurring non-Rooka activities are listed in ATHLETE'S RECURRING PERIODICAL SESSIONS above (e.g. hockey, spinning, tennis, club sports), you MUST include a workout entry on that exact day representing this activity. Set 'sport' to the relevant sport or 'CrossTraining' / 'Cardio' / 'Strength' / 'Other' (or closest match), use the exact session name as the description, set an appropriate target_rooka reflecting the duration and intensity (e.g. 40-70), and in 'details' describe the session and coaching notes on how it fits into their weekly athletic development. Balance the athlete's other workouts, intensities, and recovery days around these sessions.
-3c. TRAVEL, VACATION, HOLIDAYS & SPECIAL CONSTRAINTS (CRITICAL): Check ATHLETE LIFE CONTEXT & LONG-TERM MEMORY above carefully. If the athlete is currently traveling, on holiday/vacation (e.g. in Italy, abroad, visiting family), lacks gym/equipment access, or has an ongoing illness/injury recovery, you MUST adapt the entire weekly plan to fit those exact constraints:
+3c. TRAVEL, VACATION, HOLIDAYS & SPECIAL CONSTRAINTS (CRITICAL): Follow HARD TRAINING CONSTRAINTS exactly, then check ATHLETE LIFE CONTEXT & LONG-TERM MEMORY and the recent CONVERSATION. If the athlete is traveling, on holiday, away from home, lacks gym/equipment access, or is recovering from illness/injury in this week, you MUST adapt the entire weekly plan to fit those exact constraints:
    - Do NOT schedule gym/strength workouts with barbells, machines, or heavy weights if they do not have gym access while traveling (prescribe bodyweight mobility or omit strength).
    - Do NOT schedule indoor bike FTP sessions or road bike workouts if they do not have their bike on vacation.
    - Do NOT schedule punishing VO2max / Z4 intervals if the user agreed to flexible aerobic Zone 2 daylight running while traveling.
@@ -738,44 +792,35 @@ Form (TSB): ${tsb}
 
 Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coaching summary of this week's focus, followed by the JSON block for Monday to Sunday.`;
 
-  let aiReply = '';
-  try {
-    aiReply = await generateWithFallback(
-      userPrompt,
-      systemPrompt,
-      null,
-      null,
-      userId,
-      poolType,
-      false,
-      { language: user.language }
-    );
-  } catch (errAi) {
-    console.warn(`[WeeklyPlan] AI generation warning for user ${userId}:`, errAi.message);
-  }
-
-  let planData = [];
-  const jsonMatch = aiReply ? aiReply.match(/```json([\s\S]*?)```/) : null;
-  if (jsonMatch) {
+  const callPlanner = async (prompt) => {
     try {
-      planData = JSON.parse(jsonMatch[1]);
-    } catch (e) {
-      console.warn(`[WeeklyPlan] Failed to parse JSON block from AI reply for user ${userId}`);
+      return await generateWithFallback(prompt, systemPrompt, null, null, userId, poolType, false, { language: user.language });
+    } catch (errAi) {
+      console.warn(`[WeeklyPlan] AI generation warning for user ${userId}:`, errAi.message);
+      return '';
     }
-  } else if (aiReply && aiReply.trim().startsWith('[') && aiReply.trim().endsWith(']')) {
-    try {
-      planData = JSON.parse(aiReply.trim());
-    } catch (e) {}
-  }
+  };
 
-  // Fallback to structured schedule if AI did not return a valid array
-  if (!Array.isArray(planData) || planData.length === 0) {
-    planData = buildFallbackPlan(dates, guessPrimarySport(user.athlete_context), user.language);
-  }
+  const parsePlan = (reply) => {
+    let parsed = [];
+    const jsonMatch = reply ? reply.match(/```json([\s\S]*?)```/) : null;
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[1]);
+      } catch (e) {
+        console.warn(`[WeeklyPlan] Failed to parse JSON block from AI reply for user ${userId}`);
+      }
+    } else if (reply && reply.trim().startsWith('[') && reply.trim().endsWith(']')) {
+      try {
+        parsed = JSON.parse(reply.trim());
+      } catch (e) {}
+    }
+    return Array.isArray(parsed) ? parsed : [];
+  };
 
-  // Filter and sanitize plan data
+  // Filter and sanitize plan data; days agreed in chat are never replaced.
   const validSports = new Set(['Run', 'Bike', 'Swim', 'Strength', 'Rest']);
-  const sanitizedPlan = planData.map((item, idx) => {
+  const sanitize = (rawPlan) => rawPlan.map((item, idx) => {
     const assignedDate = dates.includes(item.date) ? item.date : (dates[idx] || dates[0]);
     const sport = validSports.has(item.sport) ? item.sport : 'Run';
     const description = item.description || (sport === 'Rest' ? 'Rest & Recovery' : `${sport} Session`);
@@ -801,11 +846,38 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
       steps_json: stepsJson,
       source: 'coach',
     };
-  });
+  }).filter((day) => !lockedDates.has(day.date));
+
+  let aiReply = await callPlanner(userPrompt);
+  let planData = parsePlan(aiReply);
+  const usedFallback = planData.length === 0;
+  // Fallback to structured schedule if AI did not return a valid array
+  if (usedFallback) {
+    planData = buildFallbackPlan(dates, guessPrimarySport(user.athlete_context), user.language);
+  }
+  let sanitizedPlan = sanitize(planData);
+
+  // A draft that breaks a constraint gets one regeneration with the violations spelled out;
+  // whatever still breaks one after that is repaired in code below.
+  if (!usedFallback && constraints.length > 0) {
+    const violations = constraintsService.findViolations(sanitizedPlan, constraints);
+    if (violations.length > 0) {
+      console.warn(`[WeeklyPlan] Draft for user ${userId} broke ${violations.length} constraint(s); regenerating.`);
+      const retryReply = await callPlanner(
+        `${userPrompt}\n\nIMPORTANT: Your previous draft broke the athlete's HARD TRAINING CONSTRAINTS:\n${constraintsService.describeViolations(violations)}\nRebuild the full week so every workout satisfies them. Do not mention this correction in your summary.`
+      );
+      const retryPlan = parsePlan(retryReply);
+      if (retryPlan.length > 0) {
+        aiReply = retryReply;
+        sanitizedPlan = sanitize(retryPlan);
+      }
+    }
+  }
 
   // Ensure any recurring trainings for this week are represented in the plan
   if (typeof dateToRecurringMap === 'object') {
     Object.entries(dateToRecurringMap).forEach(([dStr, rts]) => {
+      if (lockedDates.has(dStr)) return;
       rts.forEach((rt) => {
         const alreadyHas = sanitizedPlan.some(p => p.date === dStr && (
           p.description?.toLowerCase().includes(rt.title.toLowerCase()) || 
@@ -826,6 +898,15 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
     });
   }
 
+  // Final guarantee: nothing that breaks a constraint reaches the calendar.
+  const { plan: compliantPlan, changes: constraintChanges } = constraintsService.repairPlan(sanitizedPlan, constraints, user.language);
+  if (constraintChanges.length > 0) {
+    console.warn(`[WeeklyPlan] Repaired ${constraintChanges.length} workout(s) for user ${userId} to fit constraints.`);
+  }
+  sanitizedPlan = compliantPlan;
+
+  const keepChatClause = options.replaceChatPlans ? '' : ` AND NOT (source = 'coach' AND COALESCE(origin, '') = 'chat')`;
+
   // 8. Atomic Database Write:
   // First archive existing coach/recurring workouts that are being replaced so user can recover if desired
   await new Promise((resolve) => {
@@ -834,7 +915,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
       `INSERT INTO deleted_micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
        SELECT user_id, date, sport, description, target_rooka, details, steps_json, source
        FROM micro_plan
-       WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source IS NULL)
+       WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source IS NULL)${keepChatClause}
          AND sport IS NOT NULL AND LOWER(sport) != 'rest'`,
       [userId, ...dates],
       (archiveErr) => {
@@ -849,7 +930,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
     const placeholders = dates.map(() => '?').join(',');
     db.run(
       `DELETE FROM micro_plan 
-       WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source = 'template' OR source IS NULL)`,
+       WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source = 'template' OR source IS NULL)${keepChatClause}`,
       [userId, ...dates],
       (err) => {
         if (err) console.error(`[WeeklyPlan] Error clearing prior plan for user ${userId}:`, err);
@@ -859,8 +940,8 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   });
 
   const insertStmt = db.prepare(`
-    INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source, origin)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'weekly_job')
   `);
 
   sanitizedPlan.forEach((day) => {
@@ -892,6 +973,9 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
       : user.language === 'fr'
       ? `J'ai préparé ton programme d'entraînement pour la semaine prochaine (du lundi ${dates[0]} au dimanche ${dates[6]}). Regarde ton tableau de bord et allons-y à fond !`
       : `I've just built and pushed your training schedule for the coming week (Monday ${dates[0]} to Sunday ${dates[6]}). Check your calendar—let's make it a great week!`;
+  }
+  if (constraintChanges.length > 0) {
+    coachNote += `\n\n${constraintsService.describeChangesForChat(constraintChanges, user.language)}`;
   }
 
   db.run(
