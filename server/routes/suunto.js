@@ -500,6 +500,12 @@ function buildGuideStep(step, sportKey, hrZones) {
   };
 }
 
+/** Cuts on code points (no split emoji) and marks the cut with an ellipsis. */
+function truncate(str, max) {
+  const chars = Array.from(str);
+  return chars.length <= max ? str : `${chars.slice(0, max - 1).join('').trimEnd()}…`;
+}
+
 function guideExternalId(userId, date, sportKey) {
   return `rooka-${userId}-${date}-${sportKey}`;
 }
@@ -526,9 +532,10 @@ function buildGuide(userId, workout, hrZones) {
   return {
     externalId: guideExternalId(userId, workout.date, sportKey),
     guide: {
-      name: `rooka: ${title}`.slice(0, 60),
-      description: description.slice(0, 500),
-      shortDescription: title.slice(0, 40),
+      name: truncate(`rooka: ${title}`, 60),
+      // Suunto rejects guide.description longer than 256 chars (HTTP 400).
+      description: truncate(description, 256),
+      shortDescription: truncate(title, 40),
       localDate: workout.date,
       type: 'sequence',
       activities: [activityId],
