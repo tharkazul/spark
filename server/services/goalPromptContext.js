@@ -110,13 +110,17 @@ MANDATORY GRANULARITY & STRUCTURE PARITY DIRECTIVE:
    - For Warmup and Cooldown steps, ALWAYS populate "exerciseName" with the specific mobility drills or stretches prescribed (e.g. exerciseName: "Cossack Squats & Inchworms" for warmup, exerciseName: "Couch Stretch & Pigeon Pose" for cooldown).
 (Machine-readable step intervals go into 'steps_json', while rich, human-readable technique cues, drills, and equipment instructions go into 'details').`;
 
+  // The coach chat carries the granularity and parity rules in its own rule set
+  // (prompts/coach_chat_rules.md), so it asks for the discipline drills alone.
+  const header = options.includeBaseHeader === false ? "GOAL-SPECIFIC TRAINING & DRILL RULES:" : baseHeader;
+
   if (discipline === "hyrox") {
     const customContent = templates.hyrox || `
 - Hyrox Compromised Running: Prescribe drills where running occurs immediately following heavy functional work (e.g. 50m Heavy Sled Push into 400m surge run at race pace; weighted vest incline treadmill walk into flat threshold run).
 - Station Technique & Isolation: Include specific cues and sets for SkiErg (tall-kneeling band pull-downs), Burpee Broad Jumps (low-hip bounds), Sled Pulls (quad drive), Farmers Carries (+ dead hangs), Sandbag Lunges (+ jump squats), and Wall Balls (descent catch EMOM).
 - Session Details: Detail dynamic warm-up mobility (world's greatest stretch, ankle rocks), primary work (exact kg and pacing), functional accessories, and cool-down.`;
 
-    return `\n${baseHeader}
+    return `\n${header}
 
 ATHLETE DISCIPLINE: HYROX & FUNCTIONAL ENDURANCE
 ${customContent}\n`;
@@ -129,7 +133,7 @@ ${customContent}\n`;
 - Run Drills & Brick Transitions: Prescribe neuromuscular strides, running form drills (high knees, butt kicks, A-skips, B-skips), and direct bike-to-run (T2) brick transitions.
 - Intra-Workout Fueling: Specify explicit intra-session hydration and carbohydrate intake (g/hr) in the workout details.`;
 
-    return `\n${baseHeader}
+    return `\n${header}
 
 ATHLETE DISCIPLINE: TRIATHLON & IRONMAN (SWIM / BIKE / RUN)
 ${customContent}\n`;
@@ -141,14 +145,14 @@ ${customContent}\n`;
 - Biomechanical Cues in Details: Explicitly cue "high heels" (rapid heel pull directly under glutes for compact swing phase), cadence (175-185 spm), tall posture, and midfoot landing.
 - Session Details: Specify pre-run dynamic mobility (leg swings, ankle dorsiflexion), structured interval pacing, and post-run strides.`;
 
-    return `\n${baseHeader}
+    return `\n${header}
 
 ATHLETE DISCIPLINE: ENDURANCE RUNNING
 ${customContent}\n`;
   }
 
   // General endurance athlete fallback
-  return `\n${baseHeader}
+  return `\n${header}
 
 ATHLETE DISCIPLINE: GENERAL ENDURANCE & FUNCTIONAL FITNESS
 - Biomechanical & Technique Focus: In workout 'details', never write generic descriptions. Always prescribe explicit warm-up mobility, cadence cues (e.g., 175-185 spm for runs, 85-95 rpm for rides), form mechanics (e.g., tall posture, relaxed shoulders, heel recovery), and session focus.\n`;

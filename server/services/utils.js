@@ -1212,13 +1212,6 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
           return resolve(null);
         }
 
-        // Muscle impact analysis
-        try {
-          analyzeMuscleImpact(internalUserId, activityData, rookaSport, activityDate);
-        } catch (e) {
-          console.error("AI Muscle Impact Analysis failed:", e);
-        }
-
         // Invalidate today's nutrition cache if activity happened today
         const todayStr = getAMSDateString();
         if (activityDate === todayStr) {
@@ -3018,50 +3011,6 @@ async function calculateQuestProgress(userId, quest) {
   return computeQuestProgressValue(quest, activities);
 }
 
-async function analyzeMuscleImpact(userId, activityData, rookaSport, activityDate) {
-  const prompt = `The athlete completed a ${rookaSport} activity: ${activityData.name}. 
-  Distance: ${(activityData.distance / 1000).toFixed(1)}km
-  Time: ${Math.round(activityData.moving_time / 60)} min.
-  Sets: ${activityData.sets_json ? JSON.stringify(activityData.sets_json) : "None"}
-  
-  Based on this, what is the training impact (stimulus) on the involved muscle groups? Output a JSON array mapping body parts to an impact score (1-100). 
-  Use standard naming (e.g. "quads", "calves", "shoulders", "lower-back", "chest", "lats", "glutes", "hamstrings", "core").
-  Example format:
-  [{"body_part": "quads", "impact_score": 30}, {"body_part": "shoulders", "impact_score": 15}]
-  `;
-
-  const systemPrompt = `You are a sports science AI.`;
-
-  try {
-    // Import here to avoid circular dependency issues if any, though it's likely already imported
-    const { generateWithFallback } = require('./ai'); 
-    let result = await generateWithFallback(prompt, systemPrompt, null, null, userId, "personal", true);
-    const fatigueArray = JSON.parse(result);
-    
-    if (Array.isArray(fatigueArray)) {
-      const stmt = db.prepare(`
-        INSERT INTO athlete_muscle_status (user_id, body_part, fatigue_score, development_score) 
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id, body_part) DO UPDATE SET 
-          fatigue_score = fatigue_score + excluded.fatigue_score,
-          development_score = development_score + excluded.development_score,
-          last_updated = CURRENT_TIMESTAMP
-      `);
-      fatigueArray.forEach(f => {
-        // Fallback to f.fatigue_score just in case the AI uses the old format
-        const score = f.impact_score || f.fatigue_score;
-        if(f.body_part && score) {
-          stmt.run(userId, f.body_part, score, score);
-        }
-      });
-      stmt.finalize();
-      console.log(`✅ Saved muscle impact for ${activityData.name}`);
-    }
-  } catch(e) {
-    console.error("Failed to parse muscle impact JSON", e);
-  }
-}
-
 async function runDailyRecoveryJob() {
   console.log("🌙 Running daily recovery & degradation job...");
 
@@ -3289,7 +3238,6 @@ module.exports = {
   buildStravaUpdatePayload,
   runDailyRecoveryJob,
   calculateRookaScoreZoned,
-  analyzeMuscleImpact,
   matchGarminExercise,
   getAMSDateString,
   getAMSWeekday,

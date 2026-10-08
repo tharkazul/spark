@@ -117,8 +117,11 @@ function formatRecurringTrainings(recurringRows) {
   assert.ok(chatSource.includes("SELECT title, day_of_week, start_time, duration_minutes, sport, intensity FROM recurring_trainings"), "chat.js queries recurring_trainings");
   assert.ok(chatSource.includes("DAILY EXERCISE LIMITATIONS & WEEKLY SCHEDULE BOUNDARIES:"), "chat.js injects availability into prompt");
   assert.ok(chatSource.includes("RECURRING SPORTS & PERIODICAL TRAININGS (NON-ROOKA ACTIVITIES):"), "chat.js injects recurring sports into prompt");
-  assert.ok(chatSource.includes("DAILY EXERCISE LIMITATIONS & TIME BUDGET COMPLIANCE (CRITICAL)"), "chat.js enforces daily limits");
-  assert.ok(chatSource.includes("RECURRING SPORTS & PERIODICAL TRAININGS HARMONY (CRITICAL)"), "chat.js enforces recurring sports harmony");
+  // The coach rules live in prompts/coach_chat_rules.md, sent at the top of every chat prompt.
+  assert.ok(chatSource.includes("prompts/coach_chat_rules.md"), "chat.js loads the coach rules");
+  const chatRules = fs.readFileSync(path.join(__dirname, "prompts/coach_chat_rules.md"), "utf8");
+  assert.ok(chatRules.includes("never prescribe, suggest or schedule a workout longer than that day's max minutes in DAILY EXERCISE LIMITATIONS"), "chat rules enforce daily limits");
+  assert.ok(chatRules.includes("never put an intense or exhausting endurance session on the same day as a high-intensity recurring sport"), "chat rules enforce recurring sports harmony");
   console.log("✅ Test 4 Passed: chat.js source code verified for prompt injection and critical rules");
 }
 

@@ -138,7 +138,12 @@ const CoachChatContext = createContext<CoachChatContextType | undefined>(undefin
 
 export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [messages, setMessagesState] = useState<ChatMessage[]>([getDefaultWelcomeMessage()]);
-  const [sending, setSending] = useState<boolean>(false);
+  const [sending, setSendingState] = useState<boolean>(false);
+  const sendingRef = useRef<boolean>(false);
+  const setSending = useCallback((val: boolean) => {
+    sendingRef.current = val;
+    setSendingState(val);
+  }, []);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -325,9 +330,13 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       const response = await chatApi.getHistory();
       if (response) {
-        if (Array.isArray(response) && response.length > 0) {
+        const rawHistory = Array.isArray(response)
+          ? response
+          : ('history' in response && Array.isArray((response as any).history) ? (response as any).history : null);
+
+        if (rawHistory && rawHistory.length > 0) {
           const processed: ChatMessage[] = [];
-          response.forEach((m) => {
+          rawHistory.forEach((m: any) => {
             const parts = splitCoachReply(m.content);
             if (parts.length > 1 && (m.role === 'coach' || m.role === 'assistant')) {
               parts.forEach((part, idx) => {
@@ -336,7 +345,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
                     ...m,
                     id: `${m.id}-${idx}`,
                     content: part,
-                    timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
+                    timestamp: m.timestamp || m.created_at || new Date().toISOString(),
                   })
                 );
               });
@@ -345,40 +354,30 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
                 processMessageItem({
                   ...m,
                   id: m.id?.toString(),
-                  timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
+                  timestamp: m.timestamp || m.created_at || new Date().toISOString(),
                 })
               );
             }
           });
-          setMessages(sortMessagesChronological(processed));
-        } else if ('history' in response && response.history && Array.isArray(response.history) && response.history.length > 0) {
-          const processed: ChatMessage[] = [];
-          response.history.forEach((m) => {
-            const parts = splitCoachReply(m.content);
-            if (parts.length > 1 && (m.role === 'coach' || m.role === 'assistant')) {
-              parts.forEach((part, idx) => {
-                processed.push(
-                  processMessageItem({
-                    ...m,
-                    id: `${m.id}-${idx}`,
-                    content: part,
-                    timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
-                  })
-                );
-              });
+          const sorted = sortMessagesChronological(processed);
+          setMessages(sorted);
+
+          // Update typing indicator based on latest message
+          const lastMsg = sorted[sorted.length - 1];
+          if (lastMsg && (lastMsg.role === 'coach' || lastMsg.role === 'assistant')) {
+            setSending(false);
+          } else if (lastMsg && lastMsg.role === 'user') {
+            const lastTime = new Date(lastMsg.timestamp || 0).getTime();
+            const ageMs = Date.now() - lastTime;
+            if (!isNaN(ageMs) && ageMs >= 0 && ageMs < 90000) {
+              setSending(true);
             } else {
-              processed.push(
-                processMessageItem({
-                  ...m,
-                  id: m.id?.toString(),
-                  timestamp: m.timestamp || (m as any).created_at || new Date().toISOString(),
-                })
-              );
+              setSending(false);
             }
-          });
-          setMessages(sortMessagesChronological(processed));
-          if (response.tokenUsage) {
-            setTokenUsage(response.tokenUsage);
+          }
+
+          if (!Array.isArray(response) && (response as any).tokenUsage) {
+            setTokenUsage((response as any).tokenUsage);
           }
         } else {
           setMessagesState([getDefaultWelcomeMessage()]);
@@ -390,7 +389,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user?.id, processMessageItem, setMessages]);
+  }, [isAuthenticated, user?.id, processMessageItem, setMessages, setSending]);
 
   // Synchronize chat messages, active status, and unread state across app state transitions
   useEffect(() => {
@@ -489,7 +488,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           });
 
           // WhatsApp style: drop full message bubble without typewriter effect
-          setMessages((prev) => [...prev, coachMsg]);
+          setMessages((prev) => {
+            const alreadyExists = prev.some((m) =>
+              (m.role === 'coach' || m.role === 'assistant') &&
+              m.content.trim() === replyPart.trim() &&
+              Math.abs(new Date(m.timestamp || 0).getTime() - baseTimestamp) < 60000
+            );
+            if (alreadyExists) return prev;
+            return [...prev, coachMsg];
+          });
 
           // Turn off typing indicator if this was the last bubble
           if (i === rawReplies.length - 1) {
@@ -502,10 +509,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } catch (err: any) {
       console.error('Send message error:', err);
       setError(null);
-      setMessages((prev) =>
-        prev.map(m => (m.id === userMsg.id || m.clientId === userMsg.clientId) ? { ...m, isError: true } : m)
-      );
       if (err.status === 429) {
+        setMessages((prev) =>
+          prev.map(m => (m.id === userMsg.id || m.clientId === userMsg.clientId) ? { ...m, isError: true } : m)
+        );
         const fallbackText = tr('coachStore.tokenLimit');
         const fallbackParts = splitCoachReply(fallbackText);
         const baseErrTimestamp = Date.now();
@@ -526,6 +533,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           if (i === fallbackParts.length - 1) {
             setSending(false);
           }
+        }
+      } else {
+        // Only mark message as error if the app remained active in foreground.
+        // When the user backgrounds or closes the app, iOS may abort or suspend the in-flight fetch,
+        // but the server continues generating in the background and will push the reply.
+        if (isAppActiveRef.current) {
+          setMessages((prev) =>
+            prev.map(m => (m.id === userMsg.id || m.clientId === userMsg.clientId) ? { ...m, isError: true } : m)
+          );
         }
       }
     } finally {
@@ -878,7 +894,11 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     });
 
     const unsubUnreadMessage = wsService.subscribeToEvent('unread_message', (_data: any) => {
-      refreshMessages();
+      // If user is actively sending in the foreground chat screen, let sendMessage's local bubble animation complete.
+      // Otherwise (app backgrounded, different tab, or coach finished in background), refresh messages.
+      if (!isChatActiveRef.current || !isAppActiveRef.current || !sendingRef.current) {
+        refreshMessages();
+      }
     });
 
     const subNotification = DeviceEventEmitter.addListener('COACH_NOTIFICATION_RECEIVED', () => {

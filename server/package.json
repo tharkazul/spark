@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "node test_workoutPlanning.js && node test_coachMemory.js",
+    "test": "node test_workoutPlanning.js && node test_coachMemory.js && node test_chatBackgroundPersistence.js",
     "start": "node server.js",
     "backup": "node scripts/backup.js",
     "restore": "node scripts/restore.js"

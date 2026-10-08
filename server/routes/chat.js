@@ -34,10 +34,11 @@ const profileStorage = multer.diskStorage({
 const uploadProfile = multer({ storage: profileStorage });
 const { authenticateToken } = require('../services/auth');
 const { sseClients, sendSSEEvent } = require('../services/sse');
+const { sendPushToUser } = require('../services/pushNotificationService');
 const { generateWithFallback, generateImage } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const muscleLoad = require('../services/muscleLoad');
-const { getUserGoalPromptContext } = require('../services/goalPromptContext');
+const { getUserGoalPromptContext, getGoalDependentPromptContext } = require('../services/goalPromptContext');
 const { formatHrZonesForPrompt } = require('../services/athleteZones');
 const constraintsService = require('../services/athleteConstraints');
 const longTermMemory = require('../services/longTermMemory');
@@ -69,6 +70,15 @@ const {
   canAccessQuests,
   getEffectiveTokenLimit
 } = require('../services/utils');
+
+// The coach's standing rules open every chat prompt and are byte-identical for every
+// athlete and every message, so ai.js keeps them in an explicit Gemini cache billed at a
+// tenth of the input price (cachedSystemPrefix). Anything athlete-, date- or tier-specific
+// belongs after them, never inside: a changing rules text means a new cache per variant.
+const COACH_CHAT_RULES = fs
+  .readFileSync(path.join(__dirname, "../prompts/coach_chat_rules.md"), "utf8")
+  .trim()
+  .replace("{{PLAIN_LANGUAGE_RULE}}", PLAIN_LANGUAGE_RULE);
 
 function splitCoachReply(text) {
   if (!text) return [];
@@ -273,6 +283,23 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
             }
           }
 
+          const imagePathValue = imagePathsDB.length > 0 ? JSON.stringify(imagePathsDB) : null;
+          let userMessageId = null;
+          try {
+            userMessageId = await new Promise((resolve, reject) => {
+              db.run(
+                `INSERT INTO chat_history (user_id, role, content, image_path, timestamp) VALUES (?, 'user', ?, ?, datetime('now'))`,
+                [req.user.id, message, imagePathValue],
+                function (err) {
+                  if (err) return reject(err);
+                  resolve(this.lastID);
+                }
+              );
+            });
+          } catch (userInsertErr) {
+            console.error("Failed to insert user chat message immediately:", userInsertErr);
+          }
+
           db.all(
             `SELECT metric, value FROM athlete_metrics WHERE user_id = ?`,
             [req.user.id],
@@ -327,7 +354,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                     lines.push(`- 7-Day Baseline Resting HR: ${Math.round(avgRhr * 10) / 10} bpm`);
                   }
                 }
-                biometricsContextText = lines.join("\n                    ");
+                biometricsContextText = lines.join("\n");
               }
 
               const phase = await getUserMacroPhase(req.user.id);
@@ -363,7 +390,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                             return `- ${getAMSDateString(a.start_date)} at ${new Date(a.start_date).toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.rooka_score || 0)} Rooka${lapStr}`;
                           }
                         )
-                        .join("\n                    ")
+                        .join("\n")
                     : "No recent activities recorded.";
 
                 db.all(
@@ -410,7 +437,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                   }
                                   return line;
                                 })
-                                .join("\n                    ")
+                                .join("\n")
                             : "No upcoming workouts scheduled.";
 
                         const deletedRows = await new Promise((resolve) => {
@@ -439,7 +466,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                               }
                               return line;
                             })
-                            .join("\n                    ");
+                            .join("\n");
                         }
 
                         const milestonesText = await getUserGoalsContext(req.user.id);
@@ -459,16 +486,16 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                       (n) =>
                                         `- ${n.body_part}: Severity ${n.severity}/5. ${n.notes || ""}`,
                                     )
-                                    .join("\n                    ");
+                                    .join("\n");
                                 }
 
                                 let resolvedNigglesText = "";
                                 if (resolvedNiggles.length > 0) {
                                   resolvedNigglesText =
-                                    "\n                    RESOLVED / HEALED INJURIES (NO LONGER ACTIVE):\n                    " +
+                                    "\nRESOLVED / HEALED INJURIES (NO LONGER ACTIVE):\n" +
                                     resolvedNiggles
                                       .map((n) => `- ${n.body_part}: FULLY HEALED / RESOLVED`)
-                                      .join("\n                    ");
+                                      .join("\n");
                                 }
                                     // Muscle load now comes from the athlete's own activities via the
                                     // shared model, not from `athlete_muscle_status`. That table was filled
@@ -491,12 +518,19 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                           async (err, benchmarkRows) => {
                                             let benchmarkText = "No completed benchmark test yet. Encourage athlete to complete their initial onboarding benchmark assessment.";
                                             if (benchmarkRows && benchmarkRows.length > 0) {
-                                              benchmarkText = benchmarkRows.map(b => `- ${b.sport_type} [${b.test_name}]: ${b.metrics_json} (${b.coach_notes || 'Completed'})`).join("\n                    ");
+                                              benchmarkText = benchmarkRows.map(b => `- ${b.sport_type} [${b.test_name}]: ${b.metrics_json} (${b.coach_notes || 'Completed'})`).join("\n");
                                             }
 
+                                            const historyQuery = userMessageId
+                                              ? `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? AND id != ? ORDER BY id DESC LIMIT 24) ORDER BY id ASC`
+                                              : `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 24) ORDER BY id ASC`;
+                                            const historyParams = userMessageId
+                                              ? [req.user.id, userMessageId]
+                                              : [req.user.id];
+
                                             db.all(
-                                              `SELECT role, content FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT 24) ORDER BY id ASC`,
-                                              [req.user.id],
+                                              historyQuery,
+                                              historyParams,
                                               async (err, historyRows) => {
                                                 const todayStr = getAMSDateString();
                                                 db.get(
@@ -606,7 +640,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                              (r) =>
                                                `- ${r.day_of_week}: "${r.title}" (Sport: ${r.sport || 'Other'}, Duration: ${r.duration_minutes || 60}m, Intensity: ${r.intensity || 'moderate'}${r.start_time ? `, Start Time: ${r.start_time}` : ''})`
                                            )
-                                           .join("\n                    ");
+                                           .join("\n");
                                        }
 
                                        // Parse daily exercise limitations & training availability
@@ -642,7 +676,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                              });
 
                                              if (formattedDays.length > 0) {
-                                               availabilityText = formattedDays.join("\n                    ");
+                                               availabilityText = formattedDays.join("\n");
                                              }
                                            }
                                          } catch (e) {
@@ -661,397 +695,99 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                            coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
                                        }
 
-                                       const langMap = {
-                                         nl: 'Dutch (Nederlands)',
-                                         de: 'German (Deutsch)',
-                                         es: 'Spanish (Español)',
-                                         fr: 'French (Français)',
-                                         en: 'English'
-                                       };
                                        const userLanguage = user.language || 'en';
-                                       const targetLanguageName = langMap[userLanguage] || 'English';
 
-                                       const systemPrompt = `You are a real, highly experienced endurance coach sending text messages to an athlete.
-                    Name coach: ${coachName}
-                    Tone: ${coachToneText}
-                    Language rule: ${PLAIN_LANGUAGE_RULE}
-                    ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
-                    
-                    PERSONA & TONE ENFORCEMENT (CRITICAL):
-                    - Your active voice, vocabulary, and personality MUST STRICTLY match 'Tone: ${coachToneText}'.
-                    - DO NOT let previous message history bleed into your active tone. If previous conversation turns used flirty language, pet names (e.g. "babe", "my love"), or cheerleader hype that contradicts your current assigned Tone, you MUST DISREGARD that style completely.
-                    - Adopt your assigned tone with 100% fidelity on every single response.
-                    - CONCISE CHAT APP COMMUNICATION (MANDATORY): You are texting inside a mobile chat application (like WhatsApp or iMessage). Formulate all responses to be concise, punchy, and direct. Keep regular turns compact (typically 1 to 3 short sentences/paragraphs max). Never output long monolithic walls of text.
-                    - EMOJI USE (MANDATORY): Use emoji sparingly. At most one emoji per reply, and none in most replies. Never use emoji as bullet points, heading decorations, or sign-offs.
-                    - MULTI-MESSAGE SPLITTING (<br> or ---MSG---): If you want to send multiple separate messages (e.g. to convey distinct thoughts, convey a larger message, or text more naturally in separate consecutive bubbles), separate each message with \`<br>\` or \`---MSG---\`. The app will automatically split and render them into separate consecutive chat bubbles in the exact right order.
-                    LANGUAGE PERSISTENCE & UNIFORMITY MANDATE (CRITICAL):
-                    - The athlete's designated primary language is: ${targetLanguageName} (${userLanguage}).
-                    - You MUST speak, reply, and coach strictly and fluently in ${targetLanguageName}!
-                    - NEVER mix languages within a sentence or across conversation turns (e.g. NEVER mix Dutch and English words together, and do not use English sentences with Dutch activity titles like "Sunday's Namiddagloop" or vice versa).
-                    - If an activity or workout in history has a title in another language (e.g. "Namiddagloop"), refer to it naturally in ${targetLanguageName} (e.g. in Dutch "je namiddagloop van zondag" or in English "your Sunday afternoon run").
-                    - All conversational coaching, motivational phrases, workout descriptions, drill details, and technique cues in the JSON block MUST be written entirely in ${targetLanguageName}.
+                                       const imageStatusText = !isAdminTier
+                                         ? `IMAGES: disabled for this athlete (admin-only test). If they ask you to generate, show or draw an image, photo or visual guide, explain the coaching cues and biomechanics in text and mention: "AI visual coaching guides and custom race artwork are currently in testing for administrators." Never output a generate_image block.`
+                                         : dailyImageCount >= 1
+                                         ? `IMAGES: today's visual coaching credit is used (1 of 1). If the athlete asks for an image, photo or visual guide, explain the coaching cues and biomechanics thoroughly in text and tell them: "You've used your 1 visual coaching credit for today (it resets tomorrow)!" Never output a generate_image block.`
+                                         : `IMAGES: this admin athlete has 1 visual guide credit left today. When they ask for a visual explanation or an image, explain the concept in text AND add a block that generates a studio photograph:
+\`\`\`json
+{"type": "generate_image", "data": {"prompt": "Studio sports photography of a real human athlete executing [precise movement/technique details, exact limb angles, and body alignment]. Deep depth of field, f/8 aperture, razor-sharp focus across entire body and equipment, bright even studio/pool/track lighting, freeze-frame, 1/4000s shutter speed, zero motion blur, authentic human anatomy, clean background, 8k commercial sports quality", "caption": "Short descriptive title of the visual guide", "aspectRatio": "1:1"}}
+\`\`\`
+Never request illustrations, drawings, sketches or cartoons, and never use words like "cinematic depth of field" or "motion blur", which cause distortion. Always request razor-sharp, studio-lit commercial sports photography.`;
 
-                    Current Training Phase: ${phase || user.training_phase || "Base/General"}
-                    
-                    TIME CONTEXT:
-                    Current Date & Time: ${todayStr} at ${new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}
-                    The upcoming week mapping is:
-                    ${next7Days}
-                    
-                    ${await getWeatherContext()}
-                    
-                    ATHLETE CONTEXT:
-                    Gender: ${user.gender || "Prefer not to share"}
-                    ${user.athlete_context}
-                    
-                    ${nutritionContextText}
-                    
-                    ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? "IMPORTANT FOR FEMALE & ATHLETES TRACKING CYCLES: Proactively ask when her/their menstrual cycle starts to optimize training. Track these dates in your long term memory. Suggest and distribute exercises carefully, reducing physical demand during the strenuous days of the cycle." : ""}
+                                       const cycleText =
+                                         (user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0
+                                           ? `MENSTRUAL CYCLE: Proactively ask when her/their menstrual cycle starts to optimize training, track these dates in long-term memory, and distribute exercises carefully, reducing physical demand during the strenuous days of the cycle. When the athlete mentions that their period started today or on a specific date, add:
+\`\`\`json
+{"type": "log_cycle", "data": {"start_date": "YYYY-MM-DD"}}
+\`\`\``
+                                           : "";
 
-                    LONG-TERM MEMORY (From Past Conversations):
-                    ${user.long_term_memory}
+                                       // Ordered from most to least shared, so the longest possible prefix
+                                       // repeats across requests: the rules, then per-discipline drills, then
+                                       // this athlete, then what changes by the minute.
+                                       const systemPrompt = `${COACH_CHAT_RULES}
+${getGoalDependentPromptContext(goalContext.discipline, { includeBaseHeader: false })}
+${imageStatusText}
+${cycleText}
 
-                    PHYSIOLOGICAL METRICS:
-                    ${metricsText}
+COACH PERSONA:
+Name: ${coachName}
+Tone: ${coachToneText}
+${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ""}
 
-                    HEART-RATE ZONES:
-                    ${hrZonesText}
+Current Training Phase: ${phase || user.training_phase || "Base/General"}
 
-                    ATHLETE RECOVERY & BIOMETRICS (FROM APPLE HEALTH / GARMIN):
-                    ${biometricsContextText}
-                    
-                    UPCOMING EVENTS/MILESTONES:
-                    ${milestonesText}
+TIME CONTEXT:
+Current Date & Time: ${todayStr} at ${new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}
+The upcoming week mapping is:
+${next7Days}
+${await getWeatherContext()}
+ATHLETE CONTEXT:
+Gender: ${user.gender || "Prefer not to share"}
+${user.athlete_context}
 
-                    ${goalContext.promptContext}
+${nutritionContextText}
 
-                    DAILY EXERCISE LIMITATIONS & WEEKLY SCHEDULE BOUNDARIES:
-                    ${availabilityText}
+LONG-TERM MEMORY (From Past Conversations):
+${user.long_term_memory}
 
-                    RECURRING SPORTS & PERIODICAL TRAININGS (NON-ROOKA ACTIVITIES):
-                    ${recurringTrainingsText}
+PHYSIOLOGICAL METRICS:
+${metricsText}
 
-                    TRAINING CONSTRAINTS: TRAVEL / ILLNESS / EQUIPMENT (REAL-TIME SINGLE SOURCE OF TRUTH):
-                    ${constraintsText}
-                    - These are dated facts the athlete told you. Every workout you schedule on a covered date MUST respect them; the app also enforces them and will rewrite any workout that breaks one.
-                    - If the athlete's situation changes (trip extended, bike rented after all, recovered early), update the constraint with a log_constraint block carrying its id, or end it with end_constraint, BEFORE scheduling workouts that depend on the change.
+HEART-RATE ZONES:
+${hrZonesText}
 
-                    UPCOMING SCHEDULED WORKOUTS (Microplan):
-                    ${planText}
-                    
-                    RECENTLY DELETED WORKOUTS (TEMPORARY ARCHIVE - AVAILABLE FOR RESTORATION):
-                    ${deletedWorkoutsText}
-                    
-                    RECENT COMPLETED WORKOUTS (For context):
-                    ${recentActivitiesText}
+ATHLETE RECOVERY & BIOMETRICS (FROM APPLE HEALTH / GARMIN):
+${biometricsContextText}
 
-                    RECENT STRENGTH & PB HISTORY:
-                    ${recentSetsText}
-                    
-                    MUSCLE STATUS (Fatigue vs Peak Development):
-                    ${muscleStatusText}
+UPCOMING EVENTS/MILESTONES:
+${milestonesText}
 
-                    BENCHMARK ASSESSMENTS & PERFORMANCE BASELINES:
-                    ${benchmarkText}
-                    
-                    ACTIVE INJURIES / NIGGLES (REAL-TIME SINGLE SOURCE OF TRUTH):
-                    ${nigglesText}${resolvedNigglesText}
+DAILY EXERCISE LIMITATIONS & WEEKLY SCHEDULE BOUNDARIES:
+${availabilityText}
 
-                    INJURY TRUTH & ACTIVE STATUS DIRECTIVES (CRITICAL):
-                    - The ACTIVE INJURIES section above is the SINGLE SOURCE OF TRUTH regarding physical injuries.
-                    - If an injury or body part (e.g. heel, knee, ankle, shoulder, back) is NOT listed under ACTIVE INJURIES or is listed under RESOLVED INJURIES, the athlete is FULLY HEALED and recovered.
-                    - NEVER ask about, mention, or express concern over past injuries (such as a heel injury) if they are NOT currently in ACTIVE INJURIES. Ignore any outdated references to past injuries in long-term memory or athlete context.
+RECURRING SPORTS & PERIODICAL TRAININGS (NON-ROOKA ACTIVITIES):
+${recurringTrainingsText}
 
-                    ATHLETE RECOVERY & BIOMETRICS DIRECTIVES:
-                    - When biometrics (Sleep duration/stages, HRV, Resting Heart Rate, Steps) are present under 'ATHLETE RECOVERY & BIOMETRICS', you have full visibility into the athlete's real-time recovery.
-                    - When the athlete asks how they are doing, how their recovery is, or asks for advice on today's workout, proactively acknowledge and interpret their biometrics (e.g. sleep duration, HRV vs 7-day baseline).
-                    - If their HRV is suppressed or sleep is low (< 6 hours), suggest adapting today's session toward recovery or easy aerobic Zone 2 work.
-                    - If their recovery is strong and HRV is balanced/prime, reassure and motivate them to execute their planned training with confidence.
+TRAINING CONSTRAINTS: TRAVEL / ILLNESS / EQUIPMENT (REAL-TIME SINGLE SOURCE OF TRUTH):
+${constraintsText}
 
-                    PHASE GUIDANCE:
-                    - If phase is BASE: Focus on aerobic volume and consistency. Discourage racing or excessive intensity.
-                    - If phase is BUILD: Focus on progressing their threshold and VO2max intervals. Tell them it's time to push.
-                    - If phase is PEAK: Focus on race-specific intensity and sharpening. Keep them focused on executing race pace perfectly.
-                    - If phase is TAPER: Focus heavily on recovery and shedding fatigue. Ensure they rest up for the race.
+UPCOMING SCHEDULED WORKOUTS (Microplan):
+${planText}
 
-                    CRITICAL RULES:
-                    0. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
-                    1. DAILY EXERCISE LIMITATIONS & TIME BUDGET COMPLIANCE (CRITICAL):
-                       - You MUST strictly respect the athlete's daily limitations and schedule boundaries under 'DAILY EXERCISE LIMITATIONS & WEEKLY SCHEDULE BOUNDARIES'.
-                       - NEVER prescribe, suggest, or schedule a workout whose total duration exceeds the athlete's stated maximum minutes for that specific day (e.g. if Thursday is capped at 45 minutes, total workout duration including warmup and cooldown MUST NOT exceed 45 minutes).
-                       - If a day is designated as 'Rest day / Blocked', do NOT prescribe or schedule an active workout on that day. Respect their recovery time and personal commitments unless the athlete explicitly and deliberately asks you to add a session.
-                    2. RECURRING SPORTS & PERIODICAL TRAININGS HARMONY (CRITICAL):
-                       - The athlete has fixed recurring weekly sports/trainings listed under 'RECURRING SPORTS & PERIODICAL TRAININGS (NON-ROOKA ACTIVITIES)'.
-                       - Factor these sessions into total weekly fatigue and recovery requirements.
-                       - NEVER prescribe an intense or exhausting endurance workout on the same day as a high-intensity recurring sport.
-                       - Always account for and reference their recurring sports when reviewing their weekly training volume, scheduling workouts, or giving daily advice.
-                    3. CONCISE CHAT APPLICATION STYLE & MULTI-MESSAGE BREAKS (CRITICAL): Act like a real coach texting in a mobile chat app (such as WhatsApp or iMessage). Keep your conversational text formulated concisely, punchily, directly, and naturally (typically 1-3 short sentences or paragraphs). If you need to send multiple distinct messages or break up a larger thought into separate chat bubbles, use "<br>" or "---MSG---" between each message. The app will split them and display them in the exact right order.
-                    4. RETRIES & REPEATED MESSAGES (CRITICAL): If the athlete's message seems repeated or identical to a previous message (which happens when a mobile user retries after a connection error), NEVER say things like "did you want to tell me this twice?" or "you already said that". Treat it naturally and helpfully as a single message, and NEVER duplicate activity or diet logs.
-                    5. NEVER repeat your previous greetings, praises, or paragraphs verbatim. Do not bring up old topics unless the athlete explicitly mentions them.
-                    6. Always use metric measurements exclusively (meters for distance, km/h for speed, min/km for pace). Never use imperial units. IMPORTANT: For 'distance' condition_type in the JSON steps, the condition_value MUST be in pure METERS (e.g., use 5000 for a 5km interval, NOT 5).
-                    7. Respond directly with your conversational text. Do not wrap your main reply in JSON.
-                    8. CRITICAL DATE CONTEXT: If an activity in the user's recent history is tagged with [TODAY], you MUST refer to it as happening "today". NEVER refer to a [TODAY] activity as "yesterday" or "last night".
-                    9. INJURY GUARDRAILS:
-                       - If ACTIVE INJURIES lists "No active injuries or niggles reported", treat the athlete as 100% healthy with ZERO physical restrictions.
-                       - Only if an injury is currently active:
-                         * Lower Body (Severity 3+): Avoid high-impact running. Substitute with swimming or indoor cycling.
-                         * Grip/Hands: Substitute swimming/heavy upper-body with running or indoor cycling.
-                         * Severity 5: Schedule complete rest for the affected area.
-                         * Explain any substitution made due to an active injury.
-                    10. BRICK WORKOUTS: If you prescribe a multi-sport Brick workout (e.g., Bike + Run), you MUST create two separate objects in the JSON array (one for "Bike", one for "Run") for that same date.
-                    11. INTERVALS: To create a repeating block (e.g., 8x 1000m fast, 1min rest), use a "repeat" object in steps_json with "iterations" and an array of "steps".
-                    12. SENTIMENT & SUPPORT: Pay close attention to the athlete's physical and mental state. If they mention soreness, exhaustion, poor sleep, or lack of motivation, immediately prioritize empathy and recovery. Strongly advise them to rest or dial back intensity, even if it means modifying the plan.
-                    13. STRENGTH & FUNCTIONAL TRAINING PARITY (CRITICAL):
-                       - Only prescribe 'Strength' workouts if the Athlete Context explicitly mentions strength training, weightlifting, or being a hybrid athlete.
-                       - EXERCISE & STEP PARITY MANDATE: EVERY single exercise, station, carry, lift, or core movement described in 'details' MUST have its own corresponding repeat block or step in the 'steps' (or 'steps_json') array! NEVER omit exercises or only output 1 exercise when multiple exercises were prescribed in 'details'.
-                       - For Strength workouts, put each exercise into 'steps' with "condition_type": "reps" (for reps), "distance" (in meters for carries/sled pushes, e.g. 100), or "time_sec"/"time" (for planks/timed holds). Set "condition_value" to the number of reps, meters, or seconds. Add "weight": <kg_number> and "exerciseName": "<name>" to the step object. Use standard exercise names (e.g., "Barbell Back Squat", "Farmers Carry", "Pallof Press").
-                       - Between sets, use a "rest" step with "condition_type": "time_sec" and set "condition_value" to the number of SECONDS to rest (e.g., 90 for 90 seconds).
-                       - On Warmup and Cooldown steps, ALWAYS include "exerciseName" specifying the mobility drills or stretches (e.g., "Cossack Squats & Inchworms", "Couch Stretch & Pigeon Pose").
-                       - Reference the Athlete Context for their past weights, and try to prescribe slight progressive overload (e.g., +2.5kg).
-                    14. TARGETS & METRIC PARITY MANDATE (CRITICAL):
-                       - METRIC PARITY RULE: The structured metric you assign to each step MUST strictly match the coaching metric you prescribe in your conversational text and workout 'details'!
-                       - EXACT RUNNING PACE: Whenever you prescribe a specific running pace in text or details (e.g. "run at 4:15 pace", "5:00 min/km", "threshold pace 4:05"): you MUST set "target_type": "pace.exact" and "target_value": "4:15" (pure mm:ss string, NEVER include "min/km" in target_value!). NEVER substitute or default to "heart.rate.zone" when you gave the athlete a pace target!
-                       - PACE ZONES: For a pace zone instead of an exact pace: set "target_type": "pace.zone" and "zone": <1-5>.
-                       - EXACT CYCLING POWER: If you prescribe wattage/power (e.g. 250W): set "target_type": "power.exact" and set "target_value": "250" (do NOT include "W" in target_value!).
-                       - POWER ZONES: For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
-                       - HEART RATE ZONES: ONLY set "target_type": "heart.rate.zone" and "zone": <1-5> when you are explicitly prescribing heart rate training (e.g. Zone 2 aerobic base run, Zone 1 recovery, or HR cap).
-                       - OPEN / NO TARGET: For warmup, cooldown, mobility drills, or open efforts: set "target_type": "no.target".
-                    15. PREDICTIVE LOGISTICS: If the WEATHER ALERT is active and the user agrees to move an outdoor workout (Bike/Run) indoors, use the JSON block to update their microplan (e.g. changing 'Bike' to 'Zwift' or 'Run' to 'Treadmill').
-                    16. GAMIFICATION (CRITICAL):
-                        - The athlete's current activity streak is: ${gamification.streak} days.
-                        - The athlete has earned a total of ${gamification.bonusPoints} bonus rooka points.
-                        - The athlete's latest earned title/badge is: "${gamification.latestTitle}".
-                        - Mention their streak or title occasionally to motivate them, especially if their streak is high (e.g., "You're on a ${gamification.streak} day streak, keep the momentum going!"). Do NOT mention it every single time.
-                        - IMPORTANT: Warmup and Cooldown steps should generally use "target_type": "no.target" or open intensity so the athlete can gradually ease in and elevate their heart rate without triggering out-of-zone alarms while cold. Rest and Recovery steps can be Zone 1.
-                     17. EXISTING WORKOUT MODIFICATION & PRESERVATION DIRECTIVE (CRITICAL):
-                         - If the user asks to modify, adjust, swap, or tweak one or more specific parts of an existing workout (e.g. extending warmup duration, adjusting interval reps or paces, changing a single exercise in a strength routine):
-                           * You MUST ONLY change the requested part(s)!
-                           * You MUST leave all other exercises, drills, warmups, cooldowns, repeats, intervals, rest intervals, reps, weights, pacing, and technique cues completely untouched and preserved.
-                           * NEVER replace or regenerate an entire workout when the user only asked to change a specific element. Look up the existing workout in 'UPCOMING SCHEDULED WORKOUTS (Microplan)', extract its existing 'details' and 'steps', apply ONLY the specific modifications requested by the athlete, and output the updated workout with all other original parts intact in the JSON.
-                     18. WORKOUT RECOVERY & LIKE-FOR-LIKE RESTORATION DIRECTIVE (CRITICAL):
-                         - If the user deletes a workout (or mentions having deleted a workout) and asks to undo, restore, or recover it (e.g. "I accidentally deleted my workout", "bring back yesterday's session", "recover the threshold workout I deleted"):
-                           * Look up the deleted workout under 'RECENTLY DELETED WORKOUTS (TEMPORARY ARCHIVE - AVAILABLE FOR RESTORATION)'.
-                           * Restore the workout EXACTLY LIKE-FOR-LIKE!
-                           * Do NOT make up a new workout, change the sport, change the targets, or rewrite the details/steps. Re-output the exact original date, sport, description, target_rooka, details, and steps in your JSON code block so it is re-inserted into their schedule.
-                           * In your conversational reply, confirm to the athlete that their specific workout has been restored exactly as it was.
-                     19. TRAVEL, VACATION, HOLIDAY & LIFE CONTEXT AWARENESS (CRITICAL):
-                         - Carefully inspect 'LONG-TERM MEMORY (From Past Conversations)' and the athlete's current messages.
-                         - If the athlete mentions traveling, being on vacation/holiday, staying in a hotel/Airbnb, or being away from home (e.g. in Italy, mountains, beach, work trip):
-                           * You MUST IMMEDIATELY adapt your coaching, equipment assumptions, and expectations to their travel reality!
-                           * DO NOT suggest or prescribe gym barbell workouts (squats, bench press, deadlifts) if they are on holiday without explicit gym access.
-                           * DO NOT prescribe cycling or bike FTP workouts if they do not have their bike with them.
-                           * DO NOT prescribe aggressive threshold or VO2max intervals on unfamiliar or dark trails/roads where safety or footing is compromised.
-                           * Focus on flexible, enjoyable aerobic maintenance (Zone 2 running, walking steep hills, scenic daylight jogs, bodyweight mobility).
-                           * You MUST record it as a log_constraint block (see TRAINING CONSTRAINT LOGGING) with exact dates and rules, AND as a memory block with the destination and context.
-                           * If you don't know the dates or which sports they can do, ASK before assuming. Until they answer, log your best estimate and update it later.
-                     20. PLAN COMMITMENT MANDATE (CRITICAL):
-                         - If you tell the athlete in your text: "I'm adjusting your plan", "I've updated your workouts", "I've shifted your focus for the rest of your holiday", or promise any schedule alteration:
-                           * YOU MUST NEVER JUST SAY IT IN TEXT!
-                           * YOU MUST ALWAYS APPEND THE ACTUAL \`\`\`json [...] \`\`\` CODE BLOCK AT THE END OF YOUR MESSAGE WITH THE UPDATED WORKOUTS FOR THOSE DATES!
-                           * If you fail to include the JSON code block, the database WILL NOT UPDATE, the athlete's calendar will still show old workouts, and your promise will be broken!
+RECENTLY DELETED WORKOUTS (TEMPORARY ARCHIVE - AVAILABLE FOR RESTORATION):
+${deletedWorkoutsText}
 
-                    WORKOUT PLANNING & PRESCRIPTION DETAILS (CRITICAL):
-                    If you create, suggest, or modify a workout plan, you MUST append a JSON code block at the very end of your response. 
-                    - To CANCEL or CLEAR a workout for a day, you MUST include that date in the JSON array and set "sport": "Rest". Otherwise, the old workout will remain in the database!
-                    - WORKOUT DETAILS FIELD (CRITICAL): The 'details' field in each workout object is the athlete's primary coaching note and guide. NEVER write basic, vague one-liners like "intervals", "easy run", or "tempo session". You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling guidance.
-                    - EXERCISE PARITY DIRECTIVE: While machine-readable structured intervals go into the "steps" JSON array, the rich human-readable drills, equipment, and technique instructions go into "details". EVERY exercise/station in 'details' MUST be represented with its own step/repeat block in 'steps'!
-                    - EXISTING WORKOUT PARTIAL MODIFICATIONS: When an athlete asks for adjustments to an existing workout, only modify the specific parts they asked to change. Leave all other drills, warmups, intervals, sets, reps, weights, cooldowns, and cues untouched!
-                    - LIKE-FOR-LIKE RESTORATION: When an athlete asks to recover a deleted workout, reference 'RECENTLY DELETED WORKOUTS' and output the exact like-for-like workout without making up a replacement.
-                    The JSON must be a valid Array of objects. Format it EXACTLY like this inside triple backticks:
-                    \`\`\`json
-                    [
-                      {
-                        "date": "YYYY-MM-DD",
-                        "sport": "Run", 
-                        "description": "5k Speed Intervals & Form Drills",
-                        "target_rooka": 80,
-                        "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 8x1000m at threshold pace (4:05 min/km) with 1min active recoveries. Cool-down: 10 min easy jog + calf mobility.",
-                        "steps": [{"type": "warmup", "exerciseName": "A-Skips & Ankle Rocks", "condition_type": "time", "condition_value": 15, "target_type": "no.target"}, {"type": "repeat", "iterations": 8, "steps": [{"type": "interval", "exerciseName": "1000m Threshold Interval", "condition_type": "distance", "condition_value": 1000, "target_type": "pace.exact", "target_value": "4:05"}, {"type": "rest", "condition_type": "time", "condition_value": 1, "target_type": "heart.rate.zone", "zone": 1}]}, {"type": "cooldown", "exerciseName": "Easy Jog & Mobility", "condition_type": "time", "condition_value": 10, "target_type": "no.target"}]
-                      },
-                      {
-                        "date": "YYYY-MM-DD",
-                        "sport": "Strength",
-                        "description": "Lower Body & Hyrox Core Power",
-                        "target_rooka": 45,
-                        "details": "Warmup: Cossack squats, inchworms (10 min). Main: Barbell Back Squat 3x10 reps (90s rest), Farmers Carry 4x100m (60s rest), Pallof Press 3x12 reps (45s rest). Cooldown: Couch stretch & pigeon pose (5 min).",
-                        "steps": [{"type": "warmup", "exerciseName": "Cossack Squats & Inchworms", "condition_type": "time", "condition_value": 10, "target_type": "no.target"}, {"type": "repeat", "iterations": 3, "steps": [{"type": "interval", "exerciseName": "Barbell Back Squat", "condition_type": "reps", "condition_value": 10, "weight": 60, "target_type": "weight"}, {"type": "rest", "condition_type": "time_sec", "condition_value": 90, "target_type": "no.target"}]}, {"type": "repeat", "iterations": 4, "steps": [{"type": "interval", "exerciseName": "Farmers Carry", "condition_type": "distance", "condition_value": 100, "weight": 20, "target_type": "weight"}, {"type": "rest", "condition_type": "time_sec", "condition_value": 60, "target_type": "no.target"}]}, {"type": "repeat", "iterations": 3, "steps": [{"type": "interval", "exerciseName": "Pallof Press", "condition_type": "reps", "condition_value": 12, "target_type": "no.target"}, {"type": "rest", "condition_type": "time_sec", "condition_value": 45, "target_type": "no.target"}]}, {"type": "cooldown", "exerciseName": "Couch Stretch & Pigeon Pose", "condition_type": "time", "condition_value": 5, "target_type": "no.target"}]
-                      },
-                      {
-                        "date": "YYYY-MM-DD",
-                        "sport": "Rest", 
-                        "description": "Active Recovery",
-                        "target_rooka": 0,
-                        "details": "Rest and recovery. 15-min light walk, hydration, and 3 minutes box breathing.",
-                        "steps": []
-                      }
-                    ]
-                    \`\`\`
-                    
-                    IMAGE GENERATION (NEW):
-                    If the athlete asks for an illustration, visualization, diagram, or picture of an exercise, route, pose, or anything else, you can seamlessly generate an image by outputting a Markdown image tag with the following URL format:
-                    \`![Description of Image](https://image.pollinations.ai/prompt/{URL_ENCODED_PROMPT}?nologo=true)\`
-                    Replace {URL_ENCODED_PROMPT} with a highly detailed, descriptive prompt for an image generation model. Always include '?nologo=true'. The app will automatically render this image!
+RECENT COMPLETED WORKOUTS (For context):
+${recentActivitiesText}
 
-                    LONG-TERM MEMORY & LIFE EVENTS COMMITMENT (CRITICAL):
-                     If the athlete mentions an upcoming trip, vacation, holiday, illness, injury, or schedule shift (e.g. "I'm in Italy for 1.5 weeks", "Going on vacation next week", "I don't have access to a gym while traveling"), you MUST commit this to your long-term memory so future weekly planning and daily morning messages know about it. Output an additional JSON block at the very end of your response:
-                     \`\`\`json
-                     {
-                       "type": "memory",
-                       "data": "Holiday in Italy YYYY-MM-DD to YYYY-MM-DD with family. Training focus: flexible daylight Zone 2 runs only. No gym, no bike, no high intensity."
-                     }
-                     \`\`\`
+RECENT STRENGTH & PB HISTORY:
+${recentSetsText}
 
-                    TRAINING CONSTRAINT LOGGING (CRITICAL):
-                     Whenever the athlete tells you about a period that limits their training (trip, holiday, business travel, illness, no bike or gym, a crazy work week), output a log_constraint block with ABSOLUTE dates (convert "next week", "this weekend" etc. using TIME CONTEXT above):
-                     \`\`\`json
-                     {
-                       "type": "log_constraint",
-                       "data": {
-                         "kind": "travel",
-                         "start_date": "YYYY-MM-DD",
-                         "end_date": "YYYY-MM-DD",
-                         "allowed_sports": ["Run"],
-                         "blocked_sports": [],
-                         "max_minutes": null,
-                         "no_intensity": true,
-                         "note": "Holiday in Italy, no bike, no gym"
-                       }
-                     }
-                     \`\`\`
-                     - kind: travel, illness, injury, equipment, schedule or other.
-                     - allowed_sports: the ONLY sports possible in that period (Run, Bike, Swim, Strength, Walk, Mobility). Leave it null if any sport is fine; use [] for rest only (e.g. fever).
-                     - blocked_sports: sports that are impossible (e.g. ["Bike"] when the bike stays home but everything else is fine).
-                     - max_minutes: per-session cap, or null. no_intensity: true when only easy aerobic work makes sense.
-                     - To change an existing constraint, include its "id" (from TRAINING CONSTRAINTS) in data with the updated fields. To end or cancel one: {"type": "end_constraint", "data": {"id": 12}}.
-                     - Also output the updated workouts JSON for any already-scheduled days in that period.
+MUSCLE STATUS (Fatigue vs Peak Development):
+${muscleStatusText}
 
-                    ATHLETE METRICS MEMORY (CRITICAL):
-                    If the athlete mentions a new personal best, physiological metric, or baseline number (e.g., FTP, 5K pace, Max HR, resting heart rate, swim threshold), you MUST output an additional JSON block at the very end of your response to commit it to your long-term memory. Format it exactly like this inside triple backticks:
-                    \`\`\`json
-                    {
-                      "type": "metrics",
-                      "data": {
-                        "FTP": "285W",
-                        "5K Pace": "4:05 min/km"
-                      }
-                    }
-                    \`\`\`
-                    
-                    MANUAL ACTIVITY LOGGING (CAUTION - AVOID DUPLICATES):
-                    If the athlete EXPLICITLY asks you to log, save, or record a workout manually (e.g. "Can you log a 10km run for me?", "I didn't have my watch, please log a 45 min ride"), you MUST output a "log_activity" JSON block at the very end of your response.
-                    HOWEVER, if the athlete is simply telling you they finished a workout for coaching feedback (e.g. "I just did my planned ride", "That run was tough"), DO NOT output the "log_activity" JSON block unless they explicitly ask you to manually log it, as they likely have a GPS tracker (Strava/Garmin/Apple Health) that will sync it automatically, and manual logging will cause duplicate activities in their feed!
-                    If you do need to log it manually, format it EXACTLY like this inside triple backticks:
-                    \`\`\`json
-                    {
-                      "type": "log_activity",
-                      "data": {
-                        "name": "10k Run",
-                        "sport_type": "Run",
-                        "distance_km": 10.0,
-                        "moving_time_min": 50,
-                        "rooka_score": 50
-                      }
-                    }
-                    \`\`\`
+BENCHMARK ASSESSMENTS & PERFORMANCE BASELINES:
+${benchmarkText}
 
-                    ${(user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0 ? `MENSTRUAL CYCLE LOGGING:
-                    If the athlete mentions that their period/menstrual cycle started today or on a specific date, you MUST update the cycle tracking system by outputting an additional JSON block. Format it exactly like this inside triple backticks:
-                    \`\`\`json
-                    {
-                      "type": "log_cycle",
-                      "data": {
-                        "start_date": "YYYY-MM-DD"
-                      }
-                    }
-                    \`\`\`
-` : ""}
+ACTIVE INJURIES / NIGGLES (REAL-TIME SINGLE SOURCE OF TRUTH):
+${nigglesText}${resolvedNigglesText}
 
-                    DIET & MEAL LOGGING DIRECTIVES (CRITICAL - DELTA ONLY):
-                    When the athlete tells you about food or drink they consumed (e.g. "I just had a pepperoni pizza", "protein shake with 24g protein", "ate 2 bananas", "had a cookie"):
-                    1. ONLY output a "log_diet" JSON block if the athlete mentions NEW food/drink items in their LATEST text message.
-                    2. DELTA ONLY (CRITICAL): You MUST estimate the macro nutritional values (carbs, protein, fat) for ONLY the specific NEW item(s) in this single message. NEVER calculate cumulative daily totals, and NEVER sum up previous meals.
-                    3. DO NOT RE-LOG PAST FOODS: NEVER include or re-emit foods already listed under "TODAY'S LOGGED NUTRITION" or mentioned in previous turns. Even if the user says "and besides that...", they are only adding the new item!
-                    4. CLEAN ITEM NAMES: Provide concise, clean food descriptions in an "items" array without conversational filler.
-                       - NEVER include phrases like "and besides that", "also had", "and a", "had a", "ate a".
-                       - NEVER join multiple distinct foods into one string with 'and' (e.g. DO NOT do ["Pizza and a shake"]). Put them into separate array elements: ["Pepperoni pizza", "Protein shake (24g protein)"].
-                    5. Format EXACTLY like this inside triple backticks:
-                    \`\`\`json
-                    {
-                      "type": "log_diet",
-                      "data": {
-                        "items": ["Protein shake (24g protein)"],
-                        "carbs": 5,
-                        "protein": 24,
-                        "fat": 2
-                      }
-                    }
-                    \`\`\`
-                    *(If multiple new items are mentioned in one message, e.g. "had a banana and an apple", list both in "items": ["1 Banana", "1 Apple"] with their combined delta macros).*
-
-                    WEIGHT LOGGING:
-                     If the athlete mentions their current weight, you MUST log it by outputting an additional JSON block. Format it exactly like this inside triple backticks:
-                     \`\`\`json
-                     {
-                       "type": "log_weight",
-                       "data": {
-                         "weight_kg": 75.5,
-                         "body_fat_percent": 15.0
-                       }
-                     }
-                     \`\`\`
-
-                     INJURY & NIGGLE TRACKING DIRECTIVES:
-                     When the athlete reports pain, injury, tightness, soreness, discomfort, or a niggle in any body part (e.g. "My heel hurts", "Left Achilles tightness", "knee pain", "sore quads"):
-                     You MUST log it by outputting a JSON block:
-                     \`\`\`json
-                     {
-                       "type": "log_niggle",
-                       "data": {
-                         "body_part": "left_ankle_foot",
-                         "severity": 3,
-                         "notes": "Heel pain"
-                       }
-                     }
-                     \`\`\`
-                     - Valid body_parts: head_neck, left_shoulder, right_shoulder, chest, upper_back, lower_back, core, left_arm, right_arm, left_glute, right_glute, left_quad, right_quad, left_hamstring, right_hamstring, left_knee, right_knee, left_calf, right_calf, left_ankle_foot, right_ankle_foot.
-                     - Severity: integer from 1 (mild/twinge) to 5 (severe/cannot train). If the athlete mentions a 1-10 rating, convert to 1-5 (e.g. 3/10 -> 2 or 3, 6/10 -> 3, 10/10 -> 5).
-                     - If the athlete reports that an injury/niggle has healed, resolved, or is pain-free (e.g. "my heel is completely recovered", "knee feels 100% now"):
-                     \`\`\`json
-                      {
-                        "type": "resolve_niggle",
-                        "data": {
-                          "body_part": "left_ankle_foot"
-                        }
-                      }
-                      \`\`\`
-
-                      ${
-                        !isAdminTier
-                          ? `VISUAL COACHING & IMAGE STATUS: DISABLED (ADMIN ACCESS ONLY).
-                      If the athlete asks you to generate, show, or draw an image, photograph, or visual guide:
-                      Politely explain the coaching cues and biomechanics in text and mention: "AI visual coaching guides and custom race artwork are currently in testing for administrators."
-                      NEVER output a generate_image JSON block for non-admin athletes.`
-                          : dailyImageCount >= 1
-                          ? `VISUAL COACHING & IMAGE STATUS: DAILY LIMIT REACHED (1 of 1 visual credits used today).
-                      If the athlete asks for an image/photo/visual guide:
-                      Explain the coaching cues and biomechanics thoroughly in text and let them know: "You've used your 1 visual coaching credit for today (it resets tomorrow)!"
-                      NEVER output a generate_image JSON block when the daily credit is already used.`
-                          : `VISUAL COACHING & HIGH-FIDELITY IMAGE GENERATION DIRECTIVES (NANO BANANA ENGINE):
-                      You have 1 visual guide credit available for this Admin athlete today.
-                      When the athlete asks for a visual explanation or asks to generate an image:
-                      Explain the concept clearly in text AND output a JSON block to generate the studio photograph following the Nano Banana 4-part formula:
-                      \`\`\`json
-                      {
-                        "type": "generate_image",
-                        "data": {
-                          "prompt": "Studio sports photography of a real human athlete executing [precise movement/technique details, exact limb angles, and body alignment]. Deep depth of field, f/8 aperture, razor-sharp focus across entire body and equipment, bright even studio/pool/track lighting, freeze-frame, 1/4000s shutter speed, zero motion blur, authentic human anatomy, clean background, 8k commercial sports quality",
-                          "caption": "Short descriptive title of the visual guide",
-                          "aspectRatio": "1:1"
-                        }
-                      }
-                      \`\`\`
-                      DO NOT request illustrations, drawings, sketches, or cartoons, and NEVER use words like 'cinematic depth of field' or 'motion blur' which cause distortion. Always request razor-sharp, studio-lit commercial sports photography!`
-                      }`;
+GAMIFICATION:
+Current activity streak: ${gamification.streak} days. Bonus rooka points earned: ${gamification.bonusPoints}. Latest title/badge: "${gamification.latestTitle}".`;
 
                                       let aiReply = await generateWithFallback(
                                         message,
@@ -1061,7 +797,7 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                         req.user.id,
                                         "personal",
                                         false,
-                                        { language: user.language },
+                                        { language: userLanguage, cachedSystemPrefix: COACH_CHAT_RULES },
                                       );
                                       let planUpdated = false;
                                       const pendingImageTasks = [];
@@ -1691,20 +1427,22 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
 
                                        const imagePathValue = imagePathsDB.length > 0 ? JSON.stringify(imagePathsDB) : null;
 
-                                       // 1. Insert user message first and await its completion to guarantee lower ID and earlier timestamp
-                                       try {
-                                         await new Promise((resolve, reject) => {
-                                           db.run(
-                                             `INSERT INTO chat_history (user_id, role, content, image_path, timestamp) VALUES (?, 'user', ?, ?, datetime('now'))`,
-                                             [req.user.id, message, imagePathValue],
-                                             function (err) {
-                                               if (err) return reject(err);
-                                               resolve(this.lastID);
-                                             }
-                                           );
-                                         });
-                                       } catch (userInsertErr) {
-                                         console.error("Failed to insert user chat message:", userInsertErr);
+                                       // 1. Fallback insert user message only if it failed to insert earlier
+                                       if (!userMessageId) {
+                                         try {
+                                           await new Promise((resolve, reject) => {
+                                             db.run(
+                                               `INSERT INTO chat_history (user_id, role, content, image_path, timestamp) VALUES (?, 'user', ?, ?, datetime('now'))`,
+                                               [req.user.id, message, imagePathValue],
+                                               function (err) {
+                                                 if (err) return reject(err);
+                                                 resolve(this.lastID);
+                                               }
+                                             );
+                                           });
+                                         } catch (userInsertErr) {
+                                           console.error("Failed to insert user chat message fallback:", userInsertErr);
+                                         }
                                        }
 
                                        // 2. Sequentially insert coach reply parts with ordered timestamps (+1s, +2s, etc.)
@@ -1791,13 +1529,36 @@ router.post("/api/chat", authenticateToken, async (req, res) => {
                                          }
                                        }
 
-                                        // 1. Send the instant response to the client immediately!
-                                        res.json({
-                                          reply: messageParts.join('\n\n'),
-                                          replies: messageParts,
+                                        // 1. Send the instant response to the client immediately if socket is open
+                                        if (!res.headersSent && !res.writableEnded) {
+                                          try {
+                                            res.json({
+                                              reply: messageParts.join('\n\n'),
+                                              replies: messageParts,
+                                              mood: mood,
+                                              planUpdated: planUpdated,
+                                              workouts: createdWorkouts || undefined,
+                                            });
+                                          } catch (sendErr) {
+                                            console.warn("Client disconnected before res.json completed:", sendErr.message);
+                                          }
+                                        }
+
+                                        // 2. Broadcast via SSE & Send Push Notification so reply is never lost if app was backgrounded/closed
+                                        const finalReplyText = messageParts.join('\n\n');
+                                        sendSSEEvent(req.user.id, "unread_message", {
+                                          message: finalReplyText,
                                           mood: mood,
-                                          planUpdated: planUpdated,
-                                          workouts: createdWorkouts || undefined,
+                                        });
+
+                                        const pushBody = finalReplyText.length > 1000 ? finalReplyText.slice(0, 997) + "..." : finalReplyText;
+                                        sendPushToUser(req.user.id, {
+                                          title: coachName || "Coach",
+                                          body: pushBody,
+                                          data: { url: "/(tabs)/coach", type: "coach" },
+                                          badge: 1,
+                                        }).catch((pushErr) => {
+                                          console.warn("Push notification dispatch failed:", pushErr.message);
                                         });
 
                                         // 2. Asynchronously generate any requested images in the background ONLY if allowed by tier and quota
