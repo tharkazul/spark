@@ -9,7 +9,6 @@ export interface PhysiqueEntry {
   sleep_quality?: number;
   fatigue_level?: number;
   notes?: string;
-  photo_url?: string;
   created_at?: string;
 }
 

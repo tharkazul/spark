@@ -1,4 +1,5 @@
 const db = require("./db");
+const { hasAiConsent } = require("./aiConsent");
 const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("./coachPersona");
 const { generateWithFallback } = require("./ai");
 const { sendSSEEvent } = require("./sse");
@@ -250,6 +251,176 @@ function parseAvailability(raw) {
   return out;
 }
 
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function getDateDayInfo(dStr) {
+  const dayIdx = new Date(dStr + 'T12:00:00Z').getUTCDay();
+  return {
+    dayKey: DAY_KEYS[dayIdx],
+    dayName: DAY_NAMES[dayIdx],
+    dayIdx,
+  };
+}
+
+const DEDICATED_REST_COPY = {
+  en: {
+    title: 'Dedicated Rest & Recovery',
+    details: 'Full rest day scheduled according to your weekly training availability. Focus on restorative nutrition, hydration, and quality recovery.',
+  },
+  nl: {
+    title: 'Volledige Rustdag',
+    details: 'Geplande rustdag volgens je vaste weekplanning. Focus op gezond herstel, hydratatie en voldoende slaap.',
+  },
+  de: {
+    title: 'Geplanter Ruhetag',
+    details: 'Vollständiger Ruhetag gemäß deiner Wochenverfügbarkeit. Achte auf regenerative Ernährung, Flüssigkeit und erholsamen Schlaf.',
+  },
+  es: {
+    title: 'Día de Descanso Programado',
+    details: 'Día de descanso completo según tu disponibilidad semanal. Prioriza la nutrición reparadora, hidratación y descanso reparador.',
+  },
+  fr: {
+    title: 'Jour de Repos Dédié',
+    details: 'Journée de repos complet selon vos disponibilités hebdomadaires. Privilégiez une alimentation réparatrice, une bonne hydratation et un sommeil de qualité.',
+  },
+};
+
+function getDedicatedRestContent(lang = 'en') {
+  return DEDICATED_REST_COPY[lang] || DEDICATED_REST_COPY.en;
+}
+
+/**
+ * Identifies any workouts scheduled on days the athlete designated as dedicated REST days.
+ */
+function findAvailabilityViolations(plan, availMap) {
+  if (!availMap || Object.keys(availMap).length === 0) return [];
+  const violations = [];
+  plan.forEach((item) => {
+    if (!item.date) return;
+    const { dayKey, dayName } = getDateDayInfo(item.date);
+    const a = availMap[dayKey];
+    if (a && a.available === false) {
+      const sport = String(item.sport || '').toLowerCase();
+      if (sport !== 'rest') {
+        violations.push({
+          date: item.date,
+          dayName,
+          dayKey,
+          sport: item.sport,
+          description: item.description,
+          reason: `Athlete configured ${dayName} (${item.date}) as a dedicated REST day (0 min available), but you scheduled ${item.sport} ("${item.description}").`,
+        });
+      }
+    }
+  });
+  return violations;
+}
+
+/**
+ * Deterministically enforces athlete availability boundaries:
+ * 1. Any workout scheduled on a dedicated REST day is moved to an available day that currently has 'Rest',
+ *    or swapped with a lighter session on an available high-capacity day.
+ * 2. Dedicated REST days are guaranteed to be "sport": "Rest" with 0 target_rooka.
+ */
+function repairAvailabilityViolations(plan, availMap, dates, userLang = 'en', lockedDates = new Set()) {
+  if (!availMap || Object.keys(availMap).length === 0) return plan;
+
+  const repairedPlan = plan.map((item) => ({ ...item }));
+  const violations = [];
+
+  repairedPlan.forEach((item, index) => {
+    if (lockedDates.has(item.date)) return;
+    const { dayKey, dayName } = getDateDayInfo(item.date);
+    const a = availMap[dayKey];
+    if (a && a.available === false && String(item.sport || '').toLowerCase() !== 'rest') {
+      violations.push({ index, item, dayKey, dayName, date: item.date });
+    }
+  });
+
+  if (violations.length === 0) return repairedPlan;
+
+  const restContent = getDedicatedRestContent(userLang);
+
+  // 1. First, check if a heavy weekend workout (e.g. on blocked Sunday) should swap with Saturday
+  // if Saturday is available with high capacity (>= 90m) and currently has a lighter session.
+  const sunViol = violations.find((v) => v.dayKey === 'sun');
+  if (sunViol) {
+    const satIdx = repairedPlan.findIndex((p) => {
+      if (lockedDates.has(p.date)) return false;
+      const { dayKey } = getDateDayInfo(p.date);
+      const a = availMap[dayKey];
+      return dayKey === 'sat' && (a ? a.available : true) && (a ? (a.maxMinutes || 60) : 60) >= 90;
+    });
+    if (satIdx !== -1) {
+      const satDay = repairedPlan[satIdx];
+      const satRooka = Number(satDay.target_rooka) || 0;
+      const sunRooka = Number(sunViol.item.target_rooka) || 0;
+      if (sunRooka > satRooka) {
+        console.log(`[AvailabilityRepair] Moving heavy session (${sunRooka} rooka) from blocked Sunday (${sunViol.date}) to available Saturday (${satDay.date})`);
+        const displacedSatWorkout = { ...satDay };
+        repairedPlan[satIdx] = {
+          ...sunViol.item,
+          date: satDay.date,
+        };
+        // Replace Sunday's violation item with the displaced Saturday session for relocation
+        sunViol.item = displacedSatWorkout;
+      }
+    }
+  }
+
+  // 2. Mark all violation days as Rest
+  const workoutsToRelocate = [];
+  for (const v of violations) {
+    workoutsToRelocate.push(v.item);
+    repairedPlan[v.index] = {
+      date: v.date,
+      sport: 'Rest',
+      description: restContent.title,
+      target_rooka: 0,
+      details: restContent.details,
+      steps_json: '[]',
+      source: v.item.source || 'coach',
+    };
+  }
+
+  // Sort workouts to relocate by target_rooka descending
+  workoutsToRelocate.sort((a, b) => (Number(b.target_rooka) || 0) - (Number(a.target_rooka) || 0));
+
+  const filledIndices = new Set();
+
+  for (const w of workoutsToRelocate) {
+    // Look for an available day in dates that currently has sport === 'Rest'
+    const freeSlotIndices = [];
+    repairedPlan.forEach((p, idx) => {
+      if (lockedDates.has(p.date) || filledIndices.has(idx)) return;
+      const { dayKey } = getDateDayInfo(p.date);
+      const a = availMap[dayKey];
+      const isDayAvailable = a ? a.available : true;
+      const isRest = String(p.sport || '').toLowerCase() === 'rest';
+      if (isDayAvailable && isRest) {
+        freeSlotIndices.push({ idx, maxM: a ? (a.maxMinutes || 60) : 60 });
+      }
+    });
+
+    if (freeSlotIndices.length > 0) {
+      freeSlotIndices.sort((a, b) => b.maxM - a.maxM);
+      const chosen = freeSlotIndices[0];
+      const targetDay = repairedPlan[chosen.idx];
+      const { dayName: targetDayName } = getDateDayInfo(targetDay.date);
+      console.log(`[AvailabilityRepair] Relocating session ("${w.description}") to free available ${targetDayName} (${targetDay.date})`);
+
+      repairedPlan[chosen.idx] = {
+        ...w,
+        date: targetDay.date,
+      };
+      filledIndices.add(chosen.idx);
+    }
+  }
+
+  return repairedPlan;
+}
+
 /**
  * Builds a rule-based 7-day template plan (no LLM) for athletes who are not active in the app.
  *
@@ -479,6 +650,8 @@ async function generateTemplatePlanForUser(userId, dates) {
  * Uses the specified token pool (defaults to 'common' for background/cron generation).
  */
 async function generateWeeklyPlanForUser(userId, targetDates = null, options = {}) {
+  if (!(await hasAiConsent(userId))) return { skipped: true, reason: 'AI consent not given' }; // AI is off without the athlete's consent
+
   const poolType = options.poolType || 'common';
   const dates = targetDates || getUpcomingWeekMonToSun().dates;
 
@@ -534,21 +707,29 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
   }
 
   // 4. Fetch schedule boundaries / availability
-  let availabilityText = "No specific schedule boundaries set.";
-  if (user.training_availability) {
-    try {
-      const availObj = typeof user.training_availability === 'string'
-        ? JSON.parse(user.training_availability)
-        : user.training_availability;
-      availabilityText = Object.entries(availObj)
-        .map(([day, data]) => {
-          const isAvail = data.available !== false && data.status !== 'blocked';
-          const maxM = data.maxMinutes ?? data.max_minutes ?? 0;
-          return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${isAvail ? 'available' : 'rest day / blocked'} (Max minutes: ${maxM})`;
-        })
-        .join("\n            ");
-    } catch (_) {}
-  }
+  const availMap = parseAvailability(user.training_availability);
+  const blockedDaysList = [];
+  const dailyAvailabilityLines = [];
+
+  dates.forEach((dStr) => {
+    const { dayKey, dayName } = getDateDayInfo(dStr);
+    const a = availMap[dayKey];
+    const isAvail = a ? a.available : true;
+    const maxM = a ? a.maxMinutes : null;
+
+    if (!isAvail || maxM === 0) {
+      blockedDaysList.push({ date: dStr, dayName, dayKey });
+      dailyAvailabilityLines.push(`- ${dayName} (${dStr}): 🛑 DEDICATED REST DAY / BLOCKED (0 min training available) -> MUST BE "sport": "Rest"`);
+    } else if (maxM) {
+      dailyAvailabilityLines.push(`- ${dayName} (${dStr}): Available (Max duration: ${maxM} min)`);
+    } else {
+      dailyAvailabilityLines.push(`- ${dayName} (${dStr}): Available (Standard duration)`);
+    }
+  });
+
+  const availabilityText = dailyAvailabilityLines.length > 0
+    ? dailyAvailabilityLines.join("\n")
+    : "No specific schedule boundaries set.";
 
   // 5. Fetch active niggles & muscle status
   const niggleRows = await new Promise((resolve) => {
@@ -683,6 +864,24 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
     coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
   }
 
+  const datesListWithAvailability = dates.map((dStr) => {
+    const { dayKey, dayName } = getDateDayInfo(dStr);
+    const a = availMap[dayKey];
+    const isAvail = a ? a.available : true;
+    const maxM = a ? a.maxMinutes : null;
+    if (!isAvail || maxM === 0) {
+      return `   - ${dayName}: ${dStr} -> 🛑 DEDICATED REST DAY (Must output "sport": "Rest", 0 target_rooka, no workout)`;
+    }
+    return `   - ${dayName}: ${dStr} -> Available (Max ${maxM || 60}m)`;
+  }).join("\n");
+
+  const restDaysDirective = blockedDaysList.length > 0
+    ? `MANDATORY DEDICATED REST DAYS (UNBREAKABLE RULE):\n` +
+      `The athlete has explicitly configured the following days as dedicated REST days in their profile:\n` +
+      blockedDaysList.map((b) => `* ${b.dayName} (${b.date}): MUST BE "sport": "Rest", "target_rooka": 0, "steps_json": "[]", with recovery/mobility advice in "details".`).join("\n") +
+      `\nYou MUST NEVER schedule any Run, Bike, Swim, Strength, or active workout on these dedicated rest days under ANY circumstances! If an endurance workout (like a long run) is needed, place it on an available day with sufficient capacity (e.g. Saturday), NEVER on a rest day.`
+    : `If a day is marked 'blocked' or max_minutes is 0, schedule 'Rest'.`;
+
   const systemPrompt = `You are Coach ${coachName}, an elite endurance and athletic performance coach. ${PLAIN_LANGUAGE_RULE}
 Tone: ${coachToneText}
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ''}
@@ -716,15 +915,12 @@ ${goalContext.promptContext}
 CRITICAL RULES:
 0. LANGUAGE PERSISTENCE & UNIFORMITY MANDATE: The athlete's preferred language is ${targetLanguageName} (${user.language || 'en'}). You MUST write all workout descriptions, details, analysis, and commentary fluently and exclusively in ${targetLanguageName}. NEVER mix Dutch and English within a sentence or use Dutch activity names inside English sentences (or vice-versa).
 1. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
-2. DATES: You are generating a 7-day training plan for the coming week starting Monday ${dates[0]} and ending Sunday ${dates[6]}. Output workouts for these exact 7 dates:
-   - Monday: ${dates[0]}
-   - Tuesday: ${dates[1]}
-   - Wednesday: ${dates[2]}
-   - Thursday: ${dates[3]}
-   - Friday: ${dates[4]}
-   - Saturday: ${dates[5]}
-   - Sunday: ${dates[6]}
-3. SCHEDULE BOUNDARIES: You MUST adhere to daily time constraints. If a day is marked 'blocked' or max_minutes is 0, schedule 'Rest'.
+2. DATES & SCHEDULE BOUNDARIES: You are generating a 7-day training plan for the coming week starting Monday ${dates[0]} and ending Sunday ${dates[6]}. Output workouts for these exact 7 dates adhering to daily availability:
+${datesListWithAvailability}
+3. SCHEDULE BOUNDARIES & DEDICATED REST DAYS (MANDATORY & UNBREAKABLE):
+   You MUST strictly adhere to the athlete's daily schedule boundaries:
+   ${restDaysDirective}
+   Every active session must stay within that day's max duration limit.
 3b. RECURRING NON-ROOKA ACTIVITIES: If any recurring non-Rooka activities are listed in ATHLETE'S RECURRING PERIODICAL SESSIONS above (e.g. hockey, spinning, tennis, club sports), you MUST include a workout entry on that exact day representing this activity. Set 'sport' to the relevant sport or 'CrossTraining' / 'Cardio' / 'Strength' / 'Other' (or closest match), use the exact session name as the description, set an appropriate target_rooka reflecting the duration and intensity (e.g. 40-70), and in 'details' describe the session and coaching notes on how it fits into their weekly athletic development. Balance the athlete's other workouts, intensities, and recovery days around these sessions.
 3c. TRAVEL, VACATION, HOLIDAYS & SPECIAL CONSTRAINTS (CRITICAL): Follow HARD TRAINING CONSTRAINTS exactly, then check ATHLETE LIFE CONTEXT & LONG-TERM MEMORY and the recent CONVERSATION. If the athlete is traveling, on holiday, away from home, lacks gym/equipment access, or is recovering from illness/injury in this week, you MUST adapt the entire weekly plan to fit those exact constraints:
    - Do NOT schedule gym/strength workouts with barbells, machines, or heavy weights if they do not have gym access while traveling (prescribe bodyweight mobility or omit strength).
@@ -861,6 +1057,20 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   }
   let sanitizedPlan = sanitize(planData);
 
+  // Availability rest day violation check & regeneration
+  const availViolations = findAvailabilityViolations(sanitizedPlan, availMap);
+  if (!usedFallback && availViolations.length > 0) {
+    console.warn(`[WeeklyPlan] Draft for user ${userId} broke ${availViolations.length} dedicated rest day(s); regenerating.`);
+    const retryReply = await callPlanner(
+      `${userPrompt}\n\nCRITICAL CORRECTION REQUIRED: Your previous draft violated the athlete's dedicated REST DAYS:\n${availViolations.map((v) => `- ${v.reason}`).join('\n')}\nOn these exact dates, you MUST set "sport": "Rest", "target_rooka": 0, "steps_json": "[]". Move any workouts to available days. Rebuild the 7 days now.`
+    );
+    const retryPlan = parsePlan(retryReply);
+    if (retryPlan.length > 0) {
+      aiReply = retryReply;
+      sanitizedPlan = sanitize(retryPlan);
+    }
+  }
+
   // A draft that breaks a constraint gets one regeneration with the violations spelled out;
   // whatever still breaks one after that is repaired in code below.
   if (!usedFallback && constraints.length > 0) {
@@ -902,12 +1112,15 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
     });
   }
 
-  // Final guarantee: nothing that breaks a constraint reaches the calendar.
+  // Guarantee constraints: nothing that breaks a constraint reaches the calendar.
   const { plan: compliantPlan, changes: constraintChanges } = constraintsService.repairPlan(sanitizedPlan, constraints, user.language);
   if (constraintChanges.length > 0) {
     console.warn(`[WeeklyPlan] Repaired ${constraintChanges.length} workout(s) for user ${userId} to fit constraints.`);
   }
   sanitizedPlan = compliantPlan;
+
+  // Final guarantee: dedicated rest days are NEVER violated; workouts on rest days are moved to available days
+  sanitizedPlan = repairAvailabilityViolations(sanitizedPlan, availMap, dates, user.language, lockedDates);
 
   const keepChatClause = options.replaceChatPlans ? '' : ` AND NOT (source = 'coach' AND COALESCE(origin, '') = 'chat')`;
 
@@ -1346,11 +1559,75 @@ function calculateWorkoutDurationMinutes(workout) {
   return 45;
 }
 
+/**
+ * Repairs any existing workouts in micro_plan that were scheduled on days
+ * the athlete configured as dedicated REST days in their training_availability.
+ * Converts those days to 'Rest' (0 target_rooka) and sends an SSE update.
+ */
+async function repairAvailabilityInMicroPlan(userId = null, fromDate = null) {
+  const startDate = fromDate || new Date().toISOString().slice(0, 10);
+  const userClause = userId ? ` AND u.id = ?` : ``;
+  const userParams = userId ? [userId] : [];
+
+  const users = await new Promise((resolve) => {
+    db.all(
+      `SELECT u.id, u.username, u.language, u.training_availability 
+       FROM users u 
+       WHERE u.training_availability IS NOT NULL AND u.training_availability != '' AND u.training_availability != '{}'${userClause}`,
+      userParams,
+      (err, rows) => resolve(err || !rows ? [] : rows)
+    );
+  });
+
+  let repairedCount = 0;
+  for (const user of users) {
+    const availMap = parseAvailability(user.training_availability);
+    if (!availMap || Object.keys(availMap).length === 0) continue;
+
+    const futureWorkouts = await new Promise((resolve) => {
+      db.all(
+        `SELECT id, date, sport, description, target_rooka, source, origin 
+         FROM micro_plan 
+         WHERE user_id = ? AND date >= ? AND (source = 'coach' OR source = 'template' OR source IS NULL)
+         ORDER BY date ASC`,
+        [user.id, startDate],
+        (err, rows) => resolve(err || !rows ? [] : rows)
+      );
+    });
+
+    for (const w of futureWorkouts) {
+      const { dayKey, dayName } = getDateDayInfo(w.date);
+      const a = availMap[dayKey];
+      if (a && a.available === false && String(w.sport || '').toLowerCase() !== 'rest') {
+        console.log(`[RepairInDb] Found rest day violation for user ${user.username} (ID: ${user.id}) on ${dayName} (${w.date}): ${w.sport} - ${w.description}`);
+        const restContent = getDedicatedRestContent(user.language || 'en');
+        await new Promise((resolve) => {
+          db.run(
+            `UPDATE micro_plan SET sport = 'Rest', target_rooka = 0, description = ?, details = ?, steps_json = '[]' WHERE id = ?`,
+            [restContent.title, restContent.details, w.id],
+            (err) => {
+              if (!err) repairedCount++;
+              resolve();
+            }
+          );
+        });
+        sendSSEEvent(user.id, 'plan_updated', { date: w.date, timestamp: new Date().toISOString() });
+      }
+    }
+  }
+
+  return { repairedCount };
+}
+
 module.exports = {
   getUpcomingWeekMonToSun,
   getCurrentWeekMonToSun,
   calculateUserFitnessMetrics,
   calculateWorkoutDurationMinutes,
+  parseAvailability,
+  findAvailabilityViolations,
+  repairAvailabilityViolations,
+  repairAvailabilityInMicroPlan,
   buildFallbackPlan,
   buildTemplatePlan,
   generateTemplatePlanForUser,

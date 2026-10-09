@@ -235,15 +235,15 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
 
   const handleOpenPrivacyPolicy = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL('https://rookaapp.fitness/privacy.html').catch(() => {
-      Alert.alert("Privacy Policy", "Visit https://rookaapp.fitness/privacy.html to read our Privacy Policy.");
+    Linking.openURL('https://rooka.io/privacy').catch(() => {
+      Alert.alert("Privacy Policy", "Visit https://rooka.io/privacy to read our Privacy Policy.");
     });
   };
 
   const handleOpenTerms = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL('https://rookaapp.fitness/terms.html').catch(() => {
-      Alert.alert("Terms of Service", "Visit https://rookaapp.fitness/terms.html to read our Terms of Service.");
+    Linking.openURL('https://rooka.io/terms').catch(() => {
+      Alert.alert("Terms of Service", "Visit https://rooka.io/terms to read our Terms of Service.");
     });
   };
 

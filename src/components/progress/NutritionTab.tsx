@@ -242,7 +242,7 @@ function resolveFuelingItems(
   ];
 }
 
-export const NutritionTab: React.FC = () => {
+const NutritionTabComponent: React.FC = () => {
   const theme = useTheme();
   const { t } = useLanguage();
   const { nutrition } = usePhysique();
@@ -269,17 +269,21 @@ export const NutritionTab: React.FC = () => {
     );
   }
 
-  const now = new Date();
-  const todayDateStr = now.toISOString().split('T')[0];
-  const todayDayName = now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-  const todayWorkouts = (plan || []).filter(
-    (w: any) =>
-      w.date === todayDateStr ||
-      w.dateStr?.toUpperCase().includes(todayDayName) ||
-      w.day?.toUpperCase() === todayDayName
-  );
+  const todayWorkouts = React.useMemo(() => {
+    const now = new Date();
+    const todayDateStr = now.toISOString().split('T')[0];
+    const todayDayName = now.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
+    return (plan || []).filter(
+      (w: any) =>
+        w.date === todayDateStr ||
+        w.dateStr?.toUpperCase().includes(todayDayName) ||
+        w.day?.toUpperCase() === todayDayName
+    );
+  }, [plan]);
 
-  const fuelingItems = resolveFuelingItems(nutrition, todayWorkouts, theme.tint);
+  const fuelingItems = React.useMemo(() => {
+    return resolveFuelingItems(nutrition, todayWorkouts, theme.tint);
+  }, [nutrition, todayWorkouts, theme.tint]);
 
   return (
     <View className="gap-y-4">
@@ -315,3 +319,5 @@ export const NutritionTab: React.FC = () => {
     </View>
   );
 };
+
+export const NutritionTab = React.memo(NutritionTabComponent);

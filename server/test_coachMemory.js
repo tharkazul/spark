@@ -54,7 +54,7 @@ const reply = (plan) => "Strong week ahead.\n```json\n" + JSON.stringify(plan) +
 (async () => {
   await sleep(1500); // schema creation in db.js is fire-and-forget
 
-  await run(`INSERT INTO users (id, username, language, athlete_context, long_term_memory) VALUES (1, 'tester', 'nl', 'Triathlete', '- Old fact: likes morning runs')`);
+  await run(`INSERT INTO users (id, username, language, athlete_context, long_term_memory, ai_consent) VALUES (1, 'tester', 'nl', 'Triathlete', '- Old fact: likes morning runs', 1)`);
   await run(`INSERT INTO chat_history (user_id, role, content) VALUES (1, 'user', 'Volgende week ben ik in Italië, ik kan alleen hardlopen')`);
 
   // 1. The coach logs the trip; re-emitting it updates instead of duplicating.

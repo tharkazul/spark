@@ -1,4 +1,5 @@
 const db = require('./db');
+const { hasAiConsent } = require("./aiConsent");
 const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("./coachPersona");
 const fs = require('fs');
 const path = require('path');
@@ -212,6 +213,8 @@ async function getUserMacroPhase(userId) {
 }
 
 async function generateAthleteWeeklyDescription(userId) {
+  if (!(await hasAiConsent(userId))) return null; // AI is off without the athlete's consent
+
   return new Promise((resolve) => {
     db.get(
       `SELECT id, username, language FROM users WHERE id = ? AND deleted_at IS NULL`,
@@ -498,6 +501,16 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
                         ? "self"
                         : user.connection_status || "none",
                     };
+
+                    // Anyone can find an athlete through search, but only accepted
+                    // connections see their training, body metrics and bio.
+                    if (!isSelf && user.connection_status !== "accepted") {
+                      profileData.public_description = i18n.t(user.language, 'bio.default');
+                      profileData.activities = [];
+                      profileData.recentActivities = [];
+                      profileData.athlete_metrics = null;
+                      profileData.trends = null;
+                    }
 
                     resolve(profileData);
                   },
@@ -1174,6 +1187,8 @@ function getStravaUserIdsForAthlete(stravaAthleteId) {
  * push notification (with badge: 1) and WebSocket event to the athlete.
  */
 async function processActivityCoachAnalysis(internalUserId, activityData, options = {}) {
+  if (!(await hasAiConsent(internalUserId))) return null; // AI is off without the athlete's consent
+
   if (!internalUserId || !activityData) return null;
 
   const activityId = activityData.strava_activity_id || activityData.id;
@@ -2398,6 +2413,8 @@ function localizeMilestoneFallback(lang, englishTitle) {
 }
 
 async function generateAndSaveMilestoneTitle(userId, milestoneKey, milestoneName, activitiesQuery, queryParams, milestoneContext, options = {}) {
+  if (!(await hasAiConsent(userId))) return null; // AI is off without the athlete's consent
+
   const milestoneLang = await i18n.getUserLanguage(userId);
   return new Promise((resolve) => {
     let fallbackTitle = milestoneName.split("(")[0].trim();
@@ -2499,6 +2516,7 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
         [userId],
         async (err, user) => {
           if (err || !user) return;
+          if (!(await hasAiConsent(userId))) return; // AI is off without the athlete's consent
 
           const coachName = resolveCoachName(user);
           let toneText = user.coach_tone || "Empathetic but demanding";
@@ -2541,6 +2559,8 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
 }
 
 async function generateQuestForUser(userId, poolType = "personal", previousQuest = null) {
+  if (!(await hasAiConsent(userId))) return null; // AI is off without the athlete's consent
+
   return new Promise((resolve, reject) => {
     db.get(
       `SELECT subscription_tier, role, language FROM users WHERE id = ?`,
@@ -3046,6 +3066,7 @@ async function runDailyRecoveryJob() {
                   
                   // Notify the user via AI coach
                   db.get(`SELECT coach_tone, coach_name, language FROM users WHERE id = ?`, [niggle.user_id], async (err, user) => {
+                      if (!(await hasAiConsent(niggle.user_id))) return; // AI is off without the athlete's consent
                       const tone = user ? user.coach_tone : "Friendly";
                       const prompt = `The athlete's ${niggle.body_part} injury has automatically fully healed and been marked as resolved after ${diffDays} days. Send a proactive, encouraging message (1-2 sentences) letting them know their ${niggle.body_part} is now cleared for full activity, but they should still listen to their body. DO NOT use JSON.`;
                       const systemPrompt = `You are ${resolveCoachName(user)}, an elite endurance coach. Your tone is: ${tone}. Act like a real human in a continuous text message thread. ${PLAIN_LANGUAGE_RULE}`;
@@ -3296,6 +3317,8 @@ module.exports = {
 };
 
 async function sendMorningMessageForUser(userId, { force = false } = {}) {
+  if (!(await hasAiConsent(userId))) return { skipped: true, reason: 'AI consent not given' }; // AI is off without the athlete's consent
+
   const todayStr = getAMSDateString();
 
   // 1. Check if a morning message was already sent today, if athlete already chatted, or if morning window is invalid

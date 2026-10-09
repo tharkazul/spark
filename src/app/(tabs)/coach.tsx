@@ -40,7 +40,6 @@ import { EventInviteCard } from '../../components/chat/EventInviteCard';
 import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
 import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
-import { SocialMentionCard } from '../../components/chat/SocialMentionCard';
 import { WorkoutPill } from '../../components/chat/WorkoutPill';
 import { WorkoutDebriefCard } from '../../components/chat/WorkoutDebriefCard';
 import { CoachChatSkeleton } from '../../components/skeletons/CoachChatSkeleton';
@@ -53,8 +52,12 @@ import { usePlan } from '../../context/PlanStore';
 import { useSubscription } from '../../context/SubscriptionStore';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
+import { AiConsentCard } from '../../components/chat/AiConsentCard';
+import { AiOffNotice } from '../../components/ui/AiOffNotice';
 import { getAuthToken } from '../../services/apiClient';
 import { tokenStorage } from '../../services/storage';
+import { chatApi } from '../../services/apiServices';
+import { audioRecordingService } from '../../services/audioRecordingService';
 import { ChatMessage, ProposedWorkoutItem } from '../../types/chat';
 import { getCoachAvatarSource, getCoachDisplayName, resolveChatImageUrl } from '../../utils/avatarUtils';
 import { hasSubscriptionTier } from '../../utils/permissions';
@@ -290,17 +293,15 @@ const MessageRow = React.memo(({
           </TouchableOpacity>
         )}
 
-        {item.payload_json?.type === 'event_invite' ? (
+        {item.payload_json?.type === 'ai_consent' ? (
+          <AiConsentCard />
+        ) : item.payload_json?.type === 'event_invite' ? (
           <EventInviteCard
             payload={item.payload_json}
             onAccept={onAcceptInvite}
             onDecline={onDeclineInvite}
           />
-        ) : item.payload_json?.type === 'social_mention' ? (
-          <SocialMentionCard
-            payload={item.payload_json}
-          />
-        ) : (item.payload_json as any)?.type === 'connection_request' || (item.payload_json as any)?.type === 'connection_accepted' ? (
+                ) : (item.payload_json as any)?.type === 'connection_request' || (item.payload_json as any)?.type === 'connection_accepted' ? (
           <ConnectionRequestCard
             payload={item.payload_json as any}
             onAccept={onAcceptConnection}
@@ -370,6 +371,7 @@ export default function CoachScreen() {
     setChatActive,
   } = useCoachChat();
   const { user } = useUser();
+  const aiEnabled = user?.aiConsent === true;
   const { presentPaywall } = useSubscription();
   const { plan } = usePlan();
   const { nutrition, clearLoggedNutrition } = usePhysique();
@@ -396,6 +398,9 @@ export default function CoachScreen() {
   const [inputText, setInputText] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordDurationMs, setRecordDurationMs] = useState(0);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
@@ -624,14 +629,121 @@ export default function CoachScreen() {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleToggleVoiceInput = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  useEffect(() => {
+    let pulseLoop: Animated.CompositeAnimation | null = null;
     if (isRecording) {
-      setIsRecording(false);
-      setInputText((prev) => (prev ? `${prev} ${t('coachExtra.voiceCompleted')}` : t('coachExtra.voiceSample')));
+      pulseLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.3,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseLoop.start();
     } else {
-      setIsRecording(true);
+      pulseAnim.setValue(1);
     }
+    return () => {
+      if (pulseLoop) pulseLoop.stop();
+    };
+  }, [isRecording, pulseAnim]);
+
+  useEffect(() => {
+    return () => {
+      audioRecordingService.cancelRecording().catch(() => {});
+    };
+  }, []);
+
+  const formatRecordDuration = (ms: number): string => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  const handleStartRecording = async () => {
+    try {
+      const hasPerm = await audioRecordingService.requestPermission();
+      if (!hasPerm) {
+        Alert.alert(
+          t('common.notice', 'Notice'),
+          t('coachExtra.voicePermissionRequired', 'Microphone permission is required to record voice notes.')
+        );
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setRecordDurationMs(0);
+      const started = await audioRecordingService.startRecording((ms) => {
+        setRecordDurationMs(ms);
+      });
+      if (started) {
+        setIsRecording(true);
+      } else {
+        Alert.alert(t('common.error', 'Error'), t('coachExtra.voiceFailed', 'Could not record audio. Please try again.'));
+      }
+    } catch (err) {
+      console.error('Error starting recording:', err);
+    }
+  };
+
+  const handleStopRecording = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setIsRecording(false);
+      const result = await audioRecordingService.stopRecording();
+      if (!result || !result.base64Audio) {
+        return;
+      }
+      if (result.durationMs < 400) {
+        return;
+      }
+
+      setIsTranscribing(true);
+      try {
+        const res = await chatApi.transcribeAudio(result.base64Audio, result.mimeType, language);
+        const transcribedText = res?.text?.trim();
+        if (transcribedText) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setInputText((prev) => {
+            if (!prev || !prev.trim()) return transcribedText;
+            return `${prev.trim()} ${transcribedText}`;
+          });
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          Alert.alert(
+            t('common.notice', 'Notice'),
+            t('coachExtra.voiceNoSpeech', 'No speech detected. Please speak closer to the mic.')
+          );
+        }
+      } catch (apiErr: any) {
+        console.error('Transcription API error:', apiErr);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          t('common.error', 'Error'),
+          apiErr?.message || t('coachExtra.voiceFailed', 'Could not transcribe audio. Please try again.')
+        );
+      } finally {
+        setIsTranscribing(false);
+      }
+    } catch (err) {
+      console.error('Error stopping recording:', err);
+      setIsRecording(false);
+      setIsTranscribing(false);
+    }
+  };
+
+  const handleCancelRecording = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await audioRecordingService.cancelRecording();
+    setIsRecording(false);
+    setRecordDurationMs(0);
   };
 
   const checkSelfHarmCrisis = (text: string): boolean => {
@@ -920,27 +1032,7 @@ export default function CoachScreen() {
                       </Text>
                     ) : null}
 
-                    {/* Structured Steps if available */}
-                    {Array.isArray(steps) && steps.length > 0 && (
-                      <View className="mt-2 pt-2 border-t border-theme-border/30 gap-y-1.5">
-                        <Text className="text-[11px] font-bold text-theme-muted uppercase tracking-wider mb-1">
-                          {t('coach.structuredSteps', 'Structured Workout Steps')}
-                        </Text>
-                        {steps.map((st: any, sIdx: number) => (
-                          <View
-                            key={`modal-step-${sIdx}`}
-                            className="flex-row items-center justify-between py-1.5 px-2.5 rounded-lg bg-theme-card/60"
-                          >
-                            <Text className="text-xs font-semibold text-theme-text flex-1 mr-2" numberOfLines={1}>
-                              {st.name || st.description || `Step ${sIdx + 1}`}
-                            </Text>
-                            <Text className="text-xs text-theme-muted font-mono">
-                              {st.duration || st.distance || st.target || ''}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
+                    
                   </View>
                 </>
               );
@@ -1086,7 +1178,7 @@ export default function CoachScreen() {
           </View>
 
           {/* 3 Live Macro Rings Row */}
-          <View className="bg-theme-card p-4 rounded-2xl border border-theme-border mb-4 flex-row justify-around items-center">
+          <View className="bg-theme-card p-4 rounded-2xl border border-theme-border mb-5 flex-row justify-around items-center">
             <MacroRingGauge
               label="Carbs"
               target={nutrition?.carbsTarget || 280}
@@ -1105,26 +1197,6 @@ export default function CoachScreen() {
               logged={nutrition?.loggedFat || 0}
               size={88}
             />
-          </View>
-
-          {/* Rationale / Explanation with Form (TSB) Chip */}
-          <View className="p-3.5 bg-theme-card rounded-2xl mb-5 border border-theme-border">
-            <View className="flex-row items-center justify-between mb-1.5">
-              <Text className="text-xs font-bold text-theme-text">{nutrition?.focusTitle || t('coach.dailyNutritionTargets', 'Daily Nutrition Targets')}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setIsNutritionModalOpen(false);
-                  router.push('/(tabs)/progress' as any);
-                }}
-                className="bg-emerald-500/15 px-2 py-0.5 rounded-full flex-row items-center gap-1"
-              >
-                <View className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <Text className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{t('dashboard.tsbFresh', 'Fresh')}</Text>
-              </TouchableOpacity>
-            </View>
-            <Text className="text-xs text-theme-muted leading-relaxed font-medium">
-              {nutrition?.rationale || t('coachExtra.nutritionFallback')}
-            </Text>
           </View>
 
           {/* Footer Actions */}
@@ -1425,6 +1497,13 @@ export default function CoachScreen() {
           style={{ paddingBottom: isKeyboardVisible ? (Platform.OS === 'ios' ? 8 : 12) : Math.max(tabBarOccupied + 8, 96) }}
           className="px-3 pt-1 bg-theme-bg"
         >
+          {!aiEnabled ? (
+            // No chat, voice or photos reach the coach until AI processing is allowed.
+            <AiOffNotice
+              message={user?.aiConsent === false ? t('aiConsent.offInputHint') : t('aiConsent.pendingInputHint')}
+            />
+          ) : (
+          <>
           {showSuggestions ? (
             <View className="mb-2">
               <QuickSuggestions
@@ -1439,80 +1518,121 @@ export default function CoachScreen() {
 
           <View className="bg-theme-card rounded-[24px] px-3 py-1.5 border border-theme-border flex-row items-end gap-2 min-h-[48px]">
             {/* Left Action Buttons */}
-            <View className="flex-row items-center gap-1.5 pb-1">
-              <TouchableOpacity
-                onPress={handlePickImage}
-                hitSlop={6}
-                className="w-9 h-9 rounded-full bg-theme-bg border border-theme-border items-center justify-center active:opacity-70"
-              >
-                <Ionicons name="attach-outline" size={18} color={theme.tint} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setShowSuggestions(!showSuggestions)}
-                hitSlop={6}
-                className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${
-                  showSuggestions
-                    ? 'bg-amber-500/15 border-amber-500/40'
-                    : 'bg-theme-bg border border-theme-border'
-                }`}
-              >
-                <Ionicons
-                  name={showSuggestions ? 'bulb' : 'bulb-outline'}
-                  size={16}
-                  color={showSuggestions ? '#F59E0B' : theme.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
+            {!isRecording && !isTranscribing && (
+              <View className="flex-row items-center gap-1.5 pb-1">
+                <TouchableOpacity
+                  onPress={handlePickImage}
+                  hitSlop={6}
+                  className="w-9 h-9 rounded-full bg-theme-bg border border-theme-border items-center justify-center active:opacity-70"
+                >
+                  <Ionicons name="attach-outline" size={18} color={theme.tint} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowSuggestions(!showSuggestions)}
+                  hitSlop={6}
+                  className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${
+                    showSuggestions
+                      ? 'bg-amber-500/15 border-amber-500/40'
+                      : 'bg-theme-bg border border-theme-border'
+                  }`}
+                >
+                  <Ionicons
+                    name={showSuggestions ? 'bulb' : 'bulb-outline'}
+                    size={16}
+                    color={showSuggestions ? '#F59E0B' : theme.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
 
-            {/* Input & Selected Image Previews */}
-            <View className="flex-1 justify-center py-1">
-              {selectedImages.length > 0 ? (
-                <View className="mb-2 flex-row gap-2">
-                  {selectedImages.map((imgUri, idx) => (
-                    <View key={`thumb-${idx}`} className="relative">
-                      <TouchableOpacity activeOpacity={0.85} onPress={() => setPreviewImage(imgUri)}>
-                        <Image source={{ uri: imgUri }} style={{ width: 44, height: 44, borderRadius: 8 }} contentFit="cover" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleRemoveImage(idx)}
-                        className="absolute -top-1.5 -right-1.5 bg-semantic-error w-4 h-4 rounded-full items-center justify-center"
-                      >
-                        <Ionicons name="close" size={10} color="white" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+            {/* Center Area: Recording State / Transcribing State / Text Input */}
+            {isRecording ? (
+              <View className="flex-1 flex-row items-center justify-between py-2 px-1">
+                <TouchableOpacity
+                  onPress={handleCancelRecording}
+                  hitSlop={8}
+                  className="w-8 h-8 rounded-full bg-rose-500/15 items-center justify-center mr-2 active:opacity-70"
+                >
+                  <Ionicons name="trash-outline" size={17} color="#EF4444" />
+                </TouchableOpacity>
+                <View className="flex-1 flex-row items-center gap-2">
+                  <Animated.View style={{ opacity: pulseAnim }} className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <Text className="text-theme-text text-sm font-semibold font-jakarta">
+                    {t('coachExtra.voiceRecording', 'Recording...')}
+                  </Text>
                 </View>
-              ) : null}
+                <Text className="text-rose-500 text-sm font-bold font-mono mr-2">
+                  {formatRecordDuration(recordDurationMs)}
+                </Text>
+              </View>
+            ) : isTranscribing ? (
+              <View className="flex-1 flex-row items-center gap-2.5 py-2.5 px-2">
+                <ActivityIndicator size="small" color={theme.tint} />
+                <Text className="text-theme-textSecondary text-sm font-medium font-jakarta">
+                  {t('coachExtra.voiceTranscribing', 'Transcribing...')}
+                </Text>
+              </View>
+            ) : (
+              <View className="flex-1 justify-center py-1">
+                {selectedImages.length > 0 ? (
+                  <View className="mb-2 flex-row gap-2">
+                    {selectedImages.map((imgUri, idx) => (
+                      <View key={`thumb-${idx}`} className="relative">
+                        <TouchableOpacity activeOpacity={0.85} onPress={() => setPreviewImage(imgUri)}>
+                          <Image source={{ uri: imgUri }} style={{ width: 44, height: 44, borderRadius: 8 }} contentFit="cover" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleRemoveImage(idx)}
+                          className="absolute -top-1.5 -right-1.5 bg-semantic-error w-4 h-4 rounded-full items-center justify-center"
+                        >
+                          <Ionicons name="close" size={10} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
 
-              <RNTextInput
-                ref={inputRef}
-                placeholder={t('coach.askCoach', 'Ask your coach...')}
-                placeholderTextColor={theme.textSecondary}
-                value={inputText}
-                onChangeText={(text) => {
-                  if (text.endsWith('\n')) {
-                    handleSend(text.trim());
-                  } else {
-                    setInputText(text);
-                  }
-                }}
-                multiline={true}
-                blurOnSubmit={false}
-                returnKeyType="default"
-                className="text-theme-text text-base font-jakarta"
-                style={{
-                  maxHeight: 110,
-                  minHeight: 28,
-                  paddingTop: Platform.OS === 'ios' ? 4 : 2,
-                  paddingBottom: Platform.OS === 'ios' ? 4 : 2,
-                  lineHeight: 22,
-                }}
-              />
-            </View>
+                <RNTextInput
+                  ref={inputRef}
+                  placeholder={t('coach.askCoach', 'Ask your coach...')}
+                  placeholderTextColor={theme.textSecondary}
+                  value={inputText}
+                  onChangeText={(text) => {
+                    if (text.endsWith('\n')) {
+                      handleSend(text.trim());
+                    } else {
+                      setInputText(text);
+                    }
+                  }}
+                  multiline={true}
+                  blurOnSubmit={false}
+                  returnKeyType="default"
+                  className="text-theme-text text-base font-jakarta"
+                  style={{
+                    maxHeight: 110,
+                    minHeight: 28,
+                    paddingTop: Platform.OS === 'ios' ? 4 : 2,
+                    paddingBottom: Platform.OS === 'ios' ? 4 : 2,
+                    lineHeight: 22,
+                  }}
+                />
+              </View>
+            )}
 
-            {/* Right Action Button (Mic if empty, Send if populated) */}
+            {/* Right Action Button */}
             <View className="pb-1">
-              {inputText.trim().length > 0 || selectedImages.length > 0 ? (
+              {isTranscribing ? (
+                <View className="w-9 h-9 rounded-full bg-theme-bg border border-theme-border items-center justify-center">
+                  <ActivityIndicator size="small" color={theme.tint} />
+                </View>
+              ) : isRecording ? (
+                <TouchableOpacity
+                  onPress={handleStopRecording}
+                  className="w-9 h-9 rounded-full bg-rose-500 items-center justify-center active:opacity-80"
+                >
+                  <Ionicons name="stop" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : inputText.trim().length > 0 || selectedImages.length > 0 ? (
                 <TouchableOpacity
                   onPress={() => handleSend()}
                   disabled={sending}
@@ -1522,22 +1642,20 @@ export default function CoachScreen() {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  onPress={handleToggleVoiceInput}
-                  className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${
-                    isRecording
-                      ? 'bg-rose-500/20 border-rose-500'
-                      : 'bg-theme-bg border border-theme-border'
-                  }`}
+                  onPress={handleStartRecording}
+                  className="w-9 h-9 rounded-full bg-theme-bg border border-theme-border items-center justify-center active:opacity-70"
                 >
                   <Ionicons
-                    name={isRecording ? 'mic' : 'mic-outline'}
+                    name="mic-outline"
                     size={17}
-                    color={isRecording ? '#EF4444' : theme.textSecondary}
+                    color={theme.textSecondary}
                   />
                 </TouchableOpacity>
               )}
             </View>
           </View>
+          </>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

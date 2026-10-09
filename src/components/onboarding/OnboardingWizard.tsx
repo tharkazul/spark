@@ -800,7 +800,7 @@ export default function OnboardingWizard() {
                         <Text className="text-theme-muted text-xs text-center leading-relaxed">
                           {t('onboarding.agreeToTerms')}{' '}
                           <Text
-                            onPress={() => Linking.openURL('https://rooka.io/terms.html')}
+                            onPress={() => Linking.openURL('https://rooka.io/terms')}
                             className="text-theme-accent font-semibold underline"
                           >
                             {t('onboarding.termsOfService')}

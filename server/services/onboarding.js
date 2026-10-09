@@ -241,9 +241,9 @@ const FEATURES_REGISTRY = [
   {
     key: "physique_log",
     name: "Physique & Biometrics Log",
-    description: "Log weight, fatigue, sleep quality, or progress photos to monitor body composition and recovery.",
+    description: "Log weight, fatigue and sleep quality to monitor body composition and recovery.",
     minTier: "free",
-    coachPrompt: "Track how your body is transforming! You can log your weight, sleep quality, fatigue, or physique photos in the physique tab to help monitor your recovery and body composition changes.",
+    coachPrompt: "Track how your body is transforming! You can log your weight, sleep quality and fatigue in the physique tab to help monitor your recovery and body composition changes.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -265,22 +265,6 @@ const FEATURES_REGISTRY = [
         db.get(
           `SELECT ((SELECT COUNT(*) FROM connections WHERE user_id = ? OR friend_id = ?) + (SELECT COUNT(*) FROM kudos WHERE user_id = ?)) as cnt`,
           [userId, userId, userId],
-          (err, row) => resolve(row ? row.cnt > 0 : false)
-        );
-      });
-    }
-  },
-  {
-    key: "social_comments",
-    name: "Activity Comments & Social Discussions",
-    description: "Comment on your friends' workouts in the Social feed to discuss pacing or celebrate achievements.",
-    minTier: "free",
-    coachPrompt: "Cheer on your training partners! You can leave comments on your friends' workouts in the Social feed to discuss pacing, celebrate PBs, or share route tips.",
-    checkUsage: (userId) => {
-      return new Promise((resolve) => {
-        db.get(
-          `SELECT COUNT(*) as cnt FROM activity_comments WHERE user_id = ?`,
-          [userId],
           (err, row) => resolve(row ? row.cnt > 0 : false)
         );
       });
@@ -501,7 +485,7 @@ async function runWeeklyFeatureOnboardingJob() {
       `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender, u.language,
               u.garmin_username, u.garmin_oauth1_token,
               (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
-       FROM users u WHERE u.deleted_at IS NULL`,
+       FROM users u WHERE u.deleted_at IS NULL AND u.ai_consent = 1`,
       (err, rows) => {
         if (err) reject(err);
         else resolve(rows || []);

@@ -1,107 +1,184 @@
 # App Store & Google Play Store Metadata Specification
 
-This document provides all copy, tags, metadata, and privacy declaration answers required for submitting **Rooka (rooka-native)** to the **Apple App Store (App Store Connect)** and **Google Play Console**.
+Copy, keywords, privacy declarations and reviewer notes for submitting **rooka (`io.rooka.app`)** to the **Apple App Store (App Store Connect)** and **Google Play Console**.
+
+Everything in here must match what the app and backend actually do. If a feature or data flow changes, update this file before the next submission.
 
 ---
 
 ## 1. General App Store Listing Information
 
-| Attribute | Apple App Store | Google Play Store |
-| :--- | :--- | :--- |
-| **App Name** | Rooka - AI Fitness & Recovery | Rooka: AI Fitness & Recovery |
-| **Subtitle / Short Description** (Max length) | AI Coaching, Recovery & Workouts (30 chars) | Personal AI fitness coach, recovery scores, physique & workout tracking. (80 chars) |
-| **Primary Category** | Health & Fitness | Health & Fitness |
-| **Secondary Category** | Sports | Sports |
-| **Copyright** | © 2026 Rooka APP | N/A |
-| **Content Rating** | 12+ (Infrequent/Mild Health/Medical Information) | Everyone / PEGI 3 (IARC Questionnaire) |
+| Attribute | Apple App Store | Google Play Store | Character Limit |
+| :--- | :--- | :--- | :--- |
+| **App Name / Title** | `rooka - AI Fitness & Recovery` (29 chars) | `rooka: AI Fitness & Recovery` (28 chars) | 30 chars |
+| **Subtitle / Short Description** | `AI Coaching & Recovery Scores` (29 chars) | `Personal AI fitness coach, recovery scores, physique & workout tracking.` (72 chars) | iOS: 30 chars<br>Android: 80 chars |
+| **Primary Category** | Health & Fitness | Health & Fitness | N/A |
+| **Secondary Category** | Sports | Sports | N/A |
+| **Support URL** | `https://rooka.io/support` | `https://rooka.io/support` | Mandatory (iOS) |
+| **Marketing URL** | `https://rooka.io` | `https://rooka.io` | Optional |
+| **Privacy Policy URL** | `https://rooka.io/privacy` | `https://rooka.io/privacy` | Mandatory |
+| **Terms of Service (EULA)** | `https://rooka.io/terms` | `https://rooka.io/terms` | Mandatory for IAPs |
+| **Copyright** | © 2026 rooka | N/A | N/A |
+| **Age / Content Rating** | From the App Store Connect age-rating questionnaire (see note) | Everyone / PEGI 3 (via IARC form) | N/A |
+
+> [!NOTE]
+> **Age rating:** Apple replaced the old 12+/17+ ratings with 4+, 9+, 13+, 16+ and 18+, calculated from the questionnaire. Answer it truthfully: health and wellness topics = yes; medical/treatment information = no (rooka gives fitness guidance, not medical advice); user-generated content = no (there are no comments or posts, only sparks between connections); messaging/chat with other users = no; unrestricted web access = no; advertising = no.
+
+> [!NOTE]
+> **Display name:** `app.json` still sets the home-screen name (`name`, `CFBundleDisplayName`) to `Rooka` with a capital R. Make it match the store name before building if you want lowercase everywhere.
 
 ---
 
-## 2. Keywords (Apple App Store - Max 100 Characters)
+## 2. Keywords (Apple App Store - 100 Character Budget)
 
 ```text
-fitness,workout,recovery,ai coach,strava,garmin,physique,body fat,gym,running,strength,health,calories
+strava,garmin,physique,body fat,gym,running,strength,calories,sleep,hrv,training,weight,cardio,lift
 ```
+*(99 / 100 characters, comma-separated, no spaces after commas)*
+
+> [!NOTE]
+> Words already in the app name (*rooka*, *AI*, *Fitness*, *Recovery*) and the category are indexed automatically, so they are left out of the keyword field.
 
 ---
 
-## 3. Full App Description (Apple & Google Play - Up to 4,000 Characters)
+## 3. Full App Description (Apple App Store & Google Play - 2,866 / 4,000 chars)
 
 ```text
-Rooka is your intelligent AI fitness and recovery companion built to optimize your athletic performance, physique, and daily recovery.
+rooka is your AI fitness and recovery coach, built to help you train smarter, recover better and stay consistent.
 
-Whether you are training for endurance, building muscle, or staying consistent, Rooka connects your workout activities with advanced AI insights to keep you accountable and performing at your peak.
+Whether you are training for an endurance event, building strength or just staying active, rooka brings your workouts, recovery data and goals together and turns them into clear, personal coaching.
 
 KEY FEATURES:
 
-• INTELLIGENT AI FITNESS COACH
-Get instant answers, daily check-ins, and actionable training advice from your personal AI coach. Rooka learns your training habits, workout history, and recovery trends to deliver tailored suggestions.
+• PERSONAL AI COACH
+Ask questions, get daily check-ins and receive training advice from your AI coach. The coach uses your workout history, recovery trends and goals to tailor its suggestions, and can build and adjust your training plan.
 
-• DAILY ROOKA RECOVERY SCORE
-Track your body's readiness before every workout. Rooka evaluates your training load, volume, intensity, and recovery indicators to give you a clear daily Rooka Score.
+• DAILY RECOVERY SCORE
+See how ready you are before every workout. rooka combines your training load with recovery signals such as heart rate, heart rate variability and sleep into one daily score.
 
-• THIRD-PARTY WORKOUT SYNC (STRAVA & GARMIN)
-Seamlessly connect your favorite fitness platforms. Import activities from Strava and Garmin Connect automatically to centralize your training data in one beautiful dashboard.
+• APPLE HEALTH & APPLE WATCH
+Sync workouts, steps, heart rate, heart rate variability, active energy, sleep and body measurements from Apple Health, and send structured workouts to your Apple Watch.
 
-• PHYSIQUE & BODY COMPOSITION METRICS
-Monitor your physical transformation over time. Log weight, body fat percentage, and physique progress photos with privacy-first storage.
+• STRAVA & GARMIN SYNC
+Connect Strava and Garmin Connect to import your activities automatically, so all your training lives in one place.
 
-• GAMIFICATION & STREAKS
-Stay motivated with streak counters, level progression, and workout achievements designed to keep you moving every single day.
+• PHYSIQUE & NUTRITION
+Log weight and body fat, and get daily fueling targets matched to your training.
 
-IMPORTANT DISCLAIMER:
-Rooka is intended for general fitness, wellness, and educational purposes only. Rooka is not a medical device and does not provide medical diagnoses, treatment, or clinical advice. Always consult a physician before beginning any new exercise routine.
+• TRAIN WITH FRIENDS
+Connect with training partners you know, see their workouts and send them a spark to cheer them on. Only accepted connections can see your activities.
 
+• STREAKS & LEVELS
+Stay motivated with streaks, levels and achievements.
+
+rooka+ SUBSCRIPTION:
+rooka+ is an optional auto-renewing subscription that unlocks more AI coaching and advanced features.
+• Payment is charged to your Apple ID / Google Play account when you confirm the purchase.
+• The subscription renews automatically unless auto-renew is turned off at least 24 hours before the end of the current period.
+• Your account is charged for renewal within 24 hours before the end of the current period.
+• You can manage or cancel your subscription in your App Store / Google Play account settings.
+
+YOUR DATA & AI:
+The AI coach runs on Google's Gemini AI service. rooka asks for your permission first, and nothing is sent until you allow it. Once you do, the coach sends Gemini the data it needs to answer you, which processes it on our behalf: your messages to the coach, photos and voice notes you share with the coach, and health and fitness data such as workouts, heart rate, heart rate variability, sleep, steps, active energy, weight and VO2 max, including data read from Apple Health. You can turn the AI coach off at any time in Profile. Your data is never sold and never used for advertising or marketing. You can delete your account and all your data in the app at any time.
+
+HEALTH DISCLAIMER:
+rooka is for general fitness and wellness only. It is not a medical device and does not diagnose, treat or give medical advice. Consult a physician before starting a new exercise program.
+
+Support: https://rooka.io/support
 Terms of Service: https://rooka.io/terms
 Privacy Policy: https://rooka.io/privacy
 ```
+
+> [!IMPORTANT]
+> **Keep the "YOUR DATA & AI" paragraph.** With the athlete's consent, the backend sends health metrics (including Apple Health data), coach messages, chat photos and voice notes to Google Gemini (`server/routes/chat.js`, `server/services/ai.js`). Consent is stored in `users.ai_consent` and enforced in `server/services/aiConsent.js`. The description, privacy policy and in-app consent card must all say the same thing. Never state that health data is "not shared with third parties".
 
 ---
 
 ## 4. App Privacy Declarations (Apple Nutrition Labels)
 
-When completing the **App Privacy** section in App Store Connect:
+Data processed by service providers on rooka's behalf (Google Gemini for AI, Google Cloud for hosting, RevenueCat for subscriptions) counts as data **collected** by rooka and must be declared below.
 
-| Data Type | Collected? | Linked to User? | Used for Tracking? | Purpose |
+| Data Type (Apple category) | Collected? | Linked to User? | Used for Tracking? | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Contact Info** (Email, Name) | Yes | Yes | No | Account Setup, App Functionality |
-| **Health & Fitness** (Workouts, Body Weight, Heart Rate) | Yes | Yes | No | Core App Functionality, Analytics |
-| **User Content** (Chat messages, Photos) | Yes | Yes | No | Core App Functionality (AI Coach & Physique) |
-| **Identifiers** (User ID, Device ID) | Yes | Yes | No | Account Management & App Security |
-| **Diagnostics** (Crash data, performance) | Yes | No | No | App Performance & Bug Fixing |
+| **Contact Info** – Name, Email Address | Yes | Yes | No | App Functionality (account, sign-in) |
+| **Health & Fitness** – Health (heart rate, HRV, resting HR, sleep, weight, body fat, VO2 max, cycle tracking) | Yes | Yes | No | App Functionality (recovery score, AI coaching, plans) |
+| **Health & Fitness** – Fitness (workouts, steps, active energy) | Yes | Yes | No | App Functionality (recovery score, AI coaching, plans) |
+| **Location** – Precise Location | Yes | Yes | No | App Functionality (GPS routes of workouts synced from Strava, Garmin and Apple Health) |
+| **User Content** – Photos or Videos (photos sent to the coach, profile picture) | Yes | Yes | No | App Functionality |
+| **User Content** – Audio Data (voice notes to the coach) | Yes | Yes | No | App Functionality (speech-to-text) |
+| **User Content** – Other User Content (messages to the AI coach, daily log notes) | Yes | Yes | No | App Functionality |
+| **Purchases** – Purchase History | Yes | Yes | No | App Functionality (rooka+ access, via RevenueCat) |
+| **Identifiers** – User ID, Device ID (push token) | Yes | Yes | No | App Functionality (authentication, notifications) |
+| **Diagnostics** | No | – | – | No crash or analytics SDK is included. Change this if one is added. |
+
+> [!IMPORTANT]
+> When asked: **"Do you or your third-party partners use data from this app to track users across apps and websites owned by other companies?"** Select **No**.
+
+> [!NOTE]
+> **Location check:** the app does not read the device's location itself (no location library is installed), but `app.json` still contains `NSLocationWhenInUseUsageDescription` claiming in-app GPS tracking. Remove that string, or ship the feature, so the permission text matches the app.
 
 ---
 
 ## 5. Google Play Data Safety Form Declarations
 
-When completing the **Data Safety** section in Google Play Console:
-
-1. **Does your app collect or share any of the required user data types?** -> `Yes`
+1. **Does your app collect or share any user data?** -> `Yes`
 2. **Is all user data collected by your app encrypted in transit?** -> `Yes` (HTTPS/TLS)
-3. **Do you provide a way for users to request that their data be deleted?** -> `Yes` (In-App + URL `https://rooka.io/privacy`)
-4. **Data Types Selected:**
-   - **Personal info:** Name, Email address, User IDs.
-   - **Health and fitness:** Fitness info (Workouts, activities), Health info (Heart rate, recovery, physical metrics).
-   - **Photos and videos:** Photos (Physique photos).
-   - **Messages:** Other in-app messages (AI Coach queries).
-   - **App info and performance:** Crash logs, Diagnostics.
+3. **Do you provide a way for users to request that their data be deleted?** -> `Yes`
+   * In-app deletion: Yes (Profile > Delete Account)
+   * Web deletion URL: `https://rooka.io/privacy`
+4. **Is data shared with third parties?** -> `No`. Google Gemini, Google Cloud and RevenueCat process data on rooka's behalf as service providers, which Google Play does not count as sharing. Data is still declared as **collected** below.
+5. **Data types collected:**
+   * **Location:** Precise location (GPS routes of synced workouts).
+   * **Personal info:** Name, Email address, User IDs.
+   * **Financial info:** Purchase history (subscriptions).
+   * **Health and fitness:** Health info (heart rate, HRV, sleep, weight, body composition, cycle tracking), Fitness info (workouts, steps, activity).
+   * **Photos and videos:** Photos (photos sent to the coach, profile picture).
+   * **Audio:** Voice or sound recordings (voice notes to the coach).
+   * **Messages:** Other in-app messages (conversations with the AI coach).
+   * **Device or other IDs:** Push notification token.
+6. **Health apps declaration:**
+   * Category: **Fitness and wellness**
+   * Confirm the app does not claim to provide medical diagnosis, treatment or clinical intervention.
 
 ---
 
 ## 6. App Reviewer Notes & Credentials (For Apple & Google Testers)
 
-> **CRITICAL:** Apple and Google reviewers WILL reject the app if they cannot log in and test all features (including AI chat and Strava/Garmin connection screens).
-
-Provide the following in **App Review Information / Test Credentials**:
+Enter these in **App Store Connect > App Review Information** and **Google Play Console > App Access**.
 
 ```text
-Demo Credentials for Reviewer:
-Username/Email: reviewer-test@rooka.io
-Password: [GENERATE_SECURE_DEMO_PASSWORD]
+DEMO CREDENTIALS:
+Username / Email: reviewer-test@rooka.io
+Password: Testreview123
 
-Notes for Reviewer:
-- Rooka is an AI fitness & recovery tracking app.
-- The demo account includes pre-loaded sample workouts, a sample recovery score, and sample physique metrics so you can test all screens immediately.
-- To test the AI coach, navigate to the "Coach" tab and send any fitness query.
-- Account deletion can be tested directly under Settings > Account > Delete Account.
+REVIEW NOTES:
+- rooka is an AI fitness, training and daily recovery coach.
+- The reviewer account is pre-configured with:
+  1. An active rooka+ subscription (no paywall).
+  2. Synced sample running and strength workouts.
+  3. Calculated recovery scores, heart rate variability and sleep data.
+  4. Sample physique check-ins.
+- AI consent (Guideline 5.1.2(i)): the first message in the "Coach" tab asks for permission to share data with Google Gemini, which generates the coach's replies. Nothing is sent to Gemini before the athlete taps "Allow". If they tap "Don't allow", every AI feature stays off and the rest of the app keeps working. The choice can be changed at any time in Profile > Preferences > "AI coach".
+- AI coach: after tapping "Allow", ask any training question in the "Coach" tab.
+- Social: athletes connect by username and must accept each other. Only accepted connections see each other's activities and training data, and they can react with a "spark". There are no comments, posts or free-text messages between users. To remove a connection, open their profile and tap "Friends".
+- Integrations: Profile tab > "Connections".
+- Account deletion (Guideline 5.1.1(v)): Profile tab > "Account & Membership" > "Delete Account". A confirmation alert appears before all data is deleted.
+- Contact: Rutger van den Berg (support@rooka.io)
 ```
+
+> [!WARNING]
+> This file is tracked in git, so the reviewer password above is in the repository history. Keep that account free of real data, or keep the password out of this file.
+
+---
+
+## 7. Pre-Submission Verification Checklist
+
+- [x] **AI data consent:** the coach's first message asks for explicit permission before any data is sent to Google Gemini (Guideline 5.1.2(i)). It can be changed in Profile > Preferences > AI coach.
+- [x] **Privacy policy matches section 3:** `server/public/privacy.html` describes the consent, names Google Gemini and lists the data sent. It goes live when the server is deployed.
+- [ ] **Account deletion visible:** the Delete Account button (`ProfileTab.tsx` -> `userApi.deleteAccount()`) is reachable on the Profile screen.
+- [ ] **Paid Apps Agreement signed:** banking and tax details are active in App Store Connect.
+- [ ] **Subscriptions attached:** the rooka+ subscriptions are attached to version 1.0 when you submit.
+- [ ] **Paywall legal links:** the RevenueCat paywall shows working Terms of Use (EULA) and Privacy Policy links.
+- [x] **Review account active:** `reviewer-test@rooka.io` exists on `https://api.rooka.io` with seeded data and rooka+ access.
+- [x] **Backend hosting:** the production backend runs on a Google Cloud VM.
+- [ ] **Backend deployed:** the latest server (comment removal, AI consent, remove-connection, privacy policy) is deployed to the VM before the new build reaches review. Existing athletes get the consent card the next time they open the coach, and their AI features pause until they answer.

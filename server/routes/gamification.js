@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const { authenticateToken } = require('../services/auth');
+const { requireAiConsent } = require("../services/aiConsent");
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback, generateImage } = require('../services/ai');
 const i18n = require('../services/i18n');
@@ -107,7 +108,7 @@ router.post("/api/milestones", authenticateToken, (req, res) => {
   });
 });
 
-router.post("/api/milestones/:id/artwork", authenticateToken, async (req, res) => {
+router.post("/api/milestones/:id/artwork", authenticateToken, requireAiConsent, async (req, res) => {
   const milestoneId = req.params.id;
   db.get(
     `SELECT * FROM milestones WHERE id = ? AND user_id = ?`,
@@ -493,6 +494,7 @@ router.post("/api/gamification/evaluate_quests", authenticateToken, async (req, 
 router.post(
   "/api/gamification/generate_title",
   authenticateToken,
+  requireAiConsent,
   async (req, res) => {
     const userId = req.user.id;
 

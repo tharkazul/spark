@@ -97,6 +97,13 @@ db.serialize(() => {
     `ALTER TABLE users ADD COLUMN chat_count INTEGER DEFAULT 0`,
     (err) => {},
   );
+  // Consent to send data to the AI provider (Gemini). NULL = not asked yet,
+  // 1 = accepted, 0 = declined. Every AI feature is off unless this is 1.
+  db.run(`ALTER TABLE users ADD COLUMN ai_consent INTEGER`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN ai_consent_at TEXT`, (err) => {});
+  // Set when onboarding skipped its AI plan tailoring because consent was
+  // still missing; the tailoring runs once the athlete accepts.
+  db.run(`ALTER TABLE users ADD COLUMN onboarding_ai_pending INTEGER DEFAULT 0`, (err) => {});
   db.run(
     `ALTER TABLE users ADD COLUMN search_privacy INTEGER DEFAULT 0`,
     (err) => {},

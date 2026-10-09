@@ -1,6 +1,6 @@
 /**
  * Server-side translations. Used via services/i18n.js:
- *   t(lang, 'push.newComment.title', { name })
+ *   t(lang, 'push.spark.title', { name })
  *
  * `messages`    – keyed strings with {placeholders}, one entry per language.
  * `apiMessages` – exact English API `error` / `message` strings -> translations
@@ -137,13 +137,6 @@ const messages = {
       es: "Acabo de analizar tus últimos datos y he subido a tu panel un nuevo plan para tu fase de {phase}. Échale un vistazo, ¡lo vas a bordar!",
       fr: "Je viens d'analyser tes derniers chiffres et j'ai mis un nouveau programme pour ta phase {phase} sur ton tableau de bord. Va voir, tu vas tout déchirer !",
     },
-    commentReceived: {
-      en: '{name} left a comment on your "{activity}": "{comment}"',
-      nl: '{name} reageerde op je "{activity}": "{comment}"',
-      de: '{name} hat deine Aktivität "{activity}" kommentiert: "{comment}"',
-      es: '{name} comentó tu "{activity}": "{comment}"',
-      fr: "{name} a commenté ton activité « {activity} » : « {comment} »",
-    },
     connectionRequest: {
       en: "{name} wants to connect with you on Rooka! Do you want to accept their connection request?",
       nl: "{name} wil met je connecten op Rooka! Wil je het verzoek accepteren?",
@@ -174,10 +167,6 @@ const messages = {
     },
   },
   push: {
-    newComment: {
-      title: { en: "New comment on your workout!", nl: "Nieuwe reactie op je training!", de: "Neuer Kommentar zu deinem Training!", es: "¡Nuevo comentario en tu entrenamiento!", fr: "Nouveau commentaire sur ta séance !" },
-      body: { en: '{name} commented on "{activity}": "{comment}"', nl: '{name} reageerde op "{activity}": "{comment}"', de: '{name} hat "{activity}" kommentiert: "{comment}"', es: '{name} comentó "{activity}": "{comment}"', fr: "{name} a commenté « {activity} » : « {comment} »" },
-    },
     connectionRequest: {
       title: { en: "New connection request!", nl: "Nieuw connectieverzoek!", de: "Neue Verbindungsanfrage!", es: "¡Nueva solicitud de conexión!", fr: "Nouvelle demande de connexion !" },
       body: { en: "{name} sent you a connection request on Rooka.", nl: "{name} heeft je een connectieverzoek gestuurd op Rooka.", de: "{name} hat dir auf Rooka eine Verbindungsanfrage geschickt.", es: "{name} te ha enviado una solicitud de conexión en Rooka.", fr: "{name} t'a envoyé une demande de connexion sur Rooka." },

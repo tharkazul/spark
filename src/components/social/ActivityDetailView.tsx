@@ -420,7 +420,6 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
     start_date: raw?.start_date || fallback?.start_date || new Date().toISOString(),
     kudos_count: raw?.kudos_count ?? fallback?.kudos_count ?? 0,
     has_kudosed: raw?.has_kudosed ?? fallback?.has_kudosed ?? false,
-    comments_count: raw?.comments_count ?? fallback?.comments_count ?? 0,
   };
 }
 

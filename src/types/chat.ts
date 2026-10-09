@@ -25,13 +25,9 @@ export interface EventInvitePayload {
   status: 'pending' | 'accepted' | 'declined';
 }
 
-export interface SocialMentionPayload {
-  type: 'social_mention';
-  activity_id: number | string;
-  author_name: string;
-  author_avatar?: string;
-  comment_text: string;
-  created_at?: string;
+/** The coach's first message: asks the athlete to allow AI processing. */
+export interface AiConsentPayload {
+  type: 'ai_consent';
 }
 
 export interface WorkoutProposalPayload {
@@ -76,8 +72,8 @@ export interface WorkoutDebriefPayload {
 }
 
 export type ChatPayload =
+  | AiConsentPayload
   | EventInvitePayload
-  | SocialMentionPayload
   | WorkoutProposalPayload
   | ConnectionRequestPayload
   | CreatedWorkoutPayload

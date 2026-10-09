@@ -50,6 +50,7 @@ aiMock.exports = {
     return "Great job today! Rest up tonight.";
   },
   generateImage: async () => null,
+  transcribeAudio: async () => "Transcribed test audio note.",
 };
 require.cache[aiPath] = aiMock;
 
@@ -79,7 +80,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(1500); // Wait for schema initialization
 
     // Seed test user
-    await run(`INSERT INTO users (id, username, language, coach_name, coach_tone, subscription_tier) VALUES (1, 'runner', 'en', 'Coach Alex', 'hype', 'rooka_plus')`);
+    await run(`INSERT INTO users (id, username, language, coach_name, coach_tone, subscription_tier, ai_consent) VALUES (1, 'runner', 'en', 'Coach Alex', 'hype', 'rooka_plus', 1)`);
 
     const chatRouter = require("./routes/chat");
     const app = express();

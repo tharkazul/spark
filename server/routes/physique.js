@@ -8,18 +8,6 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 
-const physiqueStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, "../secure_uploads/physique");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `physique_${req.user.id}_${crypto.randomUUID()}${ext}`);
-  },
-});
-const uploadPhysique = multer({ storage: physiqueStorage });
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -34,6 +22,7 @@ const profileStorage = multer.diskStorage({
 });
 const uploadProfile = multer({ storage: profileStorage });
 const { authenticateToken } = require('../services/auth');
+const { requireAiConsent, hasAiConsent } = require("../services/aiConsent");
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
@@ -200,7 +189,7 @@ router.get("/api/fatigue", authenticateToken, (req, res) => {
   );
 });
 
-router.get("/api/fatigue/insight", authenticateToken, (req, res) => {
+router.get("/api/fatigue/insight", authenticateToken, requireAiConsent, (req, res) => {
   db.all(
     `SELECT body_part, fatigue_score, development_score FROM athlete_muscle_status WHERE user_id = ?`,
     [req.user.id],
@@ -260,18 +249,6 @@ router.get("/api/physique", authenticateToken, (req, res) => {
   );
 });
 
-router.get("/api/images/physique/:filename", authenticateToken, (req, res) => {
-  const filename = req.params.filename;
-  if (!filename.startsWith(`physique_${req.user.id}_`)) {
-    return res
-      .status(403)
-      .json({ error: "Forbidden: You do not have access to this image." });
-  }
-  const filePath = path.join(__dirname, "../secure_uploads/physique", filename);
-  if (!fs.existsSync(filePath)) return res.status(404).send("Not found");
-  res.sendFile(filePath);
-});
-
 router.get("/api/images/chat/:filename", authenticateToken, (req, res) => {
   const filename = req.params.filename;
   if (!filename.startsWith(`img_${req.user.id}_`)) {
@@ -290,15 +267,11 @@ router.get("/api/images/chat/:filename", authenticateToken, (req, res) => {
 router.post(
   "/api/physique",
   authenticateToken,
-  uploadPhysique.single("photo"),
   async (req, res) => {
     const { date, weight_kg, sleep_quality, fatigue_level, notes } = req.body;
-    const photoUrl = req.file
-      ? `/api/images/physique/${req.file.filename}`
-      : null;
 
     db.run(
-      `INSERT INTO physique_logs (user_id, date, weight_kg, sleep_quality, fatigue_level, notes, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO physique_logs (user_id, date, weight_kg, sleep_quality, fatigue_level, notes) VALUES (?, ?, ?, ?, ?, ?)`,
       [
         req.user.id,
         date,
@@ -306,7 +279,6 @@ router.post(
         sleep_quality || null,
         fatigue_level || null,
         notes || null,
-        photoUrl,
       ],
       async function (err) {
         if (err)
@@ -325,6 +297,7 @@ router.post(
         res.json({ success: true });
 
         // Proactive AI Coach message
+        if (!(await hasAiConsent(req.user.id))) return;
         try {
           let prompt = `The athlete just logged their daily physique and wellness data for ${date}.\\n`;
           if (weight_kg) prompt += `Weight: ${weight_kg}kg\\n`;
@@ -333,13 +306,6 @@ router.post(
           if (fatigue_level)
             prompt += `Fatigue Level (1-5): ${fatigue_level}\\n`;
           if (notes) prompt += `Notes: ${notes}\\n`;
-
-          let imageBase64 = null;
-          if (req.file) {
-            prompt += `They also uploaded a progress photo (attached).\\n`;
-            const imageBytes = fs.readFileSync(req.file.path);
-            imageBase64 = imageBytes.toString("base64");
-          }
 
           db.all(
             `SELECT sport, description, target_rooka FROM micro_plan WHERE user_id = ? AND date = ?`,
@@ -356,7 +322,7 @@ router.post(
                 prompt += `They have a Rest day planned for today.\\n`;
               }
 
-              prompt += `Review their status. Keep it under 2 sentences, act as their friendly elite endurance coach, and give them a short piece of advice or encouragement based on their numbers (and the photo if attached).`;
+              prompt += `Review their status. Keep it under 2 sentences, act as their friendly elite endurance coach, and give them a short piece of advice or encouragement based on their numbers.`;
 
               db.get(
                 "SELECT coach_tone, coach_name, language FROM users WHERE id = ?",
@@ -369,7 +335,7 @@ router.post(
                       prompt,
                       systemPrompt,
                       null,
-                      imageBase64,
+                      null,
                       null,
                       "personal",
                       false,
@@ -432,7 +398,7 @@ router.delete("/api/physique/:id", authenticateToken, (req, res) => {
 
 
 
-router.get("/api/physique/nutrition", authenticateToken, async (req, res) => {
+router.get("/api/physique/nutrition", authenticateToken, requireAiConsent, async (req, res) => {
   const { getAMSDateString } = require('../services/utils');
   const todayStr = getAMSDateString();
 

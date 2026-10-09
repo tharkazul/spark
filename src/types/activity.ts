@@ -35,7 +35,6 @@ export interface Activity {
   polyline?: string;
   kudos_count?: number;
   has_kudosed?: boolean;
-  comments_count?: number;
   laps?: ActivityLap[];
   type?: SportType | string;
   moving_time?: number;

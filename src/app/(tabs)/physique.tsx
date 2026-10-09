@@ -241,7 +241,7 @@ export default function ProgressScreen() {
       >
         <View className="max-h-[80vh] pb-6">
           <ScrollView showsVerticalScrollIndicator={false}>
-            <NutritionTab />
+            {isNutritionModalOpen && <NutritionTab />}
           </ScrollView>
         </View>
       </BottomSheetModal>

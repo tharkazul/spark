@@ -14,6 +14,7 @@
  *     are over, and treats injuries and constraints from their tables as the truth.
  */
 const db = require("./db");
+const { hasAiConsent } = require("./aiConsent");
 const { generateWithFallback } = require("./ai");
 const constraintsService = require("./athleteConstraints");
 
@@ -50,6 +51,8 @@ function chatTimestampDate(ts) {
 }
 
 async function summarizeOnce(userId) {
+  if (!(await hasAiConsent(userId))) return undefined; // AI is off without the athlete's consent
+
   const user = await get(`SELECT long_term_memory FROM users WHERE id = ?`, [userId]);
   if (!user) return;
   const snapshot = (user.long_term_memory || "").trim();

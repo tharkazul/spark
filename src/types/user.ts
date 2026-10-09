@@ -22,6 +22,8 @@ export interface UserProfile {
   garmin_connected?: boolean;
   strava_connected?: boolean;
   suunto_connected?: boolean;
+  /** Consent to send data to the AI coach (Google Gemini): null = not answered yet. */
+  aiConsent?: boolean | null;
   target_event?: string;
   event_date?: string;
   target_ctl?: number;

@@ -71,6 +71,10 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const isClosingRef = useRef(false);
 
+  if (visible && !showModal) {
+    setShowModal(true);
+  }
+
   const { panHandlers } = useSheetDismiss(onClose, {
     animY: translateY,
     backdropOpacity,

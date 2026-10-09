@@ -7,6 +7,7 @@ const { generateWithFallback } = require('../services/ai');
 const { generateQuestForUser } = require('../services/utils');
 const { detectAthleteGoalDiscipline, getGoalDependentPromptContext } = require('../services/goalPromptContext');
 const { sendSSEEvent } = require('../services/sse');
+const { hasAiConsent, ensureConsentPrompt } = require('../services/aiConsent');
 
 // Helper to determine benchmark test name & sport based on user context
 function getBenchmarkInfoForUser(athleteContext, targetEvent) {
@@ -237,6 +238,168 @@ function localizeBenchmarkInfo(info, lang) {
 }
 
 // POST /finalize or POST /api/onboarding/finalize
+const ONBOARDING_LANG_NAMES = {
+  nl: 'Dutch (Nederlands)',
+  de: 'German (Deutsch)',
+  es: 'Spanish (Español)',
+  fr: 'French (Français)',
+  en: 'English'
+};
+
+// Personalises the template onboarding plan with the AI coach and, for rooka+
+// athletes, generates a first quest. Reads everything from the database so it
+// can run right after onboarding or later, when the athlete accepts AI
+// processing. Skips itself without consent, and once the baseline test is done
+// (by then the template week is history and the weekly planner has taken over).
+async function tailorOnboardingPlan(userId) {
+  if (!(await hasAiConsent(userId))) return;
+  const dbGet = (sql, params) => new Promise((resolve) => db.get(sql, params, (err, row) => resolve(err ? null : row)));
+
+  const user = await dbGet(
+    `SELECT coach_tone, athlete_context, training_availability, gender, language, subscription_tier FROM users WHERE id = ?`,
+    [userId],
+  );
+  if (!user) return;
+  const baselinePending = await dbGet(
+    `SELECT 1 AS ok FROM benchmark_tests WHERE user_id = ? AND coach_notes = 'Initial Onboarding Baseline Assessment' AND completed_at IS NULL`,
+    [userId],
+  );
+  await new Promise((resolve) => db.run(`UPDATE users SET onboarding_ai_pending = 0 WHERE id = ?`, [userId], () => resolve()));
+  if (!baselinePending) return;
+
+  const milestone = await dbGet(`SELECT name, date FROM milestones WHERE user_id = ? AND is_main = 1 ORDER BY date DESC LIMIT 1`, [userId]);
+  const coachTone = user.coach_tone;
+  const athleteContext = user.athlete_context;
+  const trainingAvailability = user.training_availability;
+  const gender = user.gender;
+  const targetEvent = milestone ? milestone.name : null;
+  const eventDate = milestone ? milestone.date : null;
+  const selectedLang = user.language || 'en';
+  const targetLanguageName = ONBOARDING_LANG_NAMES[selectedLang] || 'English';
+  const subTier = user.subscription_tier;
+  const benchmarkInfo = localizeBenchmarkInfo(getBenchmarkInfoForUser(athleteContext, targetEvent), selectedLang);
+
+  try {
+    console.log(`[Onboarding] Background AI plan generation started for user ${userId}...`);
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    let availabilityText = 'No specific schedule boundaries set.';
+    if (trainingAvailability) {
+      try {
+        const availObj = typeof trainingAvailability === 'string' ? JSON.parse(trainingAvailability) : trainingAvailability;
+        availabilityText = Object.entries(availObj)
+          .map(([day, data]) => `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${data.status} (Max minutes: ${data.max_minutes})`)
+          .join('\n            ');
+      } catch (e) {}
+    }
+
+    const discipline = detectAthleteGoalDiscipline({ target_event: targetEvent, athlete_context: athleteContext }, []);
+    const goalPrompt = getGoalDependentPromptContext(discipline);
+
+    const systemPrompt = `You are Coach ${resolveCoachName({ coach_tone: coachTone })}, an elite endurance AI coach.
+Tone: ${coachTone || 'Empathetic but demanding elite endurance coach.'}
+Athlete Context: ${athleteContext || 'Endurance athlete.'}
+Gender: ${gender || 'Prefer not to say'}
+Target Event: ${targetEvent || 'General Fitness'} (Date: ${eventDate || 'TBD'})
+Schedule Boundaries:
+${availabilityText}
+
+${goalPrompt}
+
+CRITICAL RULES:
+0. LANGUAGE DIRECTIVE: All natural language workout descriptions and details MUST be written fluently in ${targetLanguageName}.
+1. SPORT TYPE: 'sport' must be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'.
+2. You are generating an initial 7-day onboarding training plan starting on ${todayStr} (exactly 7 distinct consecutive days).
+3. BENCHMARK ASSESSMENT: Day 1 or Day 2 MUST contain the following Benchmark Assessment workout:
+   - Sport: "${benchmarkInfo.sport}"
+   - Description: "${benchmarkInfo.desc}"
+   - Details: "${benchmarkInfo.details}"
+   - is_benchmark: true
+4. WORKOUT DETAILS & STEP PARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus. Every exercise or station described in 'details' MUST have its matching structured step in 'steps_json'!
+4b. TARGETS & METRIC PARITY MANDATE:
+   - If prescribing a target running pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and "target_value": "4:15" (pure mm:ss string, NEVER include "min/km"). NEVER substitute or default to "heart.rate.zone" when prescribing a running pace!
+   - If prescribing heart rate targets (e.g. Zone 2 aerobic base): set "target_type": "heart.rate.zone" and "zone": <1-5>.
+   - For warmups and cooldowns: set "target_type": "no.target".
+5. Format output as a valid JSON array of 7 items at the very end of your response inside a \`\`\`json code block.
+Example format:
+\`\`\`json
+[
+  {
+"date": "${todayStr}",
+"sport": "${benchmarkInfo.sport}",
+"description": "${benchmarkInfo.desc}",
+"target_rooka": ${benchmarkInfo.targetRooka},
+"details": "${benchmarkInfo.details}",
+"steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Benchmark Assessment\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 5000, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}]",
+"is_benchmark": true
+  }
+]
+\`\`\``;
+
+    const userPrompt = `I just completed my onboarding! Please generate my initial 7-day training schedule starting today (${todayStr}) in ${targetLanguageName}. Make sure Day 1 or Day 2 includes my ${benchmarkInfo.testName} benchmark test!`;
+
+    let aiReply = '';
+    try {
+      aiReply = await generateWithFallback(userPrompt, systemPrompt, null, null, userId, 'common', false, { language: selectedLang });
+    } catch (errAi) {
+      console.warn('[Onboarding] Background AI plan generation warning:', errAi);
+    }
+
+    let planData = [];
+    const jsonMatch = aiReply ? aiReply.match(/```json([\s\S]*?)```/) : null;
+    if (jsonMatch) {
+      try {
+        planData = JSON.parse(jsonMatch[1]);
+      } catch (e) {}
+    }
+
+    if (Array.isArray(planData) && planData.length > 0) {
+      const planDates = [...new Set(planData.map((d) => d.date).filter(Boolean))];
+      if (planDates.length > 0) {
+        await new Promise((resolve) =>
+          db.run(
+            `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${planDates.map(() => '?').join(',')})`,
+            [userId, ...planDates],
+            () => resolve()
+          )
+        );
+      }
+
+      const bgStmt = db.prepare(`
+        INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
+      `);
+      planData.forEach((day) => {
+        bgStmt.run(
+          userId,
+          day.date,
+          day.sport || 'Run',
+          day.description || 'Workout',
+          require('../services/zones').planDayTargetRooka(day) || 40,
+          day.details || '',
+          Array.isArray(day.steps) ? JSON.stringify(day.steps) : typeof day.steps_json === 'object' ? JSON.stringify(day.steps_json) : (day.steps_json || '[]')
+        );
+      });
+      await new Promise((resolve) => bgStmt.finalize(() => resolve()));
+
+      sendSSEEvent(userId, 'plan_updated', { message: 'Custom training plan tailored' });
+      console.log(`[Onboarding] Background custom AI plan saved and broadcasted for user ${userId}`);
+    }
+
+    // Quest generation: only for plus subscribers to ensure free accounts never have active quests
+    if (subTier === 'rooka_plus') {
+      try {
+        await generateQuestForUser(userId, 'common');
+        sendSSEEvent(userId, 'quest_updated', {});
+        console.log(`[Onboarding] Background quest generated for plus user ${userId}`);
+      } catch (errQuest) {
+        console.warn('[Onboarding] Background quest generation warning:', errQuest);
+      }
+    }
+  } catch (bgErr) {
+    console.error('[Onboarding] Error in background plan/quest generation:', bgErr);
+  }
+}
+
 router.post('/finalize', authenticateToken, async (req, res) => {
   const userId = req.user.id;
   const {
@@ -370,15 +533,7 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       });
     }
 
-    const langNames = {
-      nl: 'Dutch (Nederlands)',
-      de: 'German (Deutsch)',
-      es: 'Spanish (Español)',
-      fr: 'French (Français)',
-      en: 'English'
-    };
     const selectedLang = language || 'en';
-    const targetLanguageName = langNames[selectedLang] || 'English';
 
     const isRookaPlus = req.body.subscriptionTier === 'rooka_plus' || req.body.subscription_tier === 'rooka_plus';
     const subTier = isRookaPlus ? 'rooka_plus' : 'free';
@@ -683,6 +838,9 @@ Before we dial in structured training loads, we need to measure your current fit
     };
     const welcomeMsg = welcomeMessages[selectedLang] || welcomeMessages.en;
 
+    // The AI consent question is the coach's first message, ahead of the welcome.
+    await ensureConsentPrompt(userId);
+
     await new Promise((resolve) => {
       db.run(
         `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'motivated')`,
@@ -698,128 +856,14 @@ Before we dial in structured training loads, we need to measure your current fit
       benchmark: benchmarkInfo
     });
 
-    // 7. Background Worker: Asynchronously tailor 7-day schedule via Gemini LLM & generate quest
-    setImmediate(async () => {
-      try {
-        console.log(`[Onboarding] Background AI plan generation started for user ${userId}...`);
-        const todayStr = new Date().toLocaleDateString('en-CA');
-        let availabilityText = 'No specific schedule boundaries set.';
-        if (trainingAvailability) {
-          try {
-            const availObj = typeof trainingAvailability === 'string' ? JSON.parse(trainingAvailability) : trainingAvailability;
-            availabilityText = Object.entries(availObj)
-              .map(([day, data]) => `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${data.status} (Max minutes: ${data.max_minutes})`)
-              .join('\n            ');
-          } catch (e) {}
-        }
-
-        const discipline = detectAthleteGoalDiscipline({ target_event: targetEvent, athlete_context: athleteContext }, []);
-        const goalPrompt = getGoalDependentPromptContext(discipline);
-
-        const systemPrompt = `You are Coach ${resolveCoachName({ coach_tone: coachTone })}, an elite endurance AI coach.
-Tone: ${coachTone || 'Empathetic but demanding elite endurance coach.'}
-Athlete Context: ${athleteContext || 'Endurance athlete.'}
-Gender: ${gender || 'Prefer not to say'}
-Target Event: ${targetEvent || 'General Fitness'} (Date: ${eventDate || 'TBD'})
-Schedule Boundaries:
-${availabilityText}
-
-${goalPrompt}
-
-CRITICAL RULES:
-0. LANGUAGE DIRECTIVE: All natural language workout descriptions and details MUST be written fluently in ${targetLanguageName}.
-1. SPORT TYPE: 'sport' must be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'.
-2. You are generating an initial 7-day onboarding training plan starting on ${todayStr} (exactly 7 distinct consecutive days).
-3. BENCHMARK ASSESSMENT: Day 1 or Day 2 MUST contain the following Benchmark Assessment workout:
-   - Sport: "${benchmarkInfo.sport}"
-   - Description: "${benchmarkInfo.desc}"
-   - Details: "${benchmarkInfo.details}"
-   - is_benchmark: true
-4. WORKOUT DETAILS & STEP PARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus. Every exercise or station described in 'details' MUST have its matching structured step in 'steps_json'!
-4b. TARGETS & METRIC PARITY MANDATE:
-   - If prescribing a target running pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and "target_value": "4:15" (pure mm:ss string, NEVER include "min/km"). NEVER substitute or default to "heart.rate.zone" when prescribing a running pace!
-   - If prescribing heart rate targets (e.g. Zone 2 aerobic base): set "target_type": "heart.rate.zone" and "zone": <1-5>.
-   - For warmups and cooldowns: set "target_type": "no.target".
-5. Format output as a valid JSON array of 7 items at the very end of your response inside a \`\`\`json code block.
-Example format:
-\`\`\`json
-[
-  {
-    "date": "${todayStr}",
-    "sport": "${benchmarkInfo.sport}",
-    "description": "${benchmarkInfo.desc}",
-    "target_rooka": ${benchmarkInfo.targetRooka},
-    "details": "${benchmarkInfo.details}",
-    "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Benchmark Assessment\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 5000, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}]",
-    "is_benchmark": true
-  }
-]
-\`\`\``;
-
-        const userPrompt = `I just completed my onboarding! Please generate my initial 7-day training schedule starting today (${todayStr}) in ${targetLanguageName}. Make sure Day 1 or Day 2 includes my ${benchmarkInfo.testName} benchmark test!`;
-
-        let aiReply = '';
-        try {
-          aiReply = await generateWithFallback(userPrompt, systemPrompt, null, null, userId, 'common', false, { language: selectedLang });
-        } catch (errAi) {
-          console.warn('[Onboarding] Background AI plan generation warning:', errAi);
-        }
-
-        let planData = [];
-        const jsonMatch = aiReply ? aiReply.match(/```json([\s\S]*?)```/) : null;
-        if (jsonMatch) {
-          try {
-            planData = JSON.parse(jsonMatch[1]);
-          } catch (e) {}
-        }
-
-        if (Array.isArray(planData) && planData.length > 0) {
-          const planDates = [...new Set(planData.map((d) => d.date).filter(Boolean))];
-          if (planDates.length > 0) {
-            await new Promise((resolve) =>
-              db.run(
-                `DELETE FROM micro_plan WHERE user_id = ? AND date IN (${planDates.map(() => '?').join(',')})`,
-                [userId, ...planDates],
-                () => resolve()
-              )
-            );
-          }
-
-          const bgStmt = db.prepare(`
-            INSERT INTO micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'coach')
-          `);
-          planData.forEach((day) => {
-            bgStmt.run(
-              userId,
-              day.date,
-              day.sport || 'Run',
-              day.description || 'Workout',
-              require('../services/zones').planDayTargetRooka(day) || 40,
-              day.details || '',
-              Array.isArray(day.steps) ? JSON.stringify(day.steps) : typeof day.steps_json === 'object' ? JSON.stringify(day.steps_json) : (day.steps_json || '[]')
-            );
-          });
-          await new Promise((resolve) => bgStmt.finalize(() => resolve()));
-
-          sendSSEEvent(userId, 'plan_updated', { message: 'Custom training plan tailored' });
-          console.log(`[Onboarding] Background custom AI plan saved and broadcasted for user ${userId}`);
-        }
-
-        // Quest generation: only for plus subscribers to ensure free accounts never have active quests
-        if (subTier === 'rooka_plus') {
-          try {
-            await generateQuestForUser(userId, 'common');
-            sendSSEEvent(userId, 'quest_updated', {});
-            console.log(`[Onboarding] Background quest generated for plus user ${userId}`);
-          } catch (errQuest) {
-            console.warn('[Onboarding] Background quest generation warning:', errQuest);
-          }
-        }
-      } catch (bgErr) {
-        console.error('[Onboarding] Error in background plan/quest generation:', bgErr);
-      }
-    });
+    // 7. Tailor the 7-day schedule with the AI coach and generate a quest — but
+    // only once the athlete has agreed to AI processing. Until then the
+    // template plan above stands, and the tailoring runs when they accept.
+    if (await hasAiConsent(userId)) {
+      setImmediate(() => tailorOnboardingPlan(userId));
+    } else {
+      db.run(`UPDATE users SET onboarding_ai_pending = 1 WHERE id = ?`, [userId]);
+    }
   } catch (err) {
     console.error('Error finalizing onboarding:', err);
     res.status(500).json({ error: 'Failed to finalize onboarding setup.' });
@@ -827,3 +871,4 @@ Example format:
 });
 
 module.exports = router;
+module.exports.tailorOnboardingPlan = tailorOnboardingPlan;

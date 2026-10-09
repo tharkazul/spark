@@ -6,7 +6,7 @@ import { PhysiqueEntry, NutritionProtocol } from '../types/physique';
 import { Quest, UserTitle } from '../types/gamification';
 import { Niggle } from '../types/health';
 import { ChatMessage, TokenUsage } from '../types/chat';
-import { SocialFeedActivity, ActivityComment, SocialConnection, LeaderboardResponse, PublicAthleteProfile } from '../types/social';
+import { SocialFeedActivity, SocialConnection, LeaderboardResponse, PublicAthleteProfile } from '../types/social';
 import { DeviceEventEmitter } from 'react-native';
 import {
   ApplyDiscountResponse,
@@ -60,6 +60,11 @@ export const authApi = {
 
 export const userApi = {
   getProfile: () => apiClient<UserProfile>('/api/user/settings'),
+  setAiConsent: (consent: boolean) =>
+    apiClient<{ success: boolean; aiConsent: boolean }>('/api/user/ai-consent', {
+      method: 'POST',
+      body: JSON.stringify({ consent }),
+    }),
   updateSettings: (data: Partial<UserProfile>) =>
     apiClient<{ success: boolean }>('/api/user/settings/coach', {
       method: 'POST',
@@ -144,16 +149,6 @@ export const activitiesApi = {
   syncGarmin: (workouts?: any[]) => apiClient<{ success: boolean; message?: string }>('/api/sync-garmin', { method: 'POST', body: JSON.stringify({ workouts }) }),
   syncStrava: () => apiClient<{ success: boolean; message?: string; count?: number }>('/api/sync-strava', { method: 'POST' }),
   syncSuunto: () => apiClient<{ success: boolean; message?: string; synced?: number }>('/api/sync-suunto', { method: 'POST' }),
-  getComments: (activityId: string | number) => apiClient<{ comments: ActivityComment[] }>(`/api/activities/${activityId}/comments`),
-  postComment: (activityId: string | number, comment: string) =>
-    apiClient<{ success: boolean; comment: ActivityComment }>(`/api/activities/${activityId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ comment }),
-    }),
-  deleteComment: (activityId: string | number, commentId: string | number) =>
-    apiClient<{ success: boolean; deletedId: string | number }>(`/api/activities/${activityId}/comments/${commentId}`, {
-      method: 'DELETE',
-    }),
   getCandidatesToLink: (id: string | number) =>
     apiClient<{ candidates: Activity[] }>(`/api/activities/${id}/candidates-to-link`),
   linkActivities: (targetId: string | number, sourceId: string | number) =>
@@ -364,6 +359,11 @@ export const chatApi = {
       method: 'POST',
     }),
   checkin: () => apiClient<{ message: string }>('/api/chat/checkin', { method: 'POST' }),
+  transcribeAudio: (audioBase64: string, mimeType?: string, language?: string) =>
+    apiClient<{ text: string }>('/api/chat/transcribe', {
+      method: 'POST',
+      body: JSON.stringify({ audioBase64, mimeType, language }),
+    }),
 };
 
 export const adminApi = {
@@ -410,11 +410,15 @@ export const discountApi = {
 
 export const socialApi = {
   getFeed: () => apiClient<{ activities: SocialFeedActivity[] }>('/api/social/feed'),
-  toggleKudos: (activityId: string | number) =>
-    apiClient<{ success: boolean; added: boolean }>('/api/social/kudos', {
+  toggleKudos: (activityId: string | number | (string | number)[]) => {
+    const body = Array.isArray(activityId) 
+      ? { activityIds: activityId, activityId: activityId[0] }
+      : { activityId };
+    return apiClient<{ success: boolean; added: boolean }>('/api/social/kudos', {
       method: 'POST',
-      body: JSON.stringify({ activityId }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
   getLeaderboard: () => apiClient<LeaderboardResponse>('/api/social/leaderboard'),
   getConnections: () => apiClient<{ connections: SocialConnection[] }>('/api/social/connections'),
   invite: (micro_plan_id: string | number, invitee_ids: number[], location?: string, time?: string) =>
@@ -455,6 +459,14 @@ export const socialApi = {
       body: JSON.stringify({ friendId }),
     });
     DeviceEventEmitter.emit('connectionRequestUpdated', { friendId, status: 'declined' });
+    return res;
+  },
+  removeConnection: async (friendId: number | string) => {
+    const res = await apiClient<{ success: boolean }>('/api/social/remove', {
+      method: 'POST',
+      body: JSON.stringify({ friendId }),
+    });
+    DeviceEventEmitter.emit('socialConnectionsChanged');
     return res;
   },
   rejectUser: async (friendId: number | string) => {

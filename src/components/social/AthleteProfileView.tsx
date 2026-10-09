@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -81,8 +81,37 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
     };
   }, [athleteId]);
 
+  const removeConnection = async () => {
+    if (!profile || !profile.id) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setProfile((prev) => (prev ? { ...prev, connectionStatus: 'none' } : null));
+    try {
+      const res = await socialApi.removeConnection(profile.id);
+      if (!res || !res.success) throw new Error('Remove connection failed');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.error('Remove connection error, rolling back:', e);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setProfile((prev) => (prev ? { ...prev, connectionStatus: 'accepted' } : null));
+      Alert.alert(t('athleteProfile.removeFailed'));
+    }
+  };
+
   const handleConnect = async () => {
     if (!profile || !profile.id) return;
+    // Already sent: tapping again must not send another request.
+    if (profile.connectionStatus === 'pending') return;
+    if (profile.connectionStatus === 'accepted') {
+      Alert.alert(
+        t('athleteProfile.removeConnectionTitle', { name: profile.username }),
+        t('athleteProfile.removeConnectionBody', { name: profile.username }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('athleteProfile.removeConnection'), style: 'destructive', onPress: removeConnection },
+        ],
+      );
+      return;
+    }
     const prevStatus = profile.connectionStatus;
     const isAccepting = profile.connectionStatus === 'pending_received';
     const nextStatus = isAccepting ? 'accepted' : 'pending';

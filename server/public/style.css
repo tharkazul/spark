@@ -17,9 +17,10 @@
   --bike: #10B981;
   --swim: #0284C7;
   --strength: #8B5CF6;
-  --fitness: #0EA5E9;
-  --fatigue: #E5484D;
-  --form: #10B981;
+  --fitness: #10B981;
+  --fatigue: #F59E0B;
+  --form: #0EA5E9;
+  --error: #DC2626;
   --shadow: 0 1px 0 rgba(22, 23, 27, .04), 0 18px 40px -24px rgba(22, 23, 27, .35);
 
   --font: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -42,9 +43,10 @@
   --accent-text: #60A5FA;
   --btn-bg: #2563EB;
   --btn-ink: #FFFFFF;
-  --fitness: #60A5FA;
-  --fatigue: #F87171;
-  --form: #34D399;
+  --fitness: #34D399;
+  --fatigue: #FBBF24;
+  --form: #60A5FA;
+  --error: #F87171;
   --shadow: 0 1px 0 rgba(0, 0, 0, .2), 0 18px 40px -20px rgba(0, 0, 0, .7);
   color-scheme: dark;
 }
@@ -61,9 +63,11 @@
     --accent-text: #60A5FA;
     --btn-bg: #2563EB;
     --btn-ink: #FFFFFF;
-    --fitness: #60A5FA;
-    --fatigue: #F87171;
-    --form: #34D399;
+    --fitness: #34D399;
+    --fatigue: #FBBF24;
+    --form: #60A5FA;
+    --error: #F87171;
+  --error: #F87171;
     --shadow: 0 1px 0 rgba(0, 0, 0, .2), 0 18px 40px -20px rgba(0, 0, 0, .7);
     color-scheme: dark;
   }
@@ -352,8 +356,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .hint { font-size: 14px; color: var(--muted); }
 .form-card .btn { width: 100%; }
 .form-status { margin-top: 16px; font-weight: 600; }
-.form-status.ok { color: var(--form); }
-.form-status.err { color: var(--fatigue); }
+.form-status.ok { color: var(--fitness); }
+.form-status.err { color: var(--error); }
 @media (max-width: 860px) { .beta-box { grid-template-columns: 1fr; } }
 
 /* ---------- FAQ ---------- */

@@ -3,6 +3,7 @@ import { RookaMark } from '../ui/RookaPoints';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator, TextInput, Platform } from 'react-native';
+import * as Linking from 'expo-linking';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +24,7 @@ import { calculateActivityStreak } from '../../utils/gamification';
 import { formatRookaPoints, formatTokens } from '../../utils/format';
 import { TitlesSkeleton } from '../skeletons/TitlesSkeleton';
 import { LanguageSelector } from '../LanguageSelector';
+import { confirmEnableAi, confirmDisableAi } from '../../utils/aiConsent';
 
 interface ProfileTabProps {
   username: string;
@@ -46,11 +48,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 }) => {
   const theme = useTheme();
   const { t } = useLanguage();
-  const { user, updateUser, refreshUser } = useUser();
+  const { user, updateUser, refreshUser, logout, setAiConsent } = useUser();
   const { activities } = useActivities();
   const { plan } = usePlan();
   const { tokenUsage } = useCoachChatStore();
-  const { presentCustomerCenter, presentPaywall } = useSubscription();
+  const { presentCustomerCenter, presentPaywall, presentCodeRedemptionSheet } = useSubscription();
   const { colorScheme, toggleColorScheme } = useColorScheme();
 
   const [titles, setTitles] = useState<UserTitle[]>([]);
@@ -58,6 +60,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [expandedTitleId, setExpandedTitleId] = useState<string | number | null>(null);
+
+  // Account management state
+  const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Email form state
   const [email, setEmail] = useState(user?.email || initialEmail || '');
@@ -169,6 +175,65 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     } finally {
       setSavingAccount(false);
     }
+  };
+
+  const handleOpenPrivacyPolicy = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL('https://rooka.io/privacy').catch(() => {
+      Alert.alert(t('account.privacyPolicy'), 'Visit https://rooka.io/privacy to read our Privacy Policy.');
+    });
+  };
+
+  const handleOpenTerms = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Linking.openURL('https://rooka.io/terms').catch(() => {
+      Alert.alert(t('account.termsOfService'), 'Visit https://rooka.io/terms to read our Terms of Service.');
+    });
+  };
+
+  const handleExportData = async () => {
+    setExporting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await userApi.requestAccountData();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(t('accountMsgs.dataExportTitle'), t('accountMsgs.dataExportBody'));
+    } catch (err: any) {
+      console.error('Export data error:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      t('account.deleteAccountConfirmTitle'),
+      t('account.deleteAccountConfirmBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('account.permanentlyDelete'),
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            try {
+              await userApi.deleteAccount();
+              if (onLogout) {
+                onLogout();
+              } else {
+                await logout();
+              }
+            } catch (err: any) {
+              console.error('Deletion error:', err);
+              Alert.alert(t('common.error'), err.response?.data?.error || err.message || t('accountMsgs.deleteFailed'));
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const equippedTitle = useMemo(() => {
@@ -506,6 +571,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           />
         )}
         {renderSettingRow(
+          'sparkles',
+          t('aiConsent.settingLabel'),
+          <Switch
+            value={user?.aiConsent === true}
+            onValueChange={(on) => (on ? confirmEnableAi(t, setAiConsent) : confirmDisableAi(t, setAiConsent))}
+            trackColor={{ false: '#DDE3E9', true: theme.tint }}
+          />
+        )}
+        {renderSettingRow(
           'notifications',
           t('profile.pushNotifications'),
           <Switch value={true} trackColor={{ false: '#DDE3E9', true: theme.tint }} />
@@ -577,19 +651,106 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               )}
             </View>
           </View>
-        </View>
 
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                await presentCodeRedemptionSheet();
+              }}
+              className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between mt-1"
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="gift-outline" size={18} color={theme.textSecondary} />
+                <View className="ml-3">
+                  <Text className="text-theme-text font-bold text-xs">{t('account.redeemPromoCode')}</Text>
+                  <Text className="text-theme-muted text-[11px] mt-0.5">{t('account.redeemPromoCodeDesc')}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </Card>
+
+      {/* 7. LEGAL & PRIVACY */}
+      <Text className="text-theme-muted font-bold text-xs -mb-3 ml-1 uppercase tracking-wider">
+        {t('account.legalDisclosures')}
+      </Text>
+      <Card className="p-4">
+        <View className="gap-y-3">
+          <TouchableOpacity
+            onPress={handleOpenPrivacyPolicy}
+            activeOpacity={0.7}
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="shield-checkmark-outline" size={18} color={theme.textSecondary} />
+              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.privacyPolicy')}</Text>
+            </View>
+            <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleOpenTerms}
+            activeOpacity={0.7}
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="document-text-outline" size={18} color={theme.textSecondary} />
+              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.termsOfService')}</Text>
+            </View>
+            <Ionicons name="open-outline" size={16} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleExportData}
+            disabled={exporting}
+            activeOpacity={0.7}
+            className="p-3 bg-theme-bg rounded-xl flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center">
+              {exporting ? (
+                <ActivityIndicator size="small" color={theme.tint} />
+              ) : (
+                <Ionicons name="download-outline" size={18} color={theme.textSecondary} />
+              )}
+              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.exportAccountData')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </Card>
+
+      {/* 8. ACCOUNT ACTIONS */}
+      <View className="gap-y-3 mt-1">
         {onLogout && (
           <TouchableOpacity
             onPress={onLogout}
             activeOpacity={0.8}
-            className="mt-4 pt-3 border-t border-theme-border/30 flex-row items-center justify-center gap-x-2"
+            className="p-4 bg-semantic-error/10 border border-semantic-error/25 rounded-2xl flex-row items-center justify-center gap-x-2 shadow-sm"
           >
-            <Ionicons name="log-out-outline" size={18} color="#EF4444" />
-            <Text className="text-semantic-error font-bold text-sm">{t('profile.logout', 'Log Out')}</Text>
+            <Ionicons name="log-out-outline" size={19} color="#EF4444" />
+            <Text className="text-semantic-error font-bold text-base">{t('profile.logout', 'Log Out')}</Text>
           </TouchableOpacity>
         )}
-      </Card>
+
+        <TouchableOpacity
+          onPress={handleDeleteAccount}
+          disabled={deleting}
+          activeOpacity={0.6}
+          className="py-2.5 items-center justify-center flex-row gap-x-1.5 self-center"
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color={theme.textSecondary} />
+          ) : (
+            <Ionicons name="trash-outline" size={13} color={theme.textSecondary} />
+          )}
+          <Text className="text-theme-muted font-medium text-xs">
+            {t('account.deleteAccount')}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

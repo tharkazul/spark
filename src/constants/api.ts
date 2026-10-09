@@ -1,10 +1,10 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// Set to true for local development backend, false to connect directly to the Termux production server.
+// Set to true for local development backend, false to connect to the production server.
 export const USE_LOCAL_BACKEND = false;
 
-// Production URLs (Termux Cloudflare Tunnel)
+// Production URLs (Google Cloud VM)
 const PROD_API_BASE_URL = 'https://api.rooka.io';
 const PROD_WS_URL = 'wss://api.rooka.io';
 
@@ -32,7 +32,7 @@ const getLocalBaseUrl = (): string => `http://${getLocalHost()}:${LOCAL_PORT}`;
 const getLocalWsUrl = (): string => `ws://${getLocalHost()}:${LOCAL_PORT}`;
 
 // In development (__DEV__ = true), use local backend if USE_LOCAL_BACKEND is true.
-// In production/TestFlight (__DEV__ = false), always point to the remote Termux server.
+// In production/TestFlight (__DEV__ = false), always point to the production server.
 export const API_BASE_URL = (__DEV__ && USE_LOCAL_BACKEND) ? getLocalBaseUrl() : PROD_API_BASE_URL;
 export const WS_URL = (__DEV__ && USE_LOCAL_BACKEND) ? getLocalWsUrl() : PROD_WS_URL;
 

@@ -52,10 +52,10 @@ export function MacroRingGauge({
   const circumference = 2 * Math.PI * radius;
   const reducedMotion = useReducedMotion();
 
-  const progress = useSharedValue(0);
-
   const rawFraction = target > 0 ? logged / target : 0;
   const clampedFraction = Math.min(1, Math.max(0, rawFraction));
+
+  const progress = useSharedValue(clampedFraction);
 
   const macroName = displayLabel || (
     label === 'Carbs' ? t('dashboard.carbs', 'Carbs') :
@@ -67,9 +67,8 @@ export function MacroRingGauge({
     if (reducedMotion) {
       progress.value = clampedFraction;
     } else {
-      progress.value = 0;
       progress.value = withTiming(clampedFraction, {
-        duration: 700,
+        duration: 350,
         easing: Easing.out(Easing.quad),
       });
     }

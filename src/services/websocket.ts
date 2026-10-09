@@ -21,10 +21,9 @@ const EVENT_ALIASES: Record<string, string[]> = {
   strava_sync_complete: ['strava_sync_complete', 'sync_complete'],
   garmin_sync_complete: ['garmin_sync_complete', 'sync_complete'],
 
-  // Coach chat. Everything the coach pushes (including the 08:00 message)
-  // arrives as `unread_message`.
-  chat_message: ['chat_message', 'unread_message', 'chat_update'],
-  coach_response: ['coach_response', 'unread_message'],
+  // Coach chat.
+  chat_message: ['chat_message', 'chat_update'],
+  coach_response: ['coach_response'],
 
   // Gamification.
   rooka_updated: ['rooka_updated', 'points_updated'],

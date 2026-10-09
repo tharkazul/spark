@@ -177,7 +177,6 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
 
     const unsubs = [
       wsService.subscribeToEvent('kudos_received', () => loadFeed(false)),
-      wsService.subscribeToEvent('comment_received', () => loadFeed(false)),
       wsService.subscribeToEvent('feed_updated', () => loadFeed(false)),
       wsService.subscribeToEvent('activity_updated', () => loadFeed(false)),
       wsService.subscribeToEvent('activity_deleted', () => loadFeed(false)),
@@ -223,40 +222,40 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
     }
   };
 
-  const handleToggleKudos = async (item: SocialFeedActivity) => {
-    const id = item.id;
-    const prevHasKudosed = item.has_kudosed;
-    const prevKudosCount = item.kudos_count;
-    const nextHasKudosed = !item.has_kudosed;
-    const nextKudosCount = nextHasKudosed ? (item.kudos_count || 0) + 1 : Math.max(0, (item.kudos_count || 0) - 1);
+  const handleToggleKudos = async (items: SocialFeedActivity | SocialFeedActivity[]) => {
+    const acts = Array.isArray(items) ? items : [items];
+    const ids = acts.map(a => a.id);
+    
+    // We base the toggle direction on the first item in the group
+    const primaryItem = acts[0];
+    const nextHasKudosed = !primaryItem.has_kudosed;
+    
+    // Optimistic update for ALL activities in this group
+    const rollbacks = new Map(acts.map(a => [a.id, { has_kudosed: a.has_kudosed, kudos_count: a.kudos_count }]));
 
     setFeedItems((prev) =>
-      prev.map((act) =>
-        act.id === id
-          ? {
-              ...act,
-              has_kudosed: nextHasKudosed,
-              kudos_count: nextKudosCount,
-            }
-          : act
-      )
+      prev.map((act) => {
+        if (ids.includes(act.id)) {
+          const nextCount = nextHasKudosed ? (act.kudos_count || 0) + 1 : Math.max(0, (act.kudos_count || 0) - 1);
+          return { ...act, has_kudosed: nextHasKudosed, kudos_count: nextCount };
+        }
+        return act;
+      })
     );
 
     try {
-      await socialApi.toggleKudos(id);
+      await socialApi.toggleKudos(ids);
     } catch (err) {
       console.error('Toggle kudos error, rolling back:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setFeedItems((prev) =>
-        prev.map((act) =>
-          act.id === id
-            ? {
-                ...act,
-                has_kudosed: prevHasKudosed,
-                kudos_count: prevKudosCount,
-              }
-            : act
-        )
+        prev.map((act) => {
+          if (ids.includes(act.id) && rollbacks.has(act.id)) {
+            const rb = rollbacks.get(act.id)!;
+            return { ...act, has_kudosed: rb.has_kudosed, kudos_count: rb.kudos_count };
+          }
+          return act;
+        })
       );
     }
   };
@@ -370,7 +369,6 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
           const primaryActivity = group.activities[0];
           const hasKudosed = group.activities.some((a) => a.has_kudosed);
           const totalKudos = group.activities.reduce((sum, a) => sum + (a.kudos_count || 0), 0);
-          const totalComments = group.activities.reduce((sum, a) => sum + (a.comments_count || 0), 0);
           const primaryMovingSec =
             typeof (primaryActivity as any).moving_time_s === 'number' && (primaryActivity as any).moving_time_s > 0
               ? (primaryActivity as any).moving_time_s
@@ -428,13 +426,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                       <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                         {group.username}
                       </Text>
-                      {(() => {
-                        const isCurrentUser = Boolean(user?.id && String(group.user_id) === String(user.id));
-                        const displayLvl = isCurrentUser ? (user?.level || group.rooka_level || 1) : (group.rooka_level || 1);
-                        return displayLvl ? (
-                          <Chip variant="neutral" size="sm" label={`Lvl ${displayLvl}`} />
-                        ) : null;
-                      })()}
+                      
                       {group.isMultiSport && (
                         <Chip
                           variant="sport"
@@ -445,12 +437,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                       )}
                     </View>
 
-                    {/* Line 2: Equipped Title in warm accent (if present) */}
-                    {group.equipped_title ? (
-                      <Text className="text-xs font-semibold text-theme-warm mt-0.5" numberOfLines={1}>
-                        {group.equipped_title}
-                      </Text>
-                    ) : null}
+                    
 
                     {/* Line 3: Relative Timestamp e.g. "Today, 07:52" */}
                     <Text className="text-xs text-theme-muted mt-0.5">
@@ -647,7 +634,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                 <KudosButton
                   hasKudosed={hasKudosed}
                   kudosCount={totalKudos}
-                  onPress={() => handleToggleKudos(primaryActivity)}
+                  onPress={() => handleToggleKudos(group.activities)}
                 />
 
               </View>

@@ -236,6 +236,22 @@ router.post("/api/admin/trigger-weekly-planning", authenticateToken, async (req,
   }
 });
 
+router.post("/api/admin/repair-availability", authenticateToken, async (req, res) => {
+  const { repairAvailabilityInMicroPlan } = require("../services/workoutPlanning");
+  console.log(`🤖 Admin triggering availability repair on micro_plan...`, req.body);
+  try {
+    const result = await repairAvailabilityInMicroPlan(req.body.userId || null, req.body.fromDate || null);
+    res.json({
+      success: true,
+      message: `Repaired ${result.repairedCount} rest day workout violation(s).`,
+      ...result,
+    });
+  } catch (e) {
+    console.error("Admin repair availability failed:", e);
+    res.status(500).json({ error: "Failed to repair availability" });
+  }
+});
+
 router.get("/api/admin/onboarding-status/:userId", authenticateToken, async (req, res) => {
   const { evaluateUserFeatureUsage, FEATURES_REGISTRY } = require("../services/onboarding");
   const userId = parseInt(req.params.userId, 10);

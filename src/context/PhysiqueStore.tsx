@@ -30,7 +30,9 @@ const defaultNutrition: NutritionProtocol = {
 const PhysiqueContext = createContext<PhysiqueContextType | undefined>(undefined);
 
 export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useUser();
+  const { isAuthenticated, user } = useUser();
+  // Nutrition targets come from the AI coach, so they're only fetched with consent.
+  const aiEnabled = user?.aiConsent === true;
   const [physiqueLogs, setPhysiqueLogs] = useState<PhysiqueEntry[]>([]);
   const [nutrition, setNutrition] = useState<NutritionProtocol>(defaultNutrition);
   const [loading, setLoading] = useState<boolean>(false);
@@ -42,8 +44,9 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       const [logsData, nutritionData] = await Promise.allSettled([
         physiqueApi.getPhysiqueLogs(),
-        physiqueApi.getNutritionProtocol(),
+        aiEnabled ? physiqueApi.getNutritionProtocol() : Promise.resolve(null),
       ]);
+      if (!aiEnabled) setNutrition(defaultNutrition);
 
       if (logsData.status === 'fulfilled' && Array.isArray(logsData.value) && logsData.value.length > 0) {
         setPhysiqueLogs(logsData.value);
@@ -95,7 +98,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, aiEnabled]);
 
   const logPhysique = React.useCallback(async (entry: Partial<PhysiqueEntry>) => {
     const newEntry: PhysiqueEntry = {

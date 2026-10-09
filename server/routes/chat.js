@@ -33,9 +33,10 @@ const profileStorage = multer.diskStorage({
 });
 const uploadProfile = multer({ storage: profileStorage });
 const { authenticateToken } = require('../services/auth');
+const { requireAiConsent, ensureConsentPrompt } = require("../services/aiConsent");
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { sendPushToUser } = require('../services/pushNotificationService');
-const { generateWithFallback, generateImage } = require('../services/ai');
+const { generateWithFallback, generateImage, transcribeAudio } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const muscleLoad = require('../services/muscleLoad');
 const { getUserGoalPromptContext, getGoalDependentPromptContext } = require('../services/goalPromptContext');
@@ -127,7 +128,9 @@ router.get("/api/events", authenticateToken, (req, res) => {
   });
 });
 
-router.get("/api/chat/history", authenticateToken, (req, res) => {
+router.get("/api/chat/history", authenticateToken, async (req, res) => {
+  // Athletes who joined before the consent card existed get it now.
+  await ensureConsentPrompt(req.user.id);
   db.all(
     `SELECT id, role, content, mood, timestamp, image_path, payload_json FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
     [req.user.id],
@@ -139,7 +142,29 @@ router.get("/api/chat/history", authenticateToken, (req, res) => {
   );
 });
 
-router.post("/api/chat", authenticateToken, async (req, res) => {
+router.post("/api/chat/transcribe", authenticateToken, requireAiConsent, async (req, res) => {
+  const { audioBase64, mimeType, language } = req.body;
+  if (!audioBase64) {
+    return res.status(400).json({ error: "Missing audio data." });
+  }
+
+  db.get(
+    `SELECT language FROM users WHERE id = ?`,
+    [req.user.id],
+    async (err, user) => {
+      const athleteLang = language || (user && user.language) || "en";
+      try {
+        const text = await transcribeAudio(audioBase64, mimeType || "audio/m4a", athleteLang);
+        return res.json({ text: text || "" });
+      } catch (transcribeErr) {
+        console.error("Transcription error in chat route:", transcribeErr);
+        return res.status(500).json({ error: "Failed to transcribe audio." });
+      }
+    }
+  );
+});
+
+router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) => {
   const { message, imagesBase64 } = req.body;
   db.run(`UPDATE users SET chat_count = chat_count + 1 WHERE id = ?`, [
     req.user.id,

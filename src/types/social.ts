@@ -16,7 +16,6 @@ export interface SocialFeedActivity {
   elapsed_time_s?: number;
   rooka_score: number;
   kudos_count: number;
-  comments_count: number;
   has_kudosed: boolean;
   start_date: string;
   start_date_local?: string;
@@ -30,16 +29,6 @@ export interface SocialFeedActivity {
   is_hidden?: number | boolean;
   linked_activity_id?: number | string | null;
   linked_activity_name?: string | null;
-}
-
-export interface ActivityComment {
-  id: string | number;
-  activity_id: string | number;
-  user_id: number;
-  username: string;
-  profile_picture_url?: string;
-  comment: string;
-  created_at: string;
 }
 
 export interface SocialConnection {

@@ -11,6 +11,7 @@ import { useHealth } from './HealthStore';
 import { usePhysique } from './PhysiqueStore';
 import { usePlan } from './PlanStore';
 import { useUser } from './UserStore';
+import { confirmEnableAi } from '../utils/aiConsent';
 
 interface CoachChatContextType {
   messages: ChatMessage[];
@@ -94,10 +95,76 @@ const parsePayloadJson = (msg: ChatMessage): any | undefined => {
   return parseConnectionRequestFromContent(msg.content);
 };
 
+export const deduplicateMessages = (messagesList: ChatMessage[]): ChatMessage[] => {
+  if (!messagesList || messagesList.length <= 1) return messagesList || [];
+
+  const seenIds = new Set<string>();
+  const result: ChatMessage[] = [];
+
+  for (const msg of messagesList) {
+    if (!msg) continue;
+    if (msg.id === 'welcome-msg') {
+      if (!seenIds.has('welcome-msg')) {
+        seenIds.add('welcome-msg');
+        result.push(msg);
+      }
+      continue;
+    }
+
+    const strId = String(msg.id ?? msg.clientId ?? '');
+    if (strId && seenIds.has(strId)) {
+      continue;
+    }
+
+    const msgTime = new Date(msg.timestamp || 0).getTime();
+    const isDuplicate = result.some((existing) => {
+      if (existing.id === 'welcome-msg') return false;
+      if (existing.role !== msg.role) return false;
+
+      const existingContent = (existing.content || '').trim();
+      const newContent = (msg.content || '').trim();
+      if (!existingContent || !newContent || existingContent !== newContent) {
+        return false;
+      }
+
+      const existingTime = new Date(existing.timestamp || 0).getTime();
+      // If timestamps are within 5 minutes of each other and content matches exactly, they are the same message
+      if (!isNaN(msgTime) && !isNaN(existingTime) && Math.abs(msgTime - existingTime) < 300000) {
+        // Merge rich payload / plan if the new one has it
+        if (msg.payload_json && !existing.payload_json) {
+          existing.payload_json = msg.payload_json;
+        }
+        if (msg.proposedPlan && !existing.proposedPlan) {
+          existing.proposedPlan = msg.proposedPlan;
+        }
+        // If the new one has a database ID (numeric) and existing had a client ID, upgrade the ID
+        if (!isNaN(Number(msg.id)) && isNaN(Number(existing.id))) {
+          existing.id = msg.id;
+        }
+        return true;
+      }
+      return false;
+    });
+
+    if (isDuplicate) {
+      continue;
+    }
+
+    if (strId) {
+      seenIds.add(strId);
+    }
+    result.push(msg);
+  }
+
+  return result;
+};
+
 export const sortMessagesChronological = (messagesList: ChatMessage[]): ChatMessage[] => {
   if (!messagesList || messagesList.length <= 1) return messagesList || [];
 
-  return [...messagesList].sort((a, b) => {
+  const deduped = deduplicateMessages(messagesList);
+
+  return [...deduped].sort((a, b) => {
     // welcome-msg is always pinned to the very beginning
     if (a.id === 'welcome-msg') return -1;
     if (b.id === 'welcome-msg') return 1;
@@ -155,7 +222,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   const { refreshPhysique } = usePhysique();
   const { refreshNiggles } = useHealth();
   const { refreshActivities } = useActivities();
-  const { user, isAuthenticated, refreshUser } = useUser();
+  const { user, isAuthenticated, refreshUser, setAiConsent } = useUser();
 
   const messagesRef = useRef<ChatMessage[]>(messages);
   const isChatActiveRef = useRef<boolean>(false);
@@ -326,6 +393,11 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const refreshMessages = useCallback(async () => {
     if (!isAuthenticated || !user?.id) return;
+    if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) {
+      // User is actively in the chat screen sending/animating messages:
+      // Do not interrupt and overwrite in-flight local bubbles!
+      return;
+    }
     setLoading(true);
     try {
       const response = await chatApi.getHistory();
@@ -416,6 +488,13 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const sendMessage = async (text: string, imagesBase64?: string[]) => {
     if (!text.trim() && (!imagesBase64 || imagesBase64.length === 0)) return;
+    // Nothing reaches the AI coach until the athlete has allowed it. Every
+    // shortcut that messages the coach (Adapt, niggle reports, benchmarks)
+    // comes through here, so ask for consent instead of sending.
+    if (user?.aiConsent !== true) {
+      confirmEnableAi(tr, setAiConsent);
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -491,8 +570,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
           setMessages((prev) => {
             const alreadyExists = prev.some((m) =>
               (m.role === 'coach' || m.role === 'assistant') &&
-              m.content.trim() === replyPart.trim() &&
-              Math.abs(new Date(m.timestamp || 0).getTime() - baseTimestamp) < 60000
+              (
+                m.id === coachMsg.id ||
+                m.clientId === coachMsg.clientId ||
+                (
+                  m.content &&
+                  m.content.trim() === replyPart.trim() &&
+                  Math.abs(new Date(m.timestamp || 0).getTime() - baseTimestamp) < 300000
+                )
+              )
             );
             if (alreadyExists) return prev;
             return [...prev, coachMsg];
@@ -735,7 +821,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const checkin = async () => {
-    if (!isAuthenticated || !user?.id) return;
+    if (!isAuthenticated || !user?.id || user.aiConsent !== true) return;
     try {
       const res = await chatApi.checkin();
       const msgContent = (res as any)?.reply || (res as any)?.message;
@@ -790,6 +876,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     initChat();
 
     const unsubCoachResponse = wsService.subscribeToEvent('coach_response', (data: any) => {
+      if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) return;
       const content = typeof data === 'string' ? data : data.content || data.reply || data.message;
       if (content) {
         const parts = splitCoachReply(content);
@@ -808,6 +895,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     });
 
     const unsubChatMessage = wsService.subscribeToEvent('chat_message', (data: any) => {
+      if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) return;
       if (data && data.content && data.role) {
         const parts = data.role === 'coach' || data.role === 'assistant' ? splitCoachReply(data.content) : [data.content];
         const baseTs = Date.now();
@@ -896,12 +984,16 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     const unsubUnreadMessage = wsService.subscribeToEvent('unread_message', (_data: any) => {
       // If user is actively sending in the foreground chat screen, let sendMessage's local bubble animation complete.
       // Otherwise (app backgrounded, different tab, or coach finished in background), refresh messages.
-      if (!isChatActiveRef.current || !isAppActiveRef.current || !sendingRef.current) {
-        refreshMessages();
+      if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) {
+        return;
       }
+      refreshMessages();
     });
 
     const subNotification = DeviceEventEmitter.addListener('COACH_NOTIFICATION_RECEIVED', () => {
+      if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) {
+        return;
+      }
       refreshMessages();
     });
 

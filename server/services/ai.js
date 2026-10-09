@@ -114,6 +114,12 @@ async function generateWithFallback(
 ) {
   let lastError = null;
 
+  // Backstop for the per-route and per-job consent checks: an athlete who
+  // hasn't accepted AI processing never has data sent to Gemini.
+  if (userId !== null && userId !== undefined) {
+    await require("./aiConsent").assertAiConsent(userId);
+  }
+
   // Athlete-facing output must be in the athlete's selected language.
   // Pass { language } for every prompt whose output is shown to the athlete.
   if (options && options.language) {
@@ -268,4 +274,62 @@ async function generateImage(prompt, options = {}) {
   throw lastError || new Error("Unable to generate image at this time.");
 }
 
-module.exports = { generateWithFallback, generateImage, geminiConfigs };
+async function transcribeAudio(audioBase64, mimeType = "audio/m4a", language = "en") {
+  if (!audioBase64) {
+    throw new Error("No audio payload provided for transcription.");
+  }
+
+  let cleanData = audioBase64;
+  let cleanMime = mimeType || "audio/m4a";
+  if (typeof audioBase64 === "string" && audioBase64.includes(";base64,")) {
+    const parts = audioBase64.split(";base64,");
+    cleanMime = parts[0].replace("data:", "");
+    cleanData = parts[1];
+  }
+
+  const candidateModels = ["gemini-2.5-flash", "gemini-3.8-flash"];
+
+  for (const config of geminiConfigs) {
+    if (!config.apiKey) continue;
+    const ai = new GoogleGenAI({ apiKey: config.apiKey, httpOptions: GEMINI_HTTP_OPTIONS });
+
+    for (const modelName of candidateModels) {
+      try {
+        console.log(`🎙️ Transcribing audio using ${modelName} (hint: ${language})...`);
+        const prompt = `You are a speech-to-text audio transcription engine for athletic coaching notes.
+Transcribe the user's spoken words verbatim in ${language || "their spoken language"}.
+Rules:
+1. Output ONLY the exact transcribed text spoken by the user.
+2. Do NOT add preamble, conversational remarks, quotes, timestamps, or labels.
+3. If the audio is silent or contains no human speech, output an empty response.`;
+
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: [
+            {
+              parts: [
+                {
+                  inlineData: {
+                    data: cleanData,
+                    mimeType: cleanMime,
+                  },
+                },
+                { text: prompt },
+              ],
+            },
+          ],
+        });
+
+        const text = (response.text || "").trim();
+        console.log(`✅ Audio transcription complete: "${text}"`);
+        return text;
+      } catch (err) {
+        console.warn(`⚠️ Transcription attempt with ${modelName} failed: ${err.message}`);
+      }
+    }
+  }
+
+  throw new Error("Voice transcription failed across all available AI configurations.");
+}
+
+module.exports = { generateWithFallback, generateImage, transcribeAudio, geminiConfigs };

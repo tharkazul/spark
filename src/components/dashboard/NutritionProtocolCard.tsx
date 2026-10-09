@@ -26,14 +26,16 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
   };
 
   const rawItems = nutrition.loggedItems;
-  const loggedItems: any[] = Array.isArray(rawItems)
-    ? rawItems
-    : typeof rawItems === 'string'
+  const loggedItems: any[] = React.useMemo(() => {
+    return Array.isArray(rawItems)
       ? rawItems
-          .split(',')
-          .map((s) => s.trim().replace(/^(and\s+a\s+|and\s+|also\s+had\s+|besides\s+that\s+)/i, '').trim())
-          .filter(Boolean)
-      : [];
+      : typeof rawItems === 'string'
+        ? rawItems
+            .split(',')
+            .map((s) => s.trim().replace(/^(and\s+a\s+|and\s+|also\s+had\s+|besides\s+that\s+)/i, '').trim())
+            .filter(Boolean)
+        : [];
+  }, [rawItems]);
   const hasLoggedFood = (nutrition.loggedCarbs || 0) > 0 || (nutrition.loggedProtein || 0) > 0 || (nutrition.loggedFat || 0) > 0;
 
   return (
@@ -61,9 +63,8 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
         )}
       </View>
 
-      {/* Main Content Area matching Quest Card inner box styling */}
-      <View className="p-3.5">
-        <View className="p-4 bg-theme-bg/60 rounded-2xl border border-theme-border/40">
+      {/* Main Content Area */}
+      <View className="p-3.5 bg-theme-bg/40">
           {/* Rationale Banner */}
           <View className="p-3.5 bg-theme-accent/10 dark:bg-theme-accent/15 rounded-xl mb-4 border border-theme-accent/20">
             <Text className="text-xs font-extrabold text-theme-accent mb-1">{nutrition.focusTitle || t('coachStore.defaultNutritionTitle')}</Text>
@@ -115,6 +116,5 @@ export function NutritionProtocolCard({ nutrition }: NutritionProtocolCardProps)
           )}
         </View>
       </View>
-    </View>
-  );
-}
+    );
+  }

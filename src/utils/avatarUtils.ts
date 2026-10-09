@@ -107,12 +107,12 @@ export interface AvatarTint {
 }
 
 export const BRAND_AVATAR_TINTS: AvatarTint[] = [
-  { bg: 'bg-sky-500/15 dark:bg-sky-400/20', text: 'text-sky-600 dark:text-sky-400', hex: '#0EA5E9' },
-  { bg: 'bg-emerald-500/15 dark:bg-emerald-400/20', text: 'text-emerald-600 dark:text-emerald-400', hex: '#10B981' },
-  { bg: 'bg-amber-500/15 dark:bg-amber-400/20', text: 'text-amber-600 dark:text-amber-400', hex: '#F59E0B' },
-  { bg: 'bg-violet-500/15 dark:bg-violet-400/20', text: 'text-violet-600 dark:text-violet-400', hex: '#8B5CF6' },
-  { bg: 'bg-rose-500/15 dark:bg-rose-400/20', text: 'text-rose-600 dark:text-rose-400', hex: '#F43F5E' },
-  { bg: 'bg-indigo-500/15 dark:bg-indigo-400/20', text: 'text-indigo-600 dark:text-indigo-400', hex: '#6366F1' },
+  { bg: 'bg-sky-500', text: 'text-white', hex: '#0EA5E9' },
+  { bg: 'bg-emerald-500', text: 'text-white', hex: '#10B981' },
+  { bg: 'bg-amber-500', text: 'text-white', hex: '#F59E0B' },
+  { bg: 'bg-violet-500', text: 'text-white', hex: '#8B5CF6' },
+  { bg: 'bg-rose-500', text: 'text-white', hex: '#F43F5E' },
+  { bg: 'bg-indigo-500', text: 'text-white', hex: '#6366F1' },
 ];
 
 export function getUserAvatarTint(userId?: string | number | null): AvatarTint {

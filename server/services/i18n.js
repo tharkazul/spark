@@ -34,7 +34,7 @@ function interpolate(str, params) {
   return str.replace(/\{(\w+)\}/g, (m, k) => (params[k] !== undefined && params[k] !== null ? String(params[k]) : m));
 }
 
-/** Translate a server message key (see locales/serverMessages.js), e.g. t('nl', 'push.newComment.title'). */
+/** Translate a server message key (see locales/serverMessages.js), e.g. t('nl', 'push.spark.title'). */
 function t(lang, key, params) {
   const l = normalizeLang(lang);
   const entry = key.split(".").reduce((o, k) => (o && typeof o === "object" ? o[k] : undefined), messages);

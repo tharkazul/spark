@@ -7,6 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const { authenticateToken } = require('../services/auth');
+const { requireAiConsent } = require("../services/aiConsent");
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
@@ -1126,7 +1127,7 @@ router.post("/api/micro-plan/restore/:id", authenticateToken, (req, res) => {
   );
 });
 
-router.post("/api/generate-plan", authenticateToken, async (req, res) => {
+router.post("/api/generate-plan", authenticateToken, requireAiConsent, async (req, res) => {
   const { targetDate } = req.body;
 
   db.get(
@@ -1539,102 +1540,4 @@ router.post("/api/generate-plan", authenticateToken, async (req, res) => {
     },
   ); // End users fetch
 });
-// --- ACTIVITY COMMENTS API ---
-router.get("/api/activities/:id/comments", authenticateToken, (req, res) => {
-  const activityId = req.params.id;
-  db.all(
-    `
-    SELECT c.*, u.username, u.profile_picture_url
-    FROM activity_comments c
-    JOIN users u ON c.user_id = u.id
-    WHERE c.activity_id = ?
-    ORDER BY c.created_at ASC
-    `,
-    [activityId],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: "Failed to fetch comments" });
-      res.json({ comments: rows || [] });
-    }
-  );
-});
-
-router.post("/api/activities/:id/comments", authenticateToken, (req, res) => {
-  const activityId = req.params.id;
-  const { comment } = req.body;
-  if (!comment || !comment.trim()) {
-    return res.status(400).json({ error: "Comment text cannot be empty" });
-  }
-
-  db.run(
-    `INSERT INTO activity_comments (activity_id, user_id, comment) VALUES (?, ?, ?)`,
-    [activityId, req.user.id, comment.trim()],
-    function (err) {
-      if (err) return res.status(500).json({ error: "Failed to add comment" });
-      const commentId = this.lastID;
-
-      db.get(
-        `SELECT c.*, u.username, u.profile_picture_url FROM activity_comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
-        [commentId],
-        (errGet, newComment) => {
-          // Notify activity owner if different from commenter
-          db.get(
-            `SELECT user_id, name FROM activities WHERE id = ?`,
-            [activityId],
-            async (errAct, act) => {
-              if (act && act.user_id !== req.user.id) {
-                // Messages go to the activity owner, so use the owner's language.
-                const ownerLang = await i18n.getUserLanguage(act.user_id);
-                const commenterName = req.user.username || i18n.t(ownerLang, 'common.someone');
-                const activityName = act.name || i18n.t(ownerLang, 'common.activity');
-                const coachMsg = i18n.t(ownerLang, 'chat.commentReceived', { name: commenterName, activity: activityName, comment: comment.trim() });
-
-                db.run(
-                  `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'support')`,
-                  [act.user_id, coachMsg],
-                  (errChat) => {
-                    if (!errChat) {
-                      sendSSEEvent(act.user_id, "unread_message", {
-                        message: coachMsg,
-                        mood: "support",
-                      });
-                    }
-                  }
-                );
-
-                sendSSEEvent(act.user_id, "comment_received", {
-                  activityName: activityName,
-                  fromUsername: commenterName,
-                  comment: comment.trim(),
-                });
-
-                sendPushToUser(act.user_id, {
-                  title: i18n.t(ownerLang, 'push.newComment.title'),
-                  body: i18n.t(ownerLang, 'push.newComment.body', { name: commenterName, activity: activityName, comment: comment.trim() }),
-                  data: { url: "/(tabs)/social", type: "comment" },
-                });
-              }
-            }
-          );
-
-          res.json({ success: true, comment: newComment });
-        }
-      );
-    }
-  );
-});
-
-router.delete("/api/activities/:id/comments/:commentId", authenticateToken, (req, res) => {
-  const commentId = req.params.commentId;
-  db.run(
-    `DELETE FROM activity_comments WHERE id = ? AND user_id = ?`,
-    [commentId, req.user.id],
-    function (err) {
-      if (err) return res.status(500).json({ error: "Failed to delete comment" });
-      res.json({ success: true, deletedId: commentId });
-    }
-  );
-});
-
-module.exports = router;
-
 module.exports = router;

@@ -202,5 +202,108 @@ console.log("🏃 Running Workout Planning unit tests...\n");
     console.log("✅ Test 8 Passed: 30-minute swim duration correctly resolved without 2-min bug");
   }
 
-  console.log("\n🎉 All 8 Workout Planning unit tests passed successfully!");
+  // Test 9: parseAvailability correctly identifies dedicated rest days
+  {
+    const { parseAvailability } = require("./services/workoutPlanning");
+    const rawTharakaAvailability = {
+      Mon: { available: true, maxMinutes: 60 },
+      Tue: { available: false, maxMinutes: 0 },
+      Wed: { available: true, maxMinutes: 90 },
+      Thu: { available: true, maxMinutes: 60 },
+      Fri: { available: true, maxMinutes: 75 },
+      Sat: { available: true, maxMinutes: 180 },
+      Sun: { available: false, maxMinutes: 0 },
+    };
+    const parsed = parseAvailability(rawTharakaAvailability);
+
+    assert.strictEqual(parsed.sun.available, false, "Sunday must be marked as blocked/rest");
+    assert.strictEqual(parsed.tue.available, false, "Tuesday must be marked as blocked/rest");
+    assert.strictEqual(parsed.mon.available, true, "Monday must be available");
+    assert.strictEqual(parsed.sat.available, true, "Saturday must be available");
+    assert.strictEqual(parsed.sat.maxMinutes, 180, "Saturday must have 180 maxMinutes");
+    console.log("✅ Test 9 Passed: parseAvailability correctly handles dedicated rest days (0m / available: false)");
+  }
+
+  // Test 10: findAvailabilityViolations flags workouts scheduled on dedicated rest days
+  {
+    const { parseAvailability, findAvailabilityViolations } = require("./services/workoutPlanning");
+    const availMap = parseAvailability({
+      Tue: { available: false, maxMinutes: 0 },
+      Sun: { available: false, maxMinutes: 0 },
+    });
+    const draftPlan = [
+      { date: "2026-10-05", sport: "Run", description: "Easy Run" },
+      { date: "2026-10-06", sport: "Run", description: "Tempo Run on Tuesday" }, // VIOLATION
+      { date: "2026-10-07", sport: "Rest", description: "Rest" },
+      { date: "2026-10-08", sport: "Run", description: "Intervals" },
+      { date: "2026-10-09", sport: "Strength", description: "Core" },
+      { date: "2026-10-10", sport: "Run", description: "Recovery Run" },
+      { date: "2026-10-11", sport: "Run", description: "Aerobic Long Run with Threshold" }, // VIOLATION
+    ];
+
+    const violations = findAvailabilityViolations(draftPlan, availMap);
+    assert.strictEqual(violations.length, 2, "Must detect exactly 2 rest day violations (Tue and Sun)");
+    assert.strictEqual(violations[0].date, "2026-10-06");
+    assert.strictEqual(violations[1].date, "2026-10-11");
+    console.log("✅ Test 10 Passed: findAvailabilityViolations identifies workouts scheduled on dedicated rest days");
+  }
+
+  // Test 11: repairAvailabilityViolations deterministically enforces Rest on Sunday & relocates sessions
+  {
+    const { parseAvailability, repairAvailabilityViolations } = require("./services/workoutPlanning");
+    const availMap = parseAvailability({
+      Mon: { available: true, maxMinutes: 60 },
+      Tue: { available: false, maxMinutes: 0 },
+      Wed: { available: true, maxMinutes: 90 },
+      Thu: { available: true, maxMinutes: 60 },
+      Fri: { available: true, maxMinutes: 75 },
+      Sat: { available: true, maxMinutes: 180 },
+      Sun: { available: false, maxMinutes: 0 },
+    });
+    const dates = [
+      "2026-10-05", // Mon
+      "2026-10-06", // Tue (Rest)
+      "2026-10-07", // Wed
+      "2026-10-08", // Thu
+      "2026-10-09", // Fri
+      "2026-10-10", // Sat
+      "2026-10-11", // Sun (Rest)
+    ];
+
+    const draftPlanWithViolations = [
+      { date: "2026-10-05", sport: "Run", description: "Easy Run", target_rooka: 45 },
+      { date: "2026-10-06", sport: "Run", description: "Mid-week tempo", target_rooka: 55 }, // on Tue (blocked)
+      { date: "2026-10-07", sport: "Rest", description: "Rest", target_rooka: 0 }, // on Wed (available)
+      { date: "2026-10-08", sport: "Run", description: "Intervals", target_rooka: 60 },
+      { date: "2026-10-09", sport: "Strength", description: "Core Stability", target_rooka: 32 },
+      { date: "2026-10-10", sport: "Run", description: "Recovery Run", target_rooka: 46 },
+      { date: "2026-10-11", sport: "Run", description: "Aerobic Long Run with Threshold", target_rooka: 93 }, // on Sun (blocked)
+    ];
+
+    const repaired = repairAvailabilityViolations(draftPlanWithViolations, availMap, dates, "en");
+
+    // Tue MUST be Rest
+    const tue = repaired.find((d) => d.date === "2026-10-06");
+    assert.strictEqual(tue.sport, "Rest", "Tuesday must be repaired to Rest");
+    assert.strictEqual(tue.target_rooka, 0, "Tuesday target_rooka must be 0");
+
+    // Sun MUST be Rest
+    const sun = repaired.find((d) => d.date === "2026-10-11");
+    assert.strictEqual(sun.sport, "Rest", "Sunday must be repaired to Rest");
+    assert.strictEqual(sun.target_rooka, 0, "Sunday target_rooka must be 0");
+
+    // Wed (was Rest, available day) received Tuesday's relocated session
+    const wed = repaired.find((d) => d.date === "2026-10-07");
+    assert.strictEqual(wed.sport, "Run", "Wednesday received relocated workout");
+    assert.strictEqual(wed.description, "Mid-week tempo");
+
+    // Sat (180m capacity) received the Sunday heavy long run (swapped)
+    const sat = repaired.find((d) => d.date === "2026-10-10");
+    assert.strictEqual(sat.sport, "Run");
+    assert.strictEqual(sat.target_rooka, 93, "Saturday received the high-load long run");
+
+    console.log("✅ Test 11 Passed: repairAvailabilityViolations guarantees dedicated rest days & relocates sessions");
+  }
+
+  console.log("\n🎉 All 11 Workout Planning unit tests passed successfully!");
 })();

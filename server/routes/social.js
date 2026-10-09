@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const { authenticateToken } = require('../services/auth');
+const { hasAiConsent } = require("../services/aiConsent");
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
@@ -203,7 +204,10 @@ router.post("/api/social/accept", authenticateToken, (req, res) => {
               const confirmPayload = JSON.stringify(confirmPayloadObj);
               let confirmMsg = i18n.t(friendLang, 'chat.connectionAccepted', { name: req.user.username });
 
-              if (friendUser) {
+              // The requester's coach writes this, and it names the accepting athlete,
+              // so both must have agreed to AI processing; otherwise the static text is used.
+              const aiAllowed = (await hasAiConsent(friendId)) && (await hasAiConsent(req.user.id));
+              if (friendUser && aiAllowed) {
                 const prompt = `The athlete just connected with their friend ${req.user.username} on the app. Send a short 1-2 sentence message to the athlete welcoming the new connection and telling them to use the friendly competition as motivation!`;
                 const sysPrompt = `You are an elite endurance coach. Your tone is: ${friendUser.coach_tone || "Friendly and motivating"}.`;
                 try {
@@ -267,6 +271,24 @@ router.post(["/api/social/decline", "/api/social/reject"], authenticateToken, (r
   );
 });
 
+// Ends a connection from either side. Both rows go, so the two athletes stop
+// seeing each other's activities and either can send a fresh request later.
+// The other athlete isn't notified.
+router.post("/api/social/remove", authenticateToken, (req, res) => {
+  const friendId = parseInt(req.body.friendId, 10);
+  if (!friendId) return res.status(400).json({ error: "friendId is required." });
+  db.run(
+    `DELETE FROM connections WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)`,
+    [req.user.id, friendId, friendId, req.user.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: "Failed to remove connection." });
+      sendSSEEvent(req.user.id, "feed_updated", {});
+      sendSSEEvent(friendId, "feed_updated", {});
+      res.json({ success: true });
+    },
+  );
+});
+
 router.get("/api/social/connections", authenticateToken, (req, res) => {
   db.all(
     `
@@ -288,8 +310,7 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
         SELECT a.*, u.username, u.profile_picture_url, u.total_rooka,
                (SELECT title FROM user_titles WHERE user_id = u.id AND is_active = 1 LIMIT 1) as equipped_title,
                (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id) as kudos_count,
-               (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id AND k.user_id = ?) as has_kudosed,
-               (SELECT COUNT(*) FROM activity_comments c WHERE c.activity_id = a.id) as comment_count
+               (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id AND k.user_id = ?) as has_kudosed
         FROM activities a
         JOIN users u ON a.user_id = u.id
         WHERE (a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
@@ -466,70 +487,65 @@ router.post("/api/social/kudos", authenticateToken, (req, res) => {
           [activityId, req.user.id],
           () => res.json({ success: true, added: false }),
         );
-      } else {
-        db.run(
-          `INSERT INTO kudos (activity_id, user_id) VALUES (?, ?)`,
-          [activityId, req.user.id],
-          () => {
-            db.get(
-              `SELECT user_id, name FROM activities WHERE id = ?`,
-              [activityId],
-              (err, act) => {
-                if (act && act.user_id !== req.user.id) {
-                  sendSSEEvent(act.user_id, "kudos_received", {
-                    activityName: act.name,
-                    fromUsername: req.user.username || "Someone",
+        return;
+      }
+
+      // Sparks are only for your own activities and those of accepted connections.
+      db.get(
+        `SELECT a.user_id, a.name FROM activities a
+          WHERE a.id = ? AND (a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))`,
+        [activityId, req.user.id, req.user.id],
+        (permErr, act) => {
+          if (permErr || !act) {
+            return res.status(403).json({ error: "You can only spark activities of your connections." });
+          }
+          db.run(
+            `INSERT INTO kudos (activity_id, user_id) VALUES (?, ?)`,
+            [activityId, req.user.id],
+            () => {
+              res.json({ success: true, added: true });
+              if (act.user_id === req.user.id) return;
+
+              sendSSEEvent(act.user_id, "kudos_received", {
+                activityName: act.name,
+                fromUsername: req.user.username || "Someone",
+              });
+
+              db.get(
+                `SELECT coach_tone, language FROM users WHERE id = ?`,
+                [act.user_id],
+                async (err, coachUser) => {
+                  const ownerLang = i18n.normalizeLang(coachUser && coachUser.language);
+                  sendPushToUser(act.user_id, {
+                    title: i18n.t(ownerLang, 'push.spark.title'),
+                    body: i18n.t(ownerLang, 'push.spark.body', { name: req.user.username || i18n.t(ownerLang, 'common.aFriend'), activity: act.name || i18n.t(ownerLang, 'common.activity') }),
+                    data: { url: "/(tabs)/social", type: "spark" },
                   });
 
-                  db.get(
-                    `SELECT coach_tone, language FROM users WHERE id = ?`,
-                    [act.user_id],
-                    async (err, coachUser) => {
-                      const ownerLang = i18n.normalizeLang(coachUser && coachUser.language);
-                      if (coachUser) {
-                        const prompt = `The athlete just received a Spark (a like/kudos) from their friend ${req.user.username || "Someone"} on their activity "${act.name}". Send a very short 1-sentence message to the athlete acknowledging this and hyping them up.`;
-                        const sysPrompt = `You are an elite endurance coach. Your tone is: ${coachUser.coach_tone || "Friendly and motivating"}.`;
-                        try {
-                          const msg = await generateWithFallback(
-                            prompt,
-                            sysPrompt,
-                            null,
-                            null,
-                            null,
-                            "personal",
-                            false,
-                            { language: ownerLang },
-                          );
-                          db.run(
-                            `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
-                            [act.user_id, msg],
-                            (err) => {
-                              if (!err) {
-                                sendSSEEvent(act.user_id, "unread_message", {
-                                  message: msg,
-                                  mood: "hype",
-                                });
-                                sendPushToUser(act.user_id, {
-                                  title: i18n.t(ownerLang, 'push.spark.title'),
-                                  body: i18n.t(ownerLang, 'push.spark.body', { name: req.user.username || i18n.t(ownerLang, 'common.aFriend'), activity: act.name || i18n.t(ownerLang, 'common.activity') }),
-                                  data: { url: "/(tabs)/social", type: "spark" },
-                                });
-                              }
-                            }
-                          );
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      }
-                    },
-                  );
-                }
-              },
-            );
-            res.json({ success: true, added: true });
-          },
-        );
-      }
+                  // The coach message names the sender, so both athletes must have agreed to AI processing.
+                  const aiAllowed = (await hasAiConsent(act.user_id)) && (await hasAiConsent(req.user.id));
+                  if (!coachUser || !aiAllowed) return;
+
+                  const prompt = `The athlete just received a Spark (a like/kudos) from their friend ${req.user.username || "Someone"} on their activity "${act.name}". Send a very short 1-sentence message to the athlete acknowledging this and hyping them up.`;
+                  const sysPrompt = `You are an elite endurance coach. Your tone is: ${coachUser.coach_tone || "Friendly and motivating"}.`;
+                  try {
+                    const msg = await generateWithFallback(prompt, sysPrompt, null, null, null, "personal", false, { language: ownerLang });
+                    db.run(
+                      `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'hype')`,
+                      [act.user_id, msg],
+                      (err) => {
+                        if (!err) sendSSEEvent(act.user_id, "unread_message", { message: msg, mood: "hype" });
+                      },
+                    );
+                  } catch (e) {
+                    console.error(e);
+                  }
+                },
+              );
+            },
+          );
+        },
+      );
     },
   );
 });

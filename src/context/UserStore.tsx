@@ -41,6 +41,8 @@ interface UserContextType {
   refreshUser: () => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
   trackRookaPlus: () => Promise<void>;
+  /** Accept (true) or withdraw (false) consent for AI processing. Throws if the server refuses. */
+  setAiConsent: (consent: boolean) => Promise<void>;
 }
 
 /**
@@ -400,6 +402,15 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     }
   }, []);
 
+  const setAiConsent = React.useCallback(async (consent: boolean) => {
+    await userApi.setAiConsent(consent);
+    setUser((prev) => {
+      const newProfile = prev ? { ...prev, aiConsent: consent } : prev;
+      if (newProfile) profileStorage.setProfile(newProfile).catch(() => {});
+      return newProfile;
+    });
+  }, []);
+
   const trackRookaPlus = React.useCallback(async () => {
     try {
       await userApi.trackRookaPlusClick();
@@ -557,6 +568,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
         refreshUser,
         updateUser,
         trackRookaPlus,
+        setAiConsent,
       }}
     >
       {children}

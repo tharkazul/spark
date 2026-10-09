@@ -252,28 +252,24 @@ export function pluralize(noun: string, count: number, locale: string = 'en'): s
     if (noun === 'quest') return `${c} ${c === 1 ? 'quest' : 'quests'}`;
     if (noun === 'workout') return `${c} ${c === 1 ? 'workout' : 'workouts'}`;
     if (noun === 'day') return `${c} ${c === 1 ? 'dag' : 'dagen'}`;
-    if (noun === 'comment') return `${c} ${c === 1 ? 'reactie' : 'reacties'}`;
     return `${c} ${noun}${c === 1 ? '' : 's'}`;
   }
   if (locale === 'de') {
     if (noun === 'quest') return `${c} ${c === 1 ? 'Quest' : 'Quests'}`;
     if (noun === 'workout') return `${c} ${c === 1 ? 'Workout' : 'Workouts'}`;
     if (noun === 'day') return `${c} ${c === 1 ? 'Tag' : 'Tage'}`;
-    if (noun === 'comment') return `${c} ${c === 1 ? 'Kommentar' : 'Kommentare'}`;
     return `${c} ${noun}${c === 1 ? '' : 's'}`;
   }
   if (locale === 'es') {
     if (noun === 'quest') return `${c} ${c === 1 ? 'misión' : 'misiones'}`;
     if (noun === 'workout') return `${c} ${c === 1 ? 'entrenamiento' : 'entrenamientos'}`;
     if (noun === 'day') return `${c} ${c === 1 ? 'día' : 'días'}`;
-    if (noun === 'comment') return `${c} ${c === 1 ? 'comentario' : 'comentarios'}`;
     return `${c} ${noun}${c === 1 ? '' : 's'}`;
   }
   if (locale === 'fr') {
     if (noun === 'quest') return `${c} ${c === 1 ? 'quête' : 'quêtes'}`;
     if (noun === 'workout') return `${c} ${c === 1 ? 'séance' : 'séances'}`;
     if (noun === 'day') return `${c} ${c === 1 ? 'jour' : 'jours'}`;
-    if (noun === 'comment') return `${c} ${c === 1 ? 'commentaire' : 'commentaires'}`;
     return `${c} ${noun}${c === 1 ? '' : 's'}`;
   }
   // English default

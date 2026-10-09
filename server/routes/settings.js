@@ -5,6 +5,7 @@ const fs = require("fs");
 const multer = require("multer");
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
+const { setAiConsent } = require("../services/aiConsent");
 const { getRookaLevelInfo, getUserGamificationContext } = require("../services/utils");
 const athleteZones = require("../services/athleteZones");
 const zoneModel = require("../services/zones");
@@ -51,6 +52,29 @@ router.post("/api/settings/privacy", authenticateToken, (req, res) => {
       res.json({ success: true });
     },
   );
+});
+
+// Accept or withdraw consent for AI processing (Google Gemini). Answering the
+// coach's consent card and the switch in Profile both land here.
+router.post("/api/user/ai-consent", authenticateToken, async (req, res) => {
+  if (typeof req.body.consent !== "boolean") {
+    return res.status(400).json({ error: "consent must be true or false." });
+  }
+  try {
+    await setAiConsent(req.user.id, req.body.consent);
+  } catch (err) {
+    return res.status(500).json({ error: "DB_ERROR" });
+  }
+  res.json({ success: true, aiConsent: req.body.consent });
+
+  if (req.body.consent) {
+    // Onboarding left its AI plan tailoring for this moment.
+    db.get(`SELECT onboarding_ai_pending FROM users WHERE id = ?`, [req.user.id], (err, row) => {
+      if (!err && row && row.onboarding_ai_pending === 1) {
+        setImmediate(() => require("./onboarding").tailorOnboardingPlan(req.user.id));
+      }
+    });
+  }
 });
 
 router.post("/api/notifications/register-push-token", authenticateToken, (req, res) => {
@@ -133,7 +157,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -193,6 +217,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             lastCycleStart: row.last_cycle_start,
             averageCycleLength: row.average_cycle_length || 28,
             searchPrivacy: row.search_privacy === 1,
+            // null = not answered yet, true = accepted, false = declined
+            aiConsent: row.ai_consent === null || row.ai_consent === undefined ? null : row.ai_consent === 1,
             profilePictureUrl: row.profile_picture_url,
             trainingAvailability: availability,
             sparkLevel: sparkLevelInfo,
@@ -507,20 +533,22 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
     db.get(`SELECT username FROM users WHERE id = ?`, [userId], (err, user) => {
         if (err || !user) return res.status(404).json({ error: "User not found" });
 
-        const username = user.username || "";
-        if (username.toLowerCase().includes("rutger") || username.toLowerCase().includes("felixson")) {
-            return res.status(403).json({ error: "Admin accounts cannot be deleted directly." });
+        const username = (user.username || "").trim().toLowerCase();
+        if (username === "rutgervandenberg" || username === "felixson") {
+            return res.status(403).json({ error: "Master admin accounts cannot be deleted directly." });
         }
 
         const tablesWithUserId = [
-            "activities", "micro_plan", "weight_log", "chat_history", 
-            "athlete_metrics", "user_daily_metrics", "user_quests", 
-            "completed_quests", "user_xp", "nutrition_protocols", 
-            "nutrition_intake", "daily_diet_logs", "biometrics",
+            "activities", "activity_comments", "micro_plan", "deleted_micro_plan", 
+            "weight_log", "chat_history", "athlete_metrics", "athlete_muscle_status", 
+            "user_daily_metrics", "user_quests", "completed_quests", "user_xp", 
+            "nutrition_protocols", "nutrition_intake", "daily_diet_logs", "biometrics",
             "physique_logs", "milestones", "kudos", "public_profile_cache", 
-            "completed_micro_steps", "push_subscriptions", "garmin_health_data", 
-            "user_titles", "athlete_niggles", "bonus_points", "recurring_trainings",
-            "benchmark_tests", "athlete_zones"
+            "completed_micro_steps", "push_subscriptions", "push_tokens", 
+            "garmin_health_data", "user_titles", "athlete_niggles", "bonus_points", 
+            "recurring_trainings", "benchmark_tests", "athlete_zones", "strava_tokens", 
+            "discount_redemptions", "user_discounts", "user_milestone_history", 
+            "user_feature_onboarding", "password_resets"
         ];
 
         db.serialize(() => {
@@ -535,7 +563,11 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             });
 
             db.run(`DELETE FROM connections WHERE user_id = ? OR friend_id = ?`, [userId, userId], function(err) {
-                if (err) console.error("Error deleting connections:", err.message);
+                if (err && !err.message.includes("no such table")) console.error("Error deleting connections:", err.message);
+            });
+
+            db.run(`DELETE FROM event_invitations WHERE inviter_id = ? OR invitee_id = ?`, [userId, userId], function(err) {
+                if (err && !err.message.includes("no such table")) console.error("Error deleting event_invitations:", err.message);
             });
 
             db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err) {
