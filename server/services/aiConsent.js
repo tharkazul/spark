@@ -6,6 +6,7 @@ const db = require("./db");
 // entry point — HTTP routes and background jobs alike — must check this.
 
 const AI_CONSENT_REQUIRED = "AI_CONSENT_REQUIRED";
+const CONSENT_PAYLOAD = JSON.stringify({ type: "ai_consent" });
 
 class AiConsentRequiredError extends Error {
   constructor(userId) {
@@ -41,21 +42,25 @@ async function requireAiConsent(req, res, next) {
 // Puts the consent question in the coach chat when the athlete hasn't
 // answered yet and it isn't already there. Called before the welcome message
 // in onboarding, and when the chat loads for athletes who joined earlier.
+//
+// The check and the insert are one statement on purpose: the app loads the
+// chat history several times at once on launch, and a separate SELECT then
+// INSERT let each of those requests add its own card.
 function ensureConsentPrompt(userId) {
   return new Promise((resolve) => {
-    db.get(
-      `SELECT u.ai_consent,
-              (SELECT COUNT(*) FROM chat_history c
-                WHERE c.user_id = u.id AND c.role = 'coach' AND c.payload_json LIKE '%"type":"ai_consent"%') AS prompts
-         FROM users u WHERE u.id = ?`,
-      [userId],
-      (err, row) => {
-        if (err || !row || row.ai_consent !== null || row.prompts > 0) return resolve(false);
-        db.run(
-          `INSERT INTO chat_history (user_id, role, content, mood, payload_json) VALUES (?, 'coach', '', 'support', ?)`,
-          [userId, JSON.stringify({ type: "ai_consent" })],
-          (insErr) => resolve(!insErr),
-        );
+    db.run(
+      `INSERT INTO chat_history (user_id, role, content, mood, payload_json)
+       SELECT u.id, 'coach', '', 'support', ?
+         FROM users u
+        WHERE u.id = ?
+          AND u.ai_consent IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM chat_history c
+             WHERE c.user_id = u.id AND c.role = 'coach' AND c.payload_json = ?
+          )`,
+      [CONSENT_PAYLOAD, userId, CONSENT_PAYLOAD],
+      function (err) {
+        resolve(!err && this.changes > 0);
       },
     );
   });

@@ -572,6 +572,14 @@ db.serialize(() => {
   db.run(
     `CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, role TEXT, content TEXT, mood TEXT, image_path TEXT, payload_json TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`,
   );
+  // An earlier version of the AI consent card could be inserted more than once
+  // when the chat history loaded concurrently. Keep each athlete's first card.
+  db.run(
+    `DELETE FROM chat_history
+      WHERE payload_json = '{"type":"ai_consent"}'
+        AND id NOT IN (SELECT MIN(id) FROM chat_history WHERE payload_json = '{"type":"ai_consent"}' GROUP BY user_id)`,
+    (err) => {},
+  );
   db.run(
     `CREATE TABLE IF NOT EXISTS athlete_metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, metric TEXT, value TEXT, UNIQUE(user_id, metric))`,
   );

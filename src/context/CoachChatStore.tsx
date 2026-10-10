@@ -431,7 +431,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
               );
             }
           });
-          const sorted = sortMessagesChronological(processed);
+          // The consent card belongs once in the chat; an older server could
+          // store it twice, so only the first one is shown.
+          let consentCardSeen = false;
+          const sorted = sortMessagesChronological(processed).filter((msg) => {
+            if (msg.payload_json?.type !== 'ai_consent') return true;
+            if (consentCardSeen) return false;
+            consentCardSeen = true;
+            return true;
+          });
           setMessages(sorted);
 
           // Update typing indicator based on latest message

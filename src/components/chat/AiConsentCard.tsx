@@ -39,7 +39,9 @@ export const AiConsentCard: React.FC = () => {
         <View className="w-9 h-9 rounded-full items-center justify-center border bg-semantic-success/20 border-semantic-success/40">
           <Ionicons name="checkmark-circle" size={18} color="#10B981" />
         </View>
-        <View className="ml-2.5 flex-1">
+        {/* shrink, not flex-1: the chat bubble sizes to its content, so a
+            flex-1 child here has no width to grow into and collapses. */}
+        <View className="ml-2.5 shrink">
           <Text className="text-sm font-extrabold text-theme-text font-rajdhani">{t('aiConsent.acceptedTitle')}</Text>
           <Text className="text-xs text-theme-muted font-medium">{t('aiConsent.acceptedBody')}</Text>
         </View>
@@ -59,7 +61,7 @@ export const AiConsentCard: React.FC = () => {
         >
           <Ionicons name={declined ? 'pause-circle' : 'shield-checkmark'} size={18} color={declined ? '#9CA3AF' : BrandColors.primary} />
         </View>
-        <Text className="ml-2.5 flex-1 text-sm font-extrabold text-theme-text font-rajdhani">
+        <Text className="ml-2.5 shrink text-sm font-extrabold text-theme-text font-rajdhani">
           {declined ? t('aiConsent.declinedTitle') : t('aiConsent.cardTitle')}
         </Text>
       </View>
