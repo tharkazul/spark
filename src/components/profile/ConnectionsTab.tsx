@@ -8,7 +8,9 @@ import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
 import { canHideRookaLink } from '../../utils/permissions';
+import { GARMIN_DIRECT_LOGIN_ENABLED } from '../../constants/features';
 import { Card } from '../ui/Card';
+import { GarminViaPartnersHint } from '../integrations/GarminViaPartnersHint';
 import { SportMedallion } from '../ui/SportMedallion';
 
 interface ConnectionsTabProps {
@@ -499,54 +501,62 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         )}
       </Card>
 
-      {/* 2. GARMIN CONNECT INTEGRATION */}
-      <Card className="p-4">
-        <View className="flex-row justify-between items-center">
-          <View className="flex-row items-center gap-3 flex-1 mr-2">
-            <View className="w-10 h-10 rounded-xl bg-sky-500/10 items-center justify-center">
-              <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
+      {/* 2. GARMIN CONNECT INTEGRATION. The direct login is parked (GARMIN_DIRECT_LOGIN_ENABLED):
+          athletes who already connected keep sync and disconnect, everyone else gets the
+          Garmin -> Apple Health / Strava route. */}
+      {!isGarminConnected && !GARMIN_DIRECT_LOGIN_ENABLED ? (
+        <Card className="p-4">
+          <GarminViaPartnersHint />
+        </Card>
+      ) : (
+        <Card className="p-4">
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center gap-3 flex-1 mr-2">
+              <View className="w-10 h-10 rounded-xl bg-sky-500/10 items-center justify-center">
+                <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.garminConnect')}</Text>
+                <Text className="text-xs text-theme-muted mt-0.5">
+                  {isGarminConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.directSync')}` : t('connections.disconnected', 'Not connected')}
+                </Text>
+              </View>
             </View>
-            <View className="flex-1">
-              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.garminConnect')}</Text>
-              <Text className="text-xs text-theme-muted mt-0.5">
-                {isGarminConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.directSync')}` : t('connections.disconnected', 'Not connected')}
-              </Text>
-            </View>
-          </View>
 
-          <View className="flex-row items-center gap-2">
-            {isGarminConnected && (
+            <View className="flex-row items-center gap-2">
+              {isGarminConnected && (
+                <TouchableOpacity
+                  onPress={handleSyncGarmin}
+                  disabled={garminSyncing}
+                  className="p-2 rounded-lg bg-theme-bg border border-theme-border items-center justify-center"
+                >
+                  {garminSyncing ? (
+                    <ActivityIndicator size="small" color={theme.tint} />
+                  ) : (
+                    <Ionicons name="sync-outline" size={15} color={theme.tint} />
+                  )}
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
-                onPress={handleSyncGarmin}
-                disabled={garminSyncing}
-                className="p-2 rounded-lg bg-theme-bg border border-theme-border items-center justify-center"
-              >
-                {garminSyncing ? (
-                  <ActivityIndicator size="small" color={theme.tint} />
-                ) : (
-                  <Ionicons name="sync-outline" size={15} color={theme.tint} />
-                )}
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={onOpenGarminModal}
-              className={`px-3 py-1.5 rounded-lg border ${
-                isGarminConnected
-                  ? 'bg-theme-bg border-theme-border'
-                  : 'bg-theme-accent border-theme-accent'
-              }`}
-            >
-              <Text
-                className={`text-xs font-bold ${
-                  isGarminConnected ? 'text-theme-accent' : 'text-white'
+                onPress={onOpenGarminModal}
+                className={`px-3 py-1.5 rounded-lg border ${
+                  isGarminConnected
+                    ? 'bg-theme-bg border-theme-border'
+                    : 'bg-theme-accent border-theme-accent'
                 }`}
               >
-                {isGarminConnected ? t('common.manage', 'Manage') : t('common.connect', 'Connect')}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  className={`text-xs font-bold ${
+                    isGarminConnected ? 'text-theme-accent' : 'text-white'
+                  }`}
+                >
+                  {isGarminConnected ? t('common.manage', 'Manage') : t('common.connect', 'Connect')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Card>
+        </Card>
+      )}
 
       {/* SUUNTO INTEGRATION */}
       <Card className="p-4">

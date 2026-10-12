@@ -39,7 +39,8 @@ const {
   generateQuestForUser,
   isQuestMet,
   completeQuest,
-  canAccessQuests
+  canAccessQuests,
+  QUESTS_ENABLED
 } = require('../services/utils');
 
 function getTimeRemainingStr(expiresAt, lang = "en") {
@@ -164,8 +165,8 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
       role = userRow?.role || "user";
     }
 
-    if (!canAccessQuests(tier, role)) {
-      // Free users cannot access quests: close any active quests and return empty array
+    if (!QUESTS_ENABLED || !canAccessQuests(tier, role)) {
+      // Quests parked, or a free user: close any active quests and return empty array
       await new Promise((resolve) => {
         db.run(
           `UPDATE user_quests SET status = 'closed' WHERE user_id = ? AND status = 'active'`,
@@ -462,7 +463,7 @@ router.post("/api/gamification/evaluate_quests", authenticateToken, async (req, 
     role = userRow?.role || "user";
   }
 
-  if (!canAccessQuests(tier, role)) {
+  if (!QUESTS_ENABLED || !canAccessQuests(tier, role)) {
     return res.json({
       success: true,
       message: "Quests require a paid subscription.",

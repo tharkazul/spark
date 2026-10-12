@@ -24,6 +24,7 @@ import { formatClock, formatDuration, formatRelativeDayAndTime } from '../../uti
 import { useLanguage } from '../../context/LanguageContext';
 import { useSubscription } from '../../context/SubscriptionStore';
 import { canAccessQuests } from '../../utils/permissions';
+import { QUESTS_ENABLED } from '../../constants/features';
 import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useRouter } from 'expo-router';
 
@@ -139,7 +140,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
       <View>
         <View className="flex-row justify-between items-center mb-3 px-0.5">
           <Text className="text-lg font-extrabold text-theme-text tracking-tight">
-            {t('questUi.quests')}
+            {QUESTS_ENABLED ? t('questUi.quests') : t('questUi.streak')}
           </Text>
           {hasQuestAccess && (
             <Text className="text-xs font-semibold text-theme-muted">
@@ -150,8 +151,8 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
         {/* 2-CARD FROSTED GLASS ROW */}
         <View className="flex-row gap-3">
-          {/* CARD 1: ACTIVE QUEST */}
-          {!hasQuestAccess ? (
+          {/* CARD 1: ACTIVE QUEST (hidden while quests are parked) */}
+          {!QUESTS_ENABLED ? null : !hasQuestAccess ? (
           // Quests are a Rooka+ feature: free athletes see an unlock card instead
           <TouchableOpacity
             onPress={async () => {

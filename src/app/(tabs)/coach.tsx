@@ -60,7 +60,7 @@ import { chatApi } from '../../services/apiServices';
 import { audioRecordingService } from '../../services/audioRecordingService';
 import { ChatMessage, ProposedWorkoutItem } from '../../types/chat';
 import { getCoachAvatarSource, getCoachDisplayName, resolveChatImageUrl } from '../../utils/avatarUtils';
-import { hasSubscriptionTier } from '../../utils/permissions';
+import { canAccessQuests, hasSubscriptionTier } from '../../utils/permissions';
 
 import { MacroRingGauge } from '../../components/dashboard/MacroRingGauge';
 import { DeviceSyncBanner } from '../../components/dashboard/DeviceSyncBanner';
@@ -1386,7 +1386,7 @@ export default function CoachScreen() {
             )}
 
             {/* 3. Quest Micro-Pill */}
-            {user?.subscription_tier !== 'free' && (
+            {canAccessQuests(user?.subscription_tier) && (
               <TouchableOpacity
                 onPress={() => {
                   Haptics.selectionAsync();

@@ -1,3 +1,4 @@
+import { QUESTS_ENABLED } from '../constants/features';
 import { SubscriptionTier } from '../types/user';
 
 export const hasSubscriptionTier = (tier?: SubscriptionTier): boolean => {
@@ -17,7 +18,7 @@ export const canAccessLeaderboard = (tier?: SubscriptionTier): boolean => {
 };
 
 export const canAccessQuests = (tier?: SubscriptionTier): boolean => {
-  return hasSubscriptionTier(tier);
+  return QUESTS_ENABLED && hasSubscriptionTier(tier);
 };
 
 export const canConfigureCoach = (tier?: SubscriptionTier): boolean => {

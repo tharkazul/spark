@@ -10,6 +10,7 @@ import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { socialApi } from '../../services/apiServices';
 import { canAccessLeaderboard } from '../../utils/permissions';
+import { QUESTS_ENABLED } from '../../constants/features';
 import { LeaderboardEntry } from '../../types/social';
 import { pluralize } from '../../utils/format';
 
@@ -140,7 +141,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   return (
     <View className="gap-y-3 pb-8">
       {/* SECOND-LEVEL FILTER CHIPS: Rooka score | 7-Day Quests */}
-      {showSwitcher && (
+      {showSwitcher && QUESTS_ENABLED && (
         <View className="flex-row items-center gap-x-2 mb-1">
           <Chip
             variant={currentType === 'rooka' ? 'accent' : 'neutral'}
@@ -337,7 +338,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                           )}
                         </View>
                         <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
-                          {t('uiExtra.lvl', { level: isCurrentUser ? (user?.level || item.rooka_level || 1) : (item.rooka_level || 1) })} · {pluralize('quest', questsCount, language)}
+                          {t('uiExtra.lvl', { level: isCurrentUser ? (user?.level || item.rooka_level || 1) : (item.rooka_level || 1) })}{QUESTS_ENABLED ? ` · ${pluralize('quest', questsCount, language)}` : ''}
                         </Text>
                       </View>
                     </View>
@@ -391,7 +392,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                         <Chip variant="accent" size="sm" label={t('common.you')} />
                       </View>
                       <Text className="text-xs text-theme-muted font-medium font-rajdhani mt-0.5">
-                        {t('uiExtra.lvl', { level: user?.level || currentUserEntry.rooka_level || 1 })} · {pluralize('quest', (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0, language)}
+                        {t('uiExtra.lvl', { level: user?.level || currentUserEntry.rooka_level || 1 })}{QUESTS_ENABLED ? ` · ${pluralize('quest', (currentUserEntry as any).completed_quests_count ?? currentUserEntry.quests_completed_7d ?? 0, language)}` : ''}
                       </Text>
                     </View>
                   </View>

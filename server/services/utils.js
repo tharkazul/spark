@@ -965,6 +965,12 @@ function canHideRookaLink(subscriptionTier) {
   );
 }
 
+// Weekly quests are parked for launch: they were generated without looking at the
+// plan and could add load it didn't ask for (to be replaced by achievements).
+// While false, no quest is created and /api/gamification closes active ones.
+// Mirrors QUESTS_ENABLED in src/constants/features.ts.
+const QUESTS_ENABLED = false;
+
 function canAccessQuests(subscriptionTier, role) {
   if (role === "admin") return true;
   return ["subscription", "rooka_plus", "premium", "admin"].includes(
@@ -2559,6 +2565,7 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
 }
 
 async function generateQuestForUser(userId, poolType = "personal", previousQuest = null) {
+  if (!QUESTS_ENABLED) return null;
   if (!(await hasAiConsent(userId))) return null; // AI is off without the athlete's consent
 
   return new Promise((resolve, reject) => {
@@ -3253,6 +3260,7 @@ module.exports = {
   normalizeShareSettings,
   canHideRookaLink,
   canAccessQuests,
+  QUESTS_ENABLED,
   canEditWorkouts,
   STRAVA_SHARE_SPORTS,
   STRAVA_SHARE_FLAGS,
