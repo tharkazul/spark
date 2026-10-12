@@ -25,6 +25,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useSubscription } from '../../context/SubscriptionStore';
 import { canAccessQuests } from '../../utils/permissions';
 import { QUESTS_ENABLED } from '../../constants/features';
+import { AchievementsCard } from './AchievementsCard';
 import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useRouter } from 'expo-router';
 
@@ -258,6 +259,9 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
           </View>
         </View>
       </View>
+
+      {/* SECTION 1b: ACHIEVEMENTS (recognition for what was done; replaced weekly quests) */}
+      <AchievementsCard />
 
       {/* SECTION 2: RECENT ACTIVITIES LIST */}
       <View>

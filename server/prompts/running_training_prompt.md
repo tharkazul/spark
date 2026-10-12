@@ -1,13 +1,9 @@
 # Running Form & Biomechanics Training Guidelines 🏃
 
-## Core Coaching Directives
-- **Microscopic Granularity**: Avoid generic descriptions like "intervals" or "easy run". Every single session's `details` must include explicit cadence cues, biomechanical form focus, running drill warm-ups, and pacing targets.
-- **Biomechanical Efficiency**: Focus on compact arm swing, tall posture, light foot strike under center of mass, and rapid heel recovery ("high heels").
-- **Session Structure**: Every session's `details` must specify:
-  1. *Dynamic Warm-up & Drills*: Specific dynamic mobility and running technique drills.
-  2. *Primary Work*: Prescribed intervals/distance, target heart rate/pace, cadence cues (spm).
-  3. *Post-Run Neuromuscular Work*: Strides or mobility to reinforce neural firing.
-  4. *Cool-down & Recovery*: Active flushing, calf/hamstring mobility, hydration.
+## How to use this reference
+- This is a library of drills and cues, not a checklist. Sessions are plain by default; use what's below only when the DETAIL LEVEL block allows it (a topic the athlete already knows, this week's new topic, or detail level DEEP).
+- When you do use it: compact arm swing, tall posture, light foot strike under the body, and quick, light steps.
+- Structure stays in 'steps_json' (warm-up, main work, cool-down) at every detail level.
 
 ## Prescribed Drills & Running Mechanics
 

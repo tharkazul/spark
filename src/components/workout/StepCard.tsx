@@ -1,4 +1,5 @@
 import { ExerciseAutocompleteInput } from "./ExerciseAutocompleteInput";
+import { ExerciseInfoSheet } from "./ExerciseInfoSheet";
 import { BrandColors, Fonts } from '@/constants/theme';
 import React, { useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
@@ -159,6 +160,7 @@ const StepCardComponent = ({
     const theme = useTheme();
   const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [infoExercise, setInfoExercise] = useState<string | null>(null);
   const { colorScheme } = useColorScheme();
 
   // These numeric fields (reps / minutes / metres) are typed into, so their
@@ -422,15 +424,30 @@ const StepCardComponent = ({
           ) : (
             <View className="flex-col gap-2.5">
               {isStrengthOrMobility && (
-                <ExerciseAutocompleteInput
-                  value={step.exerciseName || ''}
-                  onChangeText={(text: string) => {
-                    const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
-                    updateFn('exerciseName', text);
-                  }}
-                  textColor={inputTextColor as string}
-                  editable={!readOnly}
-                />
+                <View className="flex-row items-center gap-2">
+                  <View className="flex-1">
+                    <ExerciseAutocompleteInput
+                      value={step.exerciseName || ''}
+                      onChangeText={(text: string) => {
+                        const updateFn = isSubStep && onUpdateSub ? (f: any, v: any) => onUpdateSub(step.id, step.id, f, v) : (f: any, v: any) => onUpdate(step.id, f, v);
+                        updateFn('exerciseName', text);
+                      }}
+                      textColor={inputTextColor as string}
+                      editable={!readOnly}
+                    />
+                  </View>
+                  {Boolean(step.exerciseName && step.exerciseName.trim().length > 2) && step.type !== 'rest' && (
+                    <TouchableOpacity
+                      onPress={() => setInfoExercise(step.exerciseName || null)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('exercise.infoA11y', { name: step.exerciseName || '' })}
+                      className="w-8 h-8 rounded-full bg-theme-accent/10 items-center justify-center"
+                    >
+                      <Ionicons name="information-circle-outline" size={18} color="#0EA5E9" />
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
 
               <View className="flex-row flex-wrap items-center gap-2">
@@ -678,6 +695,7 @@ const StepCardComponent = ({
           )}
         </View>
       </View>
+      <ExerciseInfoSheet exerciseName={infoExercise} onClose={() => setInfoExercise(null)} />
     </Animated.View>
   );
 };

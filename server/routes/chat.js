@@ -36,6 +36,7 @@ const { authenticateToken } = require('../services/auth');
 const { requireAiConsent, ensureConsentPrompt } = require("../services/aiConsent");
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { sendPushToUser } = require('../services/pushNotificationService');
+const seasonPlan = require('../services/seasonPlan');
 const { generateWithFallback, generateImage, transcribeAudio } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const muscleLoad = require('../services/muscleLoad');
@@ -87,7 +88,29 @@ function splitCoachReply(text) {
     .split(/(?:\r?\n)?(?:---(?:MSG|SPLIT|BREAK)---|\[\[SPLIT\]\]|<break\s*\/?>|<br\s*\/?>)(?:\r?\n)?/gi)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
-  return parts.length > 0 ? parts : [text.trim()];
+  if (parts.length > 1) return parts;
+  return splitProseParagraphs(parts[0] || text.trim());
+}
+
+// The coach rules ask for ---MSG--- between chat bubbles, but the model often
+// just leaves blank lines, and the reply then lands as one long bubble. Plain
+// prose is split on blank lines so it reads like separate WhatsApp messages.
+// Structured replies (lists, headings, tables, code or plan JSON) stay whole,
+// and anything past four paragraphs stays together in the last bubble.
+// Mirrors splitCoachReply in src/context/CoachChatStore.tsx.
+const MAX_PROSE_BUBBLES = 4;
+function splitProseParagraphs(text) {
+  if (/```|^\s*(?:[-*•]|\d+[.)])\s|^\s*#|^\s*\|/m.test(text)) return [text];
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  if (paragraphs.length < 2) return [text];
+  if (paragraphs.length <= MAX_PROSE_BUBBLES) return paragraphs;
+  return [
+    ...paragraphs.slice(0, MAX_PROSE_BUBBLES - 1),
+    paragraphs.slice(MAX_PROSE_BUBBLES - 1).join('\n\n'),
+  ];
 }
 
 router.get("/api/events", authenticateToken, (req, res) => {
@@ -383,6 +406,10 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
               }
 
               const phase = await getUserMacroPhase(req.user.id);
+              // Where the athlete is on the road to race day, so plans made in chat respect this week's targets.
+              const seasonChatBlock = await seasonPlan
+                .getSeasonPromptBlock(req.user.id, seasonPlan.mondayOf(seasonPlan.todayStr()))
+                .catch(() => "");
               try {
                 db.all(
                   `SELECT name, sport_type, distance_km, moving_time_min, rooka_score, start_date, laps_json FROM activities WHERE user_id = ? ORDER BY start_date DESC LIMIT 3`,
@@ -754,6 +781,7 @@ Tone: ${coachToneText}
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ""}
 
 Current Training Phase: ${phase || user.training_phase || "Base/General"}
+${seasonChatBlock}
 
 TIME CONTEXT:
 Current Date & Time: ${todayStr} at ${new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}

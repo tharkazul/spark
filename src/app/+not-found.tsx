@@ -9,7 +9,7 @@ export default function NotFoundScreen() {
     // Automatically navigate back to coach screen if an unknown route is accessed
     const timer = setTimeout(() => {
       try {
-        router.replace('/(tabs)/coach');
+        router.replace('/(tabs)');
       } catch (_) {}
     }, 100);
     return () => clearTimeout(timer);
@@ -19,7 +19,7 @@ export default function NotFoundScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Page not found</Text>
       <TouchableOpacity
-        onPress={() => router.replace('/(tabs)/coach')}
+        onPress={() => router.replace('/(tabs)')}
         style={styles.button}
         activeOpacity={0.8}
       >

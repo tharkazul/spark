@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { usePagerLock } from '../../context/PagerLockContext';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -153,6 +154,9 @@ export function SideBySideWeekBar({
   const translateX = useSharedValue(0);
   const settling = useSharedValue(false);
   const widthSV = useSharedValue(0);
+  // The strip sits inside the Planning Today/Week pager: hold that pager still
+  // while a finger is on the strip so a week swipe doesn't flip the page.
+  const setPagerLocked = usePagerLock();
 
   const onLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -176,6 +180,7 @@ export function SideBySideWeekBar({
     .activeOffsetX([-20, 20])
     .failOffsetY([-15, 15])
     .onBegin(() => {
+      runOnJS(setPagerLocked)(true);
       if (settling.value) return;
       runOnJS(setDragging)(true);
     })
@@ -213,6 +218,7 @@ export function SideBySideWeekBar({
       }
     })
     .onFinalize(() => {
+      runOnJS(setPagerLocked)(false);
       if (!settling.value && translateX.value === 0) {
         runOnJS(setDragging)(false);
       }
@@ -223,7 +229,13 @@ export function SideBySideWeekBar({
   }));
 
   return (
-    <View onLayout={onLayout} className="w-full overflow-hidden">
+    <View
+      onLayout={onLayout}
+      onTouchStart={() => setPagerLocked(true)}
+      onTouchEnd={() => setPagerLocked(false)}
+      onTouchCancel={() => setPagerLocked(false)}
+      className="w-full overflow-hidden"
+    >
       <GestureDetector gesture={panGesture}>
         <Animated.View style={animatedStyle} className="w-full">
           {dragging && width > 0 ? (

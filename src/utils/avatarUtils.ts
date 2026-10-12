@@ -69,6 +69,7 @@ export function getCoachDisplayName(user?: Pick<UserProfile, 'coach_tone' | 'coa
 export function getFullProfilePhotoUrl(path?: string | null): string | null {
   if (!path || typeof path !== 'string' || !path.trim()) return null;
   const trimmed = path.trim();
+  if (trimmed === 'null' || trimmed === 'undefined' || trimmed === 'none' || trimmed === 'default') return null;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('file://') || trimmed.startsWith('data:')) {
     return trimmed;
   }

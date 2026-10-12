@@ -28,6 +28,11 @@ const GLYPH_MAP: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
   REST: 'weather-night',
 };
 
+/** The MaterialCommunityIcons glyph for a sport, as used by the small medallions and the week strip. */
+export function getSportGlyph(sport?: string): keyof typeof MaterialCommunityIcons.glyphMap {
+  return GLYPH_MAP[normalizeSportType(sport || 'REST')] || 'dumbbell';
+}
+
 /**
  * SportMedallion component adhering to Rooka UI/UX Spec (Ticket R2-14):
  * - >= 36pt: renders high-res 3D medallion PNG artwork

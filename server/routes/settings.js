@@ -1,3 +1,4 @@
+const seasonPlan = require('../services/seasonPlan');
 const express = require("express");
 const router = express.Router();
 const path = require("path");
@@ -157,7 +158,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent, detail_level FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -175,7 +176,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
       const dailyUsage = (row.last_token_reset_date === todayStr) ? (row.daily_token_usage || 0) : 0;
 
       db.get(
-        `SELECT name, date, target_ctl, goal_type, target_mode, target_value, target_weight, target_vo2max FROM milestones WHERE user_id = ? AND is_main = 1 ORDER BY date DESC LIMIT 1`,
+        `SELECT name, date, target_ctl, goal_type, target_mode, target_value, target_weight, target_vo2max, event_type FROM milestones WHERE user_id = ? AND is_main = 1 ORDER BY date DESC LIMIT 1`,
         [req.user.id],
         async (mErr, mRow) => {
           let needsZoneSetup = true;
@@ -208,6 +209,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             coachTone: row.coach_tone,
             coachName: row.coach_name || 'Rooka',
             coachContext: row.coach_context || '',
+            detailLevel: ['short', 'normal', 'deep'].includes(row.detail_level) ? row.detail_level : 'short',
+            eventType: mRow ? mRow.event_type || null : null,
             coachAvatarNeutral: row.coach_avatar_neutral || null,
             coachAvatarHype: row.coach_avatar_hype || null,
             coachAvatarDisappointed: row.coach_avatar_disappointed || null,
@@ -424,6 +427,7 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     const reqTargetValue = req.body.targetValue !== undefined ? req.body.targetValue : req.body.target_value;
     const reqTargetWeight = req.body.targetWeight !== undefined ? req.body.targetWeight : req.body.target_weight;
     const reqTargetVo2max = req.body.targetVo2max !== undefined ? req.body.targetVo2max : req.body.target_vo2max;
+    const reqEventType = req.body.eventType !== undefined ? req.body.eventType : req.body.event_type;
 
     if (targetEvent !== undefined || eventDate !== undefined || reqGoalType !== undefined) {
       const finalGoalType = reqGoalType || 'race';
@@ -444,8 +448,9 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
           [req.user.id],
           () => {
             db.run(
-              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
-              [req.user.id, finalName, finalDate, finalCtl, finalGoalType, finalMode, finalValue, finalWeight, finalVo2],
+              `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max, event_type) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+              [req.user.id, finalName, finalDate, finalCtl, finalGoalType, finalMode, finalValue, finalWeight, finalVo2, finalGoalType === 'race' ? (seasonPlan.EVENT_TYPES[reqEventType] ? reqEventType : seasonPlan.detectEventType(finalName)) : null],
+              () => seasonPlan.ensureSeasonFresh(req.user.id).catch(() => {}),
             );
           }
         );
@@ -469,7 +474,7 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
     }
 
     db.run(
-      `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ? WHERE id = ?`,
+      `UPDATE users SET coach_tone = ?, coach_name = ?, coach_context = ?, athlete_context = ?, gender = ?, last_cycle_start = ?, training_availability = ?, detail_level = ? WHERE id = ?`,
       [
         finalTone,
         finalName || "Spark",
@@ -478,6 +483,7 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
         gender || "Prefer not to say",
         lastCycleStart || null,
         availabilityStr,
+        ['short', 'normal', 'deep'].includes(req.body.detailLevel) ? req.body.detailLevel : (row.detail_level || 'short'),
         req.user.id,
       ],
       function (err) {

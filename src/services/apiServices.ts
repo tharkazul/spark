@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import type { Achievement, ExerciseCues, RacePlan, SeasonResponse } from '../types/season';
 import { UserProfile, RecurringTraining, BenchmarkTest } from '../types/user';
 import { Activity } from '../types/activity';
 import { PlannedWorkout } from '../types/plan';
@@ -89,6 +90,8 @@ export const userApi = {
         onboardingCompleted: data.onboarding_completed,
         gender: data.gender,
         trainingAvailability: (data as any).training_availability ?? (data as any).trainingAvailability,
+        eventType: data.eventType,
+        detailLevel: data.detail_level,
       }),
       skipAuthInterceptor: true,
     }),
@@ -576,6 +579,10 @@ export const benchmarksApi = {
     }),
 };
 
-
-
-
+export const seasonApi = {
+  getSeason: () => apiClient<SeasonResponse>('/api/season'),
+  createRacePlan: () => apiClient<{ success: boolean; racePlan: RacePlan }>('/api/season/race-plan', { method: 'POST' }),
+  getAchievements: () => apiClient<{ achievements: Achievement[] }>('/api/achievements'),
+  getExerciseCues: (name: string) =>
+    apiClient<{ cues: ExerciseCues | null; code?: string }>(`/api/exercises/cues?name=${encodeURIComponent(name)}`),
+};

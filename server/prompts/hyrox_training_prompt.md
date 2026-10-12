@@ -1,14 +1,9 @@
 # Hyrox Training & Drill Guidelines 🏃‍♀️🏋️‍♀️
 
-## Core Coaching Directives
-- **Microscopic Granularity**: Never provide high-level summaries or vague workout blocks (e.g., do NOT just write "do sled push and run" or "easy functional workout"). Prescribe exact drills, sets, reps, distances, kg loads, and pacing targets in workout `details`.
-- **Compromised Running Mechanics**: Hyrox demands running fast under heavy muscular fatigue and lactate accumulation. Prescribe compromised running drills that simulate post-station leg fatigue.
-- **Session Structure**: Every session's `details` must specify:
-  1. *Dynamic Warm-up*: Specific mobility and activation drills.
-  2. *Primary Work*: Prescribed sets, distances, exact kg load, rest intervals in seconds, and target paces.
-  3. *Accessory & Core*: Functional grip, posterior chain, or stability accessories.
-  4. *Cool-down*: Static stretches and parasympathetic recovery protocols.
-- **1-to-1 Step Parity (CRITICAL)**: Every exercise, carry, station, and core movement described in the session MUST be included in the structured steps ('steps_json'). For example, if you prescribe a primary lift (e.g. Barbell Squats), a carry (e.g. Farmers Carry), and a core accessory (e.g. Pallof Press), all 3 MUST each have their own repeat block in 'steps_json' with their respective reps/distance, weight, exerciseName, and rest intervals. Warmup and cooldown steps in 'steps_json' MUST also include 'exerciseName' naming the mobility/stretch protocol.
+## How to use this reference
+- This is a library of stations, drills and cues, not a checklist. Sessions are plain by default; use what's below only when the DETAIL LEVEL block allows it (a topic the athlete already knows, this week's new topic, or detail level DEEP).
+- Hyrox is about running well on tired legs; compromised running is introduced as a topic in the build.
+- **1-to-1 Step Parity (CRITICAL)**: every exercise, carry, station and core movement named in 'details' has its own repeat block in 'steps_json' with reps/distance, weight, exerciseName and rest. Warm-up and cool-down steps name the mobility or stretch protocol in 'exerciseName'.
 
 ## Prescribed Drills & Station Guidelines
 

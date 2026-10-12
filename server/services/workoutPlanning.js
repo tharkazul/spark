@@ -11,6 +11,8 @@ const { getUserMacroPhase } = require("./utils");
 const { getUserGoalPromptContext } = require("./goalPromptContext");
 const { formatHrZonesForPrompt } = require("./athleteZones");
 const constraintsService = require("./athleteConstraints");
+const seasonPlan = require("./seasonPlan");
+const coachingTopics = require("./coachingTopics");
 
 /**
  * Calculates the exact 7 consecutive dates (YYYY-MM-DD) from Monday to Sunday
@@ -748,10 +750,29 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
     console.error(`[PlanGen] Muscle load computation failed for user ${userId}:`, e.message);
   }
 
-  // 6. Macro phase & PMC fitness metrics
+  // 6. Macro phase & PMC fitness metrics. The season plan sets this week's targets.
+  const seasonBlock = await seasonPlan.getSeasonPromptBlock(userId, dates[0]).catch((e) => {
+    console.warn(`[PlanGen] Season block failed for user ${userId}:`, e.message);
+    return "";
+  });
   const phase = await getUserMacroPhase(userId);
   const { ctl, atl, tsb } = await calculateUserFitnessMetrics(userId);
   const goalContext = await getUserGoalPromptContext(userId, user);
+
+  // 6b. How much detail to write, and at most one new coaching topic this week.
+  const seasonWeekRow = await new Promise((resolve) =>
+    db.get(`SELECT * FROM season_weeks WHERE user_id = ? AND week_start = ?`, [userId, dates[0]], (err, row) => resolve(err ? null : row || null))
+  );
+  const seasonMetaRow = await new Promise((resolve) =>
+    db.get(`SELECT flags_json FROM season_meta WHERE user_id = ?`, [userId], (err, row) => resolve(err ? null : row || null))
+  );
+  let seasonEasyPace = 6.5;
+  try {
+    seasonEasyPace = JSON.parse(seasonMetaRow?.flags_json || "{}").easyPace || 6.5;
+  } catch (_) {}
+  const detail = await coachingTopics
+    .getDetailPromptBlock(userId, { week: seasonWeekRow, discipline: goalContext.discipline, easyPace: seasonEasyPace })
+    .catch(() => ({ block: "", newTopic: null }));
   const hrZonesText = await formatHrZonesForPrompt(userId).catch(() => "");
 
   // 7. Check for athlete's pre-scheduled manual sessions (source = 'user')
@@ -912,6 +933,10 @@ ${recentChatText}
 
 ${goalContext.promptContext}
 
+${seasonBlock}
+
+${detail.block}
+
 CRITICAL RULES:
 0. LANGUAGE PERSISTENCE & UNIFORMITY MANDATE: The athlete's preferred language is ${targetLanguageName} (${user.language || 'en'}). You MUST write all workout descriptions, details, analysis, and commentary fluently and exclusively in ${targetLanguageName}. NEVER mix Dutch and English within a sentence or use Dutch activity names inside English sentences (or vice-versa).
 1. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
@@ -949,36 +974,32 @@ ${datesListWithAvailability}
      * "target_type": "weight" (or "no.target").
      * A "rest" step between sets with "condition_type": "time_sec" and seconds in "condition_value" (e.g., 60 or 90).
    - For Warmup and Cooldown steps, ALWAYS include "exerciseName" describing the dynamic mobility or stretches (e.g. "Cossack Squats & Inchworms", "Couch Stretch & Pigeon Pose").
-8. WORKOUT DETAILS & PRESCRIPTION GRANULARITY (CRITICAL):
-   - Every workout's 'details' field is the primary athlete-facing coaching prescription.
-   - NEVER write basic or vague one-liners like "intervals", "easy run", or "tempo session".
-   - You MUST prescribe concrete technique cues, drills, equipment (e.g. pull buoy & hand paddles, aero bars, SkiErg, sled push), specific movement focus (e.g. "focus on high heels / rapid heel recovery", "early vertical forearm EVF catch", "single-leg pedaling"), dynamic mobility warm-ups, and session fueling notes.
-   - Ensure 100% PARITY between all movements described in 'details' and all step blocks in 'steps_json'.
+8. WORKOUT DETAILS: Follow the DETAIL LEVEL block above for how much to write in 'details'. Keep 'steps_json' fully structured whatever the detail level, and keep 100% parity between the exercises named in 'details' and the step blocks in 'steps_json'.
 9. FORMAT: You must append a JSON code block at the very end of your response containing the array of 7 days:
 \`\`\`json
 [
   {
     "date": "${dates[0]}",
     "sport": "Run",
-    "description": "Aerobic Base & Cadence Drill",
+    "description": "45 min easy run",
     "target_rooka": 45,
-    "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 45 min steady Zone 2 holding 175-180 spm cadence. Cool-down: 4x60m relaxed strides + calf mobility.",
+    "details": "Builds your aerobic engine. Keep it easy enough to chat in full sentences the whole way.",
     "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"A-Skips & Ankle Rocks\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Zone 2 Aerobic Base\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 45, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Strides & Calf Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}]"
   },
   {
     "date": "${dates[1]}",
     "sport": "Run",
-    "description": "5x1000m Threshold Intervals",
+    "description": "5 x 1 km at threshold",
     "target_rooka": 70,
-    "details": "Warm-up: 10 min easy jog + dynamic form drills. Main set: 5x1000m at threshold pace (4:10 min/km) with 90s active jog recovery. Cool-down: 10 min easy recovery jog + calf stretching.",
+    "details": "Your key session this week. Comfortably hard (about 4:10/km), with an easy 90-second jog between reps.",
     "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Warmup Jog\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 5, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"1000m Threshold\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 1000, \\"target_type\\": \\"pace.exact\\", \\"target_value\\": \\"4:10\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 90, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery Jog\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}]"
   },
   {
     "date": "${dates[2]}",
     "sport": "Strength",
-    "description": "Lower Body & Hyrox Core Power",
+    "description": "Strength: legs and core",
     "target_rooka": 45,
-    "details": "Warmup: Cossack squats, inchworms (10 min). Main: Barbell Back Squat 3x10 reps (90s rest), Farmers Carry 4x100m (60s rest), Pallof Press 3x12 reps (45s rest). Cooldown: Couch stretch & pigeon pose (5 min).",
+    "details": "Barbell Back Squat, Farmers Carry and Pallof Press for stronger, steadier running. Controlled reps, stop two reps before failure.",
     "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Cossack Squats & Inchworms\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Barbell Back Squat\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 10, \\"weight\\": 60, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 90, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 4, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Farmers Carry\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 100, \\"weight\\": 20, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 60, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Pallof Press\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 12, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 45, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Couch Stretch & Pigeon Pose\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}]"
   }
 ]
@@ -1175,6 +1196,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   });
 
   await new Promise((resolve) => insertStmt.finalize(() => resolve()));
+  await coachingTopics.markTopicIntroduced(userId, detail.newTopic).catch(() => {});
 
   // 9. Coach Acknowledgement in chat history
   let coachNote = aiReply ? aiReply.replace(/```json[\s\S]*?```/, "").trim() : "";
@@ -1421,9 +1443,15 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
   for (const user of eligibleForAutoPlan) {
     try {
       console.log(`⚡ [CRON] Generating weekly plan for ${user.username} (ID: ${user.id}, Tier: ${user.subscription_tier || 'free'})...`);
-      await generateWeeklyPlanForUser(user.id, dates, { poolType: 'common' });
-      successCount++;
-      console.log(`✅ [CRON] Successfully scheduled coming week for ${user.username}`);
+      // Two weeks well under target: rebuild the season from what they actually do.
+      await seasonPlan.adaptSeasonToReality(user.id).catch((e) => console.warn(`[Season] adapt failed for ${user.id}:`, e.message));
+      const planRes = await generateWeeklyPlanForUser(user.id, dates, { poolType: 'common' });
+      if (planRes && planRes.skipped) {
+        console.warn(`⚠️ [CRON] Skipped weekly plan for ${user.username} (ID: ${user.id}): ${planRes.reason}`);
+      } else {
+        successCount++;
+        console.log(`✅ [CRON] Successfully scheduled coming week for ${user.username}`);
+      }
 
       // Rate limit pacing to avoid Gemini API quota bursts
       await new Promise((r) => setTimeout(r, 450));

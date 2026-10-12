@@ -179,6 +179,14 @@ async function getWeatherContext() {
 }
 
 async function getUserMacroPhase(userId) {
+  // The season plan is the authority on phases; the day-count rules below only
+  // cover athletes without a dated race goal (or if the season lookup fails).
+  try {
+    const seasonPhase = await require("./seasonPlan").getSeasonPhaseLabel(userId);
+    if (seasonPhase) return seasonPhase;
+  } catch (e) {
+    console.warn("[Season] phase lookup failed:", e.message);
+  }
   return new Promise((resolve) => {
     db.all(
       `SELECT * FROM milestones WHERE user_id = ? AND is_main = 1 ORDER BY date ASC`,

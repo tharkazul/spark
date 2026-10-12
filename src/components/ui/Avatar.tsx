@@ -33,7 +33,7 @@ function getInitials(name?: string | null): string {
   if (parts.length >= 2) {
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   }
-  return parts[0].slice(0, 2).toUpperCase();
+  return parts[0].charAt(0).toUpperCase();
 }
 
 /**
@@ -87,12 +87,13 @@ export function Avatar({
           />
         ) : (
           <View
-            style={{ width: '100%', height: '100%' }}
-            className={`${tint.bg} items-center justify-center`}
+            style={{ width: '100%', height: '100%', backgroundColor: tint.hex }}
+            className="items-center justify-center"
           >
             <Text
-              style={{ fontSize }}
-              className={`font-extrabold ${tint.text} font-rajdhani`}
+              style={{ fontSize, color: '#FFFFFF', textAlign: 'center' }}
+              className="font-extrabold font-rajdhani"
+              numberOfLines={1}
             >
               {initials}
             </Text>

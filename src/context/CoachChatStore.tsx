@@ -45,13 +45,29 @@ const getDefaultWelcomeMessage = (): ChatMessage => ({
   mood: 'motivated',
 });
 
+// Plain prose without explicit bubble markers is split on blank lines, so a
+// reply reads like separate WhatsApp messages; lists, headings, tables and
+// code/plan JSON stay in one bubble. Mirrors splitCoachReply in server/routes/chat.js.
+const MAX_PROSE_BUBBLES = 4;
+const splitProseParagraphs = (text: string): string[] => {
+  if (/```|^\s*(?:[-*•]|\d+[.)])\s|^\s*#|^\s*\|/m.test(text)) return [text];
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  if (paragraphs.length < 2) return [text];
+  if (paragraphs.length <= MAX_PROSE_BUBBLES) return paragraphs;
+  return [...paragraphs.slice(0, MAX_PROSE_BUBBLES - 1), paragraphs.slice(MAX_PROSE_BUBBLES - 1).join('\n\n')];
+};
+
 const splitCoachReply = (text?: string): string[] => {
   if (!text) return [];
   const parts = text
     .split(/(?:\r?\n)?(?:---(?:MSG|SPLIT|BREAK)---|\[\[SPLIT\]\]|<break\s*\/?>|<br\s*\/?>)(?:\r?\n)?/gi)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
-  return parts.length > 0 ? parts : [text.trim()];
+  if (parts.length > 1) return parts;
+  return splitProseParagraphs(parts[0] || text.trim());
 };
 
 const parseWorkoutProposals = (content: string): ProposedWorkoutItem[] | undefined => {

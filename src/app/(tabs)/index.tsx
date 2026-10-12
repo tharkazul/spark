@@ -1,21 +1,29 @@
 import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated as RNAnimated,
   DeviceEventEmitter,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
 import { Button } from '../../components/ui/Button';
+import { PagerTabs } from '../../components/ui/PagerTabs';
+import { PagerLockContext } from '../../context/PagerLockContext';
+import { useSeason } from '../../context/SeasonStore';
+import { calculateActivityStreak } from '../../utils/gamification';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
 import { useConnectedDevices } from '../../hooks/useConnectedDevices';
 import { useActivities } from '../../context/ActivityStore';
@@ -31,6 +39,10 @@ import { planApi } from '../../services/apiServices';
 import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
 import { TodaysPlanSkeleton } from '../../components/skeletons/TodaysPlanSkeleton';
+import { HomeAskCoachCard } from '../../components/home/HomeAskCoachCard';
+import { HomeRecoveryCard } from '../../components/home/HomeRecoveryCard';
+import { HomeTodayCard } from '../../components/home/HomeTodayCard';
+import { HomeWeekHero } from '../../components/home/HomeWeekHero';
 import { weatherService, DayWeather } from '../../services/weatherService';
 
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
@@ -99,6 +111,35 @@ export default function PlanningHomeScreen() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [workoutToInvite, setWorkoutToInvite] = useState<WorkoutItem | null>(null);
   const [weatherForecast, setWeatherForecast] = useState<Record<string, DayWeather>>({});
+
+  // The Planning tab is a two-page swipe pager, like Progress: Today (home,
+  // what matters now) and Week (the full agenda). It opens on Today.
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const pagerRef = useRef<ScrollView>(null);
+  const pagerScrollX = useRef(new RNAnimated.Value(0)).current;
+  const [pageIndex, setPageIndex] = useState(0);
+  const pageIndexRef = useRef(0);
+  const setPage = useCallback((page: number) => {
+    pageIndexRef.current = page;
+    setPageIndex(page);
+  }, []);
+  const [isPagerLocked, setIsPagerLocked] = useState(false);
+  const navigation = useNavigation();
+  // A horizontal drag that belongs to a child (the week strip) must move
+  // neither this Today/Week pager nor the app's tab pager around it.
+  const lockPagers = useCallback(
+    (locked: boolean) => {
+      setIsPagerLocked(locked);
+      navigation.setOptions({ swipeEnabled: !locked } as any);
+    },
+    [navigation]
+  );
+  // A day to select once a weekStart change lands (the weekStart effect would
+  // otherwise reset the selection to today).
+  const pendingSelectIndexRef = useRef<number | null>(null);
+  const { data: seasonData } = useSeason();
+  const [askDraft, setAskDraft] = useState('');
+  const askInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     weatherService.getDailyForecast().then((forecast) => {
@@ -379,6 +420,20 @@ export default function PlanningHomeScreen() {
   const prevWeekAgenda = buildAgenda(shiftWeeks(weekStart, -1));
   const nextWeekAgenda = buildAgenda(shiftWeeks(weekStart, 1));
 
+  // Home always shows today and tomorrow, whichever week the Week view is on.
+  const homeMonday = getMonday(now);
+  const homeAgenda = [...buildAgenda(homeMonday), ...buildAgenda(shiftWeeks(homeMonday, 1))];
+  const homeWeek = homeAgenda.slice(0, 7);
+  const streak = calculateActivityStreak(activities, plan);
+  const todayAgenda = homeAgenda.find((d) => d.isToday);
+  const tomorrowDate = new Date(todayMidnight);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowYYYYMMDD = formatDateToYYYYMMDD(tomorrowDate);
+  const tomorrowAgenda = homeAgenda.find((d) => d.fullDate === tomorrowYYYYMMDD);
+
+  const hour = now.getHours();
+  const greetingKey = hour < 12 ? 'home.greetingMorning' : hour < 18 ? 'home.greetingAfternoon' : 'home.greetingEvening';
+
   // Week summary calculations
   const allActiveWorkouts = weeklyAgenda.flatMap((d) =>
     d.workouts.filter((w) => String(w.type).toUpperCase() !== 'REST')
@@ -391,19 +446,24 @@ export default function PlanningHomeScreen() {
   const progressPct = totalPlannedCount > 0 ? Math.round((doneCount / totalPlannedCount) * 100) : 0;
 
   useEffect(() => {
+    if (pendingSelectIndexRef.current !== null) {
+      setSelectedDayIndex(pendingSelectIndexRef.current);
+      pendingSelectIndexRef.current = null;
+      return;
+    }
     const todayIdx = weeklyAgenda.findIndex((d) => d.isToday);
     setSelectedDayIndex(todayIdx >= 0 ? todayIdx : 0);
   }, [weekStart]);
 
-  const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr) => {
+  const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr, knownFullDate?: string) => {
     if (!canEdit) {
       presentPaywall();
       return;
     }
     setSelectedWorkoutForEdit(null);
     const dayIdx = weeklyAgenda.findIndex((d) => d.dayName === dayName || d.dateStr === dateStr);
-    let fullDate = todayYYYYMMDD;
-    if (dayIdx >= 0) {
+    let fullDate = knownFullDate || todayYYYYMMDD;
+    if (!knownFullDate && dayIdx >= 0) {
       const targetDate = new Date(weekStart);
       targetDate.setDate(targetDate.getDate() + dayIdx);
       fullDate = formatDateToYYYYMMDD(targetDate);
@@ -419,7 +479,8 @@ export default function PlanningHomeScreen() {
         (d) => d.dayName === workout.day || d.dateStr === workout.dateStr
       );
       let fullDate = workout.date || todayYYYYMMDD;
-      if (dayIdx >= 0) {
+      // A plan entry carries its own YYYY-MM-DD; only fall back to the week lookup without one.
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(workout.date || '') && dayIdx >= 0) {
         const targetDate = new Date(weekStart);
         targetDate.setDate(targetDate.getDate() + dayIdx);
         fullDate = formatDateToYYYYMMDD(targetDate);
@@ -438,7 +499,9 @@ export default function PlanningHomeScreen() {
     const dayIdx = weeklyAgenda.findIndex((d) => d.dateStr === targetDateStr);
     const targetDate = new Date(weekStart);
     if (dayIdx >= 0) targetDate.setDate(targetDate.getDate() + dayIdx);
-    const targetYYYYMMDD = formatDateToYYYYMMDD(targetDate);
+    // The modal was opened for a known date (set by the add/edit handlers);
+    // the week lookup is only a fallback, since Home can show a different week.
+    const targetYYYYMMDD = targetAddDay.fullDate || formatDateToYYYYMMDD(targetDate);
 
     try {
       const plannedWorkout = {
@@ -550,206 +613,335 @@ export default function PlanningHomeScreen() {
     }
   };
 
+  const goToPage = (index: number) => {
+    Haptics.selectionAsync();
+    setPage(index);
+    pagerRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
+  };
+
+  const handlePagerScroll = RNAnimated.event([{ nativeEvent: { contentOffset: { x: pagerScrollX } } }], {
+    useNativeDriver: false,
+    listener: (e: any) => {
+      const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+      if (page !== pageIndexRef.current && (page === 0 || page === 1)) setPage(page);
+    },
+  });
+
+  // Opens one day in the Week page: `weekOffset` 0 is this week, 1 next week.
+  const openDayInWeek = (dayIndex: number, weekOffset = 0) => {
+    const targetWeek = shiftWeeks(getMonday(new Date()), weekOffset);
+    dayYPositionsRef.current = {};
+    pendingScrollIndexRef.current = dayIndex;
+    if (targetWeek.getTime() !== weekStart.getTime()) {
+      pendingSelectIndexRef.current = dayIndex;
+      setWeekStart(targetWeek);
+    } else {
+      handleSelectDay(dayIndex);
+    }
+    goToPage(1);
+  };
+
+  const handleOpenTomorrow = () => {
+    const idx = (tomorrowDate.getDay() + 6) % 7;
+    // Sunday's tomorrow is next Monday.
+    openDayInWeek(idx, idx === 0 ? 1 : 0);
+  };
+
+  const handleAskAdjust = () => {
+    setAskDraft(t('home.adjustPrompt'));
+    setTimeout(() => askInputRef.current?.focus(), 50);
+  };
+
   return (
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
-      {/* ------------------------------------------------------------- */}
-      {/* PINNED STICKY WEEK HEADER (Opaque background, hairline border) */}
-      {/* ------------------------------------------------------------- */}
-      <View className="bg-theme-bg px-4 pt-2 pb-3 border-b border-theme-border z-20">
-        <ScreenHeaderTitleRow
-          title={t('tabs.planning', 'Planning')}
-          unreadCount={unreadCount}
-          onCoachPress={() => router.push('/(tabs)/coach')}
-        />
-
-        {/* Date Pager Row */}
-        <View className="flex-row items-center justify-between mt-2 mb-2.5">
-          <View className="flex-row items-center gap-1.5">
-            <TouchableOpacity
-              onPress={handlePrevWeek}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              className="w-8 h-8 items-center justify-center rounded-full"
-            >
-              <Ionicons
-                name="chevron-back"
-                size={18}
-                color={isDark ? '#94A3B8' : '#64748B'}
-              />
-            </TouchableOpacity>
-
-            <Text className="text-base font-bold text-theme-text font-jakarta px-1">
-              {weekRangeLabel}
+      {/* HEADER: title + Today/Week tabs (same switcher as Progress) */}
+      <View className="bg-theme-bg px-4 pt-2 pb-2 z-20">
+        {pageIndex === 0 ? (
+          <ScreenHeaderTitleRow unreadCount={unreadCount} onCoachPress={() => router.push('/(tabs)/coach')}>
+            <Text className="text-2xl font-extrabold text-theme-text tracking-tight" numberOfLines={1}>
+              {t(greetingKey, { name: user?.username || '' })}
             </Text>
-
-            <TouchableOpacity
-              onPress={handleNextWeek}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              className="w-8 h-8 items-center justify-center rounded-full"
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={isDark ? '#94A3B8' : '#64748B'}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* This week jump button if not currently viewing this week */}
-          {!isCurrentWeek && (
-            <Button
-              variant="ghost"
-              size="sm"
-              label={t('dashboard.thisWeek', 'This week')}
-              onPress={() => {
-                Haptics.selectionAsync();
-                setWeekStart(getMonday(new Date()));
-              }}
-            />
-          )}
-        </View>
-
-        {/* 7-Tile Week Strip (Height 84, no card around it) */}
-        <SideBySideWeekBar
-          agenda={weeklyAgenda}
-          prevAgenda={prevWeekAgenda}
-          nextAgenda={nextWeekAgenda}
-          selectedDayIndex={selectedDayIndex}
-          onSelectDay={handleSelectDay}
-          onPrevWeek={handlePrevWeek}
-          onNextWeek={handleNextWeek}
-        />
-
-        {/* Week Summary Line & Progress Bar */}
-        <View className="flex-row items-center justify-between mt-2.5 min-h-[34px]">
-          <Text className="text-[12px] text-theme-muted font-jakarta flex-1 pr-2" numberOfLines={1}>
-            {t('dashboard.weekSummary', '{done} of {total} done · {points} rooka planned', {
-              done: doneCount,
-              total: totalPlannedCount,
-              points: totalPoints,
-            })}
-          </Text>
-
-          {hasAnyDevices && totalPlannedCount > 0 && (
-            <Button
-              variant="secondary"
-              size="sm"
-              label={
-                isSyncedSuccess
-                  ? t('dashboard.devicesSynced', 'Sent ✓')
-                  : t('dashboard.sendToDevice', 'Send to device')
-              }
-              leftIcon={
-                isSyncedSuccess ? (
-                  <Ionicons name="checkmark-circle" size={13} color="#10B981" />
-                ) : (
-                  <Ionicons name="watch-outline" size={13} color="#0EA5E9" />
-                )
-              }
-              isLoading={isSyncing}
-              onPress={handleSendWeekToDevices}
-            />
-          )}
-        </View>
-        <View className="h-1 w-full bg-theme-inset rounded-full mt-1.5 overflow-hidden">
-          <View
-            style={{ width: `${progressPct}%` }}
-            className="h-full bg-theme-accent-strong rounded-full"
+          </ScreenHeaderTitleRow>
+        ) : (
+          <ScreenHeaderTitleRow
+            title={t('tabs.planning', 'Planning')}
+            unreadCount={unreadCount}
+            onCoachPress={() => router.push('/(tabs)/coach')}
           />
-        </View>
-
-        {/* Standard (rule-based) week: invite the athlete to have the coach tailor it */}
-        {weeklyAgenda.some((d) => d.workouts.some((w) => w.isTemplate)) && (
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.selectionAsync();
-              router.push('/(tabs)/coach');
-            }}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            className="flex-row items-center gap-1.5 mt-2 self-start bg-theme-accent/15 px-2.5 py-1 rounded-full"
-          >
-            <Text className="text-[11px] font-semibold text-theme-accent font-jakarta">
-              {t('dashboard.templatePlanChip', 'Standard plan · Ask your coach to tailor it')}
-            </Text>
-            <Ionicons name="chevron-forward" size={12} color="#0EA5E9" />
-          </TouchableOpacity>
         )}
+
+        <PagerTabs
+          tabs={[
+            { key: 'today', label: t('home.segmentToday') },
+            { key: 'week', label: t('home.segmentWeek') },
+          ]}
+          scrollX={pagerScrollX}
+          pageWidth={SCREEN_WIDTH}
+          onPressTab={goToPage}
+        />
       </View>
 
-      {/* ------------------------------------------------------------- */}
-      {/* AGENDA SCROLLVIEW (Selected day expanded, other days collapsed) */}
-      {/* ------------------------------------------------------------- */}
-      <ScrollView
-        ref={part3ScrollViewRef}
-        className="flex-1"
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: tabBarInset,
-          gap: 12,
+      {/* SWIPE PAGER: Today | Week */}
+      <PagerLockContext.Provider value={lockPagers}>
+      <RNAnimated.ScrollView
+        ref={pagerRef as any}
+        horizontal
+        pagingEnabled
+        scrollEnabled={!isPagerLocked}
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
+        onScroll={handlePagerScroll}
+        onMomentumScrollEnd={(e) => {
+          const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+          if (page === 0 || page === 1) setPage(page);
         }}
-        showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={notifyScroll}
-        onScrollEndDrag={notifyScrollEnd}
-        onMomentumScrollEnd={notifyScrollEnd}
+        scrollEventThrottle={16}
+        keyboardShouldPersistTaps="handled"
+        className="flex-1"
       >
-        {planLoading && plan.length === 0 ? (
-          <Animated.View
-            layout={LinearTransition.duration(200)}
-            exiting={FadeOutUp.duration(150)}
-            className="gap-y-3 pt-1"
+        {/* PAGE 0: TODAY */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <KeyboardAwareScrollView
+            className="flex-1"
+            bottomOffset={72}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 8,
+              paddingBottom: tabBarInset,
+              gap: 12,
+            }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
           >
-            <TodaysPlanSkeleton />
-            <TodaysPlanSkeleton />
-            <TodaysPlanSkeleton />
-          </Animated.View>
-        ) : (
-          weeklyAgenda.map((day, idx) => (
-            <Animated.View
-              key={`${day.dayName}-${day.dateStr}`}
-              ref={(el) => {
-                dayCardRefs.current[idx] = el as any;
-              }}
-              layout={LinearTransition.duration(200)}
-              entering={FadeInDown.duration(200)}
-              exiting={FadeOutUp.duration(150)}
-              onLayout={(e) => {
-                const y = e.nativeEvent.layout.y;
-                dayYPositionsRef.current[idx] = y;
-                setDayYPositions((prev) => ({ ...prev, [idx]: y }));
-                if (pendingScrollIndexRef.current === idx) {
-                  part3ScrollViewRef.current?.scrollTo({
-                    y: Math.max(0, y - 8),
-                    animated: true,
-                  });
+            <HomeWeekHero
+              week={homeWeek}
+              streak={streak}
+              season={seasonData?.season || null}
+              bodyGoal={seasonData?.bodyStatus || null}
+              onPressDay={(idx) => openDayInWeek(idx)}
+              onPressGoal={() => router.navigate('/(tabs)/physique')}
+            />
+
+            {planLoading && plan.length === 0 ? (
+              <TodaysPlanSkeleton />
+            ) : (
+              <HomeTodayCard
+                today={todayAgenda}
+                tomorrow={tomorrowAgenda}
+                weatherTemp={weatherForecast[todayYYYYMMDD]?.tempMax}
+                weatherIcon={weatherForecast[todayYYYYMMDD]?.icon}
+                hasAnyDevices={hasAnyDevices}
+                onSelectWorkout={handleSelectWorkoutForEdit}
+                onSendToDevice={handleSendSingleWorkout}
+                onAdapt={() => setIsAdaptModalOpen(true)}
+                onOpenTomorrow={handleOpenTomorrow}
+              />
+            )}
+
+            <HomeAskCoachCard draft={askDraft} onChangeDraft={setAskDraft} inputRef={askInputRef} />
+
+            <HomeRecoveryCard
+              onAskAdjust={handleAskAdjust}
+              isRestDay={!todayAgenda?.workouts.some((w) => String(w.type).toUpperCase() !== 'REST')}
+            />
+          </KeyboardAwareScrollView>
+        </View>
+
+        {/* PAGE 1: WEEK */}
+        <View style={{ width: SCREEN_WIDTH }} className="flex-1">
+          <View className="bg-theme-bg px-4 pb-3 border-b border-theme-border z-10">
+          {/* Date Pager Row */}
+          <View className="flex-row items-center justify-between mt-2 mb-2.5">
+            <View className="flex-row items-center gap-1.5">
+              <TouchableOpacity
+                onPress={handlePrevWeek}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                className="w-8 h-8 items-center justify-center rounded-full"
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={18}
+                  color={isDark ? '#94A3B8' : '#64748B'}
+                />
+              </TouchableOpacity>
+
+              <Text className="text-base font-bold text-theme-text font-jakarta px-1">
+                {weekRangeLabel}
+              </Text>
+
+              <TouchableOpacity
+                onPress={handleNextWeek}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                className="w-8 h-8 items-center justify-center rounded-full"
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={isDark ? '#94A3B8' : '#64748B'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* This week jump button if not currently viewing this week */}
+            {!isCurrentWeek && (
+              <Button
+                variant="ghost"
+                size="sm"
+                label={t('dashboard.thisWeek', 'This week')}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setWeekStart(getMonday(new Date()));
+                }}
+              />
+            )}
+          </View>
+
+          {/* 7-Tile Week Strip (Height 84, no card around it) */}
+          <SideBySideWeekBar
+            agenda={weeklyAgenda}
+            prevAgenda={prevWeekAgenda}
+            nextAgenda={nextWeekAgenda}
+            selectedDayIndex={selectedDayIndex}
+            onSelectDay={handleSelectDay}
+            onPrevWeek={handlePrevWeek}
+            onNextWeek={handleNextWeek}
+          />
+
+          {/* Week Summary Line & Progress Bar */}
+          <View className="flex-row items-center justify-between mt-2.5 min-h-[34px]">
+            <Text className="text-[12px] text-theme-muted font-jakarta flex-1 pr-2" numberOfLines={1}>
+              {t('dashboard.weekSummary', '{done} of {total} done · {points} rooka planned', {
+                done: doneCount,
+                total: totalPlannedCount,
+                points: totalPoints,
+              })}
+            </Text>
+
+            {hasAnyDevices && totalPlannedCount > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                label={
+                  isSyncedSuccess
+                    ? t('dashboard.devicesSynced', 'Sent ✓')
+                    : t('dashboard.sendToDevice', 'Send to device')
                 }
+                leftIcon={
+                  isSyncedSuccess ? (
+                    <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                  ) : (
+                    <Ionicons name="watch-outline" size={13} color="#0EA5E9" />
+                  )
+                }
+                isLoading={isSyncing}
+                onPress={handleSendWeekToDevices}
+              />
+            )}
+          </View>
+          <View className="h-1 w-full bg-theme-inset rounded-full mt-1.5 overflow-hidden">
+            <View
+              style={{ width: `${progressPct}%` }}
+              className="h-full bg-theme-accent-strong rounded-full"
+            />
+          </View>
+
+          {/* Standard (rule-based) week: invite the athlete to have the coach tailor it */}
+          {weeklyAgenda.some((d) => d.workouts.some((w) => w.isTemplate)) && (
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push('/(tabs)/coach');
               }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              className="flex-row items-center gap-1.5 mt-2 self-start bg-theme-accent/15 px-2.5 py-1 rounded-full"
             >
-              {(() => {
-                const dayWeather = day.fullDate ? weatherForecast[day.fullDate] : undefined;
-                return (
-                  <DetailedDayCard
-                    day={day}
-                    weatherTemp={dayWeather?.tempMax}
-                    weatherIcon={dayWeather?.icon}
-                    isExpanded={selectedDayIndex === idx}
-                    onToggleExpand={() => handleSelectDay(idx)}
-                    onAdaptPress={() => setIsAdaptModalOpen(true)}
-                    onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
-                    onSelectWorkout={handleSelectWorkoutForEdit}
-                    onDeleteWorkout={handleDeleteWorkout}
-                    onInvitePartner={handleInvitePartner}
-                    hasAnyDevices={hasAnyDevices}
-                    onSendWorkoutToDevice={handleSendSingleWorkout}
-                    canEdit={canEdit}
-                    onUpgradePress={() => presentPaywall()}
-                  />
-                );
-              })()}
-            </Animated.View>
-          ))
-        )}
-      </ScrollView>
+              <Text className="text-[11px] font-semibold text-theme-accent font-jakarta">
+                {t('dashboard.templatePlanChip', 'Standard plan · Ask your coach to tailor it')}
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color="#0EA5E9" />
+            </TouchableOpacity>
+          )}
+          </View>
+
+          <ScrollView
+            ref={part3ScrollViewRef}
+            className="flex-1"
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 16,
+              paddingBottom: tabBarInset,
+              gap: 12,
+            }}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={notifyScroll}
+            onScrollEndDrag={notifyScrollEnd}
+            onMomentumScrollEnd={notifyScrollEnd}
+          >
+            {planLoading && plan.length === 0 ? (
+              <Animated.View
+                layout={LinearTransition.duration(200)}
+                exiting={FadeOutUp.duration(150)}
+                className="gap-y-3 pt-1"
+              >
+                <TodaysPlanSkeleton />
+                <TodaysPlanSkeleton />
+                <TodaysPlanSkeleton />
+              </Animated.View>
+            ) : (
+              weeklyAgenda.map((day, idx) => (
+                <Animated.View
+                  key={`${day.dayName}-${day.dateStr}`}
+                  ref={(el) => {
+                    dayCardRefs.current[idx] = el as any;
+                  }}
+                  layout={LinearTransition.duration(200)}
+                  entering={FadeInDown.duration(200)}
+                  exiting={FadeOutUp.duration(150)}
+                  onLayout={(e) => {
+                    const y = e.nativeEvent.layout.y;
+                    dayYPositionsRef.current[idx] = y;
+                    setDayYPositions((prev) => ({ ...prev, [idx]: y }));
+                    if (pendingScrollIndexRef.current === idx) {
+                      part3ScrollViewRef.current?.scrollTo({
+                        y: Math.max(0, y - 8),
+                        animated: true,
+                      });
+                    }
+                  }}
+                >
+                  {(() => {
+                    const dayWeather = day.fullDate ? weatherForecast[day.fullDate] : undefined;
+                    return (
+                      <DetailedDayCard
+                        day={day}
+                        weatherTemp={dayWeather?.tempMax}
+                        weatherIcon={dayWeather?.icon}
+                        isExpanded={selectedDayIndex === idx}
+                        onToggleExpand={() => handleSelectDay(idx)}
+                        onAdaptPress={() => setIsAdaptModalOpen(true)}
+                        onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
+                        onSelectWorkout={handleSelectWorkoutForEdit}
+                        onDeleteWorkout={handleDeleteWorkout}
+                        onInvitePartner={handleInvitePartner}
+                        hasAnyDevices={hasAnyDevices}
+                        onSendWorkoutToDevice={handleSendSingleWorkout}
+                        canEdit={canEdit}
+                        onUpgradePress={() => presentPaywall()}
+                      />
+                    );
+                  })()}
+                </Animated.View>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </RNAnimated.ScrollView>
+      </PagerLockContext.Provider>
 
       {/* Modals */}
       <AddWorkoutModal

@@ -101,7 +101,7 @@ export default function LoginScreen() {
       setSubmitting(true);
       try {
         await login(email, password);
-        router.replace('/(tabs)/coach');
+        router.replace('/(tabs)');
       } catch (err: any) {
         setErrorMessage(err.message || t('authErrors.signInFailed'));
       } finally {
@@ -119,7 +119,7 @@ export default function LoginScreen() {
       setSubmitting(true);
       try {
         await register(email, password, username || undefined);
-        router.replace('/(tabs)/coach');
+        router.replace('/(tabs)');
       } catch (err: any) {
         setErrorMessage(err.message || t('loginErrors.createFailed'));
       } finally {
@@ -172,7 +172,7 @@ export default function LoginScreen() {
       await resetPassword(resetEmail, resetCode, newPassword);
       setSuccessMessage(t('auth.resetSuccess'));
       setTimeout(() => {
-        router.replace('/(tabs)/coach');
+        router.replace('/(tabs)');
       }, 500);
     } catch (err: any) {
       setErrorMessage(err.message || t('authErrors.passwordResetFailed'));
@@ -204,7 +204,7 @@ export default function LoginScreen() {
         fullName: credential.fullName,
       });
 
-      router.replace('/(tabs)/coach');
+      router.replace('/(tabs)');
     } catch (e: any) {
       if (e.code === 'ERR_REQUEST_CANCELED') {
         return;
@@ -222,7 +222,7 @@ export default function LoginScreen() {
       setSubmitting(true);
       const result = await loginWithGoogle();
       if (result !== undefined) {
-        router.replace('/(tabs)/coach');
+        router.replace('/(tabs)');
       }
     } catch (e: any) {
       if (

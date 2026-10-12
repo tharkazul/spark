@@ -314,7 +314,7 @@ CRITICAL RULES:
    - Description: "${benchmarkInfo.desc}"
    - Details: "${benchmarkInfo.details}"
    - is_benchmark: true
-4. WORKOUT DETAILS & STEP PARITY (CRITICAL): Every workout's 'details' field must be rich and specific. NEVER write vague one-liners like "intervals" or "easy run". Include concrete technique cues (e.g. "focus on high heels / rapid heel recovery", "pull buoy", "single-leg cadence", or Hyrox station mechanics), dynamic warm-up drills, and session focus. Every exercise or station described in 'details' MUST have its matching structured step in 'steps_json'!
+4. WORKOUT DETAILS & STEP PARITY (CRITICAL): This is the athlete's first week, so keep 'details' short and plain: the purpose and one effort cue in 1-2 sentences (e.g. "Easy enough to chat the whole way"). No drill lists, cadence numbers or fuelling amounts yet. Keep the benchmark details as given. Every exercise or station named in 'details' MUST have its matching structured step in 'steps_json'!
 4b. TARGETS & METRIC PARITY MANDATE:
    - If prescribing a target running pace (e.g. 4:15 min/km): set "target_type": "pace.exact" and "target_value": "4:15" (pure mm:ss string, NEVER include "min/km"). NEVER substitute or default to "heart.rate.zone" when prescribing a running pace!
    - If prescribing heart rate targets (e.g. Zone 2 aerobic base): set "target_type": "heart.rate.zone" and "zone": <1-5>.

@@ -14,6 +14,7 @@ import { API_BASE_URL } from '../constants/api';
 import { canConfigureCoach } from '../utils/permissions';
 import { getCoachAvatarSource } from '../utils/avatarUtils';
 import { useLanguage } from '../context/LanguageContext';
+import { SegmentedControl } from './ui/SegmentedControl';
 
 const CANONICAL_TONE_VALUES = {
   default: 'Empathetic but demanding elite endurance coach.',
@@ -45,6 +46,7 @@ export const CoachPersonaSettings: React.FC = () => {
   const [coachContext, setCoachContext] = useState<string>('');
   const [athleteContext, setAthleteContext] = useState<string>('');
   const [gender, setGender] = useState<string>(user?.gender || 'Prefer not to share');
+  const [detailLevel, setDetailLevel] = useState<'short' | 'normal' | 'deep'>(user?.detail_level || 'short');
   const [saving, setSaving] = useState<boolean>(false);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   // Autosave: only after the athlete edits something (not when the form is first filled)
@@ -63,6 +65,7 @@ export const CoachPersonaSettings: React.FC = () => {
       setCoachContext(user.coach_context || '');
       setAthleteContext(user.athlete_context || '');
       setGender(user.gender || 'Prefer not to share');
+      setDetailLevel(user.detail_level || 'short');
     }
   }, [user]);
 
@@ -75,6 +78,7 @@ export const CoachPersonaSettings: React.FC = () => {
         coach_context: coachContext,
         athlete_context: athleteContext,
         gender: gender,
+        detail_level: detailLevel,
       });
       await refreshUser();
       setSavedSuccess(true);
@@ -94,7 +98,7 @@ export const CoachPersonaSettings: React.FC = () => {
     }, 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTone, coachName, coachContext, athleteContext]);
+  }, [selectedTone, coachName, coachContext, athleteContext, detailLevel]);
 
   const handlePickAvatar = async (mood: string) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -146,6 +150,25 @@ export const CoachPersonaSettings: React.FC = () => {
       <View className="flex-row items-center pb-3 mb-2">
         <RookaMark size={20} color={theme.tint} />
         <Text className="text-base font-bold text-theme-text ml-2">{t('coachPersona.title')}</Text>
+      </View>
+
+      {/* Session detail: plain by default, deeper topics are introduced over time */}
+      <View className="mb-1">
+        <Text className="text-xs font-bold text-theme-muted mb-2">{t('coachPersona.detailTitle')}</Text>
+        <SegmentedControl
+          size="sm"
+          items={[
+            { key: 'short', label: t('coachPersona.detailShort') },
+            { key: 'normal', label: t('coachPersona.detailNormal') },
+            { key: 'deep', label: t('coachPersona.detailDeep') },
+          ]}
+          value={detailLevel}
+          onChange={(key) => {
+            dirtyRef.current = true;
+            setDetailLevel(key as 'short' | 'normal' | 'deep');
+          }}
+        />
+        <Text className="text-[11px] text-theme-muted mt-1.5 leading-relaxed">{t(`coachPersona.detailDesc_${detailLevel}`)}</Text>
       </View>
 
       {/* Tone Picker */}

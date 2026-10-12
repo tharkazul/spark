@@ -99,15 +99,11 @@ function detectAthleteGoalDiscipline(user = {}, milestones = []) {
 function getGoalDependentPromptContext(discipline = "general", options = {}) {
   const templates = loadPromptTemplates();
 
-  const baseHeader = `GOAL-SPECIFIC TRAINING & DRILL PRESCRIPTION RULES:
-MANDATORY GRANULARITY & STRUCTURE PARITY DIRECTIVE:
-1. Every workout's 'details' field in the JSON is the athlete-facing coaching prescription and MUST NEVER be a basic one-liner like "intervals", "easy run", or "tempo session". 
-   You MUST provide explicit drill breakdowns, equipment cues, cadence targets, and biomechanical focus in 'details'.
-2. EXERCISE & STEP PARITY MANDATE (CRITICAL):
-   EVERY single exercise, station, carry, lift, or drill prescribed in 'details' MUST have its own corresponding structured step or repeat block in 'steps_json' (or 'steps')!
-   - If 'details' prescribes 3 exercises (e.g. Barbell Back Squat, Farmers Carry, and Pallof Press), you MUST output 3 separate repeat blocks in 'steps_json'—NEVER output only 1 exercise!
-   - In each exercise step, specify: "exerciseName" (e.g. "Barbell Back Squat", "Farmers Carry", "Pallof Press"), "condition_type" ("reps" or "distance" or "time"), "condition_value", "weight" (kg if applicable), and a corresponding "rest" step (condition_type: "time_sec").
-   - For Warmup and Cooldown steps, ALWAYS populate "exerciseName" with the specific mobility drills or stretches prescribed (e.g. exerciseName: "Cossack Squats & Inchworms" for warmup, exerciseName: "Couch Stretch & Pigeon Pose" for cooldown).
+  const baseHeader = `GOAL-SPECIFIC TRAINING REFERENCE (a library to draw from, not a checklist: use a drill or cue only when the DETAIL LEVEL block allows it, i.e. a known topic, this week's new topic, or detail level DEEP):
+EXERCISE & STEP PARITY (CRITICAL, at every detail level):
+   EVERY exercise, station, carry, lift or drill named in 'details' MUST have its own corresponding structured step or repeat block in 'steps_json' (or 'steps').
+   - In each exercise step, specify: "exerciseName", "condition_type" ("reps", "distance" or "time"), "condition_value", "weight" (kg if applicable), and a "rest" step (condition_type: "time_sec").
+   - Warm-up and cool-down steps name their mobility drills or stretches in "exerciseName".
 (Machine-readable step intervals go into 'steps_json', while rich, human-readable technique cues, drills, and equipment instructions go into 'details').`;
 
   // The coach chat carries the granularity and parity rules in its own rule set
@@ -155,7 +151,7 @@ ${customContent}\n`;
   return `\n${header}
 
 ATHLETE DISCIPLINE: GENERAL ENDURANCE & FUNCTIONAL FITNESS
-- Biomechanical & Technique Focus: In workout 'details', never write generic descriptions. Always prescribe explicit warm-up mobility, cadence cues (e.g., 175-185 spm for runs, 85-95 rpm for rides), form mechanics (e.g., tall posture, relaxed shoulders, heel recovery), and session focus.\n`;
+- Technique reference: warm-up mobility, cadence (runs ~170-185 spm, rides 85-95 rpm), relaxed posture. Use only as the DETAIL LEVEL block allows.\n`;
 }
 
 /**

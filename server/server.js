@@ -57,6 +57,7 @@ app.use("/", settingsRoutes);
 app.use("/", adminRoutes);
 app.use("/", notificationsRoutes);
 app.use("/", discountsRoutes);
+app.use("/", require("./routes/season"));
 
 // Utilities and cron jobs
 const {
@@ -93,6 +94,14 @@ db.serialize(() => {
 cron.schedule('0 0 * * *', () => {
   resetDailyTokensForAllUsers();
   resetDailyNutritionForAllUsers();
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Race moments every day at 09:00: race-plan offer when the taper starts, debrief the day after a race
+cron.schedule('0 9 * * *', () => {
+  require("./services/racePlan").runDailyRaceMomentsJob().catch((err) => console.error("[RaceMoments] job failed:", err));
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"

@@ -24,7 +24,7 @@ import { canAccessLeaderboard } from '../../utils/permissions';
 import { socialApi } from '../../services/apiServices';
 import { LeaderboardEntry } from '../../types/social';
 import { ScreenHeaderTitleRow } from '../../components/ui/ScreenHeaderTitleRow';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { PagerTabs } from '../../components/ui/PagerTabs';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
 
 const TABS = ['feed', 'leaderboard'] as const;
@@ -47,6 +47,7 @@ export default function SocialScreen() {
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState<TabType>('feed');
+  const scrollX = useRef(new Animated.Value(0)).current;
 
   // Leaderboard data
   const hasLeaderboardAccess = canAccessLeaderboard(user?.subscription_tier);
@@ -96,12 +97,12 @@ export default function SocialScreen() {
     router.push({ pathname: '/athlete/[id]', params: { id: String(userId) } });
   };
 
-  const handleTabPress = (tabId: string) => {
-    const tabKey = tabId as TabType;
+  const handleTabPress = (tabKey: TabType) => {
+    Haptics.selectionAsync();
     setActiveTab(tabKey);
-    const targetIndex = tabKey === 'feed' ? 0 : 1;
+    const targetIndex = TABS.indexOf(tabKey);
 
-    if (horizontalScrollViewRef.current) {
+    if (targetIndex !== -1 && horizontalScrollViewRef.current) {
       horizontalScrollViewRef.current.scrollTo({
         x: targetIndex * SCREEN_WIDTH,
         animated: true,
@@ -109,15 +110,21 @@ export default function SocialScreen() {
     }
   };
 
-  const handleHorizontalScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const pageIndex = Math.round(offsetX / SCREEN_WIDTH);
-    const newTab = TABS[pageIndex];
+  const handleHorizontalScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: false,
+      listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const offsetX = event.nativeEvent.contentOffset.x;
+        const pageIndex = Math.round(offsetX / SCREEN_WIDTH);
+        const newTab = TABS[pageIndex];
 
-    if (newTab && newTab !== activeTab) {
-      setActiveTab(newTab);
+        if (newTab && newTab !== activeTab) {
+          setActiveTab(newTab);
+        }
+      },
     }
-  };
+  );
 
   return (
     <View className="flex-1 bg-theme-bg" style={{ paddingTop: insets.top }}>
@@ -140,26 +147,25 @@ export default function SocialScreen() {
           }
         />
 
-        {/* 2-SEGMENT SUB-TAB SWITCHER USING SHARED COMPONENT */}
-        <View className="mt-1">
-          <SegmentedControl
-            items={socialSegments}
-            value={activeTab}
-            onChange={handleTabPress}
-            size="md"
-          />
-        </View>
+        {/* 2-SEGMENT SUB-TAB SWITCHER */}
+        <PagerTabs
+          className="mt-1"
+          tabs={socialSegments}
+          scrollX={scrollX}
+          pageWidth={SCREEN_WIDTH}
+          onPressTab={(i) => handleTabPress(TABS[i])}
+        />
       </View>
 
       {/* SWIPABLE HORIZONTAL PAGER VIEW */}
-      <ScrollView
+      <Animated.ScrollView
         ref={horizontalScrollViewRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
-        onMomentumScrollEnd={handleHorizontalScroll}
+        onScroll={handleHorizontalScroll}
         scrollEventThrottle={16}
         className="flex-1"
       >
@@ -204,7 +210,7 @@ export default function SocialScreen() {
             />
           </ScrollView>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* ADD / SEARCH FRIENDS MODAL (Action sheet for finding connections) */}
       <AddFriendsModal

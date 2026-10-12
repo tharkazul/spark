@@ -1,3 +1,4 @@
+const seasonPlan = require('../services/seasonPlan');
 const express = require('express');
 const router = express.Router();
 const db = require('../services/db');
@@ -77,7 +78,7 @@ router.post("/api/milestones", authenticateToken, (req, res) => {
     db.run(`DELETE FROM milestones WHERE user_id = ?`, [req.user.id]);
 
     const stmt = db.prepare(
-      `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max, event_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     milestones.forEach((m) => {
       const goalName = m.name || m.eventName || '';
@@ -89,6 +90,10 @@ router.post("/api/milestones", authenticateToken, (req, res) => {
       const targetValue = m.target_value || m.targetValue || '';
       const targetWeight = (m.target_weight || m.targetWeight) ? parseFloat(m.target_weight || m.targetWeight) : null;
       const targetVo2max = (m.target_vo2max || m.targetVo2max) ? parseFloat(m.target_vo2max || m.targetVo2max) : null;
+      const requestedEventType = m.event_type || m.eventType;
+      const eventType = goalType === 'race'
+        ? (seasonPlan.EVENT_TYPES[requestedEventType] ? requestedEventType : seasonPlan.detectEventType(goalName))
+        : null;
 
       stmt.run(
         req.user.id,
@@ -101,9 +106,12 @@ router.post("/api/milestones", authenticateToken, (req, res) => {
         targetValue,
         targetWeight,
         targetVo2max,
+        eventType,
       );
     });
-    stmt.finalize();
+    stmt.finalize(() => {
+      seasonPlan.ensureSeasonFresh(req.user.id).catch((e) => console.warn("[Season] refresh after goal save failed:", e.message));
+    });
 
     res.json({ success: true, message: "Goals and calendar updated!" });
   });

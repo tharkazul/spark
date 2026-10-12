@@ -51,7 +51,7 @@ export default function TabLayout() {
   return (
     <HeaderLayoutProvider>
       <Tabs
-        initialRouteName="coach"
+        initialRouteName="index"
         tabBar={(props) => <CustomTabBar {...(props as any)} />}
         // The bar floats over the content on `position: absolute`, so it is
         // rendered after the pager rather than taking a strip of layout above it.

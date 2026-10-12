@@ -1,13 +1,8 @@
 # Triathlon & Ironman Training & Drill Guidelines 🏊‍♀️🚴‍♀️🏃‍♀️
 
-## Core Coaching Directives
-- **Microscopic Granularity**: Avoid generic descriptions like "45-min swim drill", "easy recovery ride", or "tempo intervals". Every single session's `details` must include explicit interval breakdowns, equipment usage, drills, cadences, wattages/zones, and paces.
-- **Technique & Biomechanical Focus**: Emphasize economy of motion, neuromuscular efficiency, and transition adaptation across all three disciplines.
-- **Session Structure**: Every session's `details` must outline:
-  1. *Warm-up*: Progressive activation with dedicated technique drills.
-  2. *Main Technique & Work Set*: Explicit intervals, equipment (pull buoy, paddles, fins, kickboard, ERG mode, aero bars), cadence (rpm/spm), and target zones/paces.
-  3. *Cool-down*: Active flushing and technique reset.
-  4. *Fueling Strategy*: Specific intra-workout hydration, carbohydrate (g/hr), and electrolyte targets.
+## How to use this reference
+- This is a library of drills, equipment and fuelling guidance, not a checklist. Sessions are plain by default; use what's below only when the DETAIL LEVEL block allows it (a topic the athlete already knows, this week's new topic, or detail level DEEP).
+- Structure stays in 'steps_json' (warm-up, main set, cool-down) at every detail level.
 
 ## Prescribed Drills & Discipline Guidelines
 
@@ -30,4 +25,4 @@
 - *Direct Brick Workout (Bike to Run)*: Bike ride (e.g. 60–90km at 70–75% FTP) immediately followed by a rapid 5-minute transition (T2) into a 5km run starting at goal race pace to drill heavy-leg motor recruitment.
 
 ### 4. Intra-Workout Fueling & Nutrition Strategy
-- In every session's `details`, state specific fueling guidance (e.g., "Sip 500ml fluid with 40–60g maltodextrin/fructose mix and 500mg sodium per hour on the bike", or "Consume 1 gel (25g carbs) at 45 mins with 200ml water").
+- For sessions over ~75 minutes, once fuelling is a known topic, give specific fueling guidance (e.g., "Sip 500ml fluid with 40–60g maltodextrin/fructose mix and 500mg sodium per hour on the bike", or "Consume 1 gel (25g carbs) at 45 mins with 200ml water").

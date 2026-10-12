@@ -5,6 +5,7 @@ import { WeeklyAvailabilityCard } from './WeeklyAvailabilityCard';
 import { TrainingZonesCard } from './TrainingZonesCard';
 import { RecurringTrainingsCard } from './RecurringTrainingsCard';
 import { BenchmarkSessionsCard } from './BenchmarkSessionsCard';
+import { AthleteProfileCard } from '../goal/AthleteProfileCard';
 
 interface TrainingTabProps {
   onDirtyChange?: (isDirty: boolean) => void;
@@ -27,6 +28,9 @@ export const TrainingTab: React.FC<TrainingTabProps> = () => {
 
       {/* 5. BENCHMARK SESSIONS & PERFORMANCE ASSESSMENTS */}
       <BenchmarkSessionsCard />
+
+      {/* 6. ATHLETE PROFILE (ARCHETYPE SPIDER CHART), moved here from Progress */}
+      <AthleteProfileCard />
     </View>
   );
 };

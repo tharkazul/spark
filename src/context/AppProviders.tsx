@@ -9,6 +9,7 @@ import { GamificationStore } from './GamificationStore';
 import { HealthStore } from './HealthStore';
 import { CoachChatStore } from './CoachChatStore';
 import { SubscriptionStore } from './SubscriptionStore';
+import { SeasonStore } from './SeasonStore';
 
 export const AppProviders: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
@@ -21,7 +22,9 @@ export const AppProviders: React.FC<{ children: ReactNode }> = ({ children }) =>
                 <GamificationStore>
                   <HealthStore>
                     <CoachChatStore>
-                      <TabBarProvider>{children}</TabBarProvider>
+                      <SeasonStore>
+                        <TabBarProvider>{children}</TabBarProvider>
+                      </SeasonStore>
                     </CoachChatStore>
                   </HealthStore>
                 </GamificationStore>

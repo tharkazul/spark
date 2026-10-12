@@ -30,6 +30,10 @@ export interface UserProfile {
   current_ctl?: number;
   goal_type?: 'race' | 'physiological';
   goalType?: 'race' | 'physiological';
+  /** Main race goal's event type (season plan); undefined = detected from the name. */
+  eventType?: string;
+  /** How much detail the coach writes in sessions. */
+  detail_level?: 'short' | 'normal' | 'deep';
   target_mode?: string;
   targetMode?: string;
   target_value?: string;

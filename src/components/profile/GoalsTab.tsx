@@ -2,7 +2,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { goalsStorage } from '../../services/storage';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -10,6 +10,8 @@ import { gamificationApi, userApi } from '../../services/apiServices';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
 import { EventDatePickerSheet } from '../ui/EventDatePickerSheet';
+import { useSeason } from '../../context/SeasonStore';
+import { EVENT_TYPES, EventType } from '../../types/season';
 
 export interface MilestoneRow {
   id: string;
@@ -21,6 +23,7 @@ export interface MilestoneRow {
   targetValue: string; // e.g. "03:45:00" for time goal
   targetWeight: string; // e.g. "72" for weight
   targetVo2max: string; // e.g. "55" for vo2max
+  eventType: EventType | ''; // '' = detected from the name on the server
 }
 
 // Auto-calculate Target CTL based on Event Title and Distance Keywords
@@ -52,6 +55,7 @@ export function calculateTargetCTL(eventName: string): number {
 export const GoalsTab: React.FC = () => {
   const theme = useTheme();
   const { user, refreshUser } = useUser();
+  const { refresh: refreshSeason } = useSeason();
   const { t, language } = useLanguage();
 
   const [guideExpanded, setGuideExpanded] = useState(false);
@@ -92,6 +96,7 @@ export const GoalsTab: React.FC = () => {
               targetValue: m.target_value || m.targetValue || '',
               targetWeight: m.target_weight ? m.target_weight.toString() : m.targetWeight ? m.targetWeight.toString() : '',
               targetVo2max: m.target_vo2max ? m.target_vo2max.toString() : m.targetVo2max ? m.targetVo2max.toString() : '',
+              eventType: (m.event_type || m.eventType || '') as EventType | '',
             }))
           );
         }
@@ -110,6 +115,7 @@ export const GoalsTab: React.FC = () => {
             targetValue: m.target_value || '',
             targetWeight: m.target_weight ? m.target_weight.toString() : '',
             targetVo2max: m.target_vo2max ? m.target_vo2max.toString() : '',
+            eventType: (m.event_type || '') as EventType | '',
           }));
           setMilestones(mapped);
           await goalsStorage.setGoals(rows, user.id);
@@ -139,6 +145,7 @@ export const GoalsTab: React.FC = () => {
             targetValue: (user as any)?.target_value || (user as any)?.targetValue || '',
             targetWeight: (user as any)?.target_weight ? (user as any).target_weight.toString() : (user as any)?.targetWeight ? (user as any).targetWeight.toString() : '',
             targetVo2max: (user as any)?.target_vo2max ? (user as any).target_vo2max.toString() : (user as any)?.targetVo2max ? (user as any).targetVo2max.toString() : '',
+            eventType: '' as EventType | '',
           },
         ];
         setMilestones(fallback);
@@ -168,6 +175,7 @@ export const GoalsTab: React.FC = () => {
       targetValue: '',
       targetWeight: '',
       targetVo2max: '',
+      eventType: '',
     };
     setMilestones((prev) => [...prev, newRow]);
   };
@@ -234,6 +242,7 @@ export const GoalsTab: React.FC = () => {
       target_value: m.targetValue,
       target_weight: m.targetWeight ? parseFloat(m.targetWeight) : null,
       target_vo2max: m.targetVo2max ? parseFloat(m.targetVo2max) : null,
+      event_type: m.goalType === 'race' && m.eventType ? m.eventType : null,
     }));
 
     const primaryGoal = completeMilestones.find((m) => m.isARace) || completeMilestones[0];
@@ -258,6 +267,7 @@ export const GoalsTab: React.FC = () => {
           targetMode: primaryGoal.targetMode,
           target_value: primaryGoal.targetValue,
           targetValue: primaryGoal.targetValue,
+          eventType: primaryGoal.goalType === 'race' && primaryGoal.eventType ? primaryGoal.eventType : undefined,
         });
       } else {
         await userApi.updateSettings({
@@ -278,6 +288,7 @@ export const GoalsTab: React.FC = () => {
       }
 
       await refreshUser();
+      refreshSeason();
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
     } catch (err: any) {
@@ -504,6 +515,32 @@ export const GoalsTab: React.FC = () => {
                             </Text>
                             <Ionicons name="calendar-outline" size={15} color={theme.tint} />
                           </TouchableOpacity>
+                        </View>
+
+                        {/* EVENT TYPE: drives the season plan (phases, taper, long sessions) */}
+                        <View>
+                          <Text className="text-xs font-bold text-theme-muted mb-1.5">{t('goal.eventTypeLabel')}</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                            {EVENT_TYPES.map((type) => {
+                              const selected = row.eventType === type;
+                              return (
+                                <TouchableOpacity
+                                  key={type}
+                                  onPress={() => {
+                                    Haptics.selectionAsync();
+                                    handleUpdateMilestone(row.id, 'eventType', selected ? '' : type);
+                                  }}
+                                  activeOpacity={0.8}
+                                  className={`px-3 py-1.5 rounded-full border ${selected ? 'bg-theme-accent border-theme-accent' : 'bg-theme-card border-theme-border/60'}`}
+                                >
+                                  <Text className={`text-xs font-bold ${selected ? 'text-white' : 'text-theme-text'}`}>
+                                    {t(`goal.event_${type.replace('.', '_')}`)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                          {!row.eventType && <Text className="text-[11px] text-theme-muted mt-1">{t('goal.eventTypeAuto')}</Text>}
                         </View>
 
                         {/* TARGET SELECTION: FINISH RACE vs TIME GOAL */}

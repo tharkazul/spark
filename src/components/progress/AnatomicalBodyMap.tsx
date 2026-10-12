@@ -32,7 +32,10 @@ export interface ActiveNiggle {
 
 export interface AnatomicalBodyMapProps {
   activeNiggles?: ActiveNiggle[];
-  onSelectBodyPart: (bodyPartId: string, displayName: string) => void;
+  onSelectBodyPart?: (bodyPartId: string, displayName: string) => void;
+  /** Exercise mode: colour these parts (primary / secondary muscles) instead of fatigue, without the health overlays. */
+  highlightParts?: Record<string, 'primary' | 'secondary'>;
+  initialView?: BodyView;
   initialSize?: BodySize;
   onSizeChange?: (size: BodySize) => void;
   genderOverride?: BodyGender;
@@ -375,14 +378,20 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   genderOverride,
   biometrics,
   recentBiometrics = [],
+  highlightParts,
+  initialView,
 }) => {
+  const isExerciseMode = Boolean(highlightParts);
   const { user } = useUser();
   const { activities } = useActivities();
   const { t } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
-  const [view, setView] = useState<BodyView>('front');
+  const [view, setView] = useState<BodyView>(initialView || 'front');
+  useEffect(() => {
+    if (initialView) setView(initialView);
+  }, [initialView]);
   const [size, setSize] = useState<BodySize>(initialSize || 'medium');
   const [showCardioModal, setShowCardioModal] = useState(false);
   const lastPressTime = useRef<number>(0);
@@ -394,7 +403,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   // Compute systemic cardiovascular & autonomic recovery strain:
   const cardioStrain = useMemo(() => {
-    return computeCardiovascularStrain(biometrics, recentBiometrics);
+    return computeCardiovascularStrain(isExerciseMode ? null : biometrics, isExerciseMode ? [] : recentBiometrics);
     // `t` changes with the language, so the localized strain copy is recomputed too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [biometrics, recentBiometrics, t]);
@@ -439,6 +448,13 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   const getPartColor = (
     partId: string
   ): { fill: string; stroke: string; strokeWidth: number } => {
+    if (highlightParts) {
+      const level = highlightParts[partId];
+      const stroke = isDark ? '#1E293B' : '#FFFFFF';
+      if (level === 'primary') return { fill: '#0EA5E9', stroke, strokeWidth: 1.6 };
+      if (level === 'secondary') return { fill: isDark ? '#0C4A6E' : '#BAE6FD', stroke, strokeWidth: 1.3 };
+      return { fill: isDark ? '#334155' : '#E2E8F0', stroke, strokeWidth: 1.1 };
+    }
     const niggleSev = getNiggleSeverity(partId);
 
     // 1. If part has an active injury/niggle: highlight with prominent warning/injury colors
@@ -478,6 +494,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   };
 
   const handlePress = (partId: string) => {
+    if (isExerciseMode || !onSelectBodyPart) return;
     const now = Date.now();
     if (now - lastPressTime.current < 350) return;
     lastPressTime.current = now;
@@ -722,6 +739,8 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         </Pressable>
 
         {/* Status Heatmap Color Legend: Fresh (Green) -> Fatigued (Orange) -> Injured (Red) */}
+        {!isExerciseMode && (
+        <>
         <View className="flex-row items-center justify-center gap-x-4 mt-3 flex-wrap">
           <View className="flex-row items-center gap-x-1.5">
             <View className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
@@ -758,6 +777,8 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
         <Text className="text-[11px] text-theme-muted/80 mt-1.5 font-medium">
           {t('bodyMap.tapHint')}
         </Text>
+        </>
+        )}
       </View>
 
       {/* Cardiovascular Strain Diagnostic Bottom Sheet */}

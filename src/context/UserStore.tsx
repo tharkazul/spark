@@ -90,6 +90,8 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     target_ctl: data?.targetCtl ?? data?.target_ctl ?? (isSameUser ? prev?.target_ctl : undefined),
     goal_type: data?.goalType ?? data?.goal_type ?? (isSameUser ? prev?.goal_type : undefined),
     goalType: data?.goalType ?? data?.goal_type ?? (isSameUser ? prev?.goalType : undefined),
+    eventType: data?.eventType ?? data?.event_type ?? (isSameUser ? prev?.eventType : undefined),
+    detail_level: data?.detailLevel ?? data?.detail_level ?? (isSameUser ? prev?.detail_level : undefined) ?? 'short',
     target_mode: data?.targetMode ?? data?.target_mode ?? (isSameUser ? prev?.target_mode : undefined),
     targetMode: data?.targetMode ?? data?.target_mode ?? (isSameUser ? prev?.targetMode : undefined),
     target_value: data?.targetValue ?? data?.target_value ?? (isSameUser ? prev?.target_value : undefined),
