@@ -1,8 +1,8 @@
 /**
  * Coach display names.
  *
- * The three standard personas have fixed human names; a custom coach (Rooka+) uses the name the
- * athlete gave it. "Rooka" is the brand/points name, so it is never used as a coach name.
+ * The three standard personas have fixed human names; a custom coach (rooka+) uses the name the
+ * athlete gave it. "rooka" is the brand/points name, so it is never used as a coach name.
  * Mirrors getCoachDisplayName() in src/utils/avatarUtils.ts.
  */
 function resolveCoachName(user) {

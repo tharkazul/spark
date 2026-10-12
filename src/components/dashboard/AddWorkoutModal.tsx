@@ -526,7 +526,7 @@ export function AddWorkoutModal({
               <View className="flex-row items-center gap-2 flex-1 mr-2">
                 <Ionicons name="lock-closed" size={16} color="#0EA5E9" />
                 <Text className="text-xs text-theme-text font-medium flex-1">
-                  {t('dashboard.freeTierViewCoach', 'Free tier can view coach workouts. Upgrade to Rooka+ to edit steps, targets, and create custom workouts.')}
+                  {t('dashboard.freeTierViewCoach', 'Free tier can view coach workouts. Upgrade to rooka+ to edit steps, targets, and create custom workouts.')}
                 </Text>
               </View>
               <TouchableOpacity

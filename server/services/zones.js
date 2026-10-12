@@ -1,5 +1,5 @@
 /**
- * Training zones and Rooka scoring.
+ * Training zones and rooka scoring.
  *
  * One model, used for both sides of the comparison:
  *   - a PLANNED workout scores from the zones its steps target
@@ -10,7 +10,7 @@
  * 45-minute ride could be planned at 30 and completed at 28 while the workout
  * builder said 54 for the same session.
  *
- *   Rooka = sum over steps of ( minutes x multiplier(effort) )
+ *   rooka = sum over steps of ( minutes x multiplier(effort) )
  *
  * Effort is the HARDER of the heart-rate zone and the power zone, so a ride
  * recorded with power but no HR still scores correctly, and vice versa.
@@ -206,7 +206,7 @@ function scoreSteps(steps, { sport = null, powerZones = null } = {}) {
 }
 
 /**
- * The Rooka a planned day is worth.
+ * The rooka a planned day is worth.
  *
  * Prefers the structured steps, because that is the only number derived from
  * anything real. `fallback` (whatever the plan generator wrote) is used only

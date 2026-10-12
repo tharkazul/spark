@@ -833,7 +833,7 @@ router.post("/api/activities", authenticateToken, async (req, res) => {
       );
     });
 
-    // Update user's total Rooka & level
+    // Update user's total rooka & level
     updateUserRookaAndCheckLevel(req.user.id, { isRealtime: true });
 
     // Invalidate today's nutrition cache so it incorporates the new workout
@@ -891,7 +891,7 @@ router.post("/api/activities", authenticateToken, async (req, res) => {
 router.post("/api/micro-plan", authenticateToken, (req, res) => {
   if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
     return res.status(403).json({
-      error: "Creating or editing workouts requires Rooka+.",
+      error: "Creating or editing workouts requires rooka+.",
       code: "UPGRADE_REQUIRED",
     });
   }
@@ -949,7 +949,7 @@ router.post("/api/micro-plan/push-forward", authenticateToken, (req, res) => {
 router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
   if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
     return res.status(403).json({
-      error: "Creating or editing workouts requires Rooka+.",
+      error: "Creating or editing workouts requires rooka+.",
       code: "UPGRADE_REQUIRED",
     });
   }
@@ -1000,7 +1000,7 @@ router.post("/api/micro-plan/day", authenticateToken, (req, res) => {
 router.put("/api/micro-plan/:id", authenticateToken, (req, res) => {
   if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
     return res.status(403).json({
-      error: "Creating or editing workouts requires Rooka+.",
+      error: "Creating or editing workouts requires rooka+.",
       code: "UPGRADE_REQUIRED",
     });
   }
@@ -1033,7 +1033,7 @@ router.put("/api/micro-plan/:id", authenticateToken, (req, res) => {
 router.delete("/api/micro-plan/:id", authenticateToken, (req, res) => {
   if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
     return res.status(403).json({
-      error: "Creating or editing workouts requires Rooka+.",
+      error: "Creating or editing workouts requires rooka+.",
       code: "UPGRADE_REQUIRED",
     });
   }
@@ -1087,7 +1087,7 @@ router.get("/api/micro-plan/deleted", authenticateToken, (req, res) => {
 router.post("/api/micro-plan/restore/:id", authenticateToken, (req, res) => {
   if (!canEditWorkouts(req.user.subscription_tier, req.user.role)) {
     return res.status(403).json({
-      error: "Creating or editing workouts requires Rooka+.",
+      error: "Creating or editing workouts requires rooka+.",
       code: "UPGRADE_REQUIRED",
     });
   }
@@ -1341,7 +1341,7 @@ router.post("/api/generate-plan", authenticateToken, requireAiConsent, async (re
                - POWER ZONES: For a power zone instead of an exact wattage: set "target_type": "power.zone" and "zone": <1-7>.
                - HEART RATE ZONES: ONLY set "target_type": "heart.rate.zone" and "zone": <1-5> when you are explicitly prescribing heart rate training (e.g. Zone 2 aerobic base run, Zone 1 recovery, or HR cap).
                - OPEN / NO TARGET: For warmup, cooldown, mobility drills, or open efforts: set "target_type": "no.target".
-            10. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 Rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 Rooka per min. For Zone 1/Rest, use 1.0 Rooka per min. For Strength Training, allocate exactly 0.5 Rooka per set (ignore rest time).
+            10. ROOKA TARGETS: Calculate "target_rooka" for your plan. 1 minute of endurance activity = 1.2 rooka. For high intensity (Zone 3/4+), use 1.3 or 1.4 rooka per min. For Zone 1/Rest, use 1.0 rooka per min. For Strength Training, allocate exactly 0.5 rooka per set (ignore rest time).
             11. BENCHMARK ASSESSMENT: If the athlete is new or setting up an onboarding plan, Day 1 or Day 2 MUST contain exactly ONE sport-tailored Benchmark Assessment workout to establish baseline capabilities:
                  - For RUNNING / MARATHON focus: Schedule a 5k Pace & HR Benchmark Run ("sport": "Run", "description": "Benchmark Assessment: 5k Pace & HR Test").
                  - For CYCLING focus: Schedule a 20-min FTP Baseline Test ("sport": "Bike", "description": "Benchmark Assessment: 20-Min FTP Baseline Test").

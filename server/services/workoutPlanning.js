@@ -1371,12 +1371,12 @@ async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
  * Runs on Sunday evening and plans the coming week.
  *
  * Who gets an AI-generated plan (same rule for every subscription tier — the coach's plan is
- * the core product, Rooka+ only adds more coach messages to discuss it):
+ * the core product, rooka+ only adds more coach messages to discuss it):
  *   - athletes who used the app in the last 7 days (users.last_active_at, set by any
  *     authenticated app request), and
  *   - admin accounts (internal testing).
  * Background signals such as Strava/device syncs, push-token refreshes or weight imports do NOT
- * count as using the app, so we don't spend LLM tokens on athletes who never open Rooka.
+ * count as using the app, so we don't spend LLM tokens on athletes who never open rooka.
  *
  * Everyone else gets a friendly push notification + coach chat inquiry asking whether they'd
  * like to plan the coming week together.

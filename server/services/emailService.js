@@ -33,13 +33,13 @@ async function verifyEmailConnection() {
 }
 
 /**
- * Sends a branded password reset email with a 6-digit OTP code using Rooka's orange brand identity
+ * Sends a branded password reset email with a 6-digit OTP code using rooka's orange brand identity
  */
 async function sendPasswordResetEmail({ toEmail, username, resetCode, language }) {
   const { t, normalizeLang } = require("./i18n");
   const lang = normalizeLang(language);
   const transporter = getTransporter();
-  const from = process.env.EMAIL_FROM || `Rooka <${process.env.SMTP_USER || "no-reply@rooka.io"}>`;
+  const from = process.env.EMAIL_FROM || `rooka <${process.env.SMTP_USER || "no-reply@rooka.io"}>`;
   const athleteName = username ? username : t(lang, "common.athlete");
   const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const nameHtml = `<strong style="color: #F5F5F7;">${escapeHtml(athleteName)}</strong>`;
@@ -101,7 +101,7 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode, language }
                     </td>
                   </tr>
 
-                  <!-- OTP Code Box with Rooka Orange Brand Accent -->
+                  <!-- OTP Code Box with rooka Orange Brand Accent -->
                   <tr>
                     <td align="center" style="padding: 12px 0 24px 0;">
                       <div style="background-color: #17171A; border: 1.5px solid #FF5F3B; border-radius: 16px; padding: 18px 24px; display: inline-block; box-shadow: 0 0 24px rgba(255, 95, 59, 0.15);">
@@ -134,7 +134,7 @@ async function sendPasswordResetEmail({ toEmail, username, resetCode, language }
                   <tr>
                     <td style="padding-top: 24px; text-align: center;">
                       <p style="margin: 0; font-size: 12px; color: #6F6F79;">
-                        © ${new Date().getFullYear()} Rooka Endurance HQ. ${t(lang, "email.rightsReserved")}
+                        © ${new Date().getFullYear()} rooka Endurance HQ. ${t(lang, "email.rightsReserved")}
                       </p>
                     </td>
                   </tr>
@@ -163,16 +163,16 @@ async function sendWaitlistNotificationEmail({ email, notes }) {
       return null;
     }
     const transporter = getTransporter();
-    const from = process.env.EMAIL_FROM || `Rooka System <${user}>`;
+    const from = process.env.EMAIL_FROM || `rooka System <${user}>`;
     const mailOptions = {
       from,
       to: "rutger@rooka.io",
       replyTo: email,
-      subject: `[Rooka Waitlist] New TestFlight Beta Inquiry: ${email}`,
+      subject: `[rooka Waitlist] New TestFlight Beta Inquiry: ${email}`,
       text: `A new inquiry was received on rooka.io!\n\nEmail: ${email}\nNotes: ${notes || "None"}\nTimestamp: ${new Date().toISOString()}\n`,
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; background: #17171A; color: #F5F5F7; border-radius: 12px; border: 1px solid #2D2E33;">
-          <h2 style="color: #FF5F3B; margin-top: 0;">New Rooka TestFlight Beta Inquiry</h2>
+          <h2 style="color: #FF5F3B; margin-top: 0;">New rooka TestFlight Beta Inquiry</h2>
           <p><strong>Applicant Email:</strong> <a href="mailto:${email}" style="color: #38BDF8;">${email}</a></p>
           <p><strong>Notes:</strong> ${notes || "Website TestFlight Request"}</p>
           <p><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>

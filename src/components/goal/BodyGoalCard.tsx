@@ -34,10 +34,9 @@ export function BodyGoalCard({ status }: { status: BodyStatus }) {
       </View>
       {status.currentKg !== null && (
         <View className="flex-row items-end justify-between mt-2">
-          <View>
-            <Text className="text-2xl font-extrabold text-theme-text font-rajdhani">{status.currentKg} kg</Text>
-            <Text className="text-xs text-theme-muted">{t('goal.bodyTarget', { target: status.targetKg })}</Text>
-          </View>
+          <Text className="text-2xl font-extrabold text-theme-text font-rajdhani">
+            {status.currentKg} <Text className="text-theme-muted">→ {status.targetKg} kg</Text>
+          </Text>
           {status.trend.length >= 2 && (
             <Sparkline data={status.trend.map((p) => p.value)} color={color} gradientFrom={`${color}33`} gradientTo={`${color}00`} height={36} width={120} />
           )}
@@ -48,7 +47,7 @@ export function BodyGoalCard({ status }: { status: BodyStatus }) {
           {t('goal.bodyRates', { rate: signed(status.ratePerWeek), needed: signed(status.neededPerWeek) })}
         </Text>
       )}
-      {status.status === 'ambitious' && <Text className="text-xs text-theme-muted mt-2 leading-relaxed">{t('goal.bodyAmbitiousNote')}</Text>}
+      {status.status === 'ambitious' && <Text className="text-xs text-theme-muted mt-1">{t('goal.bodyAmbitiousNote')}</Text>}
     </Card>
   );
 }

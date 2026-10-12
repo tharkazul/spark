@@ -12,7 +12,6 @@ import { GoalStatusCard } from './GoalStatusCard';
 import { RoadToRaceCard } from './RoadToRaceCard';
 import { RacePlanCard, shouldShowRacePlan } from './RacePlanCard';
 import { BodyGoalCard } from './BodyGoalCard';
-import { PHASE_COLORS, phaseLabel } from './seasonFormat';
 
 import { useActivities } from '../../context/ActivityStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -43,7 +42,6 @@ export function GoalSubTab() {
   const raceStatus = data?.raceStatus || null;
   const bodyStatus = data?.bodyStatus || null;
   const racePlan = data?.racePlan || null;
-  const current = season?.currentWeek || null;
 
   const totalRooka = Math.round(
     user?.total_rooka && user.total_rooka > 0 ? user.total_rooka : activities.reduce((sum, a) => sum + (a.rooka_score || 0), 0)
@@ -62,32 +60,8 @@ export function GoalSubTab() {
     <View className="gap-y-4">
       {season ? (
         <>
-          {/* Header: the race and where we are */}
-          <Card>
-            <View className="flex-row items-center gap-2">
-              <Ionicons name="flag" size={16} color={PHASE_COLORS.race} />
-              <Text className="text-lg font-extrabold text-theme-text flex-1" numberOfLines={1}>
-                {season.raceName}
-              </Text>
-              {current && (
-                <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: `${PHASE_COLORS[current.phase]}22` }}>
-                  <Text className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: PHASE_COLORS[current.phase] }}>
-                    {phaseLabel(t, current.phase)}
-                    {current.isRecovery ? ` · ${t('goal.recoveryShort')}` : ''}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text className="text-sm text-theme-muted mt-1">
-              {season.daysToRace === 0
-                ? t('goal.raceIsToday')
-                : t('goal.daysToGo', { days: season.daysToRace, date: new Date(season.raceDate + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) })}
-            </Text>
-            <Text className="text-xs text-theme-muted mt-0.5">{t(`goal.event_${season.eventType.replace('.', '_')}`)}</Text>
-          </Card>
-
+          <GoalStatusCard status={raceStatus} season={season} />
           {shouldShowRacePlan(season, racePlan) && <RacePlanCard season={season} plan={racePlan} />}
-          {raceStatus && <GoalStatusCard status={raceStatus} season={season} />}
           <RoadToRaceCard season={season} />
         </>
       ) : (

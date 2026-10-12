@@ -142,6 +142,11 @@ db.serialize(() => {
     `UPDATE users SET coach_name = 'Rooka' WHERE coach_name IS NULL OR coach_name = '' OR coach_name = 'Spark'`,
     (err) => {},
   );
+  // The brand is written in lowercase; existing default titles get the new spelling.
+  db.run(
+    `UPDATE user_titles SET title = 'rooka+ Athlete', description = 'Official member of the rooka+ endurance squad.' WHERE milestone_key = 'default_rooka_plus' AND title != 'rooka+ Athlete'`,
+    () => {}
+  );
   // Ensure every athlete has a rooka_start_date so historical activities are not counted as Rooka XP
   db.run(
     `UPDATE users 

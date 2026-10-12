@@ -19,7 +19,7 @@ function hasAccess(userTier, minTier) {
 }
 
 /**
- * Feature Registry: Complete list of trackable Rooka features.
+ * Feature Registry: Complete list of trackable rooka features.
  * Extensible array supporting tier gating and hardware prerequisites.
  */
 const FEATURES_REGISTRY = [
@@ -124,7 +124,7 @@ const FEATURES_REGISTRY = [
     name: "Custom Workout Step Builder",
     description: "Build and edit custom workouts with specific warm-ups, intervals, pace/HR zone targets, and cool-downs.",
     minTier: "rooka_plus",
-    upgradePrompt: "Want to design and customize your own training sessions? Upgrading to Rooka+ unlocks the custom Workout Builder & Step Editor, allowing you to edit workouts, program exact pace and heart rate intervals, and fine-tune your training.",
+    upgradePrompt: "Want to design and customize your own training sessions? Upgrading to rooka+ unlocks the custom Workout Builder & Step Editor, allowing you to edit workouts, program exact pace and heart rate intervals, and fine-tune your training.",
     coachPrompt: "Want to design your own custom intervals? When adding or editing a workout, use the Workout Step Builder to set up exact warm-ups, heart rate or power intervals, reps, and recovery intervals.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
@@ -187,9 +187,9 @@ const FEATURES_REGISTRY = [
   {
     key: "activity_sync",
     name: "Garmin & Strava Activity Sync",
-    description: "Connect your Garmin Connect or Strava account for automatic activity import and Rooka scoring.",
+    description: "Connect your Garmin Connect or Strava account for automatic activity import and rooka scoring.",
     minTier: "free",
-    coachPrompt: "Did you know you can connect your Garmin or Strava account? Once connected, your runs and rides automatically sync to Rooka, giving you instant Rooka points and training stress analysis.",
+    coachPrompt: "Did you know you can connect your Garmin or Strava account? Once connected, your runs and rides automatically sync to rooka, giving you instant rooka points and training stress analysis.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -257,9 +257,9 @@ const FEATURES_REGISTRY = [
   {
     key: "social_kudos",
     name: "Social Connections & Sparks",
-    description: "Connect with friends on Rooka, view recent friend workouts, and send sparks to motivate each other.",
+    description: "Connect with friends on rooka, view recent friend workouts, and send sparks to motivate each other.",
     minTier: "free",
-    coachPrompt: "Training is better together! Connect with training partners on Rooka and send sparks to motivate each other on recent activities.",
+    coachPrompt: "Training is better together! Connect with training partners on rooka and send sparks to motivate each other on recent activities.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -292,11 +292,11 @@ const FEATURES_REGISTRY = [
   },
   {
     key: "quests_gamification",
-    name: "Quests & Rooka Points",
-    description: "Complete active weekly training quests, earn bonus Rooka points, and unlock unique athlete titles.",
+    name: "Quests & rooka Points",
+    description: "Complete active weekly training quests, earn bonus rooka points, and unlock unique athlete titles.",
     minTier: "rooka_plus",
-    upgradePrompt: "Level up your training motivation! Upgrading to Rooka+ unlocks weekly Quests, active training challenges, and bonus Rooka points to push your fitness further.",
-    coachPrompt: "Stay motivated with weekly Quests! Check your active quests to earn extra Rooka points, track your streak, and unlock special titles as you crush your training milestones.",
+    upgradePrompt: "Level up your training motivation! Upgrading to rooka+ unlocks weekly Quests, active training challenges, and bonus rooka points to push your fitness further.",
+    coachPrompt: "Stay motivated with weekly Quests! Check your active quests to earn extra rooka points, track your streak, and unlock special titles as you crush your training milestones.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -316,10 +316,10 @@ const FEATURES_REGISTRY = [
   {
     key: "leaderboard_access",
     name: "Community Leaderboard",
-    description: "Compare your weekly training volume, elevation, and Rooka XP against friends and community.",
+    description: "Compare your weekly training volume, elevation, and rooka XP against friends and community.",
     minTier: "rooka_plus",
-    upgradePrompt: "Curious how your training compares to other athletes? Upgrading to Rooka+ unlocks the full Community Leaderboard so you can see weekly mileage, elevation, and Rooka scores across the community.",
-    coachPrompt: "Check out the weekly Community Leaderboard! See where you rank among other athletes this week in total Rooka points, mileage, and training consistency.",
+    upgradePrompt: "Curious how your training compares to other athletes? Upgrading to rooka+ unlocks the full Community Leaderboard so you can see weekly mileage, elevation, and rooka scores across the community.",
+    coachPrompt: "Check out the weekly Community Leaderboard! See where you rank among other athletes this week in total rooka points, mileage, and training consistency.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
@@ -335,7 +335,7 @@ const FEATURES_REGISTRY = [
     name: "Athlete Titles & Profile Flair",
     description: "Equip unlocked achievements and athletic badges (like 'Century Crusher') on your profile.",
     minTier: "rooka_plus",
-    upgradePrompt: "Earn bragging rights! Upgrading to Rooka+ allows you to unlock and equip unique athlete titles like 'Century Crusher' or 'Iron Will' on your public profile as you hit major training milestones.",
+    upgradePrompt: "Earn bragging rights! Upgrading to rooka+ allows you to unlock and equip unique athlete titles like 'Century Crusher' or 'Iron Will' on your public profile as you hit major training milestones.",
     coachPrompt: "Show off your achievements! You've unlocked titles from your training quests. Head to your Profile tab to equip your favorite title and display your athletic flair.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
@@ -503,7 +503,7 @@ async function runWeeklyFeatureOnboardingJob() {
 
       const userHasAccess = hasAccess(user.subscription_tier, nextFeature.minTier);
       const isUpgradeTeaser = !userHasAccess;
-      const requiredTierName = nextFeature.minTier === 'premium' ? 'Rooka Premium' : 'Rooka+';
+      const requiredTierName = nextFeature.minTier === 'premium' ? 'rooka Premium' : 'rooka+';
 
       console.log(`[Onboarding Job] Introducing "${nextFeature.name}" (${nextFeature.key}) to ${user.username} (ID: ${user.id}) [Access: ${userHasAccess ? 'UNLOCKED' : 'UPGRADE_REQUIRED'}]`);
 
@@ -512,7 +512,7 @@ async function runWeeklyFeatureOnboardingJob() {
 
       if (isUpgradeTeaser) {
         guidance = nextFeature.upgradePrompt || nextFeature.coachPrompt;
-        prompt = `You are the athlete's personal endurance coach. Write a friendly, motivating, non-pushy chat message introducing an advanced capability in Rooka that can be unlocked by upgrading to ${requiredTierName}.
+        prompt = `You are the athlete's personal endurance coach. Write a friendly, motivating, non-pushy chat message introducing an advanced capability in rooka that can be unlocked by upgrading to ${requiredTierName}.
 Feature: ${nextFeature.name}
 Core Guidance: ${guidance}
 Instructions:
@@ -524,7 +524,7 @@ Instructions:
 - DO NOT wrap in JSON.`;
       } else {
         guidance = nextFeature.coachPrompt;
-        prompt = `You are the athlete's personal endurance coach. Write a natural, friendly, non-overwhelming chat message introducing a useful feature in Rooka that they haven't tried yet.
+        prompt = `You are the athlete's personal endurance coach. Write a natural, friendly, non-overwhelming chat message introducing a useful feature in rooka that they haven't tried yet.
 Feature: ${nextFeature.name}
 Core Guidance: ${guidance}
 Instructions:

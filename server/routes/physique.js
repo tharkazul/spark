@@ -504,7 +504,7 @@ router.get("/api/physique/nutrition", authenticateToken, requireAiConsent, async
                       const sportStr = act.sport_type || "Exercise";
                       const distStr = act.distance_km ? `${act.distance_km.toFixed(1)}km` : "";
                       const timeStr = act.moving_time_min ? `${Math.round(act.moving_time_min)}m` : "";
-                      const detailsStr = [sportStr, distStr, timeStr, `${Math.round(act.rooka_score || 0)} Rooka Points`]
+                      const detailsStr = [sportStr, distStr, timeStr, `${Math.round(act.rooka_score || 0)} rooka Points`]
                         .filter(Boolean)
                         .join(", ");
                       return `${nameStr} (${detailsStr})`;
@@ -521,17 +521,17 @@ router.get("/api/physique/nutrition", authenticateToken, requireAiConsent, async
                         plannedSummary = plannedRows
                           .map((p) => {
                             const sportStr = p.sport ? `[${p.sport}] ` : "";
-                            return `${sportStr}${p.description} (${Math.round(p.target_rooka || 0)} Rooka Points)`;
+                            return `${sportStr}${p.description} (${Math.round(p.target_rooka || 0)} rooka Points)`;
                           })
                           .join("; ");
                       } else {
-                        plannedSummary = "Rest day (0 Rooka Points)";
+                        plannedSummary = "Rest day (0 rooka Points)";
                       }
 
                       let trainingContextPrompt = "";
                       if (completedSummary) {
-                        trainingContextPrompt = `Completed Activities Today: ${completedSummary} (Total Rooka Points: ${actualRooka.toFixed(1)})`;
-                        if (plannedSummary && plannedSummary !== "Rest day (0 Rooka Points)") {
+                        trainingContextPrompt = `Completed Activities Today: ${completedSummary} (Total rooka Points: ${actualRooka.toFixed(1)})`;
+                        if (plannedSummary && plannedSummary !== "Rest day (0 rooka Points)") {
                           trainingContextPrompt += `\nPlanned Training for Today: ${plannedSummary}`;
                         }
                       } else {
@@ -551,8 +551,8 @@ ${longTermMemory}
 
 Based on today's completed activities (if any), planned training load, macro phase, and athlete context/goals, recommend a daily macro nutrition target.
 - Explicitly reference the actual completed exercise names and sport types (e.g. Run, Swim, Bike, Strength) in your rationale if a workout was completed.
-- For high Rooka Points / intense days, prescribe higher carbohydrates.
-- For rest / low Rooka Points days, prescribe lower carbohydrates and higher protein/fat.
+- For high rooka Points / intense days, prescribe higher carbohydrates.
+- For rest / low rooka Points days, prescribe lower carbohydrates and higher protein/fat.
 - Protein should always be kept very high (1.8g - 2.2g per kg of bodyweight, which is roughly ${Math.round(weight * 1.8)}g - ${Math.round(weight * 2.2)}g for this athlete) to preserve and build muscle mass.
 - Ensure total calories make sense for an endurance athlete of their weight and align with any weight loss/gain goals mentioned in their notes.
 - In "timing", provide 3 distinct, actionable meal/fueling recommendations tailored directly to today's schedule (e.g. if Rest/Race Eve: Morning Carb-Load, Afternoon Electrolyte Grazing, Evening Digestible Dinner; if Active Workout: Pre-Workout, Intra-Workout, Post-Workout Recovery).

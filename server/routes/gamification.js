@@ -278,7 +278,7 @@ router.get("/api/gamification", authenticateToken, async (req, res) => {
       const isDefaultTitle = (t) => t.milestone_key === 'default_rooka_plus';
       responseData.titles = titles.map((t) => ({
         ...t,
-        // The built-in Rooka+ title follows the athlete's current language.
+        // The built-in rooka+ title follows the athlete's current language.
         description: isDefaultTitle(t) ? i18n.t(req.user.language, 'titles.rookaPlusDesc') : t.description,
         title: isDefaultTitle(t) ? i18n.t(req.user.language, 'titles.rookaPlusTitle') : (t.title || t.title_name),
         title_name: isDefaultTitle(t) ? i18n.t(req.user.language, 'titles.rookaPlusTitle') : (t.title || t.title_name),

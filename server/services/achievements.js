@@ -1,5 +1,5 @@
 /**
- * Achievements: recognition for what the athlete already did. They replace the
+ * Achievements: recognition for what the athlete did since joining rooka. They replace the
  * weekly quests, which asked for extra sessions the plan hadn't planned. Nothing
  * here ever suggests a session; it only looks back at logged activities.
  *
@@ -67,10 +67,14 @@ function findBrick(acts) {
 }
 
 async function getAchievements(userId) {
+  // Only training done since the athlete started with rooka counts, the same rule
+  // as rooka points (users.rooka_start_date); imported history doesn't earn badges.
   const acts = dedupeActivities(await dbAll(
-    `SELECT sport_type, distance_km, moving_time_min, start_date FROM activities
-     WHERE user_id = ? AND (is_hidden IS NULL OR is_hidden = 0) AND start_date IS NOT NULL
-     ORDER BY start_date ASC`,
+    `SELECT a.sport_type, a.distance_km, a.moving_time_min, a.start_date FROM activities a
+     JOIN users u ON u.id = a.user_id
+     WHERE a.user_id = ? AND (a.is_hidden IS NULL OR a.is_hidden = 0) AND a.start_date IS NOT NULL
+       AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10))
+     ORDER BY a.start_date ASC`,
     [userId]
   ));
   const out = [];

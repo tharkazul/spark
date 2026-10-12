@@ -25,7 +25,7 @@ Everything in here must match what the app and backend actually do. If a feature
 > **Age rating:** Apple replaced the old 12+/17+ ratings with 4+, 9+, 13+, 16+ and 18+, calculated from the questionnaire. Answer it truthfully: health and wellness topics = yes; medical/treatment information = no (rooka gives fitness guidance, not medical advice); user-generated content = no (there are no comments or posts, only sparks between connections); messaging/chat with other users = no; unrestricted web access = no; advertising = no.
 
 > [!NOTE]
-> **Display name:** `app.json` still sets the home-screen name (`name`, `CFBundleDisplayName`) to `Rooka` with a capital R. Make it match the store name before building if you want lowercase everywhere.
+> **Display name:** `app.json` sets the home-screen name (`name`, `CFBundleDisplayName`) to `rooka`, lowercase like the store name.
 
 ---
 
@@ -115,7 +115,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
 > When asked: **"Do you or your third-party partners use data from this app to track users across apps and websites owned by other companies?"** Select **No**.
 
 > [!NOTE]
-> **Location check:** the app does not read the device's location itself (no location library is installed), but `app.json` still contains `NSLocationWhenInUseUsageDescription` claiming in-app GPS tracking. Remove that string, or ship the feature, so the permission text matches the app.
+> **Location:** the app never asks for the device's location (no location library, no location permission). Workout routes arrive with workouts from Strava, Suunto and Apple Health, so Location is still declared as collected data above, but no `NSLocationWhenInUseUsageDescription` or Android location permission is needed.
 
 ---
 

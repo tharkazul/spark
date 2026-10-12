@@ -208,7 +208,7 @@ async function formatHrZonesForPrompt(userId) {
   }
   return `The athlete's own heart-rate zones (from their profile; a sport line overrides "All sports"):
 ${lines.join("\n")}
-When a step targets heart rate, keep "target_type": "heart.rate.zone" with "zone": <1-5>. Rooka sends that zone to the watch as these exact bpm limits instead of the watch's generic age-based zones, so a zone number means this athlete's bpm range. Whenever you name a HR zone in text or details, quote its bpm range from this table (e.g. "Z2 (132-145 bpm)"), never generic %-of-max-HR zones.`;
+When a step targets heart rate, keep "target_type": "heart.rate.zone" with "zone": <1-5>. rooka sends that zone to the watch as these exact bpm limits instead of the watch's generic age-based zones, so a zone number means this athlete's bpm range. Whenever you name a HR zone in text or details, quote its bpm range from this table (e.g. "Z2 (132-145 bpm)"), never generic %-of-max-HR zones.`;
 }
 
 function deleteZones(userId, sport) {

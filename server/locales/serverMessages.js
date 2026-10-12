@@ -124,11 +124,11 @@ const messages = {
       fr: "J'ai décalé ton programme d'un jour à partir du {date}. Vas-y doucement et récupère bien !",
     },
     planRequestUser: {
-      en: "Can you build my plan for next week, Rooka?",
-      nl: "Kun je mijn schema voor volgende week maken, Rooka?",
-      de: "Kannst du meinen Plan für nächste Woche erstellen, Rooka?",
-      es: "¿Puedes preparar mi plan para la próxima semana, Rooka?",
-      fr: "Tu peux préparer mon programme pour la semaine prochaine, Rooka ?",
+      en: "Can you build my plan for next week, rooka?",
+      nl: "Kun je mijn schema voor volgende week maken, rooka?",
+      de: "Kannst du meinen Plan für nächste Woche erstellen, rooka?",
+      es: "¿Puedes preparar mi plan para la próxima semana, rooka?",
+      fr: "Tu peux préparer mon programme pour la semaine prochaine, rooka ?",
     },
     planBuiltAck: {
       en: "I've just crunched your latest numbers and pushed a fresh {phase} phase plan to your dashboard. Go check it out, you're going to crush it!",
@@ -138,18 +138,18 @@ const messages = {
       fr: "Je viens d'analyser tes derniers chiffres et j'ai mis un nouveau programme pour ta phase {phase} sur ton tableau de bord. Va voir, tu vas tout déchirer !",
     },
     connectionRequest: {
-      en: "{name} wants to connect with you on Rooka! Do you want to accept their connection request?",
-      nl: "{name} wil met je connecten op Rooka! Wil je het verzoek accepteren?",
-      de: "{name} möchte sich auf Rooka mit dir verbinden! Möchtest du die Anfrage annehmen?",
-      es: "¡{name} quiere conectar contigo en Rooka! ¿Quieres aceptar su solicitud?",
-      fr: "{name} veut se connecter avec toi sur Rooka ! Tu acceptes sa demande ?",
+      en: "{name} wants to connect with you on rooka! Do you want to accept their connection request?",
+      nl: "{name} wil met je connecten op rooka! Wil je het verzoek accepteren?",
+      de: "{name} möchte sich auf rooka mit dir verbinden! Möchtest du die Anfrage annehmen?",
+      es: "¡{name} quiere conectar contigo en rooka! ¿Quieres aceptar su solicitud?",
+      fr: "{name} veut se connecter avec toi sur rooka ! Tu acceptes sa demande ?",
     },
     connectionAccepted: {
-      en: "{name} accepted your connection request! You are now connected on Rooka!",
-      nl: "{name} heeft je verzoek geaccepteerd! Jullie zijn nu verbonden op Rooka!",
-      de: "{name} hat deine Anfrage angenommen! Ihr seid jetzt auf Rooka verbunden!",
-      es: "¡{name} aceptó tu solicitud! ¡Ya estáis conectados en Rooka!",
-      fr: "{name} a accepté ta demande ! Vous êtes maintenant connectés sur Rooka !",
+      en: "{name} accepted your connection request! You are now connected on rooka!",
+      nl: "{name} heeft je verzoek geaccepteerd! Jullie zijn nu verbonden op rooka!",
+      de: "{name} hat deine Anfrage angenommen! Ihr seid jetzt auf rooka verbunden!",
+      es: "¡{name} aceptó tu solicitud! ¡Ya estáis conectados en rooka!",
+      fr: "{name} a accepté ta demande ! Vous êtes maintenant connectés sur rooka !",
     },
     eventInvite: {
       en: "Hey! **{inviter}** has invited you to join their upcoming **{sport}** workout: **{description}**.\n\n{dateLabel}: {date}{extra}\n\nDo you want to accept this invitation and add it to your plan?",
@@ -169,7 +169,7 @@ const messages = {
   push: {
     connectionRequest: {
       title: { en: "New connection request!", nl: "Nieuw connectieverzoek!", de: "Neue Verbindungsanfrage!", es: "¡Nueva solicitud de conexión!", fr: "Nouvelle demande de connexion !" },
-      body: { en: "{name} sent you a connection request on Rooka.", nl: "{name} heeft je een connectieverzoek gestuurd op Rooka.", de: "{name} hat dir auf Rooka eine Verbindungsanfrage geschickt.", es: "{name} te ha enviado una solicitud de conexión en Rooka.", fr: "{name} t'a envoyé une demande de connexion sur Rooka." },
+      body: { en: "{name} sent you a connection request on rooka.", nl: "{name} heeft je een connectieverzoek gestuurd op rooka.", de: "{name} hat dir auf rooka eine Verbindungsanfrage geschickt.", es: "{name} te ha enviado una solicitud de conexión en rooka.", fr: "{name} t'a envoyé une demande de connexion sur rooka." },
     },
     connectionAccepted: {
       title: { en: "Connection accepted!", nl: "Connectie geaccepteerd!", de: "Verbindung angenommen!", es: "¡Conexión aceptada!", fr: "Connexion acceptée !" },
@@ -207,7 +207,7 @@ const messages = {
       },
     },
     testDefault: {
-      title: { en: "Rooka Coach", nl: "Rooka Coach", de: "Rooka Coach", es: "Rooka Coach", fr: "Rooka Coach" },
+      title: { en: "rooka Coach", nl: "rooka Coach", de: "rooka Coach", es: "rooka Coach", fr: "rooka Coach" },
       body: { en: "Your workout is ready for today!", nl: "Je training voor vandaag staat klaar!", de: "Dein Training für heute ist bereit!", es: "¡Tu entrenamiento de hoy está listo!", fr: "Ta séance du jour est prête !" },
     },
   },
@@ -228,11 +228,11 @@ const messages = {
     },
     nutritionLockedTitle: { en: "Nutrition Locked", nl: "Voeding vergrendeld", de: "Ernährung gesperrt", es: "Nutrición bloqueada", fr: "Nutrition verrouillée" },
     nutritionLockedRationale: {
-      en: "Upgrade to Rooka+ to unlock daily AI nutrition protocols.",
-      nl: "Upgrade naar Rooka+ voor dagelijkse AI-voedingsadviezen.",
-      de: "Upgrade auf Rooka+, um tägliche KI-Ernährungspläne freizuschalten.",
-      es: "Mejora a Rooka+ para desbloquear protocolos de nutrición diarios con IA.",
-      fr: "Passez à Rooka+ pour débloquer des protocoles nutritionnels quotidiens par IA.",
+      en: "Upgrade to rooka+ to unlock daily AI nutrition protocols.",
+      nl: "Upgrade naar rooka+ voor dagelijkse AI-voedingsadviezen.",
+      de: "Upgrade auf rooka+, um tägliche KI-Ernährungspläne freizuschalten.",
+      es: "Mejora a rooka+ para desbloquear protocolos de nutrición diarios con IA.",
+      fr: "Passez à rooka+ pour débloquer des protocoles nutritionnels quotidiens par IA.",
     },
     nutritionFallbackTitle: { en: "Balanced Maintenance", nl: "Gebalanceerd onderhoud", de: "Ausgewogene Erhaltung", es: "Mantenimiento equilibrado", fr: "Maintien équilibré" },
     nutritionFallbackRationale: {
@@ -247,15 +247,15 @@ const messages = {
   milestones: {
     "Single-Day Endurance Titan": {
       title: { en: "Single-Day Endurance Titan", nl: "Eendaagse Duurtitaan", de: "Ausdauer-Titan des Tages", es: "Titán de resistencia de un día", fr: "Titan de l'endurance d'un jour" },
-      desc: { en: "Earned a massive amount of Rooka points in a single day.", nl: "Verdiende op één dag een enorme hoeveelheid Rooka-punten.", de: "Hat an einem einzigen Tag eine riesige Menge Rooka-Punkte gesammelt.", es: "Consiguió una enorme cantidad de puntos Rooka en un solo día.", fr: "A gagné une énorme quantité de points Rooka en une seule journée." },
+      desc: { en: "Earned a massive amount of rooka points in a single day.", nl: "Verdiende op één dag een enorme hoeveelheid rooka-punten.", de: "Hat an einem einzigen Tag eine riesige Menge rooka-Punkte gesammelt.", es: "Consiguió una enorme cantidad de puntos rooka en un solo día.", fr: "A gagné une énorme quantité de points rooka en une seule journée." },
     },
     "Weekly Volume Crusher": {
       title: { en: "Weekly Volume Crusher", nl: "Weekvolume-Kampioen", de: "Wochenumfang-Brecher", es: "Rompedor de volumen semanal", fr: "Écraseur de volume hebdo" },
-      desc: { en: "Completed a powerhouse training week with 2,000+ Rooka points.", nl: "Sloot een ijzersterke trainingsweek af met meer dan 2.000 Rooka-punten.", de: "Hat eine starke Trainingswoche mit über 2.000 Rooka-Punkten absolviert.", es: "Completó una semana de entrenamiento brutal con más de 2.000 puntos Rooka.", fr: "A bouclé une semaine d'entraînement costaude avec plus de 2 000 points Rooka." },
+      desc: { en: "Completed a powerhouse training week with 2,000+ rooka points.", nl: "Sloot een ijzersterke trainingsweek af met meer dan 2.000 rooka-punten.", de: "Hat eine starke Trainingswoche mit über 2.000 rooka-Punkten absolviert.", es: "Completó una semana de entrenamiento brutal con más de 2.000 puntos rooka.", fr: "A bouclé une semaine d'entraînement costaude avec plus de 2 000 points rooka." },
     },
     "Monthly Legend": {
       title: { en: "Monthly Legend", nl: "Maandlegende", de: "Monatslegende", es: "Leyenda del mes", fr: "Légende du mois" },
-      desc: { en: "Showed legendary monthly consistency with 6,000+ Rooka points.", nl: "Toonde legendarische consistentie met meer dan 6.000 Rooka-punten in één maand.", de: "Hat mit über 6.000 Rooka-Punkten in einem Monat legendäre Konstanz gezeigt.", es: "Demostró una constancia legendaria con más de 6.000 puntos Rooka en un mes.", fr: "A fait preuve d'une régularité légendaire avec plus de 6 000 points Rooka en un mois." },
+      desc: { en: "Showed legendary monthly consistency with 6,000+ rooka points.", nl: "Toonde legendarische consistentie met meer dan 6.000 rooka-punten in één maand.", de: "Hat mit über 6.000 rooka-Punkten in einem Monat legendäre Konstanz gezeigt.", es: "Demostró una constancia legendaria con más de 6.000 puntos rooka en un mes.", fr: "A fait preuve d'une régularité légendaire avec plus de 6 000 points rooka en un mois." },
     },
     "Half Ironman Conqueror": {
       title: { en: "Half Ironman Conqueror", nl: "Halve Ironman-Veroveraar", de: "Halb-Ironman-Bezwinger", es: "Conquistador del medio Ironman", fr: "Conquérant du Half Ironman" },
@@ -287,13 +287,13 @@ const messages = {
     },
   },
   titles: {
-    rookaPlusTitle: { en: "Rooka+ Athlete", nl: "Rooka+ Atleet", de: "Rooka+ Athlet", es: "Atleta Rooka+", fr: "Athlète Rooka+" },
+    rookaPlusTitle: { en: "rooka+ Athlete", nl: "rooka+ Atleet", de: "rooka+ Athlet", es: "Atleta rooka+", fr: "Athlète rooka+" },
     rookaPlusDesc: {
-      en: "Official member of the Rooka+ endurance squad.",
-      nl: "Officieel lid van het Rooka+ endurance-team.",
-      de: "Offizielles Mitglied des Rooka+ Ausdauer-Teams.",
-      es: "Miembro oficial del equipo de resistencia Rooka+.",
-      fr: "Membre officiel de l'équipe d'endurance Rooka+.",
+      en: "Official member of the rooka+ endurance squad.",
+      nl: "Officieel lid van het rooka+ endurance-team.",
+      de: "Offizielles Mitglied des rooka+ Ausdauer-Teams.",
+      es: "Miembro oficial del equipo de resistencia rooka+.",
+      fr: "Membre officiel de l'équipe d'endurance rooka+.",
     },
   },
   questTime: {
@@ -308,11 +308,11 @@ const messages = {
   // Fallback public bios, keyed by archetype (see generatePublicProfile in services/utils.js).
   bio: {
     default: {
-      en: "Dedicated endurance athlete building consistent training volume and aerobic fitness on Rooka.",
-      nl: "Toegewijde duursporter die op Rooka werkt aan een consistent trainingsvolume en aerobe fitheid.",
-      de: "Engagierter Ausdauersportler, der auf Rooka konstant Trainingsumfang und aerobe Fitness aufbaut.",
-      es: "Atleta de resistencia comprometido que construye en Rooka un volumen de entrenamiento constante y forma aeróbica.",
-      fr: "Athlète d'endurance assidu qui développe sur Rooka un volume d'entraînement régulier et sa forme aérobie.",
+      en: "Dedicated endurance athlete building consistent training volume and aerobic fitness on rooka.",
+      nl: "Toegewijde duursporter die op rooka werkt aan een consistent trainingsvolume en aerobe fitheid.",
+      de: "Engagierter Ausdauersportler, der auf rooka konstant Trainingsumfang und aerobe Fitness aufbaut.",
+      es: "Atleta de resistencia comprometido que construye en rooka un volumen de entrenamiento constante y forma aeróbica.",
+      fr: "Athlète d'endurance assidu qui développe sur rooka un volume d'entraînement régulier et sa forme aérobie.",
     },
     "Multi-Sport Athlete": {
       en: "Dedicated multi-sport athlete building consistent weekly volume across endurance and conditioning disciplines. Known for relentless cross-training versatility and strong aerobic stamina on the course.",
@@ -358,15 +358,15 @@ const messages = {
     },
   },
   email: {
-    resetSubject: { en: "Your Rooka verification code: {code}", nl: "Je Rooka-verificatiecode: {code}", de: "Dein Rooka-Bestätigungscode: {code}", es: "Tu código de verificación de Rooka: {code}", fr: "Votre code de vérification Rooka : {code}" },
+    resetSubject: { en: "Your rooka verification code: {code}", nl: "Je rooka-verificatiecode: {code}", de: "Dein rooka-Bestätigungscode: {code}", es: "Tu código de verificación de rooka: {code}", fr: "Votre code de vérification rooka : {code}" },
     resetText: {
-      en: "Hi {name},\n\nYour 6-digit verification code to reset your Rooka account password is: {code}\n\nThis code will expire in 15 minutes. If you did not request this, you can safely ignore this email.\n\nKeep pushing,\nTeam Rooka",
-      nl: "Hoi {name},\n\nJe 6-cijferige verificatiecode om het wachtwoord van je Rooka-account te resetten is: {code}\n\nDeze code verloopt over 15 minuten. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.\n\nBlijf doorgaan,\nTeam Rooka",
-      de: "Hallo {name},\n\ndein 6-stelliger Bestätigungscode zum Zurücksetzen deines Rooka-Passworts lautet: {code}\n\nDer Code läuft in 15 Minuten ab. Wenn du das nicht angefordert hast, kannst du diese E-Mail einfach ignorieren.\n\nBleib dran,\nTeam Rooka",
-      es: "Hola {name}:\n\nTu código de verificación de 6 dígitos para restablecer la contraseña de tu cuenta de Rooka es: {code}\n\nEste código caduca en 15 minutos. Si no lo has solicitado, puedes ignorar este correo.\n\nSigue dándolo todo,\nEl equipo de Rooka",
-      fr: "Bonjour {name},\n\nVotre code de vérification à 6 chiffres pour réinitialiser le mot de passe de votre compte Rooka est : {code}\n\nCe code expire dans 15 minutes. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail.\n\nÀ bientôt,\nL'équipe Rooka",
+      en: "Hi {name},\n\nYour 6-digit verification code to reset your rooka account password is: {code}\n\nThis code will expire in 15 minutes. If you did not request this, you can safely ignore this email.\n\nKeep pushing,\nTeam rooka",
+      nl: "Hoi {name},\n\nJe 6-cijferige verificatiecode om het wachtwoord van je rooka-account te resetten is: {code}\n\nDeze code verloopt over 15 minuten. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.\n\nBlijf doorgaan,\nTeam rooka",
+      de: "Hallo {name},\n\ndein 6-stelliger Bestätigungscode zum Zurücksetzen deines rooka-Passworts lautet: {code}\n\nDer Code läuft in 15 Minuten ab. Wenn du das nicht angefordert hast, kannst du diese E-Mail einfach ignorieren.\n\nBleib dran,\nTeam rooka",
+      es: "Hola {name}:\n\nTu código de verificación de 6 dígitos para restablecer la contraseña de tu cuenta de rooka es: {code}\n\nEste código caduca en 15 minutos. Si no lo has solicitado, puedes ignorar este correo.\n\nSigue dándolo todo,\nEl equipo de rooka",
+      fr: "Bonjour {name},\n\nVotre code de vérification à 6 chiffres pour réinitialiser le mot de passe de votre compte rooka est : {code}\n\nCe code expire dans 15 minutes. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail.\n\nÀ bientôt,\nL'équipe rooka",
     },
-    resetHtmlTitle: { en: "Reset Your Rooka Password", nl: "Reset je Rooka-wachtwoord", de: "Setze dein Rooka-Passwort zurück", es: "Restablece tu contraseña de Rooka", fr: "Réinitialisez votre mot de passe Rooka" },
+    resetHtmlTitle: { en: "Reset Your rooka Password", nl: "Reset je rooka-wachtwoord", de: "Setze dein rooka-Passwort zurück", es: "Restablece tu contraseña de rooka", fr: "Réinitialisez votre mot de passe rooka" },
     resetHeading: { en: "Password Reset Code", nl: "Code om je wachtwoord te resetten", de: "Code zum Zurücksetzen des Passworts", es: "Código para restablecer la contraseña", fr: "Code de réinitialisation du mot de passe" },
     resetIntro: {
       en: "Hi {name}, we received a request to reset your password. Use the verification code below to set a new password in the app.",
@@ -415,7 +415,7 @@ const RAW_API = {
   "Invalid or expired token": ["Je sessie is ongeldig of verlopen. Log opnieuw in.", "Deine Sitzung ist ungültig oder abgelaufen. Bitte melde dich erneut an.", "Tu sesión no es válida o ha caducado. Vuelve a iniciar sesión.", "Votre session est invalide ou a expiré. Reconnectez-vous."],
   "Account no longer exists": ["Dit account bestaat niet meer.", "Dieses Konto existiert nicht mehr.", "Esta cuenta ya no existe.", "Ce compte n'existe plus."],
   "Account has been deleted": ["Dit account is verwijderd.", "Dieses Konto wurde gelöscht.", "Esta cuenta ha sido eliminada.", "Ce compte a été supprimé."],
-  "Rooka is currently catching their breath. Please try again in a moment.": ["Rooka is even op adem aan het komen. Probeer het zo opnieuw.", "Rooka schnappt gerade nach Luft. Bitte versuche es gleich noch einmal.", "Rooka está recuperando el aliento. Inténtalo de nuevo en un momento.", "Rooka reprend son souffle. Réessayez dans un instant."],
+  "rooka is currently catching their breath. Please try again in a moment.": ["rooka is even op adem aan het komen. Probeer het zo opnieuw.", "rooka schnappt gerade nach Luft. Bitte versuche es gleich noch einmal.", "rooka está recuperando el aliento. Inténtalo de nuevo en un momento.", "rooka reprend son souffle. Réessayez dans un instant."],
   "AI failed to respond.": ["De coach reageerde niet. Probeer het opnieuw.", "Der Coach hat nicht geantwortet. Bitte versuche es erneut.", "El coach no respondió. Inténtalo de nuevo.", "Le coach n'a pas répondu. Réessayez."],
   "Rate limit or token limit reached. Please try again later.": ["Limiet bereikt. Probeer het later opnieuw.", "Limit erreicht. Bitte versuche es später erneut.", "Has alcanzado el límite. Inténtalo más tarde.", "Limite atteinte. Réessayez plus tard."],
   // auth
@@ -424,8 +424,8 @@ const RAW_API = {
   "Registration failed.": ["Registreren is mislukt.", "Registrierung fehlgeschlagen.", "No se pudo completar el registro.", "L'inscription a échoué."],
   "Please enter your username/email and password.": ["Vul je gebruikersnaam/e-mail en wachtwoord in.", "Bitte gib deinen Benutzernamen/deine E-Mail und dein Passwort ein.", "Introduce tu usuario/correo y tu contraseña.", "Saisissez votre nom d'utilisateur/e-mail et votre mot de passe."],
   "No account found with that email or username.": ["Geen account gevonden met dit e-mailadres of deze gebruikersnaam.", "Kein Konto mit dieser E-Mail oder diesem Benutzernamen gefunden.", "No hay ninguna cuenta con ese correo o nombre de usuario.", "Aucun compte trouvé avec cet e-mail ou ce nom d'utilisateur."],
-  "Welcome to Rooka HQ": ["Welkom bij Rooka HQ", "Willkommen im Rooka HQ", "Bienvenido a Rooka HQ", "Bienvenue au Rooka HQ"],
-  "Welcome back to Rooka HQ": ["Welkom terug bij Rooka HQ", "Willkommen zurück im Rooka HQ", "Bienvenido de nuevo a Rooka HQ", "Bon retour au Rooka HQ"],
+  "Welcome to rooka HQ": ["Welkom bij rooka HQ", "Willkommen im rooka HQ", "Bienvenido a rooka HQ", "Bienvenue au rooka HQ"],
+  "Welcome back to rooka HQ": ["Welkom terug bij rooka HQ", "Willkommen zurück im rooka HQ", "Bienvenido de nuevo a rooka HQ", "Bon retour au rooka HQ"],
   "Incorrect password.": ["Onjuist wachtwoord.", "Falsches Passwort.", "Contraseña incorrecta.", "Mot de passe incorrect."],
   "Apple identity token is required.": ["Inloggen met Apple is mislukt. Probeer het opnieuw.", "Die Anmeldung mit Apple ist fehlgeschlagen. Bitte versuche es erneut.", "No se pudo iniciar sesión con Apple. Inténtalo de nuevo.", "La connexion avec Apple a échoué. Réessayez."],
   "Invalid Apple identity token.": ["Ongeldige Apple-login. Probeer het opnieuw.", "Ungültige Apple-Anmeldung. Bitte versuche es erneut.", "Inicio de sesión de Apple no válido. Inténtalo de nuevo.", "Connexion Apple invalide. Réessayez."],
@@ -471,7 +471,7 @@ const RAW_API = {
   "Failed to delete activity.": ["Activiteit verwijderen is mislukt.", "Aktivität konnte nicht gelöscht werden.", "No se pudo eliminar la actividad.", "Impossible de supprimer l'activité."],
   "Activity deleted successfully.": ["Activiteit verwijderd.", "Aktivität gelöscht.", "Actividad eliminada.", "Activité supprimée."],
   "Failed to log activity": ["Activiteit opslaan is mislukt.", "Aktivität konnte nicht gespeichert werden.", "No se pudo registrar la actividad.", "Impossible d'enregistrer l'activité."],
-  "Creating or editing workouts requires Rooka+.": ["Trainingen maken of bewerken kan met Rooka+.", "Trainings erstellen oder bearbeiten erfordert Rooka+.", "Crear o editar entrenamientos requiere Rooka+.", "Créer ou modifier des séances nécessite Rooka+."],
+  "Creating or editing workouts requires rooka+.": ["Trainingen maken of bewerken kan met rooka+.", "Trainings erstellen oder bearbeiten erfordert rooka+.", "Crear o editar entrenamientos requiere rooka+.", "Créer ou modifier des séances nécessite rooka+."],
   "Failed to create plan": ["Training aanmaken is mislukt.", "Training konnte nicht erstellt werden.", "No se pudo crear el entrenamiento.", "Impossible de créer la séance."],
   "Failed to update plan": ["Training bijwerken is mislukt.", "Training konnte nicht aktualisiert werden.", "No se pudo actualizar el entrenamiento.", "Impossible de mettre à jour la séance."],
   "Failed to delete plan": ["Training verwijderen is mislukt.", "Training konnte nicht gelöscht werden.", "No se pudo eliminar el entrenamiento.", "Impossible de supprimer la séance."],
@@ -607,7 +607,7 @@ for (const [en, [nl, de, es, fr]] of Object.entries(RAW_API)) apiMessages[en] = 
 const apiPatterns = [
   { en: "Successfully synced {count} activities!", nl: "{count} activiteiten gesynchroniseerd!", de: "{count} Aktivitäten synchronisiert!", es: "¡{count} actividades sincronizadas!", fr: "{count} activités synchronisées !" },
   { en: "Strava rejected the authorization: {reason}", nl: "Strava heeft de koppeling geweigerd: {reason}", de: "Strava hat die Autorisierung abgelehnt: {reason}", es: "Strava rechazó la autorización: {reason}", fr: "Strava a refusé l'autorisation : {reason}" },
-  { en: "This Strava account is already connected to another Rooka account ({name}). Connect it here as well?", nl: "Dit Strava-account is al gekoppeld aan een ander Rooka-account ({name}). Wil je het hier ook koppelen?", de: "Dieses Strava-Konto ist bereits mit einem anderen Rooka-Konto ({name}) verbunden. Auch hier verbinden?", es: "Esta cuenta de Strava ya está conectada a otra cuenta de Rooka ({name}). ¿Conectarla aquí también?", fr: "Ce compte Strava est déjà connecté à un autre compte Rooka ({name}). Le connecter ici aussi ?" },
+  { en: "This Strava account is already connected to another rooka account ({name}). Connect it here as well?", nl: "Dit Strava-account is al gekoppeld aan een ander rooka-account ({name}). Wil je het hier ook koppelen?", de: "Dieses Strava-Konto ist bereits mit einem anderen rooka-Konto ({name}) verbunden. Auch hier verbinden?", es: "Esta cuenta de Strava ya está conectada a otra cuenta de rooka ({name}). ¿Conectarla aquí también?", fr: "Ce compte Strava est déjà connecté à un autre compte rooka ({name}). Le connecter ici aussi ?" },
   { en: "Successfully pushed {count} structured workout to Garmin!", nl: "{count} training naar Garmin gestuurd!", de: "{count} Training an Garmin gesendet!", es: "¡{count} entrenamiento enviado a Garmin!", fr: "{count} séance envoyée à Garmin !" },
   { en: "Successfully pushed {count} structured workouts to Garmin!", nl: "{count} trainingen naar Garmin gestuurd!", de: "{count} Trainings an Garmin gesendet!", es: "¡{count} entrenamientos enviados a Garmin!", fr: "{count} séances envoyées à Garmin !" },
   { en: "Synced {bio} biometric record(s) and {workouts} workout(s) from Apple Health!", nl: "{bio} gezondheidsmeting(en) en {workouts} training(en) uit Apple Health gesynchroniseerd!", de: "{bio} Gesundheitswert(e) und {workouts} Training(s) aus Apple Health synchronisiert!", es: "¡{bio} registro(s) de salud y {workouts} entrenamiento(s) sincronizados desde Apple Health!", fr: "{bio} mesure(s) de santé et {workouts} séance(s) synchronisées depuis Apple Health !" },

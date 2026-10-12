@@ -173,7 +173,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             </Text>
             <View className="mt-3 px-3 py-1.5 bg-theme-accent/15 rounded-lg">
               <Text className="text-[11px] font-bold text-theme-accent">
-                {t('profile.includedWithRookaPlus', 'Unlock with Rooka+')}
+                {t('profile.includedWithRookaPlus', 'Unlock with rooka+')}
               </Text>
             </View>
           </TouchableOpacity>

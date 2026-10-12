@@ -468,7 +468,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                           planRows && planRows.length > 0
                             ? planRows
                                 .map((p) => {
-                                  let line = `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} Rooka)`;
+                                  let line = `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} rooka)`;
                                   if (p.source === 'template') {
                                     line += ` [standard template week, not yet personalized by you]`;
                                   } else if (p.source === 'user') {
@@ -504,7 +504,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                         if (deletedRows && deletedRows.length > 0) {
                           deletedWorkoutsText = deletedRows
                             .map((d) => {
-                              let line = `- [Archive ID: ${d.id}] Date: ${d.date}, Sport: ${d.sport}, Description: "${d.description}" (${d.target_rooka || 0} Rooka, deleted: ${d.deleted_at})`;
+                              let line = `- [Archive ID: ${d.id}] Date: ${d.date}, Sport: ${d.sport}, Description: "${d.description}" (${d.target_rooka || 0} rooka, deleted: ${d.deleted_at})`;
                               if (d.details && d.details.trim()) {
                                 line += `\n    Details: ${d.details.trim()}`;
                               }
@@ -1288,7 +1288,7 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                                   // text, but awaiting the model here held the transaction open
                                                   // for as long as it took - up to a minute once the rate-limit
                                                   // backoff kicks in.
-                                                  questCelebrationPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} Rooka points! Give a short 1-2 sentence highly motivating response celebrating their completed quest!`;
+                                                  questCelebrationPrompt = `The user just manually logged an activity and ALSO completed their active quest: "${completedQuests[0].description}" earning ${completedQuests[0].reward_points} rooka points! Give a short 1-2 sentence highly motivating response celebrating their completed quest!`;
                                                 }
                                               } catch (e) {
                                                 console.error(

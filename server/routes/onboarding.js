@@ -436,7 +436,7 @@ router.post('/finalize', authenticateToken, async (req, res) => {
     : (targetEvent ? `Endurance athlete preparing for ${targetEvent}.` : 'Endurance athlete.');
 
   // Seed training zones FIRST, before the "already onboarded" guard below.
-  // Zones are what every Rooka score is weighted by, and existing athletes have
+  // Zones are what every rooka score is weighted by, and existing athletes have
   // none — so a returning user must be able to acquire them without their plan
   // being rebuilt. Running this after the guard meant the very users who needed
   // zones were the ones who never got them.

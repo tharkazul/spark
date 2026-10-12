@@ -144,7 +144,7 @@ router.post("/webhook/strava", (req, res) => {
 
   if (aspect_type === "create" && object_type === "activity") {
     console.log(`🏃‍♂️ New Strava activity detected! Fetching ID: ${object_id}`);
-    // A Strava athlete may back more than one Rooka account; give each of them
+    // A Strava athlete may back more than one rooka account; give each of them
     // their own copy of the activity rather than only the first one mapped.
     getStravaUserIdsForAthlete(owner_id).then((userIds) => {
       if (!userIds.length) {
@@ -457,7 +457,7 @@ router.get("/oauthredirect", (req, res) => {
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Strava Connected - Rooka</title>
+        <title>Strava Connected - rooka</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0d1117; color: #f0f6fc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
           .card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 32px; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
@@ -475,7 +475,7 @@ router.get("/oauthredirect", (req, res) => {
       <body>
         <div class="card">
           <h2>⚡️ Strava Authorization</h2>
-          <p>Redirecting back to Rooka...</p>
+          <p>Redirecting back to rooka...</p>
         </div>
       </body>
     </html>
@@ -532,7 +532,7 @@ router.post(
 
       if (conflict) {
         return res.status(409).json({
-          error: `This Strava account is already connected to another Rooka account (${conflict.username}). Connect it here as well?`,
+          error: `This Strava account is already connected to another rooka account (${conflict.username}). Connect it here as well?`,
           code: "STRAVA_ALREADY_LINKED",
           linkedUsername: conflict.username,
         });
@@ -1065,7 +1065,7 @@ async function pushWorkoutsToGarmin(userId, selectedWorkouts) {
       const scheduleDate = normalizeToYYYYMMDD(workout.date);
       console.log(`DEBUG: Sending workout "${wkt.workoutName}" (${sportDef.sportTypeKey}) to Garmin for date: ${scheduleDate}`);
 
-      // Auto-Deduplication: Check if there is already a Rooka workout of the SAME sport on this date.
+      // Auto-Deduplication: Check if there is already a rooka workout of the SAME sport on this date.
       // If so, delete the prior workout from Garmin so we replace it instead of creating duplicates.
       // Brick sessions (e.g. Bike + Run on the same day) have different sportTypeKeys and will NOT be touched!
       try {
@@ -1094,7 +1094,7 @@ async function pushWorkoutsToGarmin(userId, selectedWorkouts) {
           );
 
           for (const oldWorkout of existingSameSportWorkouts) {
-            console.log(`DEBUG: Found prior Rooka ${oldWorkout.sportTypeKey} workout on ${scheduleDate}: "${oldWorkout.title}" (ID: ${oldWorkout.workoutId}). Deleting prior workout to avoid duplicates...`);
+            console.log(`DEBUG: Found prior rooka ${oldWorkout.sportTypeKey} workout on ${scheduleDate}: "${oldWorkout.title}" (ID: ${oldWorkout.workoutId}). Deleting prior workout to avoid duplicates...`);
             try {
               await GCClient.deleteWorkout({ workoutId: oldWorkout.workoutId });
               console.log(`DEBUG: Successfully deleted prior workout ${oldWorkout.workoutId}`);

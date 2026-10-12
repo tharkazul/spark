@@ -13,7 +13,7 @@
  *   SUUNTO_REDIRECT_URI (optional)           - must match the Redirect URI registered in
  *                                              the API Zone. Defaults to <host>/suuntoredirect.
  *   SUUNTO_APP_NAME (optional)               - application name from the API Zone OAuth settings;
- *                                              used as the guide `owner`. Defaults to "Rooka".
+ *                                              used as the guide `owner`. Defaults to "rooka".
  */
 const express = require('express');
 const fs = require('fs');
@@ -213,7 +213,7 @@ router.get('/suuntoredirect', (req, res) => {
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Suunto Connected - Rooka</title>
+    <title>Suunto Connected - rooka</title>
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0d1117; color: #f0f6fc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
       .card { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 32px; max-width: 360px; }
@@ -227,7 +227,7 @@ router.get('/suuntoredirect', (req, res) => {
     </script>
   </head>
   <body>
-    <div class="card"><h2>Suunto Authorization</h2><p>Redirecting back to Rooka...</p></div>
+    <div class="card"><h2>Suunto Authorization</h2><p>Redirecting back to rooka...</p></div>
   </body>
 </html>`);
 });
@@ -378,7 +378,7 @@ router.post('/api/sync-suunto', authenticateToken, async (req, res) => {
 // ---------------------------------------------------------------------------
 
 // Must match the application name registered in the Suunto API Zone OAuth settings.
-const SUUNTO_GUIDE_OWNER = process.env.SUUNTO_APP_NAME || 'Rooka';
+const SUUNTO_GUIDE_OWNER = process.env.SUUNTO_APP_NAME || 'rooka';
 const GUIDE_ICON_PATH = path.join(__dirname, '..', 'assets', 'suunto-guide-icon.png');
 let guideIconCache = null;
 function getGuideIcon() {

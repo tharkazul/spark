@@ -7,7 +7,7 @@ import { Card } from '../ui/Card';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import { GoalStatusKind, RaceStatus, Season, TrendPoint } from '../../types/season';
-import { formatGap, formatHours, formatRaceTime } from './seasonFormat';
+import { PHASE_COLORS, formatHours, formatRaceTime, phaseLabel } from './seasonFormat';
 
 const STATUS_STYLE: Record<GoalStatusKind, { color: string; icon: any }> = {
   on_track: { color: '#22C55E', icon: 'checkmark-circle' },
@@ -16,18 +16,16 @@ const STATUS_STYLE: Record<GoalStatusKind, { color: string; icon: any }> = {
   building: { color: '#8B5CF6', icon: 'construct' },
 };
 
-/** The estimate over time against the target (a dashed line). Lower is faster. */
+/** The estimate over time against the target (dashed). Lower is faster. */
 function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) {
   const theme = useTheme();
   const [w, setW] = useState(0);
-  const h = 56;
+  const h = 48;
   const values = points.map((p) => p.value);
   const target = points[points.length - 1]?.target ?? null;
   const all = target ? [...values, target] : values;
   const min = Math.min(...all);
-  const max = Math.max(...all);
-  const span = Math.max(1, max - min);
-  // Faster (lower) times plot higher up.
+  const span = Math.max(1, Math.max(...all) - min);
   const y = (v: number) => 6 + ((v - min) / span) * (h - 12);
   const x = (i: number) => (points.length === 1 ? w / 2 : (i / (points.length - 1)) * (w - 8) + 4);
   return (
@@ -45,103 +43,110 @@ function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) 
   );
 }
 
-export function GoalStatusCard({ status, season }: { status: RaceStatus; season: Season | null }) {
-  const { t } = useLanguage();
-  const style = STATUS_STYLE[status.status];
-  const hasTime = Boolean(status.estimateSec && status.targetSec);
-
-  const headline = hasTime
-    ? t(`goal.status_${status.status}`, { target: formatRaceTime(status.targetSec) })
-    : status.estimateSec
-    ? t('goal.estimateOnly', { estimate: formatRaceTime(status.estimateSec) })
-    : t('goal.status_building');
-
-  let body: string;
-  if (hasTime && status.status === 'on_track') body = t('goal.body_on_track', { estimate: formatRaceTime(status.estimateSec) });
-  else if (hasTime && status.status === 'within_reach') body = t('goal.body_within_reach', { estimate: formatRaceTime(status.estimateSec), gap: formatGap(status.gapSec || 0) });
-  else if (hasTime) body = t('goal.body_ambitious', { estimate: formatRaceTime(status.estimateSec) });
-  else if (status.estimateSec) body = t('goal.body_estimate_no_target');
-  else if (season?.unit === 'km') body = t('goal.body_need_runs');
-  else body = t('goal.body_building');
-
-  const unit = season?.unit;
-  const cap = season?.flags?.capVolume;
-
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <Card>
-      <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted mb-2">{t('goal.statusTitle')}</Text>
-      <View className="flex-row items-center gap-2">
-        <Ionicons name={style.icon} size={20} color={style.color} />
-        <Text className="text-lg font-extrabold text-theme-text flex-1">{headline}</Text>
-      </View>
-      <Text className="text-sm text-theme-muted mt-1 leading-relaxed">{body}</Text>
-      {status.basis && <Text className="text-[11px] text-theme-muted mt-1">{t('goal.basis', { km: status.basis.distanceKm, min: status.basis.minutes })}</Text>}
-
-      {status.trend.length >= 2 && (
-        <View className="mt-3">
-          <TrendChart points={status.trend} color={style.color} />
-          <Text className="text-[11px] text-theme-muted mt-1">{t('goal.trendCaption')}</Text>
-        </View>
-      )}
-
-      {status.readiness.length > 0 && (
-        <View className="mt-3 gap-y-2">
-          {status.readiness.map((r) => {
-            const pct = r.peak > 0 ? Math.min(1, r.done / r.peak) : 0;
-            const fmt = (v: number) => (r.unit === 'km' ? `${v} km` : `${formatHours(v)} h`);
-            const label = r.sport === 'Run' ? t('goal.longestRun') : r.sport === 'Bike' ? t('goal.longestRide') : t('goal.longestSession');
-            return (
-              <View key={r.sport}>
-                <View className="flex-row justify-between">
-                  <Text className="text-xs font-semibold text-theme-text">{label}</Text>
-                  <Text className="text-xs text-theme-muted">{t('goal.ofPeak', { done: fmt(r.done), peak: fmt(r.peak) })}</Text>
-                </View>
-                <View className="h-1.5 rounded-full bg-theme-inset mt-1 overflow-hidden">
-                  <View style={{ width: `${Math.round(pct * 100)}%`, backgroundColor: style.color }} className="h-full rounded-full" />
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {status.consistency && status.consistency.weeks > 0 && (
-        <Text className="text-xs text-theme-muted mt-3">
-          {t('goal.consistency', { done: status.consistency.weeksOnTarget, total: status.consistency.weeks })}
-        </Text>
-      )}
-
-      {/* Life first: explain the limits instead of asking for more time. */}
-      {(status.timeLimited || status.longLimitedBy.length > 0 || status.shortBuild || season?.flags?.estimatedStart) && (
-        <View className="mt-3 pt-3 border-t border-theme-border/60 gap-y-2">
-          {status.timeLimited && cap && unit && (
-            <Note icon="heart-outline" text={t('goal.note_timeLimited', { cap: unit === 'km' ? `${Math.round(cap)} km` : `${formatHours(cap)} h` })} />
-          )}
-          {status.longLimitedBy.map((l) => (
-            <Note
-              key={l.sport}
-              icon="calendar-outline"
-              text={t('goal.note_longLimited', {
-                minutes: l.longestDayMinutes,
-                session: l.sport === 'Bike' ? t('goal.sessionRide') : l.sport === 'Run' ? t('goal.sessionRun') : t('goal.sessionAny'),
-                cap: l.unit === 'km' ? `${l.cap} km` : `${formatHours(l.cap)} h`,
-              })}
-            />
-          ))}
-          {status.shortBuild && <Note icon="time-outline" text={t('goal.note_shortBuild')} />}
-          {season?.flags?.estimatedStart && <Note icon="information-circle-outline" text={t('goal.note_estimatedStart')} />}
-        </View>
-      )}
-    </Card>
+    <View className="flex-1">
+      <Text className="text-[11px] font-semibold text-theme-muted">{label}</Text>
+      <Text className="text-xl font-extrabold text-theme-text font-rajdhani">{value}</Text>
+    </View>
   );
 }
 
-function Note({ icon, text }: { icon: any; text: string }) {
+/**
+ * The race and how the goal is going, in one card: headline, a few numbers, and
+ * one short line per limit the athlete's schedule puts on the plan.
+ */
+export function GoalStatusCard({ status, season }: { status: RaceStatus | null; season: Season }) {
+  const { t } = useLanguage();
   const theme = useTheme();
+  const current = season.currentWeek;
+  const style = STATUS_STYLE[status?.status || 'building'];
+
+  const dateLabel = new Date(season.raceDate + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  const meta =
+    season.daysToRace === 0
+      ? t('goal.raceIsToday')
+      : t('goal.headerMeta', { event: t(`goal.event_${season.eventType.replace('.', '_')}`), days: season.daysToRace, date: dateLabel });
+
+  const hasTime = Boolean(status?.estimateSec && status?.targetSec);
+  const headline = !status
+    ? null
+    : hasTime
+    ? t(`goal.status_${status.status}`, { target: formatRaceTime(status.targetSec) })
+    : t('goal.status_building');
+
+  const unit = season.unit;
+  const cap = season.flags?.capVolume;
+  const notes: { icon: any; text: string }[] = [];
+  if (status?.timeLimited && cap) {
+    notes.push({ icon: 'heart-outline', text: t('goal.note_timeLimited', { cap: unit === 'km' ? `${Math.round(cap)} km` : `${formatHours(cap)} h` }) });
+  }
+  for (const l of status?.longLimitedBy || []) {
+    notes.push({
+      icon: 'calendar-outline',
+      text: t('goal.note_longLimited', {
+        session: l.sport === 'Bike' ? t('goal.sessionRide') : l.sport === 'Run' ? t('goal.sessionRun') : t('goal.sessionAny'),
+        cap: l.unit === 'km' ? `${l.cap} km` : `${formatHours(l.cap)} h`,
+        minutes: l.longestDayMinutes,
+      }),
+    });
+  }
+  if (status?.shortBuild) notes.push({ icon: 'time-outline', text: t('goal.note_shortBuild') });
+  if (season.flags?.estimatedStart) notes.push({ icon: 'information-circle-outline', text: t('goal.note_estimatedStart') });
+
   return (
-    <View className="flex-row items-start gap-2">
-      <Ionicons name={icon} size={15} color={theme.tint} style={{ marginTop: 1 }} />
-      <Text className="flex-1 text-xs text-theme-muted leading-relaxed">{text}</Text>
-    </View>
+    <Card>
+      {/* Race */}
+      <View className="flex-row items-center gap-2">
+        <Ionicons name="flag" size={16} color={PHASE_COLORS.race} />
+        <Text className="text-lg font-extrabold text-theme-text flex-1" numberOfLines={1}>
+          {season.raceName}
+        </Text>
+        {current && (
+          <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: `${PHASE_COLORS[current.phase]}22` }}>
+            <Text className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: PHASE_COLORS[current.phase] }}>
+              {current.isRecovery ? t('goal.recoveryShort') : phaseLabel(t, current.phase)}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text className="text-xs text-theme-muted mt-0.5">{meta}</Text>
+
+      {status && (
+        <View className="mt-3 pt-3 border-t border-theme-border/60">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name={style.icon} size={18} color={style.color} />
+            <Text className="text-base font-extrabold text-theme-text flex-1">{headline}</Text>
+          </View>
+
+          {(status.estimateSec || status.targetSec || status.consistency) && (
+            <View className="flex-row mt-2">
+              {status.estimateSec ? <Stat label={t('goal.estimate')} value={formatRaceTime(status.estimateSec)} /> : null}
+              {status.targetSec ? <Stat label={t('goal.target')} value={formatRaceTime(status.targetSec)} /> : null}
+              {status.consistency && status.consistency.weeks > 0 ? (
+                <Stat label={t('goal.weeksOnTarget')} value={`${status.consistency.weeksOnTarget}/${status.consistency.weeks}`} />
+              ) : null}
+            </View>
+          )}
+
+          {status.trend.length >= 2 && (
+            <View className="mt-2">
+              <TrendChart points={status.trend} color={style.color} />
+            </View>
+          )}
+        </View>
+      )}
+
+      {notes.length > 0 && (
+        <View className="mt-3 gap-y-1.5">
+          {notes.map((n, i) => (
+            <View key={i} className="flex-row items-center gap-1.5">
+              <Ionicons name={n.icon} size={13} color={theme.tint} />
+              <Text className="flex-1 text-xs text-theme-muted">{n.text}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </Card>
   );
 }

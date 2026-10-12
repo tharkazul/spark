@@ -287,7 +287,7 @@ const MessageRow = React.memo(({
           >
             <Ionicons name="sparkles" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
             <Text className="text-white text-xs font-bold font-rajdhani">
-              {t('profile.upgradeToRookaPlus', 'Upgrade to Rooka+')}
+              {t('profile.upgradeToRookaPlus', 'Upgrade to rooka+')}
             </Text>
             <Ionicons name="chevron-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
           </TouchableOpacity>

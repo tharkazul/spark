@@ -122,7 +122,6 @@ export function RoadToRaceCard({ season }: { season: Season }) {
           <Text className="text-[11px] text-theme-muted">{t('goal.checkpoint')}</Text>
         </View>
       </View>
-      <Text className="text-[11px] text-theme-muted mt-2">{t('goal.tapWeekHint')}</Text>
 
       <BottomSheetModal visible={Boolean(selected)} onClose={() => setSelected(null)} showHandle>
         {selected && <WeekDetail week={selected} />}
