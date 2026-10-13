@@ -1931,6 +1931,9 @@ export const en = {
     headerMeta: "{event} · {days} days · {date}",
     estimate: "Estimate",
     weeksOnTarget: "Weeks on target",
+    basisHard: "From {count} recent runs in zone 3 or higher",
+    basisAll: "From {count} recent runs (no zone 3+ runs yet)",
+    basisTyped: "From {count} runs you logged by hand",
   },
   achievements: {
     title: "Achievements",

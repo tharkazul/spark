@@ -94,7 +94,13 @@ export interface RaceStatus {
   estimateSec: number | null;
   targetSec: number | null;
   gapSec?: number;
-  basis?: { distanceKm: number; minutes: number } | null;
+  basis?: {
+    runs: number;
+    hardRuns: number;
+    fromHardRuns: boolean;
+    typedIn: boolean;
+    fastest: { date: string; distanceKm: number; minutes: number };
+  } | null;
   trend: TrendPoint[];
 }
 

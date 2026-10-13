@@ -8,6 +8,8 @@ export interface SportMedallionProps {
   sport?: string;
   size?: number;
   onAccent?: boolean;
+  /** Always draw the 3D medallion artwork, also below 36pt (where the flat glyph is the default). */
+  emblem?: boolean;
   className?: string;
   style?: any;
 }
@@ -43,13 +45,14 @@ export function SportMedallion({
   sport = 'REST',
   size = 40,
   onAccent = false,
+  emblem = false,
   className = '',
   style,
 }: SportMedallionProps) {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const cleanKey = normalizeSportType(sport);
   const color = onAccent ? '#FFFFFF' : sportColor(cleanKey, scheme);
-  const isGlyphOnly = size <= 32;
+  const isGlyphOnly = size <= 32 && !emblem;
 
   if (isGlyphOnly) {
     const glyphName = GLYPH_MAP[cleanKey] || 'dumbbell';

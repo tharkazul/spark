@@ -1933,6 +1933,9 @@ export const de: TranslationKeys = {
     headerMeta: "{event} · {days} Tage · {date}",
     estimate: "Schätzung",
     weeksOnTarget: "Wochen im Plan",
+    basisHard: "Aus {count} aktuellen Läufen in Zone 3 oder höher",
+    basisAll: "Aus {count} aktuellen Läufen (noch keine in Zone 3+)",
+    basisTyped: "Aus {count} manuell eingetragenen Läufen",
   },
   achievements: {
     title: "Erfolge",

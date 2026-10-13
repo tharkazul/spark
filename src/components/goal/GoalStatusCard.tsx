@@ -129,7 +129,15 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
             </View>
           )}
 
-          {status.trend.length >= 2 && (
+          {status.basis && (
+            <Text className="text-[11px] text-theme-muted mt-1">
+              {t(status.basis.fromHardRuns ? 'goal.basisHard' : status.basis.typedIn ? 'goal.basisTyped' : 'goal.basisAll', { count: status.basis.runs })}
+            </Text>
+          )}
+
+          {/* Only a real history is worth a line: with a day or two of data it is flat and reads like a full progress bar. */}
+          {status.trend.length >= 3 &&
+            (new Date(status.trend[status.trend.length - 1].date).getTime() - new Date(status.trend[0].date).getTime()) / 86400000 >= 14 && (
             <View className="mt-2">
               <TrendChart points={status.trend} color={style.color} />
             </View>

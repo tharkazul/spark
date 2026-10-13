@@ -96,6 +96,31 @@ console.log("🏁 Running season plan unit tests...\n");
   console.log("✅ Event types detected from goal names");
 }
 
+// 9. Race estimate: typed-in runs, out-of-band distances and easy runs don't decide it.
+{
+  const { pickRaceEstimate, zoneForHr } = require("./services/goalStatus");
+  const zones = [
+    { zone: 1, min: 95, max: 114 }, { zone: 2, min: 115, max: 133 }, { zone: 3, min: 134, max: 152 },
+    { zone: 4, min: 153, max: 171 }, { zone: 5, min: 172, max: 190 },
+  ];
+  assert.strictEqual(zoneForHr(160, zones), 4);
+  assert.strictEqual(zoneForHr(80, zones), 1);
+  assert.strictEqual(zoneForHr(200, zones), 5);
+  const run = (km, min, hr, id = "s") => ({ distance_km: km, moving_time_min: min, average_heartrate: hr, strava_activity_id: id, start_date: "2026-10-01" });
+  const typedIn = { distance_km: 14.88, moving_time_min: 75, average_heartrate: null, start_date: "2026-10-02" };
+  const halfMarathon = run(21.1, 115, 150);
+  const easy = [run(6, 40, 125), run(7, 46, 128), run(5, 33, 120)];
+  const hard = [run(7.74, 42.9, 153), run(6.35, 34.93, 163), run(4.61, 24.52, 160)];
+  const r1 = pickRaceEstimate([typedIn, halfMarathon, ...easy, ...hard], 5, zones);
+  assert.ok(r1.basis.fromHardRuns && r1.basis.runs === 3, "zone 3+ runs are used when they exist");
+  assert.ok(r1.seconds > 26 * 60 && r1.seconds < 28 * 60, `estimate ${r1.seconds}s comes from the hard runs`);
+  const r2 = pickRaceEstimate([typedIn, ...easy], 5, zones);
+  assert.ok(!r2.basis.fromHardRuns && r2.basis.runs === 3, "easy runs are the fallback, the typed-in run is ignored");
+  const r3 = pickRaceEstimate([typedIn], 5, zones);
+  assert.ok(r3 && r3.basis.typedIn, "typed-in runs only count when nothing was recorded");
+  console.log("✅ Race estimate prefers recorded zone 3+ runs near the race distance");
+}
+
 console.log("\n🎉 All season plan tests passed!");
 setTimeout(() => {
   try { require("fs").unlinkSync(process.env.DB_PATH); } catch (_) {}

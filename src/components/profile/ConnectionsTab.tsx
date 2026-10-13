@@ -726,15 +726,15 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <TouchableOpacity
                 key={sport.id}
                 onPress={() => setSelectedSport(sport.id)}
-                className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1.5 ${
+                className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1 ${
                   isSelected ? 'bg-theme-accent' : 'bg-transparent'
                 }`}
               >
                 <SportMedallion
                   // 'Other' would normalise to the Strength dumbbell.
                   sport={sport.id === 'Other' ? 'Cardio' : sport.id}
-                  size={18}
-                  onAccent={isSelected}
+                  size={19}
+                  emblem
                 />
                 <Text
                   numberOfLines={1}

@@ -15,6 +15,7 @@
  */
 const db = require("./db");
 const seasonPlan = require("./seasonPlan");
+const athleteZones = require("./athleteZones");
 
 const dbAll = (sql, params = []) => new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err || !rows ? [] : rows)));
 const dbGet = (sql, params = []) => new Promise((resolve) => db.get(sql, params, (err, row) => resolve(err ? null : row || null)));
@@ -52,27 +53,75 @@ function parseTargetSeconds(value, distanceKm = 0) {
   return null;
 }
 
-/** Riegel race-time estimate from the athlete's best recent runs (last 6 weeks). */
+// Race-time estimate (approved 2026-10-13, replacing "fastest single run"):
+// - runs recorded by a watch or app (heart rate, or a Strava / Apple Health / Suunto id);
+//   typed-in entries only when there is nothing else
+// - plausible paces only (2:50-12:00 min/km), duplicates removed, last 8 weeks
+// - runs of 0.5x-3x the race distance, so a half marathon doesn't predict a 5K
+// - runs with an average heart rate in zone 3 or higher come first: those are
+//   real efforts, so they predict a race best; easy runs only when there are none
+// - the median of the 3 fastest Riegel predictions: a good normal day, not the best day
+const ESTIMATE_WINDOW_DAYS = 56;
+const MIN_PACE = 2.83;
+const MAX_PACE = 12;
+
+function zoneForHr(hr, hrZones) {
+  if (!(hr > 0) || !Array.isArray(hrZones) || hrZones.length === 0) return null;
+  const sorted = [...hrZones].sort((x, y) => Number(x.zone) - Number(y.zone));
+  if (hr < sorted[0].min) return Number(sorted[0].zone);
+  const hit = sorted.find((z) => hr >= z.min && hr <= z.max);
+  if (hit) return Number(hit.zone);
+  return Number(sorted[sorted.length - 1].zone);
+}
+
+/** Pure part of the estimate, so it can be tested without a database. */
+function pickRaceEstimate(runs, distanceKm, hrZones) {
+  const valid = runs.filter((r) => {
+    if (!(r.distance_km > 0) || !(r.moving_time_min > 0)) return false;
+    const pace = r.moving_time_min / r.distance_km;
+    return pace >= MIN_PACE && pace <= MAX_PACE;
+  });
+  const recorded = valid.filter(
+    (r) => (r.average_heartrate || 0) > 0 || r.strava_activity_id || r.healthkit_workout_id || r.suunto_workout_id
+  );
+  const pool = recorded.length ? recorded : valid;
+  const lo = Math.max(3, 0.5 * distanceKm);
+  const hi = 3 * distanceKm;
+  let band = pool.filter((r) => r.distance_km >= lo && r.distance_km <= hi);
+  if (!band.length) band = pool.filter((r) => r.distance_km >= 3);
+  if (!band.length) return null;
+
+  const hard = band.filter((r) => (zoneForHr(r.average_heartrate, hrZones) || 0) >= 3);
+  const used = hard.length ? hard : band;
+  const preds = used
+    .map((r) => ({ r, sec: r.moving_time_min * 60 * Math.pow(distanceKm / r.distance_km, RIEGEL_EXPONENT) }))
+    .sort((x, y) => x.sec - y.sec);
+  const top = preds.slice(0, 3);
+  const mid = top[Math.floor((top.length - 1) / 2)];
+  const median = top.length % 2 === 1 ? mid.sec : (top[top.length / 2 - 1].sec + top[top.length / 2].sec) / 2;
+  return {
+    seconds: Math.round(median),
+    basis: {
+      runs: used.length,
+      hardRuns: hard.length,
+      fromHardRuns: hard.length > 0,
+      typedIn: recorded.length === 0,
+      fastest: { date: String(top[0].r.start_date || "").slice(0, 10), distanceKm: Math.round(top[0].r.distance_km * 10) / 10, minutes: Math.round(top[0].r.moving_time_min) },
+    },
+  };
+}
+
 async function estimateRaceSeconds(userId, distanceKm) {
-  const since = seasonPlan.addDays(seasonPlan.todayStr(), -42);
-  const runs = (await dbAll(
-    `SELECT sport_type, distance_km, moving_time_min FROM activities
-     WHERE user_id = ? AND substr(start_date, 1, 10) >= ? AND (is_hidden IS NULL OR is_hidden = 0)`,
-    [userId, since]
-  )).filter((a) => RUN_TYPES.has(sportKey(a.sport_type)));
-  // Very short runs extrapolate badly to long races.
-  const minKm = Math.max(3, distanceKm * 0.15);
-  let best = null;
-  let basis = null;
-  for (const r of runs) {
-    if (!(r.distance_km >= minKm) || !(r.moving_time_min > 0)) continue;
-    const pred = r.moving_time_min * 60 * Math.pow(distanceKm / r.distance_km, RIEGEL_EXPONENT);
-    if (best === null || pred < best) {
-      best = pred;
-      basis = { distanceKm: Math.round(r.distance_km * 10) / 10, minutes: Math.round(r.moving_time_min) };
-    }
-  }
-  return best === null ? null : { seconds: Math.round(best), basis };
+  const since = seasonPlan.addDays(seasonPlan.todayStr(), -ESTIMATE_WINDOW_DAYS);
+  const runs = seasonPlan.dedupeActivities(
+    (await dbAll(
+      `SELECT sport_type, distance_km, moving_time_min, start_date, average_heartrate, strava_activity_id, healthkit_workout_id, suunto_workout_id
+       FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ? AND (is_hidden IS NULL OR is_hidden = 0)`,
+      [userId, since]
+    )).filter((a) => RUN_TYPES.has(sportKey(a.sport_type)))
+  );
+  const { hrZones } = await athleteZones.resolveZonesForUser(userId, "Run").catch(() => ({ hrZones: null }));
+  return pickRaceEstimate(runs, distanceKm, hrZones);
 }
 
 async function longestRecent(userId, types, field, days = 28) {
@@ -152,8 +201,8 @@ async function getRaceStatus(userId, season) {
   const targetSec = goal.target_mode === "time" ? parseTargetSeconds(goal.target_value, cfg.distanceKm || 0) : null;
   if (cfg.distanceKm) {
     const est = await estimateRaceSeconds(userId, cfg.distanceKm);
-    if (est) await snapshot(userId, "race_estimate_sec", est.seconds, targetSec);
-    const trend = await history(userId, "race_estimate_sec");
+    if (est) await snapshot(userId, "race_estimate_v2", est.seconds, targetSec);
+    const trend = await history(userId, "race_estimate_v2");
     if (est && targetSec) {
       const gapPct = (est.seconds - targetSec) / targetSec;
       return { ...base, status: statusFromGap(gapPct), estimateSec: est.seconds, targetSec, gapSec: est.seconds - targetSec, basis: est.basis, trend };
@@ -218,4 +267,4 @@ async function getBodyStatus(userId) {
   };
 }
 
-module.exports = { getRaceStatus, getBodyStatus, parseTargetSeconds, estimateRaceSeconds, statusFromGap };
+module.exports = { getRaceStatus, getBodyStatus, parseTargetSeconds, estimateRaceSeconds, pickRaceEstimate, zoneForHr, statusFromGap };

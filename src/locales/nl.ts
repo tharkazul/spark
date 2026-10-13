@@ -1933,6 +1933,9 @@ export const nl: TranslationKeys = {
     headerMeta: "{event} · {days} dagen · {date}",
     estimate: "Schatting",
     weeksOnTarget: "Weken op schema",
+    basisHard: "Op basis van {count} recente runs in zone 3 of hoger",
+    basisAll: "Op basis van {count} recente runs (nog geen zone 3+)",
+    basisTyped: "Op basis van {count} handmatig gelogde runs",
   },
   achievements: {
     title: "Prestaties",

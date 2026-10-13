@@ -1933,6 +1933,9 @@ export const es: TranslationKeys = {
     headerMeta: "{event} · {days} días · {date}",
     estimate: "Estimación",
     weeksOnTarget: "Semanas en objetivo",
+    basisHard: "Según {count} carreras recientes en zona 3 o más",
+    basisAll: "Según {count} carreras recientes (aún ninguna en zona 3+)",
+    basisTyped: "Según {count} carreras registradas a mano",
   },
   achievements: {
     title: "Logros",
