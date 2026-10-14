@@ -8,6 +8,7 @@ const { generateQuestForUser } = require('../services/utils');
 const { detectAthleteGoalDiscipline, getGoalDependentPromptContext } = require('../services/goalPromptContext');
 const { sendSSEEvent } = require('../services/sse');
 const { hasAiConsent, ensureConsentPrompt } = require('../services/aiConsent');
+const athleteFacts = require('../services/athleteFacts');
 
 // Helper to determine benchmark test name & sport based on user context
 function getBenchmarkInfoForUser(athleteContext, targetEvent) {
@@ -404,7 +405,7 @@ router.post('/finalize', authenticateToken, async (req, res) => {
   const userId = req.user.id;
   const {
     coachTone,
-    athleteContext,
+    athleteContext: rawAthleteContext,
     trainingAvailability,
     targetEvent,
     eventDate,
@@ -414,6 +415,11 @@ router.post('/finalize', authenticateToken, async (req, res) => {
     age,
     dateOfBirth
   } = req.body;
+  // Numbers typed during onboarding ("[Metrics: FTP: 272, ...]") go to the metrics
+  // table; the background text keeps only the athlete's own words.
+  const athleteContext = rawAthleteContext
+    ? await athleteFacts.cleanAthleteContext(userId, rawAthleteContext, "onboarding").catch(() => rawAthleteContext)
+    : rawAthleteContext;
 
   const DEFAULT_AVAILABILITY = {
     Mon: { available: true, maxMinutes: 60 },
@@ -455,12 +461,7 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       const maxHr = zoneModel.maxHrFromAge(resolvedAge);
       if (maxHr) {
         await new Promise((resolve) =>
-          db.run(
-            `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'max_hr', ?)
-             ON CONFLICT(user_id, metric) DO UPDATE SET value = excluded.value`,
-            [userId, String(maxHr)],
-            () => resolve()
-          )
+          athleteFacts.setMetric(userId, "max_hr", String(maxHr), "onboarding").then(resolve, resolve)
         );
       }
       return await athleteZones.seedDefaultZones(userId);

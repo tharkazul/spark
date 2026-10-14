@@ -1236,6 +1236,17 @@ router.post("/api/healthkit/sync", authenticateToken, async (req, res) => {
         biometricsSynced++;
       }
       bioStmt.finalize();
+      // Resting HR as a baseline metric: the 7-day average from Apple Health, so the
+      // coach and the zones use the current value rather than one typed in once.
+      db.get(
+        `SELECT AVG(resting_hr) AS rhr, COUNT(resting_hr) AS n FROM biometrics WHERE user_id = ? AND resting_hr > 0 AND date >= date('now', '-7 days')`,
+        [userId],
+        (avgErr, avgRow) => {
+          if (!avgErr && avgRow && avgRow.n >= 3) {
+            require("../services/athleteFacts").setMetric(userId, "resting_hr", String(Math.round(avgRow.rhr)), "apple_health").catch(() => {});
+          }
+        }
+      );
     }
 
     // 2. Process Workouts

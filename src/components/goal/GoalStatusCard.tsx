@@ -81,16 +81,6 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
   if (status?.timeLimited && cap) {
     notes.push({ icon: 'heart-outline', text: t('goal.note_timeLimited', { cap: unit === 'km' ? `${Math.round(cap)} km` : `${formatHours(cap)} h` }) });
   }
-  for (const l of status?.longLimitedBy || []) {
-    notes.push({
-      icon: 'calendar-outline',
-      text: t('goal.note_longLimited', {
-        session: l.sport === 'Bike' ? t('goal.sessionRide') : l.sport === 'Run' ? t('goal.sessionRun') : t('goal.sessionAny'),
-        cap: l.unit === 'km' ? `${l.cap} km` : `${formatHours(l.cap)} h`,
-        minutes: l.longestDayMinutes,
-      }),
-    });
-  }
   if (status?.shortBuild) notes.push({ icon: 'time-outline', text: t('goal.note_shortBuild') });
   if (season.flags?.estimatedStart) notes.push({ icon: 'information-circle-outline', text: t('goal.note_estimatedStart') });
 

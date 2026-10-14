@@ -1,32 +1,27 @@
 /**
- * The coach's rolling long-term memory (users.long_term_memory).
+ * Keeps the coach's knowledge of the athlete up to date.
  *
- * Two writers touch it: the chat route appends notes from `memory` directives, and the
- * background summary rewrites the whole text with an LLM. Both used to read, modify and
- * write without coordination, so a summary that started before a note was appended would
- * finish seconds later and overwrite it; the travel note the coach had just saved was the
- * usual casualty. Now:
- *   - the summary takes the serialized-transaction lock for its read-merge-write and merges
- *     in any lines that were added while the LLM was running (the chat route appends inside
- *     its own serialized transaction, so the two can't interleave);
- *   - concurrent summary requests for the same athlete collapse into one follow-up run;
- *   - the summary prompt knows today's date, must store absolute dates, drops events that
- *     are over, and treats injuries and constraints from their tables as the truth.
+ * The knowledge lives in athlete_facts (services/athleteFacts.js) as separate,
+ * dated facts. Two writers:
+ *   - the chat route applies the coach's `facts` / `memory` blocks directly;
+ *   - the background pass below reads recent chat plus the injury and constraint
+ *     tables and returns small edits (add / update / remove one fact), so a fact
+ *     is never lost because a whole summary was rewritten.
+ * users.long_term_memory is re-rendered from the facts after every change.
  */
 const db = require("./db");
 const { hasAiConsent } = require("./aiConsent");
 const { generateWithFallback } = require("./ai");
 const constraintsService = require("./athleteConstraints");
+const facts = require("./athleteFacts");
+const i18n = require("./i18n");
 
 const HISTORY_ROWS = 20;
-const MAX_WORDS = 250;
 
 const all = (sql, params) =>
   new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err || !rows ? [] : rows)));
 const get = (sql, params) =>
   new Promise((resolve) => db.get(sql, params, (err, row) => resolve(err ? null : row || null)));
-const run = (sql, params) =>
-  new Promise((resolve, reject) => db.run(sql, params, (err) => (err ? reject(err) : resolve())));
 
 function amsToday() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Amsterdam" });
@@ -39,11 +34,8 @@ function amsToday() {
 async function appendMemoryNote(userId, note) {
   const clean = String(note || "").trim();
   if (!clean) return;
-  const row = await get(`SELECT long_term_memory FROM users WHERE id = ?`, [userId]);
-  const existing = (row?.long_term_memory || "").trim();
-  const line = clean.startsWith("-") ? clean : `- ${clean}`;
-  if (existing.split("\n").some((l) => l.trim() === line)) return;
-  await run(`UPDATE users SET long_term_memory = ? WHERE id = ?`, [existing ? `${existing}\n${line}` : line, userId]);
+  await facts.addFact(userId, { text: clean, source: "coach" });
+  await facts.renderMemory(userId);
 }
 
 function chatTimestampDate(ts) {
@@ -53,20 +45,18 @@ function chatTimestampDate(ts) {
 async function summarizeOnce(userId) {
   if (!(await hasAiConsent(userId))) return undefined; // AI is off without the athlete's consent
 
-  const user = await get(`SELECT long_term_memory FROM users WHERE id = ?`, [userId]);
+  const user = await get(`SELECT language FROM users WHERE id = ?`, [userId]);
   if (!user) return;
-  const snapshot = (user.long_term_memory || "").trim();
+  await facts.migrateUser(userId);
   const todayStr = amsToday();
+  const current = await facts.listFacts(userId);
 
   const niggleRows = await all(`SELECT body_part, severity, notes, status FROM athlete_niggles WHERE user_id = ?`, [userId]);
   const activeNiggles = niggleRows.filter((n) => n.status === "active");
-  const resolvedNiggles = niggleRows.filter((n) => n.status === "resolved");
   const activeText =
     activeNiggles.length > 0
       ? activeNiggles.map((n) => `- ${n.body_part}: Severity ${n.severity}/5. ${n.notes || ""}`).join("\n")
-      : "No active injuries or niggles reported. Athlete is 100% healthy.";
-  const resolvedText =
-    resolvedNiggles.length > 0 ? resolvedNiggles.map((n) => `- ${n.body_part}: HEALED / RESOLVED`).join("\n") : "None.";
+      : "None. The athlete is fully healthy.";
 
   const constraints = await constraintsService.getCurrentAndUpcomingConstraints(userId, todayStr);
   const constraintsText = constraintsService.formatConstraintsForPrompt(constraints, todayStr);
@@ -80,54 +70,43 @@ async function summarizeOnce(userId) {
       ? historyRows.map((r) => `[${chatTimestampDate(r.timestamp)}] ${String(r.role).toUpperCase()}: ${r.content}`).join("\n")
       : "No recent chat.";
 
-  const prompt = `You are a background AI assistant for an endurance coach app. Your job is to update the athlete's long-term memory summary based on recent chat history and the app's real-time records.
+  const prompt = `You maintain what an endurance coach knows about one athlete, as a list of separate facts.
 
-TODAY'S DATE: ${todayStr} (Europe/Amsterdam)
+TODAY: ${todayStr} (Europe/Amsterdam)
 
-CURRENT LONG-TERM MEMORY:
-${snapshot || "No summary yet."}
+CURRENT FACTS (id, category, text, optional end date):
+${facts.formatFacts(current)}
 
-REAL-TIME ACTIVE INJURIES (REALITY / TRUTH):
+ACTIVE INJURIES (the injury table is the truth; do not store injuries as facts):
 ${activeText}
 
-REAL-TIME RESOLVED / HEALED INJURIES (REALITY / TRUTH):
-${resolvedText}
-
-REAL-TIME TRAINING CONSTRAINTS: TRAVEL / ILLNESS / EQUIPMENT (REALITY / TRUTH):
+TRAINING CONSTRAINTS (travel / illness / equipment; the constraint table is the truth for dates):
 ${constraintsText}
 
-RECENT CHAT HISTORY (each line starts with the date it was sent):
+RECENT CHAT (each line starts with the date it was sent):
 ${historyText}
 
-INSTRUCTIONS & CRITICAL RULES:
-1. INJURY TRUTH: Refer strictly to the ACTIVE INJURIES list above. If an injury is listed under RESOLVED INJURIES or is NOT in ACTIVE INJURIES, REMOVE IT COMPLETELY from current physical issues in the summary. Note it as fully healed or omit it.
-2. ABSOLUTE DATES ONLY: Never write relative time ("next week", "tomorrow", "in two weeks", "this weekend"). Convert every one to calendar dates using the date each chat message was sent (e.g. a message sent on 2026-10-07 saying "next week" means 2026-10-12 to 2026-10-18).
-3. TRAVEL, HOLIDAYS, ILLNESS & EQUIPMENT (CRITICAL): Record trips, holidays, time away, missing equipment (no bike, no gym) and illness with destination, start and end dates and the agreed training changes (e.g. "Italy 2026-10-12 to 2026-10-18: running only, easy Zone 2, no bike, no gym"). The CONSTRAINTS list above is the truth for dates and rules; if the chat and the list disagree, follow the list.
-4. EXPIRY: Remove trips, illnesses and temporary limits whose end date is before ${todayStr}, or shorten them to a single past-tense line if they still matter (e.g. "Back from Italy since 2026-10-18").
-5. Keep lasting facts: goals, preferences, life context, baseline numbers, how the athlete likes to be coached. Do not drop a lasting fact just because it is not in the recent chat.
-6. Keep it concise (under ${MAX_WORDS} words), as short dated bullet points. No pleasantries. Output only the updated summary text.`;
+Return ONLY JSON: {"ops": [...]} with the smallest set of edits that keeps the facts true and useful:
+- {"op": "add", "category": "life|schedule|goal|preference|health|experience", "text": "...", "until": "YYYY-MM-DD or null"}
+- {"op": "update", "id": 12, "text": "...", "until": "YYYY-MM-DD or null"}
+- {"op": "remove", "id": 12}
+Rules:
+1. One fact per item, one short sentence, written in ${i18n.languageName(user.language)}. Lasting things (family, job, when they can train, how they like to be coached, goals, experience) and temporary things with an end date (a trip, a busy work period).
+2. Absolute dates only: convert "next week" etc. using the date each message was sent.
+3. Update a fact that changed (e.g. "twins due in March" -> "twins born on 2026-03-14") instead of adding a second one. Remove facts that are no longer true.
+4. No numbers that belong in metrics (FTP, max HR, resting HR, paces) and no injuries: those have their own tables.
+5. Don't repeat what is already there. If nothing changed, return {"ops": []}.
+6. At most ${40} facts in total; merge small related facts.`;
 
-  const newSummary = String((await generateWithFallback(prompt)) || "").trim();
-  if (!newSummary) return;
-
-  // Merge under the lock: anything appended while the LLM was busy is kept.
-  const release = await db.beginSerializedTransaction("memory-summary");
+  const raw = await generateWithFallback(prompt, null, null, null, userId, "common", true, { language: user.language });
+  let ops = [];
   try {
-    const current = ((await get(`SELECT long_term_memory FROM users WHERE id = ?`, [userId]))?.long_term_memory || "").trim();
-    const snapshotLines = new Set(snapshot.split("\n").map((l) => l.trim()).filter(Boolean));
-    const addedMeanwhile = current
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l && !snapshotLines.has(l));
-    const merged = addedMeanwhile.length > 0 ? `${newSummary}\n${addedMeanwhile.join("\n")}` : newSummary;
-    await run(`UPDATE users SET long_term_memory = ? WHERE id = ?`, [merged, userId]);
-    await run("COMMIT", []);
-  } catch (err) {
-    await run("ROLLBACK", []).catch(() => {});
-    throw err;
-  } finally {
-    release();
+    const parsed = typeof raw === "string" ? JSON.parse(raw.replace(/^```json\s*|```$/g, "").trim()) : raw;
+    ops = Array.isArray(parsed?.ops) ? parsed.ops : [];
+  } catch (_) {
+    return;
   }
+  await facts.applyOps(userId, ops, "coach");
 }
 
 const inFlight = new Map(); // userId -> { again: boolean }
@@ -147,7 +126,7 @@ async function triggerBackgroundSummary(userId) {
       state.again = false;
       try {
         await summarizeOnce(userId);
-        console.log(`✅ Updated long-term memory for user ${userId}`);
+        console.log(`✅ Updated coach facts for user ${userId}`);
       } catch (e) {
         console.error(`❌ Failed to update long-term memory for user ${userId}:`, e);
       }

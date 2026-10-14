@@ -1,4 +1,5 @@
 const seasonPlan = require('../services/seasonPlan');
+const athleteFacts = require('../services/athleteFacts');
 const express = require("express");
 const router = express.Router();
 const path = require("path");
@@ -304,18 +305,10 @@ router.put("/api/user/zones", authenticateToken, async (req, res) => {
 
   // If structured threshold baselines (maxHr, ftp) were provided, persist them in athlete_metrics
   if (typeof maxHr === 'number' && maxHr > 0) {
-    db.run(
-      `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'max_hr', ?)
-       ON CONFLICT(user_id, metric) DO UPDATE SET value = excluded.value`,
-      [req.user.id, Math.round(maxHr)]
-    );
+    await athleteFacts.setMetric(req.user.id, "max_hr", String(Math.round(maxHr)), "athlete").catch(() => {});
   }
   if (typeof ftp === 'number' && ftp > 0) {
-    db.run(
-      `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, 'ftp', ?)
-       ON CONFLICT(user_id, metric) DO UPDATE SET value = excluded.value`,
-      [req.user.id, Math.round(ftp)]
-    );
+    await athleteFacts.setMetric(req.user.id, "ftp", String(Math.round(ftp)), "athlete").catch(() => {});
   }
 
   if (kind !== "hr" && kind !== "power") {
@@ -406,13 +399,16 @@ router.post("/api/user/settings/account", authenticateToken, (req, res) => {
 });
 
 router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
-  db.get(`SELECT * FROM users WHERE id = ?`, [req.user.id], (err, row) => {
+  db.get(`SELECT * FROM users WHERE id = ?`, [req.user.id], async (err, row) => {
     if (err || !row) return res.status(500).json({ error: "Database error." });
 
     const reqTone = req.body.coachTone !== undefined ? req.body.coachTone : row.coach_tone;
     const reqName = req.body.coachName !== undefined ? req.body.coachName : row.coach_name;
     const reqContext = req.body.coachContext !== undefined ? req.body.coachContext : row.coach_context;
-    const athleteContext = req.body.athleteContext !== undefined ? req.body.athleteContext : row.athlete_context;
+    // A "[Metrics: ...]" block in the text is moved to the metrics table (older app versions still send one).
+    const athleteContext = req.body.athleteContext !== undefined
+      ? await athleteFacts.cleanAthleteContext(req.user.id, req.body.athleteContext, "athlete").catch(() => req.body.athleteContext)
+      : row.athlete_context;
     const gender = req.body.gender !== undefined ? req.body.gender : row.gender;
     const lastCycleStart = req.body.lastCycleStart !== undefined ? req.body.lastCycleStart : row.last_cycle_start;
     const availabilityStr = req.body.trainingAvailability !== undefined
@@ -554,7 +550,7 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             "garmin_health_data", "user_titles", "athlete_niggles", "bonus_points", 
             "recurring_trainings", "benchmark_tests", "athlete_zones", "strava_tokens", 
             "discount_redemptions", "user_discounts", "user_milestone_history", 
-            "user_feature_onboarding", "password_resets"
+            "user_feature_onboarding", "password_resets", "athlete_facts"
         ];
 
         db.serialize(() => {

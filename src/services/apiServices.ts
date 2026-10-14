@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import type { Achievement, ExerciseCues, RacePlan, SeasonResponse } from '../types/season';
+import type { AthleteFact, AthleteMetric, FactCategory } from '../types/facts';
 import { UserProfile, RecurringTraining, BenchmarkTest } from '../types/user';
 import { Activity } from '../types/activity';
 import { PlannedWorkout } from '../types/plan';
@@ -585,4 +586,17 @@ export const seasonApi = {
   getAchievements: () => apiClient<{ achievements: Achievement[] }>('/api/achievements'),
   getExerciseCues: (name: string) =>
     apiClient<{ cues: ExerciseCues | null; code?: string }>(`/api/exercises/cues?name=${encodeURIComponent(name)}`),
+};
+
+export const factsApi = {
+  list: () => apiClient<{ facts: AthleteFact[]; metrics: AthleteMetric[] }>('/api/facts'),
+  add: (fact: { category: FactCategory; text: string; until?: string | null }) =>
+    apiClient<{ success: boolean; id: number }>('/api/facts', { method: 'POST', body: JSON.stringify(fact) }),
+  update: (id: number, fact: { category?: FactCategory; text?: string; until?: string | null }) =>
+    apiClient<{ success: boolean }>(`/api/facts/${id}`, { method: 'PUT', body: JSON.stringify(fact) }),
+  remove: (id: number) => apiClient<{ success: boolean }>(`/api/facts/${id}`, { method: 'DELETE' }),
+  setMetric: (key: string, value: string) =>
+    apiClient<{ success: boolean }>(`/api/athlete-metrics/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value }) }),
+  removeMetric: (key: string) =>
+    apiClient<{ success: boolean }>(`/api/athlete-metrics/${encodeURIComponent(key)}`, { method: 'DELETE' }),
 };

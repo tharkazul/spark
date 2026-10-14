@@ -679,17 +679,8 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
     throw new Error(`User ID ${userId} not found`);
   }
 
-  // 2. Fetch physiological metrics
-  const metrics = await new Promise((resolve) => {
-    db.all(
-      `SELECT metric, value FROM athlete_metrics WHERE user_id = ?`,
-      [userId],
-      (err, rows) => resolve(err || !rows ? [] : rows)
-    );
-  });
-  const metricsText = metrics.length > 0
-    ? metrics.map((m) => `${m.metric}: ${m.value}`).join(", ")
-    : "No explicit laboratory/field metrics recorded.";
+  // 2. Physiological metrics: latest value per metric, with its date and source.
+  const metricsText = await require("./athleteFacts").formatMetricsForPrompt(userId).catch(() => "No explicit laboratory/field metrics recorded.");
 
   // 3. Fetch recent strength and sets
   const recentSetsRows = await new Promise((resolve) => {

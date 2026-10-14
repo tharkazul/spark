@@ -37,6 +37,7 @@ const { requireAiConsent, ensureConsentPrompt } = require("../services/aiConsent
 const { sseClients, sendSSEEvent } = require('../services/sse');
 const { sendPushToUser } = require('../services/pushNotificationService');
 const seasonPlan = require('../services/seasonPlan');
+const athleteFacts = require('../services/athleteFacts');
 const { generateWithFallback, generateImage, transcribeAudio } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const muscleLoad = require('../services/muscleLoad');
@@ -352,10 +353,8 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
             `SELECT metric, value FROM athlete_metrics WHERE user_id = ?`,
             [req.user.id],
             async (err, metricsRows) => {
-              const metricsText =
-                metricsRows && metricsRows.length > 0
-                  ? metricsRows.map((m) => `${m.metric}: ${m.value}`).join(", ")
-                  : "None explicitly recorded yet.";
+              // Latest value per metric, with its date and source, so newer numbers win.
+              const metricsText = await athleteFacts.formatMetricsForPrompt(req.user.id);
               const hrZonesText = await formatHrZonesForPrompt(req.user.id).catch(() => "");
 
               const recentBiometrics = await new Promise((resolve) => {
@@ -761,7 +760,7 @@ Never request illustrations, drawings, sketches or cartoons, and never use words
 
                                        const cycleText =
                                          (user.gender === "Female" || user.gender === "Prefer not to share" || user.gender === "Prefer not to say") && user.cycle_tracking_enabled !== 0
-                                           ? `MENSTRUAL CYCLE: Proactively ask when her/their menstrual cycle starts to optimize training, track these dates in long-term memory, and distribute exercises carefully, reducing physical demand during the strenuous days of the cycle. When the athlete mentions that their period started today or on a specific date, add:
+                                           ? `MENSTRUAL CYCLE: Proactively ask when her/their menstrual cycle starts to optimize training, track these dates, and distribute exercises carefully, reducing physical demand during the strenuous days of the cycle. When the athlete mentions that their period started today or on a specific date, add:
 \`\`\`json
 {"type": "log_cycle", "data": {"start_date": "YYYY-MM-DD"}}
 \`\`\``
@@ -794,8 +793,8 @@ ${user.athlete_context}
 
 ${nutritionContextText}
 
-LONG-TERM MEMORY (From Past Conversations):
-${user.long_term_memory}
+WHAT YOU KNOW ABOUT THE ATHLETE (facts; to change one, use its id in a facts block):
+${user.long_term_memory || "Nothing recorded yet."}
 
 PHYSIOLOGICAL METRICS:
 ${metricsText}
@@ -1015,26 +1014,15 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                             parsedData.type === "metrics" &&
                                             parsedData.data
                                           ) {
-                                            await new Promise((resolveMetrics) => {
-                                              db.serialize(() => {
-                                                const stmt = db.prepare(
-                                                  `INSERT INTO athlete_metrics (user_id, metric, value) VALUES (?, ?, ?) ON CONFLICT(user_id, metric) DO UPDATE SET value=excluded.value`,
-                                                );
-                                                for (const [
-                                                  key,
-                                                  val,
-                                                ] of Object.entries(
-                                                  parsedData.data,
-                                                )) {
-                                                  stmt.run(
-                                                    req.user.id,
-                                                    key,
-                                                    String(val),
-                                                  );
-                                                }
-                                                stmt.finalize(() => resolveMetrics());
-                                              });
-                                            });
+                                            for (const [key, val] of Object.entries(parsedData.data || {})) {
+                                              await athleteFacts.setMetric(req.user.id, key, val, "coach").catch(() => {});
+                                            }
+                                          } else if (parsedData && parsedData.type === "facts") {
+                                            // Single-fact edits: add, update or remove what the coach knows.
+                                            const ops = Array.isArray(parsedData.data) ? parsedData.data : Array.isArray(parsedData.ops) ? parsedData.ops : [];
+                                            await athleteFacts.applyOps(req.user.id, ops, "coach").catch((e) =>
+                                              console.error("Failed to apply coach facts:", e.message)
+                                            );
                                           } else if (
                                             parsedData &&
                                             (parsedData.type === "memory" || parsedData.type === "life_event" || parsedData.type === "travel") &&
