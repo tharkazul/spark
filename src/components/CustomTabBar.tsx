@@ -576,7 +576,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
         visible={activeModal === 'weight'}
         onClose={() => setActiveModal('none')}
         onSaveWeight={(weight) => {
-          logPhysique({ weight_kg: weight, date: new Date().toISOString() });
+          logPhysique({ weight_kg: weight });
           setActiveModal('none');
         }}
       />

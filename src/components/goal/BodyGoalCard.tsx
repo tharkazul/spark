@@ -3,7 +3,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { Card } from '../ui/Card';
-import { Sparkline } from '../common/Sparkline';
+import { WeightPathChart } from './WeightPathChart';
 import { useLanguage } from '../../context/LanguageContext';
 import { BodyStatus, GoalStatusKind } from '../../types/season';
 
@@ -33,14 +33,9 @@ export function BodyGoalCard({ status }: { status: BodyStatus }) {
         <Text className="text-lg font-extrabold text-theme-text flex-1">{headline}</Text>
       </View>
       {status.currentKg !== null && (
-        <View className="flex-row items-end justify-between mt-2">
-          <Text className="text-2xl font-extrabold text-theme-text font-rajdhani">
-            {status.currentKg} <Text className="text-theme-muted">→ {status.targetKg} kg</Text>
-          </Text>
-          {status.trend.length >= 2 && (
-            <Sparkline data={status.trend.map((p) => p.value)} color={color} gradientFrom={`${color}33`} gradientTo={`${color}00`} height={36} width={120} />
-          )}
-        </View>
+        <Text className="text-2xl font-extrabold text-theme-text font-rajdhani mt-2">
+          {status.currentKg} <Text className="text-theme-muted">→ {status.targetKg} kg</Text>
+        </Text>
       )}
       {status.ratePerWeek !== null && status.ratePerWeek !== undefined && status.neededPerWeek !== null && status.neededPerWeek !== undefined && (
         <Text className="text-xs text-theme-muted mt-2">
@@ -48,6 +43,9 @@ export function BodyGoalCard({ status }: { status: BodyStatus }) {
         </Text>
       )}
       {status.status === 'ambitious' && <Text className="text-xs text-theme-muted mt-1">{t('goal.bodyAmbitiousNote')}</Text>}
+      {status.trend.length >= 2 && status.goalDate ? (
+        <WeightPathChart points={status.trend} targetKg={status.targetKg} goalDate={status.goalDate} color={color} />
+      ) : null}
     </Card>
   );
 }

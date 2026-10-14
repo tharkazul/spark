@@ -596,9 +596,9 @@ export default function PlanningHomeScreen() {
     if (result.success) {
       setIsSyncedSuccess(true);
       setTimeout(() => setIsSyncedSuccess(false), 3500);
-      Alert.alert(t('alerts.settingsSaved', 'Success'), result.message);
+      Alert.alert(t('deviceSync.sentTitle'), result.message);
     } else {
-      Alert.alert(t('alerts.errorOccurred', 'Sync Failed'), result.message);
+      Alert.alert(t('deviceSync.sendFailedTitle'), result.message);
     }
   };
 
@@ -607,9 +607,9 @@ export default function PlanningHomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const result = await syncWorkouts([workout]);
     if (result.success) {
-      Alert.alert(t('alerts.settingsSaved', 'Success'), result.message);
+      Alert.alert(t('deviceSync.sentTitle'), result.message);
     } else {
-      Alert.alert(t('alerts.errorOccurred', 'Sync Failed'), result.message);
+      Alert.alert(t('deviceSync.sendFailedTitle'), result.message);
     }
   };
 

@@ -388,11 +388,11 @@ const messages = {
   },
   season: {
     taperOffer: {
-      en: "Your taper starts this week: {race} is {days} days away. 🏁 Want a race plan? I'll put together your pacing, fuelling, a race-week checklist and race morning. Tap \"Create race plan\" on your Goal page, or just ask me here.",
-      nl: "Deze week begint je taper: {race} is over {days} dagen. 🏁 Zal ik een raceplan maken? Met je tempo, voeding, een checklist voor de raceweek en de raceochtend. Tik op \"Raceplan maken\" op je Doel-pagina, of vraag het me hier.",
-      de: "Diese Woche beginnt dein Tapering: {race} ist in {days} Tagen. 🏁 Soll ich dir einen Rennplan machen? Mit Pacing, Verpflegung, einer Checkliste für die Rennwoche und den Rennmorgen. Tippe auf \"Rennplan erstellen\" auf deiner Ziel-Seite oder frag mich einfach hier.",
-      es: "Esta semana empieza tu taper: faltan {days} días para {race}. 🏁 ¿Te preparo un plan de carrera? Ritmos, nutrición, una checklist para la semana de carrera y la mañana de la carrera. Toca \"Crear plan de carrera\" en tu página de Objetivo o pídemelo aquí.",
-      fr: "Ton affûtage commence cette semaine : {race} est dans {days} jours. 🏁 Tu veux un plan de course ? Allures, ravitaillement, une checklist pour la semaine de course et le matin de la course. Touche « Créer le plan de course » sur ta page Objectif, ou demande-le-moi ici.",
+      en: "Your taper starts this week: {race} is {days} days away. 🏁 Want a race plan? I'll put together your pacing, fuelling, a race-week checklist and race morning. Tap \"Create my race-day plan\" on your Goal page, or just ask me here.",
+      nl: "Deze week begint je taper: {race} is over {days} dagen. 🏁 Zal ik een raceplan maken? Met je tempo, voeding, een checklist voor de raceweek en de raceochtend. Tik op \"Maak mijn raceplan\" op je Doel-pagina, of vraag het me hier.",
+      de: "Diese Woche beginnt dein Tapering: {race} ist in {days} Tagen. 🏁 Soll ich dir einen Rennplan machen? Mit Pacing, Verpflegung, einer Checkliste für die Rennwoche und den Rennmorgen. Tippe auf \"Meinen Rennplan erstellen\" auf deiner Ziel-Seite oder frag mich einfach hier.",
+      es: "Esta semana empieza tu taper: faltan {days} días para {race}. 🏁 ¿Te preparo un plan de carrera? Ritmos, nutrición, una checklist para la semana de carrera y la mañana de la carrera. Toca \"Crear mi plan de carrera\" en tu página de Objetivo o pídemelo aquí.",
+      fr: "Ton affûtage commence cette semaine : {race} est dans {days} jours. 🏁 Tu veux un plan de course ? Allures, ravitaillement, une checklist pour la semaine de course et le matin de la course. Touche « Créer mon plan du jour J » sur ta page Objectif, ou demande-le-moi ici.",
     },
     taperPushTitle: { en: "Taper time", nl: "Tijd voor je taper", de: "Zeit fürs Tapering", es: "Empieza el taper", fr: "C'est l'heure de l'affûtage" },
     debrief: {

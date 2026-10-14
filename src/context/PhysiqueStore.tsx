@@ -101,15 +101,19 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [isAuthenticated, aiEnabled]);
 
   const logPhysique = React.useCallback(async (entry: Partial<PhysiqueEntry>) => {
+    // Always a local calendar day (YYYY-MM-DD): the server matches it against
+    // the plan for that day, and a UTC timestamp matched nothing.
+    const now = new Date();
+    const localDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const newEntry: PhysiqueEntry = {
       id: Date.now(),
-      date: new Date().toISOString().split('T')[0],
       weight_kg: entry.weight_kg || 74.0,
       ...entry,
+      date: entry.date && /^\d{4}-\d{2}-\d{2}$/.test(entry.date) ? entry.date : localDay,
     };
     setPhysiqueLogs((prev) => [newEntry, ...prev]);
     try {
-      await physiqueApi.logPhysique(entry);
+      await physiqueApi.logPhysique({ ...entry, date: newEntry.date });
     } catch (err) {
       console.error('Log physique sync error:', err);
     }

@@ -140,6 +140,15 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
             (new Date(status.trend[status.trend.length - 1].date).getTime() - new Date(status.trend[0].date).getTime()) / 86400000 >= 14 && (
             <View className="mt-2">
               <TrendChart points={status.trend} color={style.color} />
+              <View className="flex-row justify-between mt-0.5">
+                <Text className="text-[10px] text-theme-muted">
+                  {t('goal.trendStart', {
+                    weeks: Math.round((new Date(status.trend[status.trend.length - 1].date).getTime() - new Date(status.trend[0].date).getTime()) / (7 * 86400000)),
+                    time: formatRaceTime(status.trend[0].value),
+                  })}
+                </Text>
+                <Text className="text-[10px] text-theme-muted">{t('goal.trendNow')}</Text>
+              </View>
             </View>
           )}
         </View>

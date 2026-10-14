@@ -268,7 +268,14 @@ router.post(
   "/api/physique",
   authenticateToken,
   async (req, res) => {
-    const { date, weight_kg, sleep_quality, fatigue_level, notes } = req.body;
+    const { weight_kg, sleep_quality, fatigue_level, notes } = req.body;
+    // One calendar day (Europe/Amsterdam). Older apps sent a UTC timestamp or no
+    // date at all, so the plan lookup below found nothing and the coach called
+    // a training day a rest day.
+    const rawDate = req.body.date;
+    let date = getAMSDateString();
+    if (typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) date = rawDate;
+    else if (rawDate && !isNaN(new Date(rawDate).getTime())) date = getAMSDateString(new Date(rawDate));
 
     db.run(
       `INSERT INTO physique_logs (user_id, date, weight_kg, sleep_quality, fatigue_level, notes) VALUES (?, ?, ?, ?, ?, ?)`,

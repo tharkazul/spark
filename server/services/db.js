@@ -142,6 +142,24 @@ db.serialize(() => {
     `UPDATE users SET coach_name = 'Rooka' WHERE coach_name IS NULL OR coach_name = '' OR coach_name = 'Spark'`,
     (err) => {},
   );
+  // Weigh-ins from the quick action were stored with a full UTC timestamp as
+  // their date (or none at all); bring them back to a calendar day so charts and
+  // the weight goal see them. A day that already has a value keeps it.
+  db.run(`UPDATE OR IGNORE biometrics SET date = substr(date, 1, 10) WHERE length(date) > 10`, () => {
+    // Rows left over clash with a day that already exists (e.g. from Apple Health):
+    // keep their weight on that day, then drop them.
+    db.run(
+      `UPDATE biometrics SET weight_kg = (
+         SELECT l.weight_kg FROM biometrics l
+         WHERE l.user_id = biometrics.user_id AND length(l.date) > 10 AND substr(l.date, 1, 10) = biometrics.date AND l.weight_kg IS NOT NULL
+         ORDER BY l.date DESC LIMIT 1)
+       WHERE length(date) = 10 AND weight_kg IS NULL AND EXISTS (
+         SELECT 1 FROM biometrics l
+         WHERE l.user_id = biometrics.user_id AND length(l.date) > 10 AND substr(l.date, 1, 10) = biometrics.date AND l.weight_kg IS NOT NULL)`,
+      () => db.run(`DELETE FROM biometrics WHERE length(date) > 10`, () => {})
+    );
+  });
+  db.run(`UPDATE physique_logs SET date = substr(date, 1, 10) WHERE length(date) > 10`, () => {});
   // The brand is written in lowercase; existing default titles get the new spelling.
   db.run(
     `UPDATE user_titles SET title = 'rooka+ Athlete', description = 'Official member of the rooka+ endurance squad.' WHERE milestone_key = 'default_rooka_plus' AND title != 'rooka+ Athlete'`,

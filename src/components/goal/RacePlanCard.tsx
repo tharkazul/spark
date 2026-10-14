@@ -10,6 +10,7 @@ import { useUser } from '../../context/UserStore';
 import { useTheme } from '@/hooks/use-theme';
 import { RacePlan, Season } from '../../types/season';
 import { confirmEnableAi } from '../../utils/aiConsent';
+import { getCoachDisplayName } from '../../utils/avatarUtils';
 
 // The race plan appears in the taper (or within 3 weeks of the race) and stays once made.
 const SHOW_WITHIN_DAYS = 21;
@@ -46,13 +47,38 @@ export function RacePlanCard({ season, plan }: { season: Season; plan: RacePlan 
   };
 
   if (!plan) {
+    const parts: { icon: any; title: string; desc: string }[] = [
+      { icon: 'speedometer-outline', title: t('goal.planPacing'), desc: t('goal.offerPacing') },
+      { icon: 'nutrition-outline', title: t('goal.planFueling'), desc: t('goal.offerFueling') },
+      { icon: 'calendar-outline', title: t('goal.planRaceWeek'), desc: t('goal.offerRaceWeek') },
+      { icon: 'sunny-outline', title: t('goal.planMorning'), desc: t('goal.offerMorning') },
+    ];
     return (
       <Card variant="accent">
         <View className="flex-row items-center gap-2">
           <Ionicons name="map-outline" size={18} color={theme.tint} />
           <Text className="text-base font-extrabold text-theme-text flex-1">{t('goal.racePlanTitle')}</Text>
         </View>
-        <Text className="text-sm text-theme-muted mt-1 leading-relaxed">{t('goal.racePlanOffer', { race: season.raceName })}</Text>
+        <Text className="text-sm text-theme-muted mt-1">
+          {t('goal.racePlanOffer', { race: season.raceName, coach: getCoachDisplayName(user) })}
+        </Text>
+
+        <View className="flex-row flex-wrap mt-3" style={{ gap: 8 }}>
+          {parts.map((p) => (
+            <View key={p.title} className="bg-theme-card rounded-inset p-2.5 flex-row items-center gap-2" style={{ width: '48%' }}>
+              <Ionicons name={p.icon} size={18} color={theme.tint} />
+              <View className="flex-1">
+                <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
+                  {p.title}
+                </Text>
+                <Text className="text-[11px] text-theme-muted" numberOfLines={1}>
+                  {p.desc}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
         <TouchableOpacity
           onPress={handleCreate}
           disabled={creating}

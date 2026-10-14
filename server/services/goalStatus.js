@@ -10,8 +10,8 @@
  *   ambitious     further away; the coach prioritises what moves the needle most
  *   building      no target time, or not enough data for an estimate yet
  *
- * Computed only here (the app displays it), with one snapshot a day so the Goal
- * page can draw the estimate over time against the target.
+ * Computed only here (the app displays it). The trends come from the activity
+ * and weigh-in history, so they show from the first day.
  */
 const db = require("./db");
 const seasonPlan = require("./seasonPlan");
@@ -19,16 +19,6 @@ const athleteZones = require("./athleteZones");
 
 const dbAll = (sql, params = []) => new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err || !rows ? [] : rows)));
 const dbGet = (sql, params = []) => new Promise((resolve) => db.get(sql, params, (err, row) => resolve(err ? null : row || null)));
-const dbRun = (sql, params = []) => new Promise((resolve) => db.run(sql, params, () => resolve()));
-
-db.run(`CREATE TABLE IF NOT EXISTS goal_snapshots (
-  user_id INTEGER NOT NULL,
-  date TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  value REAL,
-  target REAL,
-  PRIMARY KEY (user_id, date, kind)
-)`);
 
 const RIEGEL_EXPONENT = 1.06;
 const RUN_TYPES = new Set(["run", "virtualrun", "trailrun", "treadmill"]);
@@ -111,8 +101,16 @@ function pickRaceEstimate(runs, distanceKm, hrZones) {
   };
 }
 
+const TREND_WEEKS = 12;
+
+/**
+ * Today's estimate plus one per week for the last TREND_WEEKS weeks, each from
+ * the runs in the 8 weeks before that day. Worked out from the activity history,
+ * so the trend line is there from day one instead of building up from snapshots.
+ */
 async function estimateRaceSeconds(userId, distanceKm) {
-  const since = seasonPlan.addDays(seasonPlan.todayStr(), -ESTIMATE_WINDOW_DAYS);
+  const today = seasonPlan.todayStr();
+  const since = seasonPlan.addDays(today, -(ESTIMATE_WINDOW_DAYS + TREND_WEEKS * 7));
   const runs = seasonPlan.dedupeActivities(
     (await dbAll(
       `SELECT sport_type, distance_km, moving_time_min, start_date, average_heartrate, strava_activity_id, healthkit_workout_id, suunto_workout_id
@@ -121,7 +119,27 @@ async function estimateRaceSeconds(userId, distanceKm) {
     )).filter((a) => RUN_TYPES.has(sportKey(a.sport_type)))
   );
   const { hrZones } = await athleteZones.resolveZonesForUser(userId, "Run").catch(() => ({ hrZones: null }));
-  return pickRaceEstimate(runs, distanceKm, hrZones);
+  const asOf = (day) => {
+    const from = seasonPlan.addDays(day, -ESTIMATE_WINDOW_DAYS);
+    return pickRaceEstimate(
+      runs.filter((r) => {
+        const d = String(r.start_date || "").slice(0, 10);
+        return d >= from && d <= day;
+      }),
+      distanceKm,
+      hrZones
+    );
+  };
+  const current = asOf(today);
+  if (!current) return null;
+  const trend = [];
+  for (let w = TREND_WEEKS; w >= 1; w--) {
+    const day = seasonPlan.addDays(today, -7 * w);
+    const e = asOf(day);
+    if (e) trend.push({ date: day, value: e.seconds });
+  }
+  trend.push({ date: today, value: current.seconds });
+  return { ...current, trend };
 }
 
 async function longestRecent(userId, types, field, days = 28) {
@@ -133,20 +151,6 @@ async function longestRecent(userId, types, field, days = 28) {
   return rows.filter((r) => types.has(sportKey(r.sport_type))).reduce((m, r) => Math.max(m, r.v || 0), 0);
 }
 
-async function snapshot(userId, kind, value, target) {
-  if (value === null || value === undefined) return;
-  await dbRun(
-    `INSERT OR REPLACE INTO goal_snapshots (user_id, date, kind, value, target) VALUES (?, ?, ?, ?, ?)`,
-    [userId, seasonPlan.todayStr(), kind, value, target ?? null]
-  );
-}
-
-async function history(userId, kind) {
-  return dbAll(
-    `SELECT date, value, target FROM goal_snapshots WHERE user_id = ? AND kind = ? AND date >= ? ORDER BY date ASC`,
-    [userId, kind, seasonPlan.addDays(seasonPlan.todayStr(), -180)]
-  );
-}
 
 function statusFromGap(gapPct) {
   if (gapPct <= 0.02) return "on_track";
@@ -201,8 +205,7 @@ async function getRaceStatus(userId, season) {
   const targetSec = goal.target_mode === "time" ? parseTargetSeconds(goal.target_value, cfg.distanceKm || 0) : null;
   if (cfg.distanceKm) {
     const est = await estimateRaceSeconds(userId, cfg.distanceKm);
-    if (est) await snapshot(userId, "race_estimate_v2", est.seconds, targetSec);
-    const trend = await history(userId, "race_estimate_v2");
+    const trend = est ? est.trend.map((p) => ({ ...p, target: targetSec })) : [];
     if (est && targetSec) {
       const gapPct = (est.seconds - targetSec) / targetSec;
       return { ...base, status: statusFromGap(gapPct), estimateSec: est.seconds, targetSec, gapSec: est.seconds - targetSec, basis: est.basis, trend };
@@ -227,8 +230,11 @@ async function getBodyStatus(userId) {
   if (rows.length === 0) return { ...base, status: "building", currentKg: null, trend: [] };
 
   const current = rows[rows.length - 1].weight_kg;
-  await snapshot(userId, "weight_kg", current, goal.target_weight);
-  const trend = await history(userId, "weight_kg");
+  // The athlete's own weigh-ins over the last 12 weeks (one per day), not page-view snapshots.
+  const trend = (await dbAll(
+    `SELECT date, weight_kg AS value FROM biometrics WHERE user_id = ? AND weight_kg IS NOT NULL AND date >= ? ORDER BY date ASC`,
+    [userId, seasonPlan.addDays(seasonPlan.todayStr(), -84)]
+  )).map((r) => ({ date: String(r.date).slice(0, 10), value: r.value, target: goal.target_weight }));
 
   // Least-squares slope in kg/week over the last 5 weeks.
   let ratePerWeek = null;
