@@ -535,7 +535,8 @@ function buildGuide(userId, workout, hrZones) {
       name: truncate(`rooka: ${title}`, 60),
       // Suunto rejects guide.description longer than 256 chars (HTTP 400).
       description: truncate(description, 256),
-      shortDescription: truncate(title, 40),
+      // Suunto rejects guide.shortDescription longer than 23 chars (HTTP 400).
+      shortDescription: truncate(title, 23),
       localDate: workout.date,
       type: 'sequence',
       activities: [activityId],
