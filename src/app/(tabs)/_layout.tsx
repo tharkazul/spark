@@ -1,15 +1,15 @@
 import React, { useEffect } from 'react';
 import { RookaMark } from '../../components/ui/RookaPoints';
-import { ParamListBase, TabNavigationState } from '@react-navigation/native';
 import {
   createMaterialTopTabNavigator,
   MaterialTopTabNavigationOptions,
   MaterialTopTabNavigationEventMap,
-} from '@react-navigation/material-top-tabs';
+} from 'expo-router/js-top-tabs';
+import { ParamListBase, TabNavigationState } from 'expo-router/react-navigation';
 import { withLayoutContext, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { CustomTabBar } from '../../components/CustomTabBar';
+import { CustomTabBar, type CustomTabBarProps } from '../../components/CustomTabBar';
 import { DynamicDateIcon } from '../../components/ui/DynamicDateIcon';
 import { useUser } from '../../context/UserStore';
 import { HeaderLayoutProvider } from '../../context/HeaderLayoutContext';
@@ -52,7 +52,7 @@ export default function TabLayout() {
     <HeaderLayoutProvider>
       <Tabs
         initialRouteName="index"
-        tabBar={(props) => <CustomTabBar {...(props as any)} />}
+        tabBar={(props: CustomTabBarProps) => <CustomTabBar {...props} />}
         // The bar floats over the content on `position: absolute`, so it is
         // rendered after the pager rather than taking a strip of layout above it.
         tabBarPosition="bottom"
@@ -70,8 +70,8 @@ export default function TabLayout() {
           name="index"
           options={{
             title: 'Planning',
-            tabBarIcon: ({ color, size = 22 }: { color: string; size?: number }) => (
-              <DynamicDateIcon size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <DynamicDateIcon size={22} color={color as string} />
             ),
           }}
         />
@@ -81,8 +81,8 @@ export default function TabLayout() {
           name="physique"
           options={{
             title: 'Progress',
-            tabBarIcon: ({ color, size = 22 }: { color: string; size?: number }) => (
-              <Ionicons name="pulse-outline" size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="pulse-outline" size={22} color={color as string} />
             ),
           }}
         />
@@ -92,8 +92,8 @@ export default function TabLayout() {
           name="coach"
           options={{
             title: 'Coach',
-            tabBarIcon: ({ color, size = 22 }: { color: string; size?: number }) => (
-              <RookaMark size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <RookaMark size={22} color={color as string} />
             ),
           }}
         />
@@ -103,8 +103,8 @@ export default function TabLayout() {
           name="social"
           options={{
             title: 'Social',
-            tabBarIcon: ({ color, size = 22 }: { color: string; size?: number }) => (
-              <Ionicons name="trophy-outline" size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="trophy-outline" size={22} color={color as string} />
             ),
           }}
         />
@@ -114,8 +114,8 @@ export default function TabLayout() {
           name="profile"
           options={{
             title: 'Profile',
-            tabBarIcon: ({ color, size = 22 }: { color: string; size?: number }) => (
-              <Ionicons name="person-outline" size={size} color={color} />
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="person-outline" size={22} color={color as string} />
             ),
           }}
         />

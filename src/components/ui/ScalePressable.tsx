@@ -2,6 +2,7 @@ import React, { forwardRef, useCallback } from 'react';
 import {
   Pressable,
   PressableProps,
+  PressableStateCallbackType,
   GestureResponderEvent,
   Platform,
   StyleProp,
@@ -147,7 +148,7 @@ export const ScalePressable = forwardRef<View, ScalePressableProps>(function Sca
       onPressOut={handlePressOut}
       style={
         typeof style === 'function'
-          ? (state) => [animatedStyle, style(state)]
+          ? (state: PressableStateCallbackType) => [animatedStyle, style(state)]
           : [animatedStyle, style]
       }
       className={className}

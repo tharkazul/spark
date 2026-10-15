@@ -896,7 +896,7 @@ export default function PlanningHomeScreen() {
               weeklyAgenda.map((day, idx) => (
                 <Animated.View
                   key={`${day.dayName}-${day.dateStr}`}
-                  ref={(el) => {
+                  ref={(el: View | null) => {
                     dayCardRefs.current[idx] = el as any;
                   }}
                   layout={LinearTransition.duration(200)}

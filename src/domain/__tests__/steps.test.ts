@@ -76,6 +76,6 @@ export function runStepsTests() {
   console.log('[Steps Unit Tests] All Steps tests passed successfully!');
 }
 
-if (typeof require !== 'undefined' && require.main === module) {
+if (typeof require !== 'undefined' && (require as unknown as { main?: unknown }).main === module) {
   runStepsTests();
 }

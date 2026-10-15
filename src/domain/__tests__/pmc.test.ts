@@ -78,6 +78,6 @@ export function runPMCTests() {
   console.log('[PMC Unit Tests] All PMC tests passed successfully!');
 }
 
-if (typeof require !== 'undefined' && require.main === module) {
+if (typeof require !== 'undefined' && (require as unknown as { main?: unknown }).main === module) {
   runPMCTests();
 }

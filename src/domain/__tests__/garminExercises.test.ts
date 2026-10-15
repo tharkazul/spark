@@ -32,6 +32,6 @@ export function runGarminExercisesTests() {
   console.log('[Garmin Exercises Unit Tests] All Garmin Exercises tests passed successfully!');
 }
 
-if (typeof require !== 'undefined' && require.main === module) {
+if (typeof require !== 'undefined' && (require as unknown as { main?: unknown }).main === module) {
   runGarminExercisesTests();
 }

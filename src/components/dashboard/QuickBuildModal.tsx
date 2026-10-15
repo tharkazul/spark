@@ -72,7 +72,7 @@ export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalPr
       <View style={{ flex: 1, justifyContent: 'center', position: 'relative', padding: 24 }}>
         <Animated.View
           style={[
-            StyleSheet.absoluteFillObject,
+            StyleSheet.absoluteFill,
             { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
           ]}
         >

@@ -7,7 +7,18 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
+import type {
+  MaterialTopTabNavigationEventMap,
+  MaterialTopTabNavigationOptions,
+  MaterialTopTabNavigationProp,
+} from 'expo-router/js-top-tabs';
+import type {
+  Descriptor,
+  NavigationHelpers,
+  ParamListBase,
+  RouteProp,
+  TabNavigationState,
+} from 'expo-router/react-navigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,7 +56,22 @@ import { LogNiggleModal } from './dashboard/LogNiggleModal';
 const TAB_ORDER = ['index', 'physique', 'coach', 'social', 'profile'];
 const TAB_BAR_HEIGHT = 64;
 
-export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabBarProps) {
+// expo-router's own MaterialTopTabBarProps collapses to `any`, so the props the
+// bar actually reads are spelled out here.
+export type CustomTabBarProps = {
+  state: TabNavigationState<ParamListBase>;
+  navigation: NavigationHelpers<ParamListBase, MaterialTopTabNavigationEventMap>;
+  descriptors: Record<
+    string,
+    Descriptor<
+      MaterialTopTabNavigationOptions,
+      MaterialTopTabNavigationProp<ParamListBase>,
+      RouteProp<ParamListBase>
+    >
+  >;
+};
+
+export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -210,7 +236,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
             isDark ? '#0F172A' : '#F1F5F9',
           ]}
           locations={[0, 0.35, 0.75, 1]}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
       </View>
 
@@ -221,9 +247,9 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
         animationType="none"
         onRequestClose={closeQuickMenu}
       >
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           <Pressable
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             onPress={closeQuickMenu}
           />
 
@@ -390,7 +416,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
           {/* Background Blur Effect */}
           <View
             style={[
-              StyleSheet.absoluteFillObject,
+              StyleSheet.absoluteFill,
               {
                 borderRadius: 32,
                 overflow: 'hidden',
@@ -401,7 +427,7 @@ export function CustomTabBar({ state, descriptors, navigation }: MaterialTopTabB
             <GlassView
               colorScheme={isDark ? 'dark' : 'light'}
               glassEffectStyle="regular"
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
           </View>
 

@@ -467,7 +467,7 @@ export function AddWorkoutModal({
             {/* Backdrop: Fades In/Out Simultaneously */}
             <Animated.View
               style={[
-                StyleSheet.absoluteFillObject,
+                StyleSheet.absoluteFill,
                 { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
               ]}
             >

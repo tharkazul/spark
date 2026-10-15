@@ -211,6 +211,6 @@ export function runMuscleLoadTests() {
   console.log('[MuscleLoad Unit Tests] All muscle load tests passed successfully!');
 }
 
-if (typeof require !== 'undefined' && require.main === module) {
+if (typeof require !== 'undefined' && (require as unknown as { main?: unknown }).main === module) {
   runMuscleLoadTests();
 }

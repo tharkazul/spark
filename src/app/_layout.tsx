@@ -1,7 +1,6 @@
 import '../global.css';
 import { useTheme } from '@/hooks/use-theme';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, View, ActivityIndicator, DeviceEventEmitter, AppState } from 'react-native';

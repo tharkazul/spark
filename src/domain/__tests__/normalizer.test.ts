@@ -49,6 +49,6 @@ export function runNormalizerTests() {
   console.log('[Normalizer Unit Tests] All Normalizer tests passed successfully!');
 }
 
-if (typeof require !== 'undefined' && require.main === module) {
+if (typeof require !== 'undefined' && (require as unknown as { main?: unknown }).main === module) {
   runNormalizerTests();
 }

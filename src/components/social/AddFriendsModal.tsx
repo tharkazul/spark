@@ -289,7 +289,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
           {/* Static Fullscreen Backdrop: Fades In Simultaneously */}
           <Animated.View
             style={[
-              StyleSheet.absoluteFillObject,
+              StyleSheet.absoluteFill,
               { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
             ]}
           >

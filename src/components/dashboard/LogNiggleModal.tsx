@@ -240,7 +240,7 @@ export function LogNiggleModal({
           {/* Static Fullscreen Backdrop: Fades In Simultaneously */}
           <Animated.View
             style={[
-              StyleSheet.absoluteFillObject,
+              StyleSheet.absoluteFill,
               { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
             ]}
           >
