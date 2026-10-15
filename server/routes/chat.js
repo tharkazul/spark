@@ -418,23 +418,20 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                   recentActivities && recentActivities.length > 0
                     ? recentActivities
                         .map(
-                          (a) => {
+                          (a, index) => {
+                            // Laps only for the latest activity, the one the athlete asks about. Every
+                            // digit is a token, so lap lines for all three cost ~1,000 tokens a message.
                             let lapStr = "";
-                            if (a.laps_json) {
+                            if (index === 0 && a.laps_json) {
                               try {
                                 const laps = JSON.parse(a.laps_json);
                                 if (laps && laps.length > 0) {
-                                  lapStr = " | Laps: " + laps.map(l => {
-                                    let pace = "";
-                                    if (l.average_speed > 0) {
-                                      const paceSecs = 1000 / l.average_speed;
-                                      const m = Math.floor(paceSecs / 60);
-                                      const s = Math.floor(paceSecs % 60);
-                                      pace = `, ${m}:${s.toString().padStart(2, '0')}/km`;
-                                    }
-                                    const hr = l.average_heartrate ? `, ${Math.round(l.average_heartrate)}bpm` : "";
-                                    return `[${l.name || 'Lap'}: ${(l.distance/1000).toFixed(1)}km in ${Math.round(l.moving_time/60)}m${pace}${hr}]`;
-                                  }).join(" ");
+                                  const mmss = (secs) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
+                                  lapStr = " | Laps (distance, pace or duration, avg HR): " + laps.map(l => {
+                                    const effort = l.average_speed > 0 ? `${mmss(1000 / l.average_speed)}/km` : `${mmss(l.moving_time || 0)} min`;
+                                    const hr = l.average_heartrate ? ` ${Math.round(l.average_heartrate)}bpm` : "";
+                                    return `${(l.distance / 1000).toFixed(1)}km ${effort}${hr}`;
+                                  }).join("; ");
                                 }
                               } catch (e) {}
                             }
@@ -743,7 +740,8 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                                        const coachName = resolveCoachName(user);
                                        let coachToneText = user.coach_tone;
                                        if (user.coach_tone === 'custom' || user.coach_tone === 'Configure own coach') {
-                                           coachToneText = user.coach_context ? `Custom tone: ${user.coach_context}` : 'Custom coach persona';
+                                           // The custom text itself follows as "Coach Custom Context & Rules"; repeating it here cost ~200 tokens a message.
+                                           coachToneText = user.coach_context ? 'Custom: follow "Coach Custom Context & Rules" below' : 'Custom coach persona';
                                        }
 
                                        const userLanguage = user.language || 'en';
@@ -766,11 +764,13 @@ Never request illustrations, drawings, sketches or cartoons, and never use words
 \`\`\``
                                            : "";
 
-                                       // Ordered from most to least shared, so the longest possible prefix
-                                       // repeats across requests: the rules, then per-discipline drills, then
-                                       // this athlete, then what changes by the minute.
-                                       const systemPrompt = `${COACH_CHAT_RULES}
-${getGoalDependentPromptContext(goalContext.discipline, { includeBaseHeader: false })}
+                                       // The rules plus this discipline's drills are the same for every athlete
+                                       // in that discipline, so together they form the cached prefix (one cache
+                                       // per discipline). Everything after it is this athlete, then what changes
+                                       // by the minute.
+                                       const cachedPromptPrefix = `${COACH_CHAT_RULES}
+${getGoalDependentPromptContext(goalContext.discipline, { includeBaseHeader: false })}`;
+                                       const systemPrompt = `${cachedPromptPrefix}
 ${imageStatusText}
 ${cycleText}
 
@@ -849,7 +849,7 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                         req.user.id,
                                         "personal",
                                         false,
-                                        { language: userLanguage, cachedSystemPrefix: COACH_CHAT_RULES },
+                                        { language: userLanguage, cachedSystemPrefix: cachedPromptPrefix },
                                       );
                                       let planUpdated = false;
                                       const pendingImageTasks = [];

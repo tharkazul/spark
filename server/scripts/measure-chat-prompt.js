@@ -120,7 +120,7 @@ function snapshotDb() {
     .filter((x) => x.i >= 0)
     .sort((a, b) => a.i - b.i);
   const sections = [];
-  if (found.length && found[0].i > 0) sections.push({ name: "discipline drills, image + cycle rules", text: context.slice(0, found[0].i) });
+  if (found.length && found[0].i > 0) sections.push({ name: "image + cycle rules", text: context.slice(0, found[0].i) });
   found.forEach((x, j) => sections.push({ name: x.name, text: context.slice(x.i, j + 1 < found.length ? found[j + 1].i : context.length) }));
   const historyText = chatHistory.map((t) => t.parts.map((p) => p.text || "").join("")).join("\n");
   sections.push({ name: `chat history (${chatHistory.length} turns)`, text: historyText });
@@ -147,7 +147,7 @@ function snapshotDb() {
     console.log(`${s.name.padEnd(40)} ${String(s.tokens).padStart(6)} ${unit}  ${((100 * s.tokens) / total).toFixed(0).padStart(3)}%   ${String(s.text.length).padStart(6)} chars`);
   }
   console.log(`${"TOTAL uncached".padEnd(40)} ${String(total).padStart(6)} ${unit}`);
-  console.log(`${"cached rules (for reference)".padEnd(40)} ${String(count(prefix)).padStart(6)} ${unit}`);
+  console.log(`${"cached prefix: rules + drills (reference)".padEnd(40)} ${String(count(prefix)).padStart(6)} ${unit}`);
 
   db.close(() => {
     fs.rmSync(snapshot, { force: true });

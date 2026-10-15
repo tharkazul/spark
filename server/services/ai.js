@@ -33,7 +33,7 @@ const AI_ATTEMPT_TIMEOUT_MS = Number(process.env.AI_ATTEMPT_TIMEOUT_MS) || 90000
 // --- EXPLICIT PROMPT CACHE ---
 // Gemini's implicit cache missed every request in testing, so a caller can mark the
 // fixed start of its system instruction as cacheable (options.cachedSystemPrefix).
-// That prefix is stored once per model and billed at the cached rate on every call.
+// Each distinct prefix is stored once per model and billed at the cached rate on every call.
 // Gemini refuses a request that has both a cache and a system instruction, so the
 // rest of the system instruction travels in the message as a marked context block.
 const PREFIX_CACHE_TTL_SECONDS = 3600;
