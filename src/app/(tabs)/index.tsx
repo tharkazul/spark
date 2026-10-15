@@ -23,6 +23,7 @@ import { Button } from '../../components/ui/Button';
 import { PagerTabs } from '../../components/ui/PagerTabs';
 import { PagerLockContext } from '../../context/PagerLockContext';
 import { useSeason } from '../../context/SeasonStore';
+import { normalizeSportType } from '../../utils/disciplineConfig';
 import { calculateActivityStreak } from '../../utils/gamification';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
 import { useConnectedDevices } from '../../hooks/useConnectedDevices';
@@ -375,16 +376,15 @@ export default function PlanningHomeScreen() {
             isStructured: parsedSteps.length > 0,
             isCompleted: (() => {
               if (w.isCompleted) return true;
-              const planSport = String(w.sport || (w as any).type).toUpperCase();
+              // Plans use rooka's sport types (BIKE, STRENGTH) while synced activities keep
+              // the provider's name (Ride, WeightTraining), so compare sport families.
+              const planSport = normalizeSportType(w.sport || (w as any).type || 'RUN');
               if (planSport === 'REST') return false;
               const actsOnDay = activities.filter((a) => {
                 const d = a.start_date_local || a.start_date || (a as any).date;
                 return d?.startsWith(dateYYYYMMDD);
               });
-              return actsOnDay.some((a) => {
-                const aSport = String(a.sport_type || (a as any).type).toUpperCase();
-                return aSport === planSport;
-              });
+              return actsOnDay.some((a) => normalizeSportType(a.sport_type || (a as any).type) === planSport);
             })(),
             actualMetrics: w.actualMetrics,
             executionScore: w.executionScore,
