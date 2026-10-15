@@ -118,10 +118,10 @@ export function Button({
       ) : (
         <View className="flex-row items-center justify-center gap-2">
           {leftIcon && <View className="items-center justify-center">{leftIcon}</View>}
+          {/* No adjustsFontSizeToFit: on iOS (New Architecture) minimumFontScale is ignored and a
+              sub-pixel layout rounding of the fixed line height makes the label collapse to 4pt. */}
           <Text
             numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
             className={`text-center ${getTextSizeClasses()} ${getTextClasses()}`}
           >
             {label}
