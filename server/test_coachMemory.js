@@ -24,12 +24,10 @@ aiMock.loaded = true;
 aiMock.exports = {
   generateWithFallback: async (prompt, systemPrompt) => {
     llmCalls.push({ prompt, systemPrompt });
-    if (String(prompt).includes("background AI assistant")) {
+    if (String(prompt).includes("You maintain what an endurance coach knows")) {
       await new Promise((r) => setTimeout(r, summaryDelayMs));
-      // Like a real model, keep the notes it was shown; the fixed line marks the rewrite.
-      const current = String(prompt).split("CURRENT LONG-TERM MEMORY:\n")[1].split("\n\n")[0];
-      const kept = current.split("\n").filter((l) => l.includes("running only."));
-      return ["- Summarized: Italy 2026-10-12 to 2026-10-18, running only", ...kept].join("\n");
+      // Edits by id, like the real model: facts it doesn't touch are kept.
+      return JSON.stringify({ ops: [{ op: "add", category: "schedule", text: "Summarized: Italy 2026-10-12 to 2026-10-18, running only", until: "2026-10-18" }] });
     }
     return plannerReplies.shift() || "";
   },
@@ -127,10 +125,10 @@ const reply = (plan) => "Strong week ahead.\n```json\n" + JSON.stringify(plan) +
   const mem = (await get(`SELECT long_term_memory FROM users WHERE id = 1`)).long_term_memory;
   assert.ok(mem.includes("Summarized"), mem);
   assert.ok(mem.includes("running only."), `appended note survives the summary: ${mem}`);
-  const summaryCalls = llmCalls.filter((c) => String(c.prompt).includes("background AI assistant"));
+  const summaryCalls = llmCalls.filter((c) => String(c.prompt).includes("You maintain what an endurance coach knows"));
   assert.strictEqual(summaryCalls.length, 2, "overlapping trigger runs exactly one follow-up");
-  assert.ok(summaryCalls[0].prompt.includes("TODAY'S DATE"), "summary knows today's date");
-  assert.ok(summaryCalls[0].prompt.includes("Constraint ID"), "summary sees constraints as truth");
+  assert.ok(summaryCalls[0].prompt.includes("TODAY:"), "summary knows today's date");
+  assert.ok(summaryCalls[0].prompt.includes("the constraint table is the truth"), "summary sees constraints as truth");
   console.log("✅ memory summary merges concurrent notes and coalesces triggers");
 
   // 6. Multilingual life-event trigger.

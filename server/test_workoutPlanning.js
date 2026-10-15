@@ -202,6 +202,32 @@ console.log("🏃 Running Workout Planning unit tests...\n");
     console.log("✅ Test 8 Passed: 30-minute swim duration correctly resolved without 2-min bug");
   }
 
+  // Test 8b: reps take time (3 s per rep + 15 s per set), and the app's copy agrees
+  {
+    const { calculateWorkoutDurationMinutes } = require("./services/workoutPlanning");
+    const client = require("../src/utils/format.ts");
+    const t = (v, type = "interval") => ({ type, condition_type: "time", condition_value: v });
+    const sec = (v) => ({ type: "rest", condition_type: "time_sec", condition_value: v });
+    const reps = (v) => ({ type: "interval", condition_type: "reps", condition_value: v });
+    const dist = (v) => ({ type: "interval", condition_type: "distance", condition_value: v });
+    const block = (n, ...steps) => ({ type: "repeat", iterations: n, steps });
+    const cases = [
+      // Dips 3x12, dead bugs 3x12, glute bridges 3x15: used to show 18 min
+      [{ sport: "Strength", steps_json: [t(5, "warmup"), block(3, reps(12), sec(60)), block(3, reps(12), sec(45)), block(3, reps(15), sec(45)), t(5, "cooldown")] }, 26],
+      [{ sport: "Strength", steps_json: [t(10, "warmup"), block(3, reps(10), sec(90)), block(4, dist(100), sec(60)), block(3, reps(12), sec(45)), t(5, "cooldown")] }, 34],
+      [{ sport: "Strength", steps_json: [t(5, "warmup"), block(4, reps(15), reps(10), reps(20), reps(12), sec(60)), t(5, "cooldown")] }, 29],
+      [{ sport: "Run", steps_json: [t(10, "warmup"), block(5, dist(1000), sec(90)), t(10, "cooldown")] }, 53],
+    ];
+    for (const [workout, expected] of cases) {
+      const server = calculateWorkoutDurationMinutes(workout);
+      assert.strictEqual(server, expected, `Expected ${expected} min, got ${server}`);
+      assert.strictEqual(client.calculateWorkoutDurationMinutes(workout), server, "App and server durations differ");
+    }
+    assert.strictEqual(client.REP_SECONDS, 3);
+    assert.strictEqual(client.SET_SETUP_SECONDS, 15);
+    console.log("✅ Test 8b Passed: strength durations count reps, app and server agree");
+  }
+
   // Test 9: parseAvailability correctly identifies dedicated rest days
   {
     const { parseAvailability } = require("./services/workoutPlanning");

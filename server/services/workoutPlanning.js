@@ -964,6 +964,8 @@ ${datesListWithAvailability}
      * "weight": load in kg if applicable (e.g., 60 or 20).
      * "target_type": "weight" (or "no.target").
      * A "rest" step between sets with "condition_type": "time_sec" and seconds in "condition_value" (e.g., 60 or 90).
+     * Moves done per side (dead bugs, lunges, single-leg bridges): "condition_value" is the TOTAL for both sides (3x12 per side is 24 per set); say "per side" in 'details'.
+   - SESSION LENGTH: The app times a session from its steps: about 3 seconds per rep plus 15 seconds per set, plus every rest, warm-up and cool-down. The steps MUST add up to the length you state in 'description', 'details' or your summary. If you say 30 minutes, add sets, exercises or rest until the steps reach about 30 minutes.
    - For Warmup and Cooldown steps, ALWAYS include "exerciseName" describing the dynamic mobility or stretches (e.g. "Cossack Squats & Inchworms", "Couch Stretch & Pigeon Pose").
 8. WORKOUT DETAILS: Follow the DETAIL LEVEL block above for how much to write in 'details'. Keep 'steps_json' fully structured whatever the detail level, and keep 100% parity between the exercises named in 'details' and the step blocks in 'steps_json'.
 9. FORMAT: You must append a JSON code block at the very end of your response containing the array of 7 days:
@@ -1486,6 +1488,11 @@ async function runWeeklyWorkoutPlanningJob(options = {}) {
   };
 }
 
+/** Time per rep and per set when a workout prescribes reps instead of minutes.
+ * Shared with src/utils/format.ts: keep the two identical. */
+const REP_SECONDS = 3;
+const SET_SETUP_SECONDS = 15;
+
 /**
  * Calculates planned workout duration in minutes safely without mistaking
  * distance annotations (like 200m warmup) for minutes.
@@ -1515,52 +1522,40 @@ function calculateWorkoutDurationMinutes(workout) {
   // 3. Structured steps calculation (including distance steps e.g. 200m or 1500m swim)
   if (workout.steps_json) {
     try {
-      const steps = typeof workout.steps_json === 'string' ? JSON.parse(workout.steps_json) : workout.steps_json;
+      const steps =
+        typeof workout.steps_json === "string" ? JSON.parse(workout.steps_json) : workout.steps_json;
       if (Array.isArray(steps) && steps.length > 0) {
-        let totalMins = 0;
-        const sport = String(workout.sport || workout.type || '').toUpperCase();
+        const sport = String(workout.sport || workout.type || "").toUpperCase();
+        // A set takes its reps plus getting into position, re-racking and
+        // switching sides. Carries and sled pushes in a strength session get
+        // the same setup time.
+        const setupMins = SET_SETUP_SECONDS / 60;
 
-        const parseSteps = (sArr) => {
-          if (!Array.isArray(sArr)) return;
-          for (const s of sArr) {
-            if (s.type === 'repeat' && s.iterations && Array.isArray(s.steps)) {
-              let iterMins = 0;
-              for (const rs of s.steps) {
-                const cVal = Number(rs.condition_value) || 0;
-                if (rs.condition_type === 'time_sec') {
-                  iterMins += cVal / 60;
-                } else if (rs.condition_type === 'time') {
-                  iterMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
-                } else if (rs.condition_type === 'distance') {
-                  if (sport === 'SWIM') iterMins += (cVal / 100) * 1.8;
-                  else if (sport === 'BIKE' || sport === 'RIDE') iterMins += (cVal / 1000) * 2;
-                  else iterMins += (cVal / 1000) * 5;
-                } else if (rs.condition_type === 'distance_km') {
-                  if (sport === 'BIKE' || sport === 'RIDE') iterMins += cVal * 2;
-                  else iterMins += cVal * 5;
-                }
-              }
-              totalMins += iterMins * (Number(s.iterations) || 1);
-            } else {
-              const cVal = Number(s.condition_value) || 0;
-              if (s.condition_type === 'time_sec') {
-                totalMins += cVal / 60;
-              } else if (s.condition_type === 'time') {
-                totalMins += (cVal > 180 && cVal % 30 === 0) ? cVal / 60 : cVal;
-              } else if (s.condition_type === 'distance') {
-                if (sport === 'SWIM') totalMins += (cVal / 100) * 1.8;
-                else if (sport === 'BIKE' || sport === 'RIDE') totalMins += (cVal / 1000) * 2;
-                else totalMins += (cVal / 1000) * 5;
-              } else if (s.condition_type === 'distance_km') {
-                if (sport === 'BIKE' || sport === 'RIDE') totalMins += cVal * 2;
-                else totalMins += cVal * 5;
-              } else if (s.steps && Array.isArray(s.steps)) {
-                parseSteps(s.steps);
-              }
-            }
+        const stepMinutes = (s) => {
+          if (!s) return 0;
+          if (s.type === "repeat" && s.iterations && Array.isArray(s.steps)) {
+            return s.steps.reduce((sum, sub) => sum + stepMinutes(sub), 0) * (Number(s.iterations) || 1);
           }
+          const cVal = Number(s.condition_value) || 0;
+          switch (s.condition_type) {
+            case "time_sec":
+              return cVal / 60;
+            case "time":
+              return cVal > 180 && cVal % 30 === 0 ? cVal / 60 : cVal;
+            case "reps":
+              return cVal > 0 ? (cVal * REP_SECONDS) / 60 + setupMins : 0;
+            case "distance":
+              if (sport === "SWIM") return (cVal / 100) * 1.8;
+              if (sport === "BIKE" || sport === "RIDE") return (cVal / 1000) * 2;
+              return (cVal / 1000) * 5 + (sport === "STRENGTH" && cVal > 0 ? setupMins : 0); // RUN
+            case "distance_km":
+              return sport === "BIKE" || sport === "RIDE" ? cVal * 2 : cVal * 5;
+          }
+          if (Array.isArray(s.steps)) return s.steps.reduce((sum, sub) => sum + stepMinutes(sub), 0);
+          return 0;
         };
-        parseSteps(steps);
+
+        const totalMins = steps.reduce((sum, s) => sum + stepMinutes(s), 0);
         if (totalMins > 0) return Math.round(totalMins);
       }
     } catch (e) {}

@@ -104,6 +104,8 @@ EXERCISE & STEP PARITY (CRITICAL, at every detail level):
    EVERY exercise, station, carry, lift or drill named in 'details' MUST have its own corresponding structured step or repeat block in 'steps_json' (or 'steps').
    - In each exercise step, specify: "exerciseName", "condition_type" ("reps", "distance" or "time"), "condition_value", "weight" (kg if applicable), and a "rest" step (condition_type: "time_sec").
    - Warm-up and cool-down steps name their mobility drills or stretches in "exerciseName".
+   - Per-side moves: "condition_value" is the TOTAL for both sides (3x12 per side is 24 per set).
+   - The steps must add up to the session length you state (the app counts about 3 s per rep plus 15 s per set, plus rests, warm-up and cool-down).
 (Machine-readable step intervals go into 'steps_json', while rich, human-readable technique cues, drills, and equipment instructions go into 'details').`;
 
   // The coach chat carries the granularity and parity rules in its own rule set
