@@ -163,6 +163,9 @@ export async function sendWorkoutsToConnectedDevices(
   const succeeded = outcomes.filter((o) => o.success);
   const failed = outcomes.filter((o) => !o.success);
   const errors = failed.map((o) => `${o.name}: ${o.error || tr('addWorkoutExtra.syncFailed')}`);
+  // The raw provider responses stay in the log and `errors`; the alert only names the devices.
+  if (errors.length) console.warn('[DeviceSync] Send failed:', errors.join('; '));
+  const failedNames = joinNames(failed.map((o) => o.name));
   const targetCount = validWorkouts.length;
 
   if (succeeded.length === 0) {
@@ -171,7 +174,7 @@ export async function sendWorkoutsToConnectedDevices(
       success: false,
       devices: outcomes,
       syncedCount: 0,
-      message: errors.length ? tr('deviceSync.sendFailed', { errors: errors.join('; ') }) : tr('deviceSync.noDevices'),
+      message: errors.length ? tr('deviceSync.sendFailed', { failed: failedNames }) : tr('deviceSync.noDevices'),
       errors,
     };
   }
@@ -183,7 +186,7 @@ export async function sendWorkoutsToConnectedDevices(
       success: true,
       devices: outcomes,
       syncedCount: targetCount,
-      message: tr('deviceSync.partial', { devices: sentTo, errors: errors.join('; ') }),
+      message: tr('deviceSync.partial', { devices: sentTo, failed: failedNames }),
       errors,
     };
   }
