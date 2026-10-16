@@ -94,12 +94,21 @@ export interface RaceStatus {
   estimateSec: number | null;
   targetSec: number | null;
   gapSec?: number;
+  /**
+   * What the estimate rests on. `method` says which: the fastest run at 88%+ of
+   * max HR ('best_effort'), heart rate vs pace on steady runs ('heart_rate'),
+   * or the median of the 3 fastest predictions ('median', also when absent).
+   */
   basis?: {
-    runs: number;
-    hardRuns: number;
-    fromHardRuns: boolean;
-    typedIn: boolean;
-    fastest: { date: string; distanceKm: number; minutes: number };
+    method?: 'best_effort' | 'heart_rate' | 'median';
+    runs?: number;
+    hardRuns?: number;
+    fromHardRuns?: boolean;
+    typedIn?: boolean;
+    raceDayBonus?: boolean;
+    steadyRuns?: number;
+    vdot?: number;
+    fastest?: { date: string; distanceKm: number; minutes: number; seconds?: number; avgHr?: number };
   } | null;
   trend: TrendPoint[];
 }

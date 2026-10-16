@@ -53,6 +53,12 @@ db.serialize(() => {
     `ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`,
     (err) => {},
   );
+  // Admin access is role-only now. The 'admin' tier can only be set from the
+  // admin panel and already granted admin access, so carry those accounts over.
+  db.run(
+    `UPDATE users SET role = 'admin' WHERE subscription_tier = 'admin' AND COALESCE(role, 'user') != 'admin'`,
+    (err) => {},
+  );
   db.run(
     `ALTER TABLE users ADD COLUMN daily_image_count INTEGER DEFAULT 0`,
     (err) => {},

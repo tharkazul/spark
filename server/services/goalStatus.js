@@ -101,7 +101,7 @@ function pickRaceEstimate(runs, distanceKm, hrZones) {
   };
 }
 
-// --- Proposed estimate (option C v2, not live yet) ---
+// --- Race-time estimate (option C v2, live since 2026-10-16) ---
 // The median of the 3 fastest predictions ignored a runner's real best: an
 // athlete with a 23:05 5K at 94% of max HR was estimated at 24:26 because two
 // slower runs sat in his top 3. In order:
@@ -111,9 +111,11 @@ function pickRaceEstimate(runs, distanceKm, hrZones) {
 //    no bonus; it already was race day. Each week of age costs 0.5%, so a best
 //    from 5 weeks ago weighs less than this week's. Max HR rather than zone 4:
 //    an automatic 220-age table starts zone 4 at ~80%, which is a tempo run.
-// 2. No hard effort: heart rate vs pace on steady runs says how big the engine
-//    is (see heartRateRaceEstimate). No race-day bonus there: an athlete who
-//    never runs hard has not trained the speed endurance a race asks for.
+// 2. Heart rate vs pace on steady runs says how big the engine is (see
+//    heartRateRaceEstimate). No race-day bonus there: an athlete who never runs
+//    hard has not trained the speed endurance a race asks for.
+// The faster of 1 and 2 counts (approved 2026-10-16): one slow hard run used to
+// override heart rate and made the trend jump by 3 minutes for a few weeks.
 // 3. Neither: the median estimate above.
 // The result is never slower than the median estimate.
 const BEST_EFFORT_WINDOW_DAYS = 42;
@@ -150,30 +152,35 @@ function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, r
     })
     .sort((x, y) => x.sec - y.sec);
 
-  let proposed = null;
+  // Both signals are evidence of what the athlete can do on a good day, so the
+  // faster one counts: one slow hard run (heat, hills, a brick) must not pull
+  // the estimate below what heart rate shows week after week.
+  const options = [];
   const best = candidates[0];
   if (best) {
-    proposed = {
+    options.push({
       seconds: Math.round(best.sec),
       basis: {
         method: "best_effort",
         hardEfforts: candidates.length,
         raceDayBonus: !best.isRace,
         weeksAgo: Math.round(best.weeksAgo * 10) / 10,
-        fastest: { date: String(best.r.start_date || "").slice(0, 10), distanceKm: Math.round(best.r.distance_km * 10) / 10, minutes: Math.round(best.r.moving_time_min), avgHr: Math.round(best.r.average_heartrate) },
+        fastest: { date: String(best.r.start_date || "").slice(0, 10), distanceKm: Math.round(best.r.distance_km * 10) / 10, minutes: Math.round(best.r.moving_time_min), seconds: Math.round(best.r.moving_time_min * 60), avgHr: Math.round(best.r.average_heartrate) },
       },
-    };
-  } else {
-    const hrEst = heartRateRaceEstimate(runs, distanceKm, { maxHr, restingHr });
-    if (hrEst) {
-      proposed = { seconds: hrEst.seconds, basis: { method: "heart_rate", vdot: hrEst.vdot, steadyRuns: hrEst.runs } };
-    }
+    });
   }
+  const hrEst = heartRateRaceEstimate(runs, distanceKm, { maxHr, restingHr });
+  if (hrEst) {
+    options.push({ seconds: hrEst.seconds, basis: { method: "heart_rate", vdot: hrEst.vdot, steadyRuns: hrEst.runs } });
+  }
+  const proposed = options.sort((a, b) => a.seconds - b.seconds)[0] || null;
 
   if (!proposed || (fallback && fallback.seconds <= proposed.seconds)) {
     return fallback && { ...fallback, basis: { ...fallback.basis, method: "median" } };
   }
-  return proposed;
+  // App builds from before 'method' existed label the estimate from the median
+  // fields (runs, fromHardRuns, typedIn); keep sending them so those still read sensibly.
+  return { ...proposed, basis: { ...(fallback ? fallback.basis : {}), ...proposed.basis } };
 }
 
 // --- Race time from heart rate vs pace, for athletes with no hard effort ---
@@ -262,8 +269,12 @@ async function getRaceHeartRate(userId) {
     dbAll(`SELECT resting_hr FROM biometrics WHERE user_id = ? AND resting_hr > 0 AND date >= ? ORDER BY resting_hr`, [userId, seasonPlan.addDays(today, -30)]),
   ]);
   const maxHr = Math.max(metrics.max_hr || 0, (observed && observed.v) || 0) || null;
-  const restingHr = metrics.resting_hr || (rest.length ? rest[Math.floor(rest.length / 2)].resting_hr : null);
-  return { maxHr, restingHr, savedMaxHr: metrics.max_hr || null, observedMaxHr: (observed && observed.v) || null, restingFrom: metrics.resting_hr ? "profile" : rest.length ? "biometrics (30d median)" : null };
+  // Resting HR moves with stress and fatigue, so a month of watch readings
+  // (at least a week's worth) beats the single number on the profile.
+  const watchResting = rest.length >= 7 ? rest[Math.floor(rest.length / 2)].resting_hr : null;
+  const restingHr = watchResting || metrics.resting_hr || (rest.length ? rest[Math.floor(rest.length / 2)].resting_hr : null);
+  const restingFrom = watchResting ? "biometrics (30d median)" : metrics.resting_hr ? "profile" : rest.length ? "biometrics (fewer than 7 readings)" : null;
+  return { maxHr, restingHr, savedMaxHr: metrics.max_hr || null, observedMaxHr: (observed && observed.v) || null, restingFrom };
 }
 
 const TREND_WEEKS = 12;
@@ -278,21 +289,23 @@ async function estimateRaceSeconds(userId, distanceKm) {
   const since = seasonPlan.addDays(today, -(ESTIMATE_WINDOW_DAYS + TREND_WEEKS * 7));
   const runs = seasonPlan.dedupeActivities(
     (await dbAll(
-      `SELECT sport_type, distance_km, moving_time_min, start_date, average_heartrate, strava_activity_id, healthkit_workout_id, suunto_workout_id
+      `SELECT name, sport_type, distance_km, moving_time_min, start_date, average_heartrate, laps_json, strava_activity_id, healthkit_workout_id, suunto_workout_id
        FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ? AND (is_hidden IS NULL OR is_hidden = 0)`,
       [userId, since]
     )).filter((a) => RUN_TYPES.has(sportKey(a.sport_type)))
   );
   const { hrZones } = await athleteZones.resolveZonesForUser(userId, "Run").catch(() => ({ hrZones: null }));
+  const { maxHr, restingHr } = await getRaceHeartRate(userId).catch(() => ({ maxHr: null, restingHr: null }));
   const asOf = (day) => {
     const from = seasonPlan.addDays(day, -ESTIMATE_WINDOW_DAYS);
-    return pickRaceEstimate(
+    return pickRaceEstimateBestEffort(
       runs.filter((r) => {
         const d = String(r.start_date || "").slice(0, 10);
         return d >= from && d <= day;
       }),
       distanceKm,
-      hrZones
+      hrZones,
+      { maxHr, restingHr, asOf: day }
     );
   };
   const current = asOf(today);

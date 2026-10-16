@@ -8,7 +8,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { useTheme } from '@/hooks/use-theme';
 import { PlaceResult, userApi } from '../../services/apiServices';
-import { weatherService } from '../../services/weatherService';
+import { WeatherAttribution as Attribution, weatherService } from '../../services/weatherService';
+import { WeatherAttribution } from '../ui/WeatherAttribution';
 
 const deviceTimezone = () => {
   try {
@@ -30,11 +31,13 @@ export function HomeTownSheet({ visible, onClose }: { visible: boolean; onClose:
   const [results, setResults] = useState<PlaceResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [attribution, setAttribution] = useState<Attribution | null>(null);
 
   useEffect(() => {
     if (visible) {
       setQuery('');
       setResults(null);
+      weatherService.getForecast().then((f) => setAttribution(f.attribution));
     }
   }, [visible]);
 
@@ -123,6 +126,7 @@ export function HomeTownSheet({ visible, onClose }: { visible: boolean; onClose:
         ) : null}
 
         <Text className="text-[10px] text-theme-muted text-center">{t('homeTown.searchCredit')}</Text>
+        <WeatherAttribution attribution={attribution} />
       </View>
     </BottomSheetModal>
   );

@@ -7,21 +7,16 @@ const { getUserLeaderboardString } = require("../services/utils");
 const { generateWithFallback } = require("../services/ai");
 const { sendSSEEvent } = require("../services/sse");
 
+// Admin access comes only from users.role = 'admin' (re-read from the database by
+// authenticateToken). Grant it with scripts/grant-admin.js.
 const adminAuthMiddleware = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  const username = req.user.username ? req.user.username.toLowerCase() : "";
-  const isRutger = username.includes("rutger");
-  const isFelix = username.includes("felixson");
-  const isAdminTier = req.user.subscription_tier === "admin";
-  db.get(`SELECT role FROM users WHERE id = ?`, [req.user.id], (err, row) => {
-    const isAdminRole = row && row.role === "admin";
-    if (!isRutger && !isFelix && !isAdminTier && !isAdminRole && req.user.id !== 1) {
-      return res.status(403).json({ error: "Unauthorized: Admin access required" });
-    }
-    next();
-  });
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Unauthorized: Admin access required" });
+  }
+  next();
 };
 
 router.use("/api/admin", authenticateToken, adminAuthMiddleware);

@@ -4,9 +4,11 @@ const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("../services/db");
+const { verifyAppleIdentityToken } = require("../services/appleAuth");
+const { authLimits } = require("../services/rateLimit");
 
 // Register a new friend
-router.post("/register", async (req, res) => {
+router.post("/register", ...authLimits.register, async (req, res) => {
   const { username, email, password, context } = req.body;
 
   try {
@@ -39,7 +41,7 @@ router.post("/register", async (req, res) => {
 });
 
 // Login and get a token
-router.post("/login", (req, res) => {
+router.post("/login", ...authLimits.login, (req, res) => {
   const { username, password } = req.body;
   const identifier = (username || "").trim().toLowerCase();
 
@@ -79,35 +81,33 @@ router.post("/login", (req, res) => {
 
 // Sign In with Apple
 router.post("/apple", async (req, res) => {
-  const { identityToken, user: appleUserId, email, fullName } = req.body;
+  const { identityToken, user: appleUserId, fullName } = req.body;
 
   if (!identityToken) {
     return res.status(400).json({ error: "Apple identity token is required." });
   }
 
   try {
-    const decoded = jwt.decode(identityToken, { complete: true });
-    if (!decoded || !decoded.payload) {
-      return res.status(400).json({ error: "Invalid Apple identity token." });
+    // Accounts are matched by email below, so the token must be proven to come
+    // from Apple for this app: signature (Apple JWKS), iss, aud and exp.
+    let payload;
+    try {
+      payload = await verifyAppleIdentityToken(identityToken);
+    } catch (verifyErr) {
+      console.warn("Apple identity token rejected:", verifyErr.code || verifyErr.message);
+      if (verifyErr.code === "ERR_JWT_EXPIRED") {
+        return res.status(401).json({ error: "Apple session has expired. Please sign in again." });
+      }
+      return res.status(401).json({ error: "Invalid Apple identity token." });
     }
 
-    const { payload } = decoded;
-
-    // Validate Apple token claims
-    if (payload.iss !== "https://appleid.apple.com") {
-      return res.status(400).json({ error: "Untrusted token issuer." });
+    const sub = payload.sub;
+    if (appleUserId && appleUserId !== sub) {
+      return res.status(401).json({ error: "Invalid Apple identity token." });
     }
 
-    if (payload.exp && payload.exp * 1000 < Date.now() - 60000) {
-      return res.status(401).json({ error: "Apple session has expired. Please sign in again." });
-    }
-
-    const sub = payload.sub || appleUserId;
-    if (!sub) {
-      return res.status(400).json({ error: "Unable to identify Apple user identifier." });
-    }
-
-    const cleanEmail = (payload.email || email || "").trim().toLowerCase() || null;
+    // Only trust an email Apple signed; the request body's email is unverified.
+    const cleanEmail = (payload.email || "").trim().toLowerCase() || null;
 
     // Check if user already exists by apple_id or email
     db.get(
@@ -416,7 +416,7 @@ router.post("/waitlist", (req, res) => {
 });
 
 // Forgot Password - Send 6-digit OTP to user's email
-router.post("/forgot-password", (req, res) => {
+router.post("/forgot-password", ...authLimits.forgotPassword, (req, res) => {
   const { email, username } = req.body;
   const rawIdentifier = (email || username || "").trim().toLowerCase();
 
@@ -505,7 +505,7 @@ router.post("/forgot-password", (req, res) => {
 });
 
 // Reset Password - Verify OTP & update password
-router.post("/reset-password", (req, res) => {
+router.post("/reset-password", ...authLimits.resetPassword, (req, res) => {
   const { email, username, code, newPassword } = req.body;
   const rawIdentifier = (email || username || "").trim().toLowerCase();
   const cleanCode = (code || "").trim();

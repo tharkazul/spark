@@ -16,6 +16,19 @@ const STATUS_STYLE: Record<GoalStatusKind, { color: string; icon: any }> = {
   building: { color: '#8B5CF6', icon: 'construct' },
 };
 
+/** One line under the estimate saying what it rests on. */
+function basisLabel(t: (key: string, params?: Record<string, any>) => string, basis: NonNullable<RaceStatus['basis']>): string {
+  if (basis.method === 'best_effort' && basis.fastest) {
+    const params = {
+      distance: basis.fastest.distanceKm.toFixed(1),
+      time: formatRaceTime(basis.fastest.seconds ?? basis.fastest.minutes * 60),
+    };
+    return t(basis.raceDayBonus ? 'goal.basisBestEffort' : 'goal.basisRace', params);
+  }
+  if (basis.method === 'heart_rate') return t('goal.basisHeartRate', { count: basis.steadyRuns });
+  return t(basis.fromHardRuns ? 'goal.basisHard' : basis.typedIn ? 'goal.basisTyped' : 'goal.basisAll', { count: basis.runs });
+}
+
 /** The estimate over time against the target (dashed). Lower is faster. */
 function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) {
   const theme = useTheme();
@@ -120,9 +133,7 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
           )}
 
           {status.basis && (
-            <Text className="text-[11px] text-theme-muted mt-1">
-              {t(status.basis.fromHardRuns ? 'goal.basisHard' : status.basis.typedIn ? 'goal.basisTyped' : 'goal.basisAll', { count: status.basis.runs })}
-            </Text>
+            <Text className="text-[11px] text-theme-muted mt-1">{basisLabel(t, status.basis)}</Text>
           )}
 
           {/* Only a real history is worth a line: with a day or two of data it is flat and reads like a full progress bar. */}

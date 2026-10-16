@@ -10,10 +10,16 @@ const db = require("./services/db");
 const app = express();
 const server = http.createServer(app);
 
+// api.rooka.io reaches us through a Cloudflare tunnel (cloudflared on this VM), so
+// every request arrives from loopback. Trusting only loopback hops makes req.ip the
+// address Cloudflare saw, while X-Forwarded-For from a direct caller is ignored.
+app.set("trust proxy", "loopback");
+
 app.use(cors());
 app.use(bodyParser.json({ limit: "50mb" }));
 // Localize API error/success messages into the athlete's selected language.
 app.use(require("./services/i18n").localizeResponses);
+app.use("/api", require("./services/rateLimit").apiLimit);
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));

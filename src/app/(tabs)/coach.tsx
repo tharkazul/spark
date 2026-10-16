@@ -1,6 +1,6 @@
 import { BrandColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -1007,7 +1007,11 @@ export default function CoachScreen() {
                           style={{ backgroundColor: cfg.tint }}
                           className="w-7 h-7 rounded-lg items-center justify-center"
                         >
-                          <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
+                          {cfg.family === 'MaterialCommunityIcons' ? (
+                            <MaterialCommunityIcons name={cfg.icon as any} size={15} color={cfg.color} />
+                          ) : (
+                            <Ionicons name={cfg.icon as any} size={15} color={cfg.color} />
+                          )}
                         </View>
                         <Text className="text-sm font-extrabold text-theme-text">
                           {selectedPillWorkout.sport ? t(`sports.${selectedPillWorkout.sport.toLowerCase()}`, selectedPillWorkout.sport) : t('activityDetail.workout')}
@@ -1597,15 +1601,12 @@ export default function CoachScreen() {
                   placeholder={t('coach.askCoach', 'Ask your coach...')}
                   placeholderTextColor={theme.textSecondary}
                   value={inputText}
-                  onChangeText={(text) => {
-                    if (text.endsWith('\n')) {
-                      handleSend(text.trim());
-                    } else {
-                      setInputText(text);
-                    }
-                  }}
+                  onChangeText={setInputText}
+                  // Return sends instead of inserting a newline, so the native view never
+                  // lays out an extra line that sticks around after the input is cleared.
+                  submitBehavior="submit"
+                  onSubmitEditing={() => handleSend()}
                   multiline={true}
-                  blurOnSubmit={false}
                   returnKeyType="default"
                   className="text-theme-text text-base font-jakarta"
                   style={{

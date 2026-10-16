@@ -5,6 +5,7 @@ import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
   Animated as RNAnimated,
   DeviceEventEmitter,
   ScrollView,
@@ -114,7 +115,6 @@ export default function PlanningHomeScreen() {
   const [workoutToInvite, setWorkoutToInvite] = useState<WorkoutItem | null>(null);
   const [weatherForecast, setWeatherForecast] = useState<Record<string, DayWeather>>({});
   const [weatherAttribution, setWeatherAttribution] = useState<WeatherAttributionInfo | null>(null);
-  const [weatherHomeTown, setWeatherHomeTown] = useState<string | null>(null);
 
   // The Planning tab is a two-page swipe pager, like Progress: Today (home,
   // what matters now) and Week (the full agenda). It opens on Today.
@@ -150,12 +150,18 @@ export default function PlanningHomeScreen() {
       weatherService.getForecast().then((forecast) => {
         setWeatherForecast(forecast.days);
         setWeatherAttribution(forecast.attribution);
-        setWeatherHomeTown(forecast.homeTown);
       });
     loadWeather();
     // Profile -> Home town changed: show the new town's forecast straight away.
     const sub = DeviceEventEmitter.addListener('homeTownChanged', loadWeather);
-    return () => sub.remove();
+    // Back from the background (maybe days later): the 3-hour cache decides whether this calls the server.
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') loadWeather();
+    });
+    return () => {
+      sub.remove();
+      appStateSub.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -757,7 +763,7 @@ export default function PlanningHomeScreen() {
               isRestDay={!todayAgenda?.workouts.some((w) => String(w.type).toUpperCase() !== 'REST')}
             />
 
-            {weatherForecast[todayYYYYMMDD] ? <WeatherAttribution attribution={weatherAttribution} homeTown={weatherHomeTown} /> : null}
+            {weatherForecast[todayYYYYMMDD] ? <WeatherAttribution attribution={weatherAttribution} /> : null}
           </KeyboardAwareScrollView>
         </View>
 
@@ -948,7 +954,7 @@ export default function PlanningHomeScreen() {
                 </Animated.View>
               ))
             )}
-            {Object.keys(weatherForecast).length > 0 ? <WeatherAttribution attribution={weatherAttribution} homeTown={weatherHomeTown} /> : null}
+            {Object.keys(weatherForecast).length > 0 ? <WeatherAttribution attribution={weatherAttribution} /> : null}
           </ScrollView>
         </View>
       </RNAnimated.ScrollView>
