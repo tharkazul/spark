@@ -1994,6 +1994,21 @@ export const fr: TranslationKeys = {
     muscle_triceps: "triceps",
     muscle_forearms: "avant-bras et prise",
   },
+  homeTown: {
+    title: "Ville",
+    notSet: "Non définie",
+    hint: "Utilisée pour ta météo et par ton coach. Seule la ville est enregistrée, jamais ta position exacte.",
+    placeholder: "Cherche ta ville",
+    search: "Rechercher",
+    noResults: "Aucun lieu trouvé. Essaie une autre orthographe.",
+    remove: "Retirer {town}",
+    searchFailed: "La recherche ne fonctionne pas pour le moment. Réessaie plus tard.",
+    saveFailed: "Impossible d'enregistrer ta ville.",
+    searchCredit: "Recherche de lieux via OpenStreetMap",
+  },
+  weather: {
+    legal: "Mentions légales",
+  },
   coachMemory: {
     title: "Ce que {coach} sait de vous",
     subtitle: "Sert à planifier autour de votre vie. Touchez pour modifier ou supprimer.",

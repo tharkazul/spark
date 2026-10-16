@@ -59,6 +59,7 @@ app.use("/", notificationsRoutes);
 app.use("/", discountsRoutes);
 app.use("/", require("./routes/season"));
 app.use("/", require("./routes/facts"));
+app.use("/", require("./routes/weather"));
 
 // Utilities and cron jobs
 const {

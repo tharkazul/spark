@@ -1992,6 +1992,21 @@ export const en = {
     muscle_triceps: "triceps",
     muscle_forearms: "forearms & grip",
   },
+  homeTown: {
+    title: "Home town",
+    notSet: "Not set",
+    hint: "Used for your weather forecast and by your coach. Only the town is saved, never your exact location.",
+    placeholder: "Search for your town",
+    search: "Search",
+    noResults: "No towns found. Try another spelling.",
+    remove: "Remove {town}",
+    searchFailed: "Search isn't working right now. Try again later.",
+    saveFailed: "Couldn't save your home town.",
+    searchCredit: "Town search by OpenStreetMap",
+  },
+  weather: {
+    legal: "Legal",
+  },
   coachMemory: {
     title: "What {coach} knows about you",
     subtitle: "Used to plan around your life. Tap to change or delete.",

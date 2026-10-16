@@ -44,7 +44,8 @@ import { HomeAskCoachCard } from '../../components/home/HomeAskCoachCard';
 import { HomeRecoveryCard } from '../../components/home/HomeRecoveryCard';
 import { HomeTodayCard } from '../../components/home/HomeTodayCard';
 import { HomeWeekHero } from '../../components/home/HomeWeekHero';
-import { weatherService, DayWeather } from '../../services/weatherService';
+import { weatherService, DayWeather, WeatherAttribution as WeatherAttributionInfo } from '../../services/weatherService';
+import { WeatherAttribution } from '../../components/ui/WeatherAttribution';
 
 import { AdaptPlanModal } from '../../components/dashboard/AdaptPlanModal';
 import { AddWorkoutModal } from '../../components/dashboard/AddWorkoutModal';
@@ -112,6 +113,8 @@ export default function PlanningHomeScreen() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [workoutToInvite, setWorkoutToInvite] = useState<WorkoutItem | null>(null);
   const [weatherForecast, setWeatherForecast] = useState<Record<string, DayWeather>>({});
+  const [weatherAttribution, setWeatherAttribution] = useState<WeatherAttributionInfo | null>(null);
+  const [weatherHomeTown, setWeatherHomeTown] = useState<string | null>(null);
 
   // The Planning tab is a two-page swipe pager, like Progress: Today (home,
   // what matters now) and Week (the full agenda). It opens on Today.
@@ -143,11 +146,16 @@ export default function PlanningHomeScreen() {
   const askInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    weatherService.getDailyForecast().then((forecast) => {
-      if (forecast && Object.keys(forecast).length > 0) {
-        setWeatherForecast(forecast);
-      }
-    });
+    const loadWeather = () =>
+      weatherService.getForecast().then((forecast) => {
+        setWeatherForecast(forecast.days);
+        setWeatherAttribution(forecast.attribution);
+        setWeatherHomeTown(forecast.homeTown);
+      });
+    loadWeather();
+    // Profile -> Home town changed: show the new town's forecast straight away.
+    const sub = DeviceEventEmitter.addListener('homeTownChanged', loadWeather);
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
@@ -748,6 +756,8 @@ export default function PlanningHomeScreen() {
               onAskAdjust={handleAskAdjust}
               isRestDay={!todayAgenda?.workouts.some((w) => String(w.type).toUpperCase() !== 'REST')}
             />
+
+            {weatherForecast[todayYYYYMMDD] ? <WeatherAttribution attribution={weatherAttribution} homeTown={weatherHomeTown} /> : null}
           </KeyboardAwareScrollView>
         </View>
 
@@ -938,6 +948,7 @@ export default function PlanningHomeScreen() {
                 </Animated.View>
               ))
             )}
+            {Object.keys(weatherForecast).length > 0 ? <WeatherAttribution attribution={weatherAttribution} homeTown={weatherHomeTown} /> : null}
           </ScrollView>
         </View>
       </RNAnimated.ScrollView>

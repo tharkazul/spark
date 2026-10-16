@@ -786,7 +786,7 @@ TIME CONTEXT:
 Current Date & Time: ${todayStr} at ${new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}
 The upcoming week mapping is:
 ${next7Days}
-${await getWeatherContext()}
+${await getWeatherContext(req.user.id)}
 ATHLETE CONTEXT:
 Gender: ${user.gender || "Prefer not to share"}
 ${user.athlete_context}

@@ -75,8 +75,8 @@ function RookaPlusBadge() {
 
 export function DetailedDayCard({
   day,
-  weatherTemp = '22°C',
-  weatherIcon = 'partly-sunny-outline',
+  weatherTemp,
+  weatherIcon,
   isExpanded = true,
   onToggleExpand,
   onAdaptPress,
@@ -249,12 +249,14 @@ export function DetailedDayCard({
                 <Chip variant="accent" size="sm" label={t('common.today', 'Today')} />
               )}
             </View>
-            <View className="flex-row items-center gap-1.5 mt-0.5">
-              <Ionicons name={(weatherIcon as any) || 'partly-sunny-outline'} size={13} color="#94A3B8" />
-              <Text className="text-xs font-medium text-theme-muted font-jakarta">
-                {weatherTemp}
-              </Text>
-            </View>
+            {weatherTemp ? (
+              <View className="flex-row items-center gap-1.5 mt-0.5">
+                <Ionicons name={(weatherIcon as any) || 'partly-sunny-outline'} size={13} color="#94A3B8" />
+                <Text className="text-xs font-medium text-theme-muted font-jakarta">
+                  {weatherTemp}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
 

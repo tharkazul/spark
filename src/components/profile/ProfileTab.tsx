@@ -25,6 +25,7 @@ import { formatRookaPoints, formatTokens } from '../../utils/format';
 import { TitlesSkeleton } from '../skeletons/TitlesSkeleton';
 import { LanguageSelector } from '../LanguageSelector';
 import { confirmEnableAi, confirmDisableAi } from '../../utils/aiConsent';
+import { HomeTownSheet } from './HomeTownSheet';
 
 interface ProfileTabProps {
   username: string;
@@ -58,6 +59,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const [titles, setTitles] = useState<UserTitle[]>([]);
   const [loadingTitles, setLoadingTitles] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [homeTownOpen, setHomeTownOpen] = useState(false);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [expandedTitleId, setExpandedTitleId] = useState<string | number | null>(null);
 
@@ -562,6 +564,17 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       </Text>
       <Card className="p-2">
         {renderSettingRow(
+          'location-outline',
+          t('homeTown.title'),
+          <View className="flex-row items-center gap-1">
+            <Text className="text-sm text-theme-muted" numberOfLines={1}>
+              {user?.homeTown || t('homeTown.notSet')}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+          </View>,
+          () => setHomeTownOpen(true)
+        )}
+        {renderSettingRow(
           'moon',
           t('profile.darkMode'),
           <Switch
@@ -751,6 +764,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </Text>
         </TouchableOpacity>
       </View>
+
+      <HomeTownSheet visible={homeTownOpen} onClose={() => setHomeTownOpen(false)} />
     </View>
   );
 };

@@ -96,7 +96,7 @@ Privacy Policy: https://rooka.io/privacy
 
 ## 4. App Privacy Declarations (Apple Nutrition Labels)
 
-Data processed by service providers on rooka's behalf (Google Gemini for AI, Google Cloud for hosting, RevenueCat for subscriptions) counts as data **collected** by rooka and must be declared below.
+Data processed by service providers on rooka's behalf (Google Gemini for AI, Google Cloud for hosting, RevenueCat for subscriptions, Apple WeatherKit and OpenStreetMap for the home-town forecast) counts as data **collected** by rooka and must be declared below.
 
 | Data Type (Apple category) | Collected? | Linked to User? | Used for Tracking? | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
@@ -104,6 +104,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
 | **Health & Fitness** – Health (heart rate, HRV, resting HR, sleep, weight, body fat, VO2 max, cycle tracking) | Yes | Yes | No | App Functionality (recovery score, AI coaching, plans) |
 | **Health & Fitness** – Fitness (workouts, steps, active energy) | Yes | Yes | No | App Functionality (recovery score, AI coaching, plans) |
 | **Location** – Precise Location | Yes | Yes | No | App Functionality (GPS routes of workouts synced from Apple Health and connected services such as Strava and Suunto) |
+| **Location** – Coarse Location | Yes | Yes | No | App Functionality (home town the athlete types in Profile, for the weather forecast and the coach) |
 | **User Content** – Photos or Videos (photos sent to the coach, profile picture) | Yes | Yes | No | App Functionality |
 | **User Content** – Audio Data (voice notes to the coach) | Yes | Yes | No | App Functionality (speech-to-text) |
 | **User Content** – Other User Content (messages to the AI coach, daily log notes) | Yes | Yes | No | App Functionality |
@@ -128,7 +129,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
    * Web deletion URL: `https://rooka.io/privacy`
 4. **Is data shared with third parties?** -> `No`. Google Gemini, Google Cloud and RevenueCat process data on rooka's behalf as service providers, which Google Play does not count as sharing. Data is still declared as **collected** below.
 5. **Data types collected:**
-   * **Location:** Precise location (GPS routes of synced workouts).
+   * **Location:** Precise location (GPS routes of synced workouts) and approximate location (home town typed in Profile, for the weather forecast).
    * **Personal info:** Name, Email address, User IDs.
    * **Financial info:** Purchase history (subscriptions).
    * **Health and fitness:** Health info (heart rate, HRV, sleep, weight, body composition, cycle tracking), Fitness info (workouts, steps, activity).

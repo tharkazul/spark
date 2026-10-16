@@ -60,8 +60,24 @@ export const authApi = {
     ),
 };
 
+export interface PlaceResult {
+  name: string;
+  region: string;
+  country: string;
+  label: string;
+  lat: number;
+  lon: number;
+}
+
 export const userApi = {
   getProfile: () => apiClient<UserProfile>('/api/user/settings'),
+  searchPlaces: (q: string, lang: string) =>
+    apiClient<{ results: PlaceResult[] }>(`/api/places/search?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`),
+  setHomeTown: (place: { name: string; lat: number; lon: number; timezone: string } | null) =>
+    apiClient<{ success: boolean; homeTown: { name: string } | null }>('/api/user/home-town', {
+      method: 'PUT',
+      body: JSON.stringify({ place }),
+    }),
   setAiConsent: (consent: boolean) =>
     apiClient<{ success: boolean; aiConsent: boolean }>('/api/user/ai-consent', {
       method: 'POST',

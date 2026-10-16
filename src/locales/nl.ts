@@ -1994,6 +1994,21 @@ export const nl: TranslationKeys = {
     muscle_triceps: "triceps",
     muscle_forearms: "onderarmen & grip",
   },
+  homeTown: {
+    title: "Woonplaats",
+    notSet: "Niet ingesteld",
+    hint: "Voor je weersverwachting en voor je coach. Alleen de plaats wordt opgeslagen, nooit je exacte locatie.",
+    placeholder: "Zoek je woonplaats",
+    search: "Zoeken",
+    noResults: "Geen plaatsen gevonden. Probeer een andere spelling.",
+    remove: "{town} verwijderen",
+    searchFailed: "Zoeken lukt nu niet. Probeer het later opnieuw.",
+    saveFailed: "Je woonplaats kon niet worden opgeslagen.",
+    searchCredit: "Plaatsen zoeken via OpenStreetMap",
+  },
+  weather: {
+    legal: "Juridisch",
+  },
   coachMemory: {
     title: "Wat {coach} over je weet",
     subtitle: "Gebruikt om rond je leven te plannen. Tik om te wijzigen of te verwijderen.",

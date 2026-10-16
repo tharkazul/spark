@@ -151,31 +151,9 @@ function getUserLeaderboardString(userId) {
   });
 }
 
-async function getWeatherContext() {
-  try {
-    const weatherRes = await fetch(
-      "https://api.open-meteo.com/v1/forecast?latitude=52.3676&longitude=4.9041&current=temperature_2m,weather_code,wind_speed_10m,precipitation&daily=weather_code,temperature_2m_max,precipitation_sum,wind_speed_10m_max&timezone=Europe%2FBerlin",
-    );
-    if (!weatherRes.ok) return "";
-    const data = await weatherRes.json();
-
-    const currentTemp = data.current.temperature_2m;
-    const currentWind = data.current.wind_speed_10m;
-    const currentPrecip = data.current.precipitation;
-    const dailyPrecip = data.daily.precipitation_sum[0] || 0;
-
-    let weatherContext = `\nWEATHER CONTEXT:\nCurrent Weather: ${currentTemp}°C, Wind: ${currentWind} km/h, Precipitation: ${currentPrecip} mm/h (Daily total: ${dailyPrecip} mm).\n`;
-
-    // Define miserable conditions (e.g. heavy rain or high wind)
-    if (currentPrecip > 1.0 || dailyPrecip > 5.0 || currentWind > 25) {
-      weatherContext += `WEATHER ALERT: It is currently very miserable outside (heavy rain or high winds).\n`;
-    }
-
-    return weatherContext;
-  } catch (e) {
-    console.error("Failed to fetch weather context:", e);
-    return "";
-  }
+/** The coach's WEATHER CONTEXT block for this athlete's home town ("" when unknown). */
+async function getWeatherContext(userId) {
+  return require("./weather").getWeatherPromptBlock(userId);
 }
 
 async function getUserMacroPhase(userId) {

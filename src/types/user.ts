@@ -34,6 +34,8 @@ export interface UserProfile {
   eventType?: string;
   /** How much detail the coach writes in sessions. */
   detail_level?: 'short' | 'normal' | 'deep';
+  /** Town used for the weather forecast (Profile -> Preferences). */
+  homeTown?: string | null;
   target_mode?: string;
   targetMode?: string;
   target_value?: string;

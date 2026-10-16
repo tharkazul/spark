@@ -1994,6 +1994,21 @@ export const de: TranslationKeys = {
     muscle_triceps: "Trizeps",
     muscle_forearms: "Unterarme & Griff",
   },
+  homeTown: {
+    title: "Wohnort",
+    notSet: "Nicht festgelegt",
+    hint: "Für deine Wettervorhersage und deinen Coach. Gespeichert wird nur der Ort, nie dein genauer Standort.",
+    placeholder: "Suche deinen Wohnort",
+    search: "Suchen",
+    noResults: "Keine Orte gefunden. Versuch eine andere Schreibweise.",
+    remove: "{town} entfernen",
+    searchFailed: "Die Suche funktioniert gerade nicht. Versuch es später erneut.",
+    saveFailed: "Dein Wohnort konnte nicht gespeichert werden.",
+    searchCredit: "Ortssuche über OpenStreetMap",
+  },
+  weather: {
+    legal: "Rechtliches",
+  },
   coachMemory: {
     title: "Was {coach} über dich weiß",
     subtitle: "Wird genutzt, um um dein Leben herum zu planen. Tippe zum Ändern oder Löschen.",
