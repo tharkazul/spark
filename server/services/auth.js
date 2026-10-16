@@ -4,6 +4,29 @@ const db = require("./db");
 // In-memory cache to throttle last_active_at updates (at most once every 5 minutes per user)
 const lastActiveMap = new Map();
 
+db.run(`ALTER TABLE users ADD COLUMN app_platform TEXT`, () => {});
+db.run(`ALTER TABLE users ADD COLUMN app_caps TEXT`, () => {});
+
+// The app sends its platform and the features its build has (X-App-Platform,
+// X-App-Caps), so the coach only points athletes at screens their app has.
+const clientMap = new Map();
+function trackClient(userId, req) {
+  const platform = String(req.headers["x-app-platform"] || "").toLowerCase().slice(0, 10);
+  if (!userId || !["ios", "android"].includes(platform)) return;
+  const caps = String(req.headers["x-app-caps"] || "")
+    .split(",")
+    .map((c) => c.trim().toLowerCase())
+    .filter((c) => /^[a-z0-9-]{1,40}$/.test(c))
+    .sort()
+    .join(",");
+  const value = `${platform}|${caps}`;
+  if (clientMap.get(userId) === value) return;
+  clientMap.set(userId, value);
+  db.run(`UPDATE users SET app_platform = ?, app_caps = ? WHERE id = ?`, [platform, caps, userId], (err) => {
+    if (err) console.error("Error updating app client info:", err.message);
+  });
+}
+
 function trackUserActivity(userId) {
   if (!userId) return;
   const now = Date.now();
@@ -67,6 +90,7 @@ function authenticateToken(req, res, next) {
 
         // Record activity timestamp for active user safeguards
         trackUserActivity(user.id);
+        trackClient(user.id, req);
 
         // Trust the database for identity, not the (possibly stale) token payload.
         req.user = {

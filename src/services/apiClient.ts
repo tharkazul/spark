@@ -1,4 +1,7 @@
+import { Platform } from 'react-native';
+
 import { API_BASE_URL } from '../constants/api';
+import { APP_CAPABILITIES } from '../constants/features';
 import { tokenStorage } from './storage';
 import { getCurrentLanguage, translate } from '../locales/i18n';
 
@@ -53,6 +56,9 @@ export async function apiClient<T>(
   const headers: Record<string, string> = {
     // The server localizes its error/success messages (and coach output) into this language.
     'X-App-Language': getCurrentLanguage(),
+    // Lets the server tailor the coach's feature reminders to this phone and build.
+    'X-App-Platform': Platform.OS,
+    'X-App-Caps': APP_CAPABILITIES.join(','),
     ...(fetchOptions.headers as Record<string, string>),
   };
 

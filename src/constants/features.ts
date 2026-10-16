@@ -10,3 +10,8 @@ export const GARMIN_DIRECT_LOGIN_ENABLED = false;
 // could add load the plan didn't ask for. To be replaced by achievements.
 // Mirrors QUESTS_ENABLED in server/services/utils.js.
 export const QUESTS_ENABLED = false;
+
+// Screens this build has that the server may point athletes to (sent as X-App-Caps).
+// The coach's feature reminders only mention a screen when the athlete's app has it.
+// Add a name here when a release adds a screen a reminder links to.
+export const APP_CAPABILITIES = ['health-connect', 'home-town'];

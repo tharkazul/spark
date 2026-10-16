@@ -12,6 +12,11 @@ const TIER_LEVELS = {
   admin: 3,
 };
 
+/** True when the athlete's app build reported this capability (X-App-Caps). */
+function hasCap(user, cap) {
+  return String(user?.app_caps || "").split(",").includes(cap);
+}
+
 function hasAccess(userTier, minTier) {
   const userLevel = TIER_LEVELS[String(userTier || "free").toLowerCase()] || 0;
   const requiredLevel = TIER_LEVELS[String(minTier || "free").toLowerCase()] || 0;
@@ -23,6 +28,38 @@ function hasAccess(userTier, minTier) {
  * Extensible array supporting tier gating and hardware prerequisites.
  */
 const FEATURES_REGISTRY = [
+  {
+    key: "apple_health",
+    name: "Apple Health Connection",
+    description: "Connect Apple Health so the coach sees sleep, HRV, resting heart rate, steps and workouts.",
+    minTier: "free",
+    coachPrompt: "Connect Apple Health so I can see how you actually slept and recovered: go to Profile, Connections, Apple Health, tap Connect and switch everything on. Then I can ease off after a short night or a dip in HRV, and push when you're fresh.",
+    // iPhone users whose app build has the Connect flow that asks for permission.
+    isApplicable: async (userId, user) => user?.app_platform === "ios" && hasCap(user, "health-connect"),
+    checkUsage: (userId) => {
+      return new Promise((resolve) => {
+        db.get(
+          `SELECT ((SELECT COUNT(*) FROM biometrics WHERE user_id = ? AND (sleep_minutes > 0 OR hrv_sdnn > 0 OR steps > 0 OR resting_hr > 0))
+                 + (SELECT COUNT(*) FROM activities WHERE user_id = ? AND healthkit_workout_id IS NOT NULL)) as cnt`,
+          [userId, userId],
+          (err, row) => resolve(row ? row.cnt > 0 : false)
+        );
+      });
+    }
+  },
+  {
+    key: "home_town",
+    name: "Home Town for Weather",
+    description: "Set a home town so the plan and coach show the local weather forecast.",
+    minTier: "free",
+    coachPrompt: "Set your home town under Profile, Preferences, Home town. Then you'll see the forecast next to your sessions, and I can plan around rain, wind and heat where you actually train.",
+    isApplicable: async (userId, user) => hasCap(user, "home-town"),
+    checkUsage: (userId) => {
+      return new Promise((resolve) => {
+        db.get(`SELECT home_place FROM users WHERE id = ?`, [userId], (err, row) => resolve(Boolean(row && row.home_place)));
+      });
+    }
+  },
   {
     key: "food_logging",
     name: "Food Log & Macro Intake",
@@ -225,7 +262,7 @@ const FEATURES_REGISTRY = [
     description: "Push planned workouts directly into the native Workout app on your Apple Watch via WorkoutKit.",
     minTier: "free",
     isApplicable: async (userId, user) => {
-      return Boolean(user && user.is_ios > 0);
+      return Boolean(user && (user.app_platform === "ios" || user.is_ios > 0));
     },
     coachPrompt: "Take your training straight to your wrist! You can push your planned workouts directly into the native Workout app on your Apple Watch via WorkoutKit, giving you haptic interval beeps and live target guidance.",
     checkUsage: (userId) => {
@@ -429,7 +466,7 @@ async function getNextUnusedFeatureForUser(userId, cachedUser = null) {
   const user = cachedUser || (await new Promise((resolve) => {
     db.get(
       `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender, u.language,
-              u.garmin_username, u.garmin_oauth1_token,
+              u.garmin_username, u.garmin_oauth1_token, u.app_platform, u.app_caps,
               (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
        FROM users u WHERE u.id = ?`,
       [userId],
@@ -483,7 +520,7 @@ async function runWeeklyFeatureOnboardingJob() {
   const users = await new Promise((resolve, reject) => {
     db.all(
       `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender, u.language,
-              u.garmin_username, u.garmin_oauth1_token,
+              u.garmin_username, u.garmin_oauth1_token, u.app_platform, u.app_caps,
               (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
        FROM users u WHERE u.deleted_at IS NULL AND u.ai_consent = 1`,
       (err, rows) => {
