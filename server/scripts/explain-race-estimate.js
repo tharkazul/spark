@@ -4,9 +4,15 @@
  * Read-only: prints every run in the 8-week window and what the estimate in
  * services/goalStatus.js did with it, so a surprising number can be traced.
  *
+ * Also compares the live method (A: median of the 3 fastest) with the
+ * proposed one (C: best hard effort + race-day bonus) and an exploratory
+ * estimate from easy running (heart rate vs pace -> VO2max -> Daniels), so a
+ * change can be judged per athlete before it goes live.
+ *
  * Examples
  *   node scripts/explain-race-estimate.js --user Quinten
  *   node scripts/explain-race-estimate.js --user Quinten --km 5 --days 84
+ *   node scripts/explain-race-estimate.js --all          (one row per athlete with a running goal)
  */
 
 const path = require("path");
@@ -24,6 +30,7 @@ const value = (name) => {
 };
 
 const TARGET = value("user");
+const ALL = argv.includes("--all");
 const DAYS = parseInt(value("days") || "56", 10);
 const KM_OVERRIDE = value("km") ? parseFloat(value("km")) : null;
 
@@ -41,50 +48,112 @@ const mmss = (sec) => {
   return h ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
 };
 
-async function main() {
-  if (!TARGET) {
-    console.error("Usage: node scripts/explain-race-estimate.js --user <username or id> [--km 5] [--days 56]");
-    process.exit(1);
-  }
-  const user = await get(
+async function athleteHr(userId, savedMaxHr) {
+  const observed = await get(
+    `SELECT MAX(max_heartrate) AS max_hr FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`,
+    [userId, seasonPlan.addDays(seasonPlan.todayStr(), -365)]
+  );
+  const metrics = await athleteZones.getAthleteMetrics(userId);
+  const rest = await get(
+    `SELECT resting_hr FROM biometrics WHERE user_id = ? AND resting_hr > 0 AND date >= ? ORDER BY resting_hr LIMIT 1 OFFSET (
+       SELECT COUNT(*) / 2 FROM biometrics WHERE user_id = ? AND resting_hr > 0 AND date >= ?)`,
+    [userId, seasonPlan.addDays(seasonPlan.todayStr(), -30), userId, seasonPlan.addDays(seasonPlan.todayStr(), -30)]
+  );
+  const vo2 = await get(
+    `SELECT vo2_max, date FROM biometrics WHERE user_id = ? AND vo2_max > 0 AND date >= ? ORDER BY date DESC LIMIT 1`,
+    [userId, seasonPlan.addDays(seasonPlan.todayStr(), -60)]
+  );
+  const observedMax = observed?.max_hr || null;
+  // The saved max HR goes stale when an athlete runs harder than they thought
+  // they could; the highest recorded in the last year wins when it is higher.
+  const maxHr = Math.max(savedMaxHr || 0, observedMax || 0) || null;
+  const restingHr = metrics.resting_hr || rest?.resting_hr || null;
+  return { savedMaxHr, observedMax, maxHr, restingHr, restingFrom: metrics.resting_hr ? "profile" : rest ? "biometrics (30d median)" : null, vo2: vo2 || null };
+}
+
+async function findUser(target) {
+  return get(
     `SELECT id, username FROM users
       WHERE deleted_at IS NULL AND (id = ? OR LOWER(username) = LOWER(?) OR LOWER(username) LIKE LOWER(?))
       ORDER BY (id = ?) DESC, (LOWER(username) = LOWER(?)) DESC, id LIMIT 1`,
-    [Number(TARGET) || -1, TARGET, `%${TARGET}%`, Number(TARGET) || -1, TARGET]
+    [Number(target) || -1, target, `%${target}%`, Number(target) || -1, target]
   );
-  if (!user) throw new Error(`No user matching "${TARGET}"`);
+}
 
+async function loadRuns(userId, days) {
+  const since = seasonPlan.addDays(seasonPlan.todayStr(), -days);
+  return (await all(
+    `SELECT id, name, sport_type, distance_km, moving_time_min, start_date, average_heartrate, max_heartrate,
+            strava_activity_id, healthkit_workout_id, suunto_workout_id, is_hidden
+       FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?
+      ORDER BY start_date`,
+    [userId, since]
+  )).filter((a) => RUN_TYPES.has(sportKey(a.sport_type)));
+}
+
+/** A, C and the aerobic estimate, as of `day`, from the runs in the 8 weeks before it. */
+function compareAsOf(runs, day, distanceKm, hrZones, hr) {
+  const from = seasonPlan.addDays(day, -56);
+  const window = runs.filter((r) => {
+    const d = String(r.start_date || "").slice(0, 10);
+    return d >= from && d <= day;
+  });
+  return {
+    A: goalStatus.pickRaceEstimate(window, distanceKm, hrZones),
+    C: goalStatus.pickRaceEstimateBestEffort(window, distanceKm, hrZones, { maxHr: hr.maxHr, asOf: day }),
+    E: goalStatus.aerobicRaceEstimate(window, distanceKm, { maxHr: hr.maxHr, restingHr: hr.restingHr }),
+  };
+}
+
+async function explainUser(user, verbose) {
   const goal = await seasonPlan.getMainRaceGoal(user.id);
-  const season = await seasonPlan.getSeason?.(user.id).catch(() => null);
+  const season = await seasonPlan.getSeason(user.id).catch(() => null);
   const eventType = season?.eventType;
   const cfg = seasonPlan.EVENT_TYPES[eventType] || {};
   const distanceKm = KM_OVERRIDE || cfg.distanceKm || 5;
   const targetSec = goal && goal.target_mode === "time" ? goalStatus.parseTargetSeconds(goal.target_value, distanceKm) : null;
+  const { hrZones, maxHr: savedMaxHr } = await athleteZones.resolveZonesForUser(user.id, "Run");
+  const hr = await athleteHr(user.id, savedMaxHr);
+  const allRuns = await loadRuns(user.id, Math.max(DAYS, 56 + 84));
+  const runs = seasonPlan.dedupeActivities(allRuns.filter((r) => !r.is_hidden));
+  const today = seasonPlan.todayStr();
+  const now = compareAsOf(runs, today, distanceKm, hrZones, hr);
+  const watchVo2Sec = hr.vo2 ? goalStatus.raceSecondsFromVdot(hr.vo2.vo2_max, distanceKm) : null;
+  const gap = (sec) => (targetSec && sec ? `${(((sec - targetSec) / targetSec) * 100).toFixed(1)}% (${goalStatus.statusFromGap((sec - targetSec) / targetSec)})` : "-");
 
+  if (!verbose) {
+    return {
+      athlete: user.username,
+      event: eventType || "-",
+      target: mmss(targetSec),
+      "A live": mmss(now.A?.seconds),
+      "C proposed": mmss(now.C?.seconds),
+      "C method": now.C?.basis?.method || "-",
+      "C gap": gap(now.C?.seconds),
+      "easy-run est.": mmss(now.E?.seconds),
+      "watch VO2max": watchVo2Sec ? `${mmss(watchVo2Sec)} (${hr.vo2.vo2_max})` : "-",
+      maxHR: hr.maxHr || "-",
+    };
+  }
   console.log(`\n== ${user.username} (id ${user.id}) ==`);
   console.log(`Goal: ${goal ? `${goal.name} on ${goal.date}, target ${goal.target_value || "-"} (${mmss(targetSec)})` : "none"}`);
   console.log(`Distance used: ${distanceKm} km${eventType ? ` (event type ${eventType})` : ""}`);
 
   // Zones: which table decides "zone 3 or higher", and whether it is the athlete's own.
   const zoneRows = await all(`SELECT sport, source, zones_json, updated_at FROM athlete_zones WHERE user_id = ? AND kind = 'hr'`, [user.id]);
-  const { hrZones, maxHr } = await athleteZones.resolveZonesForUser(user.id, "Run");
   console.log(`\nHR tables saved: ${zoneRows.length ? zoneRows.map((r) => `${r.sport}/${r.source} (${String(r.updated_at).slice(0, 10)})`).join(", ") : "none (derived on the fly)"}`);
-  console.log(`Max HR known: ${maxHr || "-"}`);
+  console.log(`Max HR: saved ${hr.savedMaxHr || "-"}, highest recorded (1y) ${hr.observedMax || "-"} -> using ${hr.maxHr || "-"}`);
+  console.log(`Resting HR: ${hr.restingHr ? `${hr.restingHr} (${hr.restingFrom})` : "unknown -> no easy-run estimate"}`);
+  console.log(`Watch VO2max: ${hr.vo2 ? `${hr.vo2.vo2_max} (${hr.vo2.date})` : "none in the last 60 days"}`);
   console.log(`Zones used for Run: ${(hrZones || []).map((z) => `Z${z.zone} ${z.min}-${z.max ?? "max"}`).join(" | ") || "none"}`);
   const observed = await get(`SELECT MAX(max_heartrate) AS max_hr, MAX(average_heartrate) AS max_avg FROM activities WHERE user_id = ?`, [user.id]);
   console.log(`Observed in activities: highest max HR ${observed?.max_hr || "-"}, highest avg HR ${observed?.max_avg || "-"}`);
 
   // Same selection as goalStatus.pickRaceEstimate, but annotated per run.
-  const since = seasonPlan.addDays(seasonPlan.todayStr(), -DAYS);
-  const rawRuns = (await all(
-    `SELECT id, name, sport_type, distance_km, moving_time_min, start_date, average_heartrate, max_heartrate,
-            strava_activity_id, healthkit_workout_id, suunto_workout_id, is_hidden
-       FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?
-      ORDER BY start_date`,
-    [user.id, since]
-  )).filter((a) => RUN_TYPES.has(sportKey(a.sport_type)));
+  const since = seasonPlan.addDays(today, -DAYS);
+  const rawRuns = allRuns.filter((r) => String(r.start_date).slice(0, 10) >= since);
   const hidden = rawRuns.filter((r) => r.is_hidden);
-  const runs = seasonPlan.dedupeActivities(rawRuns.filter((r) => !r.is_hidden));
+  const windowRuns = runs.filter((r) => String(r.start_date).slice(0, 10) >= since);
 
   const isValid = (r) => {
     if (!(r.distance_km > 0) || !(r.moving_time_min > 0)) return false;
@@ -92,7 +161,7 @@ async function main() {
     return pace >= 2.83 && pace <= 12;
   };
   const isRecorded = (r) => (r.average_heartrate || 0) > 0 || r.strava_activity_id || r.healthkit_workout_id || r.suunto_workout_id;
-  const valid = runs.filter(isValid);
+  const valid = windowRuns.filter(isValid);
   const anyRecorded = valid.some(isRecorded);
   const lo = Math.max(3, 0.5 * distanceKm);
   const hi = 3 * distanceKm;
@@ -103,13 +172,16 @@ async function main() {
   const hard = band.filter((r) => (zoneOf(r) || 0) >= 3);
   const used = new Set((hard.length ? hard : band).map((r) => r.id));
   const pred = (r) => r.moving_time_min * 60 * Math.pow(distanceKm / r.distance_km, 1.06);
-  const top3 = new Set([...used].map((id) => runs.find((r) => r.id === id)).sort((a, b) => pred(a) - pred(b)).slice(0, 3).map((r) => r.id));
+  const top3 = new Set([...used].map((id) => windowRuns.find((r) => r.id === id)).sort((a, b) => pred(a) - pred(b)).slice(0, 3).map((r) => r.id));
 
-  console.log(`\nRuns in the last ${DAYS} days: ${rawRuns.length} (${hidden.length} hidden, ${rawRuns.length - hidden.length - runs.length} duplicates merged)`);
+  console.log(`\nRuns in the last ${DAYS} days: ${rawRuns.length} (${hidden.length} hidden, ${rawRuns.length - hidden.length - windowRuns.length} duplicates merged)`);
   console.log(`Distance band: ${lo}-${hi} km${bandFallback ? " -> EMPTY, fell back to every run of 3 km+" : ""}`);
   console.log(`Hard runs (avg HR zone 3+): ${hard.length} -> ${hard.length ? "only these count" : "none, so easy runs count too"}\n`);
 
-  const rows = runs.map((r) => {
+  const bestId = now.C?.basis?.method === "best_effort" ? now.C.basis.fastest.date : null;
+  const hrr = (r) =>
+    hr.maxHr && hr.restingHr && r.average_heartrate ? Math.round(((r.average_heartrate - hr.restingHr) / (hr.maxHr - hr.restingHr)) * 100) : null;
+  const rows = windowRuns.map((r) => {
     let verdict;
     if (!isValid(r)) verdict = "dropped: pace outside 2:50-12:00/km";
     else if (anyRecorded && !isRecorded(r)) verdict = "dropped: typed in, not recorded";
@@ -125,19 +197,52 @@ async function main() {
       avgHR: r.average_heartrate ? Math.round(r.average_heartrate) : "-",
       maxHR: r.max_heartrate || "-",
       zone: zoneOf(r) ?? "-",
+      "%HRmax": hr.maxHr && r.average_heartrate ? Math.round((r.average_heartrate / hr.maxHr) * 100) : "-",
+      "%HRR": hrr(r) ?? "-",
       [`riegel ${distanceKm}k`]: isValid(r) ? mmss(pred(r)) : "-",
-      verdict,
+      "A verdict": verdict,
+      C: bestId && String(r.start_date).slice(0, 10) === bestId ? "BEST EFFORT" : "",
     };
   });
   console.table(rows);
 
-  const est = await goalStatus.estimateRaceSeconds(user.id, distanceKm);
-  console.log(`\nEstimate shown in the app: ${est ? mmss(est.seconds) : "none"} (median of the 3 fastest Riegel predictions)`);
-  if (est) {
-    console.log(`Basis: ${JSON.stringify(est.basis)}`);
-    console.log(`Weekly trend: ${est.trend.map((p) => `${p.date.slice(5)} ${mmss(p.value)}`).join("  ")}`);
+  console.log(`\n--- Comparison (target ${mmss(targetSec)}) ---`);
+  console.log(`A live      ${mmss(now.A?.seconds).padEnd(8)} gap ${gap(now.A?.seconds)}   median of the 3 fastest`);
+  console.log(`C proposed  ${mmss(now.C?.seconds).padEnd(8)} gap ${gap(now.C?.seconds)}   ${JSON.stringify(now.C?.basis || null)}`);
+  console.log(`Easy runs   ${mmss(now.E?.seconds).padEnd(8)} gap ${gap(now.E?.seconds)}   ${now.E ? `VDOT ${now.E.vdot} from ${now.E.runs} steady runs (50-85% HRR)` : "needs max + resting HR and 3 steady runs"}`);
+  console.log(`Watch VO2   ${mmss(watchVo2Sec).padEnd(8)} gap ${gap(watchVo2Sec)}   ${hr.vo2 ? `VO2max ${hr.vo2.vo2_max} read as VDOT` : "no recent watch VO2max"}`);
+
+  const trend = [];
+  for (let w = 12; w >= 0; w--) {
+    const day = seasonPlan.addDays(today, -7 * w);
+    const c = compareAsOf(runs, day, distanceKm, hrZones, hr);
+    trend.push({ week: day, "A live": mmss(c.A?.seconds), "C proposed": mmss(c.C?.seconds), "C method": c.C?.basis?.method || "-", "easy-run est.": mmss(c.E?.seconds) });
   }
-  if (targetSec && est) console.log(`Gap to target: ${mmss(est.seconds - targetSec)} (${(((est.seconds - targetSec) / targetSec) * 100).toFixed(1)}%)`);
+  console.log("\nWeekly trend, as the goal card would draw it:");
+  console.table(trend);
+  return null;
+}
+
+async function main() {
+  if (ALL) {
+    const users = await all(`SELECT id, username FROM users WHERE deleted_at IS NULL ORDER BY id`);
+    const rows = [];
+    for (const u of users) {
+      const goal = await seasonPlan.getMainRaceGoal(u.id).catch(() => null);
+      const season = goal ? await seasonPlan.getSeason(u.id).catch(() => null) : null;
+      if (!season || !(seasonPlan.EVENT_TYPES[season.eventType] || {}).distanceKm) continue;
+      rows.push(await explainUser(u, false));
+    }
+    console.table(rows);
+    process.exit(0);
+  }
+  if (!TARGET) {
+    console.error("Usage: node scripts/explain-race-estimate.js --user <username or id> [--km 5] [--days 56] | --all");
+    process.exit(1);
+  }
+  const user = await findUser(TARGET);
+  if (!user) throw new Error(`No user matching "${TARGET}"`);
+  await explainUser(user, true);
   process.exit(0);
 }
 
