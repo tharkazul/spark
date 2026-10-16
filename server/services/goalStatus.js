@@ -101,28 +101,33 @@ function pickRaceEstimate(runs, distanceKm, hrZones) {
   };
 }
 
-// --- Proposed: best hard effort + race-day bonus (option C, not live yet) ---
+// --- Proposed estimate (option C v2, not live yet) ---
 // The median of the 3 fastest predictions ignored a runner's real best: an
-// athlete with a 23:05 5K at Z4 was estimated at 24:26 because two slower runs
-// sat in his top 3. Instead, the fastest recent run counts, when heart rate
-// shows it was a genuine effort, made 2% faster for race day (rested, tapered,
-// racing for a PB). A real race gets no bonus; it already was race day.
-// Each week of age costs 0.5%, so a best from 5 weeks ago weighs less than
-// this week's. Without a qualifying effort, the median estimate stays.
+// athlete with a 23:05 5K at 94% of max HR was estimated at 24:26 because two
+// slower runs sat in his top 3. In order:
+//
+// 1. A hard effort exists (avg HR >= 88% of max): the fastest one counts, 2%
+//    faster for race day (rested, tapered, racing for a PB). A real race gets
+//    no bonus; it already was race day. Each week of age costs 0.5%, so a best
+//    from 5 weeks ago weighs less than this week's. Max HR rather than zone 4:
+//    an automatic 220-age table starts zone 4 at ~80%, which is a tempo run.
+// 2. No hard effort: heart rate vs pace on steady runs says how big the engine
+//    is (see heartRateRaceEstimate). No race-day bonus there: an athlete who
+//    never runs hard has not trained the speed endurance a race asks for.
+// 3. Neither: the median estimate above.
+// The result is never slower than the median estimate.
 const BEST_EFFORT_WINDOW_DAYS = 42;
 const BEST_EFFORT_MIN_HR_FRACTION = 0.88;
 const RACE_DAY_FACTOR = 0.98;
 const AGE_PENALTY_PER_WEEK = 0.005;
 const RACE_NAME = /\b(race|wedstrijd|parkrun|wettkampf|carrera|competition)\b/i;
 
-function isHardEffort(r, hrZones, maxHr) {
+function isHardEffort(r, maxHr) {
   const hr = r.average_heartrate || 0;
-  if (!(hr > 0)) return false;
-  if ((zoneForHr(hr, hrZones) || 0) >= 4) return true;
-  return maxHr > 0 && hr >= BEST_EFFORT_MIN_HR_FRACTION * maxHr;
+  return hr > 0 && maxHr > 0 && hr >= BEST_EFFORT_MIN_HR_FRACTION * maxHr;
 }
 
-function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, asOf } = {}) {
+function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, restingHr = null, asOf } = {}) {
   const fallback = pickRaceEstimate(runs, distanceKm, hrZones);
   const lo = Math.max(3, 0.5 * distanceKm);
   const hi = 3 * distanceKm;
@@ -135,7 +140,7 @@ function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, a
       if (!(r.distance_km >= lo && r.distance_km <= hi) || !(r.moving_time_min > 0)) return false;
       const pace = r.moving_time_min / r.distance_km;
       const d = String(r.start_date || "").slice(0, 10);
-      return pace >= MIN_PACE && pace <= MAX_PACE && d >= from && d <= day && isHardEffort(r, hrZones, maxHr);
+      return pace >= MIN_PACE && pace <= MAX_PACE && d >= from && d <= day && isHardEffort(r, maxHr);
     })
     .map((r) => {
       const weeksAgo = Math.max(0, (dayMs - new Date(String(r.start_date).slice(0, 10) + "T12:00:00Z").getTime()) / (7 * 86400000));
@@ -145,31 +150,46 @@ function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, a
     })
     .sort((x, y) => x.sec - y.sec);
 
+  let proposed = null;
   const best = candidates[0];
-  // A best effort that comes out slower than the median of faster (Z3) runs
-  // would make the estimate worse for running hard; the median stands then.
-  if (!best || (fallback && fallback.seconds <= best.sec)) {
+  if (best) {
+    proposed = {
+      seconds: Math.round(best.sec),
+      basis: {
+        method: "best_effort",
+        hardEfforts: candidates.length,
+        raceDayBonus: !best.isRace,
+        weeksAgo: Math.round(best.weeksAgo * 10) / 10,
+        fastest: { date: String(best.r.start_date || "").slice(0, 10), distanceKm: Math.round(best.r.distance_km * 10) / 10, minutes: Math.round(best.r.moving_time_min), avgHr: Math.round(best.r.average_heartrate) },
+      },
+    };
+  } else {
+    const hrEst = heartRateRaceEstimate(runs, distanceKm, { maxHr, restingHr });
+    if (hrEst) {
+      proposed = { seconds: hrEst.seconds, basis: { method: "heart_rate", vdot: hrEst.vdot, steadyRuns: hrEst.runs } };
+    }
+  }
+
+  if (!proposed || (fallback && fallback.seconds <= proposed.seconds)) {
     return fallback && { ...fallback, basis: { ...fallback.basis, method: "median" } };
   }
-  return {
-    seconds: Math.round(best.sec),
-    basis: {
-      method: "best_effort",
-      hardEfforts: candidates.length,
-      raceDayBonus: !best.isRace,
-      weeksAgo: Math.round(best.weeksAgo * 10) / 10,
-      fastest: { date: String(best.r.start_date || "").slice(0, 10), distanceKm: Math.round(best.r.distance_km * 10) / 10, minutes: Math.round(best.r.moving_time_min), avgHr: Math.round(best.r.average_heartrate) },
-    },
-  };
+  return proposed;
 }
 
-// --- Exploratory: race time from easy (Z2) running, for athletes with no hard efforts ---
+// --- Race time from heart rate vs pace, for athletes with no hard effort ---
 // Heart-rate reserve tracks the fraction of VO2max in use (Swain), so a steady
-// easy run says how much of the engine that pace needs:
+// run says how much of the engine that pace needs:
 //   VO2max = 3.5 + (VO2(pace) - 3.5) / %HRR
 // Daniels' VO2-at-velocity and sustainable-fraction curves then turn that VO2max
-// into a race time. Very sensitive to max and resting HR, and blind to the
-// speed endurance an athlete who never runs hard has not built: a ceiling, not a forecast.
+// into a race time. Single runs scatter a lot (hills, heat, drift, optical HR
+// dropouts), so the 75th percentile of the per-run values counts: the very top
+// is mostly sensor error, the middle is dragged down by stop-start sessions.
+// Very sensitive to max and resting HR, so both have to be known, not assumed.
+const HR_ESTIMATE_PERCENTILE = 0.75;
+const HR_ESTIMATE_MAX_PACE = 8; // min/km; slower is walking, stop-start or a game
+const HR_ESTIMATE_MAX_LAP_SPREAD = 0.25;
+const NOT_A_RUN_NAME = /hockey|voetbal|football|soccer|game|match|wedstrijd/i;
+
 function danielsVo2(vMetresPerMin) {
   return -4.6 + 0.182258 * vMetresPerMin + 0.000104 * vMetresPerMin * vMetresPerMin;
 }
@@ -190,22 +210,60 @@ function raceSecondsFromVdot(vdot, distanceKm) {
   return Math.round(((lo + hi) / 2) * 60);
 }
 
-function aerobicRaceEstimate(runs, distanceKm, { maxHr, restingHr } = {}) {
+/** Coefficient of variation of lap paces; null without at least 2 usable laps. */
+function lapPaceSpread(lapsJson) {
+  let laps = [];
+  try {
+    laps = JSON.parse(lapsJson || "[]").filter((l) => l.distance > 50 && l.moving_time > 0);
+  } catch (_) {}
+  if (laps.length < 2) return null;
+  const paces = laps.map((l) => l.moving_time / (l.distance / 1000));
+  const mean = paces.reduce((a, b) => a + b, 0) / paces.length;
+  return Math.sqrt(paces.reduce((a, p) => a + (p - mean) ** 2, 0) / paces.length) / mean;
+}
+
+/** A run whose average pace reflects a steady effort: not a game, not intervals, not a walk. */
+function isSteadyRun(r) {
+  if (!(r.distance_km >= 3) || !(r.moving_time_min >= 20) || !((r.average_heartrate || 0) > 0)) return false;
+  if (r.moving_time_min / r.distance_km > HR_ESTIMATE_MAX_PACE) return false;
+  if (NOT_A_RUN_NAME.test(String(r.name || ""))) return false;
+  const spread = lapPaceSpread(r.laps_json);
+  return spread == null || spread <= HR_ESTIMATE_MAX_LAP_SPREAD;
+}
+
+function heartRateRaceEstimate(runs, distanceKm, { maxHr, restingHr } = {}) {
   if (!(maxHr > 0) || !(restingHr > 0) || maxHr <= restingHr) return null;
   const vdots = runs
-    .filter((r) => r.distance_km >= 3 && r.moving_time_min >= 20 && (r.average_heartrate || 0) > 0)
+    .filter(isSteadyRun)
     .map((r) => {
       const hrr = (r.average_heartrate - restingHr) / (maxHr - restingHr);
-      if (hrr < 0.5 || hrr > 0.85) return null; // steady aerobic only; the relation breaks near max
+      if (hrr < 0.5 || hrr > 0.85) return null; // aerobic range only; the relation breaks near max
       const v = (r.distance_km * 1000) / r.moving_time_min;
-      return { r, hrr, vdot: 3.5 + (danielsVo2(v) - 3.5) / hrr };
+      return 3.5 + (danielsVo2(v) - 3.5) / hrr;
     })
-    .filter(Boolean)
-    .sort((a, b) => a.vdot - b.vdot);
+    .filter((v) => v != null)
+    .sort((a, b) => a - b);
   if (vdots.length < 3) return null;
-  // Median: hills, heat and cardiac drift scatter single runs a lot.
-  const vdot = vdots[Math.floor(vdots.length / 2)].vdot;
+  const vdot = vdots[Math.min(vdots.length - 1, Math.round(HR_ESTIMATE_PERCENTILE * (vdots.length - 1)))];
   return { seconds: raceSecondsFromVdot(vdot, distanceKm), vdot: Math.round(vdot * 10) / 10, runs: vdots.length };
+}
+
+/**
+ * Max and resting HR as measured, never assumed: the saved max HR goes stale
+ * when an athlete runs harder than they thought they could, so the highest
+ * recorded in the last year wins when it is higher. No 220-age fallback; the
+ * heart-rate estimate is too sensitive to max HR to run on a guess.
+ */
+async function getRaceHeartRate(userId) {
+  const today = seasonPlan.todayStr();
+  const [metrics, observed, rest] = await Promise.all([
+    athleteZones.getAthleteMetrics(userId),
+    dbGet(`SELECT MAX(max_heartrate) AS v FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`, [userId, seasonPlan.addDays(today, -365)]),
+    dbAll(`SELECT resting_hr FROM biometrics WHERE user_id = ? AND resting_hr > 0 AND date >= ? ORDER BY resting_hr`, [userId, seasonPlan.addDays(today, -30)]),
+  ]);
+  const maxHr = Math.max(metrics.max_hr || 0, (observed && observed.v) || 0) || null;
+  const restingHr = metrics.resting_hr || (rest.length ? rest[Math.floor(rest.length / 2)].resting_hr : null);
+  return { maxHr, restingHr, savedMaxHr: metrics.max_hr || null, observedMaxHr: (observed && observed.v) || null, restingFrom: metrics.resting_hr ? "profile" : rest.length ? "biometrics (30d median)" : null };
 }
 
 const TREND_WEEKS = 12;
@@ -387,7 +445,9 @@ module.exports = {
   estimateRaceSeconds,
   pickRaceEstimate,
   pickRaceEstimateBestEffort,
-  aerobicRaceEstimate,
+  heartRateRaceEstimate,
+  getRaceHeartRate,
+  isSteadyRun,
   raceSecondsFromVdot,
   zoneForHr,
   statusFromGap,

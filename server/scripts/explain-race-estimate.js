@@ -48,27 +48,47 @@ const mmss = (sec) => {
   return h ? `${h}:${String(m).padStart(2, "0")}:${r}` : `${m}:${r}`;
 };
 
-async function athleteHr(userId, savedMaxHr) {
-  const observed = await get(
-    `SELECT MAX(max_heartrate) AS max_hr FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`,
-    [userId, seasonPlan.addDays(seasonPlan.todayStr(), -365)]
-  );
-  const metrics = await athleteZones.getAthleteMetrics(userId);
-  const rest = await get(
-    `SELECT resting_hr FROM biometrics WHERE user_id = ? AND resting_hr > 0 AND date >= ? ORDER BY resting_hr LIMIT 1 OFFSET (
-       SELECT COUNT(*) / 2 FROM biometrics WHERE user_id = ? AND resting_hr > 0 AND date >= ?)`,
-    [userId, seasonPlan.addDays(seasonPlan.todayStr(), -30), userId, seasonPlan.addDays(seasonPlan.todayStr(), -30)]
-  );
+
+/**
+ * What the laps say about a run: an interval session hides fast work behind
+ * slow recoveries in the average, and a hockey game recorded as a run has
+ * wildly uneven laps. "Work" laps are the ones at least 10% faster than the
+ * run's median lap pace (exploratory; nothing in the live estimate uses this).
+ */
+function lapInfo(r) {
+  let laps = [];
+  try {
+    laps = JSON.parse(r.laps_json || "[]").filter((l) => l.distance > 50 && l.moving_time > 0);
+  } catch (_) {}
+  if (laps.length < 2) return { laps: laps.length };
+  const pace = (l) => l.moving_time / (l.distance / 1000);
+  const paces = laps.map(pace).sort((a, b) => a - b);
+  const median = paces[Math.floor(paces.length / 2)];
+  const work = laps.filter((l) => pace(l) <= median * 0.9);
+  const mean = paces.reduce((a, b) => a + b, 0) / paces.length;
+  const cv = Math.sqrt(paces.reduce((a, p) => a + (p - mean) ** 2, 0) / paces.length) / mean;
+  const workDist = work.reduce((a, l) => a + l.distance, 0);
+  const workTime = work.reduce((a, l) => a + l.moving_time, 0);
+  const workHr = work.filter((l) => l.average_heartrate > 0);
+  return {
+    laps: laps.length,
+    fastestLap: paces[0],
+    cv,
+    workKm: workDist / 1000,
+    workPace: workDist > 0 ? workTime / (workDist / 1000) : null,
+    workHr: workHr.length ? workHr.reduce((a, l) => a + l.average_heartrate, 0) / workHr.length : null,
+    workRiegel5k: workDist >= 1000 ? workTime * Math.pow(5000 / workDist, 1.06) : null,
+  };
+}
+
+
+async function athleteHr(userId) {
+  const hr = await goalStatus.getRaceHeartRate(userId);
   const vo2 = await get(
     `SELECT vo2_max, date FROM biometrics WHERE user_id = ? AND vo2_max > 0 AND date >= ? ORDER BY date DESC LIMIT 1`,
     [userId, seasonPlan.addDays(seasonPlan.todayStr(), -60)]
   );
-  const observedMax = observed?.max_hr || null;
-  // The saved max HR goes stale when an athlete runs harder than they thought
-  // they could; the highest recorded in the last year wins when it is higher.
-  const maxHr = Math.max(savedMaxHr || 0, observedMax || 0) || null;
-  const restingHr = metrics.resting_hr || rest?.resting_hr || null;
-  return { savedMaxHr, observedMax, maxHr, restingHr, restingFrom: metrics.resting_hr ? "profile" : rest ? "biometrics (30d median)" : null, vo2: vo2 || null };
+  return { ...hr, observedMax: hr.observedMaxHr, vo2: vo2 || null };
 }
 
 async function findUser(target) {
@@ -84,7 +104,7 @@ async function loadRuns(userId, days) {
   const since = seasonPlan.addDays(seasonPlan.todayStr(), -days);
   return (await all(
     `SELECT id, name, sport_type, distance_km, moving_time_min, start_date, average_heartrate, max_heartrate,
-            strava_activity_id, healthkit_workout_id, suunto_workout_id, is_hidden
+            strava_activity_id, healthkit_workout_id, suunto_workout_id, is_hidden, laps_json, linked_activity_name
        FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?
       ORDER BY start_date`,
     [userId, since]
@@ -100,8 +120,8 @@ function compareAsOf(runs, day, distanceKm, hrZones, hr) {
   });
   return {
     A: goalStatus.pickRaceEstimate(window, distanceKm, hrZones),
-    C: goalStatus.pickRaceEstimateBestEffort(window, distanceKm, hrZones, { maxHr: hr.maxHr, asOf: day }),
-    E: goalStatus.aerobicRaceEstimate(window, distanceKm, { maxHr: hr.maxHr, restingHr: hr.restingHr }),
+    C: goalStatus.pickRaceEstimateBestEffort(window, distanceKm, hrZones, { maxHr: hr.maxHr, restingHr: hr.restingHr, asOf: day }),
+    E: goalStatus.heartRateRaceEstimate(window, distanceKm, { maxHr: hr.maxHr, restingHr: hr.restingHr }),
   };
 }
 
@@ -112,8 +132,8 @@ async function explainUser(user, verbose) {
   const cfg = seasonPlan.EVENT_TYPES[eventType] || {};
   const distanceKm = KM_OVERRIDE || cfg.distanceKm || 5;
   const targetSec = goal && goal.target_mode === "time" ? goalStatus.parseTargetSeconds(goal.target_value, distanceKm) : null;
-  const { hrZones, maxHr: savedMaxHr } = await athleteZones.resolveZonesForUser(user.id, "Run");
-  const hr = await athleteHr(user.id, savedMaxHr);
+  const { hrZones } = await athleteZones.resolveZonesForUser(user.id, "Run");
+  const hr = await athleteHr(user.id);
   const allRuns = await loadRuns(user.id, Math.max(DAYS, 56 + 84));
   const runs = seasonPlan.dedupeActivities(allRuns.filter((r) => !r.is_hidden));
   const today = seasonPlan.todayStr();
@@ -127,10 +147,10 @@ async function explainUser(user, verbose) {
       event: eventType || "-",
       target: mmss(targetSec),
       "A live": mmss(now.A?.seconds),
-      "C proposed": mmss(now.C?.seconds),
+      "C v2": mmss(now.C?.seconds),
       "C method": now.C?.basis?.method || "-",
       "C gap": gap(now.C?.seconds),
-      "easy-run est.": mmss(now.E?.seconds),
+      "heart-rate est.": mmss(now.E?.seconds),
       "watch VO2max": watchVo2Sec ? `${mmss(watchVo2Sec)} (${hr.vo2.vo2_max})` : "-",
       maxHR: hr.maxHr || "-",
     };
@@ -143,7 +163,7 @@ async function explainUser(user, verbose) {
   const zoneRows = await all(`SELECT sport, source, zones_json, updated_at FROM athlete_zones WHERE user_id = ? AND kind = 'hr'`, [user.id]);
   console.log(`\nHR tables saved: ${zoneRows.length ? zoneRows.map((r) => `${r.sport}/${r.source} (${String(r.updated_at).slice(0, 10)})`).join(", ") : "none (derived on the fly)"}`);
   console.log(`Max HR: saved ${hr.savedMaxHr || "-"}, highest recorded (1y) ${hr.observedMax || "-"} -> using ${hr.maxHr || "-"}`);
-  console.log(`Resting HR: ${hr.restingHr ? `${hr.restingHr} (${hr.restingFrom})` : "unknown -> no easy-run estimate"}`);
+  console.log(`Resting HR: ${hr.restingHr ? `${hr.restingHr} (${hr.restingFrom})` : "unknown -> no heart-rate estimate"}`);
   console.log(`Watch VO2max: ${hr.vo2 ? `${hr.vo2.vo2_max} (${hr.vo2.date})` : "none in the last 60 days"}`);
   console.log(`Zones used for Run: ${(hrZones || []).map((z) => `Z${z.zone} ${z.min}-${z.max ?? "max"}`).join(" | ") || "none"}`);
   const observed = await get(`SELECT MAX(max_heartrate) AS max_hr, MAX(average_heartrate) AS max_avg FROM activities WHERE user_id = ?`, [user.id]);
@@ -175,6 +195,7 @@ async function explainUser(user, verbose) {
   const top3 = new Set([...used].map((id) => windowRuns.find((r) => r.id === id)).sort((a, b) => pred(a) - pred(b)).slice(0, 3).map((r) => r.id));
 
   console.log(`\nRuns in the last ${DAYS} days: ${rawRuns.length} (${hidden.length} hidden, ${rawRuns.length - hidden.length - windowRuns.length} duplicates merged)`);
+  for (const h of hidden) console.log(`  hidden: ${String(h.start_date).slice(0, 10)} "${h.name}" ${h.distance_km} km${h.linked_activity_name ? ` (linked to ${h.linked_activity_name})` : ""}`);
   console.log(`Distance band: ${lo}-${hi} km${bandFallback ? " -> EMPTY, fell back to every run of 3 km+" : ""}`);
   console.log(`Hard runs (avg HR zone 3+): ${hard.length} -> ${hard.length ? "only these count" : "none, so easy runs count too"}\n`);
 
@@ -182,6 +203,7 @@ async function explainUser(user, verbose) {
   const hrr = (r) =>
     hr.maxHr && hr.restingHr && r.average_heartrate ? Math.round(((r.average_heartrate - hr.restingHr) / (hr.maxHr - hr.restingHr)) * 100) : null;
   const rows = windowRuns.map((r) => {
+    const li = lapInfo(r);
     let verdict;
     if (!isValid(r)) verdict = "dropped: pace outside 2:50-12:00/km";
     else if (anyRecorded && !isRecorded(r)) verdict = "dropped: typed in, not recorded";
@@ -190,7 +212,7 @@ async function explainUser(user, verbose) {
     else verdict = top3.has(r.id) ? "TOP 3" : "counted";
     return {
       date: String(r.start_date).slice(0, 10),
-      name: String(r.name || "").slice(0, 28),
+      name: String(r.name || "").slice(0, 22),
       km: Math.round(r.distance_km * 100) / 100,
       time: mmss(r.moving_time_min * 60),
       "pace/km": mmss((r.moving_time_min * 60) / r.distance_km),
@@ -199,6 +221,13 @@ async function explainUser(user, verbose) {
       zone: zoneOf(r) ?? "-",
       "%HRmax": hr.maxHr && r.average_heartrate ? Math.round((r.average_heartrate / hr.maxHr) * 100) : "-",
       "%HRR": hrr(r) ?? "-",
+      laps: li.laps || "-",
+      "pace spread": li.cv != null ? `${Math.round(li.cv * 100)}%` : "-",
+      "fastest lap": li.fastestLap ? mmss(li.fastestLap) : "-",
+      "work laps": li.workKm ? `${li.workKm.toFixed(1)}km @ ${mmss(li.workPace)}${li.workHr ? ` ${Math.round(li.workHr)}bpm` : ""}` : "-",
+      "5k from work": li.workRiegel5k ? mmss(li.workRiegel5k) : "-",
+      steady: goalStatus.isSteadyRun(r) ? "yes" : "no",
+      "%HRmax>=88": hr.maxHr && r.average_heartrate >= 0.88 * hr.maxHr ? "HARD" : "",
       [`riegel ${distanceKm}k`]: isValid(r) ? mmss(pred(r)) : "-",
       "A verdict": verdict,
       C: bestId && String(r.start_date).slice(0, 10) === bestId ? "BEST EFFORT" : "",
@@ -208,15 +237,15 @@ async function explainUser(user, verbose) {
 
   console.log(`\n--- Comparison (target ${mmss(targetSec)}) ---`);
   console.log(`A live      ${mmss(now.A?.seconds).padEnd(8)} gap ${gap(now.A?.seconds)}   median of the 3 fastest`);
-  console.log(`C proposed  ${mmss(now.C?.seconds).padEnd(8)} gap ${gap(now.C?.seconds)}   ${JSON.stringify(now.C?.basis || null)}`);
-  console.log(`Easy runs   ${mmss(now.E?.seconds).padEnd(8)} gap ${gap(now.E?.seconds)}   ${now.E ? `VDOT ${now.E.vdot} from ${now.E.runs} steady runs (50-85% HRR)` : "needs max + resting HR and 3 steady runs"}`);
+  console.log(`C v2        ${mmss(now.C?.seconds).padEnd(8)} gap ${gap(now.C?.seconds)}   ${JSON.stringify(now.C?.basis || null)}`);
+  console.log(`Heart rate  ${mmss(now.E?.seconds).padEnd(8)} gap ${gap(now.E?.seconds)}   ${now.E ? `VDOT ${now.E.vdot} from ${now.E.runs} steady runs (50-85% HRR, 75th percentile)` : "needs measured max + resting HR and 3 steady runs"}`);
   console.log(`Watch VO2   ${mmss(watchVo2Sec).padEnd(8)} gap ${gap(watchVo2Sec)}   ${hr.vo2 ? `VO2max ${hr.vo2.vo2_max} read as VDOT` : "no recent watch VO2max"}`);
 
   const trend = [];
   for (let w = 12; w >= 0; w--) {
     const day = seasonPlan.addDays(today, -7 * w);
     const c = compareAsOf(runs, day, distanceKm, hrZones, hr);
-    trend.push({ week: day, "A live": mmss(c.A?.seconds), "C proposed": mmss(c.C?.seconds), "C method": c.C?.basis?.method || "-", "easy-run est.": mmss(c.E?.seconds) });
+    trend.push({ week: day, "A live": mmss(c.A?.seconds), "C v2": mmss(c.C?.seconds), "C method": c.C?.basis?.method || "-", "heart-rate est.": mmss(c.E?.seconds) });
   }
   console.log("\nWeekly trend, as the goal card would draw it:");
   console.table(trend);
