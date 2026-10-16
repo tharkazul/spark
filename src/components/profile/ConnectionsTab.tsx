@@ -132,6 +132,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       getLastAppleHealthSyncTime,
       getAppleHealthPreferences,
       isHealthKitAvailable,
+      isAppleHealthConnected,
     } = require('../../services/appleHealthService');
 
     setAppleSupported(isWorkoutKitSupported() || isHealthKitAvailable());
@@ -139,10 +140,11 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       if (!cancelled) setIsWatchConnected(status === 'authorized');
     });
     getLastAppleHealthSyncTime().then((time: string | null) => {
-      if (!cancelled && time) {
-        setLastAppleSync(time);
-        setIsHealthKitConnected(true);
-      }
+      if (!cancelled && time) setLastAppleSync(time);
+    });
+    // Connected = the athlete went through Apple's permission sheet, not "a sync once ran".
+    isAppleHealthConnected().then((connected: boolean) => {
+      if (!cancelled) setIsHealthKitConnected(connected);
     });
     getAppleHealthPreferences().then((prefs: any) => {
       if (!cancelled && prefs) setHealthPrefs(prefs);
@@ -174,11 +176,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       setIsHealthKitConnected(healthKitGranted);
 
       if (healthKitGranted) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          t('healthConnect.healthConnectedTitle'),
-          t('healthConnect.healthConnectedBody')
-        );
+        // Sync straight away, so the athlete sees what rooka can actually read.
+        await handleSyncAppleHealth();
       } else {
         Alert.alert(
           t('healthConnect.permissionsNoteTitle'),
@@ -234,28 +233,37 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   };
 
   const handleToggleHealthPref = async (key: string, value: boolean) => {
-    const { saveAppleHealthPreferences } = require('../../services/appleHealthService');
+    const { saveAppleHealthPreferences, requestFullHealthKitPermissions } = require('../../services/appleHealthService');
     const updated = { ...healthPrefs, [key]: value };
     setHealthPrefs(updated);
     Haptics.selectionAsync();
     await saveAppleHealthPreferences(updated);
+    // A type switched on here may never have been asked for; iOS only shows the new ones.
+    if (value) await requestFullHealthKitPermissions(updated);
   };
 
   const handleSyncAppleHealth = async () => {
     setAppleSyncing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const { syncAppleHealthData } = require('../../services/appleHealthService');
+      const { syncAppleHealthData, requestFullHealthKitPermissions } = require('../../services/appleHealthService');
+      // Asks only for data types iOS hasn't asked about yet; otherwise returns at once.
+      await requestFullHealthKitPermissions(healthPrefs);
       const res = await syncAppleHealthData(7);
 
       if (res.success) {
         setLastAppleSync(res.lastSyncDate || new Date().toISOString());
-        setIsHealthKitConnected(true);
         await refreshActivities();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const f = res.found;
+        const nothing = f && !f.sleep && !f.steps && !f.hrv && !f.restingHr && !f.weight && !f.workouts;
         Alert.alert(
           t('healthConnect.syncedTitle'),
-          res.message || t('healthConnect.syncedBodyGarmin', { bio: res.biometricsSynced || 0, workouts: res.workoutsSynced || 0 })
+          nothing
+            ? t('healthConnect.syncFoundNothing')
+            : f
+            ? t('healthConnect.syncFound', { sleep: f.sleep, steps: f.steps, hrv: f.hrv, workouts: f.workouts })
+            : res.message
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

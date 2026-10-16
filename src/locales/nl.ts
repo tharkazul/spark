@@ -1197,6 +1197,7 @@ export const nl: TranslationKeys = {
     understood: "Begrepen",
   },
   appleHealthMsgs: {
+    notConnected: "rooka kan Apple Health nog niet lezen. Tik op Koppelen onder Profiel, Koppelingen, Apple Health.",
     watchIphoneOnly: "Synchroniseren met Apple Watch kan alleen op een iPhone.",
     watchNeedsIos17: "Voor trainingen naar je Apple Watch sturen heb je iOS 17 of nieuwer nodig.",
     watchNotInBuild: "Deze versie van rooka ondersteunt Apple Watch niet. Installeer de nieuwste versie en probeer het opnieuw.",
@@ -1237,6 +1238,8 @@ export const nl: TranslationKeys = {
     moderateAdvice: "Ga door met je geplande trainingen, maar let op hartslagdrift tijdens inspanningen.",
   },
   healthConnect: {
+    syncFound: "Van de afgelopen 7 dagen: slaap van {sleep} nachten, stappen van {steps} dagen, HRV van {hrv} dagen en {workouts} trainingen.",
+    syncFoundNothing: "rooka heeft geen gezondheidsgegevens van de afgelopen 7 dagen gevonden. Open Instellingen, Privacy en beveiliging, Gezondheid, rooka, en zet aan wat je wilt delen.",
     notSupportedTitle: "Niet ondersteund",
     healthIosOnly: "Apple Health is alleen beschikbaar op iOS-apparaten.",
     unavailableTitle: "Niet beschikbaar",

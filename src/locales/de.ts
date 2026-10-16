@@ -1197,6 +1197,7 @@ export const de: TranslationKeys = {
     understood: "Verstanden",
   },
   appleHealthMsgs: {
+    notConnected: "rooka kann Apple Health noch nicht lesen. Tippe unter Profil, Verbindungen, Apple Health auf Verbinden.",
     watchIphoneOnly: "Die Apple-Watch-Synchronisierung ist nur auf dem iPhone verfügbar.",
     watchNeedsIos17: "Zum Senden von Trainings an die Apple Watch wird iOS 17 oder neuer benötigt.",
     watchNotInBuild: "Diese rooka-Version unterstützt die Apple Watch nicht. Installiere die neueste Version und versuche es erneut.",
@@ -1237,6 +1238,8 @@ export const de: TranslationKeys = {
     moderateAdvice: "Trainiere wie geplant, achte aber auf Herzfrequenz-Drift bei Belastung.",
   },
   healthConnect: {
+    syncFound: "Aus den letzten 7 Tagen: Schlaf von {sleep} Nächten, Schritte von {steps} Tagen, HRV von {hrv} Tagen und {workouts} Trainings.",
+    syncFoundNothing: "rooka hat keine Gesundheitsdaten aus den letzten 7 Tagen gefunden. Öffne Einstellungen, Datenschutz & Sicherheit, Health, rooka, und aktiviere, was du teilen möchtest.",
     notSupportedTitle: "Nicht unterstützt",
     healthIosOnly: "Apple Health ist nur auf iOS-Geräten verfügbar.",
     unavailableTitle: "Nicht verfügbar",

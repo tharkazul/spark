@@ -1195,6 +1195,7 @@ export const en = {
     understood: "Understood",
   },
   appleHealthMsgs: {
+    notConnected: "rooka can't read Apple Health yet. Tap Connect under Profile, Connections, Apple Health.",
     watchIphoneOnly: "Apple Watch sync is only available on iPhone.",
     watchNeedsIos17: "Sending workouts to Apple Watch needs iOS 17 or newer.",
     watchNotInBuild: "This build of rooka does not include Apple Watch support. Reinstall the latest build and try again.",
@@ -1235,6 +1236,8 @@ export const en = {
     moderateAdvice: "Proceed with planned workouts, but monitor heart rate drift during efforts.",
   },
   healthConnect: {
+    syncFound: "From the last 7 days: sleep on {sleep} nights, steps on {steps} days, HRV on {hrv} days and {workouts} workouts.",
+    syncFoundNothing: "rooka didn't find any health data from the last 7 days. Open Settings, Privacy & Security, Health, rooka, and switch on the data you want to share.",
     notSupportedTitle: "Not Supported",
     healthIosOnly: "Apple Health integration is only available on iOS devices.",
     unavailableTitle: "Unavailable",
