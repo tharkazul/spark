@@ -20,6 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const router = express.Router();
 const db = require('../services/db');
+const activityMerge = require('../services/activityMerge');
 const { authenticateToken } = require('../services/auth');
 const { encrypt, decrypt } = require('../services/crypto');
 const { createZip } = require('../services/zip');
@@ -312,6 +313,25 @@ router.post('/api/sync-suunto', authenticateToken, async (req, res) => {
             avgWatts: undefined,
             sport: rookaSport,
           });
+        }
+
+        const mergedId = await activityMerge.absorbIfDuplicate(userId, {
+          source: 'suunto',
+          sourceId: w.workoutId,
+          name: w.workoutName || defaultName,
+          sport_type: rookaSport,
+          start_date: startIso,
+          moving_time_min: movingMin,
+          distance_km: (w.totalDistance || 0) / 1000,
+          elevation_m: Math.round(w.totalAscent || 0),
+          average_heartrate: avgHr || null,
+          max_heartrate: maxHr || null,
+          rooka_score: rookaScore,
+          tss,
+        });
+        if (mergedId) {
+          stored++;
+          continue;
         }
 
         await dbRun(

@@ -3,6 +3,7 @@ const router = express.Router();
 // In-memory cache for active Garmin client sessions to avoid repeat logins/rate limits
 const garminSessionCache = new Map();
 const db = require('../services/db');
+const activityMerge = require('../services/activityMerge');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -152,6 +153,14 @@ router.post("/webhook/strava", (req, res) => {
         return;
       }
       userIds.forEach((userId) => getStravaActivity(owner_id, object_id, userId));
+    });
+  } else if (aspect_type === "update" && object_type === "activity" && updates && updates.title) {
+    // Renamed on Strava (by the athlete, or by rooka's own write-back): rename rooka's copy too.
+    const title = String(updates.title).slice(0, 200);
+    getStravaUserIdsForAthlete(owner_id).then((userIds) => {
+      userIds.forEach((userId) =>
+        db.run(`UPDATE activities SET name = ? WHERE user_id = ? AND strava_activity_id = ?`, [title, userId, String(object_id)])
+      );
     });
   } else if (
     object_type === "athlete" &&
@@ -351,11 +360,33 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
           // Upsert on (user_id, strava_activity_id): this athlete's own copy of
           // the Strava activity, independent of any other account that happens
           // to sync the same Strava profile.
+          if (
+            await activityMerge.absorbIfDuplicate(req.user.id, {
+              source: "strava",
+              sourceId: act.id,
+              name: act.name,
+              sport_type: act.sport_type,
+              start_date: act.start_date,
+              moving_time_min: act.moving_time / 60,
+              distance_km: act.distance / 1000,
+              elevation_m: act.total_elevation_gain,
+              average_heartrate: act.average_heartrate || null,
+              average_watts: act.weighted_average_watts || act.average_watts || null,
+              max_heartrate: act.max_heartrate || null,
+              polyline: extractStravaPolyline(act),
+              rooka_score: rookaScore,
+              tss,
+            })
+          ) {
+            storedForUser++;
+            continue;
+          }
+
           const ok = await new Promise((resolve) =>
             db.run(
               `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, polyline) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
+                     ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET name=excluded.name, tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
               [
                 req.user.id,
                 String(act.id),
@@ -1257,41 +1288,50 @@ router.post("/api/healthkit/sync", authenticateToken, async (req, res) => {
         });
       });
 
+      const hkUser = await new Promise((resolve) =>
+        db.get(`SELECT rooka_start_date FROM users WHERE id = ?`, [userId], (err, row) => resolve(row))
+      );
+      const hkStartDay = hkUser && hkUser.rooka_start_date ? hkUser.rooka_start_date.substring(0, 10) : null;
+
       for (const w of workouts) {
         if (!w.external_id || !w.start_date) continue;
 
-        // Check if activity already exists from Strava or previous HealthKit sync
-        const existing = await new Promise((resolve) => {
-          db.get(
-            `SELECT id FROM activities 
-             WHERE user_id = ? 
-               AND (healthkit_workout_id = ? OR (substr(start_date, 1, 16) = substr(?, 1, 16) AND lower(sport_type) = lower(?)))`,
-            [userId, w.external_id, w.start_date, w.sport_type || 'Run'],
-            (err, row) => resolve(row),
-          );
-        });
-
-        if (existing) {
-          continue;
-        }
+        // Already imported from Apple Health: nothing to do.
+        const known = await new Promise((resolve) =>
+          db.get(`SELECT id FROM activities WHERE user_id = ? AND healthkit_workout_id = ?`, [userId, w.external_id], (err, row) => resolve(row))
+        );
+        if (known) continue;
 
         const sport = mapStravaSportToRooka ? mapStravaSportToRooka(w.sport_type || 'Run') : (w.sport_type || 'Run');
         const movingTimeMin = Math.round(Number(w.duration_min) || 0);
         const distanceKm = Math.round((Number(w.distance_km) || 0) * 100) / 100;
         const avgHr = w.avg_heartrate ? Math.round(Number(w.avg_heartrate)) : null;
-        
+
+        // Scored like every other import: against the athlete's own zones, from their rooka start date.
+        // (This used to call the async scorer without awaiting it, which stored "NaN" points.)
         let score = 0;
-        if (typeof calculateRookaScoreZoned === 'function' && avgHr) {
-          score = calculateRookaScoreZoned({
-            sport,
-            moving_time_min: movingTimeMin,
-            average_heartrate: avgHr,
-            athleteZones: athleteZoneRows,
-          });
-        } else if (typeof calculateRookaScore === 'function') {
-          score = calculateRookaScore(movingTimeMin, avgHr, sport);
-        } else {
-          score = movingTimeMin;
+        const startDay = String(w.start_date).substring(0, 10);
+        if (!hkStartDay || startDay >= hkStartDay) {
+          score = await calculateRookaScoreZoned({ userId, movingTimeMin, avgHr, sport });
+        }
+
+        // The same workout often arrives from Strava as well (the watch uploads to both): merge, don't duplicate.
+        const mergedId = await activityMerge.absorbIfDuplicate(userId, {
+          source: 'healthkit',
+          sourceId: w.external_id,
+          name: w.name || `${sport} Workout`,
+          sport_type: sport,
+          start_date: w.start_date,
+          moving_time_min: movingTimeMin,
+          distance_km: distanceKm,
+          elevation_m: w.elevation_m || null,
+          average_heartrate: avgHr,
+          rooka_score: score,
+          tss: score,
+        });
+        if (mergedId) {
+          workoutsSynced++;
+          continue;
         }
 
         const actId = Date.now() + Math.floor(Math.random() * 1000);

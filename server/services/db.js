@@ -391,11 +391,18 @@ db.serialize(() => {
   // no Strava id; NULLs repeat freely in a SQLite unique index, so they cannot
   // collide with each other.
   db.run(`ALTER TABLE activities ADD COLUMN strava_activity_id TEXT`, (err) => {
-    if (!err) console.log("Added strava_activity_id column to activities table.");
+    const justAdded = !err;
+    if (justAdded) console.log("Added strava_activity_id column to activities table.");
 
+    // Only rows from before this column existed were Strava rows keyed by their
+    // Strava id. This used to run on every start, and then also stamped Apple
+    // Health and Suunto workouts (positive ids, no Strava id) with a fake Strava
+    // id; activityMerge.repairFakeStravaIds() undoes that.
     db.run(
-      `UPDATE activities SET strava_activity_id = CAST(id AS TEXT)
-        WHERE strava_activity_id IS NULL AND id > 0`,
+      justAdded
+        ? `UPDATE activities SET strava_activity_id = CAST(id AS TEXT)
+            WHERE strava_activity_id IS NULL AND id > 0`
+        : `SELECT 1`,
       function (backfillErr) {
         if (backfillErr) {
           console.error("strava_activity_id backfill failed:", backfillErr.message);

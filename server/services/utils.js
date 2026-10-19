@@ -1144,10 +1144,15 @@ async function tagStravaActivity(userId, activity, token) {
             body: JSON.stringify(payload),
           },
         );
-        if (updateRes.ok)
+        if (updateRes.ok) {
           console.log(
             `✅ Strava activity updated for ${rookaSport} on ${activityDate}`,
           );
+          // Keep rooka's own copy in step with the title it just gave the activity on Strava.
+          if (payload.name) {
+            db.run(`UPDATE activities SET name = ? WHERE user_id = ? AND strava_activity_id = ?`, [payload.name, userId, String(activity.id)]);
+          }
+        }
       } catch (e) {
         console.error("Failed to tag Strava activity:", e);
       }
@@ -1431,10 +1436,30 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
           lapsJson = JSON.stringify(minimalLaps);
         }
 
-        db.run(
+        // Already stored from Apple Health or Suunto: merged into that row instead of
+        // inserted, and the rest (score total, notification, Strava tag) still runs.
+        const mergedId = await require("./activityMerge").absorbIfDuplicate(internalUserId, {
+          source: "strava",
+          sourceId: data.id,
+          name: data.name,
+          sport_type: data.sport_type,
+          start_date: data.start_date,
+          moving_time_min: data.moving_time / 60,
+          distance_km: data.distance / 1000,
+          elevation_m: data.total_elevation_gain,
+          average_heartrate: data.average_heartrate || null,
+          average_watts: data.weighted_average_watts || data.average_watts || null,
+          max_heartrate: data.max_heartrate || null,
+          laps_json: lapsJson,
+          polyline: extractStravaPolyline(data),
+          rooka_score: rookaScore,
+          tss,
+        });
+        const saveActivity = (sql, params, done) => (mergedId ? done(null) : db.run(sql, params, done));
+        saveActivity(
           `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, laps_json, polyline) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, laps_json=excluded.laps_json, polyline=COALESCE(excluded.polyline, polyline)`,
+                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET name=excluded.name, tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, laps_json=excluded.laps_json, polyline=COALESCE(excluded.polyline, polyline)`,
           [
             internalUserId,
             String(data.id),
@@ -1498,6 +1523,10 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
                     console.log(
                       `✅ Strava activity updated for activity ${activityId}!`,
                     );
+                    // Keep rooka's own copy in step with the title it just gave the activity on Strava.
+                    if (updatePayload.name) {
+                      db.run(`UPDATE activities SET name = ? WHERE user_id = ? AND strava_activity_id = ?`, [updatePayload.name, internalUserId, String(activityId)]);
+                    }
                   } else {
                     const errorData = await updateRes.json().catch(() => ({}));
                     console.error(
@@ -1599,10 +1628,28 @@ async function syncAllStravaUsersOnStartup() {
                       sport: mapStravaSportToRooka(act.sport_type),
                     });
                   }
+                  if (
+                    await require("./activityMerge").absorbIfDuplicate(user.id, {
+                      source: "strava",
+                      sourceId: act.id,
+                      name: act.name,
+                      sport_type: act.sport_type,
+                      start_date: act.start_date,
+                      moving_time_min: act.moving_time / 60,
+                      distance_km: act.distance / 1000,
+                      elevation_m: act.total_elevation_gain,
+                      average_heartrate: act.average_heartrate || null,
+                      average_watts: act.weighted_average_watts || act.average_watts || null,
+                      max_heartrate: act.max_heartrate || null,
+                      polyline: extractStravaPolyline(act),
+                      rooka_score: rookaScore,
+                      tss,
+                    })
+                  ) continue;
                   db.run(
                     `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, polyline) 
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                             ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
+                             ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET name=excluded.name, tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, polyline=COALESCE(excluded.polyline, polyline)`,
                     [
                       user.id,
                       String(act.id),

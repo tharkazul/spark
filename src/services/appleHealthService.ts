@@ -956,25 +956,30 @@ export async function fetchHealthKitWorkouts(daysBack = 14): Promise<AppleHealth
  * Maps Apple HKWorkoutActivityType integer or string to standard Rooka sport names.
  */
 function mapHKActivityTypeToSport(typeId: number | string): string {
+  // HKWorkoutActivityType raw values. Running is 37: it was missing here, so every
+  // Apple Watch run arrived as "Cardio" and could not be matched to its Strava copy.
   const numeric = typeof typeId === 'number' ? typeId : parseInt(String(typeId), 10);
   switch (numeric) {
-    case 1:
-    case 52:
+    case 37: // running
       return 'Run';
-    case 13:
+    case 13: // cycling
       return 'Bike';
-    case 46:
+    case 46: // swimming
       return 'Swim';
-    case 50:
-    case 59:
+    case 20: // functionalStrengthTraining
+    case 50: // traditionalStrengthTraining
+    case 59: // coreTraining
       return 'Strength';
-    case 24:
+    case 52: // walking
+    case 24: // hiking
       return 'Walk';
-    case 57:
-    case 68:
+    case 57: // yoga
+    case 62: // flexibility
+    case 66: // pilates
+    case 29: // mindAndBody
       return 'Mobility';
     default:
-      return 'Cardio';
+      return 'Cardio'; // rowing, HIIT, elliptical, multisport, ...
   }
 }
 

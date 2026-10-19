@@ -431,8 +431,6 @@ export default function PlanningHomeScreen() {
   };
 
   const weeklyAgenda = buildAgenda(weekStart);
-  const prevWeekAgenda = buildAgenda(shiftWeeks(weekStart, -1));
-  const nextWeekAgenda = buildAgenda(shiftWeeks(weekStart, 1));
 
   // Home always shows today and tomorrow, whichever week the Week view is on.
   const homeMonday = getMonday(now);
@@ -819,12 +817,8 @@ export default function PlanningHomeScreen() {
           {/* 7-Tile Week Strip (Height 84, no card around it) */}
           <SideBySideWeekBar
             agenda={weeklyAgenda}
-            prevAgenda={prevWeekAgenda}
-            nextAgenda={nextWeekAgenda}
             selectedDayIndex={selectedDayIndex}
             onSelectDay={handleSelectDay}
-            onPrevWeek={handlePrevWeek}
-            onNextWeek={handleNextWeek}
           />
 
           {/* Week Summary Line & Progress Bar */}

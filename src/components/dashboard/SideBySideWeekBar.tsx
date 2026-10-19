@@ -1,16 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, TouchableOpacity, LayoutChangeEvent } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { usePagerLock } from '../../context/PagerLockContext';
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import { DayAgenda } from './MicroPlanAgendaCard';
 import { SportType } from '../../types/dashboard';
 import { SportMedallion } from '../ui/SportMedallion';
@@ -21,15 +12,7 @@ interface SideBySideWeekBarProps {
   agenda: DayAgenda[];
   selectedDayIndex?: number;
   onSelectDay: (index: number, dayName: string) => void;
-  prevAgenda?: DayAgenda[];
-  nextAgenda?: DayAgenda[];
-  onPrevWeek?: () => void;
-  onNextWeek?: () => void;
 }
-
-const SWIPE_DISTANCE = 48;
-const SWIPE_VELOCITY = 450;
-const SETTLE_MS = 170;
 
 interface WeekStripProps {
   agenda: DayAgenda[];
@@ -116,10 +99,11 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                   <SportMedallion
                     sport={activeWorkouts[0].type}
                     size={28}
+                    onAccent={isSelected}
                   />
                   {activeWorkouts.length > 1 && (
-                    <View className="absolute -top-1 -right-1.5 bg-theme-accent-strong rounded-full px-1 py-0.2">
-                      <Text className="text-[9px] font-bold text-white font-rajdhani">
+                    <View className={`absolute -top-1 -right-1.5 rounded-full px-1 py-0.2 ${isSelected ? 'bg-white' : 'bg-theme-accent-strong'}`}>
+                      <Text className={`text-[9px] font-bold font-rajdhani ${isSelected ? 'text-theme-accent-strong' : 'text-white'}`}>
                         +{activeWorkouts.length - 1}
                       </Text>
                     </View>
@@ -140,135 +124,15 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
   );
 }
 
-export function SideBySideWeekBar({
-  agenda,
-  selectedDayIndex,
-  onSelectDay,
-  prevAgenda,
-  nextAgenda,
-  onPrevWeek,
-  onNextWeek,
-}: SideBySideWeekBarProps) {
-  const [width, setWidth] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const translateX = useSharedValue(0);
-  const settling = useSharedValue(false);
-  const widthSV = useSharedValue(0);
-  // The strip sits inside the Planning Today/Week pager: hold that pager still
-  // while a finger is on the strip so a week swipe doesn't flip the page.
-  const setPagerLocked = usePagerLock();
-
-  const onLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      const next = e.nativeEvent.layout.width;
-      widthSV.value = next;
-      setWidth(next);
-    },
-    [widthSV]
-  );
-
-  const commitWeek = useCallback(
-    (direction: 1 | -1) => {
-      translateX.value = 0;
-      setDragging(false);
-      (direction === 1 ? onNextWeek : onPrevWeek)?.();
-    },
-    [onNextWeek, onPrevWeek, translateX]
-  );
-
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-15, 15])
-    .onBegin(() => {
-      runOnJS(setPagerLocked)(true);
-      if (settling.value) return;
-      runOnJS(setDragging)(true);
-    })
-    .onUpdate((e) => {
-      if (settling.value) return;
-      translateX.value = e.translationX;
-    })
-    .onEnd((e) => {
-      if (settling.value) return;
-      const w = widthSV.value || 360;
-      const dist = e.translationX;
-      const vel = e.velocityX;
-
-      const goNext = dist < -SWIPE_DISTANCE || vel < -SWIPE_VELOCITY;
-      const goPrev = dist > SWIPE_DISTANCE || vel > SWIPE_VELOCITY;
-
-      if (goNext && nextAgenda) {
-        settling.value = true;
-        translateX.value = withTiming(-w, { duration: SETTLE_MS }, () => {
-          settling.value = false;
-          runOnJS(commitWeek)(1);
-        });
-      } else if (goPrev && prevAgenda) {
-        settling.value = true;
-        translateX.value = withTiming(w, { duration: SETTLE_MS }, () => {
-          settling.value = false;
-          runOnJS(commitWeek)(-1);
-        });
-      } else {
-        settling.value = true;
-        translateX.value = withSpring(0, { damping: 20, stiffness: 240 }, () => {
-          settling.value = false;
-          runOnJS(setDragging)(false);
-        });
-      }
-    })
-    .onFinalize(() => {
-      runOnJS(setPagerLocked)(false);
-      if (!settling.value && translateX.value === 0) {
-        runOnJS(setDragging)(false);
-      }
-    });
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
+/**
+ * The 7 days of the shown week; tap a day to open it. Weeks change with the
+ * < > buttons above. There used to be a swipe between weeks here, but it took
+ * over on touch-down and swallowed taps on the days.
+ */
+export function SideBySideWeekBar({ agenda, selectedDayIndex, onSelectDay }: SideBySideWeekBarProps) {
   return (
-    <View
-      onLayout={onLayout}
-      onTouchStart={() => setPagerLocked(true)}
-      onTouchEnd={() => setPagerLocked(false)}
-      onTouchCancel={() => setPagerLocked(false)}
-      className="w-full overflow-hidden"
-    >
-      <GestureDetector gesture={panGesture}>
-        <Animated.View style={animatedStyle} className="w-full">
-          {dragging && width > 0 ? (
-            <View
-              style={{
-                width: width * 3,
-                marginLeft: -width,
-                flexDirection: 'row',
-              }}
-            >
-              <View style={{ width }} className="px-1">
-                {prevAgenda ? <WeekStrip agenda={prevAgenda} /> : null}
-              </View>
-              <View style={{ width }} className="px-1">
-                <WeekStrip
-                  agenda={agenda}
-                  selectedDayIndex={selectedDayIndex}
-                  onSelectDay={onSelectDay}
-                />
-              </View>
-              <View style={{ width }} className="px-1">
-                {nextAgenda ? <WeekStrip agenda={nextAgenda} /> : null}
-              </View>
-            </View>
-          ) : (
-            <WeekStrip
-              agenda={agenda}
-              selectedDayIndex={selectedDayIndex}
-              onSelectDay={onSelectDay}
-            />
-          )}
-        </Animated.View>
-      </GestureDetector>
+    <View className="w-full">
+      <WeekStrip agenda={agenda} selectedDayIndex={selectedDayIndex} onSelectDay={onSelectDay} />
     </View>
   );
 }
