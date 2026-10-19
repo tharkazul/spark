@@ -129,7 +129,46 @@ function isHardEffort(r, maxHr) {
   return hr > 0 && maxHr > 0 && hr >= BEST_EFFORT_MIN_HR_FRACTION * maxHr;
 }
 
-function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, restingHr = null, asOf } = {}) {
+/**
+ * The fastest continuous stretch of laps inside one activity, as a race-time
+ * prediction: a 5K effort between a warm-up and a cool-down is invisible in the
+ * activity's average. Stretches run from max(3 km, 0.6 x race) to 1.5 x race.
+ * Returns null without at least 2 laps or a stretch in that range.
+ */
+function bestLapStretch(lapsJson, distanceKm) {
+  let laps = [];
+  try {
+    laps = JSON.parse(lapsJson || "[]").filter((l) => l && l.distance > 0 && l.moving_time > 0);
+  } catch (_) {}
+  if (laps.length < 2) return null;
+  const lo = Math.max(3, 0.6 * distanceKm) * 1000;
+  const hi = 1.5 * distanceKm * 1000;
+  let best = null;
+  for (let i = 0; i < laps.length; i++) {
+    let metres = 0;
+    let seconds = 0;
+    let hrMetres = 0;
+    let hrSum = 0;
+    for (let j = i; j < laps.length; j++) {
+      const l = laps[j];
+      metres += l.distance;
+      seconds += l.moving_time;
+      if (l.average_heartrate > 0) {
+        hrSum += l.average_heartrate * l.distance;
+        hrMetres += l.distance;
+      }
+      if (metres > hi) break;
+      if (metres < lo) continue;
+      const raceSec = seconds * Math.pow((distanceKm * 1000) / metres, RIEGEL_EXPONENT);
+      if (!best || raceSec < best.raceSec) {
+        best = { km: metres / 1000, seconds, hr: hrMetres > 0 ? hrSum / hrMetres : null, raceSec, laps: j - i + 1, whole: i === 0 && j === laps.length - 1 };
+      }
+    }
+  }
+  return best;
+}
+
+function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, restingHr = null, asOf, useLapStretches = false } = {}) {
   const fallback = pickRaceEstimate(runs, distanceKm, hrZones);
   const lo = Math.max(3, 0.5 * distanceKm);
   const hi = 3 * distanceKm;
@@ -137,18 +176,29 @@ function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, r
   const from = seasonPlan.addDays(day, -BEST_EFFORT_WINDOW_DAYS);
   const dayMs = new Date(day + "T12:00:00Z").getTime();
 
+  // With useLapStretches, a hard stretch of laps inside a longer session counts
+  // too (warm-up + 5K effort + cool-down), judged on the stretch's own heart rate.
+  const stretchOf = (r) => {
+    if (!useLapStretches) return null;
+    const s = bestLapStretch(r.laps_json, distanceKm);
+    if (!s || s.whole) return null;
+    const hard = s.hr != null ? maxHr > 0 && s.hr >= BEST_EFFORT_MIN_HR_FRACTION * maxHr : isHardEffort(r, maxHr);
+    return hard ? s : null;
+  };
   const candidates = runs
     .filter((r) => {
       if (!(r.distance_km >= lo && r.distance_km <= hi) || !(r.moving_time_min > 0)) return false;
       const pace = r.moving_time_min / r.distance_km;
       const d = String(r.start_date || "").slice(0, 10);
-      return pace >= MIN_PACE && pace <= MAX_PACE && d >= from && d <= day && isHardEffort(r, maxHr);
+      return pace >= MIN_PACE && pace <= MAX_PACE && d >= from && d <= day && (isHardEffort(r, maxHr) || stretchOf(r));
     })
     .map((r) => {
       const weeksAgo = Math.max(0, (dayMs - new Date(String(r.start_date).slice(0, 10) + "T12:00:00Z").getTime()) / (7 * 86400000));
       const isRace = RACE_NAME.test(String(r.name || ""));
-      const riegel = r.moving_time_min * 60 * Math.pow(distanceKm / r.distance_km, RIEGEL_EXPONENT);
-      return { r, isRace, weeksAgo, sec: riegel * (isRace ? 1 : RACE_DAY_FACTOR) * (1 + AGE_PENALTY_PER_WEEK * weeksAgo) };
+      const whole = isHardEffort(r, maxHr) ? r.moving_time_min * 60 * Math.pow(distanceKm / r.distance_km, RIEGEL_EXPONENT) : Infinity;
+      const stretch = stretchOf(r);
+      const riegel = stretch && stretch.raceSec < whole ? stretch.raceSec : whole;
+      return { r, isRace, weeksAgo, stretch: stretch && stretch.raceSec < whole ? stretch : null, sec: riegel * (isRace ? 1 : RACE_DAY_FACTOR) * (1 + AGE_PENALTY_PER_WEEK * weeksAgo) };
     })
     .sort((x, y) => x.sec - y.sec);
 
@@ -165,7 +215,9 @@ function pickRaceEstimateBestEffort(runs, distanceKm, hrZones, { maxHr = null, r
         hardEfforts: candidates.length,
         raceDayBonus: !best.isRace,
         weeksAgo: Math.round(best.weeksAgo * 10) / 10,
-        fastest: { date: String(best.r.start_date || "").slice(0, 10), distanceKm: Math.round(best.r.distance_km * 10) / 10, minutes: Math.round(best.r.moving_time_min), seconds: Math.round(best.r.moving_time_min * 60), avgHr: Math.round(best.r.average_heartrate) },
+        fastest: best.stretch
+          ? { date: String(best.r.start_date || "").slice(0, 10), distanceKm: Math.round(best.stretch.km * 10) / 10, minutes: Math.round(best.stretch.seconds / 60), seconds: Math.round(best.stretch.seconds), avgHr: best.stretch.hr ? Math.round(best.stretch.hr) : null, withinLongerRun: true }
+          : { date: String(best.r.start_date || "").slice(0, 10), distanceKm: Math.round(best.r.distance_km * 10) / 10, minutes: Math.round(best.r.moving_time_min), seconds: Math.round(best.r.moving_time_min * 60), avgHr: Math.round(best.r.average_heartrate) },
       },
     });
   }
@@ -305,7 +357,7 @@ async function estimateRaceSeconds(userId, distanceKm) {
       }),
       distanceKm,
       hrZones,
-      { maxHr, restingHr, asOf: day }
+      { maxHr, restingHr, asOf: day, useLapStretches: true }
     );
   };
   const current = asOf(today);
@@ -458,6 +510,7 @@ module.exports = {
   estimateRaceSeconds,
   pickRaceEstimate,
   pickRaceEstimateBestEffort,
+  bestLapStretch,
   heartRateRaceEstimate,
   getRaceHeartRate,
   isSteadyRun,

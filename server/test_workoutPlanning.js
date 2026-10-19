@@ -331,5 +331,25 @@ console.log("🏃 Running Workout Planning unit tests...\n");
     console.log("✅ Test 11 Passed: repairAvailabilityViolations guarantees dedicated rest days & relocates sessions");
   }
 
+  // Test 11b: a recurring session (tennis, hockey) survives on a 0-minute day; anything else there still becomes rest
+  {
+    const { parseAvailability, findAvailabilityViolations, repairAvailabilityViolations } = require("./services/workoutPlanning");
+    const availMap = parseAvailability({ Tue: { available: false, maxMinutes: 0 }, Wed: { available: true, maxMinutes: 60 } });
+    const recurringByDate = { "2026-10-06": [{ title: "Tennis", sport: "Other" }] };
+    const plan = [
+      { date: "2026-10-06", sport: "Other", description: "Tennis", target_rooka: 45, source: "coach" }, // written by the LLM
+      { date: "2026-10-06", sport: "Run", description: "Easy run", target_rooka: 30, source: "coach" }, // not allowed on Tue
+      { date: "2026-10-07", sport: "Rest", description: "Rest", target_rooka: 0 },
+    ];
+    const violations = findAvailabilityViolations(plan, availMap, recurringByDate);
+    assert.deepStrictEqual(violations.map((v) => v.description), ["Easy run"], "only the extra run breaks the rest day");
+    const repaired = repairAvailabilityViolations(plan, availMap, ["2026-10-06", "2026-10-07"], "en", new Set(), recurringByDate);
+    assert.ok(repaired.some((w) => w.date === "2026-10-06" && w.description === "Tennis"), "tennis stays on Tuesday");
+    assert.ok(!repaired.some((w) => w.date === "2026-10-06" && w.sport === "Run"), "the run is moved off Tuesday");
+    const injected = [{ date: "2026-10-06", sport: "Other", description: "Club hockey", source: "recurring" }];
+    assert.strictEqual(findAvailabilityViolations(injected, availMap, {}).length, 0, "sessions added from the recurring list are never flagged");
+    console.log("✅ Test 11b Passed: recurring sessions take place on 0-minute days");
+  }
+
   console.log("\n🎉 All 11 Workout Planning unit tests passed successfully!");
 })();

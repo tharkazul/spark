@@ -23,6 +23,7 @@ function basisLabel(t: (key: string, params?: Record<string, any>) => string, ba
       distance: basis.fastest.distanceKm.toFixed(1),
       time: formatRaceTime(basis.fastest.seconds ?? basis.fastest.minutes * 60),
     };
+    if (basis.fastest.withinLongerRun) return t('goal.basisStretch', params);
     return t(basis.raceDayBonus ? 'goal.basisBestEffort' : 'goal.basisRace', params);
   }
   if (basis.method === 'heart_rate') return t('goal.basisHeartRate', { count: basis.steadyRuns });

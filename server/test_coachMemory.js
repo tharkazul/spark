@@ -27,7 +27,7 @@ aiMock.exports = {
     if (String(prompt).includes("You maintain what an endurance coach knows")) {
       await new Promise((r) => setTimeout(r, summaryDelayMs));
       // Edits by id, like the real model: facts it doesn't touch are kept.
-      return JSON.stringify({ ops: [{ op: "add", category: "schedule", text: "Summarized: Italy 2026-10-12 to 2026-10-18, running only", until: "2026-10-18" }] });
+      return JSON.stringify({ ops: [{ op: "add", category: "schedule", text: "Summarized: Italy trip, running only", until: null }] });
     }
     return plannerReplies.shift() || "";
   },

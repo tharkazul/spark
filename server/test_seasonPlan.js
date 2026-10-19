@@ -119,6 +119,28 @@ console.log("🏁 Running season plan unit tests...\n");
   const r3 = pickRaceEstimate([typedIn], 5, zones);
   assert.ok(r3 && r3.basis.typedIn, "typed-in runs only count when nothing was recorded");
   console.log("✅ Race estimate prefers recorded zone 3+ runs near the race distance");
+
+{
+  // A 5K effort between a warm-up and a cool-down counts, from its own laps and heart rate.
+  const gs = require("./services/goalStatus");
+  const lap = (km, pace, hr) => ({ distance: km * 1000, moving_time: Math.round(km * pace * 60), average_heartrate: hr });
+  const sprints = [];
+  for (let i = 0; i < 5; i++) sprints.push(lap(0.08, 3.5, 140), lap(0.1, 9, 130));
+  const laps = [lap(1, 6.5, 135), ...sprints, lap(1, 4.55, 165), lap(1, 4.55, 170), lap(1, 4.55, 172), lap(1, 4.55, 175), lap(1, 4.57, 178), lap(0.36, 7, 150)];
+  const km = laps.reduce((a, l) => a + l.distance, 0) / 1000;
+  const run = { name: "Evening Run", start_date: "2026-10-17", distance_km: km, moving_time_min: laps.reduce((a, l) => a + l.moving_time, 0) / 60, average_heartrate: 161, laps_json: JSON.stringify(laps) };
+  const st = gs.bestLapStretch(run.laps_json, 5);
+  assert.strictEqual(Math.round(st.km * 10) / 10, 5);
+  assert.ok(Math.abs(st.seconds - 1366) <= 2, `5K stretch ~22:46, got ${st.seconds}s`);
+  const est = gs.pickRaceEstimateBestEffort([run], 5, null, { maxHr: 185, restingHr: 46, asOf: "2026-10-19", useLapStretches: true });
+  assert.strictEqual(est.basis.method, "best_effort");
+  assert.ok(est.basis.fastest.withinLongerRun);
+  assert.ok(est.seconds >= 1335 && est.seconds <= 1345, `22:46 with the 2% race-day bonus is ~22:21, got ${est.seconds}s`);
+  const easy = { ...run, laps_json: JSON.stringify(laps.map((l) => ({ ...l, average_heartrate: 140 }))), average_heartrate: 140 };
+  const none = gs.pickRaceEstimateBestEffort([easy], 5, null, { maxHr: 185, restingHr: 46, asOf: "2026-10-19", useLapStretches: true });
+  assert.ok(!none || none.basis.method !== "best_effort", "a stretch below 88% of max HR is not a hard effort");
+  console.log("✅ A hard 5K stretch inside a longer run counts");
+}
 }
 
 console.log("\n🎉 All season plan tests passed!");

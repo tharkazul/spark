@@ -122,6 +122,8 @@ function compareAsOf(runs, day, distanceKm, hrZones, hr) {
     A: goalStatus.pickRaceEstimate(window, distanceKm, hrZones),
     C: goalStatus.pickRaceEstimateBestEffort(window, distanceKm, hrZones, { maxHr: hr.maxHr, restingHr: hr.restingHr, asOf: day }),
     E: goalStatus.heartRateRaceEstimate(window, distanceKm, { maxHr: hr.maxHr, restingHr: hr.restingHr }),
+    // Live: C v2 plus hard lap stretches inside longer sessions.
+    D: goalStatus.pickRaceEstimateBestEffort(window, distanceKm, hrZones, { maxHr: hr.maxHr, restingHr: hr.restingHr, asOf: day, useLapStretches: true }),
   };
 }
 
@@ -150,6 +152,8 @@ async function explainUser(user, verbose) {
       "C v2": mmss(now.C?.seconds),
       "C method": now.C?.basis?.method || "-",
       "C gap": gap(now.C?.seconds),
+      "D live (laps)": mmss(now.D?.seconds),
+      "D gap": gap(now.D?.seconds),
       "heart-rate est.": mmss(now.E?.seconds),
       "watch VO2max": watchVo2Sec ? `${mmss(watchVo2Sec)} (${hr.vo2.vo2_max})` : "-",
       maxHR: hr.maxHr || "-",
@@ -226,6 +230,10 @@ async function explainUser(user, verbose) {
       "fastest lap": li.fastestLap ? mmss(li.fastestLap) : "-",
       "work laps": li.workKm ? `${li.workKm.toFixed(1)}km @ ${mmss(li.workPace)}${li.workHr ? ` ${Math.round(li.workHr)}bpm` : ""}` : "-",
       "5k from work": li.workRiegel5k ? mmss(li.workRiegel5k) : "-",
+      "best stretch": (() => {
+        const st = goalStatus.bestLapStretch(r.laps_json, distanceKm);
+        return st && !st.whole ? `${st.km.toFixed(1)}km ${mmss(st.seconds)}${st.hr ? ` ${Math.round(st.hr)}bpm` : ""} -> ${mmss(st.raceSec)}` : "-";
+      })(),
       steady: goalStatus.isSteadyRun(r) ? "yes" : "no",
       "%HRmax>=88": hr.maxHr && r.average_heartrate >= 0.88 * hr.maxHr ? "HARD" : "",
       [`riegel ${distanceKm}k`]: isValid(r) ? mmss(pred(r)) : "-",
@@ -237,7 +245,8 @@ async function explainUser(user, verbose) {
 
   console.log(`\n--- Comparison (target ${mmss(targetSec)}) ---`);
   console.log(`A old       ${mmss(now.A?.seconds).padEnd(8)} gap ${gap(now.A?.seconds)}   median of the 3 fastest`);
-  console.log(`C v2 (live) ${mmss(now.C?.seconds).padEnd(8)} gap ${gap(now.C?.seconds)}   ${JSON.stringify(now.C?.basis || null)}`);
+  console.log(`C v2 (no laps) ${mmss(now.C?.seconds).padEnd(6)} gap ${gap(now.C?.seconds)}   ${JSON.stringify(now.C?.basis || null)}`);
+  console.log(`D live      ${mmss(now.D?.seconds).padEnd(8)} gap ${gap(now.D?.seconds)}   ${JSON.stringify(now.D?.basis?.fastest || now.D?.basis || null)}`);
   console.log(`Heart rate  ${mmss(now.E?.seconds).padEnd(8)} gap ${gap(now.E?.seconds)}   ${now.E ? `VDOT ${now.E.vdot} from ${now.E.runs} steady runs (50-85% HRR, 75th percentile)` : "needs measured max + resting HR and 3 steady runs"}`);
   console.log(`Watch VO2   ${mmss(watchVo2Sec).padEnd(8)} gap ${gap(watchVo2Sec)}   ${hr.vo2 ? `VO2max ${hr.vo2.vo2_max} read as VDOT` : "no recent watch VO2max"}`);
 
@@ -245,7 +254,7 @@ async function explainUser(user, verbose) {
   for (let w = 12; w >= 0; w--) {
     const day = seasonPlan.addDays(today, -7 * w);
     const c = compareAsOf(runs, day, distanceKm, hrZones, hr);
-    trend.push({ week: day, "A old": mmss(c.A?.seconds), "C v2": mmss(c.C?.seconds), "C method": c.C?.basis?.method || "-", "heart-rate est.": mmss(c.E?.seconds) });
+    trend.push({ week: day, "A old": mmss(c.A?.seconds), "C v2": mmss(c.C?.seconds), "C method": c.C?.basis?.method || "-", "D laps": mmss(c.D?.seconds), "heart-rate est.": mmss(c.E?.seconds) });
   }
   console.log("\nWeekly trend, as the goal card would draw it:");
   console.table(trend);

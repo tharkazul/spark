@@ -1197,6 +1197,7 @@ export const nl: TranslationKeys = {
     understood: "Begrepen",
   },
   appleHealthMsgs: {
+    watchNotAccepted: "Apple heeft deze training niet op je Apple Watch gezet. Open de Watch-app op je iPhone, tik op rooka, controleer of trainingen plannen aan staat en probeer het opnieuw.",
     notConnected: "rooka kan Apple Health nog niet lezen. Tik op Koppelen onder Profiel, Koppelingen, Apple Health.",
     watchIphoneOnly: "Synchroniseren met Apple Watch kan alleen op een iPhone.",
     watchNeedsIos17: "Voor trainingen naar je Apple Watch sturen heb je iOS 17 of nieuwer nodig.",
@@ -1937,6 +1938,7 @@ export const nl: TranslationKeys = {
     basisHard: "Op basis van {count} recente runs in zone 3 of hoger",
     basisAll: "Op basis van {count} recente runs (nog geen zone 3+)",
     basisTyped: "Op basis van {count} handmatig gelogde runs",
+    basisStretch: "Op basis van je harde {distance} km in {time} binnen een langere run, plus een racedagbonus",
     basisBestEffort: "Op basis van je harde {distance} km in {time}, plus een racedagbonus",
     basisRace: "Op basis van je wedstrijd: {distance} km in {time}",
     basisHeartRate: "Op basis van hartslag t.o.v. tempo in {count} gelijkmatige runs",

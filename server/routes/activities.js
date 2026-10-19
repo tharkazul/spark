@@ -1,4 +1,6 @@
 const express = require('express');
+// Loaded up front: it also adds users.detail_level, which these prompts read.
+const coachingTopics = require("../services/coachingTopics");
 const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("../services/coachPersona");
 const router = express.Router();
 const db = require('../services/db');
@@ -1131,7 +1133,7 @@ router.post("/api/generate-plan", authenticateToken, requireAiConsent, async (re
   const { targetDate } = req.body;
 
   db.get(
-    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, training_availability, current_ctl, current_atl, training_phase, cycle_tracking_enabled, language, long_term_memory FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, training_availability, current_ctl, current_atl, training_phase, cycle_tracking_enabled, language, long_term_memory, detail_level FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -1308,6 +1310,7 @@ router.post("/api/generate-plan", authenticateToken, requireAiConsent, async (re
             0. LANGUAGE PERSISTENCE & UNIFORMITY MANDATE: The athlete's preferred language is ${targetLanguageName} (${user.language || 'en'}). You MUST write all workout descriptions, details, analysis, and commentary fluently and exclusively in ${targetLanguageName}. NEVER mix Dutch and English within a sentence or use Dutch activity names inside English sentences (or vice-versa).
             0b. ACTIVITY TYPE (SPORT): The 'sport' field is REQUIRED for every workout in the JSON and MUST be exactly one of: 'Run', 'Bike', 'Swim', 'Strength', 'Rest'. Never leave it blank. For Strength workouts, you MUST include an "exerciseName" in each step.
             1. You are generating a 7-day training plan starting exactly on ${targetDate}.
+            1b. ${coachingTopics.titleRuleFor(user.detail_level)}
             2. DAILY EXERCISE LIMITATIONS & RECURRING SPORTS (CRITICAL):
                - Adhere strictly to the daily time constraints listed in "Daily Exercise Limitations & Schedule Boundaries". NEVER schedule a workout exceeding the stated max minutes for that day.
                - If a day is marked 'Rest day / Blocked' or max minutes is 0, you are strictly forbidden from scheduling any active training on that day (you may only schedule 'Rest').
@@ -1364,7 +1367,7 @@ router.post("/api/generate-plan", authenticateToken, requireAiConsent, async (re
           {
             "date": "YYYY-MM-DD",
             "sport": "Run", 
-            "description": "5k Speed Intervals & Form Drills",
+            "description": "Intervals",
             "target_rooka": 80,
             "details": "Warm-up: 2x10 ankle rocks, 3x30m A-skips and butt kicks cueing rapid heel recovery (high heels). Main set: 8x1000m at threshold pace (4:05 min/km) with 1min active recoveries. Cool-down: 10 min easy jog + calf mobility.",
             "steps_json": "[{\\\"type\\\": \\"warmup\\\", \\"exerciseName\\\": \\"A-Skips & Ankle Rocks\\\", \\"condition_type\\\": \\"time\\\", \\"condition_value\\": 15, \\"target_type\\\": \\"no.target\\\"}, {\\\"type\\\": \\"repeat\\\", \\"iterations\\\": 8, \\"steps\\": [{\\\"type\\\": \\"interval\\\", \\"exerciseName\\\": \\"1000m Threshold Interval\\\", \\"condition_type\\\": \\"distance\\\", \\"condition_value\\": 1000, \\"target_type\\\": \\"pace.exact\\\", \\"target_value\\\": \\"4:05\\\"}, {\\\"type\\\": \\"recovery\\\", \\"condition_type\\\": \\"time\\\", \\"condition_value\\": 1, \\"target_type\\\": \\"heart.rate.zone\\\", \\"zone\\": 1}]}, {\\\"type\\\": \\"cooldown\\\", \\"exerciseName\\\": \\"Easy Jog & Mobility\\\", \\"condition_type\\\": \\"time\\\", \\"condition_value\\": 10, \\"target_type\\\": \\"no.target\\\"}]"
@@ -1372,7 +1375,7 @@ router.post("/api/generate-plan", authenticateToken, requireAiConsent, async (re
           {
             "date": "YYYY-MM-DD",
             "sport": "Strength", 
-            "description": "Lower Body & Hyrox Core Power",
+            "description": "Strength: legs & core",
             "target_rooka": 45,
             "details": "Warmup: Cossack squats, inchworms (10 min). Main: Barbell Back Squat 3x10 reps (90s rest), Farmers Carry 4x100m (60s rest), Pallof Press 3x12 reps (45s rest). Cooldown: Couch stretch & pigeon pose (5 min).",
             "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Cossack Squats & Inchworms\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Barbell Back Squat\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 10, \\"weight\\": 60, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 90, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 4, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Farmers Carry\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 100, \\"weight\\": 20, \\"target_type\\": \\"weight\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 60, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"repeat\\", \\"iterations\\": 3, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Pallof Press\\", \\"condition_type\\": \\"reps\\", \\"condition_value\\": 12, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 45, \\"target_type\\": \\"no.target\\"}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Couch Stretch & Pigeon Pose\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 5, \\"target_type\\": \\"no.target\\"}]"

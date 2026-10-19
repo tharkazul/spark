@@ -1195,6 +1195,7 @@ export const en = {
     understood: "Understood",
   },
   appleHealthMsgs: {
+    watchNotAccepted: "Apple didn't accept this workout for your Apple Watch. Open the Watch app on your iPhone, tap rooka, check that workout scheduling is on, and try again.",
     notConnected: "rooka can't read Apple Health yet. Tap Connect under Profile, Connections, Apple Health.",
     watchIphoneOnly: "Apple Watch sync is only available on iPhone.",
     watchNeedsIos17: "Sending workouts to Apple Watch needs iOS 17 or newer.",
@@ -1935,6 +1936,7 @@ export const en = {
     basisHard: "From {count} recent runs in zone 3 or higher",
     basisAll: "From {count} recent runs (no zone 3+ runs yet)",
     basisTyped: "From {count} runs you logged by hand",
+    basisStretch: "From your hard {distance} km in {time} within a longer run, plus a race-day bonus",
     basisBestEffort: "From your hard {distance} km in {time}, plus a race-day bonus",
     basisRace: "From your race: {distance} km in {time}",
     basisHeartRate: "From heart rate vs pace on {count} steady runs",

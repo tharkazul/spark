@@ -1,4 +1,6 @@
 const express = require('express');
+// Loaded up front: it also adds users.detail_level, which these prompts read.
+const coachingTopics = require("../services/coachingTopics");
 const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("../services/coachPersona");
 const router = express.Router();
 const db = require('../services/db');
@@ -221,7 +223,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
   }
 
   db.get(
-    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, language, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, role, daily_image_count, last_image_reset_date, training_availability FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, language, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, role, daily_image_count, last_image_reset_date, training_availability, detail_level FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -780,6 +782,7 @@ Tone: ${coachToneText}
 ${user.coach_context ? `Coach Custom Context & Rules: ${user.coach_context}` : ""}
 
 Current Training Phase: ${phase || user.training_phase || "Base/General"}
+${coachingTopics.titleRuleFor(user.detail_level)}
 ${seasonChatBlock}
 
 TIME CONTEXT:

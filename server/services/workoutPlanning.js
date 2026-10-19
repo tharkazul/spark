@@ -295,11 +295,26 @@ function getDedicatedRestContent(lang = 'en') {
 /**
  * Identifies any workouts scheduled on days the athlete designated as dedicated REST days.
  */
-function findAvailabilityViolations(plan, availMap) {
+/**
+ * True for the athlete's own recurring session (club hockey, tennis) on its day.
+ * Those take place whatever the availability says: a 0-minute day means "no
+ * rooka training", not "no sport".
+ */
+function isRecurringSession(item, recurringByDate = {}) {
+  if (item.source === 'recurring') return true;
+  const desc = String(item.description || '').toLowerCase().trim();
+  if (!desc) return false;
+  return (recurringByDate[item.date] || []).some((rt) => {
+    const title = String(rt.title || '').toLowerCase().trim();
+    return title && (desc.includes(title) || title.includes(desc));
+  });
+}
+
+function findAvailabilityViolations(plan, availMap, recurringByDate = {}) {
   if (!availMap || Object.keys(availMap).length === 0) return [];
   const violations = [];
   plan.forEach((item) => {
-    if (!item.date) return;
+    if (!item.date || isRecurringSession(item, recurringByDate)) return;
     const { dayKey, dayName } = getDateDayInfo(item.date);
     const a = availMap[dayKey];
     if (a && a.available === false) {
@@ -325,14 +340,14 @@ function findAvailabilityViolations(plan, availMap) {
  *    or swapped with a lighter session on an available high-capacity day.
  * 2. Dedicated REST days are guaranteed to be "sport": "Rest" with 0 target_rooka.
  */
-function repairAvailabilityViolations(plan, availMap, dates, userLang = 'en', lockedDates = new Set()) {
+function repairAvailabilityViolations(plan, availMap, dates, userLang = 'en', lockedDates = new Set(), recurringByDate = {}) {
   if (!availMap || Object.keys(availMap).length === 0) return plan;
 
   const repairedPlan = plan.map((item) => ({ ...item }));
   const violations = [];
 
   repairedPlan.forEach((item, index) => {
-    if (lockedDates.has(item.date)) return;
+    if (lockedDates.has(item.date) || isRecurringSession(item, recurringByDate)) return;
     const { dayKey, dayName } = getDateDayInfo(item.date);
     const a = availMap[dayKey];
     if (a && a.available === false && String(item.sport || '').toLowerCase() !== 'rest') {
@@ -720,7 +735,7 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
     }
   });
 
-  const availabilityText = dailyAvailabilityLines.length > 0
+  let availabilityText = dailyAvailabilityLines.length > 0
     ? dailyAvailabilityLines.join("\n")
     : "No specific schedule boundaries set.";
 
@@ -851,6 +866,17 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
     }
   });
 
+  // A 0-minute day with a recurring session: the session still happens, just nothing else.
+  blockedDaysList.forEach(({ date, dayName }) => {
+    const rts = dateToRecurringMap[date];
+    if (!rts || rts.length === 0) return;
+    const i = dailyAvailabilityLines.findIndex((l) => l.startsWith(`- ${dayName} (${date})`));
+    if (i !== -1) {
+      dailyAvailabilityLines[i] = `- ${dayName} (${date}): no rooka training (0 min), BUT the athlete's recurring ${rts.map((r) => `"${r.title}"`).join(" and ")} takes place -> put ONLY that session on this day, nothing else.`;
+    }
+  });
+  availabilityText = dailyAvailabilityLines.length > 0 ? dailyAvailabilityLines.join("\n") : "No specific schedule boundaries set.";
+
   let recurringTrainingsNotice = "";
   if (Object.keys(dateToRecurringMap).length > 0) {
     recurringTrainingsNotice = `\nATHLETE'S RECURRING PERIODICAL SESSIONS (NON-ROOKA TRAININGS - MUST BE INCLUDED ON THE CALENDAR):\n` +
@@ -974,7 +1000,7 @@ ${datesListWithAvailability}
   {
     "date": "${dates[0]}",
     "sport": "Run",
-    "description": "45 min easy run",
+    "description": "Easy run",
     "target_rooka": 45,
     "details": "Builds your aerobic engine. Keep it easy enough to chat in full sentences the whole way.",
     "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"A-Skips & Ankle Rocks\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"interval\\", \\"exerciseName\\": \\"Zone 2 Aerobic Base\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 45, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 2}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Strides & Calf Mobility\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}]"
@@ -982,7 +1008,7 @@ ${datesListWithAvailability}
   {
     "date": "${dates[1]}",
     "sport": "Run",
-    "description": "5 x 1 km at threshold",
+    "description": "Intervals",
     "target_rooka": 70,
     "details": "Your key session this week. Comfortably hard (about 4:10/km), with an easy 90-second jog between reps.",
     "steps_json": "[{\\"type\\": \\"warmup\\", \\"exerciseName\\": \\"Dynamic Warmup Jog\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}, {\\"type\\": \\"repeat\\", \\"iterations\\": 5, \\"steps\\": [{\\"type\\": \\"interval\\", \\"exerciseName\\": \\"1000m Threshold\\", \\"condition_type\\": \\"distance\\", \\"condition_value\\": 1000, \\"target_type\\": \\"pace.exact\\", \\"target_value\\": \\"4:10\\"}, {\\"type\\": \\"rest\\", \\"condition_type\\": \\"time_sec\\", \\"condition_value\\": 90, \\"target_type\\": \\"heart.rate.zone\\", \\"zone\\": 1}]}, {\\"type\\": \\"cooldown\\", \\"exerciseName\\": \\"Easy Recovery Jog\\", \\"condition_type\\": \\"time\\", \\"condition_value\\": 10, \\"target_type\\": \\"no.target\\"}]"
@@ -1072,7 +1098,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   let sanitizedPlan = sanitize(planData);
 
   // Availability rest day violation check & regeneration
-  const availViolations = findAvailabilityViolations(sanitizedPlan, availMap);
+  const availViolations = findAvailabilityViolations(sanitizedPlan, availMap, dateToRecurringMap);
   if (!usedFallback && availViolations.length > 0) {
     console.warn(`[WeeklyPlan] Draft for user ${userId} broke ${availViolations.length} dedicated rest day(s); regenerating.`);
     const retryReply = await callPlanner(
@@ -1134,7 +1160,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   sanitizedPlan = compliantPlan;
 
   // Final guarantee: dedicated rest days are NEVER violated; workouts on rest days are moved to available days
-  sanitizedPlan = repairAvailabilityViolations(sanitizedPlan, availMap, dates, user.language, lockedDates);
+  sanitizedPlan = repairAvailabilityViolations(sanitizedPlan, availMap, dates, user.language, lockedDates, dateToRecurringMap);
 
   const keepChatClause = options.replaceChatPlans ? '' : ` AND NOT (source = 'coach' AND COALESCE(origin, '') = 'chat')`;
 

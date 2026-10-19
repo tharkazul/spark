@@ -149,16 +149,18 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
   }
 
   const date = toDateComponents(workout.date);
+  const workoutKey = String(workout.id ?? `${workout.date}:${workout.sport}`);
+  await makeRoomOnWatch(workoutKey);
 
   try {
-    return await schedule(config, date, false);
+    return await schedule(config, date, false, workoutKey);
   } catch (err) {
     if (!isValidationError(err)) {
       return { success: false, message: describeError(err) };
     }
     // Second pass without alerts: the structure and durations still make it over.
     try {
-      return await schedule(stripAlerts(config), date, true);
+      return await schedule(stripAlerts(config), date, true, workoutKey);
     } catch (retryErr) {
       return { success: false, message: describeError(retryErr) };
     }
@@ -403,10 +405,52 @@ function getAppleActivity(sport: string): { activityType: ActivityType; location
 // Helpers
 // -----------------------------------------------------------------------------
 
+// Apple lets one app keep this many workouts scheduled. Past the limit
+// WorkoutScheduler.schedule silently does nothing, so rooka clears old entries
+// first and checks afterwards that the new one is really there.
+const WATCH_SCHEDULE_LIMIT = 15;
+const WATCH_SCHEDULED_KEY = '@rooka:watch_scheduled_ids'; // rooka workout key -> scheduled plan id
+
+const dateKeyOf = (d: { year?: number; month?: number; day?: number }) =>
+  `${d.year ?? 0}-${String(d.month ?? 0).padStart(2, '0')}-${String(d.day ?? 0).padStart(2, '0')}`;
+
+async function readScheduledMap(): Promise<Record<string, string>> {
+  try {
+    return JSON.parse((await AsyncStorage.getItem(WATCH_SCHEDULED_KEY)) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+/** Removes past rooka workouts and the earlier copy of this one, keeping room under Apple's limit. */
+async function makeRoomOnWatch(workoutKey: string): Promise<void> {
+  const kit = getWorkoutKit();
+  if (!kit) return;
+  try {
+    const scheduled = await kit.getScheduledWorkouts();
+    const map = await readScheduledMap();
+    const today = localDateKey(new Date());
+    const remove = new Set<string>();
+    scheduled.forEach((w: any) => {
+      if (dateKeyOf(w.date || {}) < today) remove.add(w.id);
+    });
+    if (map[workoutKey]) remove.add(map[workoutKey]);
+    // Still full: drop the ones furthest in the future (the plan will change before then anyway).
+    const kept = scheduled.filter((w: any) => !remove.has(w.id)).sort((a: any, b: any) => (dateKeyOf(a.date || {}) < dateKeyOf(b.date || {}) ? -1 : 1));
+    while (kept.length >= WATCH_SCHEDULE_LIMIT) remove.add(kept.pop()!.id);
+    for (const id of remove) {
+      await kit.removeScheduledWorkout(id).catch(() => {});
+    }
+  } catch (err) {
+    console.log('[WorkoutKit] could not tidy scheduled workouts:', describeError(err));
+  }
+}
+
 async function schedule(
   config: CustomWorkoutConfig,
   date: DateComponents,
   degraded: boolean,
+  workoutKey: string,
 ): Promise<HealthKitSyncResult> {
   const kit = getWorkoutKit();
   if (!kit) throw new Error(tr('appleHealthMsgs.watchSupportUnavailable'));
@@ -415,6 +459,14 @@ async function schedule(
   try {
     plan = await kit.createCustomWorkoutPlan(config);
     const result = await plan.scheduleAndSync(date);
+    // schedule() never fails out loud; only the scheduler's own list says whether it took.
+    const scheduled = await kit.getScheduledWorkouts().catch(() => null);
+    if (scheduled && !scheduled.some((w: any) => w.id === result.id)) {
+      return { success: false, message: tr('appleHealthMsgs.watchNotAccepted') };
+    }
+    const map = await readScheduledMap();
+    map[workoutKey] = result.id;
+    await AsyncStorage.setItem(WATCH_SCHEDULED_KEY, JSON.stringify(map)).catch(() => {});
     return {
       success: true,
       degraded,

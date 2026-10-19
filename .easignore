@@ -35,3 +35,6 @@ backups/
 *.env
 .DS_Store
 
+
+# Claude Code tooling and its worktrees (copies of the project)
+.claude/

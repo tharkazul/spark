@@ -1197,6 +1197,7 @@ export const fr: TranslationKeys = {
     understood: "Compris",
   },
   appleHealthMsgs: {
+    watchNotAccepted: "Apple n'a pas accepté cette séance sur ton Apple Watch. Ouvre l'app Watch sur ton iPhone, touche rooka, vérifie que la planification des séances est activée et réessaie.",
     notConnected: "rooka ne peut pas encore lire Apple Health. Touche Connecter dans Profil, Connexions, Apple Health.",
     watchIphoneOnly: "La synchronisation Apple Watch n'est disponible que sur iPhone.",
     watchNeedsIos17: "L'envoi de séances vers l'Apple Watch nécessite iOS 17 ou une version ultérieure.",
@@ -1937,6 +1938,7 @@ export const fr: TranslationKeys = {
     basisHard: "D'après {count} sorties récentes en zone 3 ou plus",
     basisAll: "D'après {count} sorties récentes (aucune en zone 3+ pour l'instant)",
     basisTyped: "D'après {count} sorties saisies à la main",
+    basisStretch: "D'après tes {distance} km durs en {time} au sein d'une sortie plus longue, plus un bonus jour de course",
     basisBestEffort: "D'après ta sortie dure de {distance} km en {time}, plus un bonus jour de course",
     basisRace: "D'après ta course : {distance} km en {time}",
     basisHeartRate: "D'après la fréquence cardiaque et l'allure de {count} sorties régulières",

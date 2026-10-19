@@ -396,6 +396,14 @@ export default function CoachScreen() {
   }, [authToken]);
 
   const [inputText, setInputText] = useState('');
+  // Height is set from the text's measured size rather than left to the native view:
+  // after a programmatic clear iOS keeps the old content size, so the box stayed tall.
+  const INPUT_MIN_HEIGHT = 30;
+  const INPUT_MAX_HEIGHT = 110;
+  const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
+  // When a message was just sent. iOS can commit an autocorrection (or the Return
+  // key's newline) a moment after the box is cleared, which put the text back.
+  const sentAtRef = useRef(0);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -774,7 +782,10 @@ export default function CoachScreen() {
 
     const imagesToSend = [...selectedImages];
 
+    sentAtRef.current = Date.now();
     setInputText('');
+    inputRef.current?.clear();
+    setInputHeight(INPUT_MIN_HEIGHT);
     setSelectedImages([]);
     setIsRecording(false);
     setShowSuggestions(false);
@@ -1601,7 +1612,19 @@ export default function CoachScreen() {
                   placeholder={t('coach.askCoach', 'Ask your coach...')}
                   placeholderTextColor={theme.textSecondary}
                   value={inputText}
-                  onChangeText={setInputText}
+                  onChangeText={(text) => {
+                    // A late autocorrect or newline right after sending: keep the box empty.
+                    if (Date.now() - sentAtRef.current < 400) {
+                      inputRef.current?.clear();
+                      return;
+                    }
+                    setInputText(text);
+                  }}
+                  onContentSizeChange={(e) => {
+                    if (Date.now() - sentAtRef.current < 400) return;
+                    const h = Math.ceil(e.nativeEvent.contentSize.height);
+                    setInputHeight(Math.min(INPUT_MAX_HEIGHT, Math.max(INPUT_MIN_HEIGHT, h)));
+                  }}
                   // Return sends instead of inserting a newline, so the native view never
                   // lays out an extra line that sticks around after the input is cleared.
                   submitBehavior="submit"
@@ -1609,9 +1632,9 @@ export default function CoachScreen() {
                   multiline={true}
                   returnKeyType="default"
                   className="text-theme-text text-base font-jakarta"
+                  scrollEnabled={inputHeight >= INPUT_MAX_HEIGHT}
                   style={{
-                    maxHeight: 110,
-                    minHeight: 28,
+                    height: inputHeight,
                     paddingTop: Platform.OS === 'ios' ? 4 : 2,
                     paddingBottom: Platform.OS === 'ios' ? 4 : 2,
                     lineHeight: 22,

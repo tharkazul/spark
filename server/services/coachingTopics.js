@@ -99,14 +99,29 @@ function longestMinutesOf(week, easyPace = 6.5) {
   return longs.reduce((m, l) => Math.max(m, l.unit === "km" ? l.value * easyPace : l.value), 0);
 }
 
+// Workout titles follow the same setting: a SHORT athlete wants "Intervals", not
+// "Neuromuscular Spin-Ups". Used by the weekly planner, coach chat and Adapt.
+const TITLE_RULES = {
+  short: `WORKOUT TITLES ("description"): plain words any amateur understands, 2-4 words, e.g. "Easy run", "Intervals", "Long ride", "Technique swim", "Strength: legs & core", "Recovery spin". No jargon: not neuromuscular, VO2max, threshold, CSS, EVF, aerobic base, activation, spin-ups, sweet spot or zone numbers. No minutes in the title; the app shows the duration.`,
+  normal: `WORKOUT TITLES ("description"): short and clear, 2-5 words. One common training word is fine (tempo, threshold, hill repeats, strides), never a stack of them, e.g. "Tempo run", "Threshold intervals", "Long ride with hills". No minutes in the title; the app shows the duration.`,
+  deep: `WORKOUT TITLES ("description"): precise training terms are welcome (e.g. "CSS intervals", "VO2max 5 x 3 min", "Strides & drills"), under 6 words. No minutes in the title; the app shows the duration.`,
+};
+
+/** The title rule for an athlete's detail level (short when unset). */
+function titleRuleFor(level) {
+  return TITLE_RULES[level] || TITLE_RULES.short;
+}
+
 const LEVEL_RULES = {
   short: `DETAIL LEVEL: SHORT (the athlete's choice, or the default for new athletes).
-- "description": a plain headline, e.g. "40 min easy run" or "5 x 1 km at threshold".
+- ${TITLE_RULES.short}
 - "details": at most 2 short sentences in plain words: the purpose and one effort cue (e.g. "easy enough to chat the whole way"). No drill lists, no cadence numbers, no breathing patterns and no fuelling grams, except for topics listed as known below (briefly) or this week's new topic.
 - Warm-up and cool-down are steps in "steps_json"; they don't need explaining in "details".`,
   normal: `DETAIL LEVEL: NORMAL.
+- ${TITLE_RULES.normal}
 - "details": 2-4 sentences: purpose, effort cue, and at most one technique or fuelling cue, preferably from topics the athlete already knows.`,
   deep: `DETAIL LEVEL: DEEP (the athlete asked for it).
+- ${TITLE_RULES.deep}
 - "details" may include full warm-up drills, technique cues, cadence and fuelling targets.`,
 };
 
@@ -136,4 +151,4 @@ async function markTopicIntroduced(userId, topicKey) {
   await dbRun(`INSERT OR IGNORE INTO athlete_topics (user_id, topic_key) VALUES (?, ?)`, [userId, topicKey]);
 }
 
-module.exports = { CATALOGUE, getDetailPromptBlock, markTopicIntroduced, eligibleTopics };
+module.exports = { CATALOGUE, getDetailPromptBlock, markTopicIntroduced, eligibleTopics, titleRuleFor };

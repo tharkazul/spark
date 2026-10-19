@@ -108,7 +108,7 @@ export interface RaceStatus {
     raceDayBonus?: boolean;
     steadyRuns?: number;
     vdot?: number;
-    fastest?: { date: string; distanceKm: number; minutes: number; seconds?: number; avgHr?: number };
+    fastest?: { date: string; distanceKm: number; minutes: number; seconds?: number; avgHr?: number; withinLongerRun?: boolean };
   } | null;
   trend: TrendPoint[];
 }
