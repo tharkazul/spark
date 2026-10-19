@@ -376,8 +376,12 @@ export default function PlanningHomeScreen() {
             } catch (e) {}
           }
 
+          const rawId = w.id !== undefined && w.id !== null && String(w.id) !== 'undefined' && String(w.id) !== 'null' && String(w.id) !== ''
+            ? String(w.id)
+            : `${w.date || dateYYYYMMDD}:${w.sport || 'RUN'}:${w.title || w.description || 'workout'}`;
+
           return {
-            id: String(w.id),
+            id: rawId,
             day: w.day || dayName,
             dateStr: w.dateStr || dateStr,
             date: w.date || dateYYYYMMDD,

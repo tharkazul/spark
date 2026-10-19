@@ -153,8 +153,10 @@ export async function sendWorkoutsToConnectedDevices(
         const title = (w.title || (w as any).description || `${w.type || 'RUN'} Workout`).trim();
         const date = normalizeDate(w);
         const sport = String(w.type || (w as any).sport || 'RUN').toUpperCase();
+        const rawId = w.id != null ? String(w.id).trim() : '';
+        const hasValidId = rawId !== '' && rawId !== '1' && rawId !== 'undefined' && rawId !== 'null';
         const applePayload: PlannedWorkout = {
-          id: String(w.id || `${date}:${sport}:${title}`),
+          id: hasValidId ? rawId : `${date}:${sport}:${title}`,
           date,
           sport,
           description: title,

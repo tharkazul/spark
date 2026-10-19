@@ -54,10 +54,24 @@ const muscleLoad = require('../services/muscleLoad');
 
 router.get("/api/micro-plan", authenticateToken, (req, res) => {
   db.all(
-    `SELECT * FROM micro_plan WHERE user_id = ? ORDER BY date ASC`,
+    `SELECT rowid AS _rowid, * FROM micro_plan WHERE user_id = ? ORDER BY date ASC`,
     [req.user.id],
     (err, rows) => {
-      res.json(rows || []);
+      const safeRows = (rows || []).map((r, idx) => {
+        const { _rowid, ...rest } = r;
+        const validId =
+          rest.id !== null &&
+          rest.id !== undefined &&
+          rest.id !== "" &&
+          rest.id !== "null" &&
+          rest.id !== "undefined"
+            ? rest.id
+            : _rowid !== null && _rowid !== undefined
+            ? _rowid
+            : `${req.user.id}-${rest.date || "date"}-${rest.sport || "sport"}-${idx}`;
+        return { ...rest, id: validId };
+      });
+      res.json(safeRows);
     },
   );
 });

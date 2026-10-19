@@ -559,25 +559,54 @@ db.serialize(() => {
     },
   );
 
-  // Migration: check if micro_plan is missing the 'id' column. If so, rebuild it.
+  // Migration: check if micro_plan is missing a PRIMARY KEY 'id' column. If so, rebuild it.
   // This also implicitly drops the legacy UNIQUE(user_id, date, sport) constraint so users can have 2 runs in a day.
   db.all(`PRAGMA table_info(micro_plan);`, (err, rows) => {
     if (!err && rows && rows.length > 0) {
-      const hasId = rows.some((r) => r.name === "id");
-      if (!hasId) {
+      const colNames = new Set(rows.map((r) => r.name));
+      const idCol = rows.find((r) => r.name === "id");
+      const needsRebuild = !idCol || !idCol.pk;
+      if (needsRebuild) {
         console.log(
-          "Migrating micro_plan table to include id column and drop unique constraints...",
+          "Migrating micro_plan table to include PRIMARY KEY id column and drop unique constraints...",
         );
+        const rookaExpr = colNames.has("target_rooka")
+          ? "target_rooka"
+          : colNames.has("target_spark")
+          ? "target_spark"
+          : colNames.has("target_tss")
+          ? "target_tss"
+          : "0";
+        const stepsExpr = colNames.has("steps_json") ? "steps_json" : "'[]'";
+        const sourceExpr = colNames.has("source") ? "COALESCE(source, 'coach')" : "'coach'";
+        const originExpr = colNames.has("origin") ? "origin" : "NULL";
+
         db.serialize(() => {
+          db.run(`DROP TABLE IF EXISTS micro_plan_new`);
           db.run(
-            `CREATE TABLE IF NOT EXISTS micro_plan_new (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, source TEXT DEFAULT 'coach', FOREIGN KEY(user_id) REFERENCES users(id))`,
+            `CREATE TABLE micro_plan_new (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, date TEXT, sport TEXT, description TEXT, target_rooka REAL, details TEXT, steps_json TEXT, source TEXT DEFAULT 'coach', origin TEXT, FOREIGN KEY(user_id) REFERENCES users(id))`,
           );
           db.run(
-            `INSERT INTO micro_plan_new (user_id, date, sport, description, target_rooka, details, steps_json) SELECT user_id, date, sport, description, target_tss as target_rooka, details, steps_json FROM micro_plan`,
+            `INSERT INTO micro_plan_new (user_id, date, sport, description, target_rooka, details, steps_json, source, origin)
+             SELECT user_id, date, sport, description, ${rookaExpr}, details, ${stepsExpr}, ${sourceExpr}, ${originExpr} FROM micro_plan`,
+            (insertErr) => {
+              if (insertErr) {
+                console.error("Failed to copy micro_plan into micro_plan_new:", insertErr.message);
+                return;
+              }
+              db.run(`DROP TABLE micro_plan`, (dropErr) => {
+                if (dropErr) {
+                  console.error("Failed to drop old micro_plan:", dropErr.message);
+                  return;
+                }
+                db.run(`ALTER TABLE micro_plan_new RENAME TO micro_plan`);
+              });
+            },
           );
-          db.run(`DROP TABLE micro_plan`);
-          db.run(`ALTER TABLE micro_plan_new RENAME TO micro_plan`);
         });
+      } else {
+        // Ensure no row ever has a NULL id
+        db.run(`UPDATE micro_plan SET id = rowid WHERE id IS NULL`, () => {});
       }
     }
   });

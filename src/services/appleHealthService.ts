@@ -149,9 +149,10 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
   }
 
   const date = toDateComponents(workout.date);
-  const hasRealId = workout.id && String(workout.id) !== '1';
+  const rawId = workout.id != null ? String(workout.id).trim() : '';
+  const hasRealId = rawId !== '' && rawId !== '1' && rawId !== 'undefined' && rawId !== 'null';
   const workoutKey = hasRealId
-    ? `${workout.date}:${workout.id}`
+    ? `${workout.date}:${rawId}`
     : `${workout.date}:${workout.sport}:${workout.description || workout.title || ''}`;
   await makeRoomOnWatch(workoutKey);
 
