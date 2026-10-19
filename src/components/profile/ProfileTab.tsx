@@ -26,6 +26,7 @@ import { TitlesSkeleton } from '../skeletons/TitlesSkeleton';
 import { LanguageSelector } from '../LanguageSelector';
 import { confirmEnableAi, confirmDisableAi } from '../../utils/aiConsent';
 import { HomeTownSheet } from './HomeTownSheet';
+import { AchievementsCard } from '../social/AchievementsCard';
 
 interface ProfileTabProps {
   username: string;
@@ -494,6 +495,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           )}
         </Card>
       )}
+
+      {/* 3b. ATHLETIC ACHIEVEMENTS */}
+      <AchievementsCard variant="profile" />
 
       {/* 4. DAILY COACH USAGE METER (or Admin Token Quota) */}
       <Text className="text-theme-muted font-bold text-xs -mb-3 ml-1 uppercase tracking-wider">

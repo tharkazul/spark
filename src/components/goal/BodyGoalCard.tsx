@@ -29,16 +29,21 @@ export function BodyGoalCard({ status }: { status: BodyStatus }) {
     <Card>
       <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted mb-2">{status.goalName}</Text>
       <View className="flex-row items-center gap-2">
-        <Ionicons name="scale-outline" size={20} color={color} />
-        <Text className="text-lg font-extrabold text-theme-text flex-1">{headline}</Text>
+        <Ionicons name="scale-outline" size={18} color={color} />
+        <Text className="text-base font-bold text-theme-text flex-1">{headline}</Text>
       </View>
       {status.currentKg !== null && (
-        <Text className="text-2xl font-extrabold text-theme-text font-rajdhani mt-2">
-          {status.currentKg} <Text className="text-theme-muted">→ {status.targetKg} kg</Text>
-        </Text>
+        <View className="flex-row items-baseline gap-1.5 mt-2">
+          <Text className="text-2xl font-bold text-theme-text font-rajdhani tabular-nums">
+            {status.currentKg}
+          </Text>
+          <Text className="text-sm font-semibold text-theme-muted">
+            → {status.targetKg} kg
+          </Text>
+        </View>
       )}
       {status.ratePerWeek !== null && status.ratePerWeek !== undefined && status.neededPerWeek !== null && status.neededPerWeek !== undefined && (
-        <Text className="text-xs text-theme-muted mt-2">
+        <Text className="text-xs text-theme-muted mt-1">
           {t('goal.bodyRates', { rate: signed(status.ratePerWeek), needed: signed(status.neededPerWeek) })}
         </Text>
       )}

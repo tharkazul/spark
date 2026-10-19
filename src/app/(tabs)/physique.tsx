@@ -41,7 +41,7 @@ export default function ProgressScreen() {
     { key: 'overview', label: t('goal.tabLabel') },
     { key: 'fitness', label: t('progress.fitness', 'Fitness') },
     { key: 'body', label: t('progress.body', 'Body') },
-    { key: 'history', label: t('progress.history', 'History') },
+    { key: 'history', label: t('progress.activities', 'Activities') },
   ];
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);

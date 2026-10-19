@@ -138,8 +138,21 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
   // If user is ranked beyond rank 10, pin a sticky copy
   const isUserOffscreen = currentUserIndex >= 10;
 
+  const endDate = new Date();
+  const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const formatShortDate = (d: Date) =>
+    d.toLocaleDateString(language || undefined, { day: 'numeric', month: 'short' });
+
   return (
     <View className="gap-y-3 pb-8">
+      {/* SUBTLE WEEKLY CUMULATIVE CAPTION */}
+      <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider text-center mt-0.5">
+        {t('social.weeklyCumulativeRange', {
+          start: formatShortDate(startDate),
+          end: formatShortDate(endDate),
+        })}
+      </Text>
+
       {/* SECOND-LEVEL FILTER CHIPS: Rooka score | 7-Day Quests */}
       {showSwitcher && QUESTS_ENABLED && (
         <View className="flex-row items-center gap-x-2 mb-1">
@@ -164,7 +177,7 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
         <>
           {/* TOP 3 PODIUM */}
           {hasPodium && top1 && top2 && top3 && (
-            <View className="pt-4 pb-2 mb-2">
+            <View className="pt-6 pb-2 mb-2">
               <View className="flex-row items-end justify-center gap-x-3">
                 {/* 2ND PLACE (SILVER) */}
                 <Animated.View

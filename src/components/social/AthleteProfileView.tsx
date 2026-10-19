@@ -22,6 +22,7 @@ import { calculatePMCMetrics } from '../../utils/pmcUtils';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
 import { Activity } from '../../types/activity';
 import { AthleteProfileSkeleton } from '../skeletons/AthleteProfileSkeleton';
+import { AchievementsCard } from './AchievementsCard';
 
 export interface AthleteProfileViewProps {
   athleteId: number | string | null;
@@ -429,6 +430,19 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                 </View>
               </View>
             </Card>
+          )}
+
+          {/* ACHIEVEMENTS */}
+          {(isSelf || profile.connectionStatus === 'accepted') && (
+            <View className="mb-4">
+              <AchievementsCard
+                variant="profile"
+                userId={profile.id}
+                initialAchievements={profile.achievements}
+                activities={activities}
+                rookaStartDate={profile.rooka_start_date}
+              />
+            </View>
           )}
 
           {/* RECENT ACTIVITIES */}

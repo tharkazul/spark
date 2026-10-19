@@ -70,6 +70,7 @@ export interface PublicAthleteProfile {
   profilePictureUrl?: string;
   public_description?: string;
   total_rooka?: number;
+  rooka_start_date?: string | null;
   levelInfo?: {
     level: number;
     currentXp: number;
@@ -83,6 +84,7 @@ export interface PublicAthleteProfile {
   } | null;
   activities?: any[];
   recentActivities?: any[];
+  achievements?: any[];
   athlete_metrics?: {
     ftp?: number;
     weight_kg?: number;

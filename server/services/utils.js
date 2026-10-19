@@ -465,6 +465,14 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
                       viewerUserId != null &&
                       String(viewerUserId) === String(user.id);
 
+                    let achievements = [];
+                    if (isSelf || user.connection_status === "accepted") {
+                      try {
+                        const { getAchievements } = require("./achievements");
+                        achievements = await getAchievements(targetId);
+                      } catch (e) {}
+                    }
+
                     const profileData = {
                       id: user.id,
                       username: user.username,
@@ -472,6 +480,7 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
                       profile_picture_url: user.profile_picture_url,
                       public_description: publicBio || user.public_description,
                       total_rooka: computedTotalRooka,
+                      rooka_start_date: userStartDate,
                       levelInfo: {
                         level: levelInfo.level,
                         currentXp: Math.round(levelInfo.totalRooka),
@@ -481,6 +490,7 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
                       activeTitle: activeTitle,
                       activities: activities,
                       recentActivities: recentActivities,
+                      achievements: achievements,
                       athlete_metrics: athlete_metrics,
                       trends: trends,
                       connectionStatus: isSelf
@@ -494,6 +504,7 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
                       profileData.public_description = i18n.t(user.language, 'bio.default');
                       profileData.activities = [];
                       profileData.recentActivities = [];
+                      profileData.achievements = [];
                       profileData.athlete_metrics = null;
                       profileData.trends = null;
                     }

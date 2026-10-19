@@ -10,11 +10,12 @@ import Svg, {
   Path,
   Line,
   Circle,
-  Rect,
+  Defs,
+  LinearGradient,
+  Stop,
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
-import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { getLocaleTag } from '../../locales/i18n';
 import { Activity } from '../../types/activity';
@@ -43,11 +44,18 @@ const SPORT_COLORS: Record<string, string> = {
   OTHER: '#8B5CF6',
 };
 
+const SPORT_LABELS: Record<string, string> = {
+  RUN: 'Run',
+  BIKE: 'Bike',
+  SWIM: 'Swim',
+  STRENGTH: 'Strength',
+  OTHER: 'Other',
+};
+
 export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   history = [],
   activities = [],
 }) => {
-  const theme = useTheme();
   const { t, language } = useLanguage();
   const { width: windowWidth } = useWindowDimensions();
 
@@ -64,12 +72,12 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [measuredWidth, setMeasuredWidth] = useState<number>(0);
 
-  // Dynamic measured chart width with safe fallback (accounting for 40px scrollview padding + 32px card padding)
+  // Dynamic measured chart width with safe fallback
   const chartWidth = measuredWidth > 0 ? measuredWidth : Math.max(260, windowWidth - 72);
-  const chartHeight = 180;
-  const paddingBottom = 20;
-  const paddingTop = 16;
-  const horizontalPadding = 12;
+  const chartHeight = 168;
+  const paddingBottom = 14;
+  const paddingTop = 12;
+  const horizontalPadding = 8;
   const plotWidth = Math.max(10, chartWidth - horizontalPadding * 2);
   const plotHeight = chartHeight - paddingTop - paddingBottom;
 
@@ -81,7 +89,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   }, [history, timeframe]);
 
   // Compute min and max across CTL, ATL, and TSB
-  const { minVal, maxVal, ctlPath, atlPath, tsbPath, zeroY, getX } = useMemo(() => {
+  const { ctlPath, ctlAreaPath, atlPath, tsbPath, zeroY, getX, getY } = useMemo(() => {
     const calcGetX = (idx: number) => {
       if (filteredHistory.length <= 1) return chartWidth / 2;
       return horizontalPadding + (idx / (filteredHistory.length - 1)) * plotWidth;
@@ -89,13 +97,13 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
 
     if (filteredHistory.length === 0) {
       return {
-        minVal: 0,
-        maxVal: 100,
         ctlPath: '',
+        ctlAreaPath: '',
         atlPath: '',
         tsbPath: '',
         zeroY: chartHeight / 2,
         getX: calcGetX,
+        getY: () => chartHeight / 2,
       };
     }
 
@@ -107,12 +115,11 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
       max = Math.max(max, pt.ctl, pt.atl, pt.tsb);
     });
 
-    // Add padding to range
     min = Math.floor(min - 5);
     max = Math.ceil(max + 10);
     const range = Math.max(1, max - min);
 
-    const getY = (val: number) => {
+    const calcGetY = (val: number) => {
       const normalized = (val - min) / range;
       return paddingTop + plotHeight - normalized * plotHeight;
     };
@@ -123,9 +130,9 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
 
     filteredHistory.forEach((pt, idx) => {
       const x = calcGetX(idx);
-      const ctlY = getY(pt.ctl);
-      const atlY = getY(pt.atl);
-      const tsbY = getY(pt.tsb);
+      const ctlY = calcGetY(pt.ctl);
+      const atlY = calcGetY(pt.atl);
+      const tsbY = calcGetY(pt.tsb);
 
       if (idx === 0) {
         ctlP = `M ${x.toFixed(1)} ${ctlY.toFixed(1)}`;
@@ -138,18 +145,21 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
       }
     });
 
-    const zY = getY(0);
+    const firstX = calcGetX(0).toFixed(1);
+    const lastX = calcGetX(filteredHistory.length - 1).toFixed(1);
+    const bottomY = (chartHeight - paddingBottom).toFixed(1);
+    const ctlArea = ctlP ? `${ctlP} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z` : '';
 
     return {
-      minVal: min,
-      maxVal: max,
       ctlPath: ctlP,
+      ctlAreaPath: ctlArea,
       atlPath: atlP,
       tsbPath: tsbP,
-      zeroY: zY,
+      zeroY: calcGetY(0),
       getX: calcGetX,
+      getY: calcGetY,
     };
-  }, [filteredHistory, chartWidth, chartHeight, plotHeight, paddingTop, plotWidth, horizontalPadding]);
+  }, [filteredHistory, chartWidth, chartHeight, plotHeight, paddingTop, paddingBottom, plotWidth, horizontalPadding]);
 
   // Active point for tooltip
   const activePoint = useMemo(() => {
@@ -186,7 +196,6 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
     }> = [];
 
     const now = new Date();
-    // Align to Monday of current week
     const currentMonday = new Date(now);
     const dayOfWeek = currentMonday.getDay();
     const diffToMon = (dayOfWeek + 6) % 7;
@@ -237,7 +246,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
     }
 
     return weeks;
-  }, [activities, timeframe]);
+  }, [activities, timeframe, language]);
 
   const maxWeeklyHours = useMemo(() => {
     const maxH = Math.max(...weeklySportData.map((w) => w.totalHours), 5);
@@ -251,19 +260,14 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   }, [weeklySportData]);
 
   return (
-    <Card className="p-4 bg-theme-card border border-theme-border gap-y-4">
-      {/* 1. TIMEFRAME SELECTOR HEADER */}
+    <Card className="gap-y-3">
+      {/* 1. HEADER + TIMEFRAME SELECTOR */}
       <View className="flex-row items-center justify-between">
-        <View className="flex-1 mr-2">
-          <Text className="text-base font-bold text-theme-text font-jakarta" numberOfLines={1}>
-            {t('progress.trendsTitle', 'Fitness, fatigue & form')}
-          </Text>
-          <Text className="text-xs text-theme-muted mt-0.5" numberOfLines={1}>
-            {t('progress.trendsSubtitle', 'How your training builds up over time')}
-          </Text>
-        </View>
+        <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted flex-1 mr-2" numberOfLines={1}>
+          {t('progress.trendsTitle', 'Fitness, fatigue & form')}
+        </Text>
 
-        <View className="flex-row bg-theme-inset p-1 rounded-xl">
+        <View className="flex-row bg-theme-inset p-0.5 rounded-lg">
           {(['6W', '3M', '1Y'] as Timeframe[]).map((tf) => {
             const active = timeframe === tf;
             return (
@@ -274,12 +278,12 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
                   setTimeframe(tf);
                   setSelectedIndex(null);
                 }}
-                className={`px-3 py-1.5 rounded-lg ${
-                  active ? 'bg-theme-accent' : 'bg-transparent'
+                className={`px-2.5 py-1 rounded-md ${
+                  active ? 'bg-theme-accent-strong' : 'bg-transparent'
                 }`}
               >
                 <Text
-                  className={`text-xs font-extrabold ${
+                  className={`text-[11px] font-bold ${
                     active ? 'text-white' : 'text-theme-muted'
                   }`}
                 >
@@ -291,53 +295,53 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
         </View>
       </View>
 
-      {/* 2. ACTIVE VALUES TELEMETRY BADGES */}
+      {/* 2. COMPACT INLINE LEGEND + ACTIVE READOUT */}
       {activePoint && (
-        <View className="flex-row items-center justify-between p-3 bg-theme-bg/80 rounded-xl border border-theme-border/60">
-          <View>
-            <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-              {formatPointDate(activePoint.point.date)}
-            </Text>
-            <Text className="text-xs font-semibold text-theme-text mt-0.5">
-              {t('progress.trendsLoad', 'Load')}: {Math.round(activePoint.point.rooka || 0)} pts
-            </Text>
-          </View>
+        <View className="flex-row items-center justify-between bg-theme-inset rounded-inset px-3 py-2">
+          <Text className="text-xs font-semibold text-theme-muted">
+            {formatPointDate(activePoint.point.date)}
+          </Text>
 
-          <View className="flex-row items-center gap-3">
-            <View className="items-center">
-              <View className="flex-row items-center gap-1">
-                <View className="w-2 h-2 rounded-full bg-[#10B981]" />
-                <Text className="text-xs font-bold text-[#10B981]">
-                  {Math.round(activePoint.point.ctl * 10) / 10}
-                </Text>
-              </View>
-              <Text className="text-[10px] text-theme-muted">{t('dashboard.fitness', 'Fitness')}</Text>
+          <View className="flex-row items-center gap-3.5">
+            <View className="flex-row items-center gap-1">
+              <View className="w-2 h-2 rounded-full bg-[#10B981]" />
+              <Text className="text-[11px] text-theme-muted">{t('dashboard.fitness', 'Fitness')}</Text>
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-sm font-bold font-rajdhani text-theme-text ml-0.5"
+              >
+                {Math.round(activePoint.point.ctl * 10) / 10}
+              </Text>
             </View>
 
-            <View className="items-center">
-              <View className="flex-row items-center gap-1">
-                <View className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-                <Text className="text-xs font-bold text-[#F59E0B]">
-                  {Math.round(activePoint.point.atl * 10) / 10}
-                </Text>
-              </View>
-              <Text className="text-[10px] text-theme-muted">{t('dashboard.fatigue', 'Fatigue')}</Text>
+            <View className="flex-row items-center gap-1">
+              <View className="w-2 h-2 rounded-full bg-[#F59E0B]" />
+              <Text className="text-[11px] text-theme-muted">{t('dashboard.fatigue', 'Fatigue')}</Text>
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-sm font-bold font-rajdhani text-theme-text ml-0.5"
+              >
+                {Math.round(activePoint.point.atl * 10) / 10}
+              </Text>
             </View>
 
-            <View className="items-center">
-              <View className="flex-row items-center gap-1">
-                <View className="w-2 h-2 rounded-full bg-[#0EA5E9]" />
-                <Text className="text-xs font-bold text-[#0EA5E9]">
-                  {activePoint.point.tsb > 0 ? `+${Math.round(activePoint.point.tsb * 10) / 10}` : Math.round(activePoint.point.tsb * 10) / 10}
-                </Text>
-              </View>
-              <Text className="text-[10px] text-theme-muted">{t('dashboard.form', 'Form')}</Text>
+            <View className="flex-row items-center gap-1">
+              <View className="w-2 h-2 rounded-full bg-[#0EA5E9]" />
+              <Text className="text-[11px] text-theme-muted">{t('dashboard.form', 'Form')}</Text>
+              <Text
+                style={{ fontVariant: ['tabular-nums'] }}
+                className="text-sm font-bold font-rajdhani text-theme-text ml-0.5"
+              >
+                {activePoint.point.tsb > 0
+                  ? `+${Math.round(activePoint.point.tsb * 10) / 10}`
+                  : Math.round(activePoint.point.tsb * 10) / 10}
+              </Text>
             </View>
           </View>
         </View>
       )}
 
-      {/* 3. MULTI-LINE SVG CHART WITH EXACT CONTAINER MEASUREMENT */}
+      {/* 3. MULTI-LINE SVG CHART */}
       <View
         onLayout={(e) => {
           const w = e.nativeEvent.layout.width;
@@ -358,6 +362,13 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
         onResponderTerminate={() => setPagerLocked(false)}
       >
         <Svg width={chartWidth} height={chartHeight} style={{ overflow: 'hidden' }}>
+          <Defs>
+            <LinearGradient id="pmc-ctl-grad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#10B981" stopOpacity={0.16} />
+              <Stop offset="100%" stopColor="#10B981" stopOpacity={0.0} />
+            </LinearGradient>
+          </Defs>
+
           {/* Zero baseline for Form (TSB) */}
           <Line
             x1={horizontalPadding}
@@ -366,92 +377,122 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
             y2={zeroY}
             stroke="#94A3B8"
             strokeWidth="1"
-            strokeDasharray="4 4"
-            opacity="0.45"
+            strokeDasharray="3 3"
+            opacity="0.4"
           />
+
+          {/* Soft Area Fill under Fitness (CTL) */}
+          {ctlAreaPath ? <Path d={ctlAreaPath} fill="url(#pmc-ctl-grad)" /> : null}
 
           {/* Curves */}
           <Path
             d={ctlPath}
             fill="none"
             stroke="#10B981"
-            strokeWidth="2.5"
+            strokeWidth="2.25"
             strokeLinecap="round"
+            strokeLinejoin="round"
           />
           <Path
             d={atlPath}
             fill="none"
             stroke="#F59E0B"
-            strokeWidth="2"
+            strokeWidth="1.75"
             strokeLinecap="round"
+            strokeLinejoin="round"
             opacity="0.85"
           />
           <Path
             d={tsbPath}
             fill="none"
             stroke="#0EA5E9"
-            strokeWidth="2"
+            strokeWidth="1.75"
             strokeLinecap="round"
+            strokeLinejoin="round"
             opacity="0.9"
           />
 
-          {/* Scrubber vertical line */}
+          {/* Scrubber vertical line + Active Point Dots */}
           {activePoint && filteredHistory.length > 1 && (
-            <Line
-              x1={getX(activePoint.index)}
-              y1={paddingTop}
-              x2={getX(activePoint.index)}
-              y2={chartHeight - paddingBottom}
-              stroke="#94A3B8"
-              strokeWidth="1.5"
-              strokeDasharray="3,3"
-            />
+            <>
+              {selectedIndex !== null && (
+                <Line
+                  x1={getX(activePoint.index)}
+                  y1={paddingTop}
+                  x2={getX(activePoint.index)}
+                  y2={chartHeight - paddingBottom}
+                  stroke="#94A3B8"
+                  strokeWidth="1"
+                  strokeDasharray="3 3"
+                  opacity="0.6"
+                />
+              )}
+              <Circle
+                cx={getX(activePoint.index)}
+                cy={getY(activePoint.point.ctl)}
+                r={3.5}
+                fill="#10B981"
+              />
+              <Circle
+                cx={getX(activePoint.index)}
+                cy={getY(activePoint.point.atl)}
+                r={3}
+                fill="#F59E0B"
+              />
+              <Circle
+                cx={getX(activePoint.index)}
+                cy={getY(activePoint.point.tsb)}
+                r={3}
+                fill="#0EA5E9"
+              />
+            </>
           )}
         </Svg>
       </View>
 
       {/* 4. WEEKLY TRAINING HOURS BY SPORT BREAKDOWN */}
       <View className="pt-3 border-t border-theme-border/40">
-        <View className="mb-3 gap-y-2">
-          {/* Section Header Row */}
-          <View className="flex-row items-center justify-between">
-            <Text className="text-sm font-bold text-theme-text font-jakarta">
-              {t('trendsExtra.weeklyVolume')}
-            </Text>
-            <Text className="text-xs font-semibold text-theme-accent">
-              {t('trendsExtra.avgPerWeek', { hours: avgWeeklyHours })}
-            </Text>
-          </View>
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted">
+            {t('trendsExtra.weeklyVolume')}
+          </Text>
+          <Text className="text-xs font-semibold text-theme-muted">
+            {t('trendsExtra.avgPerWeek', { hours: avgWeeklyHours })}
+          </Text>
+        </View>
 
-          {/* Wrapped Legend Chips Row (Never overflows screen width) */}
-          <View className="flex-row items-center gap-x-3 gap-y-1.5 flex-wrap">
-            {Object.entries(SPORT_COLORS).map(([sport, color]) => (
-              <View key={sport} className="flex-row items-center gap-1.5">
-                <View style={{ backgroundColor: color }} className="w-2 h-2 rounded-full" />
-                <Text className="text-[11px] font-bold text-theme-muted">{sport}</Text>
-              </View>
-            ))}
-          </View>
+        {/* Clean Title-Case Legend Row */}
+        <View className="flex-row items-center gap-x-3.5 gap-y-1 flex-wrap mb-2">
+          {Object.entries(SPORT_COLORS).map(([sport, color]) => (
+            <View key={sport} className="flex-row items-center gap-1.5">
+              <View style={{ backgroundColor: color }} className="w-2 h-2 rounded-full" />
+              <Text className="text-[11px] font-medium text-theme-muted">
+                {SPORT_LABELS[sport] || sport}
+              </Text>
+            </View>
+          ))}
         </View>
 
         {/* Stacked Bars Container */}
-        <View className="flex-row items-end justify-between h-36 px-1 pt-3 pb-2">
+        <View className="flex-row items-end justify-between h-28 px-1 pt-2 pb-1">
           {weeklySportData.map((week, wIdx) => {
-            const barMaxHeight = 85;
+            const barMaxHeight = 76;
             const totalH = week.totalHours;
             const barHeight = Math.max(4, (totalH / maxWeeklyHours) * barMaxHeight);
 
             return (
               <View key={wIdx} className="flex-1 items-center justify-end mx-1">
-                {/* Total label above bar */}
-                <Text className="text-[10px] font-bold text-theme-muted mb-1" numberOfLines={1}>
-                  {totalH > 0 ? `${totalH}h` : '0'}
+                <Text
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  className="text-[11px] font-bold font-rajdhani text-theme-muted mb-1"
+                  numberOfLines={1}
+                >
+                  {totalH > 0 ? `${totalH}h` : '–'}
                 </Text>
 
-                {/* Stacked Bar segments */}
                 <View
                   style={{ height: barHeight }}
-                  className="w-full max-w-[28px] rounded-t-md overflow-hidden bg-theme-inset flex-col-reverse"
+                  className="w-full max-w-[26px] rounded-t-md overflow-hidden bg-theme-inset flex-col-reverse"
                 >
                   {Object.entries(week.sports).map(([sportKey, hours]) => {
                     if (hours <= 0 || totalH <= 0) return null;
@@ -468,14 +509,6 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
                     );
                   })}
                 </View>
-
-                {/* Week Label */}
-                <Text
-                  className="text-[9px] text-theme-muted mt-2 font-medium"
-                  numberOfLines={1}
-                >
-                  {week.weekLabel.split(' ')[0]}
-                </Text>
               </View>
             );
           })}
@@ -486,3 +519,4 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
 };
 
 export default FitnessTrendsChart;
+

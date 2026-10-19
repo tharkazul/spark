@@ -25,7 +25,6 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useSubscription } from '../../context/SubscriptionStore';
 import { canAccessQuests } from '../../utils/permissions';
 import { QUESTS_ENABLED } from '../../constants/features';
-import { AchievementsCard } from './AchievementsCard';
 import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useRouter } from 'expo-router';
 
@@ -137,131 +136,153 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
   return (
     <View className="gap-y-5 pb-6">
-      {/* SECTION 1: GOAL CRUSHER CARDS */}
+      {/* SECTION 1: GOAL CRUSHER / STREAK CARD */}
       <View>
-        <View className="flex-row justify-between items-center mb-3 px-0.5">
+        <View className="flex-row justify-between items-center mb-2 px-0.5">
           <Text className="text-lg font-extrabold text-theme-text tracking-tight">
             {QUESTS_ENABLED ? t('questUi.quests') : t('questUi.streak')}
           </Text>
-          {hasQuestAccess && (
+          {hasQuestAccess && QUESTS_ENABLED && (
             <Text className="text-xs font-semibold text-theme-muted">
               {t('common.active')}
             </Text>
           )}
         </View>
 
-        {/* 2-CARD FROSTED GLASS ROW */}
-        <View className="flex-row gap-3">
-          {/* CARD 1: ACTIVE QUEST (hidden while quests are parked) */}
-          {!QUESTS_ENABLED ? null : !hasQuestAccess ? (
-          // Quests are a Rooka+ feature: free athletes see an unlock card instead
-          <TouchableOpacity
-            onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              const res = await presentPaywall();
-              if (res === PAYWALL_RESULT.NOT_PRESENTED || res === PAYWALL_RESULT.ERROR) {
-                router.navigate({ pathname: '/profile', params: { subtab: 'account' } });
-              }
-            }}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-center items-center h-[152px] shadow-xs"
-          >
-            <Ionicons name="lock-closed-outline" size={24} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-text mt-2 text-center">
-              {t('progress.weeklyQuests', 'Weekly quests')}
-            </Text>
-            <View className="mt-3 px-3 py-1.5 bg-theme-accent/15 rounded-lg">
-              <Text className="text-[11px] font-bold text-theme-accent">
-                {t('profile.includedWithRookaPlus', 'Unlock with rooka+')}
-              </Text>
-            </View>
-          </TouchableOpacity>
-          ) : gamificationLoading && (!quests || quests.length === 0) ? (
-            <ActiveQuestSkeleton variant="tile" />
-          ) : activeQuest ? (
+        {QUESTS_ENABLED ? (
+          /* 2-CARD FROSTED GLASS ROW */
+          <View className="flex-row gap-3">
+            {/* CARD 1: ACTIVE QUEST (hidden while quests are parked) */}
+            {!hasQuestAccess ? (
+            // Quests are a Rooka+ feature: free athletes see an unlock card instead
             <TouchableOpacity
-            onPress={() => {
-              Haptics.selectionAsync();
-              setIsQuestModalOpen(true);
-            }}
-            activeOpacity={0.8}
-            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs"
-          >
-            <View>
-              <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                {t('questUi.activeQuest')}
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                const res = await presentPaywall();
+                if (res === PAYWALL_RESULT.NOT_PRESENTED || res === PAYWALL_RESULT.ERROR) {
+                  router.navigate({ pathname: '/profile', params: { subtab: 'account' } });
+                }
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-center items-center h-[152px] shadow-xs"
+            >
+              <Ionicons name="lock-closed-outline" size={24} color={theme.tint} />
+              <Text className="text-xs font-bold text-theme-text mt-2 text-center">
+                {t('progress.weeklyQuests', 'Weekly quests')}
               </Text>
-              <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
-                {`${currentProgress} / ${targetVal}`}
-              </Text>
-            </View>
-
-            <View className="flex-row items-end justify-between">
-              <View className="bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-full border border-theme-border/80 dark:border-white/10">
-                <Text className="text-xs font-bold text-theme-text font-mono">
-                  {questProgressPercent}%
+              <View className="mt-3 px-3 py-1.5 bg-theme-accent/15 rounded-lg">
+                <Text className="text-[11px] font-bold text-theme-accent">
+                  {t('profile.includedWithRookaPlus', 'Unlock with rooka+')}
                 </Text>
               </View>
-              <CircularProgressChamber
-                progress={questProgressPercent / 100}
-                icon="trophy"
-                iconColor={theme.tint}
-              />
-            </View>
-          </TouchableOpacity>
-          ) : (
-          <TouchableOpacity
-            onPress={handleGenerateQuest}
-            disabled={questActionLoading}
-            activeOpacity={0.8}
-            className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-center items-center h-[152px] shadow-xs"
-          >
-            <Ionicons name="trophy-outline" size={26} color={theme.tint} />
-            <Text className="text-xs font-bold text-theme-text mt-2 text-center">{t('questUi.noActiveQuest')}</Text>
-            
-            <View className="mt-3 px-3 py-1.5 bg-theme-accent rounded-lg flex-row items-center gap-1">
-              {questActionLoading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <>
-                  <Ionicons name="add-circle-outline" size={14} color="white" />
-                  <Text className="text-[10px] font-bold text-white uppercase">{t('questUi.start')}</Text>
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
-          )}
-
-          {/* CARD 2: REAL STREAK */}
-          <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs">
-            <View>
-              <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
-                {t('questUi.streak')}
-              </Text>
-              <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
-                {realStreak === 1 ? t('questUi.oneDay') : t('questUi.nDays', { count: realStreak })}
-              </Text>
-            </View>
-
-            <View className="flex-row items-end justify-between">
-              <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-theme-border/80 dark:border-white/10">
-                <Text className="text-xs font-bold text-theme-text">
-                  {realStreak > 0 ? t('questUi.keepItUp') : t('questUi.startToday')}
+            </TouchableOpacity>
+            ) : gamificationLoading && (!quests || quests.length === 0) ? (
+              <ActiveQuestSkeleton variant="tile" />
+            ) : activeQuest ? (
+              <TouchableOpacity
+              onPress={() => {
+                Haptics.selectionAsync();
+                setIsQuestModalOpen(true);
+              }}
+              activeOpacity={0.8}
+              className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs"
+            >
+              <View>
+                <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
+                  {t('questUi.activeQuest')}
+                </Text>
+                <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
+                  {`${currentProgress} / ${targetVal}`}
                 </Text>
               </View>
-              <CircularProgressChamber
-                progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
-                icon="flame"
-                iconColor={theme.tint}
-              />
+
+              <View className="flex-row items-end justify-between">
+                <View className="bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-full border border-theme-border/80 dark:border-white/10">
+                  <Text className="text-xs font-bold text-theme-text font-mono">
+                    {questProgressPercent}%
+                  </Text>
+                </View>
+                <CircularProgressChamber
+                  progress={questProgressPercent / 100}
+                  icon="trophy"
+                  iconColor={theme.tint}
+                />
+              </View>
+            </TouchableOpacity>
+            ) : (
+            <TouchableOpacity
+              onPress={handleGenerateQuest}
+              disabled={questActionLoading}
+              activeOpacity={0.8}
+              className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-center items-center h-[152px] shadow-xs"
+            >
+              <Ionicons name="trophy-outline" size={26} color={theme.tint} />
+              <Text className="text-xs font-bold text-theme-text mt-2 text-center">{t('questUi.noActiveQuest')}</Text>
+              
+              <View className="mt-3 px-3 py-1.5 bg-theme-accent rounded-lg flex-row items-center gap-1">
+                {questActionLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="add-circle-outline" size={14} color="white" />
+                    <Text className="text-[10px] font-bold text-white uppercase">{t('questUi.start')}</Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+            )}
+
+            {/* CARD 2: STREAK */}
+            <View className="flex-1 bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-4 justify-between h-[152px] shadow-xs">
+              <View>
+                <Text className="text-xs font-semibold text-theme-muted dark:text-theme-muted">
+                  {t('questUi.streak')}
+                </Text>
+                <Text className="text-xl font-extrabold text-theme-text tracking-tight mt-0.5 font-mono">
+                  {realStreak === 1 ? t('questUi.oneDay') : t('questUi.nDays', { count: realStreak })}
+                </Text>
+              </View>
+
+              <View className="flex-row items-end justify-between">
+                <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-full border border-theme-border/80 dark:border-white/10">
+                  <Text className="text-xs font-bold text-theme-text">
+                    {realStreak > 0 ? t('questUi.keepItUp') : t('questUi.startToday')}
+                  </Text>
+                </View>
+                <CircularProgressChamber
+                  progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
+                  icon="flame"
+                  iconColor={theme.tint}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      </View>
+        ) : (
+          /* COMPACT STREAK CARD */
+          <View className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-3.5 px-4 flex-row items-center justify-between shadow-xs">
+            <View>
+              <Text className="text-xl font-extrabold text-theme-text tracking-tight font-mono">
+                {realStreak === 1 ? t('questUi.oneDay') : t('questUi.nDays', { count: realStreak })}
+              </Text>
+              <View className="flex-row items-center gap-2 mt-1">
+                <View className="bg-slate-100 dark:bg-white/10 px-2.5 py-0.5 rounded-full border border-theme-border/80 dark:border-white/10">
+                  <Text className="text-xs font-bold text-theme-text">
+                    {realStreak > 0 ? t('questUi.keepItUp') : t('questUi.startToday')}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-      {/* SECTION 1b: ACHIEVEMENTS (recognition for what was done; replaced weekly quests) */}
-      <AchievementsCard />
+            <CircularProgressChamber
+              progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
+              icon="flame"
+              iconColor={theme.tint}
+              size={46}
+            />
+          </View>
+        )}
+      </View>
 
       {/* SECTION 2: RECENT ACTIVITIES LIST */}
       <View>

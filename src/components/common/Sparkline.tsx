@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
-import Svg, { Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
 
 export interface SparklinePoint {
   val: number | null;
@@ -14,24 +14,39 @@ interface SparklineProps {
   gradientTo?: string;
   height?: number;
   width?: number;
+  /** When true, measures container width automatically so the trendline spans 100% of the tile. */
+  fullWidth?: boolean;
   strokeWidth?: number;
   minRangePadding?: number;
   breakGapDays?: number;
+  /** Renders a highlighted dot on the most recent data point. Defaults to true. */
+  showEndDot?: boolean;
+  /** Optional reference value (e.g. 7-day average or 0 baseline) drawn as a subtle dashed line. */
+  baseline?: number | null;
 }
+
+/** Normalize 8-digit hex (#RRGGBBAA) to 6-digit hex (#RRGGBB) so SVG stopOpacity works predictably. */
+const toBaseHex = (c: string) => (c.startsWith('#') && c.length === 9 ? c.slice(0, 7) : c);
 
 export const Sparkline: React.FC<SparklineProps> = ({
   data,
-  color = '#208AEF',
-  gradientFrom = '#208AEF33',
-  gradientTo = '#208AEF00',
+  color = '#0EA5E9',
+  gradientFrom,
+  gradientTo,
   height = 36,
   width = 100,
+  fullWidth = false,
   strokeWidth = 2,
   minRangePadding = 0,
   breakGapDays,
+  showEndDot = true,
+  baseline = null,
 }) => {
+  const [measuredWidth, setMeasuredWidth] = useState<number>(width);
+  const effectiveWidth = fullWidth ? measuredWidth : width;
+
   if (!data || data.length === 0) {
-    return <View style={{ height, width }} />;
+    return <View style={{ height, width: fullWidth ? '100%' : width }} />;
   }
 
   // Normalize points
@@ -45,27 +60,26 @@ export const Sparkline: React.FC<SparklineProps> = ({
   const validVals = rawPoints.map((p) => p.val).filter((v): v is number => typeof v === 'number' && !isNaN(v));
 
   if (validVals.length === 0) {
-    return <View style={{ height, width }} />;
+    return <View style={{ height, width: fullWidth ? '100%' : width }} />;
   }
 
-  // Single point case: render a single dot
-  if (validVals.length === 1) {
-    const singleVal = validVals[0];
-    const cy = height / 2;
-    const cx = width / 2;
-    return (
-      <Svg height={height} width={width} viewBox={`0 0 ${width} ${height}`}>
-        <Circle cx={cx} cy={cy} r={strokeWidth * 1.5} fill={color} />
-      </Svg>
-    );
-  }
+  const allValsForScale =
+    typeof baseline === 'number' && !isNaN(baseline) ? [...validVals, baseline] : validVals;
 
-  const rawMin = Math.min(...validVals);
-  const rawMax = Math.max(...validVals);
-  const min = rawMin - minRangePadding;
-  const max = rawMax + minRangePadding;
+  const rawMin = Math.min(...allValsForScale);
+  const rawMax = Math.max(...allValsForScale);
+  const naturalSpan = rawMax - rawMin;
+  const padVal = Math.max(minRangePadding, naturalSpan * 0.12);
+  const min = rawMin - padVal;
+  const max = rawMax + padVal;
   const range = max - min === 0 ? 1 : max - min;
-  const padding = 2;
+
+  const padX = 4;
+  const padY = 5;
+  const plotW = Math.max(1, effectiveWidth - padX * 2);
+  const plotH = Math.max(1, height - padY * 2);
+
+  const getY = (val: number) => height - padY - ((val - min) / range) * plotH;
 
   // Build segmented paths to handle gaps > breakGapDays or nulls
   const segments: { x: number; y: number }[][] = [];
@@ -81,7 +95,6 @@ export const Sparkline: React.FC<SparklineProps> = ({
       continue;
     }
 
-    // Check date gap if breakGapDays is set and previous point had date
     if (breakGapDays && currentSegment.length > 0 && pt.date && rawPoints[i - 1]?.date) {
       const prevDate = rawPoints[i - 1].date!;
       const diffDays = Math.abs((pt.date.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -91,8 +104,8 @@ export const Sparkline: React.FC<SparklineProps> = ({
       }
     }
 
-    const x = padding + (i / Math.max(1, rawPoints.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((pt.val - min) / range) * (height - padding * 2);
+    const x = rawPoints.length === 1 ? effectiveWidth / 2 : padX + (i / Math.max(1, rawPoints.length - 1)) * plotW;
+    const y = getY(pt.val);
     currentSegment.push({ x, y });
   }
 
@@ -100,20 +113,34 @@ export const Sparkline: React.FC<SparklineProps> = ({
     segments.push(currentSegment);
   }
 
-  if (segments.length === 0) {
-    return <View style={{ height, width }} />;
-  }
+  const baseColor = toBaseHex(gradientFrom || color);
+  const endColor = toBaseHex(gradientTo || color);
+  const gradId = `spark-grad-${baseColor.replace(/[^a-zA-Z0-9]/g, '')}-${Math.round(effectiveWidth)}`;
+  const lastSeg = segments[segments.length - 1];
+  const lastPt = lastSeg && lastSeg.length > 0 ? lastSeg[lastSeg.length - 1] : null;
+  const baselineY = typeof baseline === 'number' && !isNaN(baseline) ? getY(baseline) : null;
 
-  const gradId = `___sparkline_temp___-grad-${color.replace('#', '')}`;
-
-  return (
-    <Svg height={height} width={width} viewBox={`0 0 ${width} ${height}`}>
+  const svgContent = (
+    <Svg height={height} width={effectiveWidth} viewBox={`0 0 ${effectiveWidth} ${height}`}>
       <Defs>
         <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0%" stopColor={gradientFrom} stopOpacity={0.6} />
-          <Stop offset="100%" stopColor={gradientTo} stopOpacity={0.0} />
+          <Stop offset="0%" stopColor={baseColor} stopOpacity={0.18} />
+          <Stop offset="100%" stopColor={endColor} stopOpacity={0.0} />
         </LinearGradient>
       </Defs>
+
+      {baselineY !== null && (
+        <Line
+          x1={padX}
+          y1={baselineY}
+          x2={effectiveWidth - padX}
+          y2={baselineY}
+          stroke="#94A3B8"
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          strokeOpacity={0.45}
+        />
+      )}
 
       {segments.map((seg, sIdx) => {
         if (seg.length === 1) {
@@ -122,17 +149,17 @@ export const Sparkline: React.FC<SparklineProps> = ({
               key={`seg-dot-${sIdx}`}
               cx={seg[0].x}
               cy={seg[0].y}
-              r={strokeWidth * 1.5}
+              r={strokeWidth * 1.4}
               fill={color}
             />
           );
         }
 
         const pathD = seg.reduce((acc, pt, idx) => {
-          return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
+          return idx === 0 ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : `${acc} L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
         }, '');
 
-        const areaD = `${pathD} L ${seg[seg.length - 1].x} ${height} L ${seg[0].x} ${height} Z`;
+        const areaD = `${pathD} L ${seg[seg.length - 1].x.toFixed(1)} ${height} L ${seg[0].x.toFixed(1)} ${height} Z`;
 
         return (
           <React.Fragment key={`seg-group-${sIdx}`}>
@@ -148,6 +175,35 @@ export const Sparkline: React.FC<SparklineProps> = ({
           </React.Fragment>
         );
       })}
+
+      {showEndDot && lastPt && (
+        <Circle
+          cx={lastPt.x}
+          cy={lastPt.y}
+          r={3}
+          fill={color}
+        />
+      )}
     </Svg>
   );
+
+  if (fullWidth) {
+    return (
+      <View
+        className="w-full overflow-hidden"
+        style={{ height }}
+        onLayout={(e) => {
+          const w = Math.floor(e.nativeEvent.layout.width);
+          if (w > 0 && Math.abs(w - measuredWidth) > 1) {
+            setMeasuredWidth(w);
+          }
+        }}
+      >
+        {svgContent}
+      </View>
+    );
+  }
+
+  return svgContent;
 };
+

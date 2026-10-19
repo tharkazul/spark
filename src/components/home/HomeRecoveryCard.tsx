@@ -4,7 +4,7 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Card } from '../ui/Card';
-import { Sparkline } from '../common/Sparkline';
+import { MetricTile, MetricDeltaTone } from '../ui/MetricTile';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -12,6 +12,7 @@ import {
   computeCardiovascularStrain,
   fetchRecentBiometricsFromServer,
   fetchTodayBiometricsFromServer,
+  getCachedTodayBiometrics,
 } from '../../services/appleHealthService';
 
 interface HomeRecoveryCardProps {
@@ -34,32 +35,8 @@ const avg = (values: number[]) => (values.length > 0 ? values.reduce((a, b) => a
 
 const formatSleep = (minutes: number) => `${Math.floor(minutes / 60)}h ${String(Math.round(minutes % 60)).padStart(2, '0')}m`;
 
-interface MetricTileProps {
-  label: string;
-  value: string;
-  delta: string | null;
-  deltaGood: boolean | null;
-  series: (number | null)[];
-  color: string;
-}
-
-function MetricTile({ label, value, delta, deltaGood, series, color }: MetricTileProps) {
-  const deltaClass = deltaGood === null ? 'text-theme-muted' : deltaGood ? 'text-semantic-success' : 'text-semantic-warning';
-  return (
-    <View className="flex-1 bg-theme-inset rounded-inset p-2.5">
-      <Text className="text-[11px] font-semibold text-theme-muted">{label}</Text>
-      <Text className="text-base font-extrabold text-theme-text mt-0.5 font-rajdhani" numberOfLines={1}>
-        {value}
-      </Text>
-      <Text className={`text-[10px] font-bold ${deltaClass}`} numberOfLines={1}>
-        {delta ?? ' '}
-      </Text>
-      <View className="mt-1.5">
-        <Sparkline data={series} color={color} gradientFrom={`${color}33`} gradientTo={`${color}00`} height={22} width={84} strokeWidth={1.5} />
-      </View>
-    </View>
-  );
-}
+const toDeltaTone = (good: boolean | null): MetricDeltaTone =>
+  good === null ? 'neutral' : good ? 'good' : 'warn';
 
 export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecoveryCardProps) {
   const { t } = useLanguage();
@@ -70,10 +47,16 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      getCachedTodayBiometrics()
+        .then((cached) => {
+          if (active && cached) setToday((prev) => prev || cached);
+        })
+        .catch(() => {});
+
       Promise.all([fetchTodayBiometricsFromServer(), fetchRecentBiometricsFromServer(8)])
         .then(([todayRow, recentRows]) => {
           if (!active) return;
-          setToday(todayRow);
+          if (todayRow) setToday(todayRow);
           setRecent(recentRows || []);
         })
         .catch(() => {});
@@ -84,45 +67,103 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
   );
 
   const view = useMemo(() => {
-    if (!today) return null;
-    const hasSignal = Boolean(today.sleep_minutes || today.hrv_sdnn || today.resting_hr);
+    if (!today && recent.length === 0) return null;
+
+    // Merge recent + today by date so partial rows never drop existing measurements.
+    const byDate = new Map<string, AppleHealthDailyBiometrics>();
+    for (const r of recent) {
+      if (r?.date) {
+        byDate.set(r.date, { ...r });
+      }
+    }
+    if (today?.date) {
+      const existing = byDate.get(today.date) || ({ date: today.date } as AppleHealthDailyBiometrics);
+      const merged: AppleHealthDailyBiometrics = { ...existing };
+      (Object.keys(today) as (keyof AppleHealthDailyBiometrics)[]).forEach((k) => {
+        const val = today[k];
+        if (val !== null && val !== undefined && val !== 0) {
+          (merged as any)[k] = val;
+        }
+      });
+      byDate.set(today.date, merged);
+    }
+
+    // Oldest -> newest, up to last 8 days
+    const days = Array.from(byDate.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-8);
+
+    if (days.length === 0) return null;
+
+    const sleepDays = days.filter((d) => typeof d.sleep_minutes === 'number' && d.sleep_minutes > 0);
+    const hrvDays = days.filter((d) => typeof d.hrv_sdnn === 'number' && d.hrv_sdnn > 0);
+    const rhrDays = days.filter((d) => typeof d.resting_hr === 'number' && d.resting_hr > 0);
+
+    const latestSleep = sleepDays.length > 0 ? sleepDays[sleepDays.length - 1].sleep_minutes! : null;
+    const latestHrv = hrvDays.length > 0 ? hrvDays[hrvDays.length - 1].hrv_sdnn! : null;
+    const latestRhr = rhrDays.length > 0 ? rhrDays[rhrDays.length - 1].resting_hr! : null;
+
+    const hasSignal = Boolean(latestSleep || latestHrv || latestRhr);
     if (!hasSignal) return null;
 
-    const strain = computeCardiovascularStrain(today, recent);
-    // Oldest -> newest, today last, for the sparklines.
-    const days = [...recent.filter((r) => r.date !== today.date), today].sort((a, b) => a.date.localeCompare(b.date)).slice(-8);
-    const past = recent.filter((r) => r.date !== today.date);
-    const avgSleep = avg(past.map((r) => r.sleep_minutes).filter((v): v is number => typeof v === 'number' && v > 0));
+    const effectiveToday: AppleHealthDailyBiometrics = {
+      ...(today || days[days.length - 1]),
+      sleep_minutes: latestSleep ?? undefined,
+      hrv_sdnn: latestHrv ?? undefined,
+      resting_hr: latestRhr ?? undefined,
+    };
 
-    const sleepDelta = today.sleep_minutes && avgSleep !== null ? Math.round(today.sleep_minutes - avgSleep) : null;
+    const strain = computeCardiovascularStrain(effectiveToday, days);
+
+    const avgSleep = avg(sleepDays.slice(0, -1).map((d) => d.sleep_minutes!));
+    const sleepDelta = latestSleep !== null && avgSleep !== null ? Math.round(latestSleep - avgSleep) : null;
+
+    const avgHrv = avg(hrvDays.slice(0, -1).map((d) => d.hrv_sdnn!));
+    const hrvDelta = latestHrv !== null && avgHrv !== null ? Math.round(latestHrv - avgHrv) : null;
+
+    const avgRhr = avg(rhrDays.slice(0, -1).map((d) => d.resting_hr!));
+    const rhrDelta = latestRhr !== null && avgRhr !== null ? Math.round(latestRhr - avgRhr) : null;
 
     const signed = (n: number, unit: string) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${Math.abs(n)}${unit}`;
 
+    const allTiles = [
+      {
+        label: t('home.metricSleep'),
+        hasData: latestSleep !== null,
+        value: latestSleep !== null ? formatSleep(latestSleep) : '–',
+        unit: undefined,
+        delta: sleepDelta !== null ? signed(sleepDelta, 'm') : null,
+        deltaTone: toDeltaTone(sleepDelta !== null && Math.abs(sleepDelta) >= 15 ? sleepDelta > 0 : null),
+        series: sleepDays.map((d) => d.sleep_minutes! / 60),
+        baseline: avgSleep !== null ? avgSleep / 60 : null,
+      },
+      {
+        label: t('home.metricHrv'),
+        hasData: latestHrv !== null,
+        value: latestHrv !== null ? Math.round(latestHrv) : '–',
+        unit: latestHrv !== null ? 'ms' : undefined,
+        delta: hrvDelta !== null ? signed(hrvDelta, '') : null,
+        deltaTone: toDeltaTone(hrvDelta !== null && Math.abs(hrvDelta) >= 3 ? hrvDelta > 0 : null),
+        series: hrvDays.map((d) => d.hrv_sdnn!),
+        baseline: avgHrv,
+      },
+      {
+        label: t('home.metricRestingHr'),
+        hasData: latestRhr !== null,
+        value: latestRhr !== null ? Math.round(latestRhr) : '–',
+        unit: latestRhr !== null ? 'bpm' : undefined,
+        delta: rhrDelta !== null ? signed(rhrDelta, '') : null,
+        deltaTone: toDeltaTone(rhrDelta !== null && Math.abs(rhrDelta) >= 2 ? rhrDelta < 0 : null),
+        series: rhrDays.map((d) => d.resting_hr!),
+        baseline: avgRhr,
+      },
+    ];
+
+    const populatedTiles = allTiles.filter((tile) => tile.hasData);
+
     return {
       level: strain.strainLevel,
-      tiles: [
-        {
-          label: t('home.metricSleep'),
-          value: today.sleep_minutes ? formatSleep(today.sleep_minutes) : '–',
-          delta: sleepDelta !== null ? t('home.vsAvg', { delta: signed(sleepDelta, 'm') }) : null,
-          deltaGood: sleepDelta !== null && Math.abs(sleepDelta) >= 15 ? sleepDelta > 0 : null,
-          series: days.map((d) => (d.sleep_minutes ? d.sleep_minutes / 60 : null)),
-        },
-        {
-          label: t('home.metricHrv'),
-          value: strain.hrv ? `${Math.round(strain.hrv)} ms` : '–',
-          delta: strain.hrvDelta !== null ? t('home.vsAvg', { delta: signed(Math.round(strain.hrvDelta), '') }) : null,
-          deltaGood: strain.hrvDelta !== null && Math.abs(strain.hrvDelta) >= 3 ? strain.hrvDelta > 0 : null,
-          series: days.map((d) => d.hrv_sdnn ?? null),
-        },
-        {
-          label: t('home.metricRestingHr'),
-          value: strain.restingHr ? `${Math.round(strain.restingHr)} bpm` : '–',
-          delta: strain.rhrDelta !== null ? t('home.vsAvg', { delta: signed(Math.round(strain.rhrDelta), '') }) : null,
-          deltaGood: strain.rhrDelta !== null && Math.abs(strain.rhrDelta) >= 2 ? strain.rhrDelta < 0 : null,
-          series: days.map((d) => d.resting_hr ?? null),
-        },
-      ],
+      tiles: populatedTiles.length > 0 ? populatedTiles : allTiles,
     };
   }, [today, recent, t]);
 
@@ -135,20 +176,30 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
 
   return (
     <Card>
-      <View className="flex-row items-center justify-between mb-1">
+      <View className="flex-row items-center justify-between">
         <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted">{t('home.recoveryTitle')}</Text>
-        <Text className="text-[10px] font-medium text-theme-muted">{t('home.recoveryVsAvg')}</Text>
+        <Text className="text-xs font-medium text-theme-muted">{t('home.recoveryVsAvg')}</Text>
       </View>
 
-      <View className="flex-row items-center gap-2 mt-1">
-        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: style.color }} />
-        <Text className="text-lg font-extrabold text-theme-text">{t(style.headline)}</Text>
+      <View className="flex-row items-center gap-2 mt-1.5">
+        <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: style.color }} />
+        <Text className="text-base font-bold text-theme-text">{t(style.headline)}</Text>
       </View>
-      <Text className="text-sm text-theme-muted mt-0.5 leading-snug">{advice}</Text>
+      <Text className="text-xs text-theme-muted mt-0.5 leading-snug">{advice}</Text>
 
-      <View className="flex-row gap-2 mt-3">
+      <View className="flex-row gap-2.5 mt-3">
         {view.tiles.map((tile) => (
-          <MetricTile key={tile.label} {...tile} color={theme.tint} />
+          <MetricTile
+            key={tile.label}
+            label={tile.label}
+            value={tile.value}
+            unit={tile.unit}
+            delta={tile.delta}
+            deltaTone={tile.deltaTone}
+            series={tile.series}
+            baseline={tile.baseline}
+            color={theme.tint}
+          />
         ))}
       </View>
 
@@ -166,3 +217,4 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
     </Card>
   );
 }
+

@@ -90,11 +90,11 @@ export function NiggleCard({
   };
 
   return (
-    <Card className="mb-6 bg-theme-card">
+    <Card className="bg-theme-card">
       {/* Header Row */}
       <View className="flex-row items-center justify-between mb-3.5">
         <View className="flex-row items-center gap-2">
-          <View className="w-2.5 h-2.5 rounded-full bg-semantic-success" />
+          <View className="w-2 h-2 rounded-full bg-semantic-success" />
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
             {t('progress.activeIssues', 'Active Issues Feed')}
           </Text>

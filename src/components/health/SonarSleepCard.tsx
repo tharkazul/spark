@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/hooks/use-theme';
 import { Card } from '../ui/Card';
 import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
 import { useLanguage } from '../../context/LanguageContext';
@@ -11,7 +12,7 @@ interface SonarSleepCardProps {
 }
 
 function formatDuration(minutes: number | null | undefined): string {
-  if (!minutes || minutes <= 0) return '0 min';
+  if (!minutes || minutes <= 0) return '0m';
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
   if (h === 0) return `${m}m`;
@@ -21,6 +22,7 @@ function formatDuration(minutes: number | null | undefined): string {
 
 export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) => {
   const { t } = useLanguage();
+  const theme = useTheme();
 
   if (!biometrics || !biometrics.sleep_minutes || biometrics.sleep_minutes <= 0) {
     return null;
@@ -37,7 +39,7 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
   const progressPct = Math.min(100, Math.round((totalMin / targetMin) * 100));
 
   // Circular Dial Geometry
-  const size = 110;
+  const size = 104;
   const strokeWidth = 8;
   const center = size / 2;
   const radius = (size - strokeWidth) / 2;
@@ -55,24 +57,24 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
   ];
 
   return (
-    <Card className="mb-4 bg-theme-card p-4 border border-theme-border">
+    <Card className="bg-theme-card p-4 border border-theme-border">
       {/* Header */}
-      <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/60">
+      <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center gap-2">
           <Ionicons name="moon-outline" size={16} color="#818CF8" />
           <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
             {t('progress.sleepAnalysis')}
           </Text>
         </View>
-        <View className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-          <Text className="text-[10px] font-bold text-indigo-400">
+        <View className="px-2 py-0.5 rounded-full bg-indigo-500/10">
+          <Text className="text-[10px] font-bold text-indigo-400 tabular-nums">
             {t('progress.goal8h', { pct: progressPct })}
           </Text>
         </View>
       </View>
 
       {/* Main Content: Left Ring + Right Stages */}
-      <View className="flex-row items-center gap-4">
+      <View className="flex-row items-center gap-4 bg-theme-inset rounded-inset p-3">
         {/* Left Circular Ring */}
         <View className="items-center justify-center relative" style={{ width: size, height: size }}>
           <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -81,7 +83,7 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
               cx={center}
               cy={center}
               r={radius}
-              stroke="#334155"
+              stroke={theme.border}
               strokeWidth={strokeWidth}
               fill="none"
             />
@@ -101,10 +103,17 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
           </Svg>
           {/* Center Text */}
           <View className="absolute items-center justify-center">
-            <Text className="text-base font-extrabold text-theme-text">
-              {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`}
-            </Text>
-            <Text className="text-[10px] font-bold text-theme-muted">
+            <View className="flex-row items-baseline">
+              {hours > 0 && (
+                <>
+                  <Text className="text-xl font-bold font-rajdhani text-theme-text tabular-nums">{hours}</Text>
+                  <Text className="text-[11px] font-semibold text-theme-muted mr-0.5">h</Text>
+                </>
+              )}
+              <Text className="text-xl font-bold font-rajdhani text-theme-text tabular-nums">{mins}</Text>
+              <Text className="text-[11px] font-semibold text-theme-muted">m</Text>
+            </View>
+            <Text className="text-[10px] font-semibold text-theme-muted">
               {t('progress.asleep')}
             </Text>
           </View>
@@ -120,12 +129,12 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
                   <Text className="text-[11px] text-theme-muted font-medium">
                     {stage.label}
                   </Text>
-                  <Text className="text-[11px] text-theme-text font-bold">
+                  <Text className="text-xs font-bold font-rajdhani text-theme-text tabular-nums">
                     {formatDuration(stage.minutes)}
                   </Text>
                 </View>
                 {/* Micro Bar */}
-                <View className="h-1.5 w-full bg-slate-700/50 rounded-full overflow-hidden">
+                <View className="h-1.5 w-full bg-theme-border/60 rounded-full overflow-hidden">
                   <View
                     className="h-full rounded-full"
                     style={{

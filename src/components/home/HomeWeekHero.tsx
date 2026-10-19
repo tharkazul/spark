@@ -8,6 +8,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { BrandColors } from '../../constants/theme';
 import { DayAgenda } from '../../types/dashboard';
 import { BodyStatus, Season } from '../../types/season';
+import { normalizeSportType } from '../../utils/disciplineConfig';
+import { calculateWorkoutDurationMinutes } from '../../utils/format';
 import { formatLongSession, formatVolume, phaseLabel } from '../goal/seasonFormat';
 import { getSportGlyph } from '../ui/SportMedallion';
 
@@ -39,9 +41,64 @@ export function HomeWeekHero({ week, streak, season, bodyGoal, onPressDay, onPre
   const goalName = season ? season.raceName : bodyGoal?.goalName;
   const goalDays = season ? season.daysToRace : bodyDays;
   const showGoal = Boolean(goalName && goalDays !== null && goalDays !== undefined && goalDays > 0);
-  const weekTargets = current
-    ? [formatVolume(current.volume, current.unit), ...current.longSessions.filter((l) => l.value > 0).map((l) => formatLongSession(t, l))].join(' · ')
-    : null;
+
+  const plannedSports = new Set(sessions.map((w) => normalizeSportType(w.type || w.sport)));
+  const hasPlannedRun = plannedSports.has('RUN');
+  const hasPlannedBike = plannedSports.has('BIKE');
+
+  const weekTargets = (() => {
+    if (!current) return null;
+
+    let longestMins = 0;
+    let longestSport = 'OTHER';
+    for (const w of sessions) {
+      const mins = calculateWorkoutDurationMinutes(w);
+      if (mins > longestMins) {
+        longestMins = mins;
+        longestSport = normalizeSportType(w.type || w.sport);
+      }
+    }
+
+    // If the season target is in running km, but no runs are planned this week
+    // (e.g. bike/swim cross-training week), summarize the actual planned sessions.
+    if (current.unit === 'km' && !hasPlannedRun) {
+      if (sessions.length === 0) return null;
+      const totalMins = sessions.reduce((sum, w) => sum + calculateWorkoutDurationMinutes(w), 0);
+      const parts = [formatVolume(totalMins, 'min')];
+      if (longestMins > 0) {
+        parts.push(
+          formatLongSession(t, {
+            sport: longestSport === 'BIKE' ? 'Bike' : 'Any',
+            unit: 'min',
+            value: longestMins,
+          })
+        );
+      }
+      return parts.join(' · ');
+    }
+
+    const validLongs = current.longSessions.filter((l) => {
+      if (!(l.value > 0)) return false;
+      if (l.sport === 'Run') return hasPlannedRun;
+      if (l.sport === 'Bike') return hasPlannedBike;
+      return sessions.length > 0;
+    });
+
+    const longParts =
+      validLongs.length > 0
+        ? validLongs.map((l) => formatLongSession(t, l))
+        : longestMins > 0
+          ? [
+              formatLongSession(t, {
+                sport: longestSport === 'BIKE' ? 'Bike' : longestSport === 'RUN' ? 'Run' : 'Any',
+                unit: 'min',
+                value: longestMins,
+              }),
+            ]
+          : [];
+
+    return [formatVolume(current.volume, current.unit), ...longParts].join(' · ');
+  })();
 
   return (
     <LinearGradient

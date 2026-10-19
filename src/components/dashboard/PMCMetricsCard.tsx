@@ -1,11 +1,10 @@
-import { BrandColors } from '@/constants/theme';
-import { RookaMark } from '../ui/RookaPoints';
 import React from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { SubscriptionTier } from '../../types/user';
-import { Sparkline, SparklinePoint } from '../common/Sparkline';
+import { SparklinePoint } from '../common/Sparkline';
+import { Card } from '../ui/Card';
+import { MetricTile, MetricDeltaTone } from '../ui/MetricTile';
 import { useLanguage } from '../../context/LanguageContext';
 import { PMCMetricsSkeleton } from '../skeletons/PMCMetricsSkeleton';
 
@@ -30,7 +29,6 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
   ctl = 0,
   atl = 0,
   tsb = 0,
-  readinessScore,
   weightKg = 0,
   ctlDelta = 0,
   atlDelta = 0,
@@ -39,7 +37,6 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
   tsbHistory = [],
   weightHistory = [],
   weightPoints = [],
-  tier = 'free',
   loading = false,
 }) => {
   const theme = useTheme();
@@ -49,189 +46,78 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
     return <PMCMetricsSkeleton />;
   }
 
-  // With no sessions logged, CTL/ATL/TSB are all zero and every derived label
-  // below is a statement about nothing. Track that explicitly so the card can
-  // say "no data" instead of asserting a training state.
-  // Check for a non-zero *value*, not merely a non-empty series: the PMC
-  // helpers return a full 42-day window padded with zeros, so a length check
-  // is true even when nothing has ever been logged.
   const hasAnyValue = (series: number[]) => series.some((n) => Number(n) > 0);
   const hasTrainingData = ctl > 0 || atl > 0 || hasAnyValue(ctlHistory) || hasAnyValue(atlHistory);
-  const hasWeightData = weightKg > 0 || hasAnyValue(weightHistory);
+  const hasWeightData = weightKg > 0 || hasAnyValue(weightHistory) || (weightPoints && weightPoints.length > 0);
 
-  // Calculate Readiness score if not provided directly
-  const computedReadiness = readinessScore !== undefined 
-    ? readinessScore 
-    : Math.max(0, Math.min(100, Math.round(50 + Math.max(-20, Math.min(20, tsb * 0.5)))));
-
-  const getTsbState = (val: number) => {
-    if (val > 25) return { label: t('dashboard.tsbFreshUndertrained', 'Fresh / Undertrained'), color: '#38BDF8', bg: 'bg-sky-500/15', text: 'text-sky-600 dark:text-sky-400', index: 0 };
-    if (val > 5) return { label: t('dashboard.tsbFresh', 'Fresh'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-600 dark:text-emerald-400', index: 1 };
-    if (val >= -10) return { label: t('dashboard.tsbNeutral', 'Neutral'), color: '#0EA5E9', bg: 'bg-sky-500/15', text: 'text-sky-600 dark:text-sky-400', index: 2 };
-    if (val >= -30) return { label: t('dashboard.tsbOptimal', 'Optimal Training'), color: '#10B981', bg: 'bg-emerald-500/15', text: 'text-emerald-600 dark:text-emerald-400', index: 3 };
-    return { label: t('dashboard.tsbOverreaching', 'Overreaching'), color: '#EF4444', bg: 'bg-rose-500/15', text: 'text-rose-600 dark:text-rose-400', index: 4 };
+  const getTsbState = (val: number): { label: string; color: string; tone: MetricDeltaTone } => {
+    if (val > 25) return { label: t('dashboard.tsbFreshUndertrained', 'Fresh'), color: '#38BDF8', tone: 'accent' };
+    if (val > 5) return { label: t('dashboard.tsbFresh', 'Fresh'), color: '#10B981', tone: 'good' };
+    if (val >= -10) return { label: t('dashboard.tsbNeutral', 'Neutral'), color: '#0EA5E9', tone: 'accent' };
+    if (val >= -30) return { label: t('dashboard.tsbOptimal', 'Optimal'), color: '#10B981', tone: 'good' };
+    return { label: t('dashboard.tsbOverreaching', 'High load'), color: '#EF4444', tone: 'bad' };
   };
   const tsbState = getTsbState(tsb);
 
+  const formatSigned = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(1)}`;
+
   return (
-    <View className="mb-4">
-      {/* Metric Section Header */}
-      <View className="flex-row items-center justify-between mb-3 px-1">
-        <View className="flex-row items-center gap-x-2">
-          <Ionicons name="pulse-outline" size={18} color={theme.tint} />
-          <Text className="text-xs font-bold text-theme-text uppercase tracking-wider">
-            {t('dashboard.fitnessAndFatigue')}
-          </Text>
-        </View>
-        {tier === 'rooka_plus' && (
-          <View className="bg-theme-accent/15 px-2 py-0.5 rounded-full flex-row items-center gap-x-1">
-            <RookaMark size={12} color={theme.tint} />
-            <Text className="text-xs text-theme-accent font-bold font-rajdhani">rooka+ AI</Text>
+    <Card>
+      {/* Header Row */}
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+          {t('dashboard.fitnessAndFatigue')}
+        </Text>
+        {hasTrainingData && (
+          <View className="flex-row items-center gap-1.5">
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: tsbState.color }} />
+            <Text className="text-xs font-semibold text-theme-text">{tsbState.label}</Text>
           </View>
         )}
       </View>
 
-      {/* 4 Grid Metric Cards with Sparklines */}
-      <View className="flex-row flex-wrap gap-2.5">
-        {/* CTL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
-          <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-xs font-bold text-theme-muted">
-              {t('dashboard.fitness')}
-            </Text>
-            {Math.abs(ctlDelta) >= 0.05 && (
-              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${ctlDelta > 0 ? 'bg-emerald-500/15' : 'bg-slate-500/15'}`}>
-                <Ionicons name={ctlDelta > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={ctlDelta > 0 ? '#10b981' : '#64748b'} />
-                <Text className={`text-xs font-bold ml-0.5 ${ctlDelta > 0 ? 'text-emerald-500' : 'text-theme-muted'}`}>
-                  {ctlDelta > 0 ? '+' : ''}{ctlDelta.toFixed(1)}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text className="text-3xl font-bold text-theme-text font-rajdhani tabular-nums mb-1">
-            {ctl.toFixed(1)}
-          </Text>
-
-          {/* Sparkline Graph */}
-          <Sparkline
-            data={ctlHistory}
-            color="#10b981"
-            gradientFrom="#10b98144"
-            gradientTo="#10b98100"
-            height={32}
-            width={120}
-          />
-          <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.chronicLoad')}</Text>
-        </View>
-
-        {/* ATL Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
-          <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-xs font-bold text-theme-muted">
-              {t('dashboard.fatigue')}
-            </Text>
-            {Math.abs(atlDelta) >= 0.05 && (
-              <View className={`flex-row items-center px-1.5 py-0.5 rounded-md ${atlDelta > 0 ? 'bg-amber-500/15' : 'bg-slate-500/15'}`}>
-                <Ionicons name={atlDelta > 0 ? 'arrow-up' : 'arrow-down'} size={10} color={atlDelta > 0 ? '#f59e0b' : '#64748b'} />
-                <Text className={`text-xs font-bold ml-0.5 ${atlDelta > 0 ? 'text-amber-500' : 'text-theme-muted'}`}>
-                  {atlDelta > 0 ? '+' : ''}{atlDelta.toFixed(1)}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text className="text-3xl font-bold text-theme-text font-rajdhani tabular-nums mb-1">
-            {atl.toFixed(1)}
-          </Text>
-
-          {/* Sparkline Graph */}
-          <Sparkline
-            data={atlHistory}
-            color="#f59e0b"
-            gradientFrom="#f59e0b44"
-            gradientTo="#f59e0b00"
-            height={32}
-            width={120}
-          />
-          <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.acuteLoad')}</Text>
-        </View>
-
-        {/* Form (TSB) Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
-          <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-xs font-bold text-theme-muted flex-1 mr-1.5" numberOfLines={1}>
-              {t('dashboard.form', 'Form')}
-            </Text>
-            {hasTrainingData && (
-              <View className={`px-1.5 py-0.5 rounded-md ${tsbState.bg}`}>
-                <Text className={`text-[11px] font-bold ${tsbState.text}`}>
-                  {tsbState.label}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text className={`text-3xl font-bold font-rajdhani tabular-nums mb-1 ${hasTrainingData ? tsbState.text : 'text-theme-muted'}`}>
-            {hasTrainingData ? (tsb > 0 ? `+${tsb.toFixed(1)}` : tsb.toFixed(1)) : '--'}
-          </Text>
-
-          {/* 5-State Form Scale Bar */}
-          <View className="flex-row gap-1 my-1.5 w-full">
-            {['#38BDF8', '#10B981', '#94A3B8', '#F59E0B', '#EF4444'].map((c, idx) => (
-              <View
-                key={`form-seg-${idx}`}
-                style={{ backgroundColor: hasTrainingData && tsbState.index === idx ? c : `${c}33` }}
-                className="flex-1 h-1.5 rounded-full"
-              />
-            ))}
-          </View>
-
-          {/* Sparkline Graph */}
-          <Sparkline
-            data={tsbHistory}
-            color={tsbState.color}
-            gradientFrom={`${tsbState.color}44`}
-            gradientTo={`${tsbState.color}00`}
-            height={28}
-            width={120}
-          />
-          <Text className="text-[11px] text-theme-muted mt-1">
-            {hasTrainingData ? t('dashboard.trainingStressBalance', 'Training Stress Balance') : t('dashboard.noDataYet')}
-          </Text>
-        </View>
-
-        {/* Body Weight Trend Card */}
-        <View className="flex-1 min-w-[45%] bg-theme-card rounded-tile p-3.5 border border-theme-border">
-          <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-xs font-bold text-theme-muted">
-              {t('physique.weightInput')}
-            </Text>
-            <Ionicons name="scale-outline" size={14} color={theme.tint} />
-          </View>
-          <Text className="text-3xl font-bold text-theme-text font-rajdhani tabular-nums mb-1">
-            {weightKg > 0 ? `${weightKg.toFixed(1)} ` : '-- '}
-            <Text className="text-xs text-theme-muted font-normal">kg</Text>
-          </Text>
-
-          {/* Sparkline Graph */}
-          {hasWeightData ? (
-            <>
-              <Sparkline
-                data={weightPoints && weightPoints.length > 0 ? weightPoints : weightHistory}
-                color={theme.tint}
-                gradientFrom={`${BrandColors.primary}44`}
-                gradientTo={`${BrandColors.primary}00`}
-                height={32}
-                width={120}
-                minRangePadding={1.5}
-              />
-              <Text className="text-[11px] text-theme-muted mt-1">{t('dashboard.emaTrendline')}</Text>
-            </>
-          ) : (
-            <View style={{ height: 32 }} className="justify-center">
-              <Text className="text-xs text-theme-muted">{t('dashboard.logWeightPrompt')}</Text>
-            </View>
-          )}
-        </View>
+      {/* Row 1: Fitness (CTL) & Fatigue (ATL) */}
+      <View className="flex-row gap-2.5">
+        <MetricTile
+          label={t('dashboard.fitness')}
+          value={ctl.toFixed(1)}
+          delta={Math.abs(ctlDelta) >= 0.05 ? formatSigned(ctlDelta) : null}
+          deltaTone={ctlDelta > 0 ? 'good' : 'neutral'}
+          series={ctlHistory}
+          color="#10B981"
+        />
+        <MetricTile
+          label={t('dashboard.fatigue')}
+          value={atl.toFixed(1)}
+          delta={Math.abs(atlDelta) >= 0.05 ? formatSigned(atlDelta) : null}
+          deltaTone={atlDelta > 0 ? 'warn' : 'neutral'}
+          series={atlHistory}
+          color="#F59E0B"
+        />
       </View>
-    </View>
+
+      {/* Row 2: Form (TSB) & Weight */}
+      <View className="flex-row gap-2.5 mt-2.5">
+        <MetricTile
+          label={t('dashboard.form', 'Form')}
+          value={hasTrainingData ? formatSigned(tsb) : '–'}
+          delta={hasTrainingData ? tsbState.label : null}
+          deltaTone={tsbState.tone}
+          series={tsbHistory}
+          baseline={0}
+          color={tsbState.color}
+        />
+        <MetricTile
+          label={t('physique.weightInput')}
+          value={weightKg > 0 ? weightKg.toFixed(1) : '–'}
+          unit={weightKg > 0 ? 'kg' : undefined}
+          series={hasWeightData ? (weightPoints && weightPoints.length > 0 ? weightPoints : weightHistory) : []}
+          color={theme.tint}
+          minRangePadding={1.5}
+          emptyHint={!hasWeightData ? t('dashboard.logWeightPrompt') : undefined}
+        />
+      </View>
+    </Card>
   );
 };
+

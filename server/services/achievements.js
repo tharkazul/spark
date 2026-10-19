@@ -72,7 +72,11 @@ async function getAchievements(userId) {
   const acts = dedupeActivities(await dbAll(
     `SELECT a.sport_type, a.distance_km, a.moving_time_min, a.start_date FROM activities a
      JOIN users u ON u.id = a.user_id
-     WHERE a.user_id = ? AND (a.is_hidden IS NULL OR a.is_hidden = 0) AND a.start_date IS NOT NULL
+     WHERE a.user_id = ?
+       AND (a.is_hidden IS NULL OR a.is_hidden = 0)
+       AND a.start_date IS NOT NULL
+       AND COALESCE(a.rooka_score, 0) > 0
+       AND substr(a.start_date, 1, 10) >= '2026-01-01'
        AND (u.rooka_start_date IS NULL OR substr(a.start_date, 1, 10) >= substr(u.rooka_start_date, 1, 10))
      ORDER BY a.start_date ASC`,
     [userId]

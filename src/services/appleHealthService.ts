@@ -795,11 +795,16 @@ export async function fetchHealthKitBiometrics(
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(startOfDay);
       endOfDay.setHours(23, 59, 59, 999);
+      const overnightStart = new Date(startOfDay);
+      overnightStart.setHours(-6); // 18:00 the evening before (matches sleep window)
       const entry: AppleHealthDailyBiometrics = { date: localDateKey(startOfDay) };
 
       if (prefs.syncHeartRate) {
         try {
-          const latest = await latestInDay('HKQuantityTypeIdentifierRestingHeartRate', 'count/min', startOfDay, endOfDay);
+          let latest = await latestInDay('HKQuantityTypeIdentifierRestingHeartRate', 'count/min', startOfDay, endOfDay);
+          if (!latest) {
+            latest = await latestInDay('HKQuantityTypeIdentifierRestingHeartRate', 'count/min', overnightStart, endOfDay);
+          }
           if (latest) entry.resting_hr = Math.round(latest.quantity);
         } catch {}
         try {
@@ -821,10 +826,15 @@ export async function fetchHealthKitBiometrics(
           const stats = await HealthKit.queryStatisticsForQuantity(
             'HKQuantityTypeIdentifierHeartRateVariabilitySDNN',
             ['discreteAverage'],
-            { filter: { date: { startDate: startOfDay, endDate: endOfDay } }, unit: 'ms' }
+            { filter: { date: { startDate: overnightStart, endDate: endOfDay } }, unit: 'ms' }
           );
           const avg = stats?.averageQuantity?.quantity;
-          if (avg) entry.hrv_sdnn = Math.round(avg * 10) / 10;
+          if (avg) {
+            entry.hrv_sdnn = Math.round(avg * 10) / 10;
+          } else {
+            const latestHrv = await latestInDay('HKQuantityTypeIdentifierHeartRateVariabilitySDNN', 'ms', overnightStart, endOfDay);
+            if (latestHrv) entry.hrv_sdnn = Math.round(latestHrv.quantity * 10) / 10;
+          }
         } catch {}
       }
 
@@ -1272,7 +1282,7 @@ export async function autoSyncAppleHealthOnForeground(): Promise<void> {
   try {
     const isAvail = isHealthKitAvailable();
     if (!isAvail || !(await isAppleHealthConnected())) return;
-    await syncAppleHealthData(3);
+    await syncAppleHealthData(8);
   } catch (err) {
     console.log('[AppleHealthService] Background auto-sync skipped/failed:', err);
   }

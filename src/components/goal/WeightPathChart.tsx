@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, LinearGradient, Polygon, Polyline, Stop } from 'react-native-svg';
 
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -38,15 +38,25 @@ export function WeightPathChart({ points, targetKg, goalDate, color }: WeightPat
   const y = (v: number) => pad + ((max - v) / span) * (h - pad * 2);
   const dateLabel = (d: string) => new Date(day(d)).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
+  const lineStr = points.map((p) => `${x(p.date)},${y(p.value)}`).join(' ');
+  const areaStr = `${x(points[0].date)},${h} ${lineStr} ${x(last.date)},${h}`;
+
   return (
     <View className="mt-3">
       <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ height: h }}>
         {w > 0 && (
           <Svg width={w} height={h}>
-            <Line x1={x(last.date)} y1={y(last.value)} x2={x(goalDate)} y2={y(targetKg)} stroke={theme.textSecondary} strokeWidth={1.5} strokeDasharray="4 3" />
-            <Polyline points={points.map((p) => `${x(p.date)},${y(p.value)}`).join(' ')} fill="none" stroke={color} strokeWidth={2} />
-            <Circle cx={x(last.date)} cy={y(last.value)} r={3.5} fill={color} />
-            <Circle cx={x(goalDate)} cy={y(targetKg)} r={3} fill={theme.textSecondary} />
+            <Defs>
+              <LinearGradient id="weightPathGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={color} stopOpacity={0.18} />
+                <Stop offset="1" stopColor={color} stopOpacity={0.0} />
+              </LinearGradient>
+            </Defs>
+            <Line x1={x(last.date)} y1={y(last.value)} x2={x(goalDate)} y2={y(targetKg)} stroke={theme.textSecondary} strokeWidth={1.5} strokeDasharray="3 3" strokeOpacity={0.6} />
+            {points.length > 1 && <Polygon points={areaStr} fill="url(#weightPathGrad)" />}
+            <Polyline points={lineStr} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx={x(last.date)} cy={y(last.value)} r={3} fill={color} />
+            <Circle cx={x(goalDate)} cy={y(targetKg)} r={2.5} fill={theme.textSecondary} />
           </Svg>
         )}
       </View>

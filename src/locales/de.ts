@@ -528,7 +528,8 @@ export const de: TranslationKeys = {
     overview: 'Übersicht',
     fitness: 'Fitness',
     body: 'Körper',
-    history: 'Verlauf',
+    history: 'Aktivitäten',
+    activities: 'Aktivitäten',
     fuelingNutrition: 'Tägliche Ernährung & Verpflegung',
     athleteLevel: 'ROOKA LEVEL',
     progressToNextLevel: 'Fortschritt zum nächsten Level',
@@ -669,6 +670,7 @@ export const de: TranslationKeys = {
     matchingAccounts: 'Passende Konten',
     topMatchesAZ: 'Top-Treffer A-Z',
     noAthletesFound: 'Keine Athleten gefunden für "{query}".',
+    weeklyCumulativeRange: '7-Tage-Summe · {start} – {end}',
   },
   activities: {
     title: 'Aktivitäten & Workouts',

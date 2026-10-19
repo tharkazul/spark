@@ -143,7 +143,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
       <Card className="p-4 bg-theme-card border border-theme-border">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
+            <View className="w-2 h-2 rounded-full bg-theme-accent" />
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
               {t('dashboard.bodyWeight', 'Body Weight')}
             </Text>
@@ -159,34 +159,33 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
             className="flex-row items-center gap-1 px-2.5 py-1 rounded-full bg-theme-accent/10 border border-theme-accent/20"
           >
             <Ionicons name="add-circle-outline" size={14} color={theme.tint} />
-            <Text className="text-xs font-extrabold text-theme-accent">{t('dashboard.logWeight', 'Log Weight')}</Text>
+            <Text className="text-xs font-bold text-theme-accent">{t('dashboard.logWeight', 'Log Weight')}</Text>
           </ScalePressable>
         </View>
 
-        <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between bg-theme-inset rounded-inset p-3">
           <View>
+            <Text className="text-xs font-semibold text-theme-muted mb-0.5">
+              {t('bodyTab.current', 'Current')}
+            </Text>
             <View className="flex-row items-baseline gap-1">
-              <Text className="text-3xl font-bold font-rajdhani text-theme-text tabular-nums">
+              <Text className="text-2xl font-bold font-rajdhani text-theme-text tabular-nums">
                 {pmcMetrics.weightKg > 0 ? pmcMetrics.weightKg.toFixed(1) : '—'}
               </Text>
-              <Text className="text-sm font-semibold text-theme-muted">kg</Text>
+              <Text className="text-xs font-semibold text-theme-muted">kg</Text>
             </View>
-            <Text className="text-[11px] text-theme-muted mt-0.5">
-              {pmcMetrics.weightPoints.length > 1
-                ? t('bodyTab.logsRecorded', { count: pmcMetrics.weightPoints.length })
-                : t('bodyTab.baselineMass')}
-            </Text>
           </View>
 
-          {/* Sparkline trend with date stamps & min range padding */}
-          <View className="w-36 h-10 items-end justify-center">
+          {/* Sparkline trend */}
+          <View className="w-40 items-end justify-center">
             {pmcMetrics.weightPoints.length > 0 ? (
               <Sparkline
                 data={pmcMetrics.weightPoints}
-                width={140}
+                width={156}
                 height={36}
                 color={theme.tint}
                 minRangePadding={1.5}
+                showEndDot
               />
             ) : null}
           </View>
@@ -199,9 +198,9 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
       {/* 2. INJURY TRACKER & ANATOMICAL BODY MAP CARD (CAPPED AT 260PT) */}
       <Card className="bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
-          <View className="flex-row items-center gap-x-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
-            <Text className="text-xs font-bold text-theme-muted">
+          <View className="flex-row items-center gap-2">
+            <View className="w-2 h-2 rounded-full bg-theme-accent" />
+            <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
               {t('dashboard.injuryHeatmap', 'Injury & Soreness Heatmap')}
             </Text>
           </View>

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, LinearGradient, Polygon, Polyline, Stop } from 'react-native-svg';
 
 import { Card } from '../ui/Card';
 import { useLanguage } from '../../context/LanguageContext';
@@ -42,15 +42,24 @@ function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) 
   const span = Math.max(1, Math.max(...all) - min);
   const y = (v: number) => 6 + ((v - min) / span) * (h - 12);
   const x = (i: number) => (points.length === 1 ? w / 2 : (i / (points.length - 1)) * (w - 8) + 4);
+  const lineStr = points.map((p, i) => `${x(i)},${y(p.value)}`).join(' ');
+  const areaStr = `${x(0)},${h} ${lineStr} ${x(points.length - 1)},${h}`;
   return (
     <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ height: h }}>
       {w > 0 && (
         <Svg width={w} height={h}>
+          <Defs>
+            <LinearGradient id="goalTrendGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={color} stopOpacity={0.18} />
+              <Stop offset="1" stopColor={color} stopOpacity={0.0} />
+            </LinearGradient>
+          </Defs>
           {target !== null && (
-            <Line x1={0} x2={w} y1={y(target)} y2={y(target)} stroke={theme.textSecondary} strokeDasharray="4 3" strokeWidth={1} strokeOpacity={0.6} />
+            <Line x1={0} x2={w} y1={y(target)} y2={y(target)} stroke={theme.textSecondary} strokeDasharray="3 3" strokeWidth={1} strokeOpacity={0.5} />
           )}
-          <Polyline points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(' ')} fill="none" stroke={color} strokeWidth={2} />
-          <Circle cx={x(points.length - 1)} cy={y(values[values.length - 1])} r={3.5} fill={color} />
+          {points.length > 1 && <Polygon points={areaStr} fill="url(#goalTrendGrad)" />}
+          <Polyline points={lineStr} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <Circle cx={x(points.length - 1)} cy={y(values[values.length - 1])} r={3} fill={color} />
         </Svg>
       )}
     </View>
@@ -61,7 +70,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-1">
       <Text className="text-[11px] font-semibold text-theme-muted">{label}</Text>
-      <Text className="text-xl font-extrabold text-theme-text font-rajdhani">{value}</Text>
+      <Text className="text-xl font-bold text-theme-text font-rajdhani tabular-nums">{value}</Text>
     </View>
   );
 }
@@ -103,12 +112,12 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
       {/* Race */}
       <View className="flex-row items-center gap-2">
         <Ionicons name="flag" size={16} color={PHASE_COLORS.race} />
-        <Text className="text-lg font-extrabold text-theme-text flex-1" numberOfLines={1}>
+        <Text className="text-base font-bold text-theme-text flex-1" numberOfLines={1}>
           {season.raceName}
         </Text>
         {current && (
           <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: `${PHASE_COLORS[current.phase]}22` }}>
-            <Text className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: PHASE_COLORS[current.phase] }}>
+            <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: PHASE_COLORS[current.phase] }}>
               {current.isRecovery ? t('goal.recoveryShort') : phaseLabel(t, current.phase)}
             </Text>
           </View>
@@ -119,12 +128,12 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
       {status && (
         <View className="mt-3 pt-3 border-t border-theme-border/60">
           <View className="flex-row items-center gap-2">
-            <Ionicons name={style.icon} size={18} color={style.color} />
-            <Text className="text-base font-extrabold text-theme-text flex-1">{headline}</Text>
+            <Ionicons name={style.icon} size={17} color={style.color} />
+            <Text className="text-sm font-bold text-theme-text flex-1">{headline}</Text>
           </View>
 
           {(status.estimateSec || status.targetSec || status.consistency) && (
-            <View className="flex-row mt-2">
+            <View className="flex-row mt-2 bg-theme-inset rounded-inset p-3">
               {status.estimateSec ? <Stat label={t('goal.estimate')} value={formatRaceTime(status.estimateSec)} /> : null}
               {status.targetSec ? <Stat label={t('goal.target')} value={formatRaceTime(status.targetSec)} /> : null}
               {status.consistency && status.consistency.weeks > 0 ? (
@@ -134,7 +143,7 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
           )}
 
           {status.basis && (
-            <Text className="text-[11px] text-theme-muted mt-1">{basisLabel(t, status.basis)}</Text>
+            <Text className="text-[11px] text-theme-muted mt-1.5">{basisLabel(t, status.basis)}</Text>
           )}
 
           {/* Only a real history is worth a line: with a day or two of data it is flat and reads like a full progress bar. */}

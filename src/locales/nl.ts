@@ -528,7 +528,8 @@ export const nl: TranslationKeys = {
     overview: 'Overzicht',
     fitness: 'Fitness',
     body: 'Lichaam',
-    history: 'Geschiedenis',
+    history: 'Activiteiten',
+    activities: 'Activiteiten',
     fuelingNutrition: 'Dagelijkse Voeding & Brandstof',
     athleteLevel: 'ROOKA NIVEAU',
     progressToNextLevel: 'Voortgang naar volgend niveau',
@@ -669,6 +670,7 @@ export const nl: TranslationKeys = {
     matchingAccounts: 'Overeenkomende Accounts',
     topMatchesAZ: 'Beste overeenkomsten A-Z',
     noAthletesFound: 'Geen atleten gevonden voor "{query}".',
+    weeklyCumulativeRange: '7-daagse totaalscore · {start} – {end}',
   },
   activities: {
     title: 'Activiteiten & Workouts',

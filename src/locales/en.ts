@@ -526,7 +526,8 @@ export const en = {
     overview: 'Overview',
     fitness: 'Fitness',
     body: 'Body',
-    history: 'History',
+    history: 'Activities',
+    activities: 'Activities',
     fuelingNutrition: 'Daily Fueling & Nutrition',
     athleteLevel: 'ROOKA LEVEL',
     progressToNextLevel: 'Progress to next level',
@@ -667,6 +668,7 @@ export const en = {
     matchingAccounts: 'Matching Accounts',
     topMatchesAZ: 'Top matches A-Z',
     noAthletesFound: 'No athletes found matching "{query}".',
+    weeklyCumulativeRange: '7-day cumulative · {start} – {end}',
   },
   activities: {
     title: 'Activities & Workouts',
