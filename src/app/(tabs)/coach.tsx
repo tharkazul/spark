@@ -39,7 +39,6 @@ import { ConnectionRequestCard } from '../../components/chat/ConnectionRequestCa
 import { EventInviteCard } from '../../components/chat/EventInviteCard';
 import { MarkdownText, hasRenderableText } from '../../components/chat/MarkdownText';
 import { ProposalCard } from '../../components/chat/ProposalCard';
-import { QuickSuggestions } from '../../components/chat/QuickSuggestions';
 import { WorkoutPill } from '../../components/chat/WorkoutPill';
 import { WorkoutDebriefCard } from '../../components/chat/WorkoutDebriefCard';
 import { CoachChatSkeleton } from '../../components/skeletons/CoachChatSkeleton';
@@ -396,20 +395,20 @@ export default function CoachScreen() {
   }, [authToken]);
 
   const [inputText, setInputText] = useState('');
-  // Height is set from the text's measured size rather than left to the native view:
-  // after a programmatic clear iOS keeps the old content size, so the box stayed tall.
+  // When a message was just sent. iOS can commit an autocorrection a moment after
+  // the box is cleared, which put the sent text back into it.
+  const sentAtRef = useRef(0);
+  // iOS doesn't shrink a multiline input after it is emptied, and reports no size when
+  // the height is set by hand. So an invisible copy of the text, with the same width
+  // and font, is measured instead, and its height becomes the input's height.
   const INPUT_MIN_HEIGHT = 30;
   const INPUT_MAX_HEIGHT = 110;
   const [inputHeight, setInputHeight] = useState(INPUT_MIN_HEIGHT);
-  // When a message was just sent. iOS can commit an autocorrection (or the Return
-  // key's newline) a moment after the box is cleared, which put the text back.
-  const sentAtRef = useRef(0);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordDurationMs, setRecordDurationMs] = useState(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -784,11 +783,9 @@ export default function CoachScreen() {
 
     sentAtRef.current = Date.now();
     setInputText('');
-    inputRef.current?.clear();
     setInputHeight(INPUT_MIN_HEIGHT);
     setSelectedImages([]);
     setIsRecording(false);
-    setShowSuggestions(false);
 
     sendMessage(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined);
 
@@ -1519,43 +1516,16 @@ export default function CoachScreen() {
             />
           ) : (
           <>
-          {showSuggestions ? (
-            <View className="mb-2">
-              <QuickSuggestions
-                onSelectSuggestion={(promptText) => {
-                  setInputText(promptText);
-                  setShowSuggestions(false);
-                  inputRef.current?.focus();
-                }}
-              />
-            </View>
-          ) : null}
-
           <View className="bg-theme-card rounded-[24px] px-3 py-1.5 border border-theme-border flex-row items-end gap-2 min-h-[48px]">
-            {/* Left Action Buttons */}
+            {/* Attach button: pinned to the top edge, so it moves up as the text grows */}
             {!isRecording && !isTranscribing && (
-              <View className="flex-row items-center gap-1.5 pb-1">
+              <View className="self-start pt-1">
                 <TouchableOpacity
                   onPress={handlePickImage}
                   hitSlop={6}
                   className="w-9 h-9 rounded-full bg-theme-bg border border-theme-border items-center justify-center active:opacity-70"
                 >
                   <Ionicons name="attach-outline" size={18} color={theme.tint} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setShowSuggestions(!showSuggestions)}
-                  hitSlop={6}
-                  className={`w-9 h-9 rounded-full border items-center justify-center active:opacity-70 ${
-                    showSuggestions
-                      ? 'bg-amber-500/15 border-amber-500/40'
-                      : 'bg-theme-bg border border-theme-border'
-                  }`}
-                >
-                  <Ionicons
-                    name={showSuggestions ? 'bulb' : 'bulb-outline'}
-                    size={16}
-                    color={showSuggestions ? '#F59E0B' : theme.textSecondary}
-                  />
                 </TouchableOpacity>
               </View>
             )}
@@ -1607,24 +1577,40 @@ export default function CoachScreen() {
                   </View>
                 ) : null}
 
+                <Text
+                  pointerEvents="none"
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                  onLayout={(e) => {
+                    const h = Math.ceil(e.nativeEvent.layout.height);
+                    setInputHeight(Math.min(INPUT_MAX_HEIGHT, Math.max(INPUT_MIN_HEIGHT, h)));
+                  }}
+                  className="text-base font-jakarta"
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    opacity: 0,
+                    paddingTop: Platform.OS === 'ios' ? 4 : 2,
+                    paddingBottom: Platform.OS === 'ios' ? 4 : 2,
+                    lineHeight: 22,
+                  }}
+                >
+                  {/* A trailing newline only takes up a line once something follows it */}
+                  {inputText ? (inputText.endsWith('\n') ? `${inputText} ` : inputText) : ' '}
+                </Text>
                 <RNTextInput
                   ref={inputRef}
                   placeholder={t('coach.askCoach', 'Ask your coach...')}
                   placeholderTextColor={theme.textSecondary}
                   value={inputText}
                   onChangeText={(text) => {
-                    // A late autocorrect or newline right after sending: keep the box empty.
-                    if (Date.now() - sentAtRef.current < 400) {
-                      inputRef.current?.clear();
-                      return;
-                    }
+                    // A late autocorrection right after sending: ignore it, so the box stays empty.
+                    // (Only state is skipped; touching the native input here upset the keyboard handling.)
+                    if (Date.now() - sentAtRef.current < 400) return;
                     setInputText(text);
                   }}
-                  onContentSizeChange={(e) => {
-                    if (Date.now() - sentAtRef.current < 400) return;
-                    const h = Math.ceil(e.nativeEvent.contentSize.height);
-                    setInputHeight(Math.min(INPUT_MAX_HEIGHT, Math.max(INPUT_MIN_HEIGHT, h)));
-                  }}
+
                   // Return sends instead of inserting a newline, so the native view never
                   // lays out an extra line that sticks around after the input is cleared.
                   submitBehavior="submit"
@@ -1632,7 +1618,6 @@ export default function CoachScreen() {
                   multiline={true}
                   returnKeyType="default"
                   className="text-theme-text text-base font-jakarta"
-                  scrollEnabled={inputHeight >= INPUT_MAX_HEIGHT}
                   style={{
                     height: inputHeight,
                     paddingTop: Platform.OS === 'ios' ? 4 : 2,
