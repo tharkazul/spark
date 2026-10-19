@@ -143,8 +143,35 @@ console.log("🏁 Running season plan unit tests...\n");
 }
 }
 
-console.log("\n🎉 All season plan tests passed!");
-setTimeout(() => {
-  try { require("fs").unlinkSync(process.env.DB_PATH); } catch (_) {}
-  process.exit(0);
-}, 200);
+(async () => {
+  // The estimate is cached per athlete and recalculated as soon as a run is added or edited.
+  const gs = require("./services/goalStatus");
+  const sp = require("./services/seasonPlan");
+  const db = require("./services/db");
+  const dbRun = (q, p = []) => new Promise((resolve) => db.run(q, p, () => resolve()));
+  await new Promise((r) => setTimeout(r, 500));
+  await dbRun(`ALTER TABLE activities ADD COLUMN max_heartrate INTEGER`);
+  await dbRun(`INSERT INTO users (id, username, password_hash) VALUES (77, 'cache', 'x')`);
+  const addRun = (id, daysAgo, min) =>
+    dbRun(`INSERT INTO activities (id, user_id, name, sport_type, distance_km, moving_time_min, average_heartrate, max_heartrate, start_date) VALUES (?, 77, 'Run', 'Run', 5, ?, 170, 185, ?)`, [id, min, sp.addDays(sp.todayStr(), -daysAgo) + "T07:00:00Z"]);
+  for (let i = 1; i <= 4; i++) await addRun(7700 + i, i * 3, 27);
+  const first = await gs.estimateRaceSeconds(77, 5);
+  const again = await gs.estimateRaceSeconds(77, 5);
+  assert.strictEqual(again, first, "an unchanged history reuses the cached result");
+  await addRun(7799, 0, 23);
+  const after = await gs.estimateRaceSeconds(77, 5);
+  assert.ok(after.seconds < first.seconds, "a new, faster run updates the estimate straight away");
+  await dbRun(`UPDATE activities SET moving_time_min = 21 WHERE id = 7799`);
+  const edited = await gs.estimateRaceSeconds(77, 5);
+  assert.ok(edited.seconds < after.seconds, "an edited run updates the estimate too");
+  console.log("✅ Race estimate is cached until the runs change");
+
+  console.log("\n🎉 All season plan tests passed!");
+  setTimeout(() => {
+    try { require("fs").unlinkSync(process.env.DB_PATH); } catch (_) {}
+    process.exit(0);
+  }, 200);
+})().catch((e) => {
+  console.error("❌", e);
+  process.exit(1);
+});

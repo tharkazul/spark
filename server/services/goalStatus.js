@@ -336,9 +336,40 @@ const TREND_WEEKS = 12;
  * the runs in the 8 weeks before that day. Worked out from the activity history,
  * so the trend line is there from day one instead of building up from snapshots.
  */
+// The estimate only changes when the athlete's runs, heart-rate numbers or zones
+// change, or a day passes. Opening the goal page again reuses the last result;
+// a cheap fingerprint query replaces loading every run with its laps.
+const ESTIMATE_CACHE_MAX = 2000;
+const estimateCache = new Map(); // userId -> { key, value }
+
+async function estimateFingerprint(userId, distanceKm, since, today) {
+  const [acts, hr, zones] = await Promise.all([
+    dbGet(
+      `SELECT COUNT(*) AS n, MAX(id) AS maxId, TOTAL(moving_time_min) AS t, TOTAL(distance_km) AS d,
+              TOTAL(COALESCE(average_heartrate, 0)) AS h, TOTAL(COALESCE(is_hidden, 0)) AS hidden, TOTAL(LENGTH(laps_json)) AS laps
+       FROM activities WHERE user_id = ? AND substr(start_date, 1, 10) >= ?`,
+      [userId, since]
+    ),
+    getRaceHeartRate(userId).catch(() => ({})),
+    athleteZones.resolveZonesForUser(userId, "Run").catch(() => ({ hrZones: null })),
+  ]);
+  return JSON.stringify([today, distanceKm, acts, hr.maxHr, hr.restingHr, zones.hrZones]);
+}
+
 async function estimateRaceSeconds(userId, distanceKm) {
   const today = seasonPlan.todayStr();
   const since = seasonPlan.addDays(today, -(ESTIMATE_WINDOW_DAYS + TREND_WEEKS * 7));
+  const key = await estimateFingerprint(userId, distanceKm, since, today);
+  const hit = estimateCache.get(userId);
+  if (hit && hit.key === key) return hit.value;
+  const value = await computeRaceEstimate(userId, distanceKm, today, since);
+  if (estimateCache.size >= ESTIMATE_CACHE_MAX) estimateCache.delete(estimateCache.keys().next().value);
+  estimateCache.delete(userId);
+  estimateCache.set(userId, { key, value });
+  return value;
+}
+
+async function computeRaceEstimate(userId, distanceKm, today, since) {
   const runs = seasonPlan.dedupeActivities(
     (await dbAll(
       `SELECT name, sport_type, distance_km, moving_time_min, start_date, average_heartrate, laps_json, strava_activity_id, healthkit_workout_id, suunto_workout_id

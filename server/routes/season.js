@@ -6,6 +6,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
+const { userLimits } = require("../services/rateLimit");
 const { requireAiConsent, hasAiConsent } = require("../services/aiConsent");
 const { generateWithFallback } = require("../services/ai");
 const i18n = require("../services/i18n");
@@ -22,7 +23,7 @@ db.run(`CREATE TABLE IF NOT EXISTS exercise_cues (
   PRIMARY KEY (name_key, lang)
 )`);
 
-router.get("/api/season", authenticateToken, async (req, res) => {
+router.get("/api/season", authenticateToken, userLimits.heavyRead, async (req, res) => {
   try {
     const season = await seasonPlan.getSeason(req.user.id);
     const [raceStatus, bodyStatus, plan] = await Promise.all([
@@ -37,7 +38,7 @@ router.get("/api/season", authenticateToken, async (req, res) => {
   }
 });
 
-router.post("/api/season/race-plan", authenticateToken, requireAiConsent, async (req, res) => {
+router.post("/api/season/race-plan", authenticateToken, userLimits.racePlan, requireAiConsent, async (req, res) => {
   try {
     const plan = await racePlan.createRacePlan(req.user.id);
     res.json({ success: true, racePlan: plan });
@@ -48,7 +49,7 @@ router.post("/api/season/race-plan", authenticateToken, requireAiConsent, async 
   }
 });
 
-router.get("/api/achievements", authenticateToken, async (req, res) => {
+router.get("/api/achievements", authenticateToken, userLimits.heavyRead, async (req, res) => {
   try {
     res.json({ achievements: await getAchievements(req.user.id) });
   } catch (e) {
@@ -61,7 +62,7 @@ router.get("/api/achievements", authenticateToken, async (req, res) => {
  * Three short form cues for an exercise, in the athlete's language. Cues are not
  * personal, so they're generated once per exercise and language and shared.
  */
-router.get("/api/exercises/cues", authenticateToken, async (req, res) => {
+router.get("/api/exercises/cues", authenticateToken, userLimits.exerciseCues, async (req, res) => {
   const name = String(req.query.name || "").trim().slice(0, 80);
   if (!name) return res.status(400).json({ error: "Exercise name is required." });
   const lang = i18n.normalizeLang(req.headers["x-app-language"] || req.query.lang || "en");

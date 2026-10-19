@@ -57,4 +57,28 @@ const apiLimit = limiter({
   skip: (req) => req.originalUrl.startsWith("/api/webhooks/"),
 });
 
-module.exports = { authLimits, apiLimit };
+// Per signed-in athlete, for routes that are expensive to answer (a full
+// recalculation) or cost money (an AI call). Keyed by account, so spreading
+// requests over many IPs doesn't help. Mount after authenticateToken.
+function userLimiter({ windowMs, limit, error }) {
+  return rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: (req) => (req.user && req.user.id ? `user:${req.user.id}` : ipKeyGenerator(req.ip)),
+    handler: (req, res, next, options) => res.status(options.statusCode).json({ error, code: "RATE_LIMITED" }),
+  });
+}
+
+const slowDown = "Too many requests. Please slow down and try again shortly.";
+const userLimits = {
+  // Goal page, season, achievements: no athlete opens these 60 times a minute.
+  heavyRead: userLimiter({ windowMs: MINUTE, limit: 60, error: slowDown }),
+  // A new race plan is an AI call.
+  racePlan: userLimiter({ windowMs: 60 * MINUTE, limit: 10, error: "You've asked for several race plans in a row. Please try again in an hour." }),
+  // Cached cues are free, but every new exercise name is an AI call.
+  exerciseCues: userLimiter({ windowMs: 60 * MINUTE, limit: 60, error: slowDown }),
+};
+
+module.exports = { authLimits, apiLimit, userLimits };
