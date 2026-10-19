@@ -149,7 +149,10 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
   }
 
   const date = toDateComponents(workout.date);
-  const workoutKey = String(workout.id ?? `${workout.date}:${workout.sport}`);
+  const hasRealId = workout.id && String(workout.id) !== '1';
+  const workoutKey = hasRealId
+    ? `${workout.date}:${workout.id}`
+    : `${workout.date}:${workout.sport}:${workout.description || workout.title || ''}`;
   await makeRoomOnWatch(workoutKey);
 
   try {
@@ -165,6 +168,48 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
       return { success: false, message: describeError(retryErr) };
     }
   }
+}
+
+/**
+ * Pushes all upcoming non-rest workouts (today through +7 days) from a plan list
+ * to the Apple Watch when WorkoutKit is authorized.
+ */
+export async function syncUpcomingWorkoutsToAppleWatch(
+  workouts: PlannedWorkout[]
+): Promise<{ syncedCount: number; errors: string[] }> {
+  if (!isWorkoutKitSupported()) return { syncedCount: 0, errors: [] };
+  const status = await getWorkoutKitAuthorizationStatus();
+  if (status !== 'authorized') return { syncedCount: 0, errors: [] };
+
+  const now = new Date();
+  const todayStr = localDateKey(now);
+  const horizon = new Date(now);
+  horizon.setDate(horizon.getDate() + 7);
+  const horizonStr = localDateKey(horizon);
+
+  const upcoming = (workouts || []).filter((w) => {
+    const sport = String(w.sport || (w as any).type || '').toUpperCase();
+    if (!sport || sport === 'REST') return false;
+    if ((w as any).isCompleted) return false;
+    const d = String(w.date || '').slice(0, 10);
+    return d >= todayStr && d <= horizonStr;
+  });
+
+  let syncedCount = 0;
+  const errors: string[] = [];
+  for (const w of upcoming) {
+    const res = await deployWorkoutToAppleWatch({
+      ...w,
+      sport: String(w.sport || (w as any).type || 'RUN').toUpperCase(),
+      description: w.description || w.title || `${w.sport || 'RUN'} Workout`,
+    });
+    if (res.success) {
+      syncedCount++;
+    } else if (res.message) {
+      errors.push(res.message);
+    }
+  }
+  return { syncedCount, errors };
 }
 
 /**
@@ -383,19 +428,65 @@ async function fetchOwnHrZones(sport: string): Promise<ZoneBandDto[] | null> {
 }
 
 function getAppleActivity(sport: string): { activityType: ActivityType; locationType: LocationType } | null {
-  switch ((sport || '').toUpperCase()) {
+  switch ((sport || '').trim().toUpperCase()) {
     case 'RUN':
+    case 'RUNNING':
+    case 'TRAIL_RUN':
+    case 'TRAIL RUN':
       return { activityType: 'running', locationType: 'outdoor' };
+    case 'TREADMILL':
+    case 'INDOOR_RUN':
+      return { activityType: 'running', locationType: 'indoor' };
     case 'BIKE':
+    case 'CYCLING':
+    case 'RIDE':
       return { activityType: 'cycling', locationType: 'outdoor' };
+    case 'VIRTUAL_RIDE':
+    case 'INDOOR_BIKE':
+    case 'SPINNING':
+      return { activityType: 'cycling', locationType: 'indoor' };
     // WorkoutKit reads `indoor` as pool swimming, which is what rooka's
     // metre-based swim steps describe.
     case 'SWIM':
+    case 'SWIMMING':
       return { activityType: 'swimming', locationType: 'indoor' };
     case 'STRENGTH':
+    case 'WEIGHT_TRAINING':
+    case 'WEIGHTTRAINING':
+    case 'WEIGHTS':
+    case 'GYM':
       return { activityType: 'traditionalStrengthTraining', locationType: 'indoor' };
+    case 'FUNCTIONAL':
+    case 'FUNCTIONAL_STRENGTH':
+    case 'CROSSFIT':
+      return { activityType: 'functionalStrengthTraining', locationType: 'indoor' };
+    case 'HYROX':
+    case 'HIIT':
+    case 'CARDIO':
+    case 'CIRCUIT':
+    case 'OTHER':
+      return { activityType: 'highIntensityIntervalTraining', locationType: 'indoor' };
     case 'MOBILITY':
+    case 'YOGA':
+    case 'STRETCH':
+    case 'STRETCHING':
+    case 'RECOVERY':
       return { activityType: 'yoga', locationType: 'indoor' };
+    case 'PILATES':
+      return { activityType: 'pilates', locationType: 'indoor' };
+    case 'CORE':
+      return { activityType: 'coreTraining', locationType: 'indoor' };
+    case 'WALK':
+    case 'WALKING':
+      return { activityType: 'walking', locationType: 'outdoor' };
+    case 'HIKE':
+    case 'HIKING':
+      return { activityType: 'hiking', locationType: 'outdoor' };
+    case 'ROW':
+    case 'ROWING':
+      return { activityType: 'rowing', locationType: 'indoor' };
+    case 'ELLIPTICAL':
+      return { activityType: 'elliptical', locationType: 'indoor' };
     default:
       return null;
   }
@@ -508,17 +599,29 @@ function parseSteps(workout: PlannedWorkout): WorkoutStep[] {
 
 /** WorkoutKit schedules against calendar components, not an instant in time. */
 function toDateComponents(dateStr: string): DateComponents {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr || '');
-  const base = match
-    ? { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) }
-    : (() => {
-        const now = new Date();
-        return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
-      })();
+  const now = new Date();
+  const todayObj = {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+  };
+  const todayKey = dateKeyOf(todayObj);
 
-  // rooka plans days, not clock times. Scheduling at 06:00 keeps the session at
-  // the top of the Watch's Workout list for the whole training day.
-  return { ...base, hour: 6, minute: 0 };
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr || '');
+  const parsed = match
+    ? { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) }
+    : todayObj;
+
+  // WorkoutScheduler drops dates in the past. If an athlete explicitly sends an older
+  // session to perform today, clamp the date to today.
+  const base = dateKeyOf(parsed) < todayKey ? todayObj : parsed;
+
+  // rooka plans days, not clock times. Scheduling at 23:45 (or 23:59 if syncing after
+  // 23:44) keeps the workout in the future for the entire training day so it never
+  // expires before an afternoon or evening session.
+  const isToday = dateKeyOf(base) === todayKey;
+  const minute = isToday && now.getHours() === 23 && now.getMinutes() >= 45 ? 59 : 45;
+  return { ...base, hour: 23, minute };
 }
 
 function estimateMinutes(workout: PlannedWorkout): number {

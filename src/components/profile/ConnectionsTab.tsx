@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useActivities } from '../../context/ActivityStore';
+import { usePlan } from '../../context/PlanStore';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
@@ -70,6 +71,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 }) => {
   const theme = useTheme();
   const { user } = useUser();
+  const { plan } = usePlan();
   const { t, language } = useLanguage();
   const { syncGarmin, syncStrava, syncSuunto, refreshActivities } = useActivities();
 
@@ -195,6 +197,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       const {
         requestWorkoutKitAuthorization,
         isWorkoutKitSupported,
+        syncUpcomingWorkoutsToAppleWatch,
       } = require('../../services/appleHealthService');
 
       if (Platform.OS !== 'ios') {
@@ -215,10 +218,17 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       setIsWatchConnected(connected);
 
       if (connected) {
+        let watchPushNote = '';
+        if (Array.isArray(plan) && plan.length > 0 && typeof syncUpcomingWorkoutsToAppleWatch === 'function') {
+          const watchRes = await syncUpcomingWorkoutsToAppleWatch(plan as any);
+          if (watchRes.synced > 0) {
+            watchPushNote = `\n\n${watchRes.synced} upcoming workout${watchRes.synced === 1 ? '' : 's'} pushed to Apple Watch.`;
+          }
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           t('healthConnect.watchConnectedTitle'),
-          t('healthConnect.watchConnectedBody')
+          `${t('healthConnect.watchConnectedBody')}${watchPushNote}`
         );
       } else {
         Alert.alert(
@@ -246,10 +256,27 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     setAppleSyncing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const { syncAppleHealthData, requestFullHealthKitPermissions } = require('../../services/appleHealthService');
+      const {
+        syncAppleHealthData,
+        requestFullHealthKitPermissions,
+        getWorkoutKitAuthorizationStatus,
+        syncUpcomingWorkoutsToAppleWatch,
+      } = require('../../services/appleHealthService');
       // Asks only for data types iOS hasn't asked about yet; otherwise returns at once.
       await requestFullHealthKitPermissions(healthPrefs);
       const res = await syncAppleHealthData(7);
+
+      // If Apple Watch (WorkoutKit) is authorized, also push upcoming planned workouts to the watch
+      let watchPushCount = 0;
+      try {
+        const wkStatus = await getWorkoutKitAuthorizationStatus();
+        if (wkStatus === 'authorized' && Array.isArray(plan) && plan.length > 0 && typeof syncUpcomingWorkoutsToAppleWatch === 'function') {
+          const watchRes = await syncUpcomingWorkoutsToAppleWatch(plan as any);
+          watchPushCount = watchRes.synced || 0;
+        }
+      } catch (watchErr) {
+        console.warn('Apple Watch workout push during health sync failed:', watchErr);
+      }
 
       if (res.success) {
         setLastAppleSync(res.lastSyncDate || new Date().toISOString());
@@ -257,13 +284,17 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const f = res.found;
         const nothing = f && !f.sleep && !f.steps && !f.hrv && !f.restingHr && !f.weight && !f.workouts;
+        const baseMsg = nothing
+          ? t('healthConnect.syncFoundNothing')
+          : f
+          ? t('healthConnect.syncFound', { sleep: f.sleep, steps: f.steps, hrv: f.hrv, workouts: f.workouts })
+          : res.message;
+        const watchMsg = watchPushCount > 0
+          ? `\n\n${watchPushCount} planned workout${watchPushCount === 1 ? '' : 's'} sent to Apple Watch.`
+          : '';
         Alert.alert(
           t('healthConnect.syncedTitle'),
-          nothing
-            ? t('healthConnect.syncFoundNothing')
-            : f
-            ? t('healthConnect.syncFound', { sleep: f.sleep, steps: f.steps, hrv: f.hrv, workouts: f.workouts })
-            : res.message
+          `${baseMsg}${watchMsg}`
         );
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

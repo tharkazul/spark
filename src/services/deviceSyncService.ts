@@ -130,12 +130,33 @@ export async function sendWorkoutsToConnectedDevices(
     const appleErrors: string[] = [];
     let anyAppleSuccess = false;
     try {
-      for (const w of validWorkouts) {
+      const now = new Date();
+      const todayLocalStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      // For batch/week syncs, only push today and future workouts to Apple Watch.
+      // Pushing past days in the current week causes WorkoutKit/makeRoomOnWatch to drop them.
+      let appleWorkouts = validWorkouts;
+      if (validWorkouts.length > 1) {
+        const upcomingIncomplete = validWorkouts.filter(
+          (w) => normalizeDate(w) >= todayLocalStr && !w.isCompleted
+        );
+        const upcomingAll = validWorkouts.filter(
+          (w) => normalizeDate(w) >= todayLocalStr
+        );
+        if (upcomingIncomplete.length > 0) {
+          appleWorkouts = upcomingIncomplete;
+        } else if (upcomingAll.length > 0) {
+          appleWorkouts = upcomingAll;
+        }
+      }
+
+      for (const w of appleWorkouts) {
         const title = (w.title || (w as any).description || `${w.type || 'RUN'} Workout`).trim();
+        const date = normalizeDate(w);
+        const sport = String(w.type || (w as any).sport || 'RUN').toUpperCase();
         const applePayload: PlannedWorkout = {
-          id: String(w.id || '1'),
-          date: normalizeDate(w),
-          sport: String(w.type || (w as any).sport || 'RUN').toUpperCase(),
+          id: String(w.id || `${date}:${sport}:${title}`),
+          date,
+          sport,
           description: title,
           target_rooka: w.rookaPoints || (w as any).target_rooka || 50,
           steps_json: extractSteps(w),
@@ -170,11 +191,16 @@ export async function sendWorkoutsToConnectedDevices(
 
   if (succeeded.length === 0) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    const onlyAppleFailed = failed.length === 1 && failed[0].id === 'apple_watch' && failed[0].error;
     return {
       success: false,
       devices: outcomes,
       syncedCount: 0,
-      message: errors.length ? tr('deviceSync.sendFailed', { failed: failedNames }) : tr('deviceSync.noDevices'),
+      message: onlyAppleFailed
+        ? failed[0].error!
+        : errors.length
+        ? tr('deviceSync.sendFailed', { failed: failedNames })
+        : tr('deviceSync.noDevices'),
       errors,
     };
   }

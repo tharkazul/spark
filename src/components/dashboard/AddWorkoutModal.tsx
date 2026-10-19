@@ -609,7 +609,7 @@ export function AddWorkoutModal({
                         const { deployWorkoutToAppleWatch } = require('../../services/appleHealthService');
                         const workoutDate = targetFullDate || normalizeDateToYYYYMMDD(targetDateStr);
                         const result = await deployWorkoutToAppleWatch({
-                          id: initialWorkout?.id || '1',
+                          id: initialWorkout?.id || `${workoutDate}:${selectedSport}:${title || 'workout'}`,
                           date: workoutDate,
                           sport: selectedSport,
                           description: title || t('addWorkoutExtra.defaultTitle', { sport: t(`sports.${selectedSport.toLowerCase()}`, selectedSport) }),
