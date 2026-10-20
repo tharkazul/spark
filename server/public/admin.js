@@ -34,7 +34,7 @@ function renderTable(users) {
     tbody.innerHTML = '';
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-500">No users found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-gray-500">No users found.</td></tr>';
         return;
     }
 
@@ -71,6 +71,7 @@ function renderTable(users) {
         const dataReqDisplay = dataReq > 0 ? `<span class="text-blue-600 font-bold flex items-center gap-1">${dataReq} <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>` : '<span class="text-gray-400">0</span>';
 
         tr.innerHTML = `
+            <td class="p-4 text-gray-500 tabular-nums">${u.id}</td>
             <td class="p-4 font-medium text-gray-900">${u.username}</td>
             <td class="p-4 text-gray-600">${u.login_count || 0}</td>
             <td class="p-4 text-gray-600">${u.chat_count || 0}</td>

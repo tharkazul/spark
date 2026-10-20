@@ -69,6 +69,7 @@ router.post("/api/admin/trigger-morning", authenticateToken, async (req, res) =>
 router.get("/api/admin/usage", authenticateToken, (req, res) => {
   const query = `
         SELECT 
+            u.id,
             u.username, 
             u.login_count, 
             u.chat_count,
