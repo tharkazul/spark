@@ -4,7 +4,7 @@ rooka follows a workout live through Garmin LiveTrack and sends short coach cues
 notifications, which the watch shows during the activity.
 
 ```
-watch ──GPS + HR──▶ Garmin LiveTrack ──email with link──▶ <code>@live.rooka.io
+watch ──GPS + HR──▶ Garmin LiveTrack ──email with link──▶ <code>@rookacoach.com
                                                               │ Cloudflare Email Worker
                                                               ▼
             api.rooka.io/api/webhooks/livetrack ──▶ liveSessionWorker (polls every 10 s)
@@ -56,24 +56,24 @@ Add to `server/.env` and restart with `pm2 restart rooka-backend --update-env`:
 
 ```
 LIVETRACK_WEBHOOK_SECRET=<openssl rand -hex 32>
-# optional, default live.rooka.io
-LIVETRACK_INBOX_DOMAIN=live.rooka.io
+# optional, default rookacoach.com
+LIVETRACK_INBOX_DOMAIN=rookacoach.com
 ```
 
-### 2. Cloudflare email for `live.rooka.io`
+### 2. Cloudflare email for `rookacoach.com`
 
-`rooka.io` itself receives mail through Google Workspace (MX `aspmx.l.google.com`). Only the
-subdomain `live` goes to Cloudflare. **If Cloudflare offers to delete or replace the
-`aspmx.l.google.com` MX records of rooka.io, stop**: that would cut off the normal rooka.io mail.
+`rookacoach.com` exists only for these addresses. Don't use `rooka.io`: its mail runs on Google
+Workspace (MX `aspmx.l.google.com`), Cloudflare would have to take over its MX records, and
+catch-all rules don't work on subdomains.
 
-1. Cloudflare → rooka.io → **Email** → **Email Routing** → **Settings** → add the subdomain `live`.
-   Cloudflare creates MX and SPF records for `live.rooka.io` only.
-2. **Workers & Pages** → Create → Worker. Replace the code with `docs/livetrack-email-worker.js`
-   and deploy. Under Settings → Variables and secrets add `WEBHOOK_URL`
-   (`https://api.rooka.io/api/webhooks/livetrack`) and `WEBHOOK_SECRET` (type Secret, same value
-   as `LIVETRACK_WEBHOOK_SECRET`).
-3. Email Routing → **Routing rules** for `live.rooka.io` → **Catch-all** → action *Send to a
-   Worker* → the worker from step 2.
+1. **Email Service → Email Routing → Onboard Domain** → `rookacoach.com`. Accept the MX and TXT
+   records Cloudflare adds.
+2. **Workers & Pages** → Create → Worker `livetrack-email`. Replace the code with
+   `docs/livetrack-email-worker.js` and deploy. Under Settings → Variables and secrets add
+   `WEBHOOK_URL` (`https://api.rooka.io/api/webhooks/livetrack`) and `WEBHOOK_SECRET` (type
+   Secret, same value as `LIVETRACK_WEBHOOK_SECRET`).
+3. Email Routing → `rookacoach.com` → **Routing rules** → **Catch-all address** → action *Send to
+   a Worker* → `livetrack-email`, enabled.
 
 ### 3. Athlete
 

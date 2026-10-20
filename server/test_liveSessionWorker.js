@@ -102,7 +102,7 @@ async function waitFor(fn, ms = 5000) {
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
   const address = await liveCoachRoutes.getInboxAddress(userId);
-  assert.match(address, /^[a-z2-9]{10}@live\.rooka\.io$/);
+  assert.match(address, /^[a-z2-9]{10}@rookacoach\.com$/);
   assert.strictEqual(await liveCoachRoutes.getInboxAddress(userId), address, "address is stable");
 
   const post = (body, secret = "test-secret") =>
@@ -114,7 +114,7 @@ async function waitFor(fn, ms = 5000) {
   const link = "https://livetrack.garmin.com/session/db4475a3-e97b-8b4c-9a88-cf993d02a100/token/B956C4215B873EB2EBFC2A1C831B2163";
 
   assert.strictEqual((await post({ to: address, url: link }, "wrong")).status, 401, "wrong secret refused");
-  assert.strictEqual((await post({ to: "nobody@live.rooka.io", url: link })).status, 404, "unknown address refused");
+  assert.strictEqual((await post({ to: "nobody@rookacoach.com", url: link })).status, 404, "unknown address refused");
   assert.strictEqual((await post({ to: address, url: "no link here" })).status, 400, "mail without a link refused");
 
   fakeGarmin.points = intervalPoints(Date.now() - 900e3);

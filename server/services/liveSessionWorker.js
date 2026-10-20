@@ -44,7 +44,7 @@ db.serialize(() => {
     FOREIGN KEY (user_id) REFERENCES users(id)
   )`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_live_sessions_user ON live_sessions(user_id, created_at)`);
-  // Personal inbound address code (<code>@live.rooka.io) and the Garmin profile that
+  // Personal inbound address code (<code>@rookacoach.com) and the Garmin profile that
   // first sent a session to it; later sessions from another profile are refused.
   db.run(`ALTER TABLE users ADD COLUMN livetrack_inbox TEXT`, () => {
     db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_livetrack_inbox ON users(livetrack_inbox)`);

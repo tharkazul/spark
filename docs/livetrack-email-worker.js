@@ -1,5 +1,5 @@
 /**
- * Cloudflare Email Worker for <code>@live.rooka.io (see docs/LIVE_COACHING.md).
+ * Cloudflare Email Worker for <code>@rookacoach.com (see docs/LIVE_COACHING.md).
  *
  * Garmin LiveTrack emails a link when an athlete starts an activity. This worker pulls
  * the link out of the email and posts it to the rooka backend, which looks up the

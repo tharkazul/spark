@@ -1,7 +1,7 @@
 /**
  * Live coaching during a workout.
  *
- * Athletes add their personal address (<code>@live.rooka.io) as a Garmin LiveTrack
+ * Athletes add their personal address (<code>@rookacoach.com) as a Garmin LiveTrack
  * contact with auto-start on. Cloudflare Email Routing hands each email to a worker
  * (docs/livetrack-email-worker.js), which posts the LiveTrack link here.
  */
@@ -12,7 +12,7 @@ const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
 const { startLiveSession } = require("../services/liveSessionWorker");
 
-const INBOX_DOMAIN = process.env.LIVETRACK_INBOX_DOMAIN || "live.rooka.io";
+const INBOX_DOMAIN = process.env.LIVETRACK_INBOX_DOMAIN || "rookacoach.com";
 const INBOX_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"; // no 0/o, 1/l/i
 
 function secretMatches(header, secret) {
