@@ -257,6 +257,8 @@ export const integrationsApi = {
       '/api/user/strava-share-settings',
       { method: 'POST', body: JSON.stringify({ shareSettings }) },
     ),
+  // The athlete's Garmin LiveTrack contact address; the server creates it on first call.
+  getLiveCoachAddress: () => apiClient<{ address: string | null }>('/api/live-coach/address'),
 };
 
 export const planApi = {

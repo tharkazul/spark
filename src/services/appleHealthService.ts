@@ -172,6 +172,33 @@ export async function deployWorkoutToAppleWatch(workout: PlannedWorkout): Promis
 }
 
 /**
+ * What iOS currently has scheduled for rooka on the Watch (today and later), read
+ * straight from WorkoutScheduler. Shown under Connections so it's visible whether a
+ * send reached the scheduler: if it's listed here but not on the Watch, Apple's sync
+ * to the Watch is the problem, not rooka.
+ */
+export async function getScheduledWatchSummary(): Promise<{ count: number; next: Date | null } | null> {
+  const kit = getWorkoutKit();
+  if (!kit || !isWorkoutKitSupported()) return null;
+  try {
+    const scheduled = await kit.getScheduledWorkouts();
+    const now = Date.now();
+    const dates = scheduled
+      .map((w: any) => {
+        const d = w.date || {};
+        if (!d.year || !d.month || !d.day) return null;
+        return new Date(d.year, d.month - 1, d.day, d.hour ?? 0, d.minute ?? 0);
+      })
+      .filter((d: Date | null): d is Date => d !== null && d.getTime() >= now - 60000)
+      .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+    return { count: dates.length, next: dates[0] || null };
+  } catch (err) {
+    console.log('[WorkoutKit] could not read scheduled workouts:', describeError(err));
+    return null;
+  }
+}
+
+/**
  * Pushes all upcoming non-rest workouts (today through +7 days) from a plan list
  * to the Apple Watch when WorkoutKit is authorized.
  */

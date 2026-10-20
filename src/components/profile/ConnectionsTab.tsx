@@ -12,6 +12,7 @@ import { canHideRookaLink } from '../../utils/permissions';
 import { GARMIN_DIRECT_LOGIN_ENABLED } from '../../constants/features';
 import { Card } from '../ui/Card';
 import { GarminViaPartnersHint } from '../integrations/GarminViaPartnersHint';
+import { LiveCoachingCard } from './LiveCoachingCard';
 import { SportMedallion } from '../ui/SportMedallion';
 
 interface ConnectionsTabProps {
@@ -100,6 +101,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [appleSyncing, setAppleSyncing] = useState(false);
   const [isHealthKitConnected, setIsHealthKitConnected] = useState(false);
   const [isWatchConnected, setIsWatchConnected] = useState(false);
+  // What iOS has scheduled for rooka on the Watch; read when the Apple card opens.
+  const [watchSummary, setWatchSummary] = useState<{ count: number; next: Date | null } | null>(null);
   const [appleSupported, setAppleSupported] = useState(false);
   const [showHealthPrefs, setShowHealthPrefs] = useState(false);
   const [showAppleManage, setShowAppleManage] = useState(false);
@@ -447,6 +450,10 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         </View>
 
         {/* Expandable Manage Area */}
+        <WatchSummaryLoader
+          active={showAppleManage && isWatchConnected}
+          onLoad={setWatchSummary}
+        />
         {showAppleManage && isHealthKitConnected && (
           <View className="mt-3 pt-3 border-t border-theme-border/50 gap-y-3">
             <Text className="text-xs text-theme-muted leading-relaxed">
@@ -458,6 +465,20 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
                 <Text className="text-[11px] text-theme-muted">
                   {t('connections.lastSynced', { time: new Date(lastAppleSync).toLocaleString(language, { dateStyle: 'short', timeStyle: 'short' }) })}
+                </Text>
+              </View>
+            )}
+
+            {isWatchConnected && watchSummary && (
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="watch-outline" size={12} color={theme.textSecondary} />
+                <Text className="text-[11px] text-theme-muted">
+                  {watchSummary.count > 0 && watchSummary.next
+                    ? t('connections.watchScheduled', {
+                        count: watchSummary.count,
+                        next: watchSummary.next.toLocaleDateString(language, { weekday: 'short', day: 'numeric', month: 'short' }),
+                      })
+                    : t('connections.watchScheduledNone')}
                 </Text>
               </View>
             )}
@@ -596,6 +617,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
           </View>
         </Card>
       )}
+
+      {/* LIVE COACHING via Garmin LiveTrack. Needs no Garmin connection in rooka. */}
+      <LiveCoachingCard />
 
       {/* SUUNTO INTEGRATION */}
       <Card className="p-4">
@@ -834,3 +858,19 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     </View>
   );
 };
+
+/** Reads the Watch schedule from iOS whenever the Apple card is opened. */
+function WatchSummaryLoader({ active, onLoad }: { active: boolean; onLoad: (s: { count: number; next: Date | null } | null) => void }) {
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    const { getScheduledWatchSummary } = require('../../services/appleHealthService');
+    getScheduledWatchSummary().then((summary: { count: number; next: Date | null } | null) => {
+      if (!cancelled) onLoad(summary);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, onLoad]);
+  return null;
+}

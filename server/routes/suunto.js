@@ -507,10 +507,7 @@ function buildGuideStep(step, sportKey, hrZones) {
   fields.push({ type: 'stepDurationCountdown', value: seconds });
 
   const label = step.exerciseName || STEP_LABEL[step.type] || 'Step';
-  const title = [goal, label, targetLabel ? `@ ${targetLabel}` : '']
-    .filter(Boolean)
-    .join(' ')
-    .slice(0, 60);
+  const title = guideStepTitle(step, label, goal, targetLabel);
 
   return {
     type: 'fields',
@@ -518,6 +515,31 @@ function buildGuideStep(step, sportKey, hrZones) {
     title,
     fields,
   };
+}
+
+// Suunto rejects guide.steps[].title longer than 13 chars (HTTP 400).
+const STEP_TITLE_MAX = 13;
+
+/**
+ * A step title that fits Suunto's 13 characters, leading with what the watch
+ * doesn't already show: for a timed step the countdown is on screen, so name +
+ * target ("Warm-up Z1"); for distance the duration is only an estimate, so the
+ * distance leads ("1 km @4:15"); for reps, exercise and count ("Squat x10").
+ */
+function guideStepTitle(step, label, goal, targetLabel) {
+  const fits = (t) => Array.from(t).length <= STEP_TITLE_MAX;
+  const target = String(targetLabel || '').replace(/^HR\s+/, '');
+  if (step.condition_type === 'reps') {
+    const count = Number(step.condition_value) || 0;
+    const suffix = count ? ` x${count}` : '';
+    return `${truncate(label, STEP_TITLE_MAX - Array.from(suffix).length)}${suffix}`;
+  }
+  const isDistance = step.condition_type === 'distance' || step.condition_type === 'distance_km';
+  const candidates = isDistance
+    ? [`${goal} @${target}`, `${goal} ${label}`, goal]
+    : [`${label} ${target}`, label];
+  const pick = candidates.map((c) => c.trim()).find((c) => c && !c.endsWith('@') && fits(c));
+  return pick || truncate(isDistance ? goal || label : label, STEP_TITLE_MAX);
 }
 
 /** Cuts on code points (no split emoji) and marks the cut with an ellipsis. */
@@ -734,3 +756,4 @@ router.post('/api/sync-suunto-workouts', authenticateToken, async (req, res) => 
 
 module.exports = router;
 module.exports.pushWorkoutsToSuunto = pushWorkoutsToSuunto;
+module.exports.buildGuideStep = buildGuideStep; // for tests

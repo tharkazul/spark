@@ -1,6 +1,20 @@
 import { TranslationKeys } from './en';
 
 export const nl: TranslationKeys = {
+  liveCoach: {
+    title: 'Live coaching',
+    subtitle: 'Coachtips op je Garmin, tijdens je training',
+    setUp: 'Instellen',
+    intro: 'Met Garmin LiveTrack volgt rooka je training terwijl je bezig bent. rooka stuurt dan korte tips, zoals "rustiger aan" of "laatste herhaling", die op je horloge verschijnen.',
+    yourAddress: 'Jouw LiveTrack-adres',
+    copy: 'Kopieer',
+    copied: 'Gekopieerd',
+    addressFailed: 'Je adres kon niet worden geladen. Controleer je verbinding en probeer het opnieuw.',
+    step1: 'Ga in de Garmin Connect-app naar Veiligheid en tracking → LiveTrack en voeg het adres hierboven toe als contact.',
+    step2: 'Zet LiveTrack automatisch starten aan, zodat elke buitentraining rooka de link stuurt.',
+    step3: 'Ga in de instellingen van je horloge naar Slimme meldingen → Tijdens activiteit en zet dit aan. Anders houdt het horloge de tips vast tot je klaar bent.',
+    gpsOnly: 'Werkt alleen buiten met gps. Loopband- en indoortrainersessies sturen geen live gegevens.',
+  },
   common: {
     save: 'Opslaan',
     saving: 'Opslaan...',
@@ -909,6 +923,8 @@ export const nl: TranslationKeys = {
     connectWatch: 'Watch Koppelen',
     syncHealthNow: 'Health-gegevens Nu Synchroniseren',
     dataSharingPreferences: 'Voorkeuren Gegevensdeling',
+    watchScheduled: "Op je Watch: {count} rooka-training(en) ingepland, de eerste op {next}",
+    watchScheduledNone: "Op je Watch: geen rooka-trainingen ingepland",
     lastSynced: 'Laatst gesynchroniseerd: {time}',
     healthActiveBadge: 'Health: Actief',
     healthNotConnectedBadge: 'Health: Niet Gekoppeld',
@@ -1199,7 +1215,7 @@ export const nl: TranslationKeys = {
     understood: "Begrepen",
   },
   appleHealthMsgs: {
-    watchNotAccepted: "Apple heeft deze training niet op je Apple Watch gezet. Open de Watch-app op je iPhone, tik op rooka, controleer of trainingen plannen aan staat en probeer het opnieuw.",
+    watchNotAccepted: "Apple heeft deze training niet op je Apple Watch gezet. Open de Watch-app op je iPhone, ga naar Work-out > Gekoppelde apps, controleer of rooka aan staat en probeer het opnieuw.",
     notConnected: "rooka kan Apple Health nog niet lezen. Tik op Koppelen onder Profiel, Koppelingen, Apple Health.",
     watchIphoneOnly: "Synchroniseren met Apple Watch kan alleen op een iPhone.",
     watchNeedsIos17: "Voor trainingen naar je Apple Watch sturen heb je iOS 17 of nieuwer nodig.",
@@ -1210,7 +1226,7 @@ export const nl: TranslationKeys = {
     cannotPreviewSport: "rooka kan geen voorbeeld van \"{sport}\"-trainingen tonen op Apple Watch.",
     previewNotInBuild: "Voorbeeld op Apple Watch is niet beschikbaar in deze versie.",
     previewOpened: "Voorbeeld geopend.",
-    workoutKitDenied: "rooka mag nog geen trainingen inplannen. Open de Watch-app op je iPhone, tik op rooka en zet het inplannen van trainingen aan.",
+    workoutKitDenied: "rooka mag nog geen trainingen inplannen. Open de Watch-app op je iPhone, ga naar Work-out > Gekoppelde apps en zet rooka aan.",
     watchSupportUnavailable: "Apple Watch-ondersteuning is niet beschikbaar in deze versie.",
     onWatchDegraded: "\"{name}\" staat op je Apple Watch, maar Apple ondersteunt deze doelen niet voor deze sport, dus de stappen zijn zonder doelen overgezet.",
     onWatch: "\"{name}\" staat op je Apple Watch.",

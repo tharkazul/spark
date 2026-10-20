@@ -177,6 +177,13 @@ cron.schedule('0 3 * * *', () => {
   timezone: "Europe/Amsterdam"
 });
 
+// Every 5 minutes: read Expo push receipts and drop tokens of uninstalled apps
+cron.schedule('*/5 * * * *', () => {
+  require("./services/pushNotificationService").processPushReceipts().catch((err) =>
+    console.error('[CRON] Push receipt check failed:', err)
+  );
+});
+
 setInterval(() => {
   // Sync all Strava users every 2 hours
   syncAllStravaUsersOnStartup();

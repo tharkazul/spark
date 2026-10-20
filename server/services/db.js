@@ -248,6 +248,12 @@ db.serialize(() => {
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
+  // Expo push tickets waiting for their receipt (pushNotificationService.processPushReceipts).
+  db.run(`CREATE TABLE IF NOT EXISTS push_receipts_pending (
+        ticket_id TEXT PRIMARY KEY,
+        token TEXT NOT NULL,
+        sent_at INTEGER NOT NULL
+    )`);
   db.run(`CREATE TABLE IF NOT EXISTS waitlist (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         email TEXT UNIQUE, 

@@ -1,6 +1,20 @@
 import { TranslationKeys } from './en';
 
 export const fr: TranslationKeys = {
+  liveCoach: {
+    title: 'Coaching en direct',
+    subtitle: 'Les conseils du coach sur votre Garmin, pendant la séance',
+    setUp: 'Configurer',
+    intro: 'Avec Garmin LiveTrack, rooka suit votre séance en temps réel. rooka vous envoie ensuite de courts conseils, comme « ralentissez » ou « dernière répétition », qui s’affichent sur votre montre.',
+    yourAddress: 'Votre adresse LiveTrack',
+    copy: 'Copier',
+    copied: 'Copié',
+    addressFailed: 'Impossible de charger votre adresse. Vérifiez votre connexion et réessayez.',
+    step1: 'Dans l’app Garmin Connect, allez dans Sécurité et suivi → LiveTrack et ajoutez l’adresse ci-dessus comme contact.',
+    step2: 'Activez le démarrage automatique de LiveTrack, pour que chaque séance en extérieur envoie le lien à rooka.',
+    step3: 'Dans les réglages de votre montre, allez dans Notifications intelligentes → Pendant l’activité et activez-les. Sinon, la montre garde les conseils jusqu’à la fin de votre séance.',
+    gpsOnly: 'Fonctionne uniquement en extérieur avec le GPS. Les séances sur tapis ou home trainer n’envoient pas de données en direct.',
+  },
   common: {
     save: 'Enregistrer',
     saving: 'Enregistrement...',
@@ -909,6 +923,8 @@ export const fr: TranslationKeys = {
     connectWatch: 'Connecter Watch',
     syncHealthNow: 'Synchroniser Health Maintenant',
     dataSharingPreferences: 'Préférences de Partage des Données',
+    watchScheduled: "Sur ta Watch : {count} séance(s) rooka planifiée(s), la prochaine le {next}",
+    watchScheduledNone: "Sur ta Watch : aucune séance rooka planifiée",
     lastSynced: 'Dernière synchronisation : {time}',
     healthActiveBadge: 'Health : Actif',
     healthNotConnectedBadge: 'Health : Non Connecté',
@@ -1199,7 +1215,7 @@ export const fr: TranslationKeys = {
     understood: "Compris",
   },
   appleHealthMsgs: {
-    watchNotAccepted: "Apple n'a pas accepté cette séance sur ton Apple Watch. Ouvre l'app Watch sur ton iPhone, touche rooka, vérifie que la planification des séances est activée et réessaie.",
+    watchNotAccepted: "Apple n'a pas accepté cette séance sur ton Apple Watch. Ouvre l'app Watch sur ton iPhone, va dans Exercice, vérifie que rooka est activé dans la liste des apps qui peuvent ajouter des séances planifiées, puis réessaie.",
     notConnected: "rooka ne peut pas encore lire Apple Health. Touche Connecter dans Profil, Connexions, Apple Health.",
     watchIphoneOnly: "La synchronisation Apple Watch n'est disponible que sur iPhone.",
     watchNeedsIos17: "L'envoi de séances vers l'Apple Watch nécessite iOS 17 ou une version ultérieure.",
@@ -1210,7 +1226,7 @@ export const fr: TranslationKeys = {
     cannotPreviewSport: "rooka ne peut pas afficher d'aperçu des séances « {sport} » sur l'Apple Watch.",
     previewNotInBuild: "L'aperçu Apple Watch n'est pas disponible dans cette version.",
     previewOpened: "Aperçu ouvert.",
-    workoutKitDenied: "rooka n'est pas encore autorisé à planifier des séances. Ouvrez l'app Watch sur votre iPhone, touchez rooka et activez la planification des séances.",
+    workoutKitDenied: "rooka n'est pas encore autorisé à planifier des séances. Ouvre l'app Watch sur ton iPhone, va dans Exercice et active rooka dans la liste des apps qui peuvent ajouter des séances planifiées.",
     watchSupportUnavailable: "La prise en charge de l'Apple Watch n'est pas disponible dans cette version.",
     onWatchDegraded: "« {name} » est sur votre Apple Watch, mais Apple ne prend pas en charge ces objectifs pour ce sport : les étapes ont été envoyées sans eux.",
     onWatch: "« {name} » est sur votre Apple Watch.",

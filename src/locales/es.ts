@@ -1,6 +1,20 @@
 import { TranslationKeys } from './en';
 
 export const es: TranslationKeys = {
+  liveCoach: {
+    title: 'Coaching en directo',
+    subtitle: 'Indicaciones del coach en tu Garmin, durante el entrenamiento',
+    setUp: 'Configurar',
+    intro: 'Con Garmin LiveTrack, rooka sigue tu entrenamiento en tiempo real. Después, rooka te envía indicaciones breves, como «baja el ritmo» o «última repetición», que aparecen en tu reloj.',
+    yourAddress: 'Tu dirección de LiveTrack',
+    copy: 'Copiar',
+    copied: 'Copiado',
+    addressFailed: 'No se ha podido cargar tu dirección. Comprueba tu conexión e inténtalo de nuevo.',
+    step1: 'En la app Garmin Connect, ve a Seguridad y seguimiento → LiveTrack y añade la dirección de arriba como contacto.',
+    step2: 'Activa Inicio automático de LiveTrack, para que cada entrenamiento al aire libre envíe el enlace a rooka.',
+    step3: 'En los ajustes de tu reloj, ve a Notificaciones inteligentes → Durante la actividad y actívalo. Si no, el reloj retiene las indicaciones hasta que termines.',
+    gpsOnly: 'Solo funciona al aire libre con GPS. Las sesiones en cinta o rodillo no envían datos en directo.',
+  },
   common: {
     save: 'Guardar',
     saving: 'Guardando...',
@@ -909,6 +923,8 @@ export const es: TranslationKeys = {
     connectWatch: 'Conectar Watch',
     syncHealthNow: 'Sincronizar Health Ahora',
     dataSharingPreferences: 'Preferencias de Datos Compartidos',
+    watchScheduled: "En tu Watch: {count} entrenamiento(s) de rooka programado(s), el próximo el {next}",
+    watchScheduledNone: "En tu Watch: ningún entrenamiento de rooka programado",
     lastSynced: 'Última sincronización: {time}',
     healthActiveBadge: 'Health: Activo',
     healthNotConnectedBadge: 'Health: Desconectado',
@@ -1199,7 +1215,7 @@ export const es: TranslationKeys = {
     understood: "Entendido",
   },
   appleHealthMsgs: {
-    watchNotAccepted: "Apple no aceptó este entrenamiento en tu Apple Watch. Abre la app Watch en tu iPhone, toca rooka, comprueba que la programación de entrenamientos está activada y vuelve a intentarlo.",
+    watchNotAccepted: "Apple no aceptó este entrenamiento en tu Apple Watch. Abre la app Watch en tu iPhone, ve a Entreno, comprueba que rooka está activado en la lista de apps que pueden añadir entrenamientos programados y vuelve a intentarlo.",
     notConnected: "rooka aún no puede leer Apple Health. Toca Conectar en Perfil, Conexiones, Apple Health.",
     watchIphoneOnly: "La sincronización con Apple Watch solo está disponible en iPhone.",
     watchNeedsIos17: "Para enviar entrenamientos al Apple Watch necesitas iOS 17 o posterior.",
@@ -1210,7 +1226,7 @@ export const es: TranslationKeys = {
     cannotPreviewSport: "rooka no puede mostrar una vista previa de sesiones de \"{sport}\" en Apple Watch.",
     previewNotInBuild: "La vista previa de Apple Watch no está disponible en esta versión.",
     previewOpened: "Vista previa abierta.",
-    workoutKitDenied: "rooka aún no puede programar entrenamientos. Abre la app Watch en tu iPhone, toca rooka y activa la programación de entrenamientos.",
+    workoutKitDenied: "rooka aún no puede programar entrenamientos. Abre la app Watch en tu iPhone, ve a Entreno y activa rooka en la lista de apps que pueden añadir entrenamientos programados.",
     watchSupportUnavailable: "La compatibilidad con Apple Watch no está disponible en esta versión.",
     onWatchDegraded: "\"{name}\" está en tu Apple Watch, pero Apple no admite esos objetivos para este deporte, así que los pasos se enviaron sin ellos.",
     onWatch: "\"{name}\" está en tu Apple Watch.",
