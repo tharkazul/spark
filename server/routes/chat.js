@@ -358,6 +358,17 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
               // Latest value per metric, with its date and source, so newer numbers win.
               const metricsText = await athleteFacts.formatMetricsForPrompt(req.user.id);
               const hrZonesText = await formatHrZonesForPrompt(req.user.id).catch(() => "");
+              // What rooka told the athlete on the watch during recent workouts, so the coach can follow up.
+              const liveCoachText = await require("../services/liveSessionWorker")
+                .recentLiveSummaries(req.user.id)
+                .then((sessions) =>
+                  sessions.length
+                    ? `\nLIVE COACHING DURING RECENT WORKOUTS (cues rooka sent to the watch):\n${sessions
+                        .map((l) => `- ${l.endedAt} ${l.workoutName || l.sport || "workout"}: ${l.summary.durationMin} min, ${l.summary.distanceKm} km${l.summary.avgHr ? `, avg HR ${l.summary.avgHr}` : ""}. Cues: ${l.cues.length ? l.cues.map((c) => `"${c}"`).join("; ") : "none"}`)
+                        .join("\n")}\n`
+                    : "",
+                )
+                .catch(() => "");
 
               const recentBiometrics = await new Promise((resolve) => {
                 db.all(
@@ -828,7 +839,7 @@ ${deletedWorkoutsText}
 
 RECENT COMPLETED WORKOUTS (For context):
 ${recentActivitiesText}
-
+${liveCoachText}
 RECENT STRENGTH & PB HISTORY:
 ${recentSetsText}
 

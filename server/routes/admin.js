@@ -519,4 +519,43 @@ router.post("/api/admin/snapshots/restore", authenticateToken, async (req, res) 
   }
 });
 
+// Live coaching: paste a LiveTrack link for a user to test without email, watch running sessions.
+router.get("/api/admin/live-sessions", async (req, res) => {
+  try {
+    res.json(await require("../services/liveSessionWorker").listLiveSessions());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/api/admin/live-sessions", async (req, res) => {
+  const userId = Number(req.body && req.body.userId);
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+  try {
+    const row = await require("../services/liveSessionWorker").startLiveSession({ userId, url: req.body.url, source: "admin" });
+    res.json({ id: row.id, status: row.status });
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message });
+  }
+});
+
+router.post("/api/admin/live-sessions/:id/stop", async (req, res) => {
+  try {
+    await require("../services/liveSessionWorker").stopLiveSession(Number(req.params.id));
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/api/admin/live-coach/address/:userId", async (req, res) => {
+  try {
+    const address = await require("./liveCoach").getInboxAddress(Number(req.params.userId));
+    if (!address) return res.status(404).json({ error: "User not found" });
+    res.json({ address });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

@@ -66,6 +66,7 @@ app.use("/", discountsRoutes);
 app.use("/", require("./routes/season"));
 app.use("/", require("./routes/facts"));
 app.use("/", require("./routes/weather"));
+app.use("/", require("./routes/liveCoach"));
 
 // Utilities and cron jobs
 const {
@@ -197,4 +198,7 @@ process.on("SIGINT", () => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  require("./services/liveSessionWorker")
+    .resumeLiveSessions()
+    .catch((err) => console.error("[LiveCoach] resume failed:", err));
 });

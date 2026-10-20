@@ -210,6 +210,20 @@ const messages = {
       title: { en: "rooka Coach", nl: "rooka Coach", de: "rooka Coach", es: "rooka Coach", fr: "rooka Coach" },
       body: { en: "Your workout is ready for today!", nl: "Je training voor vandaag staat klaar!", de: "Dein Training für heute ist bereit!", es: "¡Tu entrenamiento de hoy está listo!", fr: "Ta séance du jour est prête !" },
     },
+    // Live coaching during a workout (services/liveCoach.js). Shown on the watch: keep them short.
+    live: {
+      title: { en: "rooka coach", nl: "rooka coach", de: "rooka coach", es: "rooka coach", fr: "rooka coach" },
+      start: { en: "rooka is watching: {workout} 👀", nl: "rooka kijkt mee: {workout} 👀", de: "rooka schaut zu: {workout} 👀", es: "rooka te sigue: {workout} 👀", fr: "rooka te suit : {workout} 👀" },
+      startNoPlan: { en: "rooka is watching your {sport} 👀", nl: "rooka kijkt mee met je {sport} 👀", de: "rooka schaut zu: {sport} 👀", es: "rooka sigue tu {sport} 👀", fr: "rooka suit ta {sport} 👀" },
+      above: { en: "{step}: {actual}, target {target}. Ease off a bit.", nl: "{step}: {actual}, doel {target}. Iets rustiger.", de: "{step}: {actual}, Ziel {target}. Etwas ruhiger.", es: "{step}: {actual}, objetivo {target}. Afloja un poco.", fr: "{step} : {actual}, cible {target}. Lève un peu le pied." },
+      below: { en: "{step}: {actual}, target {target}. Pick it up a bit.", nl: "{step}: {actual}, doel {target}. Iets harder.", de: "{step}: {actual}, Ziel {target}. Etwas zulegen.", es: "{step}: {actual}, objetivo {target}. Aprieta un poco.", fr: "{step} : {actual}, cible {target}. Accélère un peu." },
+      spotOn: { en: "{step} spot on 👌 {pct}% on target", nl: "{step} precies goed 👌 {pct}% binnen doel", de: "{step} genau richtig 👌 {pct}% im Ziel", es: "{step} perfecto 👌 {pct}% en objetivo", fr: "{step} pile dedans 👌 {pct}% dans la cible" },
+      lastRep: { en: "Last rep coming up. Make it count 💪", nl: "Laatste herhaling. Maak 'm af 💪", de: "Letzte Wiederholung. Hol alles raus 💪", es: "Última serie. Que cuente 💪", fr: "Dernière répétition. Donne tout 💪" },
+      hrDrift: { en: "HR up {pct}% at the same pace. Drink something 💧", nl: "Hartslag {pct}% hoger bij hetzelfde tempo. Drink wat 💧", de: "Puls {pct}% höher bei gleichem Tempo. Trink etwas 💧", es: "Pulso {pct}% más alto al mismo ritmo. Bebe algo 💧", fr: "FC +{pct}% à allure égale. Bois un peu 💧" },
+      checkIn: { en: "{status}. Steady 👌", nl: "{status}. Lekker stabiel 👌", de: "{status}. Schön gleichmäßig 👌", es: "{status}. Muy constante 👌", fr: "{status}. Bien régulier 👌" },
+      elapsed: { en: "{min} min in", nl: "{min} min onderweg", de: "{min} Min. unterwegs", es: "{min} min", fr: "{min} min" },
+      rep: { en: "Rep {i}/{n}", nl: "Herhaling {i}/{n}", de: "Wdh. {i}/{n}", es: "Serie {i}/{n}", fr: "Rép. {i}/{n}" },
+    },
   },
   physique: {
     insightLoading: {

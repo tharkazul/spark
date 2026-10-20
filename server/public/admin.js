@@ -646,8 +646,138 @@ async function triggerWeeklyPlanning() {
     }
 }
 
+/* ===========================================================================
+ * Live coaching: sessions the server is following through Garmin LiveTrack.
+ * ======================================================================== */
+
+let liveRefreshTimer = null;
+
+function showLiveMessage(text, isError) {
+    const el = document.getElementById('liveMessage');
+    el.textContent = text;
+    el.classList.remove('hidden', 'text-gray-500', 'text-red-600');
+    el.classList.add(isError ? 'text-red-600' : 'text-gray-500');
+}
+
+function livePace(speed) {
+    if (!speed || speed <= 0) return null;
+    const s = Math.round(1000 / speed);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}/km`;
+}
+
+function liveLatest(m) {
+    if (!m) return '<span class="text-gray-400">—</span>';
+    const parts = [];
+    if (m.durationSecs) parts.push(`${Math.round(m.durationSecs / 60)} min`);
+    if (m.distanceMeters) parts.push(`${(m.distanceMeters / 1000).toFixed(2)} km`);
+    const pace = livePace(m.speed);
+    if (pace) parts.push(pace);
+    if (m.hr) parts.push(`♥ ${m.hr}`);
+    if (m.power) parts.push(`${m.power} W`);
+    return `${esc(parts.join(' · '))}<div class="text-xs text-gray-400">${esc(new Date(m.at).toLocaleTimeString())}</div>`;
+}
+
+function liveStatusBadge(s) {
+    const color = {
+        active: 'bg-green-50 text-green-600 border-green-200',
+        waiting: 'bg-blue-50 text-blue-600 border-blue-200',
+        error: 'bg-red-50 text-red-600 border-red-200',
+    }[s.status] || 'bg-gray-50 text-gray-600 border-gray-200';
+    const label = s.status === 'waiting' ? 'waiting for GPS' : s.status;
+    return `<span class="text-xs border px-2 py-0.5 rounded ${color}">${esc(label)}</span>${s.error ? `<div class="text-xs text-red-600 mt-1">${esc(s.error)}</div>` : ''}`;
+}
+
+function renderLiveTable(sessions) {
+    const tbody = document.getElementById('liveTableBody');
+    const running = sessions.filter((s) => s.status === 'active' || s.status === 'waiting');
+    document.getElementById('liveSummary').textContent =
+        `${running.length} running · ${sessions.length} recent`;
+    if (!sessions.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">No live sessions yet. Paste a LiveTrack link above to start one.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = sessions.map((s) => {
+        const cues = s.cues || [];
+        const cueList = cues.length
+            ? `<details><summary class="cursor-pointer">${cues.length} cue${cues.length === 1 ? '' : 's'}</summary><ul class="mt-1 space-y-1">${cues.map((c) =>
+                `<li><span class="text-gray-400">${esc(new Date(c.sentAt || c.at).toLocaleTimeString())}</span> ${esc(c.body)}</li>`).join('')}</ul></details>`
+            : '<span class="text-gray-400">none</span>';
+        const workout = s.workout_name
+            ? esc(s.workout_name)
+            : `<span class="text-gray-400">${s.sport ? `${esc(s.sport)}, no plan today` : '—'}</span>`;
+        const canStop = s.status === 'active' || s.status === 'waiting';
+        return `<tr class="hover:bg-gray-50 transition align-top">
+            <td class="p-4 text-gray-500 tabular-nums">${s.id}</td>
+            <td class="p-4 font-medium text-gray-900">${esc(s.username || `#${s.user_id}`)}<div class="text-xs text-gray-400">${esc(s.source || '')}</div></td>
+            <td class="p-4">${liveStatusBadge(s)}</td>
+            <td class="p-4 text-gray-600">${workout}</td>
+            <td class="p-4 text-gray-600">${liveLatest(s.last_metrics)}</td>
+            <td class="p-4 text-gray-600">${cueList}</td>
+            <td class="p-4 text-right">${canStop
+                ? `<button onclick="stopLiveSession(${s.id})" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition">Stop</button>`
+                : ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function fetchLiveSessions() {
+    clearTimeout(liveRefreshTimer);
+    try {
+        const response = await fetch('/api/admin/live-sessions', { headers: authHeaders() });
+        if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+        const sessions = await response.json();
+        renderLiveTable(sessions);
+        // Follow running sessions without a manual refresh.
+        if (sessions.some((s) => s.status === 'active' || s.status === 'waiting')) {
+            liveRefreshTimer = setTimeout(fetchLiveSessions, 15000);
+        }
+    } catch (e) {
+        document.getElementById('liveSummary').textContent = 'Could not load live sessions.';
+        console.error(e);
+    }
+}
+
+async function startLiveSession(e) {
+    e.preventDefault();
+    const userId = Number(document.getElementById('liveUserId').value);
+    const url = document.getElementById('liveUrl').value.trim();
+    if (!url) return showLiveMessage('Paste a LiveTrack link first.', true);
+    showLiveMessage('Starting…');
+    try {
+        const response = await fetch('/api/admin/live-sessions', {
+            method: 'POST',
+            headers: authHeaders(true),
+            body: JSON.stringify({ userId, url }),
+        });
+        const data = await response.json();
+        if (!response.ok) return showLiveMessage(data.error || `Failed (${response.status})`, true);
+        showLiveMessage(`Session ${data.id} is ${data.status === 'waiting' ? 'waiting for the first GPS point' : data.status}.`);
+        document.getElementById('liveUrl').value = '';
+        fetchLiveSessions();
+    } catch (err) {
+        showLiveMessage(err.message, true);
+    }
+}
+
+async function stopLiveSession(id) {
+    if (!confirm(`Stop live coaching for session ${id}?`)) return;
+    const response = await fetch(`/api/admin/live-sessions/${id}/stop`, { method: 'POST', headers: authHeaders() });
+    if (!response.ok) alert(`Failed to stop session ${id}`);
+    fetchLiveSessions();
+}
+
+async function showLiveAddress() {
+    const userId = Number(document.getElementById('liveUserId').value);
+    if (!userId) return showLiveMessage('Enter a user ID first.', true);
+    const response = await fetch(`/api/admin/live-coach/address/${userId}`, { headers: authHeaders() });
+    const data = await response.json();
+    if (!response.ok) return showLiveMessage(data.error || `Failed (${response.status})`, true);
+    showLiveMessage(`LiveTrack address for user ${userId}: ${data.address}`);
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     fetchUsage();
     fetchDiscounts();
+    fetchLiveSessions();
 });
