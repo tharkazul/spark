@@ -573,7 +573,17 @@ router.post("/api/social/invite", authenticateToken, (req, res) => {
           const inviterName = inviterUser?.username || req.user.username || "Friend";
           const inviterAvatar = inviterUser?.profile_picture_url || null;
 
-          invitee_ids.forEach(async (inviteeId) => {
+          [...new Set(invitee_ids)].forEach(async (inviteeId) => {
+            // Already invited to this workout and not declined (a double tap on Send,
+            // or the invite sheet opened twice): don't send a second invitation.
+            const already = await new Promise((resolve) =>
+              db.get(
+                `SELECT id FROM event_invitations WHERE inviter_id = ? AND invitee_id = ? AND micro_plan_id = ? AND status IN ('pending', 'accepted')`,
+                [req.user.id, inviteeId, micro_plan_id],
+                (e, row) => resolve(e ? null : row)
+              )
+            );
+            if (already) return;
             const inviteeLang = await i18n.getUserLanguage(inviteeId);
             db.run(
               `INSERT INTO event_invitations (inviter_id, invitee_id, micro_plan_id, location, time) VALUES (?, ?, ?, ?, ?)`,

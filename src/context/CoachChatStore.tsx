@@ -60,6 +60,11 @@ const splitProseParagraphs = (text: string): string[] => {
   return [...paragraphs.slice(0, MAX_PROSE_BUBBLES - 1), paragraphs.slice(MAX_PROSE_BUBBLES - 1).join('\n\n')];
 };
 
+// A message that carries a card (an invitation, a connection request) stays one
+// bubble: split, every bubble got its own copy of the card, so one invitation
+// showed up three times and only the tapped copy updated after accepting.
+const hasCard = (m: any) => Boolean(m && m.payload_json);
+
 const splitCoachReply = (text?: string): string[] => {
   if (!text) return [];
   const parts = text
@@ -425,7 +430,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
         if (rawHistory && rawHistory.length > 0) {
           const processed: ChatMessage[] = [];
           rawHistory.forEach((m: any) => {
-            const parts = splitCoachReply(m.content);
+            const parts = hasCard(m) ? [m.content] : splitCoachReply(m.content);
             if (parts.length > 1 && (m.role === 'coach' || m.role === 'assistant')) {
               parts.forEach((part, idx) => {
                 processed.push(
@@ -903,7 +908,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) return;
       const content = typeof data === 'string' ? data : data.content || data.reply || data.message;
       if (content) {
-        const parts = splitCoachReply(content);
+        const parts = hasCard(data) ? [content] : splitCoachReply(content);
         const baseTs = Date.now();
         const newMsgs = parts.map((part, idx) =>
           processMessageItem({
@@ -921,7 +926,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     const unsubChatMessage = wsService.subscribeToEvent('chat_message', (data: any) => {
       if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) return;
       if (data && data.content && data.role) {
-        const parts = data.role === 'coach' || data.role === 'assistant' ? splitCoachReply(data.content) : [data.content];
+        const parts = (data.role === 'coach' || data.role === 'assistant') && !hasCard(data) ? splitCoachReply(data.content) : [data.content];
         const baseTs = Date.now();
         const newMsgs = parts.map((part, idx) =>
           processMessageItem({
