@@ -561,15 +561,14 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         )}
       </Card>
 
-      {/* 2. GARMIN CONNECT INTEGRATION. The direct login is parked (GARMIN_DIRECT_LOGIN_ENABLED):
-          athletes who already connected keep sync and disconnect, everyone else gets the
-          Garmin -> Apple Health / Strava route. */}
-      {!isGarminConnected && !GARMIN_DIRECT_LOGIN_ENABLED ? (
-        <Card className="p-4">
+      {/* 2. GARMIN: connection and live coaching, both Garmin-only, in one card. The direct
+          login is parked (GARMIN_DIRECT_LOGIN_ENABLED): athletes who already connected keep
+          sync and disconnect, everyone else gets the Garmin -> Apple Health / Strava route.
+          Live coaching runs on Garmin LiveTrack and needs no Garmin connection in rooka. */}
+      <Card className="p-4">
+        {!isGarminConnected && !GARMIN_DIRECT_LOGIN_ENABLED ? (
           <GarminViaPartnersHint />
-        </Card>
-      ) : (
-        <Card className="p-4">
+        ) : (
           <View className="flex-row justify-between items-center">
             <View className="flex-row items-center gap-3 flex-1 mr-2">
               <View className="w-10 h-10 rounded-xl bg-sky-500/10 items-center justify-center">
@@ -615,11 +614,11 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               </TouchableOpacity>
             </View>
           </View>
-        </Card>
-      )}
-
-      {/* LIVE COACHING via Garmin LiveTrack. Needs no Garmin connection in rooka. */}
-      <LiveCoachingCard />
+        )}
+        <View className="mt-3 pt-3 border-t border-theme-border/50">
+          <LiveCoachingCard embedded />
+        </View>
+      </Card>
 
       {/* SUUNTO INTEGRATION */}
       <Card className="p-4">

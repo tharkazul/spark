@@ -52,9 +52,25 @@ const visible = (uid) => all(`SELECT * FROM activities WHERE user_id = ? AND (is
   assert.strictEqual(await merge.absorbIfDuplicate(3, { source: "healthkit", sourceId: "HK-3", sport_type: "Run", start_date: "2026-10-18T09:05:00Z", moving_time_min: 20 }), null, "a run is not a ride");
   assert.strictEqual(await merge.absorbIfDuplicate(3, { source: "healthkit", sourceId: "HK-4", sport_type: "Ride", start_date: "2026-10-18T09:40:00Z", moving_time_min: 60 }), null, "40 min apart is another workout");
   assert.strictEqual(await merge.absorbIfDuplicate(3, { source: "strava", sourceId: "9201", sport_type: "Ride", start_date: "2026-10-18T09:00:30Z", moving_time_min: 60 }), null, "two Strava uploads are two activities");
-  assert.strictEqual(await merge.absorbIfDuplicate(3, { source: "healthkit", sourceId: "HK-5", sport_type: "Ride", start_date: "2026-10-18T09:02:00Z", moving_time_min: 180 }), null, "3x longer is another workout");
+  assert.strictEqual(await merge.absorbIfDuplicate(3, { source: "healthkit", sourceId: "HK-5", sport_type: "Ride", start_date: "2026-10-18T09:10:00Z", moving_time_min: 180 }), null, "10 min later and 3x longer is another workout");
   assert.strictEqual(await merge.absorbIfDuplicate(3, { source: "strava", sourceId: "9200", sport_type: "Ride", start_date: "2026-10-18T09:00:00Z", moving_time_min: 60 }), null, "the same Strava id is the caller's own update");
   console.log("✅ Bricks, separate sessions and same-source uploads stay separate");
+
+  // 3b. A pool swim: Garmin Connect writes it to Apple Health twice, Strava has it too. One workout.
+  await run(`INSERT INTO users (id, username, password_hash) VALUES (4, 'swimmer', 'x')`);
+  assert.strictEqual(await merge.absorbIfDuplicate(4, { source: "healthkit", sourceId: "HK-S1", name: "Swim (Connect)", sport_type: "Swim", start_date: "2026-10-21T07:02:05.000Z", moving_time_min: 30, distance_km: 0.9, rooka_score: 30 }), null, "first copy is new");
+  await insert({ id: 501, user_id: 4, name: "Swim (Connect)", sport_type: "Swim", healthkit_workout_id: "HK-S1", start_date: "2026-10-21T07:02:05.000Z", moving_time_min: 30, distance_km: 0.9, rooka_score: 30 });
+  assert.strictEqual(await merge.absorbIfDuplicate(4, { source: "healthkit", sourceId: "HK-S2", name: "Swim (Connect)", sport_type: "Swim", start_date: "2026-10-21T07:02:05.000Z", moving_time_min: 0, rooka_score: 0 }), 501, "the Apple Health twin merges");
+  assert.strictEqual(await merge.absorbIfDuplicate(4, { source: "strava", sourceId: "9400", name: "30 min EVF Technique & Paddles", sport_type: "Swim", start_date: "2026-10-21T07:02:00Z", moving_time_min: 17, distance_km: 0.9, rooka_score: 20, tss: 20 }), 501, "Strava merges too");
+  rows = await visible(4);
+  assert.strictEqual(rows.length, 1, "one swim, not three");
+  assert.strictEqual(rows[0].name, "30 min EVF Technique & Paddles");
+  assert.strictEqual(rows[0].healthkit_workout_id, "HK-S1", "the first Apple id stays");
+  assert.strictEqual(rows[0].strava_activity_id, "9400");
+  assert.strictEqual(await merge.absorbIfDuplicate(4, { source: "healthkit", sourceId: "HK-S2", sport_type: "Swim", start_date: "2026-10-21T07:02:05.000Z", moving_time_min: 30 }), 501, "a later sync of the twin still lands on the same row");
+  assert.strictEqual((await visible(4)).length, 1);
+  assert.strictEqual(await merge.absorbIfDuplicate(4, { source: "healthkit", sourceId: "HK-S3", sport_type: "Swim", start_date: "2026-10-21T07:20:00.000Z", moving_time_min: 30 }), null, "an Apple Health swim 18 min later is another workout");
+  console.log("✅ A swim from Apple Health twice and Strava once is one workout");
 
   // 4. Clean-up of an old duplicate: hidden, kudos and comments move, ids end up on the row that stays.
   await insert({ id: 401, user_id: 2, name: "Evening Run", sport_type: "Run", strava_activity_id: "9300", start_date: "2026-10-17T18:00:00Z", moving_time_min: 30, rooka_score: 35 });

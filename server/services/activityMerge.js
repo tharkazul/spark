@@ -21,6 +21,8 @@ const run = (sql, p = []) => new Promise((res, rej) => db.run(sql, p, function (
 
 const MATCH_WINDOW_MIN = 15;
 const MAX_DURATION_RATIO = 1.5;
+const HEALTHKIT_TWIN_WINDOW_MIN = 2;
+const SAME_START_WINDOW_MIN = 3;
 
 const SOURCE_COLUMN = { strava: "strava_activity_id", healthkit: "healthkit_workout_id", suunto: "suunto_workout_id" };
 // Whose title and distance/time win when two sources disagree: Strava carries the
@@ -56,11 +58,25 @@ function rankOfRow(row) {
 /** True when `row` and `incoming` are the same workout (see the header for the rule). */
 function isSameWorkout(row, incoming) {
   const col = SOURCE_COLUMN[incoming.source];
-  if (col && row[col]) return false; // already has this source: a different workout from it
   const t1 = new Date(String(row.start_date).replace(" ", "T")).getTime();
   const t2 = new Date(String(incoming.start_date).replace(" ", "T")).getTime();
-  if (!Number.isFinite(t1) || !Number.isFinite(t2) || Math.abs(t1 - t2) > MATCH_WINDOW_MIN * 60000) return false;
+  if (!Number.isFinite(t1) || !Number.isFinite(t2)) return false;
+  if (col && row[col]) {
+    // Already has this source, so normally a different workout from it (two Strava
+    // uploads at once are two activities). Apple Health is the exception: Garmin
+    // Connect can write the same workout into it twice, under two ids.
+    return (
+      incoming.source === "healthkit" &&
+      Math.abs(t1 - t2) <= HEALTHKIT_TWIN_WINDOW_MIN * 60000 &&
+      sportFamily(row.sport_type) === sportFamily(incoming.sport_type)
+    );
+  }
+  if (Math.abs(t1 - t2) > MATCH_WINDOW_MIN * 60000) return false;
   if (!sportsCompatible(row.sport_type, incoming.sport_type)) return false;
+  // Started within a few minutes: the same workout, however the durations differ.
+  // Sources count time differently (Strava's moving time leaves out the rests of a
+  // pool swim: 17 min against Garmin's 30), and no one starts a second one that fast.
+  if (Math.abs(t1 - t2) <= SAME_START_WINDOW_MIN * 60000) return true;
   const d1 = Number(row.moving_time_min) || 0;
   const d2 = Number(incoming.moving_time_min) || 0;
   if (d1 > 0 && d2 > 0 && Math.max(d1, d2) / Math.min(d1, d2) > MAX_DURATION_RATIO) return false;
@@ -113,7 +129,9 @@ function mergedFields(row, incoming) {
     tss: (incomingWins || gainedHr) && incoming.tss != null ? incoming.tss : row.tss,
   };
   const col = SOURCE_COLUMN[incoming.source];
-  if (col && incoming.sourceId) out[col] = String(incoming.sourceId);
+  // Keep the row's own id for a source it already has (an Apple Health twin), so the
+  // next sync still finds it.
+  if (col && incoming.sourceId && !row[col]) out[col] = String(incoming.sourceId);
   return out;
 }
 

@@ -77,8 +77,10 @@ catch-all rules don't work on subdomains.
 
 ### 3. Athlete
 
-1. Find the athlete's address: admin page → Live Coaching → user ID → *Show LiveTrack address*
-   (the app can later show it from `GET /api/live-coach/address`).
+1. Find the athlete's address: app → Profile → Connections → Live coaching → *Set up*, or admin
+   page → Live Coaching → user ID → *Show LiveTrack address*. Addresses are four words from
+   `server/services/inboxWords.js` (`maple-orbit-lantern-fox@rookacoach.com`), made on first
+   request; addresses made before the switch (10 random letters) keep working.
 2. Garmin Connect app → Safety & Tracking → LiveTrack: add that address as a contact and turn on
    **Auto Start LiveTrack**, so every outdoor activity sends the link.
 3. Watch settings in Garmin Connect → Notifications & Alerts → Smart Notifications →

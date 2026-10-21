@@ -10,10 +10,13 @@ import { Card } from '../ui/Card';
 
 /**
  * Setup for live in-workout coaching: the athlete adds their personal
- * <code>@live.rooka.io address as a Garmin LiveTrack contact, and rooka's cues
+ * <code>@rookacoach.com address as a Garmin LiveTrack contact, and rooka's cues
  * then arrive on the watch as notifications. See docs/LIVE_COACHING.md.
  */
-export const LiveCoachingCard: React.FC = () => {
+export const LiveCoachingCard: React.FC<{
+  /** Render as a section inside another card (the Garmin card) instead of a card of its own. */
+  embedded?: boolean;
+}> = ({ embedded = false }) => {
   const theme = useTheme();
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -62,8 +65,8 @@ export const LiveCoachingCard: React.FC = () => {
 
   const steps = [t('liveCoach.step1'), t('liveCoach.step2'), t('liveCoach.step3')];
 
-  return (
-    <Card className="p-4">
+  const content = (
+    <>
       <View className="flex-row justify-between items-center">
         <View className="flex-row items-center gap-3 flex-1 mr-2">
           <View className="w-10 h-10 rounded-xl bg-emerald-500/10 items-center justify-center">
@@ -100,7 +103,18 @@ export const LiveCoachingCard: React.FC = () => {
                 <ActivityIndicator size="small" color={theme.tint} />
               </View>
             ) : failed || !address ? (
-              <Text className="text-xs text-rose-500">{t('liveCoach.addressFailed')}</Text>
+              <View className="flex-row items-center gap-2">
+                <Text className="flex-1 text-xs text-rose-500">{t('liveCoach.addressFailed')}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    loadAddress();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-theme-bg border border-theme-border"
+                >
+                  <Text className="text-xs font-bold text-theme-accent">{t('common.retry')}</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <View className="flex-row items-center gap-2 bg-theme-bg border border-theme-border rounded-lg pl-3 pr-1 py-1">
                 <Text selectable numberOfLines={1} className="flex-1 text-sm font-bold text-theme-text">
@@ -138,6 +152,8 @@ export const LiveCoachingCard: React.FC = () => {
           </View>
         </View>
       )}
-    </Card>
+    </>
   );
+
+  return embedded ? <View>{content}</View> : <Card className="p-4">{content}</Card>;
 };

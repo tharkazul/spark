@@ -1058,11 +1058,20 @@ export async function fetchHealthKitWorkouts(daysBack = 14): Promise<AppleHealth
       return [];
     }
 
+    // Since healthkit v16 these are { quantity, unit } objects (seconds, metres, kcal),
+    // not numbers. Dividing the object gave NaN: every Apple workout arrived with no
+    // time or distance, scored 0 and could not be matched to its Strava copy.
+    const amount = (v: any): number | null =>
+      typeof v === 'number' ? v : v && typeof v.quantity === 'number' ? v.quantity : null;
+
     return workoutSamples.map((w: any) => {
       const sport = mapHKActivityTypeToSport(w.workoutActivityType);
-      const durationMin = Math.round((w.duration || (new Date(w.endDate).getTime() - new Date(w.startDate).getTime()) / 1000) / 60);
-      const distanceKm = w.totalDistance ? Math.round((w.totalDistance / 1000) * 100) / 100 : null;
-      const calories = w.totalEnergyBurned ? Math.round(w.totalEnergyBurned) : null;
+      const durationSec = amount(w.duration) ?? (new Date(w.endDate).getTime() - new Date(w.startDate).getTime()) / 1000;
+      const durationMin = Math.round(durationSec / 60);
+      const distanceM = amount(w.totalDistance);
+      const distanceKm = distanceM ? Math.round((distanceM / 1000) * 100) / 100 : null;
+      const kcal = amount(w.totalEnergyBurned);
+      const calories = kcal ? Math.round(kcal) : null;
       const sourceName = w.sourceRevision?.source?.name || 'Apple Health';
 
       return {

@@ -101,9 +101,31 @@ async function waitFor(fn, ms = 5000) {
   app.use("/", liveCoachRoutes);
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}`;
+  const words = require("./services/inboxWords");
+  assert.ok(words.length >= 1000, "enough words for four-word addresses");
+  assert.strictEqual(new Set(words).size, words.length, "no duplicate words");
+  assert.ok(words.every((w) => /^[a-z]{3,9}$/.test(w)), "plain lowercase words only");
+
   const address = await liveCoachRoutes.getInboxAddress(userId);
-  assert.match(address, /^[a-z2-9]{10}@rookacoach\.com$/);
+  assert.match(address, /^[a-z]+(-[a-z]+){3}@rookacoach\.com$/);
+  assert.ok(address.split("@")[0].split("-").every((w) => words.includes(w)), "address is made of list words");
   assert.strictEqual(await liveCoachRoutes.getInboxAddress(userId), address, "address is stable");
+
+  // Four words someone else already has: drawn again instead of failing.
+  const crypto = require("crypto");
+  const taken = address.split("@")[0];
+  const realRandomInt = crypto.randomInt;
+  let forced = 4;
+  crypto.randomInt = (max) => (forced-- > 0 ? words.indexOf(taken.split("-")[3 - forced]) : realRandomInt(max));
+  const second = await run(`INSERT INTO users (username) VALUES ('livetest2')`);
+  const secondAddress = await liveCoachRoutes.getInboxAddress(second.lastID);
+  crypto.randomInt = realRandomInt;
+  assert.ok(forced < 0, "the taken code was drawn first");
+  assert.notStrictEqual(secondAddress, address, "collision drew new words");
+
+  // Old 10-letter addresses keep resolving.
+  const legacy = await run(`INSERT INTO users (username, livetrack_inbox) VALUES ('livetest3', 'xvftfhqb9q')`);
+  assert.strictEqual(await liveCoachRoutes.getInboxAddress(legacy.lastID), "xvftfhqb9q@rookacoach.com");
 
   const post = (body, secret = "test-secret") =>
     fetch(`${base}/api/webhooks/livetrack`, {

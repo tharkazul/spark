@@ -62,7 +62,8 @@ async function main() {
         if (gone.has(b.id) || gone.has(a.id)) continue;
         const dt = Math.abs(new Date(String(b.start_date).replace(" ", "T")) - new Date(String(a.start_date).replace(" ", "T")));
         if (dt > 15 * 60000) break; // sorted by start: nothing further can match a
-        if (sourceOf(a) === sourceOf(b) && sourceOf(a) !== "manual") continue; // two uploads from one source are two workouts
+        // Two uploads from Strava or Suunto are two workouts; Apple Health twins are judged by isSameWorkout.
+        if (sourceOf(a) === sourceOf(b) && !["manual", "healthkit"].includes(sourceOf(a))) continue;
         if (!merge.isSameWorkout(a, { ...b, source: sourceOf(b) })) continue;
         // Keep the richer source (Strava > Suunto > Apple Health > typed in).
         const [keep, dup] = (merge.SOURCE_RANK[sourceOf(a)] || 0) >= (merge.SOURCE_RANK[sourceOf(b)] || 0) ? [a, b] : [b, a];
