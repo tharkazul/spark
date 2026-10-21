@@ -2,7 +2,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, DeviceEventEmitter, Platform, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useActivities } from '../../context/ActivityStore';
 import { usePlan } from '../../context/PlanStore';
 import { useUser } from '../../context/UserStore';
@@ -219,13 +219,15 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       const status = await requestWorkoutKitAuthorization();
       const connected = status === 'authorized';
       setIsWatchConnected(connected);
+      // Home and Planning decide from this whether to show the send-to-watch buttons.
+      DeviceEventEmitter.emit('connectedDevicesChanged');
 
       if (connected) {
         let watchPushNote = '';
         if (Array.isArray(plan) && plan.length > 0 && typeof syncUpcomingWorkoutsToAppleWatch === 'function') {
           const watchRes = await syncUpcomingWorkoutsToAppleWatch(plan as any);
-          if (watchRes.synced > 0) {
-            watchPushNote = `\n\n${watchRes.synced} upcoming workout${watchRes.synced === 1 ? '' : 's'} pushed to Apple Watch.`;
+          if (watchRes.syncedCount > 0) {
+            watchPushNote = `\n\n${t('healthConnect.watchPushedUpcoming', { count: watchRes.syncedCount })}`;
           }
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

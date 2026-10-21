@@ -1280,6 +1280,7 @@ export const en = {
     ios17Title: "iOS 17+ Required",
     ios17Body: "Workout scheduling to Apple Watch requires an iPhone running iOS 17 or newer.",
     watchConnectedTitle: "Apple Watch Connected!",
+    watchPushedUpcoming: "{count} upcoming workout(s) sent to your Apple Watch.",
     watchConnectedBody: "rooka is now authorized to send planned workouts directly to the Workout app on your Apple Watch.",
     permissionsRequiredTitle: "Permissions Required",
     permissionsRequiredBody: "Please open the Apple Watch app on your iPhone > rooka, and enable workout scheduling.",

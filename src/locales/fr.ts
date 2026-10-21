@@ -1282,6 +1282,7 @@ export const fr: TranslationKeys = {
     ios17Title: "iOS 17+ requis",
     ios17Body: "La planification de séances sur l'Apple Watch nécessite un iPhone sous iOS 17 ou ultérieur.",
     watchConnectedTitle: "Apple Watch connectée !",
+    watchPushedUpcoming: "{count} séance(s) à venir envoyée(s) sur ton Apple Watch.",
     watchConnectedBody: "rooka est maintenant autorisé à envoyer vos séances planifiées directement dans l'app Exercice de votre Apple Watch.",
     permissionsRequiredTitle: "Autorisation requise",
     permissionsRequiredBody: "Ouvrez l'app Apple Watch sur votre iPhone > rooka et activez la planification des séances.",

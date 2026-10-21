@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { AppState, DeviceEventEmitter } from 'react-native';
 import { translate as tr } from '../locales/i18n';
 import { useUser } from '../context/UserStore';
 import { WorkoutItem } from '../types/dashboard';
@@ -57,6 +58,20 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
   useEffect(() => {
     checkDevices();
   }, [checkDevices, user]);
+
+  // The Watch permission can change while these screens stay mounted: granted under
+  // Connections (after a reinstall, say) or in the Watch app. Checked once at mount,
+  // the send buttons stayed hidden until the app was restarted.
+  useEffect(() => {
+    const changed = DeviceEventEmitter.addListener('connectedDevicesChanged', checkDevices);
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') checkDevices();
+    });
+    return () => {
+      changed.remove();
+      foreground.remove();
+    };
+  }, [checkDevices]);
 
   const hasAppleWatch = isAppleWatchAuthorized;
   const hasAnyDevices = hasCloudDevices || hasAppleWatch;

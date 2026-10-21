@@ -695,6 +695,27 @@ db.serialize(() => {
   db.run(`ALTER TABLE biometrics ADD COLUMN steps INTEGER`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN active_calories REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN vo2_max REAL`, (err) => {});
+  // On-device Apple connections (HealthKit read permissions and WorkoutKit watch push).
+  db.run(`ALTER TABLE users ADD COLUMN apple_health_connected INTEGER DEFAULT 0`, (err) => {});
+  db.run(`ALTER TABLE users ADD COLUMN apple_watch_connected INTEGER DEFAULT 0`, (err) => {});
+  db.run(
+    `UPDATE users SET apple_health_connected = 1
+      WHERE COALESCE(apple_health_connected, 0) = 0
+        AND (
+          EXISTS (SELECT 1 FROM activities WHERE user_id = users.id AND healthkit_workout_id IS NOT NULL)
+          OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = users.id AND (sleep_minutes > 0 OR hrv_sdnn > 0 OR steps > 0 OR resting_hr > 0 OR active_calories > 0 OR vo2_max > 0))
+        )`,
+    () => {},
+  );
+  db.run(
+    `UPDATE users SET apple_watch_connected = 1
+      WHERE COALESCE(apple_watch_connected, 0) = 0
+        AND (
+          EXISTS (SELECT 1 FROM activities WHERE user_id = users.id AND (LOWER(name) LIKE '%apple watch%' OR LOWER(linked_activity_name) LIKE '%apple watch%'))
+          OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = users.id AND (hrv_sdnn > 0 OR sleep_deep_minutes > 0 OR sleep_rem_minutes > 0 OR sleep_core_minutes > 0))
+        )`,
+    () => {},
+  );
   db.run(`CREATE TABLE IF NOT EXISTS physique_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,

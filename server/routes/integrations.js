@@ -1215,11 +1215,30 @@ router.post("/api/sync-garmin", authenticateToken, async (req, res) => {
  */
 router.post("/api/healthkit/sync", authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  const { biometrics = [], workouts = [] } = req.body;
+  const { biometrics = [], workouts = [], appleWatchConnected } = req.body;
 
   try {
     let biometricsSynced = 0;
     let workoutsSynced = 0;
+
+    const hasWatchData =
+      appleWatchConnected === true ||
+      (Array.isArray(workouts) &&
+        workouts.some((w) => /apple\s*watch/i.test(`${w?.source || ""} ${w?.name || ""}`))) ||
+      (Array.isArray(biometrics) &&
+        biometrics.some(
+          (b) =>
+            (b?.hrv_sdnn || 0) > 0 ||
+            (b?.sleep_deep_minutes || 0) > 0 ||
+            (b?.sleep_rem_minutes || 0) > 0 ||
+            (b?.sleep_core_minutes || 0) > 0,
+        ));
+
+    db.run(
+      `UPDATE users SET apple_health_connected = 1, apple_watch_connected = CASE WHEN ? = 1 THEN 1 ELSE COALESCE(apple_watch_connected, 0) END WHERE id = ?`,
+      [hasWatchData ? 1 : 0, userId],
+      () => {},
+    );
 
     // 1. Process Biometrics & Recovery Data
     if (Array.isArray(biometrics) && biometrics.length > 0) {
@@ -1436,6 +1455,43 @@ router.get("/api/healthkit/recent", authenticateToken, async (req, res) => {
     console.error("Error in /api/healthkit/recent:", err);
     res.status(500).json({ error: "Server error" });
   }
+});
+
+/**
+ * POST /api/healthkit/status
+ * Records on-device Apple Health (HealthKit) and Apple Watch (WorkoutKit) connection status.
+ */
+router.post("/api/healthkit/status", authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const { appleHealthConnected, appleWatchConnected } = req.body || {};
+
+  const updates = [];
+  const params = [];
+  if (typeof appleHealthConnected === "boolean") {
+    updates.push("apple_health_connected = ?");
+    params.push(appleHealthConnected ? 1 : 0);
+  }
+  if (typeof appleWatchConnected === "boolean") {
+    updates.push("apple_watch_connected = ?");
+    params.push(appleWatchConnected ? 1 : 0);
+  }
+
+  if (updates.length === 0) {
+    return res.json({ success: true });
+  }
+
+  params.push(userId);
+  db.run(
+    `UPDATE users SET ${updates.join(", ")} WHERE id = ?`,
+    params,
+    (err) => {
+      if (err) {
+        console.error("Error updating Apple device status:", err.message);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res.json({ success: true });
+    },
+  );
 });
 
 module.exports = router;

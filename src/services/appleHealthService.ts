@@ -75,7 +75,11 @@ export async function getWorkoutKitAuthorizationStatus(): Promise<AuthorizationS
   const kit = getWorkoutKit();
   if (!kit || !isWorkoutKitSupported()) return 'unknown';
   try {
-    return await kit.getAuthorizationStatus();
+    const status = await kit.getAuthorizationStatus();
+    if (status === 'authorized') {
+      void reportAppleConnectionStatusToServer({ appleWatchConnected: true });
+    }
+    return status;
   } catch (err) {
     console.log('[WorkoutKit] getAuthorizationStatus failed:', describeError(err));
     return 'unknown';
@@ -91,7 +95,11 @@ export async function requestWorkoutKitAuthorization(): Promise<AuthorizationSta
   const kit = getWorkoutKit();
   if (!kit || !isWorkoutKitSupported()) return 'unknown';
   try {
-    return await kit.requestAuthorization();
+    const status = await kit.requestAuthorization();
+    if (status === 'authorized') {
+      void reportAppleConnectionStatusToServer({ appleWatchConnected: true });
+    }
+    return status;
   } catch (err) {
     console.log('[WorkoutKit] requestAuthorization failed:', describeError(err));
     return 'unknown';
@@ -699,9 +707,42 @@ const TODAY_BIOMETRICS_KEY = '@rooka:today_biometrics_cache';
 // whether read access was granted, so this is the only "connected" we can know.
 const CONNECTED_KEY = '@rooka:apple_health_connected';
 
+let lastReportedHealthStatus: boolean | null = null;
+let lastReportedWatchStatus: boolean | null = null;
+
+export async function reportAppleConnectionStatusToServer(status?: {
+  appleHealthConnected?: boolean;
+  appleWatchConnected?: boolean;
+}): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    const payload: Record<string, boolean> = {};
+    if (typeof status?.appleHealthConnected === 'boolean' && lastReportedHealthStatus !== status.appleHealthConnected) {
+      payload.appleHealthConnected = status.appleHealthConnected;
+      lastReportedHealthStatus = status.appleHealthConnected;
+    }
+    if (typeof status?.appleWatchConnected === 'boolean' && lastReportedWatchStatus !== status.appleWatchConnected) {
+      payload.appleWatchConnected = status.appleWatchConnected;
+      lastReportedWatchStatus = status.appleWatchConnected;
+    }
+    if (Object.keys(payload).length === 0) return;
+    await apiClient('/api/healthkit/status', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    if (typeof status?.appleHealthConnected === 'boolean') lastReportedHealthStatus = null;
+    if (typeof status?.appleWatchConnected === 'boolean') lastReportedWatchStatus = null;
+  }
+}
+
 export async function isAppleHealthConnected(): Promise<boolean> {
   try {
-    return (await AsyncStorage.getItem(CONNECTED_KEY)) === 'true';
+    const connected = (await AsyncStorage.getItem(CONNECTED_KEY)) === 'true';
+    if (connected) {
+      void reportAppleConnectionStatusToServer({ appleHealthConnected: true });
+    }
+    return connected;
   } catch {
     return false;
   }
@@ -855,6 +896,7 @@ export async function requestFullHealthKitPermissions(customPrefs?: Partial<Appl
       });
     }
     await AsyncStorage.setItem(CONNECTED_KEY, 'true').catch(() => {});
+    void reportAppleConnectionStatusToServer({ appleHealthConnected: true });
 
     return true;
   } catch (err: any) {
@@ -1161,6 +1203,7 @@ export async function syncAppleHealthData(daysBack = 7): Promise<HealthKitSyncSu
       await AsyncStorage.setItem(TODAY_BIOMETRICS_KEY, JSON.stringify(todayItem));
     }
 
+    const watchStatus = await getWorkoutKitAuthorizationStatus();
     const res = await apiClient<{
       success: boolean;
       message?: string;
@@ -1168,7 +1211,11 @@ export async function syncAppleHealthData(daysBack = 7): Promise<HealthKitSyncSu
       workoutsSynced?: number;
     }>('/api/healthkit/sync', {
       method: 'POST',
-      body: JSON.stringify({ biometrics, workouts }),
+      body: JSON.stringify({
+        biometrics,
+        workouts,
+        appleWatchConnected: watchStatus === 'authorized',
+      }),
     });
 
     const nowISO = new Date().toISOString();
@@ -1420,6 +1467,7 @@ export async function autoSyncAppleHealthOnForeground(): Promise<void> {
   lastForegroundSyncTimestamp = now;
 
   try {
+    void getWorkoutKitAuthorizationStatus();
     const isAvail = isHealthKitAvailable();
     if (!isAvail || !(await isAppleHealthConnected())) return;
     await syncAppleHealthData(8);

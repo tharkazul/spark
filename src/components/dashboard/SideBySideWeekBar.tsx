@@ -37,9 +37,8 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
         const hasPlannedRest = (day.workouts || []).some((w) => isRest(w.type));
         const isRestHonored = !hasActiveWorkouts && hasPlannedRest && Boolean(day.isPast) && !isToday;
 
-        // Parse day date number from dateStr e.g. "Sep 29" -> "29"
-        const dateParts = day.dateStr.split(' ');
-        const dayNumber = dateParts[dateParts.length - 1] || '';
+        // The day number from the localized date: "Oct 21" in English, "21 okt" in Dutch.
+        const dayNumber = (day.dateStr.match(/\d+/) || [''])[0];
 
         return (
           <TouchableOpacity

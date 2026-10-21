@@ -82,6 +82,15 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
             u.data_request_clicks,
             CASE WHEN u.strava_refresh_token IS NOT NULL AND u.strava_refresh_token != '' THEN 1 ELSE 0 END as strava_connected,
             CASE WHEN u.garmin_username IS NOT NULL AND u.garmin_username != '' THEN 1 ELSE 0 END as garmin_connected,
+            CASE WHEN EXISTS (SELECT 1 FROM suunto_tokens WHERE user_id = u.id) THEN 1 ELSE 0 END as suunto_connected,
+            CASE WHEN COALESCE(u.apple_health_connected, 0) = 1
+                   OR EXISTS (SELECT 1 FROM activities WHERE user_id = u.id AND healthkit_workout_id IS NOT NULL)
+                   OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = u.id AND (sleep_minutes > 0 OR hrv_sdnn > 0 OR steps > 0 OR resting_hr > 0 OR active_calories > 0 OR vo2_max > 0))
+                 THEN 1 ELSE 0 END as apple_health_connected,
+            CASE WHEN COALESCE(u.apple_watch_connected, 0) = 1
+                   OR EXISTS (SELECT 1 FROM activities WHERE user_id = u.id AND (LOWER(name) LIKE '%apple watch%' OR LOWER(linked_activity_name) LIKE '%apple watch%'))
+                   OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = u.id AND (hrv_sdnn > 0 OR sleep_deep_minutes > 0 OR sleep_rem_minutes > 0 OR sleep_core_minutes > 0))
+                 THEN 1 ELSE 0 END as apple_watch_connected,
             (SELECT COUNT(*) FROM activities WHERE user_id = u.id) as activities_count
         FROM users u
         WHERE u.deleted_at IS NULL
@@ -147,8 +156,10 @@ router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req,
           if (lookupErr || !deletedUser) return;
           db.run(`DELETE FROM push_tokens WHERE user_id = ?`, [deletedUser.id]);
           db.run(`DELETE FROM strava_tokens WHERE user_id = ?`, [deletedUser.id]);
+          db.run(`DELETE FROM suunto_tokens WHERE user_id = ?`, [deletedUser.id]);
+          db.run(`DELETE FROM suunto_guides WHERE user_id = ?`, [deletedUser.id]);
           db.run(
-            `UPDATE users SET strava_refresh_token = NULL, garmin_username = NULL, garmin_password = NULL WHERE id = ?`,
+            `UPDATE users SET strava_refresh_token = NULL, garmin_username = NULL, garmin_password = NULL, apple_health_connected = 0, apple_watch_connected = 0 WHERE id = ?`,
             [deletedUser.id]
           );
         }

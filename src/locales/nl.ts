@@ -1282,6 +1282,7 @@ export const nl: TranslationKeys = {
     ios17Title: "iOS 17+ vereist",
     ios17Body: "Trainingen inplannen op je Apple Watch vereist een iPhone met iOS 17 of nieuwer.",
     watchConnectedTitle: "Apple Watch gekoppeld!",
+    watchPushedUpcoming: "{count} komende training(en) naar je Apple Watch gestuurd.",
     watchConnectedBody: "rooka mag nu geplande trainingen rechtstreeks naar de Workout-app op je Apple Watch sturen.",
     permissionsRequiredTitle: "Toestemming vereist",
     permissionsRequiredBody: "Open de Apple Watch-app op je iPhone > rooka en zet het inplannen van trainingen aan.",

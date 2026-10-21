@@ -43,8 +43,11 @@ function renderTable(users) {
         tr.className = "hover:bg-gray-50 transition";
         
         const connections = [];
-        if (u.strava_connected) connections.push('<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded font-medium">Strava</span>');
-        if (u.garmin_connected) connections.push('<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium">Garmin</span>');
+        if (u.strava_connected) connections.push('<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Strava</span>');
+        if (u.garmin_connected) connections.push('<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Garmin</span>');
+        if (u.suunto_connected) connections.push('<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Suunto</span>');
+        if (u.apple_health_connected) connections.push('<span class="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Apple Health</span>');
+        if (u.apple_watch_connected) connections.push('<span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Apple Watch</span>');
         
         const personalTokens = u.daily_token_usage || 0;
         const commonTokens = u.common_token_usage || 0;
@@ -81,7 +84,7 @@ function renderTable(users) {
             <td class="p-4 ${personalTokenClass}">${personalTokens.toLocaleString()} / ${(currentLimit/1000)}k</td>
             <td class="p-4 text-gray-600">${commonTokens.toLocaleString()}</td>
             <td class="p-4">
-                <div class="flex gap-1">${connections.join('') || '<span class="text-gray-400 text-xs italic">None</span>'}</div>
+                <div class="flex flex-wrap gap-1">${connections.join('') || '<span class="text-gray-400 text-xs italic">None</span>'}</div>
             </td>
             <td class="p-4 text-right flex justify-end items-center gap-4">
                 <button onclick="addTokens('${u.username}')" class="text-xs bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 px-3 py-1 rounded transition">+50k Tokens</button>

@@ -550,6 +550,7 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             "completed_micro_steps", "push_subscriptions", "push_tokens", 
             "garmin_health_data", "user_titles", "athlete_niggles", "bonus_points", 
             "recurring_trainings", "benchmark_tests", "athlete_zones", "strava_tokens", 
+            "suunto_tokens", "suunto_guides",
             "discount_redemptions", "user_discounts", "user_milestone_history", 
             "user_feature_onboarding", "password_resets", "athlete_facts"
         ];
