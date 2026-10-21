@@ -222,7 +222,9 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
             localStorage.setItem('nana_token', data.token);
             document.getElementById('loginModal').classList.add('hidden');
             fetchUsage();
+            fetchTokenStats();
             fetchDiscounts();
+            fetchLiveSessions();
         } else {
             err.innerText = data.error || 'Login failed';
             err.classList.remove('hidden');
@@ -778,9 +780,189 @@ async function showLiveAddress() {
     showLiveMessage(`LiveTrack address for user ${userId}: ${data.address}`);
 }
 
+/* ===========================================================================
+ * Token Usage: Paid vs. Free (Cached) Graph
+ * ======================================================================== */
+
+let currentTokenRangeDays = 30;
+let lastTokenStatsDays = [];
+
+function compactTokens(n) {
+    const val = Number(n) || 0;
+    if (val >= 1000000) return `${(val / 1000000).toFixed(2).replace(/\.00$/, '')}M`;
+    if (val >= 10000) return `${Math.round(val / 1000)}k`;
+    if (val >= 1000) return `${(val / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+    return val.toLocaleString();
+}
+
+function setTokenStatsRange(days) {
+    currentTokenRangeDays = days;
+    document.querySelectorAll('#tokenRangeBtns .range-btn').forEach((btn) => {
+        btn.classList.toggle('active', Number(btn.getAttribute('data-days')) === days);
+    });
+    document.querySelectorAll('.token-range-label').forEach((el) => {
+        el.textContent = `${days}d`;
+    });
+    fetchTokenStats();
+}
+
+async function fetchTokenStats() {
+    const token = localStorage.getItem('nana_token');
+    if (!token) return;
+
+    try {
+        const response = await fetch(`/api/admin/token-stats?days=${currentTokenRangeDays}`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        renderTokenStats(data);
+    } catch (e) {
+        console.error('Could not load token stats:', e);
+        const container = document.getElementById('tokenChartContainer');
+        if (container) {
+            container.innerHTML = '<div class="p-8 text-center text-red-600 text-sm">Could not load token usage chart.</div>';
+        }
+    }
+}
+
+function renderTokenStats(data) {
+    const today = data?.today || { total_tokens: 0, paid_tokens: 0, free_tokens: 0, request_count: 0, cache_hit_count: 0, savings_pct: 0 };
+    const totals = data?.totals || { total_tokens: 0, paid_tokens: 0, free_tokens: 0, request_count: 0, cache_hit_count: 0, savings_pct: 0 };
+    const days = Array.isArray(data?.days) ? data.days : [];
+    lastTokenStatsDays = days;
+
+    // 1. Today's Live Breakdown Bar
+    const todayTotal = today.total_tokens || 0;
+    const paidPct = todayTotal > 0 ? Math.max(0, Math.min(100, (today.paid_tokens / todayTotal) * 100)) : 0;
+    const freePct = todayTotal > 0 ? Math.max(0, Math.min(100 - paidPct, (today.free_tokens / todayTotal) * 100)) : 0;
+
+    const barPaid = document.getElementById('tokenTodayBarPaid');
+    const barFree = document.getElementById('tokenTodayBarFree');
+    if (barPaid) barPaid.style.width = `${paidPct.toFixed(1)}%`;
+    if (barFree) barFree.style.width = `${freePct.toFixed(1)}%`;
+
+    const elTodayPaid = document.getElementById('tokenTodayPaid');
+    const elTodayFree = document.getElementById('tokenTodayFree');
+    const elTodaySummary = document.getElementById('tokenTodaySummary');
+    const elTodayMeta = document.getElementById('tokenTodayMeta');
+
+    if (elTodayPaid) elTodayPaid.textContent = (today.paid_tokens || 0).toLocaleString();
+    if (elTodayFree) elTodayFree.textContent = (today.free_tokens || 0).toLocaleString();
+    if (elTodaySummary) {
+        elTodaySummary.innerHTML = todayTotal > 0
+            ? `<span class="text-gray-900">${todayTotal.toLocaleString()} total</span> &middot; <span class="text-blue-600">${paidPct.toFixed(1)}% paid</span> / <span class="text-green-600">${freePct.toFixed(1)}% free</span>`
+            : `<span class="text-gray-400">No tokens recorded yet today</span>`;
+    }
+    if (elTodayMeta) {
+        const hitRate = today.request_count > 0 ? Math.round((today.cache_hit_count / today.request_count) * 100) : 0;
+        elTodayMeta.innerHTML = `${(today.request_count || 0).toLocaleString()} AI calls (${hitRate}% cache hit) &middot; <strong>${today.savings_pct || 0}%</strong> saved today`;
+    }
+
+    // 2. Period Summary Cards
+    const elPeriodPaid = document.getElementById('tokenPeriodPaid');
+    const elPeriodFree = document.getElementById('tokenPeriodFree');
+    const elPeriodSavings = document.getElementById('tokenPeriodSavings');
+    const elPeriodPaidSub = document.getElementById('tokenPeriodPaidSub');
+    const elPeriodFreeSub = document.getElementById('tokenPeriodFreeSub');
+    const elPeriodReqSub = document.getElementById('tokenPeriodRequestsSub');
+
+    if (elPeriodPaid) elPeriodPaid.textContent = (totals.paid_tokens || 0).toLocaleString();
+    if (elPeriodFree) elPeriodFree.textContent = (totals.free_tokens || 0).toLocaleString();
+    if (elPeriodSavings) elPeriodSavings.textContent = `${totals.savings_pct || 0}%`;
+    if (elPeriodPaidSub) elPeriodPaidSub.textContent = `Out of ${(totals.total_tokens || 0).toLocaleString()} total tokens processed`;
+    if (elPeriodFreeSub) elPeriodFreeSub.textContent = `${(totals.cached_tokens || 0).toLocaleString()} cached input tokens (90% off)`;
+    if (elPeriodReqSub) {
+        const periodHitRate = totals.request_count > 0 ? Math.round((totals.cache_hit_count / totals.request_count) * 100) : 0;
+        elPeriodReqSub.textContent = `${(totals.request_count || 0).toLocaleString()} AI calls (${periodHitRate}% hit cache)`;
+    }
+
+    // 3. Daily Stacked Bar Chart (SVG)
+    const container = document.getElementById('tokenChartContainer');
+    if (!container) return;
+
+    const maxTotal = Math.max(1000, ...days.map((d) => d.total_tokens || 0));
+    const svgWidth = 920;
+    const svgHeight = 250;
+    const padLeft = 56;
+    const padRight = 16;
+    const padTop = 16;
+    const padBottom = 36;
+    const plotWidth = svgWidth - padLeft - padRight;
+    const plotHeight = svgHeight - padTop - padBottom;
+
+    const n = Math.max(1, days.length);
+    const slotWidth = plotWidth / n;
+    const barWidth = Math.max(3, Math.min(28, Math.floor(slotWidth * 0.72)));
+
+    // Horizontal grid lines (0%, 25%, 50%, 75%, 100%)
+    const gridSteps = [0, 0.25, 0.5, 0.75, 1];
+    const gridSvg = gridSteps.map((step) => {
+        const y = padTop + plotHeight * (1 - step);
+        const val = Math.round(maxTotal * step);
+        return `
+            <line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${svgWidth - padRight}" y2="${y.toFixed(1)}" stroke="#e5e7eb" stroke-dasharray="${step === 0 ? 'none' : '3,3'}" stroke-width="1" />
+            <text x="${padLeft - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="#6b7280" font-size="11">${compactTokens(val)}</text>
+        `;
+    }).join('');
+
+    const labelStep = n <= 10 ? 1 : n <= 35 ? 3 : 10;
+
+    const barsSvg = days.map((d, i) => {
+        const xCenter = padLeft + i * slotWidth + slotWidth / 2;
+        const x = xCenter - barWidth / 2;
+        const paid = d.paid_tokens || 0;
+        const free = d.free_tokens || 0;
+        const total = paid + free;
+
+        const paidH = total > 0 ? (paid / maxTotal) * plotHeight : 0;
+        const freeH = total > 0 ? (free / maxTotal) * plotHeight : 0;
+
+        const yPaid = padTop + plotHeight - paidH;
+        const yFree = yPaid - freeH;
+
+        const shortDate = d.date ? d.date.slice(5) : ''; // MM-DD
+        const showLabel = i === n - 1 || i === 0 || (n - 1 - i) % labelStep === 0;
+        const savingsPct = total > 0 ? ((free / total) * 100).toFixed(1) : '0.0';
+        const tooltip = `${d.date}: Total ${total.toLocaleString()} | Paid ${paid.toLocaleString()} | Free (Cached) ${free.toLocaleString()} (${savingsPct}% saved)`;
+
+        return `
+            <g class="token-bar-group cursor-pointer" onmouseenter="showTokenDayHover(${i})" onclick="showTokenDayHover(${i})">
+                <title>${esc(tooltip)}</title>
+                <rect x="${(xCenter - slotWidth / 2).toFixed(1)}" y="${padTop}" width="${slotWidth.toFixed(1)}" height="${plotHeight}" fill="transparent" />
+                ${total === 0
+                    ? `<rect x="${x.toFixed(1)}" y="${(padTop + plotHeight - 2).toFixed(1)}" width="${barWidth}" height="2" fill="#d1d5db" rx="1" />`
+                    : `
+                        ${paidH > 0 ? `<rect x="${x.toFixed(1)}" y="${yPaid.toFixed(1)}" width="${barWidth}" height="${Math.max(1.5, paidH).toFixed(1)}" fill="#2563eb" rx="1.5" />` : ''}
+                        ${freeH > 0 ? `<rect x="${x.toFixed(1)}" y="${yFree.toFixed(1)}" width="${barWidth}" height="${Math.max(1.5, freeH).toFixed(1)}" fill="#16a34a" rx="1.5" />` : ''}
+                    `
+                }
+                ${showLabel ? `<text x="${xCenter.toFixed(1)}" y="${svgHeight - 12}" text-anchor="middle" fill="#6b7280" font-size="10">${esc(shortDate)}</text>` : ''}
+            </g>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <svg viewBox="0 0 ${svgWidth} ${svgHeight}" class="w-full" style="min-width: 580px; height: auto; display: block;">
+            ${gridSvg}
+            ${barsSvg}
+        </svg>
+    `;
+}
+
+function showTokenDayHover(index) {
+    const d = lastTokenStatsDays[index];
+    const info = document.getElementById('tokenChartHoverInfo');
+    if (!d || !info) return;
+    const total = (d.paid_tokens || 0) + (d.free_tokens || 0);
+    const savingsPct = total > 0 ? ((d.free_tokens / total) * 100).toFixed(1) : '0.0';
+    info.innerHTML = `<strong>${esc(d.date)}</strong> &mdash; Total: <strong class="text-gray-900">${total.toLocaleString()}</strong> &middot; <span class="text-blue-600 font-semibold">Paid: ${(d.paid_tokens || 0).toLocaleString()}</span> &middot; <span class="text-green-600 font-semibold">Free (Cached): ${(d.free_tokens || 0).toLocaleString()}</span> (${savingsPct}% saved across ${(d.request_count || 0).toLocaleString()} calls)`;
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', () => {
     fetchUsage();
+    fetchTokenStats();
     fetchDiscounts();
     fetchLiveSessions();
 });

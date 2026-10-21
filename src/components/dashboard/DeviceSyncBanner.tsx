@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
-import { useUser } from '../../context/UserStore';
+import { useActivitySources } from '../../hooks/useActivitySources';
 import { IntegrationsSheet } from '../integrations/IntegrationsSheet';
 
 const DISMISS_KEY = '@rooka_device_sync_banner_dismissed_until';
@@ -18,18 +19,11 @@ interface DeviceSyncBannerProps {
 
 export const DeviceSyncBanner: React.FC<DeviceSyncBannerProps> = ({ className = 'mx-4 my-2' }) => {
   const theme = useTheme();
-  const { user } = useUser();
   const { t } = useLanguage();
+  const { hasActivitySource: isConnected } = useActivitySources();
 
   const [isDismissed, setIsDismissed] = useState(true); // default hidden until checked
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-
-  const isConnected = !!(
-    user?.garmin_connected ||
-    (user as any)?.garmin_username ||
-    user?.strava_connected ||
-    (user as any)?.strava_athlete_id
-  );
 
   useEffect(() => {
     let mounted = true;
@@ -98,21 +92,26 @@ export const DeviceSyncBanner: React.FC<DeviceSyncBannerProps> = ({ className = 
         </View>
 
         <Text className="text-[11px] text-theme-muted mt-1.5 leading-relaxed">
-          {t('onboarding.syncSmartwatchSubtitle')}
+          {Platform.OS === 'ios' ? t('onboarding.syncSmartwatchSubtitleIos') : t('onboarding.syncSmartwatchSubtitle')}
         </Text>
 
         <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-theme-border/40">
           <View className="flex-row items-center gap-1.5">
             <View className="w-2 h-2 rounded-full bg-theme-accent" />
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
-              Strava · Garmin
+              {Platform.OS === 'ios' ? 'Apple Health · Strava · Garmin' : 'Strava · Garmin'}
             </Text>
           </View>
 
           <Pressable
             onPress={() => {
               Haptics.selectionAsync();
-              setIsSheetOpen(true);
+              // Apple Health is set up under Connections; the sheet only covers Strava and Garmin.
+              if (Platform.OS === 'ios') {
+                router.navigate({ pathname: '/(tabs)/profile', params: { subtab: 'connections' } });
+              } else {
+                setIsSheetOpen(true);
+              }
             }}
             className="px-3 py-1.5 bg-theme-accent-strong rounded-button flex-row items-center gap-1.5"
           >

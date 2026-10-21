@@ -460,6 +460,13 @@ export default function PlanningHomeScreen() {
     allActiveWorkouts.reduce((sum, w) => sum + (w.rookaPoints || 0), 0)
   );
   const progressPct = totalPlannedCount > 0 ? Math.round((doneCount / totalPlannedCount) * 100) : 0;
+  // Same rule as the Home week dots: a past day with a session that wasn't done.
+  const weekHasMissed = weeklyAgenda.some(
+    (d) =>
+      d.isPast &&
+      !d.isToday &&
+      d.workouts.some((w) => String(w.type).toUpperCase() !== 'REST' && !w.isCompleted)
+  );
 
   useEffect(() => {
     if (pendingSelectIndexRef.current !== null) {
@@ -946,6 +953,7 @@ export default function PlanningHomeScreen() {
                         onSendWorkoutToDevice={handleSendSingleWorkout}
                         canEdit={canEdit}
                         onUpgradePress={() => presentPaywall()}
+                        weekHasMissed={weekHasMissed}
                       />
                     );
                   })()}

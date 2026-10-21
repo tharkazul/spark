@@ -1392,7 +1392,11 @@ export default function CoachScreen() {
                       if (upper === 'WALK') return t('sports.walk', 'Walk');
                       if (upper === 'REST') return t('common.restDay', 'Rest Day');
                       return primaryWorkout.sport;
-                    })()}${primaryWorkoutDuration ? `, ${primaryWorkoutDuration} min` : ''}`
+                    })()}${
+                      primaryWorkoutDuration && (primaryWorkout.sport || '').toUpperCase() !== 'REST'
+                        ? `, ${primaryWorkoutDuration} min`
+                        : ''
+                    }`
                   : t('common.restDay', 'Rest Day')}
               </Text>
               {primaryWorkout?.target_rooka ? (

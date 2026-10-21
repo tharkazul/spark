@@ -60,6 +60,8 @@ interface DetailedDayCardProps {
   onSendWorkoutToDevice?: (workout: WorkoutItem) => void;
   canEdit?: boolean;
   onUpgradePress?: () => void;
+  /** A session earlier this week was missed, so today's rest can't be called "on track". */
+  weekHasMissed?: boolean;
 }
 
 
@@ -88,6 +90,7 @@ export function DetailedDayCard({
   onSendWorkoutToDevice,
   canEdit = true,
   onUpgradePress,
+  weekHasMissed = false,
 }: DetailedDayCardProps) {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const { t } = useLanguage();
@@ -105,6 +108,7 @@ export function DetailedDayCard({
   const isRestExecuted = isRestDay && hasPlannedRest && Boolean(day.isPast) && !day.isToday;
   // Today's rest is still in progress: show a neutral "on track" state instead of a green check.
   const isRestToday = isRestDay && Boolean(day.isToday);
+  const showRestOnTrack = isRestToday && !weekHasMissed;
 
   // Primary active workout for collapsed summary
   const primaryWorkout = activeWorkouts[0];
@@ -148,7 +152,7 @@ export function DetailedDayCard({
                     </Text>
                   </View>
                 )}
-                {isRestToday && (
+                {showRestOnTrack && (
                   <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
                     <Ionicons name="time-outline" size={10} color="#0EA5E9" />
                     <Text className="text-[9px] font-extrabold text-theme-accent">
@@ -317,7 +321,7 @@ export function DetailedDayCard({
                 </Text>
               </View>
             )}
-            {isRestToday && (
+            {showRestOnTrack && (
               <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
                 <Ionicons name="time-outline" size={11} color="#0EA5E9" />
                 <Text className="text-[10px] font-extrabold text-theme-accent">
@@ -511,7 +515,8 @@ export function DetailedDayCard({
                     size="sm"
                     className="flex-1"
                     label={t('common.edit', 'Edit')}
-                    rightIcon={!canEdit ? <RookaPlusBadge /> : undefined}
+                    // A lock instead of the ROOKA+ pill: the pill doesn't fit a third-width button.
+                    leftIcon={<Ionicons name={canEdit ? 'create-outline' : 'lock-closed-outline'} size={13} color="#0EA5E9" />}
                     onPress={() => {
                       if (!canEdit) {
                         onUpgradePress?.();

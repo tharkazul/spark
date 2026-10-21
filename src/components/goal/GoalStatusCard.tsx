@@ -6,6 +6,7 @@ import Svg, { Circle, Defs, Line, LinearGradient, Polygon, Polyline, Stop, Text 
 import { Card } from '../ui/Card';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
+import { useActivitySources } from '../../hooks/useActivitySources';
 import { GoalStatusKind, RaceStatus, Season, TrendPoint } from '../../types/season';
 import { PHASE_COLORS, formatHours, formatRaceTime, phaseLabel } from './seasonFormat';
 
@@ -77,6 +78,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 export function GoalStatusCard({ status, season }: { status: RaceStatus | null; season: Season }) {
   const { t } = useLanguage();
   const theme = useTheme();
+  const { hasActivitySource } = useActivitySources();
   const current = season.currentWeek;
   const style = STATUS_STYLE[status?.status || 'building'];
 
@@ -100,7 +102,11 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
     notes.push({ icon: 'heart-outline', text: t('goal.note_timeLimited', { cap: unit === 'km' ? `${Math.round(cap)} km` : `${formatHours(cap)} h` }) });
   }
   if (status?.shortBuild) notes.push({ icon: 'time-outline', text: t('goal.note_shortBuild') });
-  if (season.flags?.estimatedStart) notes.push({ icon: 'information-circle-outline', text: t('goal.note_estimatedStart') });
+  if (season.flags?.estimatedStart) {
+    // Connected but nothing synced yet: asking to connect again only confuses.
+    const key = hasActivitySource ? 'goal.note_estimatedStartConnected' : 'goal.note_estimatedStart';
+    notes.push({ icon: 'information-circle-outline', text: t(key) });
+  }
 
   return (
     <Card>

@@ -112,6 +112,11 @@ export const userApi = {
       }),
       skipAuthInterceptor: true,
     }),
+  updateLanguage: (language: string) =>
+    apiClient<{ success: boolean; language: string }>('/api/user/settings/language', {
+      method: 'POST',
+      body: JSON.stringify({ language }),
+    }),
   updateAccountDetails: (data: { email?: string; username?: string }) =>
     apiClient<{ success: boolean; message: string }>('/api/user/settings/account', {
       method: 'POST',

@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { DeviceEventEmitter, Platform } from 'react-native';
 import { translate as tr } from '../locales/i18n';
 import { requireOptionalNativeModule } from 'expo';
 import type ReactNativeWorkouts from 'react-native-workouts';
@@ -191,14 +191,21 @@ export async function getScheduledWatchSummary(): Promise<{ count: number; next:
   try {
     const scheduled = await kit.getScheduledWorkouts();
     const now = Date.now();
-    const dates = scheduled
-      .map((w: any) => {
-        const d = w.date || {};
-        if (!d.year || !d.month || !d.day) return null;
-        return new Date(d.year, d.month - 1, d.day, d.hour ?? 0, d.minute ?? 0);
-      })
-      .filter((d: Date | null): d is Date => d !== null && d.getTime() >= now - 60000)
-      .sort((a: Date, b: Date) => a.getTime() - b.getTime());
+    const dates: Date[] = [];
+    for (const w of scheduled as any[]) {
+      const d = w.date || {};
+      if (!d.year || !d.month || !d.day) {
+        // Purge any dateless entry left over from unpatched Expo SDK 57 JSI builds;
+        // watchOS ignores scheduled workouts without calendar date components.
+        if (w.id) void kit.removeScheduledWorkout(w.id).catch(() => {});
+        continue;
+      }
+      const at = new Date(d.year, d.month - 1, d.day, d.hour ?? 0, d.minute ?? 0);
+      if (at.getTime() >= now - 60000) {
+        dates.push(at);
+      }
+    }
+    dates.sort((a, b) => a.getTime() - b.getTime());
     return { count: dates.length, next: dates[0] || null };
   } catch (err) {
     console.log('[WorkoutKit] could not read scheduled workouts:', describeError(err));
@@ -550,6 +557,15 @@ async function readScheduledMap(): Promise<Record<string, string>> {
 }
 
 /** Removes past rooka workouts and the earlier copy of this one, keeping room under Apple's limit. */
+/** A scheduled entry's day, or null when iOS didn't hand back a full date. */
+const fullDateKey = (d: any) => (d && d.year && d.month && d.day ? dateKeyOf(d) : null);
+
+/**
+ * Makes room before scheduling: removes rooka workouts from past days and, at
+ * Apple's limit, the furthest-out ones. The earlier copy of this same workout is
+ * left alone here; schedule() removes it only once the new copy is confirmed, so a
+ * failed resend can never leave the Watch without it.
+ */
 async function makeRoomOnWatch(workoutKey: string): Promise<void> {
   const kit = getWorkoutKit();
   if (!kit) return;
@@ -559,12 +575,15 @@ async function makeRoomOnWatch(workoutKey: string): Promise<void> {
     const today = localDateKey(new Date());
     const remove = new Set<string>();
     scheduled.forEach((w: any) => {
-      if (dateKeyOf(w.date || {}) < today) remove.add(w.id);
+      // Remove past entries as well as any corrupted dateless entries from older builds.
+      const key = fullDateKey(w.date);
+      if (!key || key < today) remove.add(w.id);
     });
-    if (map[workoutKey]) remove.add(map[workoutKey]);
-    // Still full: drop the ones furthest in the future (the plan will change before then anyway).
-    const kept = scheduled.filter((w: any) => !remove.has(w.id)).sort((a: any, b: any) => (dateKeyOf(a.date || {}) < dateKeyOf(b.date || {}) ? -1 : 1));
-    while (kept.length >= WATCH_SCHEDULE_LIMIT) remove.add(kept.pop()!.id);
+    // Still full (counting the copy that is about to be replaced): drop the furthest-out ones.
+    const kept = scheduled
+      .filter((w: any) => !remove.has(w.id) && w.id !== map[workoutKey])
+      .sort((a: any, b: any) => ((fullDateKey(a.date) || '9') < (fullDateKey(b.date) || '9') ? -1 : 1));
+    while (kept.length >= WATCH_SCHEDULE_LIMIT - 1) remove.add(kept.pop()!.id);
     for (const id of remove) {
       await kit.removeScheduledWorkout(id).catch(() => {});
     }
@@ -592,8 +611,12 @@ async function schedule(
       return { success: false, message: tr('appleHealthMsgs.watchNotAccepted') };
     }
     const map = await readScheduledMap();
+    // The new copy is in: only now does the earlier copy of this workout go.
+    const previous = map[workoutKey];
+    if (previous && previous !== result.id) await kit.removeScheduledWorkout(previous).catch(() => {});
     map[workoutKey] = result.id;
     await AsyncStorage.setItem(WATCH_SCHEDULED_KEY, JSON.stringify(map)).catch(() => {});
+    DeviceEventEmitter.emit('watchScheduleChanged');
     return {
       success: true,
       degraded,

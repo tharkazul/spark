@@ -40,7 +40,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     await languageStorage.setLanguage(lang);
     if (getAuthToken()) {
       try {
-        await userApi.updateSettings({ language: lang } as any);
+        await userApi.updateLanguage(lang);
       } catch (e) {
         // Ignore network errors or unauthenticated state
       }

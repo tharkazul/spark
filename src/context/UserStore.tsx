@@ -119,13 +119,18 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { language, setLanguage } = useLanguage();
 
   // Adopt the language saved on the account (e.g. after reinstalling or signing in on a new
-  // device) unless the athlete already picked a language on this device.
+  // device) unless the athlete already picked a language on this device. In that case the
+  // device choice wins and the account is brought in line, since the server writes plans,
+  // coach messages and pushes in the account's language.
   const serverLanguage = (user as any)?.language;
   useEffect(() => {
     if (!isLanguage(serverLanguage) || serverLanguage === language) return;
     (async () => {
       const saved = await languageStorage.getLanguage();
       if (!saved) await setLanguage(serverLanguage);
+      else if (isLanguage(saved) && saved !== serverLanguage) {
+        await userApi.updateLanguage(saved).catch(() => {});
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverLanguage]);

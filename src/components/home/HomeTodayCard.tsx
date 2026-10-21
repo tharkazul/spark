@@ -51,10 +51,12 @@ export function HomeTodayCard({
   const sessions = (today?.workouts || []).filter((w) => !isRest(w.type));
   const tomorrowSessions = (tomorrow?.workouts || []).filter((w) => !isRest(w.type));
   const tomorrowFirst = tomorrowSessions[0];
+  const tomorrowDuration = tomorrowFirst ? formatDuration(calculateWorkoutDurationMinutes(tomorrowFirst)) : '';
   const tomorrowSummary = tomorrowFirst
     ? [
         tomorrowFirst.title,
-        formatDuration(calculateWorkoutDurationMinutes(tomorrowFirst)),
+        // Plan titles often already lead with it ("40 min Easy Run").
+        (tomorrowFirst.title || '').includes(tomorrowDuration) ? null : tomorrowDuration,
         tomorrowSessions.length > 1 ? t('home.tomorrowMore', { count: tomorrowSessions.length - 1 }) : null,
       ]
         .filter(Boolean)

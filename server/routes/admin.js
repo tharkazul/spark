@@ -112,6 +112,114 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
   });
 });
 
+router.get("/api/admin/token-stats", authenticateToken, (req, res) => {
+  const { getAMSDateString } = require("../services/utils");
+  const requestedDays = parseInt(req.query.days, 10);
+  const numDays = [7, 30, 90].includes(requestedDays) ? requestedDays : 30;
+  const todayStr = getAMSDateString();
+
+  const dateList = [];
+  const baseDate = new Date(`${todayStr}T12:00:00Z`);
+  for (let i = numDays - 1; i >= 0; i--) {
+    const d = new Date(baseDate.getTime() - i * 86400000);
+    dateList.push(d.toISOString().slice(0, 10));
+  }
+  const startDate = dateList[0];
+
+  db.all(
+    `SELECT date, total_tokens, paid_tokens, free_tokens, cached_tokens,
+            uncached_input_tokens, output_tokens, request_count, cache_hit_count
+       FROM token_usage_daily
+      WHERE date >= ? AND date <= ?
+      ORDER BY date ASC`,
+    [startDate, todayStr],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+
+      db.get(
+        `SELECT COALESCE(SUM(COALESCE(daily_token_usage, 0) + COALESCE(common_token_usage, 0)), 0) AS live_paid_today
+           FROM users
+          WHERE last_token_reset_date = ? AND deleted_at IS NULL`,
+        [todayStr],
+        (uErr, uRow) => {
+          const livePaidToday = !uErr && uRow ? Number(uRow.live_paid_today) || 0 : 0;
+          const byDate = new Map((rows || []).map((r) => [r.date, r]));
+
+          const days = dateList.map((date) => {
+            const r = byDate.get(date) || {};
+            let paid = Number(r.paid_tokens) || 0;
+            const free = Number(r.free_tokens) || 0;
+            if (date === todayStr && livePaidToday > paid) {
+              paid = livePaidToday;
+            }
+            const total = Math.max(Number(r.total_tokens) || 0, paid + free);
+            return {
+              date,
+              total_tokens: total,
+              paid_tokens: paid,
+              free_tokens: free,
+              cached_tokens: Number(r.cached_tokens) || 0,
+              uncached_input_tokens: Number(r.uncached_input_tokens) || 0,
+              output_tokens: Number(r.output_tokens) || 0,
+              request_count: Number(r.request_count) || 0,
+              cache_hit_count: Number(r.cache_hit_count) || 0,
+            };
+          });
+
+          const todayEntry = days[days.length - 1] || {
+            date: todayStr,
+            total_tokens: 0,
+            paid_tokens: 0,
+            free_tokens: 0,
+            cached_tokens: 0,
+            request_count: 0,
+            cache_hit_count: 0,
+          };
+
+          const totals = days.reduce(
+            (acc, d) => {
+              acc.total_tokens += d.total_tokens;
+              acc.paid_tokens += d.paid_tokens;
+              acc.free_tokens += d.free_tokens;
+              acc.cached_tokens += d.cached_tokens;
+              acc.request_count += d.request_count;
+              acc.cache_hit_count += d.cache_hit_count;
+              return acc;
+            },
+            {
+              total_tokens: 0,
+              paid_tokens: 0,
+              free_tokens: 0,
+              cached_tokens: 0,
+              request_count: 0,
+              cache_hit_count: 0,
+            },
+          );
+
+          res.json({
+            rangeDays: numDays,
+            today: {
+              ...todayEntry,
+              savings_pct:
+                todayEntry.total_tokens > 0
+                  ? Math.round((todayEntry.free_tokens / todayEntry.total_tokens) * 1000) / 10
+                  : 0,
+            },
+            totals: {
+              ...totals,
+              savings_pct:
+                totals.total_tokens > 0
+                  ? Math.round((totals.free_tokens / totals.total_tokens) * 1000) / 10
+                  : 0,
+            },
+            days,
+          });
+        },
+      );
+    },
+  );
+});
+
 router.post("/api/admin/add-tokens", authenticateToken, (req, res) => {
   const { targetUsername } = req.body;
   if (!targetUsername) return res.status(400).json({ error: "Missing username" });

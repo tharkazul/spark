@@ -42,62 +42,33 @@ export function HomeWeekHero({ week, streak, season, bodyGoal, onPressDay, onPre
   const goalDays = season ? season.daysToRace : bodyDays;
   const showGoal = Boolean(goalName && goalDays !== null && goalDays !== undefined && goalDays > 0);
 
-  const plannedSports = new Set(sessions.map((w) => normalizeSportType(w.type || w.sport)));
-  const hasPlannedRun = plannedSports.has('RUN');
-  const hasPlannedBike = plannedSports.has('BIKE');
-
-  const weekTargets = (() => {
-    if (!current) return null;
-
+  // What this week's plan actually holds. This used to show the season's target
+  // volume, which differs from the sessions planned and, next to "0 / 4 done",
+  // read as hours already trained. The target stays on the Goal tab.
+  const weekPlanned = (() => {
+    let plannedMins = 0;
     let longestMins = 0;
     let longestSport = 'OTHER';
     for (const w of sessions) {
       const mins = calculateWorkoutDurationMinutes(w);
+      plannedMins += mins;
       if (mins > longestMins) {
         longestMins = mins;
         longestSport = normalizeSportType(w.type || w.sport);
       }
     }
-
-    // If the season target is in running km, but no runs are planned this week
-    // (e.g. bike/swim cross-training week), summarize the actual planned sessions.
-    if (current.unit === 'km' && !hasPlannedRun) {
-      if (sessions.length === 0) return null;
-      const totalMins = sessions.reduce((sum, w) => sum + calculateWorkoutDurationMinutes(w), 0);
-      const parts = [formatVolume(totalMins, 'min')];
-      if (longestMins > 0) {
-        parts.push(
-          formatLongSession(t, {
-            sport: longestSport === 'BIKE' ? 'Bike' : 'Any',
-            unit: 'min',
-            value: longestMins,
-          })
-        );
-      }
-      return parts.join(' · ');
+    if (plannedMins <= 0) return null;
+    const parts = [formatVolume(plannedMins, 'min')];
+    if (sessions.length > 1) {
+      parts.push(
+        formatLongSession(t, {
+          sport: longestSport === 'BIKE' ? 'Bike' : longestSport === 'RUN' ? 'Run' : 'Any',
+          unit: 'min',
+          value: longestMins,
+        })
+      );
     }
-
-    const validLongs = current.longSessions.filter((l) => {
-      if (!(l.value > 0)) return false;
-      if (l.sport === 'Run') return hasPlannedRun;
-      if (l.sport === 'Bike') return hasPlannedBike;
-      return sessions.length > 0;
-    });
-
-    const longParts =
-      validLongs.length > 0
-        ? validLongs.map((l) => formatLongSession(t, l))
-        : longestMins > 0
-          ? [
-              formatLongSession(t, {
-                sport: longestSport === 'BIKE' ? 'Bike' : longestSport === 'RUN' ? 'Run' : 'Any',
-                unit: 'min',
-                value: longestMins,
-              }),
-            ]
-          : [];
-
-    return [formatVolume(current.volume, current.unit), ...longParts].join(' · ');
+    return parts.join(' · ');
   })();
 
   return (
@@ -140,9 +111,9 @@ export function HomeWeekHero({ week, streak, season, bodyGoal, onPressDay, onPre
             </Text>
           </Text>
           <Text className="text-xs font-semibold text-white/80">{t('home.heroSessionsDone')}</Text>
-          {weekTargets && (
+          {weekPlanned && (
             <Text className="text-[11px] font-semibold text-white/80 mt-0.5" numberOfLines={1}>
-              {t('home.heroTargets', { targets: weekTargets })}
+              {t('home.heroPlanned', { planned: weekPlanned })}
             </Text>
           )}
         </View>

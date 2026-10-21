@@ -24,6 +24,50 @@ const GEMINI_HTTP_OPTIONS = { retryOptions: { attempts: 2 } };
 // Cached input tokens are billed at 10% of the normal input price.
 const CACHED_INPUT_PRICE_RATIO = 0.1;
 
+function recordDailyTokenUsage(usage) {
+  if (!usage) return;
+  const totalTokens = usage.totalTokenCount || 0;
+  if (totalTokens <= 0) return;
+
+  const cachedTokens = usage.cachedContentTokenCount || 0;
+  const paidTokens = Math.round(
+    totalTokens - (1 - CACHED_INPUT_PRICE_RATIO) * cachedTokens,
+  );
+  const freeTokens = Math.max(0, totalTokens - paidTokens);
+  const uncachedInputTokens = Math.max(0, (usage.promptTokenCount || 0) - cachedTokens);
+  const outputTokens = (usage.candidatesTokenCount || 0) + (usage.thoughtsTokenCount || 0);
+  const cacheHit = cachedTokens > 0 ? 1 : 0;
+  const dateStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Amsterdam" });
+
+  db.run(
+    `INSERT INTO token_usage_daily (
+      date, total_tokens, paid_tokens, free_tokens, cached_tokens,
+      uncached_input_tokens, output_tokens, request_count, cache_hit_count, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(date) DO UPDATE SET
+      total_tokens = total_tokens + excluded.total_tokens,
+      paid_tokens = paid_tokens + excluded.paid_tokens,
+      free_tokens = free_tokens + excluded.free_tokens,
+      cached_tokens = cached_tokens + excluded.cached_tokens,
+      uncached_input_tokens = uncached_input_tokens + excluded.uncached_input_tokens,
+      output_tokens = output_tokens + excluded.output_tokens,
+      request_count = request_count + 1,
+      cache_hit_count = cache_hit_count + excluded.cache_hit_count,
+      updated_at = CURRENT_TIMESTAMP`,
+    [
+      dateStr,
+      totalTokens,
+      paidTokens,
+      freeTokens,
+      cachedTokens,
+      uncachedInputTokens,
+      outputTokens,
+      cacheHit,
+    ],
+    () => {},
+  );
+}
+
 // The fallback chain below moves on when a model *errors*, but a request that
 // simply never answers used to hang the whole call forever - and everything
 // awaiting it with it. Bounding each attempt turns a stall into just another
@@ -193,6 +237,7 @@ async function generateWithFallback(
         console.log(
           `🪙 Tokens Used -> Input: ${usage.promptTokenCount} (cached: ${cachedTokens}) | Output: ${usage.candidatesTokenCount} | Thinking: ${usage.thoughtsTokenCount || 0} | Total: ${usage.totalTokenCount} | Charged: ${chargedTokens}`,
         );
+        recordDailyTokenUsage(usage);
         if (userId) {
           const columnToUpdate = poolType === "common" ? "common_token_usage" : "daily_token_usage";
           db.run(
@@ -253,6 +298,9 @@ async function generateImage(prompt, options = {}) {
           },
         });
 
+        if (result?.usageMetadata) {
+          recordDailyTokenUsage(result.usageMetadata);
+        }
         const candidate = result.candidates?.[0];
         for (const part of candidate?.content?.parts || []) {
           if (part.inlineData && part.inlineData.data) {
@@ -320,6 +368,9 @@ Rules:
           ],
         });
 
+        if (response?.usageMetadata) {
+          recordDailyTokenUsage(response.usageMetadata);
+        }
         const text = (response.text || "").trim();
         console.log(`✅ Audio transcription complete: "${text}"`);
         return text;

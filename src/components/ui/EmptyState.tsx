@@ -351,10 +351,7 @@ export function EmptyState({
 
       {/* Educational Context Subtitle */}
       {Boolean(subtitle) && (
-        <Text
-          numberOfLines={2}
-          className="text-sm text-theme-muted text-center mt-1 px-4 leading-relaxed max-w-[280px]"
-        >
+        <Text className="text-sm text-theme-muted text-center mt-1 px-4 leading-relaxed max-w-[280px]">
           {subtitle}
         </Text>
       )}

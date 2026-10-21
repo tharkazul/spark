@@ -277,7 +277,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         const wkStatus = await getWorkoutKitAuthorizationStatus();
         if (wkStatus === 'authorized' && Array.isArray(plan) && plan.length > 0 && typeof syncUpcomingWorkoutsToAppleWatch === 'function') {
           const watchRes = await syncUpcomingWorkoutsToAppleWatch(plan as any);
-          watchPushCount = watchRes.synced || 0;
+          watchPushCount = watchRes.syncedCount || 0;
         }
       } catch (watchErr) {
         console.warn('Apple Watch workout push during health sync failed:', watchErr);
@@ -475,12 +475,14 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <View className="flex-row items-center gap-1.5">
                 <Ionicons name="watch-outline" size={12} color={theme.textSecondary} />
                 <Text className="text-[11px] text-theme-muted">
-                  {watchSummary.count > 0 && watchSummary.next
+                  {watchSummary.count === 0
+                    ? t('connections.watchScheduledNone')
+                    : watchSummary.next
                     ? t('connections.watchScheduled', {
                         count: watchSummary.count,
                         next: watchSummary.next.toLocaleDateString(language, { weekday: 'short', day: 'numeric', month: 'short' }),
                       })
-                    : t('connections.watchScheduledNone')}
+                    : t('connections.watchScheduledNoDate', { count: watchSummary.count })}
                 </Text>
               </View>
             )}
@@ -860,17 +862,22 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   );
 };
 
-/** Reads the Watch schedule from iOS whenever the Apple card is opened. */
+/** Reads the Watch schedule from iOS whenever the Apple card is opened or the schedule changes. */
 function WatchSummaryLoader({ active, onLoad }: { active: boolean; onLoad: (s: { count: number; next: Date | null } | null) => void }) {
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
     const { getScheduledWatchSummary } = require('../../services/appleHealthService');
-    getScheduledWatchSummary().then((summary: { count: number; next: Date | null } | null) => {
-      if (!cancelled) onLoad(summary);
-    });
+    const refresh = () => {
+      getScheduledWatchSummary().then((summary: { count: number; next: Date | null } | null) => {
+        if (!cancelled) onLoad(summary);
+      });
+    };
+    refresh();
+    const sub = DeviceEventEmitter.addListener('watchScheduleChanged', refresh);
     return () => {
       cancelled = true;
+      sub.remove();
     };
   }, [active, onLoad]);
   return null;

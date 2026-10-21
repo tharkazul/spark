@@ -1088,6 +1088,35 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+
+  // Daily Gemini token usage ledger: tracks billed (paid) tokens vs. free tokens
+  // saved by prompt caching (90% discount on cachedContentTokenCount).
+  db.run(`CREATE TABLE IF NOT EXISTS token_usage_daily (
+        date TEXT PRIMARY KEY,
+        total_tokens INTEGER DEFAULT 0,
+        paid_tokens INTEGER DEFAULT 0,
+        free_tokens INTEGER DEFAULT 0,
+        cached_tokens INTEGER DEFAULT 0,
+        uncached_input_tokens INTEGER DEFAULT 0,
+        output_tokens INTEGER DEFAULT 0,
+        request_count INTEGER DEFAULT 0,
+        cache_hit_count INTEGER DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`, () => {
+    db.run(
+      `INSERT OR IGNORE INTO token_usage_daily (date, total_tokens, paid_tokens, free_tokens)
+       SELECT last_token_reset_date,
+              SUM(COALESCE(daily_token_usage, 0) + COALESCE(common_token_usage, 0)),
+              SUM(COALESCE(daily_token_usage, 0) + COALESCE(common_token_usage, 0)),
+              0
+         FROM users
+        WHERE last_token_reset_date IS NOT NULL
+          AND last_token_reset_date != ''
+        GROUP BY last_token_reset_date
+       HAVING SUM(COALESCE(daily_token_usage, 0) + COALESCE(common_token_usage, 0)) > 0`,
+      () => {},
+    );
+  });
 });
 
 /**
