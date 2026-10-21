@@ -28,3 +28,7 @@ backups/
 *.log
 
 expo-env.d.ts
+
+# Athlete uploads (chat, physique, feedback photos)
+server/secure_uploads/
+server/routes/secure_uploads/
