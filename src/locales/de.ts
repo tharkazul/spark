@@ -527,6 +527,16 @@ export const de: TranslationKeys = {
     suggested2: 'Wie steht es um meine aktuelle Bereitschaft & Erholung?',
     suggested3: 'Kannst du mir einen Ernährungsplan für nach dem Workout erstellen?',
   },
+  feedback: {
+    confirmTitle: "Feedback für rooka?",
+    confirmBody: "Es sieht so aus, als hättest du Feedback zur App. Soll ich diese Nachricht (und eventuelle Fotos) an das rooka-Team statt an deinen Coach senden?",
+    yes: "Ja, Feedback senden",
+    no: "Nein, meinen Coach fragen",
+    sentTitle: "Danke für dein Feedback!",
+    sentBody: "Deine Nachricht ist direkt beim rooka-Team angekommen. Wir lesen alles.",
+    failedTitle: "Feedback nicht gesendet",
+    failedBody: "Etwas ist schiefgelaufen. Prüfe deine Verbindung und versuche es erneut; deine Nachricht steht noch im Textfeld.",
+  },
   physique: {
     title: 'Körper & Körpermetriken',
     subtitle: 'Gewicht und Körperfettanteil verfolgen',

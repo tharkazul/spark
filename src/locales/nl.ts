@@ -527,6 +527,16 @@ export const nl: TranslationKeys = {
     suggested2: 'Wat is mijn huidige paraatheid & herstel?',
     suggested3: 'Kun je een voedingsplan maken voor na mijn training?',
   },
+  feedback: {
+    confirmTitle: "Feedback voor rooka?",
+    confirmBody: "Het lijkt erop dat je feedback over de app hebt. Zal ik dit bericht (en eventuele foto's) naar het rooka-team sturen in plaats van naar je coach?",
+    yes: "Ja, verstuur feedback",
+    no: "Nee, vraag mijn coach",
+    sentTitle: "Bedankt voor je feedback!",
+    sentBody: "Je bericht is direct naar het rooka-team gegaan. We lezen alles.",
+    failedTitle: "Feedback niet verstuurd",
+    failedBody: "Er ging iets mis. Controleer je verbinding en probeer het opnieuw; je bericht staat nog in het tekstveld.",
+  },
   physique: {
     title: 'Fysiek & Lichaamsmetingen',
     subtitle: 'Volg gewicht en vetpercentage',

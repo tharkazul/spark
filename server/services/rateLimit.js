@@ -79,6 +79,8 @@ const userLimits = {
   racePlan: userLimiter({ windowMs: 60 * MINUTE, limit: 10, error: "You've asked for several race plans in a row. Please try again in an hour." }),
   // Cached cues are free, but every new exercise name is an AI call.
   exerciseCues: userLimiter({ windowMs: 60 * MINUTE, limit: 60, error: slowDown }),
+  // Every feedback message is an email to rutger@rooka.io.
+  feedback: userLimiter({ windowMs: 60 * MINUTE, limit: 10, error: "You've sent a lot of feedback this hour. Thank you! Please try again later." }),
 };
 
 module.exports = { authLimits, apiLimit, userLimits };

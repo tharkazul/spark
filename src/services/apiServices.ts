@@ -388,6 +388,14 @@ export const chatApi = {
     }),
 };
 
+export const feedbackApi = {
+  send: (body: { message: string; imagesBase64?: string[]; platform?: string; osVersion?: string; appVersion?: string }) =>
+    apiClient<{ success: boolean }>('/api/feedback', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
 export const adminApi = {
   getUsage: () => apiClient<any[]>('/api/admin/usage'),
   simulate24h: () => apiClient<{ success: boolean; message?: string }>('/api/admin/simulate-24h', { method: 'POST' }),

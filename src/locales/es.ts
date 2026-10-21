@@ -527,6 +527,16 @@ export const es: TranslationKeys = {
     suggested2: '¿Cuál es mi estado actual de forma y recuperación?',
     suggested3: '¿Puedes darme un plan de nutrición para después de entrenar?',
   },
+  feedback: {
+    confirmTitle: "¿Comentarios para rooka?",
+    confirmBody: "Parece que tienes feedback sobre la app. ¿Envío este mensaje (y las fotos, si las hay) al equipo de rooka en lugar de a tu coach?",
+    yes: "Sí, enviar feedback",
+    no: "No, preguntar a mi coach",
+    sentTitle: "¡Gracias por tu feedback!",
+    sentBody: "Tu mensaje ha llegado directamente al equipo de rooka. Lo leemos todo.",
+    failedTitle: "Feedback no enviado",
+    failedBody: "Algo salió mal. Comprueba tu conexión e inténtalo de nuevo; tu mensaje sigue en el campo de texto.",
+  },
   physique: {
     title: 'Cuerpo y Métricas Físicas',
     subtitle: 'Sigue tu peso y porcentaje de grasa',

@@ -1054,6 +1054,19 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+
+  // Feedback athletes send from the chat. Also emailed; kept here so nothing is
+  // lost when SMTP is down. Images live on disk in secure_uploads/feedback.
+  db.run(`CREATE TABLE IF NOT EXISTS feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        message TEXT,
+        image_paths TEXT,
+        meta_json TEXT,
+        emailed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )`);
 });
 
 /**

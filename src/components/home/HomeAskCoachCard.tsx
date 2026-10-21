@@ -10,6 +10,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { useTheme } from '@/hooks/use-theme';
 import { getCoachAvatarSource, getCoachDisplayName } from '../../utils/avatarUtils';
+import { confirmFeedback, looksLikeFeedback, submitFeedback } from '../../utils/feedback';
 
 interface HomeAskCoachCardProps {
   draft: string;
@@ -70,11 +71,16 @@ export function HomeAskCoachCard({ draft, onChangeDraft, inputRef }: HomeAskCoac
   ];
   const isWaiting = Boolean(sentText && !reply);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = draft.trim();
     if (!text) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Keyboard.dismiss();
+    // Feedback for the rooka team skips the coach; the draft stays until it's sent.
+    if (looksLikeFeedback(text) && (await confirmFeedback())) {
+      if (await submitFeedback(text)) onChangeDraft('');
+      return;
+    }
     onChangeDraft('');
     // sendMessage asks for AI consent first when it hasn't been given, and
     // returns without sending; nothing is shown as "sent" in that case.

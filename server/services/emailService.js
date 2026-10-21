@@ -186,9 +186,48 @@ async function sendWaitlistNotificationEmail({ email, notes }) {
   }
 }
 
+/**
+ * Sends athlete feedback from the chat to rutger@rooka.io, with any images the
+ * athlete attached. Reply goes straight to the athlete. Throws on failure.
+ */
+async function sendFeedbackEmail({ feedbackId, athlete, message, imagePaths, meta }) {
+  const transporter = getTransporter();
+  const from = process.env.EMAIL_FROM || `rooka System <${process.env.SMTP_USER}>`;
+  const escapeHtml = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const name = athlete.username || athlete.email || `user ${athlete.id}`;
+  const preview = (message || "(image only)").replace(/\s+/g, " ").slice(0, 60);
+  const details = [
+    ["Athlete", `${name} (id ${athlete.id})`],
+    ["Email", athlete.email || "unknown"],
+    ["Tier", athlete.subscription_tier || "free"],
+    ["Language", athlete.language || "en"],
+    ["App", [meta.platform, meta.osVersion && `OS ${meta.osVersion}`, meta.appVersion && `v${meta.appVersion}`].filter(Boolean).join(" · ") || "unknown"],
+    ["Feedback #", String(feedbackId)],
+  ];
+
+  return transporter.sendMail({
+    from,
+    to: "rutger@rooka.io",
+    replyTo: athlete.email || undefined,
+    subject: `[rooka Feedback] ${name}: ${preview}`,
+    text: `${message || "(image only)"}\n\n${details.map(([k, v]) => `${k}: ${v}`).join("\n")}\n`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; background: #17171A; color: #F5F5F7; border-radius: 12px; border: 1px solid #2D2E33;">
+        <h2 style="color: #FF5F3B; margin-top: 0;">Feedback from ${escapeHtml(name)}</h2>
+        <p style="white-space: pre-wrap; font-size: 15px; line-height: 22px;">${escapeHtml(message || "(image only)")}</p>
+        <table style="font-size: 13px; color: #9A9AA2; border-top: 1px solid #2D2E33; padding-top: 12px; margin-top: 16px;">
+          ${details.map(([k, v]) => `<tr><td style="padding-right: 12px;">${k}</td><td style="color: #F5F5F7;">${escapeHtml(v)}</td></tr>`).join("")}
+        </table>
+      </div>
+    `,
+    attachments: imagePaths.map((p, i) => ({ filename: `feedback-${feedbackId}-${i + 1}${path.extname(p)}`, path: p })),
+  });
+}
+
 module.exports = {
   getTransporter,
   verifyEmailConnection,
   sendPasswordResetEmail,
   sendWaitlistNotificationEmail,
+  sendFeedbackEmail,
 };

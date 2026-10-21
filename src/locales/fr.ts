@@ -527,6 +527,16 @@ export const fr: TranslationKeys = {
     suggested2: 'Quel est mon niveau actuel de forme et de récupération ?',
     suggested3: 'Peux-tu me donner un plan de ravitaillement après l’effort ?',
   },
+  feedback: {
+    confirmTitle: "Un retour pour rooka ?",
+    confirmBody: "On dirait que tu as un feedback sur l'app. Veux-tu que j'envoie ce message (et les éventuelles photos) à l'équipe rooka plutôt qu'à ton coach ?",
+    yes: "Oui, envoyer",
+    no: "Non, demander à mon coach",
+    sentTitle: "Merci pour ton feedback !",
+    sentBody: "Ton message est arrivé directement à l'équipe rooka. Nous lisons tout.",
+    failedTitle: "Feedback non envoyé",
+    failedBody: "Une erreur s'est produite. Vérifie ta connexion et réessaie ; ton message est toujours dans le champ de texte.",
+  },
   physique: {
     title: 'Physique et Métriques Corporelles',
     subtitle: 'Suivez votre poids et votre taux de masse grasse',

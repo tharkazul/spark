@@ -525,6 +525,16 @@ export const en = {
     suggested2: 'What is my current readiness & recovery?',
     suggested3: 'Can you give me a post-workout fueling plan?',
   },
+  feedback: {
+    confirmTitle: 'Feedback for rooka?',
+    confirmBody: 'It looks like you have feedback about the app. Shall I send this message (and any photos) to the rooka team instead of your coach?',
+    yes: 'Yes, send feedback',
+    no: 'No, ask my coach',
+    sentTitle: 'Thanks for your feedback!',
+    sentBody: 'Your message went straight to the rooka team. We read everything.',
+    failedTitle: 'Feedback not sent',
+    failedBody: 'Something went wrong. Check your connection and try again; your message is still in the text field.',
+  },
   physique: {
     title: 'Physique & Body Metrics',
     subtitle: 'Track weight and body fat %',

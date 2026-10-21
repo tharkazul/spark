@@ -57,6 +57,7 @@ import { getAuthToken } from '../../services/apiClient';
 import { tokenStorage } from '../../services/storage';
 import { chatApi } from '../../services/apiServices';
 import { audioRecordingService } from '../../services/audioRecordingService';
+import { confirmFeedback, looksLikeFeedback, submitFeedback } from '../../utils/feedback';
 import { ChatMessage, ProposedWorkoutItem } from '../../types/chat';
 import { getCoachAvatarSource, getCoachDisplayName, resolveChatImageUrl } from '../../utils/avatarUtils';
 import { canAccessQuests, hasSubscriptionTier } from '../../utils/permissions';
@@ -398,6 +399,7 @@ export default function CoachScreen() {
   // When a message was just sent. iOS can commit an autocorrection a moment after
   // the box is cleared, which put the sent text back into it.
   const sentAtRef = useRef(0);
+  const feedbackBusyRef = useRef(false);
   // iOS doesn't shrink a multiline input after it is emptied, and reports no size when
   // the height is set by hand. So an invisible copy of the text, with the same width
   // and font, is measured instead, and its height becomes the input's height.
@@ -770,16 +772,35 @@ export default function CoachScreen() {
     return false;
   };
 
-  const handleSend = (textOverride?: string) => {
+  const handleSend = async (textOverride?: string) => {
     const rawText = textOverride !== undefined ? textOverride : inputText;
     const textToSend = rawText.trim();
-    if ((!textToSend && selectedImages.length === 0) || sending) return;
+    if ((!textToSend && selectedImages.length === 0) || sending || feedbackBusyRef.current) return;
 
     if (textToSend && checkSelfHarmCrisis(textToSend)) {
       return;
     }
 
     const imagesToSend = [...selectedImages];
+
+    // Feedback for the rooka team skips the coach: ask first, then email it.
+    // The draft stays in the field until it's sent, so a failure loses nothing.
+    if (textToSend && looksLikeFeedback(textToSend)) {
+      feedbackBusyRef.current = true;
+      try {
+        if (await confirmFeedback()) {
+          Keyboard.dismiss();
+          if (await submitFeedback(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined)) {
+            setInputText('');
+            setInputHeight(INPUT_MIN_HEIGHT);
+            setSelectedImages([]);
+          }
+          return;
+        }
+      } finally {
+        feedbackBusyRef.current = false;
+      }
+    }
 
     sentAtRef.current = Date.now();
     setInputText('');
