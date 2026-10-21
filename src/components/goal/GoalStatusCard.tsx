@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
-import Svg, { Circle, Defs, Line, LinearGradient, Polygon, Polyline, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, LinearGradient, Polygon, Polyline, Stop, Text as SvgText } from 'react-native-svg';
 
 import { Card } from '../ui/Card';
 import { useLanguage } from '../../context/LanguageContext';
@@ -16,20 +16,6 @@ const STATUS_STYLE: Record<GoalStatusKind, { color: string; icon: any }> = {
   building: { color: '#8B5CF6', icon: 'construct' },
 };
 
-/** One line under the estimate saying what it rests on. */
-function basisLabel(t: (key: string, params?: Record<string, any>) => string, basis: NonNullable<RaceStatus['basis']>): string {
-  if (basis.method === 'best_effort' && basis.fastest) {
-    const params = {
-      distance: basis.fastest.distanceKm.toFixed(1),
-      time: formatRaceTime(basis.fastest.seconds ?? basis.fastest.minutes * 60),
-    };
-    if (basis.fastest.withinLongerRun) return t('goal.basisStretch', params);
-    return t(basis.raceDayBonus ? 'goal.basisBestEffort' : 'goal.basisRace', params);
-  }
-  if (basis.method === 'heart_rate') return t('goal.basisHeartRate', { count: basis.steadyRuns });
-  return t(basis.fromHardRuns ? 'goal.basisHard' : basis.typedIn ? 'goal.basisTyped' : 'goal.basisAll', { count: basis.runs });
-}
-
 /** The estimate over time against the target (dashed). Lower is faster. */
 function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) {
   const theme = useTheme();
@@ -41,7 +27,11 @@ function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) 
   const min = Math.min(...all);
   const span = Math.max(1, Math.max(...all) - min);
   const y = (v: number) => 6 + ((v - min) / span) * (h - 12);
-  const x = (i: number) => (points.length === 1 ? w / 2 : (i / (points.length - 1)) * (w - 8) + 4);
+  // The target time sits at the start of its dotted line ("22:00 - - -"); the chart
+  // starts right of it, so the trend never runs underneath the label.
+  const targetLabel = target !== null ? formatRaceTime(target) : '';
+  const labelW = targetLabel ? targetLabel.length * 6 + 6 : 0;
+  const x = (i: number) => (points.length === 1 ? labelW + (w - labelW) / 2 : labelW + (i / (points.length - 1)) * (w - labelW - 8) + 4);
   const lineStr = points.map((p, i) => `${x(i)},${y(p.value)}`).join(' ');
   const areaStr = `${x(0)},${h} ${lineStr} ${x(points.length - 1)},${h}`;
   return (
@@ -55,7 +45,12 @@ function TrendChart({ points, color }: { points: TrendPoint[]; color: string }) 
             </LinearGradient>
           </Defs>
           {target !== null && (
-            <Line x1={0} x2={w} y1={y(target)} y2={y(target)} stroke={theme.textSecondary} strokeDasharray="3 3" strokeWidth={1} strokeOpacity={0.5} />
+            <>
+              <SvgText x={0} y={y(target) + 3.5} fontSize={10} fontWeight="600" fill={theme.textSecondary}>
+                {targetLabel}
+              </SvgText>
+              <Line x1={labelW} x2={w} y1={y(target)} y2={y(target)} stroke={theme.textSecondary} strokeDasharray="3 3" strokeWidth={1} strokeOpacity={0.5} />
+            </>
           )}
           {points.length > 1 && <Polygon points={areaStr} fill="url(#goalTrendGrad)" />}
           <Polyline points={lineStr} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -140,10 +135,6 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
                 <Stat label={t('goal.weeksOnTarget')} value={`${status.consistency.weeksOnTarget}/${status.consistency.weeks}`} />
               ) : null}
             </View>
-          )}
-
-          {status.basis && (
-            <Text className="text-[11px] text-theme-muted mt-1.5">{basisLabel(t, status.basis)}</Text>
           )}
 
           {/* Only a real history is worth a line: with a day or two of data it is flat and reads like a full progress bar. */}
