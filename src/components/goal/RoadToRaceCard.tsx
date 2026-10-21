@@ -35,13 +35,8 @@ export function RoadToRaceCard({ season }: { season: Season }) {
 
   return (
     <Card>
-      <View className="flex-row items-center justify-between mb-1">
+      <View className="mb-1">
         <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted">{t('goal.roadTitle')}</Text>
-        {current && (
-          <Text className="text-xs font-semibold text-theme-muted">
-            {t('goal.weekOf', { n: current.index, total: current.total })}
-          </Text>
-        )}
       </View>
       {current && (
         <Text className="text-sm text-theme-text mb-3">

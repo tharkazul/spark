@@ -444,10 +444,17 @@ async function getRaceStatus(userId, season) {
     readiness.push({ sport: l.sport, unit: l.unit, done: Math.round(done * (l.unit === "km" ? 10 : 1)) / (l.unit === "km" ? 10 : 1), peak: l.value });
   }
 
-  // Consistency: past plan weeks that reached at least 80% of their target.
-  const past = season.weeks.filter((w) => w.isPast && w.volume > 0);
-  const consistency = past.length
-    ? { weeksOnTarget: past.filter((w) => (w.actualVolume || 0) >= w.volume * 0.8).length, weeks: past.length }
+  // Consistency: plan weeks that reached at least 80% of their planned volume, out of
+  // every week in the plan ("2/8", read alongside "Week 2 of 8"). Finished weeks count
+  // when they made it; the current week as soon as it has.
+  const ON_TARGET_SHARE = 0.8;
+  const planWeeks = season.weeks.filter((w) => w.volume > 0);
+  const onTarget = (w) => (w.actualVolume || 0) >= w.volume * ON_TARGET_SHARE;
+  const consistency = planWeeks.length
+    ? {
+        weeksOnTarget: planWeeks.filter((w) => (w.isPast || w.isCurrent) && onTarget(w)).length,
+        weeks: planWeeks.length,
+      }
     : null;
 
   const base = {

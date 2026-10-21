@@ -166,6 +166,52 @@ console.log("🏁 Running season plan unit tests...\n");
   assert.ok(edited.seconds < after.seconds, "an edited run updates the estimate too");
   console.log("✅ Race estimate is cached until the runs change");
 
+  // The season continues when the race moves by a week or the event changes; a bigger move starts over.
+  {
+    const sp = require("./services/seasonPlan");
+    const q = (sql, p = []) => new Promise((r) => db.all(sql, p, (e, rows) => r(rows || [])));
+    const today = sp.todayStr();
+    const thisMonday = sp.mondayOf(today);
+    await dbRun(`INSERT INTO users (id, username, password_hash) VALUES (88, 'season', 'x')`);
+    const race = sp.addDays(thisMonday, 7 * 16 + 5); // a Saturday, 17 weeks of plan from this Monday
+    await dbRun(`INSERT INTO milestones (id, user_id, name, date, is_main, goal_type, event_type) VALUES (880, 88, 'Almere 70.3', ?, 1, 'race', '70.3')`, [race]);
+    await sp.regenerateSeason(88);
+    // Pretend the plan started 4 weeks ago, with base and build weeks behind it.
+    const planStart = sp.addDays(thisMonday, -28);
+    await dbRun(`UPDATE season_meta SET plan_start = ? WHERE user_id = 88`, [planStart]);
+    for (let w = 0; w < 4; w++) {
+      await dbRun(
+        `INSERT INTO season_weeks (user_id, week_start, week_index, total_weeks, phase, is_recovery, is_checkpoint, unit, target_volume) VALUES (88, ?, ?, 21, ?, 0, 0, 'min', 300)`,
+        [sp.addDays(planStart, 7 * w), w + 1, w < 2 ? "base" : "build"]
+      );
+    }
+    const current = async () => (await q(`SELECT week_index, phase FROM season_weeks WHERE user_id = 88 AND week_start = ?`, [thisMonday]))[0];
+    const past = async () => q(`SELECT phase FROM season_weeks WHERE user_id = 88 AND week_start < ? ORDER BY week_start`, [thisMonday]);
+
+    await dbRun(`UPDATE milestones SET date = ? WHERE id = 880`, [sp.addDays(race, 3)]);
+    await sp.regenerateSeason(88);
+    assert.strictEqual((await current()).week_index, 5, "moved 3 days: still week 5");
+    assert.deepStrictEqual((await past()).map((r) => r.phase), ["base", "base", "build", "build"], "the weeks done stay as they were");
+
+    await dbRun(`UPDATE milestones SET event_type = 'ironman', name = 'Almere full distance' WHERE id = 880`);
+    await sp.regenerateSeason(88);
+    assert.strictEqual((await current()).week_index, 5, "70.3 to full distance: still week 5");
+    assert.strictEqual((await past()).length, 4, "base and build already done are kept");
+    assert.notStrictEqual((await current()).phase, "base", "no drop back to base after reaching build");
+
+    await dbRun(`UPDATE milestones SET date = ? WHERE id = 880`, [sp.addDays(race, 24)]);
+    await sp.regenerateSeason(88);
+    assert.strictEqual((await current()).week_index, 1, "moved 3 weeks: a new plan from this week");
+    assert.strictEqual((await past()).length, 0);
+
+    // Running to triathlon is a new plan too (km and minutes don't compare).
+    await dbRun(`UPDATE season_meta SET plan_start = ? WHERE user_id = 88`, [planStart]);
+    await dbRun(`UPDATE milestones SET event_type = 'half', name = 'Half marathon' WHERE id = 880`);
+    await sp.regenerateSeason(88);
+    assert.strictEqual((await current()).week_index, 1);
+    console.log("✅ The season continues on a small date move or a new event, and restarts on a big move");
+  }
+
   console.log("\n🎉 All season plan tests passed!");
   setTimeout(() => {
     try { require("fs").unlinkSync(process.env.DB_PATH); } catch (_) {}

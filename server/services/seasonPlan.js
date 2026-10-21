@@ -103,6 +103,13 @@ function addDays(dateStr, n) {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
+const CONTINUE_WITHIN_DAYS = 7;
+
+/** Whole days from dateA to dateB (YYYY-MM-DD). */
+function daysBetween(dateA, dateB) {
+  return Math.round((new Date(String(dateB).slice(0, 10) + "T12:00:00Z") - new Date(String(dateA).slice(0, 10) + "T12:00:00Z")) / 86400000);
+}
+
 function mondayOf(dateStr) {
   const d = new Date(dateStr + "T12:00:00Z");
   const dow = d.getUTCDay(); // 0 = Sunday
@@ -126,7 +133,7 @@ function weeksBetween(mondayA, mondayB) {
  * @param {number} p.recoveryEvery    4 (3 loading + 1 recovery) or 3
  * @returns {Array<object>}
  */
-function computeSkeleton({ eventType, weeks, weekOffset = 0, start, capVolume = null, capLong = [], recoveryEvery = 4 }) {
+function computeSkeleton({ eventType, weeks, weekOffset = 0, start, capVolume = null, capLong = [], recoveryEvery = 4, minPhase = null }) {
   const cfg = EVENT_TYPES[eventType] || EVENT_TYPES.other;
   const total = weekOffset + weeks;
   const nTaper = Math.min(cfg.taper.length, total);
@@ -139,6 +146,9 @@ function computeSkeleton({ eventType, weeks, weekOffset = 0, start, capVolume = 
     if (i >= taperStart) return "taper";
     if (i >= peakStart) return "peak";
     if (i >= buildStart) return "build";
+    // A plan that continues after a goal change (a shorter event builds later) does not
+    // drop an athlete who already reached the build phase back to base.
+    if (minPhase && minPhase !== "base") return "build";
     return "base";
   };
   // Counted back from the taper; a recovery week needs at least two full weeks before it.
@@ -437,9 +447,21 @@ async function regenerateSeason(userId, inputs = null) {
   if (raceMonday < thisMonday) return null;
 
   const meta = await dbGet(`SELECT * FROM season_meta WHERE user_id = ?`, [userId]);
-  const sameRace = meta && meta.race_date === inp.raceDate && meta.event_type === inp.eventType;
-  // Keep the original start week for the same race, so "week 9 of 18" stays meaningful.
-  let planStart = sameRace && meta.plan_start && meta.plan_start <= thisMonday ? meta.plan_start : thisMonday;
+  // The same season continues when the race moves by a week or less, even if the event
+  // changes too (a 70.3 becomes a full distance): the weeks already done, base and build
+  // included, stay as they were and only this week and the rest are rebuilt for the
+  // new date or event. Moving the race further is a new goal and starts over.
+  const continues = Boolean(
+    meta &&
+      meta.race_date &&
+      meta.plan_start &&
+      meta.plan_start <= thisMonday &&
+      Math.abs(daysBetween(meta.race_date, inp.raceDate)) <= CONTINUE_WITHIN_DAYS &&
+      // Same kind of volume (km for running events, minutes otherwise), so the weeks
+      // already done still compare with the new ones. Running to triathlon is a new plan.
+      (EVENT_TYPES[meta.event_type] || EVENT_TYPES.other).unit === inp.cfg.unit
+  );
+  let planStart = continues ? meta.plan_start : thisMonday;
   let weekOffset = weeksBetween(planStart, thisMonday);
   let weeksLeft = weeksBetween(thisMonday, raceMonday) + 1;
   if (weekOffset + weeksLeft > MAX_WEEKS) {
@@ -450,6 +472,12 @@ async function regenerateSeason(userId, inputs = null) {
     weeksLeft = Math.min(weeksLeft, MAX_WEEKS - weekOffset);
   }
 
+  // The furthest phase already behind the athlete in this season.
+  const pastPhases = continues
+    ? (await dbAll(`SELECT phase FROM season_weeks WHERE user_id = ? AND week_start >= ? AND week_start < ?`, [userId, planStart, thisMonday])).map((r) => r.phase)
+    : [];
+  const minPhase = pastPhases.some((p) => p !== "base") ? "build" : null;
+
   const rows = computeSkeleton({
     eventType: inp.eventType,
     weeks: weeksLeft,
@@ -458,6 +486,7 @@ async function regenerateSeason(userId, inputs = null) {
     capVolume: inp.capVolume,
     capLong: inp.capLong,
     recoveryEvery: inp.recoveryEvery,
+    minPhase,
   });
 
   const flags = {
@@ -472,7 +501,7 @@ async function regenerateSeason(userId, inputs = null) {
   };
 
   await dbRun(`DELETE FROM season_weeks WHERE user_id = ? AND (week_start >= ? OR week_start < ?)`, [userId, thisMonday, planStart]);
-  if (!sameRace) await dbRun(`DELETE FROM season_weeks WHERE user_id = ?`, [userId]);
+  if (!continues) await dbRun(`DELETE FROM season_weeks WHERE user_id = ?`, [userId]);
   for (const r of rows) {
     const weekStart = addDays(planStart, (r.index - 1) * 7);
     await dbRun(
