@@ -186,7 +186,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     <BottomSheetModal
       visible={visible}
       onClose={onClose}
-      contentClassName="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 h-[90%] border-t border-theme-border/50 shadow-2xl"
+      contentClassName="px-6 pt-3 h-[90%]"
       showHandle={true}
       header={
         <View className="flex-row justify-between items-center pb-4 pt-2">

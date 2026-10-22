@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -14,7 +15,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { useHealth } from '../../context/HealthStore';
 import { getBodyPartLabel } from '../progress/AnatomicalBodyMap';
@@ -104,7 +104,6 @@ export function LogNiggleModal({
   onClose,
   onSendToCoach,
 }: LogNiggleModalProps) {
-  const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const { saveNiggle } = useHealth();
   const [description, setDescription] = useState('');
@@ -241,7 +240,7 @@ export function LogNiggleModal({
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+              { backgroundColor: SHEET_BACKDROP, opacity: backdropOpacity },
             ]}
           >
             <TouchableOpacity
@@ -252,14 +251,10 @@ export function LogNiggleModal({
           </Animated.View>
 
           {/* Bottom Sheet Modal Container */}
-          <Animated.View
-            style={[
-              {
-                transform: [{ translateY: slideAnim }],
-                paddingBottom: Math.max(insets.bottom, 20),
-              },
-            ]}
-            className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col max-h-[90%]"
+          <SheetSurface
+            style={{ transform: [{ translateY: slideAnim }] }}
+            padBottom={20}
+            className="px-6 pt-3 flex-col max-h-[90%]"
           >
             {/* Draggable Header Region */}
             <View {...panHandlers} className="self-stretch">
@@ -424,7 +419,7 @@ export function LogNiggleModal({
             {/* Pinned Action Buttons at Bottom */}
             <View className="flex-row gap-3 pt-3 border border-theme-border/30">
               <View className="flex-1">
-                <Button label={t('common.cancel', 'Cancel')} variant="outline" onPress={onClose} />
+                <Button label={t('common.cancel', 'Cancel')} variant="neutral" onPress={onClose} />
               </View>
               <View className="flex-1">
                 <Button
@@ -435,7 +430,7 @@ export function LogNiggleModal({
                 />
               </View>
             </View>
-          </Animated.View>
+          </SheetSurface>
         </View>
       </KeyboardAvoidingView>
     </Modal>

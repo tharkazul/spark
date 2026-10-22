@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Animated, KeyboardAvoidingView, Platform, ScrollView, Dimensions, StyleSheet } from 'react-native';
@@ -5,7 +6,6 @@ import { Button } from '../ui/Button';
 import { ScalePressable } from '../ui/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 
 import { useUser } from '../../context/UserStore';
@@ -27,7 +27,6 @@ export function AdaptPlanModal({
   onClose,
   onConfirmAdapt,
 }: AdaptPlanModalProps) {
-  const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const { user } = useUser();
   const { activities } = useActivities();
@@ -123,7 +122,7 @@ export function AdaptPlanModal({
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+              { backgroundColor: SHEET_BACKDROP, opacity: backdropOpacity },
             ]}
           >
             <TouchableOpacity
@@ -134,14 +133,10 @@ export function AdaptPlanModal({
           </Animated.View>
 
           {/* Bottom Sheet Modal Container */}
-          <Animated.View
-            style={[
-              {
-                transform: [{ translateY: slideAnim }],
-                paddingBottom: Math.max(insets.bottom, 24),
-              },
-            ]}
-            className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col"
+          <SheetSurface
+            style={{ transform: [{ translateY: slideAnim }] }}
+            padBottom={24}
+            className="px-6 pt-3 flex-col"
           >
             {/* Draggable Header Region */}
             <View {...panHandlers} className="self-stretch">
@@ -223,10 +218,10 @@ export function AdaptPlanModal({
               {/* Buttons */}
               <View className="flex-row gap-3">
                 <View className="flex-1">
-                  <Button label={t('dashboard.keepCurrent', 'Keep Current')} variant="outline" onPress={onClose} />
+                  <Button label={t('dashboard.keepCurrent', 'Keep Current')} variant="neutral" onPress={onClose} />
                 </View>
               </View>
-          </Animated.View>
+          </SheetSurface>
         </View>
       </KeyboardAvoidingView>
     </Modal>

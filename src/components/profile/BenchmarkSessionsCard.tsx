@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,7 +15,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
 import { SportMedallion } from '../ui/SportMedallion';
@@ -79,7 +79,6 @@ const PRESET_TESTS: BenchmarkPreset[] = [
 
 export const BenchmarkSessionsCard: React.FC = () => {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { sendMessage } = useCoachChat();
   const { t, language } = useLanguage();
@@ -397,11 +396,8 @@ export const BenchmarkSessionsCard: React.FC = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           className="flex-1"
         >
-          <View className="flex-1 bg-black/60 justify-end">
-            <View
-              style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-              className="bg-theme-card rounded-t-3xl p-5 max-h-[85%] border-t border-theme-border"
-            >
+          <View className="flex-1 justify-end" style={{ backgroundColor: SHEET_BACKDROP }}>
+            <SheetSurface padBottom={16} className="p-5 max-h-[85%]">
               <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
                 <View className="flex-row items-center gap-x-2 flex-1 min-w-0 mr-2">
                   <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.tint} />
@@ -509,7 +505,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                   )}
                 </ScalePressable>
               </ScrollView>
-            </View>
+            </SheetSurface>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -525,11 +521,8 @@ export const BenchmarkSessionsCard: React.FC = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           className="flex-1"
         >
-          <View className="flex-1 bg-black/60 justify-end">
-            <View
-              style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-              className="bg-theme-card rounded-t-3xl p-5 max-h-[85%] border-t border-theme-border"
-            >
+          <View className="flex-1 justify-end" style={{ backgroundColor: SHEET_BACKDROP }}>
+            <SheetSurface padBottom={16} className="p-5 max-h-[85%]">
               <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
                 <View className="flex-row items-center gap-x-2 flex-1 min-w-0 mr-2">
                   <Ionicons name="create-outline" size={20} color={theme.tint} />
@@ -695,7 +688,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                   )}
                 </ScalePressable>
               </ScrollView>
-            </View>
+            </SheetSurface>
           </View>
         </KeyboardAvoidingView>
       </Modal>

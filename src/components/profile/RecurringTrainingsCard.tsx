@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -242,8 +243,8 @@ export const RecurringTrainingsCard: React.FC = () => {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View className="flex-1 bg-black/60 justify-end">
-          <View className="bg-theme-card rounded-t-3xl p-5 max-h-[85%] border-t border-theme-border">
+        <View className="flex-1 justify-end" style={{ backgroundColor: SHEET_BACKDROP }}>
+          <SheetSurface padBottom={16} className="p-5 max-h-[85%]">
             {/* Header */}
             <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40">
               <View className="flex-row items-center gap-x-2">
@@ -413,7 +414,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                 )}
               </ScalePressable>
             </ScrollView>
-          </View>
+          </SheetSurface>
         </View>
       </Modal>
     </Card>

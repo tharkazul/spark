@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -13,7 +14,6 @@ import {
   Platform,
   useColorScheme,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { TextInput } from '../ui/TextInput';
 import { Button } from '../ui/Button';
@@ -45,7 +45,6 @@ export function LogActivityModal({
   onClose,
   onSaveActivity,
 }: LogActivityModalProps) {
-  const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -173,7 +172,7 @@ export function LogActivityModal({
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+              { backgroundColor: SHEET_BACKDROP, opacity: backdropOpacity },
             ]}
           >
             <TouchableOpacity
@@ -184,14 +183,10 @@ export function LogActivityModal({
           </Animated.View>
 
           {/* Bottom Sheet Modal Container */}
-          <Animated.View
-            style={[
-              {
-                transform: [{ translateY: slideAnim }],
-                paddingBottom: Math.max(insets.bottom, 24),
-              },
-            ]}
-            className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl flex-col"
+          <SheetSurface
+            style={{ transform: [{ translateY: slideAnim }] }}
+            padBottom={24}
+            className="px-6 pt-3 flex-col"
           >
             {/* Draggable Header Region */}
             <View {...panHandlers} className="self-stretch">
@@ -297,14 +292,14 @@ export function LogActivityModal({
                 {/* Action Buttons */}
                 <View className="flex-row gap-3 pt-2">
                   <View className="flex-1">
-                    <Button label={t('common.cancel', 'Cancel')} variant="outline" onPress={onClose} />
+                    <Button label={t('common.cancel', 'Cancel')} variant="neutral" onPress={onClose} />
                   </View>
                   <View className="flex-1">
                     <Button label={t('activities.saveActivity', 'Save Activity')} variant="primary" isLoading={isSaving} onPress={handleSave} />
                   </View>
                 </View>
               </ScrollView>
-          </Animated.View>
+          </SheetSurface>
         </View>
       </KeyboardAvoidingView>
     </Modal>

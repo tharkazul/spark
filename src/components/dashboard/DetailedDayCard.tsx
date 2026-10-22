@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import React, { useState } from 'react';
 import {
   Text,
@@ -571,10 +572,10 @@ export function DetailedDayCard({
           onRequestClose={() => setActiveMenuWorkout(null)}
         >
           <Pressable
-            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
+            style={{ flex: 1, backgroundColor: SHEET_BACKDROP, justifyContent: 'flex-end' }}
             onPress={() => setActiveMenuWorkout(null)}
           >
-            <View className="bg-theme-card p-4 rounded-t-sheet border-t border-theme-border">
+            <SheetSurface padBottom={16} className="p-4">
               <Text className="text-base font-bold text-theme-text font-jakarta mb-3 px-2">
                 {activeMenuWorkout.title}
               </Text>
@@ -664,7 +665,7 @@ export function DetailedDayCard({
                   </View>
                 )}
               </TouchableOpacity>
-            </View>
+            </SheetSurface>
           </Pressable>
         </Modal>
       )}

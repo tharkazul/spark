@@ -170,7 +170,8 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
     <BottomSheetModal
       visible={visible}
       onClose={onClose}
-      contentClassName="bg-theme-bg px-5 pt-3 rounded-t-[32px] rounded-b-none border-t border-theme-border max-h-[90%]"
+      contentClassName="px-5 pt-3 max-h-[90%]"
+      solidClassName="bg-theme-bg"
       header={
         <View className="flex-row items-center justify-between mb-4 pb-3 border-b border-theme-border/50">
           <View className="flex-row items-center gap-2">

@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP, useSheetShape } from '@/components/ui/SheetSurface';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
@@ -14,7 +15,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -158,7 +158,7 @@ export function AddWorkoutModal({
   const theme = useTheme();
   const { t } = useLanguage();
   const { user } = useUser();
-  const insets = useSafeAreaInsets();
+  const { safeBottom } = useSheetShape();
 
   const [showModal, setShowModal] = useState(visible);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -468,7 +468,7 @@ export function AddWorkoutModal({
             <Animated.View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+                { backgroundColor: SHEET_BACKDROP, opacity: backdropOpacity },
               ]}
             >
               <TouchableOpacity
@@ -479,14 +479,9 @@ export function AddWorkoutModal({
             </Animated.View>
 
             {/* Bottom Sheet Modal Container */}
-            <Animated.View
-              style={[
-                {
-                  transform: [{ translateY: slideAnim }],
-                  height: '92%',
-                },
-              ]}
-              className="bg-theme-card rounded-t-[32px] rounded-b-none border-t border-theme-border/50 shadow-2xl flex-col overflow-hidden"
+            <SheetSurface
+              style={{ transform: [{ translateY: slideAnim }], height: '92%' }}
+              className="flex-col"
             >
               {/* Draggable Header Region */}
               <View {...panHandlers} className="self-stretch">
@@ -560,8 +555,8 @@ export function AddWorkoutModal({
 
           {/* STICKY FOOTER PINNED OUTSIDE SCROLL VIEW (P0 Defect #6) */}
           <View
-            style={{ paddingBottom: Math.max(insets.bottom, 16), paddingTop: 12 }}
-            className="px-5 border-t border-theme-border bg-theme-card"
+            style={{ paddingBottom: Math.max(safeBottom, 16), paddingTop: 12 }}
+            className="px-5 border-t border-theme-border"
           >
             {/* Device Sync Row (Garmin / Apple Watch) */}
             {(isGarminConnected || isAppleConnected) && (
@@ -653,7 +648,7 @@ export function AddWorkoutModal({
               {isReadOnly ? (
                 <View className="flex-row items-center gap-2 flex-1">
                   <Button
-                    variant="secondary"
+                    variant="neutral"
                     size="md"
                     label={t('common.close', 'Close')}
                     onPress={onClose}
@@ -694,7 +689,7 @@ export function AddWorkoutModal({
               </TouchableOpacity>
             )}
           </View>
-            </Animated.View>
+            </SheetSurface>
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>

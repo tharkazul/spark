@@ -1,7 +1,7 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Animated, Dimensions, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { Button } from '../ui/Button';
 import { ScalePressable } from '../ui/ScalePressable';
@@ -24,7 +24,6 @@ export function LogWeightModal({
   onClose,
   onSaveWeight,
 }: LogWeightModalProps) {
-  const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const [weight, setWeight] = useState<number>(previousWeight || 70.0);
   const [showModal, setShowModal] = useState(visible);
@@ -114,7 +113,7 @@ export function LogWeightModal({
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+            { backgroundColor: SHEET_BACKDROP, opacity: backdropOpacity },
           ]}
         >
           <TouchableOpacity
@@ -125,14 +124,10 @@ export function LogWeightModal({
         </Animated.View>
 
         {/* Bottom Sheet Modal Container */}
-        <Animated.View
-          style={[
-            {
-              transform: [{ translateY: slideAnim }],
-              paddingBottom: Math.max(insets.bottom, 24),
-            },
-          ]}
-          className="bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 shadow-2xl"
+        <SheetSurface
+          style={{ transform: [{ translateY: slideAnim }] }}
+          padBottom={24}
+          className="px-6 pt-3"
         >
           {/* Draggable Header Region */}
           <View {...panHandlers} className="self-stretch">
@@ -213,13 +208,13 @@ export function LogWeightModal({
             {/* Action Buttons */}
             <View className="flex-row gap-3 pt-2">
               <View className="flex-1">
-                <Button label={t('common.cancel', 'Cancel')} variant="outline" onPress={onClose} />
+                <Button label={t('common.cancel', 'Cancel')} variant="neutral" onPress={onClose} />
               </View>
               <View className="flex-1">
                 <Button label={t('dashboard.logWeight', 'Log Weight')} variant="primary" onPress={handleSave} />
               </View>
             </View>
-          </Animated.View>
+          </SheetSurface>
         </View>
       </Modal>
   );

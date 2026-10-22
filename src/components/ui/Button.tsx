@@ -1,8 +1,9 @@
 import React from 'react';
 import { Text, ActivityIndicator, View } from 'react-native';
 import { ScalePressable, ScalePressableProps } from './ScalePressable';
+import { useInSheet } from './SheetSurface';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'outline';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive' | 'outline' | 'neutral';
 export type ButtonSize = 'lg' | 'md' | 'sm';
 
 export interface ButtonProps extends Omit<ScalePressableProps, 'children'> {
@@ -23,7 +24,10 @@ export interface ButtonProps extends Omit<ScalePressableProps, 'children'> {
  * - secondary: bg-theme-accent-soft, text-theme-accent-text
  * - ghost: no fill, text-theme-accent-text, 44pt minimum hit area
  * - destructive: bg-semantic-error-bg, text-semantic-error-text
+ * - neutral: translucent grey fill, text-theme-text. The dismiss action (Cancel, Keep
+ *   Current, Close) next to a primary; unlike outline it still reads on a glass sheet.
  * - Sizes: lg (52pt, radius 16), md (44pt, radius 12), sm (34pt, pill)
+ * - Inside a sheet every size is a pill, matching iOS 26+ sheet buttons
  * - Spring scale 0.98 on press, disabled at 40% opacity
  */
 export function Button({
@@ -41,6 +45,8 @@ export function Button({
   style,
   ...props
 }: ButtonProps) {
+  const inSheet = useInSheet();
+
   const getVariantClasses = () => {
     switch (variant) {
       case 'secondary':
@@ -51,6 +57,8 @@ export function Button({
         return 'bg-semantic-error-bg border border-transparent';
       case 'outline':
         return 'bg-transparent border border-theme-border';
+      case 'neutral':
+        return 'bg-theme-text/10 border border-transparent';
       case 'primary':
       default:
         return 'bg-theme-accent-strong border border-transparent';
@@ -66,6 +74,8 @@ export function Button({
         return 'text-semantic-error-text font-bold';
       case 'outline':
         return 'text-theme-text font-semibold';
+      case 'neutral':
+        return 'text-theme-text font-bold';
       case 'primary':
       default:
         return 'text-white font-bold';
@@ -75,12 +85,12 @@ export function Button({
   const getSizeClasses = () => {
     switch (size) {
       case 'lg':
-        return 'h-[52px] px-6 rounded-button';
+        return `h-[52px] px-6 ${inSheet ? 'rounded-pill' : 'rounded-button'}`;
       case 'sm':
         return 'h-[34px] px-3.5 rounded-pill';
       case 'md':
       default:
-        return 'h-[44px] px-4 rounded-button-md';
+        return `h-[44px] px-4 ${inSheet ? 'rounded-pill' : 'rounded-button-md'}`;
     }
   };
 

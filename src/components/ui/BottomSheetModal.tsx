@@ -1,4 +1,5 @@
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   Modal,
@@ -12,7 +13,6 @@ import {
   GestureResponderHandlers,
   ViewProps,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -50,7 +50,10 @@ export interface BottomSheetModalProps {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  /** Layout only (padding, height). The surface owns background, corners and border. */
   contentClassName?: string;
+  /** Background where liquid glass is unavailable. */
+  solidClassName?: string;
   style?: any;
   showHandle?: boolean;
   header?: React.ReactNode;
@@ -60,12 +63,12 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   visible,
   onClose,
   children,
-  contentClassName = 'bg-theme-card rounded-t-[32px] rounded-b-none px-6 pt-3 border-t border-theme-border/50 max-h-[90%]',
+  contentClassName = 'px-6 pt-3 max-h-[90%]',
+  solidClassName,
   style,
   showHandle = false,
   header,
 }) => {
-  const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(visible);
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -147,7 +150,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+              { backgroundColor: SHEET_BACKDROP, opacity: backdropOpacity },
             ]}
           >
             <TouchableOpacity
@@ -158,15 +161,11 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           </Animated.View>
 
           {/* Bottom Sheet: Slides Up Simultaneously */}
-          <Animated.View
-            style={[
-              {
-                transform: [{ translateY }],
-                paddingBottom: Math.max(insets.bottom, 20),
-              },
-              style,
-            ]}
+          <SheetSurface
+            style={[{ transform: [{ translateY }] }, style]}
+            padBottom={20}
             className={contentClassName}
+            solidClassName={solidClassName}
           >
             <BottomSheetContext.Provider value={{ panHandlers }}>
               {/* Grab area and header. Draggable downwards to dismiss sheet. */}
@@ -178,7 +177,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
               </View>
               {children}
             </BottomSheetContext.Provider>
-          </Animated.View>
+          </SheetSurface>
         </View>
       </KeyboardAvoidingView>
     </Modal>

@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/use-theme';
@@ -17,7 +18,6 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
@@ -73,7 +73,6 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
 }) => {
   const theme = useTheme();
   const { t } = useLanguage();
-  const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = useState(visible);
   const [searchQuery, setSearchQuery] = useState('');
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -290,7 +289,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
           <Animated.View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: 'rgba(0,0,0,0.6)', opacity: backdropOpacity },
+              { backgroundColor: SHEET_BACKDROP, opacity: backdropOpacity },
             ]}
           >
             <TouchableOpacity
@@ -301,14 +300,10 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
           </Animated.View>
 
           {/* Bottom Sheet Modal Container */}
-          <Animated.View
-            style={[
-              {
-                transform: [{ translateY: slideAnim }],
-                paddingBottom: Math.max(insets.bottom, 20),
-              },
-            ]}
-            className="bg-theme-card border-t border-theme-border rounded-t-[32px] rounded-b-none px-5 pt-3 max-h-[90%] min-h-[460px]"
+          <SheetSurface
+            style={{ transform: [{ translateY: slideAnim }] }}
+            padBottom={20}
+            className="px-5 pt-3 max-h-[90%] min-h-[460px]"
           >
             {/* Draggable Header Region */}
             <View {...panHandlers} className="self-stretch">
@@ -508,7 +503,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
               </View>
             )}
           </ScrollView>
-        </Animated.View>
+        </SheetSurface>
       </View>
     </KeyboardAvoidingView>
   </Modal>

@@ -1,3 +1,4 @@
+import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { Ionicons } from '@expo/vector-icons';
@@ -664,7 +665,7 @@ export default function ProfileScreen() {
               <Animated.View
                 style={[
                   StyleSheet.absoluteFill,
-                  { backgroundColor: 'rgba(0,0,0,0.6)', opacity: garminBackdropOpacity },
+                  { backgroundColor: SHEET_BACKDROP, opacity: garminBackdropOpacity },
                 ]}
               >
                 <TouchableOpacity
@@ -675,12 +676,11 @@ export default function ProfileScreen() {
               </Animated.View>
 
               {/* Bottom Sheet Modal Container */}
-              <Animated.View
-                style={{
-                  transform: [{ translateY: garminSlideAnim }],
-                  paddingBottom: Math.max(insets.bottom, 24),
-                }}
-                className="bg-theme-bg px-6 pt-3 rounded-t-[32px] rounded-b-none border-t border-theme-border shadow-2xl"
+              <SheetSurface
+                style={{ transform: [{ translateY: garminSlideAnim }] }}
+                padBottom={24}
+                className="px-6 pt-3"
+                solidClassName="bg-theme-bg"
               >
                 {/* Draggable Header Region */}
                 <View {...garminPanHandlers} className="self-stretch">
@@ -770,7 +770,7 @@ export default function ProfileScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
-              </Animated.View>
+              </SheetSurface>
             </View>
           </KeyboardAvoidingView>
         </Modal>
