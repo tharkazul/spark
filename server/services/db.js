@@ -1040,6 +1040,9 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
+  // The activity that completed the test, so its numbers can be measured again
+  // once the activity's laps arrive.
+  db.run(`ALTER TABLE benchmark_tests ADD COLUMN activity_id INTEGER`, () => {});
 
   // Discount codes. The three axes an admin sets are independent: what the code
   // does to the price (discount_type), how long it keeps doing it

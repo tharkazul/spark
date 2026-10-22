@@ -735,6 +735,35 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   // A single lap is just the whole activity again.
   const laps: ActivityLap[] = activity?.laps && activity.laps.length >= 2 ? activity.laps : [];
 
+  // A lap without distance is a rest (a pool swim's wall rest, a standing pause).
+  // Sources leave rests out of moving time, so they're labelled rather than
+  // numbered, and the total counts only the laps that moved: that is what
+  // matches the distance and moving time on the Details page.
+  const isRestLap = (lap: ActivityLap) => lap.distance_km < 0.005;
+  let activeLapNo = 0;
+  const lapRows = laps.map((lap) => {
+    const rest = isRestLap(lap);
+    return { lap, rest, label: rest ? t('activityDetail.lapRest') : `#${++activeLapNo}` };
+  });
+  const lapTotals = laps.reduce(
+    (acc, lap) => {
+      const min = lap.elapsed_time_min || 0;
+      if (isRestLap(lap)) {
+        acc.restMin += min;
+      } else {
+        acc.km += lap.distance_km;
+        acc.min += min;
+        if (lap.average_heartrate) {
+          acc.hrWeighted += lap.average_heartrate * min;
+          acc.hrMin += min;
+        }
+      }
+      return acc;
+    },
+    { km: 0, min: 0, restMin: 0, hrWeighted: 0, hrMin: 0 }
+  );
+  const lapTotalHr = lapTotals.hrMin > 0 ? Math.round(lapTotals.hrWeighted / lapTotals.hrMin) : undefined;
+
   // Exact moving time in seconds to prevent minute-rounding drift
   const movingTimeSec =
     typeof (activity as any)?.moving_time_s === 'number' && (activity as any).moving_time_s > 0
@@ -1317,7 +1346,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
                 {/* Table Header */}
                 <View className="flex-row justify-between pb-2 border-b border-theme-border px-1 mb-1">
-                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-10">
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-12">
                     {t('activityDetail.lap')}
                   </Text>
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-16">
@@ -1335,34 +1364,66 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                 </View>
 
                 {/* Rows */}
-                {(isLapsExpanded ? laps : laps.slice(0, 5)).map((lap, idx) => (
+                {(isLapsExpanded ? lapRows : lapRows.slice(0, 5)).map(({ lap, rest, label }, idx) => (
                   <View
-                    key={`lap-${lap.lap_index}`}
-                    className={`flex-row justify-between items-center py-2.5 px-1 ${
-                      idx !== (isLapsExpanded ? laps.length : 5) - 1 ? 'border-b border-theme-border/60' : ''
-                    }`}
+                    key={`lap-${idx}`}
+                    className="flex-row justify-between items-center py-2.5 px-1 border-b border-theme-border/60"
                   >
-                    <Text className="text-xs font-bold font-rajdhani text-theme-muted w-10">
-                      #{lap.lap_index}
+                    <Text className="text-xs font-bold font-rajdhani text-theme-muted w-12">{label}</Text>
+                    <Text
+                      className={`text-xs font-bold font-rajdhani w-16 tabular-nums ${
+                        rest ? 'text-theme-muted' : 'text-theme-text'
+                      }`}
+                    >
+                      {rest ? '--' : `${lap.distance_km.toFixed(2)} km`}
                     </Text>
-                    <Text className="text-xs font-bold font-rajdhani text-theme-text w-16 tabular-nums">
-                      {lap.distance_km.toFixed(2)} km
-                    </Text>
-                    <Text className="text-xs font-bold font-rajdhani text-theme-text w-14 tabular-nums">
+                    <Text
+                      className={`text-xs font-bold font-rajdhani w-14 tabular-nums ${
+                        rest ? 'text-theme-muted' : 'text-theme-text'
+                      }`}
+                    >
                       {formatEffortDuration(lap.elapsed_time_min * 60)}
                     </Text>
                     <Text className="text-xs font-medium font-rajdhani text-theme-muted flex-1 tabular-nums">
-                      {lap.split_pace || '--'}
+                      {(!rest && lap.split_pace) || '--'}
                     </Text>
                     <Text
                       className={`text-xs font-medium font-rajdhani w-16 text-right tabular-nums ${
-                        lap.average_heartrate ? 'text-rose-500' : 'text-theme-muted'
+                        lap.average_heartrate && !rest ? 'text-rose-500' : 'text-theme-muted'
                       }`}
                     >
                       {lap.average_heartrate ? `${Math.round(lap.average_heartrate)} bpm` : '--'}
                     </Text>
                   </View>
                 ))}
+
+                {/* Total of the laps that moved; rest alongside, as sources leave it out of moving time. */}
+                <View className="flex-row justify-between items-center pt-3 px-1">
+                  <Text className="text-xs font-extrabold font-rajdhani text-theme-text w-12">
+                    {t('activityDetail.lapTotal')}
+                  </Text>
+                  <Text className="text-xs font-extrabold font-rajdhani text-theme-text w-16 tabular-nums">
+                    {lapTotals.km.toFixed(2)} km
+                  </Text>
+                  <Text className="text-xs font-extrabold font-rajdhani text-theme-text w-14 tabular-nums">
+                    {formatEffortDuration(lapTotals.min * 60)}
+                  </Text>
+                  <Text className="text-xs font-bold font-rajdhani text-theme-text flex-1 tabular-nums">
+                    {calculateEffortPaceOrSpeed(lapTotals.min * 60, lapTotals.km * 1000, isCycling, isSwim) || '--'}
+                  </Text>
+                  <Text
+                    className={`text-xs font-bold font-rajdhani w-16 text-right tabular-nums ${
+                      lapTotalHr ? 'text-rose-500' : 'text-theme-muted'
+                    }`}
+                  >
+                    {lapTotalHr ? `${lapTotalHr} bpm` : '--'}
+                  </Text>
+                </View>
+                {lapTotals.restMin > 0 && (
+                  <Text className="text-xs font-medium font-rajdhani text-theme-muted px-1 pt-1">
+                    {t('activityDetail.lapRestTotal', { time: formatEffortDuration(lapTotals.restMin * 60) })}
+                  </Text>
+                )}
               </Card>
             )}
           </View>

@@ -753,12 +753,14 @@ function stravaLapsJson(data) {
   if (!source) return "[]";
   return JSON.stringify(
     source.map((l, i) => ({
-      lap_index: l.lap_index || l.split || i + 1,
+      // Strava's lap_index repeats across a structured workout's steps; position doesn't.
+      lap_index: i + 1,
       distance: l.distance,
-      elapsed_time: l.elapsed_time,
+      elapsed_time: l.elapsed_time ?? null,
       moving_time: l.moving_time,
       average_speed: l.average_speed,
-      average_heartrate: l.average_heartrate,
+      average_heartrate: l.average_heartrate ?? null,
+      max_heartrate: l.max_heartrate ?? null,
     })),
   );
 }

@@ -408,9 +408,10 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
       let laps = parseJsonArray(row.laps_json);
       let sets = parseJsonArray(row.sets_json);
 
-      // Laps stored before elapsed_time was kept are fetched once more: a rest
-      // lap's moving time is close to nothing.
-      const lapsMissing = !laps || laps.some((l) => l && l.elapsed_time == null);
+      // Laps stored before elapsed time and max heart rate were kept are fetched
+      // once more: a rest lap's moving time is close to nothing, and a benchmark
+      // reads its max heart rate from the laps of the test itself.
+      const lapsMissing = !laps || laps.some((l) => l && !("max_heartrate" in l));
       const effortsMissing = mapStravaSportToRooka(row.sport_type) === "Run" && !sets;
       if (row.strava_activity_id && row.user_id === req.user.id && (lapsMissing || effortsMissing)) {
         try {
