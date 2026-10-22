@@ -14,7 +14,9 @@
  *
  * Targets. TrainerDay ERG works in % of the FTP set in TrainerDay, and a
  * SegmentTarget with min != max is a ramp from min to max, so every steady
- * step sends one value (max: null):
+ * step sends one value (min only). Fields with no value are left out rather
+ * than sent as null: TrainerDay's validator rejects null for enum fields such
+ * as controlMode, although the spec marks them nullable.
  *   power.exact   -> watts / FTP. The FTP is TrainerDay's own (GET
  *                    /api/v1/athlete), because that is what ERG multiplies
  *                    the percentage by; rooka's FTP is the fallback.
@@ -181,16 +183,19 @@ function buildSegment(step, ctx) {
 
   const segment = {
     name,
-    controlMode: hasErg ? "erg" : null,
     segmentType: openEnded ? "open-ended" : hasErg ? SEGMENT_TYPE[step.type] || "interval" : "free-ride",
     durationType,
     durationValue,
     pressLapButton: !!openEnded,
     targets: [],
   };
-  if (hasErg) segment.targets.push({ type: "primary", min: target.pct, max: null });
+  // No controlMode on a free ride: the trainer is not held at a power.
+  if (hasErg) {
+    segment.controlMode = "erg";
+    segment.targets.push({ type: "primary", min: target.pct });
+  }
   const cadence = cadenceOf(step);
-  if (cadence) segment.targets.push({ type: "cadence", min: cadence.min, max: cadence.max });
+  if (cadence) segment.targets.push(cadence.max ? { type: "cadence", min: cadence.min, max: cadence.max } : { type: "cadence", min: cadence.min });
   if (target && target.note) segment.notes = [{ timeOffset: 0, text: target.note }];
   return segment;
 }
@@ -220,7 +225,7 @@ function toWorkoutBlocks(steps, ctx = {}) {
       const reps = Math.max(1, parseInt(step.iterations || step.times || 1, 10));
       blocks.push({ type: "repetition", reps, segments });
     } else {
-      blocks.push({ type: "segment", reps: null, segments: [buildSegment(step, ctx)] });
+      blocks.push({ type: "segment", segments: [buildSegment(step, ctx)] });
     }
   }
   return blocks;
@@ -565,13 +570,13 @@ async function upsertEvent(userId, accessToken, workout, ctx, { force = false } 
   if (eventId) {
     const put = await apiRequest(userId, accessToken, "PUT", `/api/v2/calendar/events/${encodeURIComponent(eventId)}`, body);
     if (!put.ok && put.status !== 404) {
-      throw new Error(`TrainerDay rejected the event update (HTTP ${put.status}) ${put.text.slice(0, 200)}`);
+      throw new Error(`TrainerDay rejected the event update (HTTP ${put.status}) ${put.text.slice(0, 1000)}`);
     }
     if (!put.ok) eventId = null; // deleted in TrainerDay -> create it again
   }
   if (!eventId) {
     const post = await apiRequest(userId, accessToken, "POST", "/api/v2/calendar/events", body);
-    if (!post.ok) throw new Error(`TrainerDay rejected the event (HTTP ${post.status}) ${post.text.slice(0, 200)}`);
+    if (!post.ok) throw new Error(`TrainerDay rejected the event (HTTP ${post.status}) ${post.text.slice(0, 1000)}`);
     eventId = eventIdFromResponse(post.json);
     if (!eventId) throw new Error("TrainerDay created the event but returned no id");
   }
@@ -589,7 +594,7 @@ async function upsertEvent(userId, accessToken, workout, ctx, { force = false } 
 
 async function deleteEvent(userId, accessToken, row) {
   const r = await apiRequest(userId, accessToken, "DELETE", `/api/v2/calendar/events/${encodeURIComponent(row.event_id)}`);
-  if (!r.ok && r.status !== 404) throw new Error(`TrainerDay rejected the delete (HTTP ${r.status}) ${r.text.slice(0, 200)}`);
+  if (!r.ok && r.status !== 404) throw new Error(`TrainerDay rejected the delete (HTTP ${r.status}) ${r.text.slice(0, 1000)}`);
   await dbRun(`DELETE FROM trainerday_events WHERE user_id = ? AND workout_key = ?`, [userId, row.workout_key]);
 }
 

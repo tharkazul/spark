@@ -98,14 +98,14 @@ const ymd = (offset) => {
   const [warm, rep, exact, thr, brick, cool] = blocks;
   assert.deepStrictEqual(
     { type: warm.type, reps: warm.reps, n: warm.segments.length },
-    { type: "segment", reps: null, n: 1 },
+    { type: "segment", reps: undefined, n: 1 },
   );
   const w = warm.segments[0];
   assert.strictEqual(w.durationType, "second");
   assert.strictEqual(w.durationValue, 600, "condition_type time is minutes");
   assert.strictEqual(w.segmentType, "warm-up");
   assert.strictEqual(w.controlMode, "erg");
-  assert.deepStrictEqual(w.targets, [{ type: "primary", min: td.HR_ZONE_PCT[1], max: null }], "HR zone rides as %FTP in ERG");
+  assert.deepStrictEqual(w.targets, [{ type: "primary", min: td.HR_ZONE_PCT[1] }], "HR zone rides as %FTP in ERG");
   assert.deepStrictEqual(w.notes, [{ timeOffset: 0, text: "HR Z1 95-114 bpm" }], "the athlete's bpm band is on screen");
   console.log("✅ Minutes become seconds; an HR zone rides at its %FTP with the bpm band as a note");
 
@@ -115,25 +115,25 @@ const ymd = (offset) => {
   assert.strictEqual(rep.segments[0].durationValue, 30, "time_sec stays seconds");
   assert.strictEqual(rep.segments[0].segmentType, "interval");
   assert.deepStrictEqual(rep.segments[0].targets, [
-    { type: "primary", min: 65, max: null },
+    { type: "primary", min: 65 },
     { type: "cadence", min: 110, max: 120 },
   ]);
   assert.strictEqual(rep.segments[1].segmentType, "rest");
-  assert.deepStrictEqual(rep.segments[1].targets, [{ type: "primary", min: 50, max: null }]);
+  assert.deepStrictEqual(rep.segments[1].targets, [{ type: "primary", min: 50 }]);
   console.log("✅ repeat -> repetition block with reps; power zones map to Coggan %FTP; rpm becomes a cadence target");
 
-  assert.deepStrictEqual(exact.segments[0].targets, [{ type: "primary", min: 76, max: null }], "190 W / 250 W FTP = 76%");
+  assert.deepStrictEqual(exact.segments[0].targets, [{ type: "primary", min: 76 }], "190 W / 250 W FTP = 76%");
   assert.strictEqual(thr.segments[0].durationValue, 300, "a 'time' of 300 is already seconds");
-  assert.deepStrictEqual(thr.segments[0].targets, [{ type: "primary", min: 98, max: null }]);
+  assert.deepStrictEqual(thr.segments[0].targets, [{ type: "primary", min: 98 }]);
   console.log("✅ Watts become %FTP (190 W at 250 W FTP = 76%)");
 
   const b = brick.segments[0];
   assert.deepStrictEqual([b.durationType, b.durationValue], ["meter", 5000], "distance is meters");
   assert.strictEqual(b.segmentType, "free-ride");
-  assert.strictEqual(b.controlMode, null);
+  assert.ok(!("controlMode" in b), "a free ride sends no controlMode (TrainerDay rejects null)");
   assert.deepStrictEqual(b.notes, [{ timeOffset: 0, text: "5:30 /km" }]);
   const c = cool.segments[0];
-  assert.deepStrictEqual([c.segmentType, c.controlMode, c.targets.length], ["free-ride", null, 0], "no.target is a free ride");
+  assert.deepStrictEqual([c.segmentType, c.controlMode, c.targets.length], ["free-ride", undefined, 0], "no.target is a free ride");
   console.log("✅ Distance in meters; pace and no target ride free (no ERG)");
 
   const noFtp = td.toWorkoutBlocks([steps[2]], {});
@@ -162,6 +162,15 @@ const ymd = (offset) => {
   assert.ok(td.isBikeSport("Bike") && td.isBikeSport("BIKE") && td.isBikeSport("indoor cycling"));
   assert.ok(!td.isBikeSport("Run") && !td.isBikeSport("Swim") && !td.isBikeSport(""));
   console.log("✅ Only cycling sports go to TrainerDay");
+
+  // TrainerDay's validator rejects null in enum fields (controlMode), so no field is ever null.
+  const nulls = [];
+  JSON.stringify(event, (k, v) => {
+    if (v === null) nulls.push(k);
+    return v;
+  });
+  assert.deepStrictEqual(nulls, [], `null fields in the event: ${nulls.join(", ")}`);
+  console.log("✅ The event carries no null fields");
 
   // -------------------------------------------------------------------------
   // 2. OAuth state and rate limit
