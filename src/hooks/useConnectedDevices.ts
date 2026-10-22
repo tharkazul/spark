@@ -11,7 +11,7 @@ import {
 export interface UseConnectedDevicesReturn {
   hasGarmin: boolean;
   hasSuunto: boolean;
-  /** TrainerDay calendar (bike sessions only, ridden in ERG mode on an indoor trainer). */
+  /** TrainerDay calendar (bike sessions only, ridden in ERG mode); false for a free TrainerDay account. */
   hasTrainerDay: boolean;
   hasAppleWatch: boolean;
   hasAnyDevices: boolean;
@@ -35,7 +35,8 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
   );
 
   const hasSuunto = Boolean(user?.suunto_connected || (user as any)?.hasSuunto);
-  const hasTrainerDay = Boolean(user?.trainerday_connected);
+  // TrainerDay only takes workouts from paid accounts, so a free one is no send target.
+  const hasTrainerDay = Boolean(user?.trainerday_connected && user?.trainerday_pro !== false);
   const hasCloudDevices = hasGarmin || hasSuunto || hasTrainerDay;
 
   const checkDevices = useCallback(async () => {

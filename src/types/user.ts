@@ -23,6 +23,8 @@ export interface UserProfile {
   strava_connected?: boolean;
   suunto_connected?: boolean;
   trainerday_connected?: boolean;
+  /** False when the TrainerDay account is free: TrainerDay only takes workouts from paid accounts. */
+  trainerday_pro?: boolean;
   /** Consent to send data to the AI coach (Google Gemini): null = not answered yet. */
   aiConsent?: boolean | null;
   target_event?: string;

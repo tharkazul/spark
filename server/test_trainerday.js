@@ -26,6 +26,8 @@ let calls = [];
 let tokenReply = null;
 let nextEventId = 1;
 const events = new Map();
+let athleteReply = { ftp: 250, username: "rider" }; // no hasProFeatures: unknown, sends are tried
+let calendarRefusesFree = false; // TrainerDay's 403 for free accounts
 global.fetch = async (url, opts = {}) => {
   const u = new URL(url);
   const body = opts.body && typeof opts.body === "string" && opts.headers["Content-Type"] === "application/json" ? JSON.parse(opts.body) : opts.body;
@@ -42,7 +44,8 @@ global.fetch = async (url, opts = {}) => {
     return typeof tokenReply === "function" ? tokenReply(new URLSearchParams(opts.body)) : reply(200, tokenReply);
   }
   if (u.pathname === "/oauth/token/revoke") return reply(200, undefined);
-  if (u.pathname === "/api/v1/athlete") return reply(200, { ftp: 250, username: "rider" });
+  if (u.pathname === "/api/v1/athlete") return reply(200, athleteReply);
+  if (u.pathname.startsWith("/api/v2/calendar/events") && calendarRefusesFree) return reply(403, { msg: "You do not have a paid subscription" });
   if (u.pathname === "/api/v2/calendar/events" && opts.method === "POST") {
     const id = `evt${nextEventId++}`;
     events.set(id, body);
@@ -290,6 +293,38 @@ const ymd = (offset) => {
   assert.strictEqual(events.size, 0);
   assert.strictEqual(await get(`SELECT 1 AS ok FROM trainerday_events WHERE user_id = 1`), undefined);
   console.log("✅ A session removed from the plan is deleted from TrainerDay");
+
+  // -------------------------------------------------------------------------
+  // 5. Free TrainerDay accounts can't receive workouts
+  // -------------------------------------------------------------------------
+  const v2 = () => calls.filter((c) => c.path.startsWith("/api/v2"));
+  calendarRefusesFree = true;
+  calls = [];
+  r = await td.pushWorkoutsToTrainerDay(1, [ride]);
+  assert.strictEqual(r.status, 403);
+  assert.strictEqual(r.body.code, "TRAINERDAY_NOT_PRO", "the app can tell why it failed");
+  assert.deepStrictEqual(await td.connectionStatus(1), { connected: true, pro: false }, "TrainerDay's 403 marks the account free");
+  assert.strictEqual(await td.canReceiveWorkouts(1), false, "a free account is no send target");
+
+  await run(`INSERT INTO micro_plan (user_id, date, sport, description, details, target_rooka, steps_json) VALUES (1, ?, 'Bike', 'Endurance', '', 50, '[]')`, [day]);
+  calls = [];
+  r = await td.syncTrainerDayCalendar(1);
+  assert.deepStrictEqual([r.status, r.body.notPro, calls.length], [200, true, 0], "the background sync skips a free account without a request");
+  console.log("✅ A free account (TrainerDay's 403) is marked, skipped by the sync and told why");
+
+  athleteReply = { ftp: 250, username: "rider", hasProFeatures: 0 };
+  calls = [];
+  r = await td.pushWorkoutsToTrainerDay(1, [ride]);
+  assert.strictEqual(r.body.code, "TRAINERDAY_NOT_PRO");
+  assert.deepStrictEqual(calls.map((c) => c.path), ["/api/v1/athlete"], "an explicit send re-checks the account, then writes nothing");
+
+  athleteReply = { ftp: 250, username: "rider", hasProFeatures: 1 };
+  calendarRefusesFree = false;
+  r = await td.pushWorkoutsToTrainerDay(1, [ride]);
+  assert.strictEqual(r.status, 200, JSON.stringify(r.body));
+  assert.deepStrictEqual(await td.connectionStatus(1), { connected: true, pro: true }, "an upgrade takes effect on the next send");
+  assert.strictEqual(v2().length, 1);
+  console.log("✅ After upgrading, the next send goes through");
 
   calls = [];
   await td.disconnect(1);

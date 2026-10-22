@@ -198,7 +198,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             ),
           );
 
-          const hasTrainerDay = await require('../services/trainerday').isConnected(req.user.id);
+          const trainerDayStatus = await require('../services/trainerday').connectionStatus(req.user.id);
 
           res.json({
             needsZoneSetup,
@@ -208,7 +208,8 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             hasStrava: !!row.strava_refresh_token,
             hasGarmin: !!row.garmin_username,
             hasSuunto,
-            hasTrainerDay,
+            hasTrainerDay: trainerDayStatus.connected,
+            trainerdayPro: trainerDayStatus.pro,
             garminUsername: row.garmin_username,
             coachTone: row.coach_tone,
             coachName: row.coach_name || 'Rooka',

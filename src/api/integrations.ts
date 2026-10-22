@@ -34,6 +34,7 @@ export interface CloudDeviceResult {
   syncedCount?: number;
   message?: string;
   error?: string;
+  code?: string;
 }
 
 export interface CloudDevicesSyncResponse {

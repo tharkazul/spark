@@ -620,6 +620,7 @@ const RAW_API = {
   "TrainerDay is not connected.": ["TrainerDay is niet gekoppeld.", "TrainerDay ist nicht verbunden.", "TrainerDay no está conectado.", "TrainerDay n'est pas connecté."],
   "Failed to send workouts to TrainerDay.": ["Trainingen naar TrainerDay sturen is mislukt.", "Trainings konnten nicht an TrainerDay gesendet werden.", "No se pudieron enviar los entrenamientos a TrainerDay.", "Impossible d'envoyer les séances à TrainerDay."],
   "TrainerDay workout push failed.": ["Trainingen naar TrainerDay sturen is mislukt.", "Trainings konnten nicht an TrainerDay gesendet werden.", "No se pudieron enviar los entrenamientos a TrainerDay.", "Impossible d'envoyer les séances à TrainerDay."],
+  "TrainerDay only adds workouts to your calendar with a paid TrainerDay subscription.": ["TrainerDay zet alleen trainingen in je kalender met een betaald TrainerDay-abonnement.", "TrainerDay trägt Trainings nur mit einem bezahlten TrainerDay-Abo in deinen Kalender ein.", "TrainerDay solo añade entrenamientos a tu calendario con una suscripción de pago de TrainerDay.", "TrainerDay n'ajoute des séances à ton calendrier qu'avec un abonnement TrainerDay payant."],
   "Only bike workouts can be sent to TrainerDay.": ["Alleen fietstrainingen kunnen naar TrainerDay.", "Nur Radtrainings können an TrainerDay gesendet werden.", "Solo se pueden enviar entrenamientos de bici a TrainerDay.", "Seules les séances de vélo peuvent être envoyées à TrainerDay."],
 };
 

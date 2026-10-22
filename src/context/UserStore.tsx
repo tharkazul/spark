@@ -84,6 +84,7 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     strava_connected: data?.hasStrava ?? data?.strava_connected ?? false,
     suunto_connected: data?.hasSuunto ?? data?.suunto_connected ?? false,
     trainerday_connected: data?.hasTrainerDay ?? data?.trainerday_connected ?? false,
+    trainerday_pro: data?.trainerdayPro ?? data?.trainerday_pro ?? true,
     onboarding_completed: onboardingVal === true || onboardingVal === 1,
     needsZoneSetup: Boolean(data?.needsZoneSetup ?? (isSameUser ? prev?.needsZoneSetup : false)),
     target_event: data?.targetEvent ?? data?.target_event ?? (isSameUser ? prev?.target_event : undefined),

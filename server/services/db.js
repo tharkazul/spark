@@ -308,6 +308,10 @@ db.serialize(() => {
         scope TEXT,
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
+  // TrainerDay only puts API workouts on paid accounts' calendars. has_pro: 1 paid,
+  // 0 free, NULL not known yet; pro_checked_at (ms) paces the re-check of free accounts.
+  db.run(`ALTER TABLE trainerday_tokens ADD COLUMN has_pro INTEGER`, () => {});
+  db.run(`ALTER TABLE trainerday_tokens ADD COLUMN pro_checked_at INTEGER`, () => {});
   // Planned bike sessions on the TrainerDay calendar. Maps our key (one event per
   // user/date) to TrainerDay's event id, so a plan change updates that event and a
   // removed session deletes it instead of leaving a duplicate. source_hash skips

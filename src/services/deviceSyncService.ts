@@ -17,7 +17,11 @@ export interface DeviceSyncOutcome {
   name: string;
   success: boolean;
   error?: string;
+  /** e.g. TRAINERDAY_NOT_PRO: the account can't receive workouts, retrying won't help. */
+  code?: string;
 }
+
+const TRAINERDAY_NOT_PRO = 'TRAINERDAY_NOT_PRO';
 
 export interface SyncWorkoutsResult {
   success: boolean;
@@ -88,6 +92,7 @@ export async function sendWorkoutToTrainerDay(workout: WorkoutItem): Promise<{ s
     return { success, message: res.message || res.error || '' };
   } catch (err: any) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    // A free TrainerDay account: the server's (localized) reason, not "try again later".
     return { success: false, message: err?.message || tr('addWorkoutExtra.syncFailed') };
   }
 }
@@ -135,7 +140,7 @@ export async function sendWorkoutsToConnectedDevices(
 
       const res = await sendWorkoutsToCloudDevices(payloads);
       for (const d of res.devices || []) {
-        outcomes.push({ id: d.id, name: d.name, success: d.success, error: d.error });
+        outcomes.push({ id: d.id, name: d.name, success: d.success, error: d.error, code: d.code });
       }
     } catch (err: any) {
       console.error('[DeviceSync] Cloud device sync failed:', err);
@@ -201,8 +206,14 @@ export async function sendWorkoutsToConnectedDevices(
     });
   }
 
-  const succeeded = outcomes.filter((o) => o.success);
-  const failed = outcomes.filter((o) => !o.success);
+  // A free TrainerDay account can't take workouts: say why instead of "try again later".
+  const needsTrainerDayPro = outcomes.some((o) => o.code === TRAINERDAY_NOT_PRO);
+  const counted = outcomes.filter((o) => o.code !== TRAINERDAY_NOT_PRO);
+  const withProNote = (message: string) =>
+    needsTrainerDayPro ? `${message} ${tr('deviceSync.trainerdayNeedsPro')}`.trim() : message;
+
+  const succeeded = counted.filter((o) => o.success);
+  const failed = counted.filter((o) => !o.success);
   const errors = failed.map((o) => `${o.name}: ${o.error || tr('addWorkoutExtra.syncFailed')}`);
   // The raw provider responses stay in the log and `errors`; the alert only names the devices.
   if (errors.length) console.warn('[DeviceSync] Send failed:', errors.join('; '));
@@ -216,11 +227,15 @@ export async function sendWorkoutsToConnectedDevices(
       success: false,
       devices: outcomes,
       syncedCount: 0,
-      message: onlyAppleFailed
-        ? failed[0].error!
-        : errors.length
-        ? tr('deviceSync.sendFailed', { failed: failedNames })
-        : tr('deviceSync.noDevices'),
+      message: withProNote(
+        onlyAppleFailed
+          ? failed[0].error!
+          : errors.length
+          ? tr('deviceSync.sendFailed', { failed: failedNames })
+          : needsTrainerDayPro
+          ? ''
+          : tr('deviceSync.noDevices')
+      ),
       errors,
     };
   }
@@ -232,7 +247,7 @@ export async function sendWorkoutsToConnectedDevices(
       success: true,
       devices: outcomes,
       syncedCount: targetCount,
-      message: tr('deviceSync.partial', { devices: sentTo, failed: failedNames }),
+      message: withProNote(tr('deviceSync.partial', { devices: sentTo, failed: failedNames })),
       errors,
     };
   }
@@ -242,7 +257,9 @@ export async function sendWorkoutsToConnectedDevices(
     success: true,
     devices: outcomes,
     syncedCount: targetCount,
-    message: targetCount === 1 ? tr('deviceSync.sentOne', { devices: sentTo }) : tr('deviceSync.sentMany', { count: targetCount, devices: sentTo }),
+    message: withProNote(
+      targetCount === 1 ? tr('deviceSync.sentOne', { devices: sentTo }) : tr('deviceSync.sentMany', { count: targetCount, devices: sentTo })
+    ),
     errors,
   };
 }

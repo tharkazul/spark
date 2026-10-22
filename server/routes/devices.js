@@ -39,7 +39,8 @@ const PROVIDERS = [
   {
     id: 'trainerday',
     name: 'TrainerDay',
-    isConnected: trainerday.isConnected,
+    // A free TrainerDay account can't receive workouts, so it isn't a send target.
+    isConnected: trainerday.canReceiveWorkouts,
     push: trainerday.pushWorkoutsToTrainerDay,
   },
 ];
@@ -77,6 +78,7 @@ router.post('/api/devices/send-workouts', authenticateToken, async (req, res) =>
         success: ok,
         syncedCount: body?.syncedCount ?? 0,
         message: body?.message,
+        code: body?.code,
         error: ok ? undefined : body?.details || body?.error || `HTTP ${status}`,
       };
     })

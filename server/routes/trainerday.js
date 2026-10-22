@@ -25,7 +25,7 @@ function escapeHtml(s) {
 
 function redirectPage(status) {
   const query = `?status=${encodeURIComponent(status)}`;
-  const ok = status === "connected";
+  const ok = status === "connected" || status === "connected_free";
   return `<!DOCTYPE html>
 <html>
   <head>
@@ -56,15 +56,17 @@ router.get("/trainerdayredirect", async (req, res) => {
   const userId = trainerday.verifyState(state);
   if (!code || !userId || !trainerday.isConfigured()) return res.send(redirectPage("error"));
 
+  let isPro = null;
   try {
-    await trainerday.exchangeCode(userId, String(code));
+    ({ isPro } = await trainerday.exchangeCode(userId, String(code)));
   } catch (err) {
     console.error("TrainerDay OAuth exchange error:", err.message);
     return res.send(redirectPage("error"));
   }
-  res.send(redirectPage("connected"));
+  // connected_free: the account works, but TrainerDay only takes workouts from paid accounts.
+  res.send(redirectPage(isPro === false ? "connected_free" : "connected"));
 
-  // Fill the calendar with the upcoming bike sessions straight away.
+  // Fill the calendar with the upcoming bike sessions straight away (skipped for a free account).
   trainerday
     .syncTrainerDayCalendar(userId)
     .catch((e) => console.error("TrainerDay first sync failed:", e.message));

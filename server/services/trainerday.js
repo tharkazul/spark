@@ -29,6 +29,11 @@
  *                    than rooka's zones, and the trainer chasing HR lags badly
  *                    on short intervals.
  *   pace / no.target -> free ride (no ERG), with any pace as a note.
+ *
+ * Paid accounts only: TrainerDay answers 403 "You do not have a paid
+ * subscription" to calendar writes for free accounts. The athlete profile's
+ * hasProFeatures is stored per user (has_pro); free accounts are left out of
+ * sends and the background sync, and re-checked once a day in case they upgrade.
  */
 const crypto = require("crypto");
 const db = require("./db");
@@ -364,6 +369,7 @@ async function saveTokens(userId, data, now = Date.now()) {
   );
 }
 
+/** Stores the tokens; returns whether the account is paid (null when TrainerDay doesn't say). */
 async function exchangeCode(userId, code) {
   const data = await postToken({
     grant_type: "authorization_code",
@@ -371,6 +377,8 @@ async function exchangeCode(userId, code) {
     redirect_uri: process.env.TRAINERDAY_REDIRECT_URI,
   });
   await saveTokens(userId, data);
+  const athlete = await fetchAthlete(userId, data.access_token).catch(() => null);
+  return { isPro: athlete ? athlete.isPro : null };
 }
 
 // One refresh at a time per user: a rotated refresh token would make the second
@@ -431,6 +439,18 @@ async function isConnected(userId) {
   return !!(await dbGet(`SELECT 1 AS ok FROM trainerday_tokens WHERE user_id = ?`, [userId]).catch(() => null));
 }
 
+/** Connected with an account that may receive workouts (not known to be free). */
+async function canReceiveWorkouts(userId) {
+  const row = await dbGet(`SELECT has_pro FROM trainerday_tokens WHERE user_id = ?`, [userId]).catch(() => null);
+  return !!row && row.has_pro !== 0;
+}
+
+/** For the app: { connected, pro }. pro is false only when TrainerDay said the account is free. */
+async function connectionStatus(userId) {
+  const row = await dbGet(`SELECT has_pro FROM trainerday_tokens WHERE user_id = ?`, [userId]).catch(() => null);
+  return { connected: !!row, pro: !!row && row.has_pro !== 0 };
+}
+
 // ---------------------------------------------------------------------------
 // API client with TrainerDay's rate limit (100 requests / 15 minutes)
 // ---------------------------------------------------------------------------
@@ -486,14 +506,60 @@ async function apiRequest(userId, accessToken, method, pathname, body) {
 // TrainerDay's athlete FTP, cached so a sync doesn't spend a request on it every time.
 const athleteCache = new Map(); // userId -> { ftp, at }
 const ATHLETE_TTL_MS = 6 * 3600 * 1000;
+const PRO_RECHECK_MS = 24 * 3600 * 1000;
+const NOT_PRO_MESSAGE = "TrainerDay only adds workouts to your calendar with a paid TrainerDay subscription.";
+
+class TrainerDayNotProError extends Error {
+  constructor() {
+    super(NOT_PRO_MESSAGE);
+  }
+}
+
+function isNotProResponse(r) {
+  return r.status === 403 && /paid subscription/i.test(r.text || "");
+}
+
+async function setPro(userId, isPro) {
+  await dbRun(`UPDATE trainerday_tokens SET has_pro = COALESCE(?, has_pro), pro_checked_at = ? WHERE user_id = ?`, [
+    isPro === null ? null : isPro ? 1 : 0,
+    Date.now(),
+    userId,
+  ]);
+}
+
+/** GET /api/v1/athlete: caches the FTP and stores whether the account is paid. */
+async function fetchAthlete(userId, accessToken) {
+  const r = await apiRequest(userId, accessToken, "GET", "/api/v1/athlete");
+  if (!r.ok || !r.json) return null;
+  const ftp = Number(r.json.ftp) > 0 ? Number(r.json.ftp) : null;
+  athleteCache.set(userId, { ftp, at: Date.now() });
+  const flag = r.json.hasProFeatures;
+  const isPro = flag === undefined || flag === null ? null : !!Number(flag) || flag === true;
+  await setPro(userId, isPro);
+  return { ftp, isPro };
+}
 
 async function getTrainerDayFtp(userId, accessToken) {
   const hit = athleteCache.get(userId);
   if (hit && Date.now() - hit.at < ATHLETE_TTL_MS) return hit.ftp;
-  const r = await apiRequest(userId, accessToken, "GET", "/api/v1/athlete");
-  const ftp = r.ok && r.json && Number(r.json.ftp) > 0 ? Number(r.json.ftp) : null;
-  athleteCache.set(userId, { ftp, at: Date.now() });
-  return ftp;
+  const athlete = await fetchAthlete(userId, accessToken);
+  return athlete ? athlete.ftp : null;
+}
+
+/**
+ * Whether the account may receive workouts. False only when TrainerDay said it
+ * is free; a free account is asked again after a day, or at once with `fresh`
+ * (an explicit send, so an upgrade takes effect straight away).
+ */
+async function hasPro(userId, accessToken, { fresh = false } = {}) {
+  const row = await dbGet(`SELECT has_pro, pro_checked_at FROM trainerday_tokens WHERE user_id = ?`, [userId]);
+  if (!row) return false;
+  const stale = !row.pro_checked_at || Date.now() - row.pro_checked_at > PRO_RECHECK_MS;
+  if (!row.pro_checked_at || (row.has_pro === 0 && (fresh || stale))) {
+    const athlete = await fetchAthlete(userId, accessToken).catch(() => null);
+    if (athlete && athlete.isPro !== null) return athlete.isPro;
+  }
+  return row.has_pro !== 0;
 }
 
 /** The FTP that turns watts into ERG percentages: TrainerDay's own, else rooka's. */
@@ -569,6 +635,10 @@ async function upsertEvent(userId, accessToken, workout, ctx, { force = false } 
   let eventId = known && known.event_id;
   if (eventId) {
     const put = await apiRequest(userId, accessToken, "PUT", `/api/v2/calendar/events/${encodeURIComponent(eventId)}`, body);
+    if (isNotProResponse(put)) {
+      await setPro(userId, false);
+      throw new TrainerDayNotProError();
+    }
     if (!put.ok && put.status !== 404) {
       throw new Error(`TrainerDay rejected the event update (HTTP ${put.status}) ${put.text.slice(0, 1000)}`);
     }
@@ -576,6 +646,10 @@ async function upsertEvent(userId, accessToken, workout, ctx, { force = false } 
   }
   if (!eventId) {
     const post = await apiRequest(userId, accessToken, "POST", "/api/v2/calendar/events", body);
+    if (isNotProResponse(post)) {
+      await setPro(userId, false);
+      throw new TrainerDayNotProError();
+    }
     if (!post.ok) throw new Error(`TrainerDay rejected the event (HTTP ${post.status}) ${post.text.slice(0, 1000)}`);
     eventId = eventIdFromResponse(post.json);
     if (!eventId) throw new Error("TrainerDay created the event but returned no id");
@@ -603,6 +677,9 @@ async function zoneContext(userId) {
   const hrZones = await resolveWatchHrZones(userId, "Bike").catch(() => null);
   return { hrZones }; // ftp is resolved lazily, only when something is pushed
 }
+
+// 403 with a code the app recognises, so it can say why instead of "try again later".
+const notProResult = () => ({ status: 403, body: { error: NOT_PRO_MESSAGE, code: "TRAINERDAY_NOT_PRO" } });
 
 function rateLimitResult(e, syncedCount) {
   const minutes = Math.max(1, Math.ceil(e.retryAfterMs / 60000));
@@ -642,6 +719,7 @@ async function pushWorkoutsToTrainerDay(userId, selectedWorkouts) {
 
     const accessToken = await getValidAccessToken(userId);
     if (!accessToken) return { status: 400, body: { error: "TrainerDay is not connected." } };
+    if (!(await hasPro(userId, accessToken, { fresh: true }))) return notProResult();
 
     const ctx = await zoneContext(userId);
     let syncedCount = 0;
@@ -652,6 +730,7 @@ async function pushWorkoutsToTrainerDay(userId, selectedWorkouts) {
         syncedCount++;
       } catch (e) {
         if (e instanceof TrainerDayRateLimitError) return rateLimitResult(e, syncedCount);
+        if (e instanceof TrainerDayNotProError) return notProResult();
         lastError = e.message;
         console.error(`TrainerDay push failed for ${w.date}:`, e.message);
       }
@@ -682,6 +761,9 @@ async function pushWorkoutsToTrainerDay(userId, selectedWorkouts) {
 async function syncTrainerDayCalendar(userId) {
   const accessToken = await getValidAccessToken(userId);
   if (!accessToken) return { status: 400, body: { error: "TrainerDay is not connected." } };
+  // A free account can't receive workouts: no requests, no log noise.
+  const skippedFree = { status: 200, body: { success: true, skipped: true, notPro: true, syncedCount: 0 } };
+  if (!(await hasPro(userId, accessToken))) return skippedFree;
 
   const today = amsToday();
   const horizon = addDays(today, MIRROR_DAYS - 1);
@@ -713,7 +795,7 @@ async function syncTrainerDayCalendar(userId) {
           await deleteEvent(userId, accessToken, row);
           deletedCount++;
         } catch (e) {
-          if (e instanceof TrainerDayRateLimitError) throw e;
+          if (e instanceof TrainerDayRateLimitError || e instanceof TrainerDayNotProError) throw e;
           lastError = e.message;
         }
       }
@@ -726,13 +808,14 @@ async function syncTrainerDayCalendar(userId) {
         const r = await upsertEvent(userId, accessToken, w, ctx);
         if (r.changed) syncedCount++;
       } catch (e) {
-        if (e instanceof TrainerDayRateLimitError) throw e;
+        if (e instanceof TrainerDayRateLimitError || e instanceof TrainerDayNotProError) throw e;
         lastError = e.message;
         console.error(`TrainerDay sync failed for ${w.date}:`, e.message);
       }
     }
   } catch (e) {
     if (e instanceof TrainerDayRateLimitError) return rateLimitResult(e, syncedCount);
+    if (e instanceof TrainerDayNotProError) return skippedFree;
     throw e;
   }
 
@@ -776,6 +859,8 @@ module.exports = {
   HR_ZONE_PCT,
   isConfigured,
   isConnected,
+  canReceiveWorkouts,
+  connectionStatus,
   isBikeSport,
   authorizeUrl,
   signState,

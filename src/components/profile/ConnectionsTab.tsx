@@ -102,6 +102,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const isStravaConnected = !!user?.strava_connected;
   const isSuuntoConnected = !!user?.suunto_connected;
   const isTrainerDayConnected = !!user?.trainerday_connected;
+  const trainerDayNeedsPro = isTrainerDayConnected && user?.trainerday_pro === false;
 
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
@@ -719,7 +720,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.trainerdayIntegration')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
                 {isTrainerDayConnected
-                  ? `${t('connections.connected', 'Connected')} · ${t('connections.trainerdayStatus')}`
+                  ? `${t('connections.connected', 'Connected')} · ${t(
+                      trainerDayNeedsPro ? 'connections.trainerdayNeedsPro' : 'connections.trainerdayStatus'
+                    )}`
                   : t('connections.disconnected', 'Not connected')}
               </Text>
             </View>
@@ -755,7 +758,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 
         {showTrainerDayManage && isTrainerDayConnected && (
           <View className="mt-3 pt-3 border-t border-theme-border/50 gap-y-3">
-            <Text className="text-xs text-theme-muted leading-4">{t('connections.trainerdayHint')}</Text>
+            <Text className="text-xs text-theme-muted leading-4">
+              {t(trainerDayNeedsPro ? 'connections.trainerdayNeedsProHint' : 'connections.trainerdayHint')}
+            </Text>
             <TouchableOpacity
               onPress={onDisconnectTrainerDay}
               disabled={trainerDayLoading}

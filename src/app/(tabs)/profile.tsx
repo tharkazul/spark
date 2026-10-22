@@ -424,6 +424,8 @@ export default function ProfileScreen() {
         await refreshUser();
         if (status === 'connected') {
           Alert.alert(t('integrationMsgs.trainerdayConnectedTitle'), t('integrationMsgs.trainerdayConnected'));
+        } else if (status === 'connected_free') {
+          Alert.alert(t('integrationMsgs.trainerdayConnectedTitle'), t('integrationMsgs.trainerdayConnectedFree'));
         } else {
           Alert.alert(
             t('integrationMsgs.trainerdayErrorTitle'),
