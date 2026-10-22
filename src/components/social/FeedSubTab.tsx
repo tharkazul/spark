@@ -175,6 +175,11 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
       loadFeed(false);
     });
 
+    const refreshFeedSub = DeviceEventEmitter.addListener('refreshSocialFeed', () => {
+      fetchPending();
+      loadFeed(false);
+    });
+
     const unsubs = [
       wsService.subscribeToEvent('kudos_received', () => loadFeed(false)),
       wsService.subscribeToEvent('feed_updated', () => loadFeed(false)),
@@ -193,6 +198,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
     return () => {
       connSub.remove();
       connChangedSub.remove();
+      refreshFeedSub.remove();
       unsubs.forEach((off) => off());
     };
   }, [loadFeed, fetchPending]);

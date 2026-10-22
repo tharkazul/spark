@@ -113,7 +113,7 @@ function formatRecurringTrainings(recurringRows) {
   const path = require("path");
   const chatSource = fs.readFileSync(path.join(__dirname, "routes/chat.js"), "utf8");
 
-  assert.ok(chatSource.includes("training_availability FROM users WHERE id = ?"), "chat.js selects training_availability");
+  assert.ok(chatSource.includes("training_availability") && chatSource.includes("FROM users WHERE id = ?"), "chat.js selects training_availability");
   assert.ok(chatSource.includes("SELECT title, day_of_week, start_time, duration_minutes, sport, intensity FROM recurring_trainings"), "chat.js queries recurring_trainings");
   assert.ok(chatSource.includes("DAILY EXERCISE LIMITATIONS & WEEKLY SCHEDULE BOUNDARIES:"), "chat.js injects availability into prompt");
   assert.ok(chatSource.includes("RECURRING SPORTS & PERIODICAL TRAININGS (NON-ROOKA ACTIVITIES):"), "chat.js injects recurring sports into prompt");

@@ -84,6 +84,7 @@ function run(sql, params = []) {
           avgWatts: a.average_watts,
           hrZones,
           powerZones,
+          sport: a.sport_type,
         })
       : 0;
 

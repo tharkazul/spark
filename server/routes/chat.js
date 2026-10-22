@@ -477,7 +477,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                           planRows && planRows.length > 0
                             ? planRows
                                 .map((p) => {
-                                  let line = `- ${p.date}: ${p.sport} - ${p.description} (${p.target_rooka || p.target_tss || 0} rooka)`;
+                                  let line = `- ${p.date}: ${p.sport} - ${p.description} (est. load: ~${p.target_rooka || p.target_tss || 0} rooka)`;
                                   if (p.source === 'template') {
                                     line += ` [standard template week, not yet personalized by you]`;
                                   } else if (p.source === 'user') {

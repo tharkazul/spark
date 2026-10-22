@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   ScrollView,
   View,
@@ -7,6 +7,9 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
+  RefreshControl,
+  useColorScheme,
+  DeviceEventEmitter,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +28,15 @@ import { useTabBar } from '../../context/TabBarContext';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
 import { useLanguage } from '../../context/LanguageContext';
 import { PagerLockContext } from '../../context/PagerLockContext';
+import { useTheme } from '@/hooks/use-theme';
+
+import { useActivities } from '../../context/ActivityStore';
+import { useSeason } from '../../context/SeasonStore';
+import { usePhysique } from '../../context/PhysiqueStore';
+import { useHealth } from '../../context/HealthStore';
+import { useUser } from '../../context/UserStore';
+import { usePlan } from '../../context/PlanStore';
+import { useGamification } from '../../context/GamificationStore';
 
 const TABS = ['overview', 'fitness', 'body', 'history'] as const;
 type TabType = typeof TABS[number];
@@ -32,10 +44,68 @@ type TabType = typeof TABS[number];
 export default function ProgressScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const theme = useTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const { notifyScroll, notifyScrollEnd } = useTabBar();
   const tabBarInset = useTabBarInset();
   const insets = useSafeAreaInsets();
+
+  const { user, refreshUser } = useUser();
+  const { refreshActivities, syncGarmin, syncStrava } = useActivities();
+  const { refresh: refreshSeason } = useSeason();
+  const { refreshPhysique } = usePhysique();
+  const { refreshNiggles } = useHealth();
+  const { refreshPlan } = usePlan();
+  const { refreshGamification } = useGamification();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const tasks: Promise<any>[] = [
+        refreshActivities(),
+        refreshSeason(),
+        refreshPhysique(),
+        refreshNiggles(),
+      ];
+
+      if (refreshPlan) tasks.push(refreshPlan());
+      if (refreshUser) tasks.push(refreshUser());
+      if (refreshGamification) tasks.push(refreshGamification());
+
+      if (user?.garmin_connected || (user as any)?.garmin_username) {
+        tasks.push(syncGarmin().catch(() => {}));
+      }
+      if (user?.strava_connected) {
+        tasks.push(syncStrava().catch(() => {}));
+      }
+
+      DeviceEventEmitter.emit('refreshProgress');
+
+      await Promise.allSettled(tasks);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.warn('[ProgressScreen] Pull-to-refresh failed:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [
+    refreshActivities,
+    refreshSeason,
+    refreshPhysique,
+    refreshNiggles,
+    refreshPlan,
+    refreshUser,
+    refreshGamification,
+    syncGarmin,
+    syncStrava,
+    user,
+  ]);
 
   const progressSegments = [
     { key: 'overview', label: t('goal.tabLabel') },
@@ -123,6 +193,15 @@ export default function ProgressScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             <GoalSubTab />
           </ScrollView>
@@ -137,6 +216,15 @@ export default function ProgressScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             <FitnessSubTab />
           </ScrollView>
@@ -151,6 +239,15 @@ export default function ProgressScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             <BodySubTab onOpenNutrition={() => setIsNutritionModalOpen(true)} />
           </ScrollView>
@@ -165,6 +262,15 @@ export default function ProgressScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             <MyLogSubTab onOpenActivityModal={handleOpenActivity} />
           </ScrollView>

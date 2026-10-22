@@ -120,6 +120,38 @@ function effortMultiplier({ hrZone = null, powerZone = null } = {}) {
 }
 
 /**
+ * Density multiplier based on sport type.
+ *
+ * Swimming produces high cardiovascular and full-body aerobic strain in a compressed
+ * timeframe, while optical HR sensors underwater consistently read lower than actual effort.
+ *
+ * Strength/weight training sessions typically include passive rest periods between sets
+ * (e.g. 60-90s resting for every 30s of work), meaning raw elapsed/moving minutes overstate
+ * continuous metabolic load.
+ */
+function sportDensityMultiplier(sport) {
+  if (!sport) return 1.0;
+  const s = String(sport).toLowerCase();
+  if (s.includes("swim") || s.includes("water")) {
+    return 1.5;
+  }
+  if (
+    s.includes("strength") ||
+    s.includes("weight") ||
+    s.includes("gym") ||
+    s.includes("lift") ||
+    s.includes("workout") ||
+    s.includes("crossfit") ||
+    s.includes("fitness") ||
+    s.includes("hyrox") ||
+    s.includes("bodyweight")
+  ) {
+    return 0.75;
+  }
+  return 1.0;
+}
+
+/**
  * Score a completed activity from its averages.
  *
  * `fallbackMultiplier` applies when the athlete has no zone tables yet or the
@@ -133,6 +165,7 @@ function scoreActivity({
   hrZones = null,
   powerZones = null,
   fallbackMultiplier = 1.0,
+  sport = null,
 }) {
   const minutes = Number(movingMinutes);
   if (!minutes || minutes <= 0) return 0;
@@ -143,7 +176,8 @@ function scoreActivity({
       powerZone: zoneOf(avgWatts, powerZones),
     }) ?? fallbackMultiplier;
 
-  return Math.round(minutes * multiplier * 10) / 10;
+  const density = sportDensityMultiplier(sport);
+  return Math.round(minutes * multiplier * density * 10) / 10;
 }
 
 /**
@@ -155,9 +189,10 @@ function stepEquivalentMinutes(step, sport) {
   const condType = step.condition_type || "time";
   if (condType === "time") return val;
   if (condType === "time_sec") return val / 60;
-  if (condType === "distance_km") return val * (sport === "BIKE" || sport === "Bike" ? 2 : 5);
+  const s = String(sport || "").toLowerCase();
+  if (condType === "distance_km") return val * (s.includes("bike") || s.includes("ride") || s.includes("cycle") ? 2 : 5);
   if (condType === "distance") {
-    if (sport === "SWIM" || sport === "Swim") return (val / 100) * 1.8;
+    if (s.includes("swim") || s.includes("water")) return (val / 100) * 1.8;
     return (val / 1000) * 5;
   }
   if (condType === "reps") return val * 0.05;
@@ -202,7 +237,8 @@ function scoreSteps(steps, { sport = null, powerZones = null } = {}) {
       total += stepEquivalentMinutes(step, sport) * stepMultiplier(step, powerZones);
     }
   }
-  return Math.round(total * 10) / 10;
+  const density = sportDensityMultiplier(sport);
+  return Math.round(total * density * 10) / 10;
 }
 
 /**
@@ -213,12 +249,12 @@ function scoreSteps(steps, { sport = null, powerZones = null } = {}) {
  * when there are no steps to score.
  */
 function planDayTargetRooka(day, powerZones = null) {
-  let steps = day && day.steps_json;
+  let steps = day && (day.steps_json ?? day.steps);
   if (typeof steps === "string") {
     try { steps = JSON.parse(steps); } catch (_) { steps = null; }
   }
   if (Array.isArray(steps) && steps.length > 0) {
-    const scored = scoreSteps(steps, { sport: day.sport, powerZones });
+    const scored = scoreSteps(steps, { sport: day && day.sport, powerZones });
     if (scored > 0) return Math.round(scored);
   }
   const fallback = Number(day && (day.target_rooka ?? day.target_spark));
@@ -239,6 +275,7 @@ module.exports = {
   hrMultiplier,
   powerMultiplier,
   effortMultiplier,
+  sportDensityMultiplier,
   scoreActivity,
   stepEquivalentMinutes,
   stepMultiplier,

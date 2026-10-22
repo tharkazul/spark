@@ -8,6 +8,7 @@ import {
   AppState,
   Animated as RNAnimated,
   DeviceEventEmitter,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -33,6 +34,7 @@ import { useActivities } from '../../context/ActivityStore';
 import { useCoachChat } from '../../context/CoachChatStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { usePlan } from '../../context/PlanStore';
+import { useHealth } from '../../context/HealthStore';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
 import { useSubscription } from '../../context/SubscriptionStore';
@@ -95,17 +97,20 @@ export default function PlanningHomeScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const theme = useTheme();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, refreshUser } = useUser();
   const { isSubscribed, presentPaywall } = useSubscription();
   const canEdit = canEditWorkouts(user?.subscription_tier, isSubscribed);
   const { sendMessage, unreadCount } = useCoachChat();
   const { t, language } = useLanguage();
   const tabBarInset = useTabBarInset();
   const { plan, loading: planLoading, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
-  const { activities } = useActivities();
+  const { activities, refreshActivities, syncGarmin, syncStrava } = useActivities();
+  const { refreshNiggles } = useHealth();
   const { hasAnyDevices, hasTrainerDay, isSyncing, syncWorkouts } = useConnectedDevices();
   const [isSyncedSuccess, setIsSyncedSuccess] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAdaptModalOpen, setIsAdaptModalOpen] = useState(false);
@@ -142,16 +147,62 @@ export default function PlanningHomeScreen() {
   // A day to select once a weekStart change lands (the weekStart effect would
   // otherwise reset the selection to today).
   const pendingSelectIndexRef = useRef<number | null>(null);
-  const { data: seasonData } = useSeason();
+  const { data: seasonData, refresh: refreshSeason } = useSeason();
   const [askDraft, setAskDraft] = useState('');
   const askInputRef = useRef<TextInput>(null);
 
+  const loadWeather = useCallback(async () => {
+    try {
+      const forecast = await weatherService.getForecast();
+      setWeatherForecast(forecast.days);
+      setWeatherAttribution(forecast.attribution);
+    } catch (e) {
+      console.warn('[PlanningHomeScreen] Weather load failed:', e);
+    }
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const tasks: Promise<any>[] = [
+        refreshPlan(),
+        refreshActivities(),
+        loadWeather(),
+      ];
+
+      if (refreshSeason) tasks.push(refreshSeason());
+      if (refreshUser) tasks.push(refreshUser());
+      if (refreshNiggles) tasks.push(refreshNiggles());
+
+      if (user?.garmin_connected || (user as any)?.garmin_username) {
+        tasks.push(syncGarmin().catch(() => {}));
+      }
+      if (user?.strava_connected) {
+        tasks.push(syncStrava().catch(() => {}));
+      }
+
+      await Promise.allSettled(tasks);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.warn('[PlanningHomeScreen] Pull-to-refresh failed:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [
+    refreshPlan,
+    refreshActivities,
+    loadWeather,
+    refreshSeason,
+    refreshUser,
+    refreshNiggles,
+    syncGarmin,
+    syncStrava,
+    user,
+  ]);
+
   useEffect(() => {
-    const loadWeather = () =>
-      weatherService.getForecast().then((forecast) => {
-        setWeatherForecast(forecast.days);
-        setWeatherAttribution(forecast.attribution);
-      });
     loadWeather();
     // Profile -> Home town changed: show the new town's forecast straight away.
     const sub = DeviceEventEmitter.addListener('homeTownChanged', loadWeather);
@@ -163,7 +214,7 @@ export default function PlanningHomeScreen() {
       sub.remove();
       appStateSub.remove();
     };
-  }, []);
+  }, [loadWeather]);
 
   useEffect(() => {
     refreshPlan();
@@ -746,6 +797,15 @@ export default function PlanningHomeScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             <HomeWeekHero
               week={homeWeek}
@@ -909,6 +969,15 @@ export default function PlanningHomeScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             {planLoading && plan.length === 0 ? (
               <Animated.View

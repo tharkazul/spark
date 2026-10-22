@@ -198,6 +198,7 @@ async function repairAthlete(user, options = {}) {
         avgWatts: act.average_watts,
         hrZones,
         powerZones,
+        sport: act.sport_type,
       });
     }
     if (!score || score <= 0) {

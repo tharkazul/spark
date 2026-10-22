@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import {
   View,
@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   Animated,
+  DeviceEventEmitter,
+  RefreshControl,
+  useColorScheme,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -55,33 +58,47 @@ export default function SocialScreen() {
   const [rookaLeaderboard, setRookaLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [questLeaderboard, setQuestLeaderboard] = useState<LeaderboardEntry[]>([]);
 
-  useEffect(() => {
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  const fetchLeaderboard = useCallback(async () => {
     if (!hasLeaderboardAccess) {
       setLeaderboardLoading(false);
       return;
     }
-
-    let isMounted = true;
-    socialApi
-      .getLeaderboard()
-      .then((res) => {
-        if (!isMounted) return;
-        if (res?.leaderboard && Array.isArray(res.leaderboard)) {
-          setRookaLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
-        }
-        if (res?.questLeaderboard && Array.isArray(res.questLeaderboard)) {
-          setQuestLeaderboard(res.questLeaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
-        }
-      })
-      .catch((err) => console.log('Leaderboard fetch error:', err))
-      .finally(() => {
-        if (isMounted) setLeaderboardLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    try {
+      const res = await socialApi.getLeaderboard();
+      if (res?.leaderboard && Array.isArray(res.leaderboard)) {
+        setRookaLeaderboard(res.leaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
+      }
+      if (res?.questLeaderboard && Array.isArray(res.questLeaderboard)) {
+        setQuestLeaderboard(res.questLeaderboard.map((item, idx) => ({ ...item, rank: idx + 1 })));
+      }
+    } catch (err) {
+      console.log('Leaderboard fetch error:', err);
+    } finally {
+      setLeaderboardLoading(false);
+    }
   }, [hasLeaderboardAccess]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [fetchLeaderboard]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      DeviceEventEmitter.emit('refreshSocialFeed');
+      await fetchLeaderboard();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      console.warn('Social pull to refresh error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchLeaderboard]);
 
   // Modal State (Add Friends is a creation/search modal sheet)
   const [addFriendsModalVisible, setAddFriendsModalVisible] = useState<boolean>(false);
@@ -178,6 +195,15 @@ export default function SocialScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             <FeedSubTab
               onOpenActivityModal={handleOpenActivity}
@@ -199,6 +225,15 @@ export default function SocialScreen() {
             onScrollBeginDrag={notifyScroll}
             onScrollEndDrag={notifyScrollEnd}
             onMomentumScrollEnd={notifyScrollEnd}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.tint}
+                colors={[theme.tint]}
+                progressBackgroundColor={isDark ? '#1E293B' : '#FFFFFF'}
+              />
+            }
           >
             <LeaderboardSubTab
               loading={leaderboardLoading}

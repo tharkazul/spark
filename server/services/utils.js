@@ -690,9 +690,9 @@ function getRookaLevelInfo(total_rooka) {
  * entirely — a power-only ride scored as bare minutes. Prefer
  * `calculateRookaScoreZoned` where the athlete's zone tables are available.
  */
-function calculateRookaScore(movingTimeMin, avgHr, fallbackScore = 0) {
+function calculateRookaScore(movingTimeMin, avgHr, fallbackScore = 0, sport = null) {
   if (!movingTimeMin || movingTimeMin <= 0) return fallbackScore || 0;
-  return zoneModel.scoreActivity({ movingMinutes: movingTimeMin, avgHr });
+  return zoneModel.scoreActivity({ movingMinutes: movingTimeMin, avgHr, sport });
 }
 
 /**
@@ -719,6 +719,7 @@ async function calculateRookaScoreZoned({ userId, movingTimeMin, avgHr, avgWatts
     avgWatts: powerApplies ? avgWatts : null,
     hrZones,
     powerZones: powerApplies ? powerZones : null,
+    sport,
   });
 }
 
@@ -1272,7 +1273,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                 };
                 const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith("nl") ? "Dutch (Nederlands)" : "English");
 
-                let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". They covered ${distanceKm.toFixed(1)}km in ${Math.round(movingTimeMin)} minutes, generating ${Math.round(rookaScore)} rooka. `;
+                let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". Actual execution: ${distanceKm > 0 ? `${distanceKm.toFixed(1)}km, ` : ""}${Math.round(movingTimeMin)} minutes (training load: ~${Math.round(rookaScore)} rooka). `;
 
                 if (plan) {
                   let stepsContent = formatStepsForStrava(plan.steps_json);
@@ -1281,9 +1282,14 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                     : plan.details && plan.details.trim().length > 0
                       ? plan.details
                       : plan.description;
-                  prompt += `The planned workout for today was: "${workoutContent}" with a target of ${plan.target_rooka} rooka. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}). Praise them if they hit the target or give constructive advice if they missed it.`;
+                  prompt += `The planned workout for today was: "${workoutContent}" (estimated training load: ~${Math.round(plan.target_rooka || 0)} rooka).\n` +
+                    `Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).\n` +
+                    `COACHING EVALUATION HIERARCHY:\n` +
+                    `- Execution & consistency first: Did they complete the session, duration, distance, and structure? If they completed the workout, celebrate their consistency and effort.\n` +
+                    `- Effort & pacing discipline: On easy, recovery, or Zone 2 workouts, lower heart rate and lower rooka points indicate EXCELLENT pacing discipline (keeping the effort easy and controlled, not overcooking it). On interval sessions, focus on whether the work was done.\n` +
+                    `- Rooka points are an estimated load metric, NOT a pass/fail grade: Do NOT roast, scold, or critique the athlete for earning fewer rooka points if they did the session. Only offer constructive guidance if they significantly bailed early or turned an easy recovery session into an all-out race.`;
                 } else {
-                  prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).`;
+                  prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}), acknowledging the extra volume while keeping their recovery in mind.`;
                 }
 
                 // Quest evaluation (paid tiers only)

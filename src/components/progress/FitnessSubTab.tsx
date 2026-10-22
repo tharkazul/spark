@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, DeviceEventEmitter } from 'react-native';
 import { router } from 'expo-router';
 import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
 import { FitnessTrendsChart } from './FitnessTrendsChart';
@@ -28,21 +28,38 @@ export const FitnessSubTab: React.FC = () => {
   const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
   const [recentBiometrics, setRecentBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
 
+  const loadBiometrics = useCallback(async () => {
+    try {
+      const [freshToday, freshRecent] = await Promise.allSettled([
+        fetchTodayBiometricsFromServer(),
+        fetchRecentBiometricsFromServer(7),
+      ]);
+      if (freshToday.status === 'fulfilled' && freshToday.value) {
+        setTodayBiometrics(freshToday.value);
+      }
+      if (freshRecent.status === 'fulfilled' && Array.isArray(freshRecent.value)) {
+        setRecentBiometrics(freshRecent.value);
+      }
+    } catch (e) {
+      console.warn('[FitnessSubTab] Biometrics fetch failed:', e);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     getCachedTodayBiometrics().then((cached) => {
       if (!cancelled && cached) setTodayBiometrics(cached);
     });
-    fetchTodayBiometricsFromServer().then((fresh) => {
-      if (!cancelled && fresh) setTodayBiometrics(fresh);
-    });
-    fetchRecentBiometricsFromServer(7).then((recent) => {
-      if (!cancelled && Array.isArray(recent)) setRecentBiometrics(recent);
+    loadBiometrics();
+
+    const sub = DeviceEventEmitter.addListener('refreshProgress', () => {
+      loadBiometrics();
     });
     return () => {
       cancelled = true;
+      sub.remove();
     };
-  }, []);
+  }, [loadBiometrics]);
 
   const pmcMetrics = calculatePMCMetrics(
     activities,

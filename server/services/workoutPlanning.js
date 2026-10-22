@@ -5,7 +5,7 @@ const { generateWithFallback } = require("./ai");
 const { sendSSEEvent } = require("./sse");
 const { sendPushToUser } = require("./pushNotificationService");
 const i18n = require("./i18n");
-const { planDayTargetRooka } = require("./zones");
+const { planDayTargetRooka, sportDensityMultiplier } = require("./zones");
 const muscleLoad = require("./muscleLoad");
 const { getUserMacroPhase } = require("./utils");
 const { getUserGoalPromptContext } = require("./goalPromptContext");
@@ -201,13 +201,15 @@ const RECURRING_DETAILS = {
 function buildFallbackPlan(dates, primarySport = 'Run', userLang = 'en') {
   const text = FALLBACK_PLAN_TEXT[userLang] || FALLBACK_PLAN_TEXT.en;
   const sport = primarySport && primarySport !== 'Rest' ? primarySport : 'Run';
+  const density = sportDensityMultiplier(sport);
+  const strengthDensity = sportDensityMultiplier('Strength');
   const layout = [
-    { sport, target_rooka: 45 },
-    { sport: 'Strength', target_rooka: 35 },
+    { sport, target_rooka: Math.round(45 * density) },
+    { sport: 'Strength', target_rooka: Math.round(35 * strengthDensity) },
     { sport: 'Rest', target_rooka: 0 },
-    { sport, target_rooka: 60 },
+    { sport, target_rooka: Math.round(60 * density) },
     { sport: 'Rest', target_rooka: 0 },
-    { sport, target_rooka: 75 },
+    { sport, target_rooka: Math.round(75 * density) },
     { sport: 'Rest', target_rooka: 0 },
   ];
   return layout.map((day, i) => ({
@@ -467,11 +469,13 @@ function buildTemplatePlan(dates, opts = {}) {
   // Reuse the localized session texts from the fallback plan.
   const lib = buildFallbackPlan(dates, primarySport, lang);
   const sport = lib[0].sport;
+  const density = sportDensityMultiplier(sport);
+  const strengthDensity = sportDensityMultiplier('Strength');
   const sessionDefs = {
-    long: { idx: 5, sport, baseMin: 75, hard: true, rookaPerMin: 1.0, priority: 0 },
-    quality: { idx: 3, sport, baseMin: 50, hard: true, rookaPerMin: 1.2, priority: 1 },
-    easy: { idx: 0, sport, baseMin: 45, hard: false, rookaPerMin: 1.0, priority: 2 },
-    strength: { idx: 1, sport: 'Strength', baseMin: 35, hard: false, rookaPerMin: 1.0, priority: 3 },
+    long: { idx: 5, sport, baseMin: 75, hard: true, rookaPerMin: 1.0 * density, priority: 0 },
+    quality: { idx: 3, sport, baseMin: 50, hard: true, rookaPerMin: 1.2 * density, priority: 1 },
+    easy: { idx: 0, sport, baseMin: 45, hard: false, rookaPerMin: 1.0 * density, priority: 2 },
+    strength: { idx: 1, sport: 'Strength', baseMin: 35, hard: false, rookaPerMin: 1.0 * strengthDensity, priority: 3 },
   };
   // Beginners (low chronic load) get an easy session instead of threshold work.
   const isBeginner = !(Number(ctl) >= 15);
@@ -1075,7 +1079,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
       sport,
       target_rooka: item.target_rooka,
       steps_json: stepsJson,
-    }) || (sport === 'Rest' ? 0 : 40);
+    }) || (sport === 'Rest' ? 0 : Math.round(40 * sportDensityMultiplier(sport)));
 
     return {
       date: assignedDate,
