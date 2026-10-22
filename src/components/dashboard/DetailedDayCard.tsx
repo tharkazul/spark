@@ -58,6 +58,9 @@ interface DetailedDayCardProps {
   onInvitePartner: (workout: WorkoutItem) => void;
   hasAnyDevices?: boolean;
   onSendWorkoutToDevice?: (workout: WorkoutItem) => void;
+  /** TrainerDay is connected: bike workouts get "Send to TrainerDay" in their menu. */
+  hasTrainerDay?: boolean;
+  onSendWorkoutToTrainerDay?: (workout: WorkoutItem) => void;
   canEdit?: boolean;
   onUpgradePress?: () => void;
   /** A session earlier this week was missed, so today's rest can't be called "on track". */
@@ -88,6 +91,8 @@ export function DetailedDayCard({
   onInvitePartner,
   hasAnyDevices = false,
   onSendWorkoutToDevice,
+  hasTrainerDay = false,
+  onSendWorkoutToTrainerDay,
   canEdit = true,
   onUpgradePress,
   weekHasMissed = false,
@@ -618,6 +623,22 @@ export function DetailedDayCard({
                   <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
                   <Text className="text-sm font-semibold text-theme-text font-jakarta">
                     {t('dashboard.sendToDevice', 'Send to device')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {hasTrainerDay && onSendWorkoutToTrainerDay && activeMenuWorkout.type === 'BIKE' && (
+                <TouchableOpacity
+                  onPress={() => {
+                    const target = activeMenuWorkout;
+                    setActiveMenuWorkout(null);
+                    if (target) onSendWorkoutToTrainerDay(target);
+                  }}
+                  className="py-3 px-2 flex-row items-center gap-3 border-b border-theme-border/40"
+                >
+                  <Ionicons name="bicycle-outline" size={20} color="#0EA5E9" />
+                  <Text className="text-sm font-semibold text-theme-text font-jakarta">
+                    {t('dashboard.sendToTrainerDay', 'Send to TrainerDay')}
                   </Text>
                 </TouchableOpacity>
               )}

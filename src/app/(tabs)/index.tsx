@@ -28,6 +28,7 @@ import { normalizeSportType } from '../../utils/disciplineConfig';
 import { calculateActivityStreak } from '../../utils/gamification';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
 import { useConnectedDevices } from '../../hooks/useConnectedDevices';
+import { sendWorkoutToTrainerDay } from '../../services/deviceSyncService';
 import { useActivities } from '../../context/ActivityStore';
 import { useCoachChat } from '../../context/CoachChatStore';
 import { useLanguage } from '../../context/LanguageContext';
@@ -103,7 +104,7 @@ export default function PlanningHomeScreen() {
   const tabBarInset = useTabBarInset();
   const { plan, loading: planLoading, refreshPlan, addWorkout, updateWorkout, deleteWorkout } = usePlan();
   const { activities } = useActivities();
-  const { hasAnyDevices, isSyncing, syncWorkouts } = useConnectedDevices();
+  const { hasAnyDevices, hasTrainerDay, isSyncing, syncWorkouts } = useConnectedDevices();
   const [isSyncedSuccess, setIsSyncedSuccess] = useState(false);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -636,6 +637,12 @@ export default function PlanningHomeScreen() {
     }
   };
 
+  const handleSendToTrainerDay = async (workout: WorkoutItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const result = await sendWorkoutToTrainerDay(workout);
+    Alert.alert(result.success ? t('deviceSync.sentTitle') : t('deviceSync.sendFailedTitle'), result.message);
+  };
+
   const goToPage = (index: number) => {
     Haptics.selectionAsync();
     setPage(index);
@@ -951,6 +958,8 @@ export default function PlanningHomeScreen() {
                         onInvitePartner={handleInvitePartner}
                         hasAnyDevices={hasAnyDevices}
                         onSendWorkoutToDevice={handleSendSingleWorkout}
+                        hasTrainerDay={hasTrainerDay}
+                        onSendWorkoutToTrainerDay={handleSendToTrainerDay}
                         canEdit={canEdit}
                         onUpgradePress={() => presentPaywall()}
                         weekHasMissed={weekHasMissed}

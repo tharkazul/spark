@@ -56,6 +56,7 @@ app.use("/", socialRoutes);
 app.use("/", gamificationRoutes);
 app.use("/", integrationsRoutes);
 app.use("/", require("./routes/suunto"));
+app.use("/", require("./routes/trainerday"));
 app.use("/", require("./routes/devices"));
 app.use("/", physiqueRoutes);
 app.use("/", activitiesRoutes);
@@ -182,6 +183,13 @@ cron.schedule('0 3 * * *', () => {
 cron.schedule('*/5 * * * *', () => {
   require("./services/pushNotificationService").processPushReceipts().catch((err) =>
     console.error('[CRON] Push receipt check failed:', err)
+  );
+});
+
+// Every 15 minutes: mirror plan changes onto connected TrainerDay calendars (only changed sessions cost API requests)
+cron.schedule('*/15 * * * *', () => {
+  require("./services/trainerday").syncAllTrainerDayUsers().catch((err) =>
+    console.error('[CRON] TrainerDay sync failed:', err)
   );
 });
 

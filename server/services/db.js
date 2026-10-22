@@ -299,6 +299,29 @@ db.serialize(() => {
         PRIMARY KEY (user_id, external_id),
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
+  // TrainerDay OAuth tokens (services/trainerday.js). access/refresh tokens are stored encrypted.
+  db.run(`CREATE TABLE IF NOT EXISTS trainerday_tokens (
+        user_id INTEGER PRIMARY KEY,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        scope TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`);
+  // Planned bike sessions on the TrainerDay calendar. Maps our key (one event per
+  // user/date) to TrainerDay's event id, so a plan change updates that event and a
+  // removed session deletes it instead of leaving a duplicate. source_hash skips
+  // unchanged sessions so the background sync spends no API requests on them.
+  db.run(`CREATE TABLE IF NOT EXISTS trainerday_events (
+        user_id INTEGER NOT NULL,
+        workout_key TEXT NOT NULL,
+        event_id TEXT NOT NULL,
+        calendar_date TEXT NOT NULL,
+        source_hash TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, workout_key),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`);
   // External Suunto workout id; NULL for non-Suunto rows (NULLs never collide in
   // a SQLite unique index). Required for the ON CONFLICT upsert in routes/suunto.js.
   db.run(`ALTER TABLE activities ADD COLUMN suunto_workout_id TEXT`, () => {

@@ -159,6 +159,7 @@ export default function ProfileScreen() {
   // Strava State
   const [stravaLoading, setStravaLoading] = useState(false);
   const [suuntoLoading, setSuuntoLoading] = useState(false);
+  const [trainerDayLoading, setTrainerDayLoading] = useState(false);
 
   const username = user?.username || t('misc.athlete');
   const email = user?.email;
@@ -412,6 +413,60 @@ export default function ProfileScreen() {
     );
   };
 
+  // TrainerDay: the server exchanges the code at /trainerdayredirect and deep-links back with ?status=
+  const handleConnectTrainerDay = async () => {
+    setTrainerDayLoading(true);
+    try {
+      const { url: authUrl } = await integrationsApi.getTrainerDayConnectUrl();
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, Linking.createURL('trainerdayredirect'));
+      if (result.type === 'success' && result.url) {
+        const status = Linking.parse(result.url).queryParams?.status;
+        await refreshUser();
+        if (status === 'connected') {
+          Alert.alert(t('integrationMsgs.trainerdayConnectedTitle'), t('integrationMsgs.trainerdayConnected'));
+        } else {
+          Alert.alert(
+            t('integrationMsgs.trainerdayErrorTitle'),
+            status === 'denied' ? t('integrationMsgs.trainerdayDenied') : t('integrationMsgs.trainerdayOauthFailed')
+          );
+        }
+      } else {
+        // Closed the sheet: the connect may still have finished on the server.
+        await refreshUser();
+      }
+    } catch (err: any) {
+      Alert.alert(t('integrationMsgs.trainerdayErrorTitle'), err.message || t('integrationMsgs.trainerdayOauthFailed'));
+    } finally {
+      setTrainerDayLoading(false);
+    }
+  };
+
+  const handleDisconnectTrainerDay = async () => {
+    Alert.alert(
+      t('integrationMsgs.disconnectTrainerdayTitle'),
+      t('integrationMsgs.disconnectTrainerdayBody'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('integrationMsgs.disconnect'),
+          style: 'destructive',
+          onPress: async () => {
+            setTrainerDayLoading(true);
+            try {
+              await integrationsApi.disconnectTrainerDay();
+              await refreshUser();
+              Alert.alert(t('integrationMsgs.disconnectedTitle'), t('integrationMsgs.trainerdayDisconnected'));
+            } catch (err: any) {
+              Alert.alert(t('common.error'), err.message || t('integrationMsgs.trainerdayDisconnectFailed'));
+            } finally {
+              setTrainerDayLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSyncStrava = async () => {
     setStravaLoading(true);
     try {
@@ -582,6 +637,9 @@ export default function ProfileScreen() {
               onConnectSuunto={handleConnectSuuntoOAuth}
               onDisconnectSuunto={handleDisconnectSuunto}
               suuntoLoading={suuntoLoading}
+              onConnectTrainerDay={handleConnectTrainerDay}
+              onDisconnectTrainerDay={handleDisconnectTrainerDay}
+              trainerDayLoading={trainerDayLoading}
             />
           </ScrollView>
         </View>

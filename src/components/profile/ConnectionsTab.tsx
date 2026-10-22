@@ -23,6 +23,9 @@ interface ConnectionsTabProps {
   onConnectSuunto: () => void;
   onDisconnectSuunto: () => void;
   suuntoLoading?: boolean;
+  onConnectTrainerDay: () => void;
+  onDisconnectTrainerDay: () => void;
+  trainerDayLoading?: boolean;
 }
 
 // rooka's sport buckets, matching STRAVA_SHARE_SPORTS on the server. Strava's
@@ -69,6 +72,9 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   onConnectSuunto,
   onDisconnectSuunto,
   suuntoLoading = false,
+  onConnectTrainerDay,
+  onDisconnectTrainerDay,
+  trainerDayLoading = false,
 }) => {
   const theme = useTheme();
   const { user } = useUser();
@@ -95,6 +101,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const isGarminConnected = !!user?.garmin_connected;
   const isStravaConnected = !!user?.strava_connected;
   const isSuuntoConnected = !!user?.suunto_connected;
+  const isTrainerDayConnected = !!user?.trainerday_connected;
 
   const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
@@ -109,6 +116,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [showStravaManage, setShowStravaManage] = useState(false);
   const [showSuuntoManage, setShowSuuntoManage] = useState(false);
   const [suuntoSyncing, setSuuntoSyncing] = useState(false);
+  const [showTrainerDayManage, setShowTrainerDayManage] = useState(false);
   const [healthPrefs, setHealthPrefs] = useState<any>({
     syncSleep: true,
     syncHeartRate: true,
@@ -695,6 +703,66 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <Text className="text-xs font-bold text-rose-500 ml-1.5">
                 {t('connections.disconnectSuunto')}
               </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </Card>
+
+      {/* TRAINERDAY: planned bike sessions on the TrainerDay calendar (ERG) */}
+      <Card className="p-4">
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <View className="w-10 h-10 rounded-xl bg-sky-500/10 items-center justify-center">
+              <Ionicons name="bicycle-outline" size={20} color="#0EA5E9" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.trainerdayIntegration')}</Text>
+              <Text className="text-xs text-theme-muted mt-0.5">
+                {isTrainerDayConnected
+                  ? `${t('connections.connected', 'Connected')} · ${t('connections.trainerdayStatus')}`
+                  : t('connections.disconnected', 'Not connected')}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              if (isTrainerDayConnected) {
+                setShowTrainerDayManage((prev) => !prev);
+              } else {
+                onConnectTrainerDay();
+              }
+            }}
+            disabled={trainerDayLoading}
+            className={`px-3 py-1.5 rounded-lg border ${
+              isTrainerDayConnected ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent border-theme-accent'
+            }`}
+          >
+            {trainerDayLoading ? (
+              <ActivityIndicator size="small" color={isTrainerDayConnected ? theme.tint : '#FFFFFF'} />
+            ) : (
+              <Text className={`text-xs font-bold ${isTrainerDayConnected ? 'text-theme-accent' : 'text-white'}`}>
+                {isTrainerDayConnected
+                  ? showTrainerDayManage
+                    ? t('common.done', 'Done')
+                    : t('common.manage', 'Manage')
+                  : t('common.connect', 'Connect')}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {showTrainerDayManage && isTrainerDayConnected && (
+          <View className="mt-3 pt-3 border-t border-theme-border/50 gap-y-3">
+            <Text className="text-xs text-theme-muted leading-4">{t('connections.trainerdayHint')}</Text>
+            <TouchableOpacity
+              onPress={onDisconnectTrainerDay}
+              disabled={trainerDayLoading}
+              className="py-2 px-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex-row items-center justify-center"
+            >
+              <Ionicons name="unlink-outline" size={14} color="#EF4444" />
+              <Text className="text-xs font-bold text-rose-500 ml-1.5">{t('connections.disconnectTrainerday')}</Text>
             </TouchableOpacity>
           </View>
         )}

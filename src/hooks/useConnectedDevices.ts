@@ -11,6 +11,8 @@ import {
 export interface UseConnectedDevicesReturn {
   hasGarmin: boolean;
   hasSuunto: boolean;
+  /** TrainerDay calendar (bike sessions only, ridden in ERG mode on an indoor trainer). */
+  hasTrainerDay: boolean;
   hasAppleWatch: boolean;
   hasAnyDevices: boolean;
   isChecking: boolean;
@@ -33,7 +35,8 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
   );
 
   const hasSuunto = Boolean(user?.suunto_connected || (user as any)?.hasSuunto);
-  const hasCloudDevices = hasGarmin || hasSuunto;
+  const hasTrainerDay = Boolean(user?.trainerday_connected);
+  const hasCloudDevices = hasGarmin || hasSuunto || hasTrainerDay;
 
   const checkDevices = useCallback(async () => {
     try {
@@ -104,6 +107,7 @@ export function useConnectedDevices(): UseConnectedDevicesReturn {
   return {
     hasGarmin,
     hasSuunto,
+    hasTrainerDay,
     hasAppleWatch,
     hasAnyDevices,
     isChecking,

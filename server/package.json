@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "node test_workoutPlanning.js && node test_coachMemory.js && node test_chatBackgroundPersistence.js && node test_seasonPlan.js && node test_athleteFacts.js && node test_weather.js && node test_rateLimit.js && node test_activityMerge.js && node test_suuntoGuide.js && node test_liveCoach.js && node test_liveSessionWorker.js && node test_pushReceipts.js",
+    "test": "node test_workoutPlanning.js && node test_coachMemory.js && node test_chatBackgroundPersistence.js && node test_seasonPlan.js && node test_athleteFacts.js && node test_weather.js && node test_rateLimit.js && node test_activityMerge.js && node test_suuntoGuide.js && node test_trainerday.js && node test_liveCoach.js && node test_liveSessionWorker.js && node test_pushReceipts.js",
     "start": "node server.js",
     "backup": "node scripts/backup.js",
     "restore": "node scripts/restore.js"

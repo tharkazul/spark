@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { translate as tr } from '../locales/i18n';
-import { sendWorkoutsToCloudDevices, DeviceSyncWorkoutPayload } from '../api/integrations';
+import { sendWorkoutsToCloudDevices, sendWorkoutsToTrainerDay, DeviceSyncWorkoutPayload } from '../api/integrations';
 import { deployWorkoutToAppleWatch } from './appleHealthService';
 import { WorkoutItem } from '../types/dashboard';
 import { PlannedWorkout } from '../types/plan';
@@ -64,9 +64,37 @@ function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(', ')} ${tr('deviceSync.and')} ${names[names.length - 1]}`;
 }
 
+function toCloudPayload(w: WorkoutItem): DeviceSyncWorkoutPayload {
+  const title = (w.title || (w as any).description || `${w.type || 'RUN'} Workout`).trim();
+  return {
+    date: normalizeDate(w),
+    sport: String(w.type || (w as any).sport || 'RUN').toUpperCase(),
+    title,
+    description: w.notes || (w as any).details || title,
+    rookaPoints: w.rookaPoints || (w as any).target_rooka || 50,
+    steps: extractSteps(w),
+  };
+}
+
+/**
+ * Puts one bike workout on the TrainerDay calendar. Sending it again updates
+ * the same TrainerDay event. Returns the (localized) server message.
+ */
+export async function sendWorkoutToTrainerDay(workout: WorkoutItem): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await sendWorkoutsToTrainerDay([toCloudPayload(workout)]);
+    const success = res.success !== false;
+    Haptics.notificationAsync(success ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
+    return { success, message: res.message || res.error || '' };
+  } catch (err: any) {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    return { success: false, message: err?.message || tr('addWorkoutExtra.syncFailed') };
+  }
+}
+
 /**
  * Sends workouts to every device the user has connected. Cloud platforms
- * (Garmin, Suunto, ...) are fanned out by the backend in one call; Apple Watch
+ * (Garmin, Suunto, TrainerDay, ...) are fanned out by the backend in one call; Apple Watch
  * is deployed on-device through WorkoutKit.
  */
 export async function sendWorkoutsToConnectedDevices(
@@ -103,17 +131,7 @@ export async function sendWorkoutsToConnectedDevices(
   // 1. Cloud-connected devices (backend sends to each connected platform)
   if (hasCloudDevices) {
     try {
-      const payloads: DeviceSyncWorkoutPayload[] = validWorkouts.map((w) => {
-        const title = (w.title || (w as any).description || `${w.type || 'RUN'} Workout`).trim();
-        return {
-          date: normalizeDate(w),
-          sport: String(w.type || (w as any).sport || 'RUN').toUpperCase(),
-          title,
-          description: w.notes || (w as any).details || title,
-          rookaPoints: w.rookaPoints || (w as any).target_rooka || 50,
-          steps: extractSteps(w),
-        };
-      });
+      const payloads: DeviceSyncWorkoutPayload[] = validWorkouts.map(toCloudPayload);
 
       const res = await sendWorkoutsToCloudDevices(payloads);
       for (const d of res.devices || []) {

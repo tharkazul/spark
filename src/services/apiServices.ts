@@ -255,6 +255,11 @@ export const integrationsApi = {
     apiClient<{ success: boolean; message?: string; synced?: number }>('/api/sync-suunto', {
       method: 'POST',
     }),
+  getTrainerDayConnectUrl: () => apiClient<{ url: string }>('/api/trainerday/connect'),
+  disconnectTrainerDay: () =>
+    apiClient<{ success?: boolean; message: string }>('/api/user/disconnect/trainerday', {
+      method: 'POST',
+    }),
   getStravaShareSettings: () =>
     apiClient<StravaShareSettingsResponse>('/api/user/strava-share-settings'),
   saveStravaShareSettings: (shareSettings: Record<string, StravaShareFlags>) =>

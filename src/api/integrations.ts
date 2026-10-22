@@ -43,13 +43,33 @@ export interface CloudDevicesSyncResponse {
 }
 
 /**
- * Sends structured workouts to every cloud-connected device (Garmin, Suunto, ...)
+ * Sends structured workouts to every cloud-connected device (Garmin, Suunto, TrainerDay, ...)
  * via POST /api/devices/send-workouts. The backend fans out per platform.
  */
 export async function sendWorkoutsToCloudDevices(
   workouts: DeviceSyncWorkoutPayload[]
 ): Promise<CloudDevicesSyncResponse> {
   return apiClient<CloudDevicesSyncResponse>('/api/devices/send-workouts', {
+    method: 'POST',
+    body: JSON.stringify({ workouts }),
+  });
+}
+
+export interface TrainerDaySendResponse {
+  success?: boolean;
+  syncedCount?: number;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Puts bike workouts on the athlete's TrainerDay calendar (ERG mode) via
+ * POST /api/trainerday/send-workouts. Sending one again updates the same event.
+ */
+export async function sendWorkoutsToTrainerDay(
+  workouts: DeviceSyncWorkoutPayload[]
+): Promise<TrainerDaySendResponse> {
+  return apiClient<TrainerDaySendResponse>('/api/trainerday/send-workouts', {
     method: 'POST',
     body: JSON.stringify({ workouts }),
   });

@@ -613,6 +613,14 @@ const RAW_API = {
   "Suunto is not connected.": ["Suunto is niet gekoppeld.", "Suunto ist nicht verbunden.", "Suunto no está conectado.", "Suunto n'est pas connecté."],
   "Suunto sync failed. Check server logs.": ["Suunto synchroniseren is mislukt. Probeer het later opnieuw.", "Suunto-Synchronisierung fehlgeschlagen. Bitte versuche es später erneut.", "Error al sincronizar Suunto. Inténtalo más tarde.", "La synchronisation Suunto a échoué. Réessayez plus tard."],
   "Suunto workout push failed.": ["Trainingen naar Suunto sturen is mislukt.", "Trainings konnten nicht an Suunto gesendet werden.", "No se pudieron enviar los entrenamientos a Suunto.", "Impossible d'envoyer les séances à Suunto."],
+  // trainerday
+  "TrainerDay integration is not configured on the server.": ["TrainerDay is op dit moment niet beschikbaar.", "TrainerDay ist derzeit nicht verfügbar.", "TrainerDay no está disponible en este momento.", "TrainerDay n'est pas disponible pour le moment."],
+  "TrainerDay disconnected successfully!": ["TrainerDay is ontkoppeld!", "TrainerDay getrennt!", "¡TrainerDay desconectado!", "TrainerDay déconnecté !"],
+  "Failed to disconnect TrainerDay.": ["TrainerDay ontkoppelen is mislukt.", "TrainerDay konnte nicht getrennt werden.", "No se pudo desconectar TrainerDay.", "Impossible de déconnecter TrainerDay."],
+  "TrainerDay is not connected.": ["TrainerDay is niet gekoppeld.", "TrainerDay ist nicht verbunden.", "TrainerDay no está conectado.", "TrainerDay n'est pas connecté."],
+  "Failed to send workouts to TrainerDay.": ["Trainingen naar TrainerDay sturen is mislukt.", "Trainings konnten nicht an TrainerDay gesendet werden.", "No se pudieron enviar los entrenamientos a TrainerDay.", "Impossible d'envoyer les séances à TrainerDay."],
+  "TrainerDay workout push failed.": ["Trainingen naar TrainerDay sturen is mislukt.", "Trainings konnten nicht an TrainerDay gesendet werden.", "No se pudieron enviar los entrenamientos a TrainerDay.", "Impossible d'envoyer les séances à TrainerDay."],
+  "Only bike workouts can be sent to TrainerDay.": ["Alleen fietstrainingen kunnen naar TrainerDay.", "Nur Radtrainings können an TrainerDay gesendet werden.", "Solo se pueden enviar entrenamientos de bici a TrainerDay.", "Seules les séances de vélo peuvent être envoyées à TrainerDay."],
 };
 
 const apiMessages = {};
@@ -627,6 +635,10 @@ const apiPatterns = [
   { en: "Synced {bio} biometric record(s) and {workouts} workout(s) from Apple Health!", nl: "{bio} gezondheidsmeting(en) en {workouts} training(en) uit Apple Health gesynchroniseerd!", de: "{bio} Gesundheitswert(e) und {workouts} Training(s) aus Apple Health synchronisiert!", es: "¡{bio} registro(s) de salud y {workouts} entrenamiento(s) sincronizados desde Apple Health!", fr: "{bio} mesure(s) de santé et {workouts} séance(s) synchronisées depuis Apple Health !" },
   { en: "Successfully sent {count} workout to Suunto!", nl: "{count} training naar Suunto gestuurd!", de: "{count} Training an Suunto gesendet!", es: "¡{count} entrenamiento enviado a Suunto!", fr: "{count} séance envoyée à Suunto !" },
   { en: "Successfully sent {count} workouts to Suunto!", nl: "{count} trainingen naar Suunto gestuurd!", de: "{count} Trainings an Suunto gesendet!", es: "¡{count} entrenamientos enviados a Suunto!", fr: "{count} séances envoyées à Suunto !" },
+  { en: "Successfully sent {count} workout to TrainerDay!", nl: "{count} training naar TrainerDay gestuurd!", de: "{count} Training an TrainerDay gesendet!", es: "¡{count} entrenamiento enviado a TrainerDay!", fr: "{count} séance envoyée à TrainerDay !" },
+  { en: "Successfully sent {count} workouts to TrainerDay!", nl: "{count} trainingen naar TrainerDay gestuurd!", de: "{count} Trainings an TrainerDay gesendet!", es: "¡{count} entrenamientos enviados a TrainerDay!", fr: "{count} séances envoyées à TrainerDay !" },
+  { en: "TrainerDay is busy. Please try again in {minutes} minutes.", nl: "TrainerDay is even druk. Probeer het over {minutes} minuten opnieuw.", de: "TrainerDay ist gerade ausgelastet. Bitte versuche es in {minutes} Minuten erneut.", es: "TrainerDay está ocupado. Inténtalo de nuevo en {minutes} minutos.", fr: "TrainerDay est occupé. Réessayez dans {minutes} minutes." },
+  { en: "Sent {count}; the rest follows automatically in {minutes} minutes.", nl: "{count} gestuurd; de rest volgt over {minutes} minuten vanzelf.", de: "{count} gesendet; der Rest folgt automatisch in {minutes} Minuten.", es: "{count} enviados; el resto llegará automáticamente en {minutes} minutos.", fr: "{count} envoyées ; le reste suivra automatiquement dans {minutes} minutes." },
   { en: "Evaluated and completed {count} quests!", nl: "{count} quests voltooid!", de: "{count} Quests abgeschlossen!", es: "¡{count} misiones completadas!", fr: "{count} quêtes terminées !" },
 ];
 
