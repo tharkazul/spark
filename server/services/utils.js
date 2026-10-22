@@ -738,6 +738,49 @@ function extractStravaPolyline(data) {
   return line && String(line).length > 0 ? String(line) : null;
 }
 
+/**
+ * The laps of a detailed Strava activity as stored in laps_json, or "[]" when
+ * it has none worth showing (stored, so the activity isn't fetched again).
+ *
+ * The watch's own laps come first: for a structured workout those are the
+ * warm-up, reps, rests and cool-down. A run with no laps pressed has a single
+ * lap, so Strava's per-km splits stand in. Both keep elapsed_time, which is
+ * what the watch shows for a lap (a standing rest has almost no moving time).
+ */
+function stravaLapsJson(data) {
+  const pick = (list) => (Array.isArray(list) && list.length >= 2 ? list : null);
+  const source = pick(data && data.laps) || pick(data && data.splits_metric);
+  if (!source) return "[]";
+  return JSON.stringify(
+    source.map((l, i) => ({
+      lap_index: l.lap_index || l.split || i + 1,
+      distance: l.distance,
+      elapsed_time: l.elapsed_time,
+      moving_time: l.moving_time,
+      average_speed: l.average_speed,
+      average_heartrate: l.average_heartrate,
+    })),
+  );
+}
+
+/**
+ * Strava's best efforts for a run (400m, 1k, 1 mile, 5k, ...), as stored in
+ * sets_json. pr_rank is Strava's all-time ranking when it was fetched: 1 is a
+ * PR, 2 and 3 the athlete's second and third best, null otherwise. Strava only
+ * computes these for runs; every other source has none.
+ */
+function stravaBestEfforts(data) {
+  if (!data || !Array.isArray(data.best_efforts)) return [];
+  return data.best_efforts.map((be) => ({
+    name: be.name,
+    time: be.moving_time || be.elapsed_time,
+    elapsed_time: be.elapsed_time,
+    distance: be.distance,
+    pr_rank: be.pr_rank,
+    is_milestone: true,
+  }));
+}
+
 function mapStravaSportToRooka(stravaSport) {
   if (!stravaSport) return "Other";
   const s = String(stravaSport).toLowerCase();
@@ -1440,18 +1483,9 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
           });
         }
 
-        let lapsJson = null;
-        if (data.laps && Array.isArray(data.laps) && data.laps.length > 0) {
-          const minimalLaps = data.laps.map(l => ({
-            name: l.name,
-            distance: l.distance,
-            moving_time: l.moving_time,
-            average_speed: l.average_speed,
-            average_heartrate: l.average_heartrate,
-            split: l.split
-          }));
-          lapsJson = JSON.stringify(minimalLaps);
-        }
+        const lapsJson = stravaLapsJson(data);
+        const bestEfforts = stravaBestEfforts(data);
+        const setsJson = bestEfforts.length > 0 ? JSON.stringify(bestEfforts) : null;
 
         // Already stored from Apple Health or Suunto: merged into that row instead of
         // inserted, and the rest (score total, notification, Strava tag) still runs.
@@ -1468,15 +1502,16 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
           average_watts: data.weighted_average_watts || data.average_watts || null,
           max_heartrate: data.max_heartrate || null,
           laps_json: lapsJson,
+          sets_json: setsJson,
           polyline: extractStravaPolyline(data),
           rooka_score: rookaScore,
           tss,
         });
         const saveActivity = (sql, params, done) => (mergedId ? done(null) : db.run(sql, params, done));
         saveActivity(
-          `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, laps_json, polyline) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET name=excluded.name, tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, laps_json=excluded.laps_json, polyline=COALESCE(excluded.polyline, polyline)`,
+          `INSERT INTO activities (user_id, strava_activity_id, name, sport_type, distance_km, elevation_m, moving_time_min, average_heartrate, average_watts, max_heartrate, start_date, tss, rooka_score, laps_json, sets_json, polyline) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(user_id, strava_activity_id) DO UPDATE SET name=excluded.name, tss=excluded.tss, rooka_score=excluded.rooka_score, moving_time_min=excluded.moving_time_min, average_heartrate=excluded.average_heartrate, average_watts=excluded.average_watts, max_heartrate=excluded.max_heartrate, laps_json=excluded.laps_json, sets_json=COALESCE(excluded.sets_json, sets_json), polyline=COALESCE(excluded.polyline, polyline)`,
           [
             internalUserId,
             String(data.id),
@@ -1492,6 +1527,7 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
             tss,
             rookaScore,
             lapsJson,
+            setsJson,
             extractStravaPolyline(data),
           ],
           async (err) => {
@@ -3333,6 +3369,8 @@ module.exports = {
   calculateRookaScore,
   mapStravaSportToRooka,
   extractStravaPolyline,
+  stravaLapsJson,
+  stravaBestEfforts,
   formatStepsForStrava,
   summarizeStepsForStrava,
   tagStravaActivity,

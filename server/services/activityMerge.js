@@ -123,6 +123,7 @@ function mergedFields(row, incoming) {
     average_watts: keepOrFill("average_watts"),
     max_heartrate: keepOrFill("max_heartrate"),
     laps_json: keepOrFill("laps_json"),
+    sets_json: keepOrFill("sets_json"),
     polyline: keepOrFill("polyline"),
     // The score follows the better data: the higher-ranked source, or whichever brought heart rate.
     rooka_score: (incomingWins || gainedHr) && incoming.rooka_score != null ? incoming.rooka_score : row.rooka_score,
@@ -150,7 +151,7 @@ async function mergeInto(row, incoming) {
  *
  * incoming: { source: 'strava'|'healthkit'|'suunto', sourceId, name, sport_type,
  *   start_date (UTC ISO), moving_time_min, distance_km, elevation_m,
- *   average_heartrate, average_watts, max_heartrate, laps_json, polyline,
+ *   average_heartrate, average_watts, max_heartrate, laps_json, sets_json, polyline,
  *   rooka_score, tss }
  */
 async function absorbIfDuplicate(userId, incoming) {

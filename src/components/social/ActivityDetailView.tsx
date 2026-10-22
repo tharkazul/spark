@@ -224,45 +224,11 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
   const isSwim = sportUpper.includes('SWIM');
 
   let normalizedLaps: ActivityLap[] | undefined = undefined;
-  if (Array.isArray(raw?.splits_metric) && raw.splits_metric.length > 0) {
-    normalizedLaps = raw.splits_metric.map((split: any, idx: number) => {
-      const splitDistKm = (split.distance || 1000) / 1000;
-      const splitTimeMin = (split.moving_time || split.elapsed_time || 0) / 60;
-      let paceOrSpeedStr = '';
-
-      if (isCycling) {
-        const speedKmh = split.average_speed
-          ? (split.average_speed * 3.6).toFixed(1)
-          : splitTimeMin > 0
-          ? (splitDistKm / (splitTimeMin / 60)).toFixed(1)
-          : '0.0';
-        paceOrSpeedStr = `${speedKmh} km/h`;
-      } else if (isSwim) {
-        const sec100m = splitDistKm > 0 ? (splitTimeMin * 60) / (splitDistKm * 10) : 0;
-        const m = Math.floor(sec100m / 60);
-        const s = Math.round(sec100m % 60);
-        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /100m`;
-      } else {
-        const paceSec = splitDistKm > 0 ? (splitTimeMin * 60) / splitDistKm : 0;
-        const m = Math.floor(paceSec / 60);
-        const s = Math.round(paceSec % 60);
-        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /km`;
-      }
-
-      return {
-        lap_index: split.split || idx + 1,
-        distance_km: splitDistKm,
-        elapsed_time_min: splitTimeMin,
-        split_pace: paceOrSpeedStr,
-        average_heartrate: split.average_heartrate,
-        elevation_gain_m:
-          typeof split.elevation_difference === 'number'
-            ? Math.max(0, split.elevation_difference)
-            : undefined,
-      };
-    });
-  } else if (Array.isArray(raw?.laps)) {
-    normalizedLaps = raw.laps.map((lap: any, idx: number) => {
+  // From the server: the watch's own laps, or Strava's km splits when none were
+  // taken. Lap time is elapsed time, as the watch shows it: a standing rest has
+  // next to no moving time.
+  const lapsFrom = (list: any[]): ActivityLap[] =>
+    list.map((lap: any, idx: number) => {
       const lapDist =
         typeof lap.distance_km === 'number'
           ? lap.distance_km
@@ -279,10 +245,13 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
           : 0;
 
       return {
-        lap_index: lap.lap_index || idx + 1,
+        lap_index: lap.lap_index || lap.split || idx + 1,
         distance_km: lapDist,
         elapsed_time_min: lapMins,
-        split_pace: lap.split_pace,
+        split_pace:
+          lap.split_pace ||
+          calculateEffortPaceOrSpeed(lapMins * 60, lapDist * 1000, isCycling, isSwim) ||
+          undefined,
         average_heartrate: lap.average_heartrate,
         elevation_gain_m:
           typeof lap.elevation_gain_m === 'number'
@@ -294,23 +263,15 @@ function normalizeActivity(raw: any, fallback?: Partial<Activity>): Activity {
             : undefined,
       };
     });
+
+  if (Array.isArray(raw?.laps)) {
+    normalizedLaps = lapsFrom(raw.laps);
+  } else if (Array.isArray(raw?.splits_metric) && raw.splits_metric.length > 0) {
+    normalizedLaps = lapsFrom(raw.splits_metric);
   } else if (typeof raw?.laps_json === 'string') {
     try {
       const parsed = JSON.parse(raw.laps_json);
-      if (Array.isArray(parsed)) {
-        normalizedLaps = parsed.map((lap: any, idx: number) => ({
-          lap_index: lap.lap_index || idx + 1,
-          distance_km:
-            typeof lap.distance_km === 'number' ? lap.distance_km : (lap.distance || 0) / 1000,
-          elapsed_time_min:
-            typeof lap.elapsed_time_min === 'number'
-              ? lap.elapsed_time_min
-              : (lap.moving_time || lap.elapsed_time || 0) / 60,
-          split_pace: lap.split_pace,
-          average_heartrate: lap.average_heartrate,
-          elevation_gain_m: lap.elevation_gain_m || lap.total_elevation_gain,
-        }));
-      }
+      if (Array.isArray(parsed)) normalizedLaps = lapsFrom(parsed);
     } catch (_) {}
   }
 
@@ -715,7 +676,17 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         const name = set.name || set.exercise_name || `Set ${idx + 1}`;
         const weight = typeof set.weight_kg === 'number' ? set.weight_kg : typeof set.weight === 'number' ? set.weight : undefined;
         const reps = typeof set.reps === 'number' ? set.reps : undefined;
-        const timeSec = typeof set.time_sec === 'number' ? set.time_sec : typeof set.duration === 'number' ? set.duration : undefined;
+        // Strava's best efforts carry elapsed_time (what Strava itself shows) and time.
+        const timeSec =
+          typeof set.time_sec === 'number'
+            ? set.time_sec
+            : typeof set.duration === 'number'
+            ? set.duration
+            : typeof set.elapsed_time === 'number'
+            ? set.elapsed_time
+            : typeof set.time === 'number'
+            ? set.time
+            : undefined;
 
         let distanceMeters: number | undefined = undefined;
         if (typeof set.distance_m === 'number') {
@@ -755,112 +726,14 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     return [];
   };
 
-  let setsOrEfforts = parseSetsOrEfforts();
-
-  // If no raw efforts found but activity has distance, build standard best efforts
-  if (setsOrEfforts.length === 0 && activity?.distance_km && activity?.moving_time_min) {
-    const totalDistKm = activity.distance_km;
-    const totalSec = activity.moving_time_min * 60;
-    const avgSecPerKm = totalSec / totalDistKm;
-
-    const milestones: { name: string; distMeters: number }[] = [];
-    if (totalDistKm >= 0.4) milestones.push({ name: '400m', distMeters: 400 });
-    if (totalDistKm >= 1.0) milestones.push({ name: '1k', distMeters: 1000 });
-    if (totalDistKm >= 1.6) milestones.push({ name: '1 mile', distMeters: 1609.34 });
-    if (totalDistKm >= 5.0) milestones.push({ name: '5k', distMeters: 5000 });
-    if (totalDistKm >= 10.0) milestones.push({ name: '10k', distMeters: 10000 });
-
-    setsOrEfforts = milestones.map((m, idx) => {
-      const effortSec = avgSecPerKm * (m.distMeters / 1000) * (0.96 + idx * 0.015);
-      return {
-        name: m.name,
-        timeSec: effortSec,
-        distanceMeters: m.distMeters,
-        paceOrSpeed: calculateEffortPaceOrSpeed(effortSec, m.distMeters, isCycling, isSwim),
-        prRank: idx === 0 ? 1 : idx === 1 ? 2 : undefined,
-        isMilestone: true,
-        completed: true,
-      };
-    });
-  }
+  // Only what a source actually recorded. Best efforts come from Strava (runs
+  // only); Apple Health and Suunto have none, so the section stays away.
+  const setsOrEfforts = parseSetsOrEfforts();
 
   const hasMilestones = setsOrEfforts.some((s) => s.isMilestone);
 
-  // Generate synthetic lap splits if distance > 0 and no native laps
-  const getLapSplits = (): ActivityLap[] => {
-    if (activity?.laps && activity.laps.length > 0) return activity.laps;
-
-    const totalKm = activity?.distance_km || 0;
-    const totalMins = activity?.moving_time_min || 0;
-
-    if (totalKm <= 0 || totalMins <= 0) return [];
-
-    const fullKmCount = Math.floor(totalKm);
-    const remainder = totalKm - fullKmCount;
-    const avgPaceMin = totalMins / totalKm;
-
-    const laps: ActivityLap[] = [];
-
-    for (let i = 1; i <= fullKmCount; i++) {
-      const variance = (Math.sin(i * 1.5) * 0.05 + 1) * avgPaceMin;
-      const m = Math.floor(variance);
-      const s = Math.round((variance - m) * 60);
-
-      let paceOrSpeedStr = '';
-      if (isCycling) {
-        const speed = (60 / variance).toFixed(1);
-        paceOrSpeedStr = `${speed} km/h`;
-      } else if (isSwim) {
-        const swim100mSec = (variance * 60) / 10;
-        const sm = Math.floor(swim100mSec / 60);
-        const ss = Math.round(swim100mSec % 60);
-        paceOrSpeedStr = `${sm}:${ss < 10 ? '0' : ''}${ss} /100m`;
-      } else {
-        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /km`;
-      }
-
-      laps.push({
-        lap_index: i,
-        distance_km: 1.0,
-        elapsed_time_min: variance,
-        split_pace: paceOrSpeedStr,
-        average_heartrate: activity?.average_heartrate
-          ? Math.round(activity.average_heartrate + Math.sin(i) * 4)
-          : undefined,
-      });
-    }
-
-    if (remainder > 0.05) {
-      const remMin = remainder * avgPaceMin;
-      let paceOrSpeedStr = '';
-      if (isCycling) {
-        const speed = (60 / avgPaceMin).toFixed(1);
-        paceOrSpeedStr = `${speed} km/h`;
-      } else if (isSwim) {
-        const swim100mSec = (avgPaceMin * 60) / 10;
-        const m = Math.floor(swim100mSec / 60);
-        const s = Math.round(swim100mSec % 60);
-        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /100m`;
-      } else {
-        const paceMin = remMin / remainder;
-        const m = Math.floor(paceMin);
-        const s = Math.round((paceMin - m) * 60);
-        paceOrSpeedStr = `${m}:${s < 10 ? '0' : ''}${s} /km`;
-      }
-
-      laps.push({
-        lap_index: fullKmCount + 1,
-        distance_km: Math.round(remainder * 100) / 100,
-        elapsed_time_min: remMin,
-        split_pace: paceOrSpeedStr,
-        average_heartrate: activity?.average_heartrate,
-      });
-    }
-
-    return laps;
-  };
-
-  const laps = getLapSplits();
+  // A single lap is just the whole activity again.
+  const laps: ActivityLap[] = activity?.laps && activity.laps.length >= 2 ? activity.laps : [];
 
   // Exact moving time in seconds to prevent minute-rounding drift
   const movingTimeSec =
@@ -1363,26 +1236,27 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                     className="flex-row justify-between items-center bg-theme-inset p-3 rounded-inset mb-2"
                   >
                     <View className="flex-row items-center flex-1 pr-2">
-                      <View
-                        className={`w-6 h-6 rounded-full items-center justify-center mr-2.5 ${
-                          item.prRank === 1 ? 'bg-amber-400' : 'bg-theme-accent/20'
-                        }`}
-                      >
-                        <Text
-                          className={`text-xs font-bold font-rajdhani ${
-                            item.prRank === 1 ? 'text-slate-950' : 'text-theme-accent'
-                          }`}
-                        >
-                          {idx + 1}
-                        </Text>
-                      </View>
+                      {/* Sets are numbered in the order they were done. Best efforts are not:
+                          they are distances, and a number reads as a ranking. */}
+                      {!item.isMilestone && (
+                        <View className="w-6 h-6 rounded-full items-center justify-center mr-2.5 bg-theme-accent/20">
+                          <Text className="text-xs font-bold font-rajdhani text-theme-accent">{idx + 1}</Text>
+                        </View>
+                      )}
                       <View className="flex-row items-center flex-wrap">
                         <Text className="text-sm font-bold text-theme-text">{item.name}</Text>
-                        {item.prRank === 1 && (
+                        {/* Strava's all-time ranking for this distance: 1 is a PR. */}
+                        {item.prRank === 1 ? (
                           <View className="bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded ml-2">
                             <Text className="text-xs font-bold text-amber-600 dark:text-amber-300">{t('activityDetail.pr')}</Text>
                           </View>
-                        )}
+                        ) : item.prRank === 2 || item.prRank === 3 ? (
+                          <View className="bg-theme-accent/15 px-1.5 py-0.5 rounded ml-2">
+                            <Text className="text-xs font-bold text-theme-accent">
+                              {item.prRank === 2 ? t('activityDetail.secondBest') : t('activityDetail.thirdBest')}
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                     </View>
 
@@ -1405,6 +1279,12 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                     )}
                   </View>
                 ))}
+              </Card>
+            )}
+
+            {setsOrEfforts.length === 0 && laps.length === 0 && (
+              <Card variant="default" padding={16}>
+                <Text className="text-sm text-theme-muted text-center">{t('activityDetail.noResultsData')}</Text>
               </Card>
             )}
 
@@ -1437,11 +1317,14 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
                 {/* Table Header */}
                 <View className="flex-row justify-between pb-2 border-b border-theme-border px-1 mb-1">
-                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-12">
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-10">
                     {t('activityDetail.lap')}
                   </Text>
-                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-20">
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-16">
                     {t('activityDetail.dist')}
+                  </Text>
+                  <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider w-14">
+                    {t('activityDetail.lapTime')}
                   </Text>
                   <Text className="text-[11px] font-semibold text-theme-muted uppercase tracking-wider flex-1">
                     {isCycling ? t('activityDetail.speed') : t('activityDetail.pace')}
@@ -1459,14 +1342,17 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                       idx !== (isLapsExpanded ? laps.length : 5) - 1 ? 'border-b border-theme-border/60' : ''
                     }`}
                   >
-                    <Text className="text-xs font-bold font-rajdhani text-theme-muted w-12">
+                    <Text className="text-xs font-bold font-rajdhani text-theme-muted w-10">
                       #{lap.lap_index}
                     </Text>
-                    <Text className="text-xs font-bold font-rajdhani text-theme-text w-20 tabular-nums">
+                    <Text className="text-xs font-bold font-rajdhani text-theme-text w-16 tabular-nums">
                       {lap.distance_km.toFixed(2)} km
                     </Text>
+                    <Text className="text-xs font-bold font-rajdhani text-theme-text w-14 tabular-nums">
+                      {formatEffortDuration(lap.elapsed_time_min * 60)}
+                    </Text>
                     <Text className="text-xs font-medium font-rajdhani text-theme-muted flex-1 tabular-nums">
-                      {lap.split_pace || `${Math.round(lap.elapsed_time_min)} min`}
+                      {lap.split_pace || '--'}
                     </Text>
                     <Text
                       className={`text-xs font-medium font-rajdhani w-16 text-right tabular-nums ${

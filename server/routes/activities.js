@@ -35,6 +35,8 @@ const {
   mapStravaSportToRooka,
   formatStepsForStrava,
   extractStravaPolyline,
+  stravaLapsJson,
+  stravaBestEfforts,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
@@ -51,6 +53,7 @@ const {
   STRAVA_SHARE_FLAGS
 } = require('../services/utils');
 const muscleLoad = require('../services/muscleLoad');
+const { reconcilePendingBenchmarks } = require('../services/benchmarks');
 
 router.get("/api/micro-plan", authenticateToken, (req, res) => {
   db.all(
@@ -77,7 +80,8 @@ router.get("/api/micro-plan", authenticateToken, (req, res) => {
 });
 
 // --- BENCHMARK ASSESSMENTS ENDPOINTS ---
-router.get("/api/benchmarks", authenticateToken, (req, res) => {
+router.get("/api/benchmarks", authenticateToken, async (req, res) => {
+  await reconcilePendingBenchmarks(req.user.id).catch((e) => console.warn("[Benchmarks] reconcile failed:", e.message));
   db.all(
     `SELECT * FROM benchmark_tests WHERE user_id = ? ORDER BY created_at DESC`,
     [req.user.id],
@@ -346,158 +350,125 @@ router.post("/api/user/strava-share-settings", authenticateToken, (req, res) => 
   );
 });
 
+const parseJsonArray = (v) => {
+  if (Array.isArray(v)) return v;
+  if (typeof v !== "string" || !v) return null;
+  try {
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+};
+
+/** A detailed Strava activity for the athlete's own token, or null. */
+async function fetchStravaDetail(userId, stravaActivityId) {
+  const user = await new Promise((resolve) =>
+    db.get("SELECT strava_refresh_token FROM users WHERE id = ?", [userId], (err, row) => resolve(err ? null : row)),
+  );
+  if (!user || !user.strava_refresh_token) return null;
+  const tokenRes = await fetch("https://www.strava.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: user.strava_refresh_token,
+    }),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) return null;
+  const actRes = await fetch(`https://www.strava.com/api/v3/activities/${stravaActivityId}`, {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  return actRes.ok ? actRes.json() : null;
+}
+
+// The app opens an activity by rooka's own row id. This used to be handed to
+// Strava as if it were a Strava id, which never matched, so the response came
+// from the row without its laps and the app made laps and best efforts up.
+// Now the row is the answer, and Strava is asked once for what only its
+// detailed activity has (the watch's laps, best efforts), which is then kept.
 router.get("/api/activity/:id", authenticateToken, (req, res) => {
   const activityId = req.params.id;
 
-  const fallbackToLocalDB = (defaultStatus = 404, defaultError = "Activity not found on Strava or local database.") => {
-    db.get(
-      `SELECT a.*, (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id) as kudos_count 
-       FROM activities a 
-       WHERE a.id = ? AND (a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))`,
-      [activityId, req.user.id, req.user.id],
-      (dbErr, row) => {
-        if (dbErr || !row) {
-          return res.status(defaultStatus).json({ error: defaultError });
-        }
-        let sets = [];
-        if (row.sets_json) {
-          try {
-            sets = typeof row.sets_json === "string" ? JSON.parse(row.sets_json) : row.sets_json;
-          } catch (e) {
-            sets = [];
-          }
-        }
-        const fallbackData = {
-          id: row.id,
-          name: row.name || "Activity Details",
-          type: row.sport_type || "Workout",
-          sport_type: row.sport_type || "Workout",
-          distance: (row.distance_km || 0) * 1000,
-          distance_km: row.distance_km || 0,
-          moving_time: Math.round((row.moving_time_min || 0) * 60),
-          moving_time_s: Math.round((row.moving_time_min || 0) * 60),
-          elapsed_time: Math.round((row.moving_time_min || 0) * 60),
-          elapsed_time_s: Math.round((row.moving_time_min || 0) * 60),
-          moving_time_min: row.moving_time_min || 0,
-          total_elevation_gain: row.elevation_m || 0,
-          elevation_m: row.elevation_m || 0,
-          average_heartrate: row.average_heartrate || 0,
-          has_heartrate: row.average_heartrate > 0,
-          suffer_score: Math.round(row.rooka_score || row.tss || 0),
-          rooka_score: Math.round(row.rooka_score || row.tss || 0),
-          start_date: row.start_date,
-          start_date_local: row.start_date,
-          sets_json: sets,
-          kudos_count: row.kudos_count || 0,
-          // Without this the client had no route to decode and fell back to a
-          // hardcoded square over Amsterdam.
-          polyline: row.polyline || null,
-          average_watts: row.average_watts || null,
-          max_heartrate: row.max_heartrate || null,
-          user_id: row.user_id,
-          is_hidden: row.is_hidden || 0,
-          linked_activity_id: row.linked_activity_id || null,
-          linked_activity_name: row.linked_activity_name || null,
-        };
-        return res.json(fallbackData);
-      }
-    );
-  };
-
   db.get(
-    "SELECT strava_refresh_token FROM users WHERE id = ?",
-    [req.user.id],
-    async (err, user) => {
-      if (err || !user || !user.strava_refresh_token) {
-        return fallbackToLocalDB(400, "Strava token missing from settings.");
+    `SELECT a.*, (SELECT COUNT(*) FROM kudos k WHERE k.activity_id = a.id) as kudos_count 
+     FROM activities a 
+     WHERE (a.id = ? OR a.strava_activity_id = ?)
+       AND (a.user_id = ? OR a.user_id IN (SELECT friend_id FROM connections WHERE user_id = ? AND status = 'accepted'))
+     ORDER BY (a.id = ?) DESC LIMIT 1`,
+    [activityId, String(activityId), req.user.id, req.user.id, activityId],
+    async (dbErr, row) => {
+      if (dbErr || !row) {
+        return res.status(404).json({ error: "Activity not found." });
       }
 
-      try {
-        const tokenRes = await fetch("https://www.strava.com/oauth/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            client_id: process.env.STRAVA_CLIENT_ID,
-            client_secret: process.env.STRAVA_CLIENT_SECRET,
-            grant_type: "refresh_token",
-            refresh_token: user.strava_refresh_token,
-          }),
-        });
+      let laps = parseJsonArray(row.laps_json);
+      let sets = parseJsonArray(row.sets_json);
 
-        const tokenData = await tokenRes.json();
-        if (!tokenData.access_token) {
-          return fallbackToLocalDB(401, "Strava rejected the token.");
-        }
-
-        const actRes = await fetch(
-          `https://www.strava.com/api/v3/activities/${activityId}`,
-          {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` },
-          },
-        );
-
-        if (!actRes.ok) {
-          return fallbackToLocalDB(actRes.status, "Activity not found on Strava.");
-        }
-
-        const activityData = await actRes.json();
-
-        // Extract sets or best efforts for the AI Coach
-        let extractedSets = [];
-
-        if (activityData.best_efforts && activityData.best_efforts.length > 0) {
-          extractedSets = activityData.best_efforts.map((be) => ({
-            name: be.name,
-            time: be.moving_time || be.elapsed_time,
-            elapsed_time: be.elapsed_time,
-            distance: be.distance,
-            pr_rank: be.pr_rank,
-          }));
-        }
-        // Strava strength training structure (defensive parsing)
-        if (activityData.sport_type === "WeightTraining") {
-          // Try to pull from sets, exercises, or laps (depending on how partner apps sync)
-          if (activityData.sets) extractedSets = activityData.sets;
-          else if (activityData.exercises)
-            extractedSets = activityData.exercises;
-          else if (activityData.laps) extractedSets = activityData.laps; // sometimes sets are stored as laps
-        }
-
-        if (extractedSets.length > 0) {
-          db.run(`UPDATE activities SET sets_json = ? WHERE id = ?`, [
-            JSON.stringify(extractedSets),
-            activityId,
-          ]);
-          activityData.sets_json = extractedSets; // attach for frontend
-        }
-
-        // Opportunistic backfill: whenever an older activity is opened and the
-        // live fetch succeeds, keep its route so the next open works offline too.
-        const livePolyline = extractStravaPolyline(activityData);
-        if (livePolyline) {
-          db.run(
-            `UPDATE activities SET polyline = ? WHERE user_id = ? AND (id = ? OR strava_activity_id = ?) AND (polyline IS NULL OR polyline = '')`,
-            [livePolyline, req.user.id, activityId, String(activityId)],
-          );
-        }
-
-        db.get(
-          `SELECT user_id, is_hidden, linked_activity_id, linked_activity_name FROM activities WHERE user_id = ? AND (id = ? OR strava_activity_id = ?)`,
-          [req.user.id, activityId, String(activityId)],
-          (dbErr, aRow) => {
-            if (aRow) {
-              activityData.user_id = aRow.user_id;
-              activityData.is_hidden = aRow.is_hidden || 0;
-              activityData.linked_activity_id = aRow.linked_activity_id || null;
-              activityData.linked_activity_name = aRow.linked_activity_name || null;
+      // Laps stored before elapsed_time was kept are fetched once more: a rest
+      // lap's moving time is close to nothing.
+      const lapsMissing = !laps || laps.some((l) => l && l.elapsed_time == null);
+      const effortsMissing = mapStravaSportToRooka(row.sport_type) === "Run" && !sets;
+      if (row.strava_activity_id && row.user_id === req.user.id && (lapsMissing || effortsMissing)) {
+        try {
+          const detail = await fetchStravaDetail(req.user.id, row.strava_activity_id);
+          if (detail) {
+            if (lapsMissing) {
+              const lapsJson = stravaLapsJson(detail);
+              laps = JSON.parse(lapsJson);
+              db.run(`UPDATE activities SET laps_json = ? WHERE id = ?`, [lapsJson, row.id]);
             }
-            res.json(activityData);
+            if (effortsMissing) {
+              sets = stravaBestEfforts(detail);
+              db.run(`UPDATE activities SET sets_json = ? WHERE id = ?`, [JSON.stringify(sets), row.id]);
+            }
+            const livePolyline = !row.polyline && extractStravaPolyline(detail);
+            if (livePolyline) {
+              row.polyline = livePolyline;
+              db.run(`UPDATE activities SET polyline = ? WHERE id = ?`, [livePolyline, row.id]);
+            }
           }
-        );
-      } catch (err) {
-        console.error("Single Activity Fetch Error:", err);
-        fallbackToLocalDB(500, "Failed to fetch activity details.");
+        } catch (err) {
+          console.error("Strava activity detail fetch failed:", err.message);
+        }
       }
+
+      res.json({
+        id: row.id,
+        name: row.name || "Activity Details",
+        type: row.sport_type || "Workout",
+        sport_type: row.sport_type || "Workout",
+        distance: (row.distance_km || 0) * 1000,
+        distance_km: row.distance_km || 0,
+        moving_time: Math.round((row.moving_time_min || 0) * 60),
+        moving_time_s: Math.round((row.moving_time_min || 0) * 60),
+        elapsed_time: Math.round((row.moving_time_min || 0) * 60),
+        elapsed_time_s: Math.round((row.moving_time_min || 0) * 60),
+        moving_time_min: row.moving_time_min || 0,
+        total_elevation_gain: row.elevation_m || 0,
+        elevation_m: row.elevation_m || 0,
+        average_heartrate: row.average_heartrate || 0,
+        has_heartrate: row.average_heartrate > 0,
+        suffer_score: Math.round(row.rooka_score || row.tss || 0),
+        rooka_score: Math.round(row.rooka_score || row.tss || 0),
+        start_date: row.start_date,
+        start_date_local: row.start_date,
+        sets_json: sets || [],
+        laps: laps || [],
+        kudos_count: row.kudos_count || 0,
+        // Without this the client had no route to decode and fell back to a
+        // hardcoded square over Amsterdam.
+        polyline: row.polyline || null,
+        average_watts: row.average_watts || null,
+        max_heartrate: row.max_heartrate || null,
+        user_id: row.user_id,
+        is_hidden: row.is_hidden || 0,
+        linked_activity_id: row.linked_activity_id || null,
+        linked_activity_name: row.linked_activity_name || null,
+      });
     },
   );
 });
