@@ -20,6 +20,10 @@ export interface UserProfile {
   long_term_memory?: string;
   profile_picture_url?: string;
   garmin_connected?: boolean;
+  /** How Garmin is linked: Garmin's official connection, or not at all. */
+  garmin_connection?: 'official' | null;
+  /** Garmin will take planned workouts: false when the athlete didn't allow workout import on Garmin's page. */
+  garmin_takes_workouts?: boolean;
   strava_connected?: boolean;
   suunto_connected?: boolean;
   trainerday_connected?: boolean;

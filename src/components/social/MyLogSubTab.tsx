@@ -16,6 +16,7 @@ import { calculateActivityStreak } from '../../utils/gamification';
 import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import { Chip } from '../ui/Chip';
 import { SportMedallion } from '../ui/SportMedallion';
+import { GarminAttribution } from '../ui/GarminAttribution';
 import { ActiveQuestSkeleton } from '../skeletons/ActiveQuestSkeleton';
 import { EmptyState } from '../ui/EmptyState';
 import { StatValue } from '../ui/StatValue';
@@ -342,6 +343,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                       <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
                         {act.name || act.sport_type || t('activityDetail.workout')}
                       </Text>
+                      <GarminAttribution label={act.garmin_attribution} className="mt-0.5" />
                       <Text className="text-xs font-medium text-theme-muted mt-0.5">
                         {dateStr}
                       </Text>

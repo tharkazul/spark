@@ -39,7 +39,7 @@ const FEATURES_REGISTRY = [
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
-          `SELECT ((SELECT COUNT(*) FROM biometrics WHERE user_id = ? AND (sleep_minutes > 0 OR hrv_sdnn > 0 OR steps > 0 OR resting_hr > 0))
+          `SELECT ((SELECT COUNT(*) FROM biometrics WHERE user_id = ? AND COALESCE(from_garmin, 0) = 0 AND (sleep_minutes > 0 OR hrv_sdnn > 0 OR steps > 0 OR resting_hr > 0))
                  + (SELECT COUNT(*) FROM activities WHERE user_id = ? AND healthkit_workout_id IS NOT NULL)) as cnt`,
           [userId, userId],
           (err, row) => resolve(row ? row.cnt > 0 : false)
@@ -230,7 +230,7 @@ const FEATURES_REGISTRY = [
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
-          `SELECT ((SELECT COUNT(*) FROM strava_tokens WHERE user_id = ?) + (SELECT COUNT(*) FROM users WHERE id = ? AND garmin_username IS NOT NULL AND garmin_username != '')) as cnt`,
+          `SELECT ((SELECT COUNT(*) FROM strava_tokens WHERE user_id = ?) + (SELECT COUNT(*) FROM garmin_tokens WHERE user_id = ?)) as cnt`,
           [userId, userId],
           (err, row) => resolve(row ? row.cnt > 0 : false)
         );
@@ -242,14 +242,12 @@ const FEATURES_REGISTRY = [
     name: "Garmin Watch Calendar Push",
     description: "Sync scheduled workouts directly to your Garmin Connect Calendar so your watch guides your intervals.",
     minTier: "free",
-    isApplicable: async (userId, user) => {
-      return Boolean(user && (user.garmin_username || user.garmin_oauth1_token));
-    },
+    isApplicable: async (userId) => require("./garminTraining").canReceiveWorkouts(userId),
     coachPrompt: "Take your workouts outdoors with zero guesswork! Because your Garmin is connected, you can push your scheduled workouts straight to your Garmin watch calendar so your watch guides your intervals, steps, and pace targets on the move.",
     checkUsage: (userId) => {
       return new Promise((resolve) => {
         db.get(
-          `SELECT COUNT(*) as cnt FROM users WHERE id = ? AND (garmin_oauth1_token IS NOT NULL OR garmin_oauth2_token IS NOT NULL)`,
+          `SELECT COUNT(*) as cnt FROM garmin_workouts WHERE user_id = ?`,
           [userId],
           (err, row) => resolve(row ? row.cnt > 0 : false)
         );
@@ -466,7 +464,7 @@ async function getNextUnusedFeatureForUser(userId, cachedUser = null) {
   const user = cachedUser || (await new Promise((resolve) => {
     db.get(
       `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender, u.language,
-              u.garmin_username, u.garmin_oauth1_token, u.app_platform, u.app_caps,
+              u.app_platform, u.app_caps,
               (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
        FROM users u WHERE u.id = ?`,
       [userId],
@@ -520,7 +518,7 @@ async function runWeeklyFeatureOnboardingJob() {
   const users = await new Promise((resolve, reject) => {
     db.all(
       `SELECT u.id, u.username, u.coach_tone, u.coach_name, u.subscription_tier, u.gender, u.language,
-              u.garmin_username, u.garmin_oauth1_token, u.app_platform, u.app_caps,
+              u.app_platform, u.app_caps,
               (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
        FROM users u WHERE u.deleted_at IS NULL AND u.ai_consent = 1`,
       (err, rows) => {

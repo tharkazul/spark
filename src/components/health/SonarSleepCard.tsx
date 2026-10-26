@@ -4,6 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/use-theme';
 import { Card } from '../ui/Card';
+import { GarminAttribution, garminHealthLabel } from '../ui/GarminAttribution';
 import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -72,6 +73,7 @@ export const SonarSleepCard: React.FC<SonarSleepCardProps> = ({ biometrics }) =>
           </Text>
         </View>
       </View>
+      <GarminAttribution label={garminHealthLabel([biometrics])} className="-mt-2 mb-3" />
 
       {/* Main Content: Left Ring + Right Stages */}
       <View className="flex-row items-center gap-4 bg-theme-inset rounded-inset p-3">

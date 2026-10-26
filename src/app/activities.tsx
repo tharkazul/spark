@@ -3,6 +3,7 @@ import { View, Text, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../components/ui/Card';
 import { SportMedallion } from '../components/ui/SportMedallion';
+import { GarminAttribution } from '../components/ui/GarminAttribution';
 import { StatValue } from '../components/ui/StatValue';
 import { useTabBarInset } from '../hooks/useTabBarInset';
 import { useActivities } from '../context/ActivityStore';
@@ -18,6 +19,7 @@ export default function ActivitiesScreen() {
   const formattedActivities = activities.map((act) => ({
     id: String(act.id),
     title: act.name,
+    garminAttribution: act.garmin_attribution,
     type: act.sport_type,
     distanceKm: act.distance_km,
     durationMin: act.moving_time_min,
@@ -51,6 +53,7 @@ export default function ActivitiesScreen() {
                 <Text numberOfLines={1} className="text-theme-text font-bold text-base font-jakarta">
                   {item.title}
                 </Text>
+                <GarminAttribution label={item.garminAttribution} className="mt-0.5" />
                 <Text className="text-theme-muted text-xs font-jakarta mt-0.5">
                   {item.relativeDate}
                 </Text>

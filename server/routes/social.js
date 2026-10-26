@@ -12,6 +12,7 @@ const { generateWithFallback } = require('../services/ai');
 const { encrypt, decrypt } = require('../services/crypto');
 const { sendPushToUser } = require('../services/pushNotificationService');
 const i18n = require('../services/i18n');
+const { garminAttribution } = require('../services/garminIngest');
 const {
   matchGarminExercise,
   getAMSDateString,
@@ -324,6 +325,7 @@ router.get("/api/social/feed", authenticateToken, (req, res) => {
         rows.forEach((r) => {
           r.user_id = r.user_id || r.id;
           r.rooka_level = getRookaLevelInfo(r.total_rooka).level;
+          r.garmin_attribution = garminAttribution(r);
           if (typeof r.rooka_score === "number") {
             r.rooka_score = Math.round(r.rooka_score);
           }

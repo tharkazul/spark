@@ -159,7 +159,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, garmin_username, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent, detail_level, home_place FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent, detail_level, home_place FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -199,6 +199,10 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
           );
 
           const trainerDayStatus = await require('../services/trainerday').connectionStatus(req.user.id);
+          const garminStatus = await require('../services/garmin').connectionStatus(req.user.id);
+          // Only when the athlete allowed workout import on Garmin's page (same rule as
+          // the send fan-out in routes/devices.js).
+          const garminTakesWorkouts = await require('../services/garminTraining').canReceiveWorkouts(req.user.id);
 
           res.json({
             needsZoneSetup,
@@ -206,11 +210,13 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             username: row.username,
             email: row.email,
             hasStrava: !!row.strava_refresh_token,
-            hasGarmin: !!row.garmin_username,
+            hasGarmin: garminStatus.connected,
+            // 'official' (Garmin's API) or null; older app builds also knew 'legacy'
+            garminConnection: garminStatus.connected ? 'official' : null,
+            garminTakesWorkouts,
             hasSuunto,
             hasTrainerDay: trainerDayStatus.connected,
             trainerdayPro: trainerDayStatus.pro,
-            garminUsername: row.garmin_username,
             coachTone: row.coach_tone,
             coachName: row.coach_name || 'Rooka',
             coachContext: row.coach_context || '',
@@ -537,12 +543,22 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
     const userId = req.user.id;
     if (!userId) return res.status(400).json({ error: "Missing user ID" });
 
-    db.get(`SELECT username FROM users WHERE id = ?`, [userId], (err, user) => {
+    db.get(`SELECT username FROM users WHERE id = ?`, [userId], async (err, user) => {
         if (err || !user) return res.status(404).json({ error: "User not found" });
 
         const username = (user.username || "").trim().toLowerCase();
         if (username === "rutgervandenberg" || username === "felixson") {
             return res.status(403).json({ error: "Master admin accounts cannot be deleted directly." });
+        }
+
+        // End the OAuth links on the other side while the tokens still exist. Garmin
+        // requires the deregistration call when an athlete deletes their account.
+        for (const [name, service] of [['Garmin', '../services/garmin'], ['TrainerDay', '../services/trainerday']]) {
+            try {
+                await require(service).disconnect(userId);
+            } catch (e) {
+                console.error(`${name} disconnect on account delete failed:`, e.message);
+            }
         }
 
         const tablesWithUserId = [
@@ -554,7 +570,8 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
             "completed_micro_steps", "push_subscriptions", "push_tokens", 
             "garmin_health_data", "user_titles", "athlete_niggles", "bonus_points", 
             "recurring_trainings", "benchmark_tests", "athlete_zones", "strava_tokens", 
-            "suunto_tokens", "suunto_guides",
+            "suunto_tokens", "suunto_guides", "garmin_tokens", "garmin_oauth_pending", "garmin_workouts",
+            "trainerday_tokens", "trainerday_events",
             "discount_redemptions", "user_discounts", "user_milestone_history", 
             "user_feature_onboarding", "password_resets", "athlete_facts"
         ];

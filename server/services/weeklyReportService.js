@@ -86,7 +86,7 @@ async function sendWeeklyNewUsersReport(options = {}) {
         u.role,
         ${dateColExpr} as joined_at,
         (u.strava_refresh_token IS NOT NULL) as has_strava,
-        (u.garmin_username IS NOT NULL) as has_garmin,
+        EXISTS (SELECT 1 FROM garmin_tokens gt WHERE gt.user_id = u.id) as has_garmin,
         COUNT(a.id) as activity_count
      FROM users u
      LEFT JOIN activities a ON a.user_id = u.id

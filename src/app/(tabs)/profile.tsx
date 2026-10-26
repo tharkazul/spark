@@ -1,30 +1,21 @@
-import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
-import { SheetGrabber } from '@/components/ui/SheetGrabber';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   InteractionManager,
-  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../../constants/api';
@@ -88,74 +79,8 @@ export default function ProfileScreen() {
     }, [params.subtab, SCREEN_WIDTH])
   );
 
-  const { height: SCREEN_HEIGHT } = useWindowDimensions();
-
-  // Garmin Form State
-  const [garminModalVisible, setGarminModalVisible] = useState(false);
-  const [showGarminModal, setShowGarminModal] = useState(false);
-  const garminSlideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const garminBackdropOpacity = useRef(new Animated.Value(0)).current;
-  const isGarminClosingRef = useRef(false);
-
-  const { panHandlers: garminPanHandlers } = useSheetDismiss(
-    () => setGarminModalVisible(false),
-    {
-      animY: garminSlideAnim,
-      backdropOpacity: garminBackdropOpacity,
-      onWillClose: () => {
-        isGarminClosingRef.current = true;
-      },
-    }
-  );
-
-  const [garminUser, setGarminUser] = useState('');
-  const [garminPass, setGarminPass] = useState('');
+  // Garmin connection state
   const [garminLoading, setGarminLoading] = useState(false);
-
-  useEffect(() => {
-    if (garminModalVisible) {
-      isGarminClosingRef.current = false;
-      setShowGarminModal(true);
-      garminSlideAnim.setValue(SCREEN_HEIGHT);
-      garminBackdropOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(garminBackdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(garminSlideAnim, {
-          toValue: 0,
-          damping: 24,
-          stiffness: 220,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      if (isGarminClosingRef.current) {
-        setShowGarminModal(false);
-        isGarminClosingRef.current = false;
-        return;
-      }
-
-      Animated.parallel([
-        Animated.timing(garminBackdropOpacity, {
-          toValue: 0,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-        Animated.timing(garminSlideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowGarminModal(false);
-      });
-    }
-  }, [garminModalVisible]);
 
   // Strava State
   const [stravaLoading, setStravaLoading] = useState(false);
@@ -202,29 +127,6 @@ export default function ProfileScreen() {
   };
 
   // Garmin handlers
-  const handleConnectGarmin = async () => {
-    if (!garminUser.trim() || !garminPass.trim()) {
-      Alert.alert(t('common.error'), t('integrationMsgs.enterGarminCreds'));
-      return;
-    }
-    setGarminLoading(true);
-    try {
-      const res = await integrationsApi.saveGarminCredentials({
-        garminUsername: garminUser.trim(),
-        garminPassword: garminPass.trim(),
-      });
-      await refreshUser();
-      setGarminUser('');
-      setGarminPass('');
-      Alert.alert(t('integrationMsgs.garminConnectedTitle'), res.message || t('integrationMsgs.garminSaved'));
-      setGarminModalVisible(false);
-    } catch (err: any) {
-      Alert.alert(t('integrationMsgs.garminErrorTitle'), err.message || t('integrationMsgs.garminSaveFailed'));
-    } finally {
-      setGarminLoading(false);
-    }
-  };
-
   const handleDisconnectGarmin = async () => {
     Alert.alert(
       t('integrationMsgs.disconnectGarminTitle'),
@@ -240,7 +142,6 @@ export default function ProfileScreen() {
               await integrationsApi.disconnectGarmin();
               await refreshUser();
               Alert.alert(t('integrationMsgs.disconnectedTitle'), t('integrationMsgs.garminDisconnected'));
-              setGarminModalVisible(false);
             } catch (err: any) {
               Alert.alert(t('common.error'), err.message || t('integrationMsgs.garminDisconnectFailed'));
             } finally {
@@ -250,6 +151,35 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  // Garmin's official connection: the server makes the PKCE pair and swaps the code at
+  // /garminredirect, which deep-links back here with ?status=.
+  const handleConnectGarminOAuth = async () => {
+    setGarminLoading(true);
+    try {
+      const { url: authUrl } = await integrationsApi.getGarminConnectUrl();
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, Linking.createURL('garminredirect'));
+      if (result.type === 'success' && result.url) {
+        const status = Linking.parse(result.url).queryParams?.status;
+        await refreshUser();
+        if (status === 'connected') {
+          Alert.alert(t('integrationMsgs.garminConnectedTitle'), t('integrationMsgs.garminConnectedOfficial'));
+        } else {
+          Alert.alert(
+            t('integrationMsgs.garminErrorTitle'),
+            status === 'denied' ? t('integrationMsgs.garminDenied') : t('integrationMsgs.garminOauthFailed')
+          );
+        }
+      } else {
+        // Closed the sheet: the connect may still have finished on the server.
+        await refreshUser();
+      }
+    } catch (err: any) {
+      Alert.alert(t('integrationMsgs.garminErrorTitle'), err.message || t('integrationMsgs.garminOauthFailed'));
+    } finally {
+      setGarminLoading(false);
+    }
   };
 
   const handleSyncGarmin = async () => {
@@ -633,7 +563,9 @@ export default function ProfileScreen() {
             onMomentumScrollEnd={notifyScrollEnd}
           >
             <ConnectionsTab
-              onOpenGarminModal={() => setGarminModalVisible(true)}
+              onConnectGarmin={handleConnectGarminOAuth}
+              onDisconnectGarmin={handleDisconnectGarmin}
+              garminLoading={garminLoading}
               onConnectStrava={handleConnectStravaOAuth}
               onDisconnectStrava={handleDisconnectStrava}
               stravaLoading={stravaLoading}
@@ -648,133 +580,6 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* GARMIN CONNECTION MODAL */}
-      {showGarminModal && (
-        <Modal
-          animationType="none"
-          transparent={true}
-          visible={showGarminModal}
-          onRequestClose={() => setGarminModalVisible(false)}
-        >
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-            style={{ flex: 1 }}
-          >
-            <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
-              {/* Static Fullscreen Backdrop: Fades In/Out Simultaneously */}
-              <Animated.View
-                style={[
-                  StyleSheet.absoluteFill,
-                  { backgroundColor: SHEET_BACKDROP, opacity: garminBackdropOpacity },
-                ]}
-              >
-                <TouchableOpacity
-                  activeOpacity={1}
-                  onPress={() => setGarminModalVisible(false)}
-                  style={{ flex: 1 }}
-                />
-              </Animated.View>
-
-              {/* Bottom Sheet Modal Container */}
-              <SheetSurface
-                style={{ transform: [{ translateY: garminSlideAnim }] }}
-                padBottom={24}
-                className="px-6 pt-3"
-                solidClassName="bg-theme-bg"
-              >
-                {/* Draggable Header Region */}
-                <View {...garminPanHandlers} className="self-stretch">
-                  <View className="items-center pb-4">
-                    <SheetGrabber />
-                  </View>
-
-                  <View className="flex-row items-center justify-between mb-4">
-                    <View className="flex-row items-center">
-                      <Ionicons name="watch-outline" size={24} color={theme.tint} />
-                      <Text className="text-xl font-bold text-theme-text ml-2">Garmin Connect</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <Text className="text-sm text-theme-muted mb-6">
-                  {t('integrationMsgs.garminModalDesc')}
-                </Text>
-
-                {isGarminConnected ? (
-                  <View className="gap-y-4 mb-4">
-                    <View className="p-4 rounded-xl bg-semantic-success/10 border border-semantic-success/30 flex-row items-center mb-2">
-                      <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-                      <Text className="text-semantic-success font-bold ml-2">{t('integrationMsgs.garminIsConnected')}</Text>
-                    </View>
-
-                    <TouchableOpacity
-                      onPress={handleSyncGarmin}
-                      disabled={garminLoading}
-                      className="bg-theme-accent py-3.5 rounded-xl items-center flex-row justify-center mb-3"
-                    >
-                      {garminLoading ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="sync" size={18} color="#FFF" />
-                          <Text className="text-white font-bold text-base ml-2">{t('integrationMsgs.syncWorkoutsToGarmin')}</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={handleDisconnectGarmin}
-                      disabled={garminLoading}
-                      className="border border-semantic-error/40 bg-semantic-error/10 py-3.5 rounded-xl items-center"
-                    >
-                      <Text className="text-semantic-error font-bold text-base">{t('integrationMsgs.disconnectGarminTitle')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View className="gap-y-4 mb-4">
-                    <View>
-                      <Text className="text-xs font-bold text-theme-muted mb-1">{t('integrationMsgs.garminUsernameLabel')}</Text>
-                      <TextInput
-                        className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
-                        placeholder="email@example.com"
-                        placeholderTextColor={theme.textSecondary}
-                        value={garminUser}
-                        onChangeText={setGarminUser}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                      />
-                    </View>
-
-                    <View className="mt-3">
-                      <Text className="text-xs font-bold text-theme-muted mb-1">{t('integrationMsgs.garminPasswordLabel')}</Text>
-                      <TextInput
-                        className="bg-theme-card border border-theme-border rounded-control p-3.5 text-theme-text"
-                        placeholder="••••••••"
-                        placeholderTextColor={theme.textSecondary}
-                        value={garminPass}
-                        onChangeText={setGarminPass}
-                        secureTextEntry
-                      />
-                    </View>
-
-                    <TouchableOpacity
-                      onPress={handleConnectGarmin}
-                      disabled={garminLoading}
-                      className="bg-theme-accent py-4 rounded-xl items-center mt-4"
-                    >
-                      {garminLoading ? (
-                        <ActivityIndicator color="#FFF" />
-                      ) : (
-                        <Text className="text-white font-bold text-base">{t('integrationMsgs.saveConnectGarmin')}</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </SheetSurface>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-      )}
     </View>
   );
 }

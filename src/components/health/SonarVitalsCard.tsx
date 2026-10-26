@@ -3,7 +3,8 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { MetricTile, MetricDeltaTone } from '../ui/MetricTile';
-import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
+import { garminHealthLabel } from '../ui/GarminAttribution';
+import { AppleHealthDailyBiometrics, hrvIn, hrvOf } from '../../services/appleHealthService';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface SonarVitalsCardProps {
@@ -19,7 +20,9 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({
   if (!biometrics) return null;
 
   const hasRhr = biometrics.resting_hr !== undefined && biometrics.resting_hr !== null && biometrics.resting_hr > 0;
-  const hasHrv = biometrics.hrv_sdnn !== undefined && biometrics.hrv_sdnn !== null && biometrics.hrv_sdnn > 0;
+  // Today's HRV and its history from the same source (Garmin RMSSD or Apple SDNN).
+  const todayHrv = hrvOf(biometrics);
+  const hasHrv = todayHrv !== null;
   const hasSteps = biometrics.steps !== undefined && biometrics.steps !== null && biometrics.steps > 0;
   const hasCalories = biometrics.active_calories !== undefined && biometrics.active_calories !== null && biometrics.active_calories > 0;
   const hasVo2 = biometrics.vo2_max !== undefined && biometrics.vo2_max !== null && biometrics.vo2_max > 0;
@@ -34,20 +37,20 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({
   const rhrSeries = sortedHistory
     .map((r) => r.resting_hr)
     .filter((v): v is number => typeof v === 'number' && v > 0);
-  const hrvSeries = sortedHistory
-    .map((r) => r.hrv_sdnn)
-    .filter((v): v is number => typeof v === 'number' && v > 0);
+  const hrvSeries = todayHrv
+    ? sortedHistory.map((r) => hrvIn(r, todayHrv.source)).filter((v): v is number => v !== null)
+    : [];
 
   // Calculate 7-Day Baseline Averages
   const pastDays = recentBiometrics.filter((r) => r.date !== biometrics.date);
   const rhrPast = pastDays.map((r) => r.resting_hr).filter((v): v is number => typeof v === 'number' && v > 0);
-  const hrvPast = pastDays.map((r) => r.hrv_sdnn).filter((v): v is number => typeof v === 'number' && v > 0);
+  const hrvPast = todayHrv ? pastDays.map((r) => hrvIn(r, todayHrv.source)).filter((v): v is number => v !== null) : [];
 
   const avgRhr = rhrPast.length > 0 ? Math.round((rhrPast.reduce((a, b) => a + b, 0) / rhrPast.length) * 10) / 10 : null;
   const avgHrv = hrvPast.length > 0 ? Math.round((hrvPast.reduce((a, b) => a + b, 0) / hrvPast.length) * 10) / 10 : null;
 
   const rhrDelta = biometrics.resting_hr && avgRhr ? Math.round(biometrics.resting_hr - avgRhr) : null;
-  const hrvDelta = biometrics.hrv_sdnn && avgHrv ? Math.round(biometrics.hrv_sdnn - avgHrv) : null;
+  const hrvDelta = todayHrv && avgHrv ? Math.round(todayHrv.value - avgHrv) : null;
 
   const rhrDeltaTone: MetricDeltaTone =
     rhrDelta === null || Math.abs(rhrDelta) < 1 ? 'neutral' : rhrDelta <= -2 ? 'good' : rhrDelta >= 3 ? 'warn' : 'neutral';
@@ -65,7 +68,7 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({
           </Text>
         </View>
         <Text className="text-[11px] font-semibold text-theme-muted">
-          {t('progress.fromAppleHealth', 'Apple Health')}
+          {garminHealthLabel([biometrics, ...recentBiometrics]) || t('progress.fromAppleHealth', 'Apple Health')}
         </Text>
       </View>
 
@@ -93,7 +96,7 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({
           <View className="flex-1 min-w-[140px]">
             <MetricTile
               label={t('progress.hrv', 'HRV')}
-              value={String(Math.round(biometrics.hrv_sdnn!))}
+              value={String(Math.round(todayHrv!.value))}
               unit={t('progress.ms', 'ms')}
               delta={hrvDelta !== null && hrvDelta !== 0 ? `${hrvDelta > 0 ? '+' : ''}${hrvDelta}` : null}
               deltaTone={hrvDeltaTone}

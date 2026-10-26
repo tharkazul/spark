@@ -8,6 +8,11 @@
  * Privacy: track points live only in memory. The table keeps the latest effort numbers
  * (no position), the cues that were sent and a short summary. The LiveTrack token, which
  * would let anyone follow the athlete's location, is erased when the session ends.
+ *
+ * Parked since 2026-10-26: LiveTrack has no official Garmin API, and reading it is the
+ * kind of automated retrieval Garmin's developer license forbids. While `settings.enabled`
+ * is false no LiveTrack link is opened and running sessions are stopped at startup. The
+ * cue engine (services/liveCoach.js) stays for an official source, such as a Connect IQ app.
  */
 const db = require("./db");
 const { LiveTrackClient, parseLiveTrackUrl } = require("./liveTrack");
@@ -226,7 +231,14 @@ class Runner {
  * must come from the Garmin profile that first used this athlete's address.
  * Returns the live_sessions row.
  */
+const settings = { enabled: false };
+
+function assertEnabled() {
+  if (!settings.enabled) throw Object.assign(new Error("Live coaching is switched off"), { status: 410 });
+}
+
 async function startLiveSession({ userId, url, source }) {
+  assertEnabled();
   const link = parseLiveTrackUrl(url);
   if (!link) throw Object.assign(new Error("No LiveTrack link found"), { status: 400 });
 
@@ -270,6 +282,13 @@ async function stopLiveSession(id) {
 
 /** Pick up sessions that were running when the server restarted. */
 async function resumeLiveSessions() {
+  if (!settings.enabled) {
+    await dbRun(
+      `UPDATE live_sessions SET status = 'stopped', token = NULL, ended_at = COALESCE(ended_at, CURRENT_TIMESTAMP), error = 'live coaching switched off'
+        WHERE status IN ('waiting','active')`,
+    );
+    return;
+  }
   const rows = await dbAll(`SELECT * FROM live_sessions WHERE status IN ('waiting','active') AND token IS NOT NULL`);
   for (const row of rows) {
     const lastMs = Date.parse(row.last_point_at || "") || Date.parse(`${row.created_at}Z`) || 0;
@@ -321,6 +340,7 @@ async function recentLiveSummaries(userId, days = 2) {
 }
 
 module.exports = {
+  settings,
   startLiveSession,
   stopLiveSession,
   resumeLiveSessions,

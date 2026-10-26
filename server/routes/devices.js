@@ -5,7 +5,8 @@
  *   body: { workouts?: Array }  (same shape as /api/sync-garmin)
  *
  * Sends the workouts to every cloud-connected device platform the user has
- * linked (currently Garmin Connect, Suunto and TrainerDay). Apple Watch is handled
+ * linked (currently Garmin Connect, Suunto and TrainerDay). Garmin goes through
+ * its Training API (routes/integrations.js sendWorkoutsToGarmin). Apple Watch is handled
  * on the phone via WorkoutKit, so it is not part of this endpoint. A provider that
  * has nothing to do with the payload (TrainerDay for a run) answers `skipped` and
  * is left out of the result.
@@ -14,9 +15,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../services/db');
 const { authenticateToken } = require('../services/auth');
-const { pushWorkoutsToGarmin } = require('./integrations');
+const { sendWorkoutsToGarmin } = require('./integrations');
 const { pushWorkoutsToSuunto } = require('./suunto');
 const trainerday = require('../services/trainerday');
+const garminTraining = require('../services/garminTraining');
 
 const dbGet = (sql, params = []) =>
   new Promise((resolve) => db.get(sql, params, (e, row) => resolve(e ? null : row)));
@@ -26,9 +28,9 @@ const PROVIDERS = [
   {
     id: 'garmin',
     name: 'Garmin',
-    isConnected: async (userId) =>
-      !!(await dbGet(`SELECT 1 AS ok FROM users WHERE id = ? AND garmin_username IS NOT NULL AND garmin_username != ''`, [userId])),
-    push: pushWorkoutsToGarmin,
+    // Only when the athlete allowed workout import on Garmin's consent page.
+    isConnected: (userId) => garminTraining.canReceiveWorkouts(userId),
+    push: sendWorkoutsToGarmin,
   },
   {
     id: 'suunto',

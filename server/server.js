@@ -57,6 +57,7 @@ app.use("/", gamificationRoutes);
 app.use("/", integrationsRoutes);
 app.use("/", require("./routes/suunto"));
 app.use("/", require("./routes/trainerday"));
+app.use("/", require("./routes/garmin"));
 app.use("/", require("./routes/devices"));
 app.use("/", physiqueRoutes);
 app.use("/", activitiesRoutes);
@@ -113,6 +114,17 @@ cron.schedule('0 0 * * *', () => {
 // Race moments every day at 09:00: race-plan offer when the taper starts, debrief the day after a race
 cron.schedule('0 9 * * *', () => {
   require("./services/racePlan").runDailyRaceMomentsJob().catch((err) => console.error("[RaceMoments] job failed:", err));
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Garmin refresh tokens last ~90 days; renew the ones running out so idle athletes stay connected
+cron.schedule('30 3 * * *', () => {
+  require("./services/garmin")
+    .refreshExpiringConnections()
+    .then((r) => r.checked && console.log(`[Garmin] renewed ${r.renewed}/${r.checked} expiring connection(s)`))
+    .catch((err) => console.error("[Garmin] token renewal job failed:", err));
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"
@@ -190,6 +202,13 @@ cron.schedule('*/5 * * * *', () => {
 cron.schedule('*/15 * * * *', () => {
   require("./services/trainerday").syncAllTrainerDayUsers().catch((err) =>
     console.error('[CRON] TrainerDay sync failed:', err)
+  );
+});
+
+// Every 15 minutes: mirror plan changes onto Garmin calendars over the official connection (Training API; unchanged sessions cost no calls)
+cron.schedule('*/15 * * * *', () => {
+  require("./services/garminTraining").syncAllGarminUsers().catch((err) =>
+    console.error('[CRON] Garmin workout sync failed:', err)
   );
 });
 

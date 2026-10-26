@@ -2,6 +2,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
+import { Image } from 'expo-image';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Platform, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useActivities } from '../../context/ActivityStore';
 import { usePlan } from '../../context/PlanStore';
@@ -9,14 +10,15 @@ import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
 import { canHideRookaLink } from '../../utils/permissions';
-import { GARMIN_DIRECT_LOGIN_ENABLED } from '../../constants/features';
+import { LIVE_COACHING_ENABLED } from '../../constants/features';
 import { Card } from '../ui/Card';
-import { GarminViaPartnersHint } from '../integrations/GarminViaPartnersHint';
 import { LiveCoachingCard } from './LiveCoachingCard';
 import { SportMedallion } from '../ui/SportMedallion';
 
 interface ConnectionsTabProps {
-  onOpenGarminModal: () => void;
+  onConnectGarmin: () => void;
+  onDisconnectGarmin: () => void;
+  garminLoading?: boolean;
   onConnectStrava: () => void;
   onDisconnectStrava: () => void;
   stravaLoading?: boolean;
@@ -65,7 +67,9 @@ const TOGGLE_ROWS: { key: keyof StravaShareFlags }[] = [
 ];
 
 export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
-  onOpenGarminModal,
+  onConnectGarmin,
+  onDisconnectGarmin,
+  garminLoading = false,
   onConnectStrava,
   onDisconnectStrava,
   stravaLoading = false,
@@ -80,7 +84,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const { user } = useUser();
   const { plan } = usePlan();
   const { t, language } = useLanguage();
-  const { syncGarmin, syncStrava, syncSuunto, refreshActivities } = useActivities();
+  const { syncStrava, syncSuunto, refreshActivities } = useActivities();
 
   const getSportOptionLabel = (id: SportType) => {
     if (id === 'Run') return t('sports.run');
@@ -104,7 +108,6 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const isTrainerDayConnected = !!user?.trainerday_connected;
   const trainerDayNeedsPro = isTrainerDayConnected && user?.trainerday_pro === false;
 
-  const [garminSyncing, setGarminSyncing] = useState(false);
   const [stravaSyncing, setStravaSyncing] = useState(false);
   const [appleSyncing, setAppleSyncing] = useState(false);
   const [isHealthKitConnected, setIsHealthKitConnected] = useState(false);
@@ -118,6 +121,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
   const [showSuuntoManage, setShowSuuntoManage] = useState(false);
   const [suuntoSyncing, setSuuntoSyncing] = useState(false);
   const [showTrainerDayManage, setShowTrainerDayManage] = useState(false);
+  const [showGarminManage, setShowGarminManage] = useState(false);
   const [healthPrefs, setHealthPrefs] = useState<any>({
     syncSleep: true,
     syncHeartRate: true,
@@ -372,20 +376,6 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
     });
   };
 
-  const handleSyncGarmin = async () => {
-    setGarminSyncing(true);
-    try {
-      await syncGarmin();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err: any) {
-      console.error('Garmin sync error:', err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(t('healthConnect.garminSyncFailedTitle'), err?.message || t('healthConnect.garminSyncFailedBody'));
-    } finally {
-      setGarminSyncing(false);
-    }
-  };
-
   const handleSyncStrava = async () => {
     setStravaSyncing(true);
     try {
@@ -574,63 +564,68 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         )}
       </Card>
 
-      {/* 2. GARMIN: connection and live coaching, both Garmin-only, in one card. The direct
-          login is parked (GARMIN_DIRECT_LOGIN_ENABLED): athletes who already connected keep
-          sync and disconnect, everyone else gets the Garmin -> Apple Health / Strava route.
-          Live coaching runs on Garmin LiveTrack and needs no Garmin connection in rooka. */}
+      {/* 2. GARMIN: Garmin's official connection, through Garmin's own consent page.
+          Garmin's brand rules ask for the full "Garmin Connect" name with its app tile.
+          Live coaching (parked, LIVE_COACHING_ENABLED) would sit in the same card. */}
       <Card className="p-4">
-        {!isGarminConnected && !GARMIN_DIRECT_LOGIN_ENABLED ? (
-          <GarminViaPartnersHint />
-        ) : (
-          <View className="flex-row justify-between items-center">
-            <View className="flex-row items-center gap-3 flex-1 mr-2">
-              <View className="w-10 h-10 rounded-xl bg-sky-500/10 items-center justify-center">
-                <Ionicons name="watch-outline" size={20} color="#0EA5E9" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.garminConnect')}</Text>
-                <Text className="text-xs text-theme-muted mt-0.5">
-                  {isGarminConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.directSync')}` : t('connections.disconnected', 'Not connected')}
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-center gap-2">
-              {isGarminConnected && (
-                <TouchableOpacity
-                  onPress={handleSyncGarmin}
-                  disabled={garminSyncing}
-                  className="p-2 rounded-lg bg-theme-bg border border-theme-border items-center justify-center"
-                >
-                  {garminSyncing ? (
-                    <ActivityIndicator size="small" color={theme.tint} />
-                  ) : (
-                    <Ionicons name="sync-outline" size={15} color={theme.tint} />
-                  )}
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={onOpenGarminModal}
-                className={`px-3 py-1.5 rounded-lg border ${
-                  isGarminConnected
-                    ? 'bg-theme-bg border-theme-border'
-                    : 'bg-theme-accent border-theme-accent'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    isGarminConnected ? 'text-theme-accent' : 'text-white'
-                  }`}
-                >
-                  {isGarminConnected ? t('common.manage', 'Manage') : t('common.connect', 'Connect')}
-                </Text>
-              </TouchableOpacity>
+        <View className="flex-row justify-between items-center">
+          <View className="flex-row items-center gap-3 flex-1 mr-2">
+            <Image
+              source={require('../../../assets/images/garmin-connect-tile.png')}
+              style={{ width: 40, height: 40, borderRadius: 10 }}
+              contentFit="contain"
+              accessibilityLabel="Garmin Connect"
+            />
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.garminConnect')}</Text>
+              <Text className="text-xs text-theme-muted mt-0.5">
+                {isGarminConnected ? t('connections.connected', 'Connected') : t('connections.disconnected', 'Not connected')}
+              </Text>
             </View>
           </View>
-        )}
-        <View className="mt-3 pt-3 border-t border-theme-border/50">
-          <LiveCoachingCard embedded />
+
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              if (isGarminConnected) setShowGarminManage((prev) => !prev);
+              else onConnectGarmin();
+            }}
+            disabled={garminLoading}
+            className={`px-3 py-1.5 rounded-lg border ${
+              isGarminConnected ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent border-theme-accent'
+            }`}
+          >
+            {garminLoading ? (
+              <ActivityIndicator size="small" color={isGarminConnected ? theme.tint : '#FFFFFF'} />
+            ) : (
+              <Text className={`text-xs font-bold ${isGarminConnected ? 'text-theme-accent' : 'text-white'}`}>
+                {isGarminConnected && showGarminManage
+                  ? t('common.done', 'Done')
+                  : isGarminConnected
+                    ? t('common.manage', 'Manage')
+                    : t('common.connect', 'Connect')}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
+        {showGarminManage && isGarminConnected && (
+          <View className="mt-3 pt-3 border-t border-theme-border/50 gap-y-3">
+            <Text className="text-xs text-theme-muted leading-relaxed">{t('connections.garminOfficialHint')}</Text>
+            <TouchableOpacity
+              onPress={onDisconnectGarmin}
+              disabled={garminLoading}
+              className="py-2 px-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex-row items-center justify-center"
+            >
+              <Ionicons name="unlink-outline" size={14} color="#EF4444" />
+              <Text className="text-xs font-bold text-rose-500 ml-1.5">{t('connections.disconnectGarmin')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {LIVE_COACHING_ENABLED && (
+          <View className="mt-3 pt-3 border-t border-theme-border/50">
+            <LiveCoachingCard embedded />
+          </View>
+        )}
       </Card>
 
       {/* SUUNTO INTEGRATION */}

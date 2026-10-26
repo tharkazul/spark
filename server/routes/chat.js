@@ -85,6 +85,20 @@ const COACH_CHAT_RULES = fs
   .trim()
   .replace("{{PLAIN_LANGUAGE_RULE}}", PLAIN_LANGUAGE_RULE);
 
+// Garmin's license (§15.11): for an athlete with Garmin data the coach may store only what
+// the athlete says. A metric counts as theirs when every number in it is in their message.
+function statedByAthlete(value, message) {
+  const numbers = (s) => (String(s ?? "").match(/\d+(?:[.,:]\d+)?/g) || []).map((n) => n.replace(",", "."));
+  const inValue = numbers(value);
+  if (inValue.length === 0) return false;
+  const said = new Set(numbers(message));
+  return inValue.every((n) => said.has(n));
+}
+
+const GARMIN_MEMORY_RULE = `
+GARMIN DATA RULE: some of this athlete's workouts or health data come from Garmin, whose license forbids storing anything derived from that data in what you know about the athlete. Save facts and metrics only from what the athlete tells you in their own words; never save numbers you read from workouts or watch data (FTP, max HR, paces, HRV, sleep, weight). If a metric seems to have changed, ask the athlete to confirm the number themselves.
+`;
+
 function splitCoachReply(text) {
   if (!text) return [];
   const parts = text
@@ -357,6 +371,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
             async (err, metricsRows) => {
               // Latest value per metric, with its date and source, so newer numbers win.
               const metricsText = await athleteFacts.formatMetricsForPrompt(req.user.id);
+              const garminAthlete = await require("../services/garmin").hasGarminData(req.user.id);
               const hrZonesText = await formatHrZonesForPrompt(req.user.id).catch(() => "");
               // What rooka told the athlete on the watch during recent workouts, so the coach can follow up.
               const liveCoachText = await require("../services/liveSessionWorker")
@@ -372,7 +387,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
 
               const recentBiometrics = await new Promise((resolve) => {
                 db.all(
-                  `SELECT date, resting_hr, avg_hr, hrv_sdnn, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, sleep_awake_minutes, steps, active_calories, weight_kg, vo2_max 
+                  `SELECT date, resting_hr, avg_hr, hrv_sdnn, hrv_rmssd, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, sleep_awake_minutes, steps, active_calories, weight_kg, vo2_max 
                    FROM biometrics WHERE user_id = ? ORDER BY date DESC LIMIT 7`,
                   [req.user.id],
                   (err, rows) => resolve(rows || [])
@@ -395,7 +410,8 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                     }
                     lines.push(`- Sleep: ${h}h ${m}m total${stageStr}`);
                   }
-                  if (todayBio.hrv_sdnn) lines.push(`- HRV (SDNN): ${todayBio.hrv_sdnn} ms`);
+                  if (todayBio.hrv_rmssd) lines.push(`- HRV (overnight RMSSD, Garmin): ${todayBio.hrv_rmssd} ms`);
+                  else if (todayBio.hrv_sdnn) lines.push(`- HRV (SDNN, Apple Health): ${todayBio.hrv_sdnn} ms`);
                   if (todayBio.resting_hr) lines.push(`- Resting Heart Rate: ${todayBio.resting_hr} bpm`);
                   if (todayBio.steps) lines.push(`- Steps: ${todayBio.steps}`);
                   if (todayBio.active_calories) lines.push(`- Active Calories Burned: ${todayBio.active_calories} kcal`);
@@ -403,11 +419,14 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                   if (todayBio.weight_kg) lines.push(`- Weight: ${todayBio.weight_kg} kg`);
                 }
                 if (recentBiometrics.length > 1) {
-                  const hrvs = recentBiometrics.filter(b => b.hrv_sdnn).map(b => b.hrv_sdnn);
+                  // Garmin RMSSD and Apple SDNN don't convert: one baseline per measure.
                   const rhrs = recentBiometrics.filter(b => b.resting_hr).map(b => b.resting_hr);
-                  if (hrvs.length > 0) {
-                    const avgHrv = hrvs.reduce((a, b) => a + b, 0) / hrvs.length;
-                    lines.push(`- 7-Day Baseline HRV: ${Math.round(avgHrv * 10) / 10} ms`);
+                  for (const [col, label] of [["hrv_rmssd", "overnight RMSSD, Garmin"], ["hrv_sdnn", "SDNN, Apple Health"]]) {
+                    const hrvs = recentBiometrics.filter(b => b[col]).map(b => b[col]);
+                    if (hrvs.length > 0) {
+                      const avgHrv = hrvs.reduce((a, b) => a + b, 0) / hrvs.length;
+                      lines.push(`- 7-Day Baseline HRV (${label}): ${Math.round(avgHrv * 10) / 10} ms`);
+                    }
                   }
                   if (rhrs.length > 0) {
                     const avgRhr = rhrs.reduce((a, b) => a + b, 0) / rhrs.length;
@@ -812,7 +831,7 @@ ${user.long_term_memory || "Nothing recorded yet."}
 
 PHYSIOLOGICAL METRICS:
 ${metricsText}
-
+${garminAthlete ? GARMIN_MEMORY_RULE : ""}
 HEART-RATE ZONES:
 ${hrZonesText}
 
@@ -901,6 +920,9 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                       // Constraints first, so workouts in the same reply are checked
                                       // against the rules the coach just recorded.
                                       let constraintsChanged = false;
+                                      // Garmin athletes: the coach's own fact writes wait for the
+                                      // memory pass, which then reads only the athlete's words.
+                                      let memoryDeferred = false;
                                       for (const match of jsonMatches) {
                                         let parsedDirective = null;
                                         try {
@@ -1035,14 +1057,23 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                             parsedData.data
                                           ) {
                                             for (const [key, val] of Object.entries(parsedData.data || {})) {
+                                              if (garminAthlete && !statedByAthlete(val, message)) continue;
                                               await athleteFacts.setMetric(req.user.id, key, val, "coach").catch(() => {});
                                             }
+                                          } else if (parsedData && parsedData.type === "facts" && garminAthlete) {
+                                            memoryDeferred = true;
                                           } else if (parsedData && parsedData.type === "facts") {
                                             // Single-fact edits: add, update or remove what the coach knows.
                                             const ops = Array.isArray(parsedData.data) ? parsedData.data : Array.isArray(parsedData.ops) ? parsedData.ops : [];
                                             await athleteFacts.applyOps(req.user.id, ops, "coach").catch((e) =>
                                               console.error("Failed to apply coach facts:", e.message)
                                             );
+                                          } else if (
+                                            garminAthlete &&
+                                            parsedData &&
+                                            (parsedData.type === "memory" || parsedData.type === "life_event" || parsedData.type === "travel")
+                                          ) {
+                                            memoryDeferred = true;
                                           } else if (
                                             parsedData &&
                                             (parsedData.type === "memory" || parsedData.type === "life_event" || parsedData.type === "travel") &&
@@ -1532,7 +1563,7 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                        longTermMemory
                                          .shouldSummarizeAfterMessage(req.user.id, message)
                                          .then((due) => {
-                                           if (due || constraintsChanged) triggerBackgroundSummary(req.user.id);
+                                           if (due || constraintsChanged || memoryDeferred) triggerBackgroundSummary(req.user.id);
                                          })
                                          .catch((summaryErr) => console.error("Failed to check memory summary trigger:", summaryErr));
 
@@ -1759,3 +1790,4 @@ router.post("/api/chat/checkin", authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.statedByAthlete = statedByAthlete;

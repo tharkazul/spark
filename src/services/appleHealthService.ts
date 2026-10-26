@@ -815,7 +815,10 @@ export interface AppleHealthDailyBiometrics {
   avg_hr?: number | null;
   min_hr?: number | null;
   max_hr?: number | null;
+  /** Apple Health's HRV (SDNN, spot readings through the day). */
   hrv_sdnn?: number | null;
+  /** Garmin's overnight HRV (RMSSD). A different measure from SDNN, with no conversion. */
+  hrv_rmssd?: number | null;
   sleep_minutes?: number | null;
   sleep_deep_minutes?: number | null;
   sleep_rem_minutes?: number | null;
@@ -826,6 +829,8 @@ export interface AppleHealthDailyBiometrics {
   weight_kg?: number | null;
   body_fat_percent?: number | null;
   vo2_max?: number | null;
+  /** Set by the server when Garmin's Health API filled values of this day (shown as the source). */
+  from_garmin?: number | null;
 }
 
 export interface AppleHealthWorkoutData {
@@ -1327,6 +1332,97 @@ export async function fetchRecentBiometricsFromServer(limit = 7): Promise<AppleH
   return [];
 }
 
+export type HrvSource = 'garmin' | 'apple';
+
+/** A day's HRV: Garmin's overnight value when there is one, else Apple Health's. */
+export function hrvOf(
+  day: AppleHealthDailyBiometrics | null | undefined
+): { value: number; source: HrvSource } | null {
+  if (day?.hrv_rmssd && day.hrv_rmssd > 0) return { value: day.hrv_rmssd, source: 'garmin' };
+  if (day?.hrv_sdnn && day.hrv_sdnn > 0) return { value: day.hrv_sdnn, source: 'apple' };
+  return null;
+}
+
+/** One source's HRV on a day (Garmin RMSSD or Apple SDNN), so a chart never mixes the two. */
+export function hrvIn(day: AppleHealthDailyBiometrics | null | undefined, source: HrvSource): number | null {
+  const v = source === 'garmin' ? day?.hrv_rmssd : day?.hrv_sdnn;
+  return typeof v === 'number' && v > 0 ? v : null;
+}
+
+/** The source HRV views follow: that of the latest day (by date) with an HRV value. */
+export function latestHrvSource(days: AppleHealthDailyBiometrics[]): HrvSource | null {
+  const latest = [...days].sort((a, b) => b.date.localeCompare(a.date)).find((d) => hrvOf(d));
+  return latest ? hrvOf(latest)!.source : null;
+}
+
+export interface HrvAssessment {
+  source: HrvSource;
+  value: number;
+  /** Average of the athlete's other recent days from the same source. */
+  baseline: number | null;
+  delta: number | null;
+  status: 'prime' | 'balanced' | 'suppressed';
+  /** Contribution to computeCardiovascularStrain's score (0 = fresh). */
+  strainPoints: number;
+  /** Contribution to the Training Readiness gauge. */
+  readinessPoints: number;
+}
+
+// Garmin HRV needs this many earlier Garmin nights before it counts at all.
+const GARMIN_HRV_MIN_DAYS = 3;
+
+/**
+ * How today's HRV reads, for the strain score and the readiness gauge.
+ *
+ * Apple Health (SDNN) keeps the original rules: a drop of 6 / 12 ms against the 7-day
+ * average, and fixed cut-offs (30 / 40 / 55 ms for strain, 30 / 40 / 45 / 65 ms for
+ * readiness). Garmin's overnight RMSSD is a different number for the same person, so it
+ * is judged only against the athlete's own Garmin nights, in % change: -12% / -25% are
+ * those 6 / 12 ms steps at a 50 ms average, +10% is "prime". Approved 2026-10-26.
+ */
+export function assessHrv(
+  today: AppleHealthDailyBiometrics | null | undefined,
+  recent: AppleHealthDailyBiometrics[] = []
+): HrvAssessment | null {
+  const current = hrvOf(today);
+  if (!today || !current) return null;
+  const field = current.source === 'garmin' ? 'hrv_rmssd' : 'hrv_sdnn';
+  const past = recent
+    .filter((r) => r.date !== today.date)
+    .map((r) => r[field])
+    .filter((v): v is number => typeof v === 'number' && v > 0);
+  const mean = past.length > 0 ? past.reduce((a, b) => a + b, 0) / past.length : null;
+  const baseline = mean !== null ? Math.round(mean * 10) / 10 : null;
+  const delta = baseline !== null ? Math.round((current.value - baseline) * 10) / 10 : null;
+  const result = (status: HrvAssessment['status'], strainPoints: number, readinessPoints: number): HrvAssessment => ({
+    source: current.source,
+    value: current.value,
+    baseline,
+    delta,
+    status,
+    strainPoints,
+    readinessPoints,
+  });
+
+  if (current.source === 'garmin') {
+    if (mean === null || past.length < GARMIN_HRV_MIN_DAYS) return result('balanced', 0, 0);
+    const change = (current.value - mean) / mean;
+    if (change <= -0.25) return result('suppressed', 40, -15);
+    if (change <= -0.12) return result('suppressed', 20, -6);
+    if (change >= 0.1) return result('prime', 0, 7);
+    return result('balanced', 0, 3);
+  }
+
+  const v = current.value;
+  const readinessPoints = v >= 65 ? 7 : v >= 45 ? 3 : v < 30 ? -15 : v < 40 ? -6 : 0;
+  if (delta !== null && delta <= -12) return result('suppressed', 40, readinessPoints);
+  if (delta !== null && delta <= -6) return result('suppressed', 20, readinessPoints);
+  if (v < 30) return result('suppressed', 35, readinessPoints);
+  if (v < 40) return result('balanced', 15, readinessPoints);
+  if (v >= 55) return result('prime', 0, readinessPoints);
+  return result('balanced', 0, readinessPoints);
+}
+
 export interface CardiovascularStrainResult {
   strainLevel: 'none' | 'moderate' | 'elevated' | 'high';
   strainScore: number; // 0 - 100
@@ -1338,6 +1434,7 @@ export interface CardiovascularStrainResult {
   avgHrv: number | null;
   hrvDelta: number | null;
   hrvStatus: 'prime' | 'balanced' | 'suppressed';
+  hrvSource: HrvSource | null;
   sleepMinutes: number | null;
   headline: string;
   description: string;
@@ -1360,6 +1457,7 @@ export function computeCardiovascularStrain(
       avgHrv: null,
       hrvDelta: null,
       hrvStatus: 'balanced',
+      hrvSource: null,
       sleepMinutes: null,
       headline: tr('cardioStrain.stableHeadline'),
       description: tr('cardioStrain.noDataDesc'),
@@ -1367,20 +1465,20 @@ export function computeCardiovascularStrain(
     };
   }
 
-  // 1. Calculate 7-Day Baseline RHR & HRV
+  // 1. Calculate 7-Day Baseline RHR (HRV: assessHrv, per source)
   const pastDays = recent.filter((r) => r.date !== today.date);
   const rhrSamples = pastDays.map((r) => r.resting_hr).filter((v): v is number => typeof v === 'number' && v > 0);
-  const hrvSamples = pastDays.map((r) => r.hrv_sdnn).filter((v): v is number => typeof v === 'number' && v > 0);
 
   const avgRhr = rhrSamples.length > 0 ? Math.round((rhrSamples.reduce((a, b) => a + b, 0) / rhrSamples.length) * 10) / 10 : null;
-  const avgHrv = hrvSamples.length > 0 ? Math.round((hrvSamples.reduce((a, b) => a + b, 0) / hrvSamples.length) * 10) / 10 : null;
 
   const currentRhr = today.resting_hr ?? null;
-  const currentHrv = today.hrv_sdnn ?? null;
+  const hrv = assessHrv(today, recent);
+  const currentHrv = hrv ? hrv.value : null;
+  const avgHrv = hrv ? hrv.baseline : null;
   const sleepMinutes = today.sleep_minutes ?? null;
 
   const rhrDelta = currentRhr && avgRhr ? Math.round((currentRhr - avgRhr) * 10) / 10 : null;
-  const hrvDelta = currentHrv && avgHrv ? Math.round((currentHrv - avgHrv) * 10) / 10 : null;
+  const hrvDelta = hrv ? hrv.delta : null;
 
   // 2. Score Strain (0 = fresh/optimal, 100 = high systemic fatigue)
   let strainScore = 0;
@@ -1405,23 +1503,8 @@ export function computeCardiovascularStrain(
   }
 
   // HRV analysis
-  let hrvStatus: 'prime' | 'balanced' | 'suppressed' = 'balanced';
-  if (currentHrv) {
-    if (hrvDelta !== null && hrvDelta <= -12) {
-      strainScore += 40;
-      hrvStatus = 'suppressed';
-    } else if (hrvDelta !== null && hrvDelta <= -6) {
-      strainScore += 20;
-      hrvStatus = 'suppressed';
-    } else if (currentHrv < 30) {
-      strainScore += 35;
-      hrvStatus = 'suppressed';
-    } else if (currentHrv < 40) {
-      strainScore += 15;
-    } else if (currentHrv >= 55) {
-      hrvStatus = 'prime';
-    }
-  }
+  const hrvStatus: 'prime' | 'balanced' | 'suppressed' = hrv ? hrv.status : 'balanced';
+  if (hrv) strainScore += hrv.strainPoints;
 
   // Sleep deficit contribution
   if (sleepMinutes && sleepMinutes > 0) {
@@ -1474,6 +1557,7 @@ export function computeCardiovascularStrain(
     avgHrv,
     hrvDelta,
     hrvStatus,
+    hrvSource: hrv ? hrv.source : null,
     sleepMinutes,
     headline,
     description,

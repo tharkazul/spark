@@ -81,6 +81,8 @@ const normalizeProfile = (data: any, prev?: UserProfile | null): UserProfile => 
     profile_picture_url:
       data?.profilePictureUrl ?? data?.profile_picture_url ?? (isSameUser ? prev?.profile_picture_url : undefined),
     garmin_connected: data?.hasGarmin ?? data?.garmin_connected ?? false,
+    garmin_connection: data?.garminConnection ?? data?.garmin_connection ?? null,
+    garmin_takes_workouts: data?.garminTakesWorkouts ?? data?.garmin_takes_workouts,
     strava_connected: data?.hasStrava ?? data?.strava_connected ?? false,
     suunto_connected: data?.hasSuunto ?? data?.suunto_connected ?? false,
     trainerday_connected: data?.hasTrainerDay ?? data?.trainerday_connected ?? false,

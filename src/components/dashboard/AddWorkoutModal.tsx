@@ -34,6 +34,7 @@ import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { WorkoutStep } from '../../types/plan';
 import { makeStepId } from '../../utils/stepId';
+import { garminTakesWorkouts } from '../../hooks/useConnectedDevices';
 
 interface AddWorkoutModalProps {
   visible: boolean;
@@ -225,9 +226,8 @@ export function AddWorkoutModal({
   const [customRooka, setCustomRooka] = useState<number | null>(null);
   const [isQuickBuildOpen, setIsQuickBuildOpen] = useState(false);
 
-  const isGarminConnected = Boolean(
-    user?.garmin_connected || (user as any)?.garmin_username || (user as any)?.garminUsername
-  );
+  // Garmin only gets a send button when it will take the workout (import allowed).
+  const isGarminConnected = garminTakesWorkouts(user);
   const [isAppleConnected, setIsAppleConnected] = useState(false);
   const [isGarminSynced, setIsGarminSynced] = useState(false);
   const [isAppleWatchSynced, setIsAppleWatchSynced] = useState(false);

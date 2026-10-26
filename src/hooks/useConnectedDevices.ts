@@ -3,6 +3,7 @@ import { AppState, DeviceEventEmitter } from 'react-native';
 import { translate as tr } from '../locales/i18n';
 import { useUser } from '../context/UserStore';
 import { WorkoutItem } from '../types/dashboard';
+import { UserProfile } from '../types/user';
 import {
   sendWorkoutsToConnectedDevices,
   SyncWorkoutsResult,
@@ -21,18 +22,25 @@ export interface UseConnectedDevicesReturn {
   syncWorkouts: (workouts: WorkoutItem[]) => Promise<SyncWorkoutsResult>;
 }
 
+/**
+ * Whether planned workouts can go to this athlete's Garmin. The server decides
+ * (garminTakesWorkouts): only when the athlete allowed workout import on Garmin's
+ * page. A server that doesn't send the field yet falls back to "Garmin is connected".
+ */
+export function garminTakesWorkouts(user: UserProfile | null | undefined): boolean {
+  if (typeof user?.garmin_takes_workouts === 'boolean') return user.garmin_takes_workouts;
+  return Boolean(user?.garmin_connected || (user as any)?.hasGarmin);
+}
+
 export function useConnectedDevices(): UseConnectedDevicesReturn {
   const { user } = useUser();
   const [isAppleWatchAuthorized, setIsAppleWatchAuthorized] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const hasGarmin = Boolean(
-    user?.garmin_connected ||
-      (user as any)?.hasGarmin ||
-      (user as any)?.garmin_username ||
-      (user as any)?.garminUsername
-  );
+  // A Garmin that won't take workouts (import not allowed) is no send target, so
+  // with no other device the send buttons disappear.
+  const hasGarmin = garminTakesWorkouts(user);
 
   const hasSuunto = Boolean(user?.suunto_connected || (user as any)?.hasSuunto);
   // TrainerDay only takes workouts from paid accounts, so a free one is no send target.

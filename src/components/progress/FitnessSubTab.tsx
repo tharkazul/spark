@@ -11,6 +11,7 @@ import { useUser } from '../../context/UserStore';
 import { useActivities } from '../../context/ActivityStore';
 import { usePhysique } from '../../context/PhysiqueStore';
 import { calculatePMCMetrics } from '../../utils/pmcUtils';
+import { garminActivityLabel } from '../ui/GarminAttribution';
 import {
   AppleHealthDailyBiometrics,
   getCachedTodayBiometrics,
@@ -103,6 +104,7 @@ export const FitnessSubTab: React.FC = () => {
             weightPoints={pmcMetrics.weightPoints}
             tier={user?.subscription_tier || 'free'}
             loading={(activitiesLoading || physiqueLoading) && activities.length === 0}
+            garminLabel={garminActivityLabel(activities as any[], 42)}
           />
 
           {/* 2. 6-WEEK / 3-MONTH / 1-YEAR CHART OF FITNESS, FATIGUE & FORM + WEEKLY HOURS BY SPORT */}

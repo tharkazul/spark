@@ -210,7 +210,7 @@ async function generateAthleteWeeklyDescription(userId) {
         const bioLang = i18n.normalizeLang(user.language);
 
         db.all(
-          `SELECT id, name, sport_type, distance_km, moving_time_min, start_date, rooka_score, average_watts
+          `SELECT id, name, sport_type, distance_km, moving_time_min, start_date, rooka_score, average_watts, garmin_activity_id
            FROM activities
            WHERE user_id = ? AND start_date >= datetime('now', '-30 days')
            ORDER BY start_date DESC`,
@@ -265,8 +265,11 @@ async function generateAthleteWeeklyDescription(userId) {
               : i18n.t(bioLang, `bio.${fallbackDescriptions[archetypeName] ? archetypeName : 'Multi-Discipline Athlete'}`);
 
             let finalBio = defaultFallback;
+            // Garmin's license (§15.11): no AI-written text from Garmin data is stored, so a
+            // month with Garmin workouts keeps the archetype bio above.
+            const fromGarmin = activities.some((a) => a.garmin_activity_id);
 
-            if (activities.length > 0) {
+            if (activities.length > 0 && !fromGarmin) {
               try {
                 const prompt = `Here is the athletic training summary for athlete ${user.username}:
 - Archetype focus: ${archetypeName}
@@ -360,13 +363,20 @@ function generatePublicProfile(targetUserId, viewerUserId = null) {
             db.all(
               `SELECT id, name, distance_km, moving_time_min, start_date, sport_type,
                       average_heartrate, average_watts, sets_json,
-                      COALESCE(rooka_score, 0) as rooka_score, tss, elevation_m
+                      COALESCE(rooka_score, 0) as rooka_score, tss, elevation_m,
+                      garmin_activity_id, garmin_device
                FROM activities
                WHERE user_id = ?
                ORDER BY start_date DESC`,
               [targetId],
               async (errActs, allActivities) => {
                 const activities = allActivities || [];
+                // "Garmin <device>" under each title (Garmin's brand rules), not the ids themselves.
+                activities.forEach((a) => {
+                  a.garmin_attribution = require("./garminIngest").garminAttribution(a);
+                  delete a.garmin_activity_id;
+                  delete a.garmin_device;
+                });
                 const recentActivities = activities.slice(0, 10);
 
                 db.all(
@@ -3562,7 +3572,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   // 5b. Load today's biometrics (Sleep, HRV, Resting HR from Apple Health / Garmin)
   const todayBiometrics = await new Promise((resolve) => {
     db.get(
-      `SELECT resting_hr, avg_hr, hrv_sdnn, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, steps, active_calories, vo2_max 
+      `SELECT resting_hr, avg_hr, hrv_sdnn, hrv_rmssd, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, steps, active_calories, vo2_max 
        FROM biometrics WHERE user_id = ? AND date = ?`,
       [userId, todayStr],
       (err, row) => resolve(row || null)
@@ -3577,8 +3587,10 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
       const m = Math.round(todayBiometrics.sleep_minutes % 60);
       parts.push(`Sleep: ${h}h ${m}m`);
     }
-    if (todayBiometrics.hrv_sdnn) {
-      parts.push(`HRV: ${todayBiometrics.hrv_sdnn} ms`);
+    if (todayBiometrics.hrv_rmssd) {
+      parts.push(`HRV (overnight RMSSD, Garmin): ${todayBiometrics.hrv_rmssd} ms`);
+    } else if (todayBiometrics.hrv_sdnn) {
+      parts.push(`HRV (SDNN, Apple Health): ${todayBiometrics.hrv_sdnn} ms`);
     }
     if (todayBiometrics.resting_hr) {
       parts.push(`Resting HR: ${todayBiometrics.resting_hr} bpm`);

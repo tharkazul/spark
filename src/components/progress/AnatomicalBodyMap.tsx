@@ -8,7 +8,8 @@ import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { translate } from '../../locales/i18n';
 import { useActivities } from '../../context/ActivityStore';
-import { fatiguePercentages, MuscleGroup } from '../../domain/muscleLoad';
+import { fatiguePercentages, MuscleGroup, WINDOW_DAYS } from '../../domain/muscleLoad';
+import { GarminAttribution, garminActivityLabel, garminHealthLabel } from '../ui/GarminAttribution';
 import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
 import {
   AppleHealthDailyBiometrics,
@@ -401,6 +402,13 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
     return fatiguePercentages(activities as any);
   }, [activities]);
 
+  // Garmin's brand rules: muscle load and strain derived in part from Garmin data name
+  // Garmin as a source, i.e. a Garmin workout in the fatigue window or a Garmin health day.
+  const garminLabel = useMemo(() => {
+    if (isExerciseMode) return null;
+    return garminActivityLabel(activities as any[], WINDOW_DAYS) || garminHealthLabel([biometrics, ...recentBiometrics]);
+  }, [isExerciseMode, activities, biometrics, recentBiometrics]);
+
   // Compute systemic cardiovascular & autonomic recovery strain:
   const cardioStrain = useMemo(() => {
     return computeCardiovascularStrain(isExerciseMode ? null : biometrics, isExerciseMode ? [] : recentBiometrics);
@@ -518,6 +526,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   return (
     <View className="items-center py-2">
+      <GarminAttribution label={garminLabel} className="self-start px-1 mb-2" />
       {/* Top Controls: View Switcher (Front/Back) & Avatar Size (Small/Medium/Large) */}
       <View className="flex-row items-center justify-between w-full mb-3 px-1 flex-wrap gap-2">
         {/* Front / Back Toggle Buttons */}

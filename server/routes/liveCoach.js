@@ -10,7 +10,7 @@ const crypto = require("crypto");
 const router = express.Router();
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
-const { startLiveSession } = require("../services/liveSessionWorker");
+const { startLiveSession, settings } = require("../services/liveSessionWorker");
 
 const INBOX_WORDS = require("../services/inboxWords");
 
@@ -47,6 +47,7 @@ function getInboxAddress(userId, attempt = 0) {
 }
 
 router.get("/api/live-coach/address", authenticateToken, async (req, res) => {
+  if (!settings.enabled) return res.status(410).json({ error: "Live coaching is switched off" });
   try {
     res.json({ address: await getInboxAddress(req.user.id) });
   } catch (err) {
@@ -63,6 +64,8 @@ router.post("/api/webhooks/livetrack", async (req, res) => {
     return res.status(503).json({ error: "Webhook not configured" });
   }
   if (!secretMatches(req.get("x-rooka-webhook-secret"), secret)) return res.status(401).json({ error: "Unauthorized" });
+  // Parked: accept the email so the worker doesn't retry, but never open the LiveTrack link.
+  if (!settings.enabled) return res.status(200).json({ ignored: "live coaching is switched off" });
 
   const { to, url } = req.body || {};
   const code = String(to || "").split("@")[0].trim().toLowerCase();

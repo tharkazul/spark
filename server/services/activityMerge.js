@@ -3,7 +3,8 @@
  *
  * A run recorded on an Apple Watch reaches rooka twice: from Apple Health when
  * the app syncs, and from Strava (which the watch also uploads to). Suunto and
- * Strava overlap the same way. Every import calls absorbIfDuplicate() first: if
+ * Strava overlap the same way, and so does Garmin's own push next to the Strava or
+ * Apple Health copy Garmin Connect makes. Every import calls absorbIfDuplicate() first: if
  * the athlete already has this workout from another source, the new data is
  * merged into that row (each source fills what the other lacks) and nothing new
  * is inserted.
@@ -24,10 +25,16 @@ const MAX_DURATION_RATIO = 1.5;
 const HEALTHKIT_TWIN_WINDOW_MIN = 2;
 const SAME_START_WINDOW_MIN = 3;
 
-const SOURCE_COLUMN = { strava: "strava_activity_id", healthkit: "healthkit_workout_id", suunto: "suunto_workout_id" };
+const SOURCE_COLUMN = {
+  strava: "strava_activity_id",
+  healthkit: "healthkit_workout_id",
+  suunto: "suunto_workout_id",
+  garmin: "garmin_activity_id",
+};
 // Whose title and distance/time win when two sources disagree: Strava carries the
-// athlete's own title (and rooka's), Apple Health only generated names.
-const SOURCE_RANK = { strava: 3, suunto: 2, healthkit: 1, manual: 0 };
+// athlete's own title (and rooka's), Apple Health only generated names. A watch's own
+// cloud (Suunto, Garmin) beats the copy it writes into Apple Health.
+const SOURCE_RANK = { strava: 3, suunto: 2, garmin: 2, healthkit: 1, manual: 0 };
 
 const GENERIC_SPORTS = new Set(["cardio", "other", "workout", "crosstraining", "mixedcardio"]);
 
@@ -51,6 +58,7 @@ function sportsCompatible(a, b) {
 function rankOfRow(row) {
   if (row.strava_activity_id) return SOURCE_RANK.strava;
   if (row.suunto_workout_id) return SOURCE_RANK.suunto;
+  if (row.garmin_activity_id) return SOURCE_RANK.garmin;
   if (row.healthkit_workout_id) return SOURCE_RANK.healthkit;
   return SOURCE_RANK.manual;
 }
@@ -125,6 +133,8 @@ function mergedFields(row, incoming) {
     laps_json: keepOrFill("laps_json"),
     sets_json: keepOrFill("sets_json"),
     polyline: keepOrFill("polyline"),
+    // The watch behind Garmin's data, for the "Garmin <device>" attribution.
+    garmin_device: keepOrFill("garmin_device"),
     // The score follows the better data: the higher-ranked source, or whichever brought heart rate.
     rooka_score: (incomingWins || gainedHr) && incoming.rooka_score != null ? incoming.rooka_score : row.rooka_score,
     tss: (incomingWins || gainedHr) && incoming.tss != null ? incoming.tss : row.tss,
@@ -149,7 +159,7 @@ async function mergeInto(row, incoming) {
  * merged into, or null when it is new (or already stored from this source, in
  * which case the caller's own upsert handles it).
  *
- * incoming: { source: 'strava'|'healthkit'|'suunto', sourceId, name, sport_type,
+ * incoming: { source: 'strava'|'healthkit'|'suunto'|'garmin', sourceId, name, sport_type,
  *   start_date (UTC ISO), moving_time_min, distance_km, elevation_m,
  *   average_heartrate, average_watts, max_heartrate, laps_json, sets_json, polyline,
  *   rooka_score, tss }
@@ -179,13 +189,21 @@ async function absorbIfDuplicate(userId, incoming) {
  * deleted, and its kudos and comments move to the row that stays.
  */
 async function foldExisting(keep, dup) {
-  const source = dup.strava_activity_id ? "strava" : dup.suunto_workout_id ? "suunto" : dup.healthkit_workout_id ? "healthkit" : "manual";
+  const source = dup.strava_activity_id
+    ? "strava"
+    : dup.suunto_workout_id
+      ? "suunto"
+      : dup.garmin_activity_id
+        ? "garmin"
+        : dup.healthkit_workout_id
+          ? "healthkit"
+          : "manual";
   // Source ids are unique per athlete and must end up on the row that stays (or
   // the next import from that source would update the hidden one), so the
   // duplicate gives them up first.
   await run(
     `UPDATE activities SET is_hidden = 1, rooka_score = 0, strava_activity_id = NULL, healthkit_workout_id = NULL, suunto_workout_id = NULL,
-       linked_activity_id = ?, linked_activity_name = ? WHERE id = ?`,
+       garmin_activity_id = NULL, linked_activity_id = ?, linked_activity_name = ? WHERE id = ?`,
     [keep.id, keep.name || null, dup.id]
   );
   await mergeInto(keep, { ...dup, source, sourceId: dup[SOURCE_COLUMN[source]] });

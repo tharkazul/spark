@@ -51,7 +51,6 @@ export function useActivitySources(): UseActivitySourcesReturn {
     user?.strava_connected ||
       (user as any)?.strava_athlete_id ||
       user?.garmin_connected ||
-      (user as any)?.garmin_username ||
       user?.suunto_connected
   );
 

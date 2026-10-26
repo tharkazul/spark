@@ -5,6 +5,7 @@ import { SubscriptionTier } from '../../types/user';
 import { SparklinePoint } from '../common/Sparkline';
 import { Card } from '../ui/Card';
 import { MetricTile, MetricDeltaTone } from '../ui/MetricTile';
+import { GarminAttribution } from '../ui/GarminAttribution';
 import { useLanguage } from '../../context/LanguageContext';
 import { PMCMetricsSkeleton } from '../skeletons/PMCMetricsSkeleton';
 
@@ -23,6 +24,8 @@ interface PMCMetricsProps {
   weightPoints?: SparklinePoint[];
   tier?: SubscriptionTier;
   loading?: boolean;
+  /** "Garmin" when Garmin workouts feed these numbers (Garmin's brand rules), shown under the title. */
+  garminLabel?: string | null;
 }
 
 export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
@@ -38,6 +41,7 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
   weightHistory = [],
   weightPoints = [],
   loading = false,
+  garminLabel = null,
 }) => {
   const theme = useTheme();
   const { t } = useLanguage();
@@ -65,9 +69,12 @@ export const PMCMetricsCard: React.FC<PMCMetricsProps> = ({
     <Card>
       {/* Header Row */}
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
-          {t('dashboard.fitnessAndFatigue')}
-        </Text>
+        <View className="flex-1 mr-2">
+          <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
+            {t('dashboard.fitnessAndFatigue')}
+          </Text>
+          <GarminAttribution label={garminLabel} className="mt-0.5" />
+        </View>
         {hasTrainingData && (
           <View className="flex-row items-center gap-1.5">
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: tsbState.color }} />

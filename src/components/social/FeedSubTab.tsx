@@ -24,6 +24,7 @@ import { formatClock, formatDuration, formatRelativeDayAndTime, pluralize } from
 import { Card } from '../ui/Card';
 import { Chip } from '../ui/Chip';
 import { SportMedallion } from '../ui/SportMedallion';
+import { GarminAttribution } from '../ui/GarminAttribution';
 import { StatValue } from '../ui/StatValue';
 import { UserAvatar } from '../ui/UserAvatar';
 import { RoutePreview } from '../ui/RoutePreview';
@@ -468,9 +469,12 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-x-2.5 flex-1 pr-2">
                       <SportMedallion sport={primaryActivity.sport_type} size={40} />
-                      <Text className="text-base font-bold text-theme-text flex-1" numberOfLines={1}>
-                        {primaryActivity.name || primaryActivity.title || t('quickActions.workout', 'Workout')}
-                      </Text>
+                      <View className="flex-1">
+                        <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
+                          {primaryActivity.name || primaryActivity.title || t('quickActions.workout', 'Workout')}
+                        </Text>
+                        <GarminAttribution label={primaryActivity.garmin_attribution} />
+                      </View>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
                   </View>
@@ -609,6 +613,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                             <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                               {act.name || act.title || t('quickActions.workout', 'Workout')}
                             </Text>
+                            <GarminAttribution label={act.garmin_attribution} />
                             <Text className="text-xs text-theme-muted font-medium font-rajdhani tabular-nums">
                               {[
                                 typeof act.distance_km === 'number' && act.distance_km > 0

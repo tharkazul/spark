@@ -5,11 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Card } from '../ui/Card';
 import { MetricTile, MetricDeltaTone } from '../ui/MetricTile';
+import { GarminAttribution, garminHealthLabel } from '../ui/GarminAttribution';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import {
   AppleHealthDailyBiometrics,
   computeCardiovascularStrain,
+  hrvIn,
+  latestHrvSource,
   fetchRecentBiometricsFromServer,
   fetchTodayBiometricsFromServer,
   getCachedTodayBiometrics,
@@ -96,11 +99,14 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
     if (days.length === 0) return null;
 
     const sleepDays = days.filter((d) => typeof d.sleep_minutes === 'number' && d.sleep_minutes > 0);
-    const hrvDays = days.filter((d) => typeof d.hrv_sdnn === 'number' && d.hrv_sdnn > 0);
+    // HRV follows one source (Garmin RMSSD or Apple SDNN): the two don't mix in a series.
+    const hrvSource = latestHrvSource(days);
+    const hrvOn = (d: AppleHealthDailyBiometrics) => (hrvSource ? hrvIn(d, hrvSource) : null);
+    const hrvDays = days.filter((d) => hrvOn(d) !== null);
     const rhrDays = days.filter((d) => typeof d.resting_hr === 'number' && d.resting_hr > 0);
 
     const latestSleep = sleepDays.length > 0 ? sleepDays[sleepDays.length - 1].sleep_minutes! : null;
-    const latestHrv = hrvDays.length > 0 ? hrvDays[hrvDays.length - 1].hrv_sdnn! : null;
+    const latestHrv = hrvDays.length > 0 ? hrvOn(hrvDays[hrvDays.length - 1]) : null;
     const latestRhr = rhrDays.length > 0 ? rhrDays[rhrDays.length - 1].resting_hr! : null;
 
     const hasSignal = Boolean(latestSleep || latestHrv || latestRhr);
@@ -109,7 +115,8 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
     const effectiveToday: AppleHealthDailyBiometrics = {
       ...(today || days[days.length - 1]),
       sleep_minutes: latestSleep ?? undefined,
-      hrv_sdnn: latestHrv ?? undefined,
+      hrv_sdnn: hrvSource === 'apple' ? latestHrv ?? undefined : undefined,
+      hrv_rmssd: hrvSource === 'garmin' ? latestHrv ?? undefined : undefined,
       resting_hr: latestRhr ?? undefined,
     };
 
@@ -118,7 +125,7 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
     const avgSleep = avg(sleepDays.slice(0, -1).map((d) => d.sleep_minutes!));
     const sleepDelta = latestSleep !== null && avgSleep !== null ? Math.round(latestSleep - avgSleep) : null;
 
-    const avgHrv = avg(hrvDays.slice(0, -1).map((d) => d.hrv_sdnn!));
+    const avgHrv = avg(hrvDays.slice(0, -1).map((d) => hrvOn(d)!));
     const hrvDelta = latestHrv !== null && avgHrv !== null ? Math.round(latestHrv - avgHrv) : null;
 
     const avgRhr = avg(rhrDays.slice(0, -1).map((d) => d.resting_hr!));
@@ -144,7 +151,7 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
         unit: latestHrv !== null ? 'ms' : undefined,
         delta: hrvDelta !== null ? signed(hrvDelta, '') : null,
         deltaTone: toDeltaTone(hrvDelta !== null && Math.abs(hrvDelta) >= 3 ? hrvDelta > 0 : null),
-        series: hrvDays.map((d) => d.hrv_sdnn!),
+        series: hrvDays.map((d) => hrvOn(d)!),
         baseline: avgHrv,
       },
       {
@@ -180,6 +187,7 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
         <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted">{t('home.recoveryTitle')}</Text>
         <Text className="text-xs font-medium text-theme-muted">{t('home.recoveryVsAvg')}</Text>
       </View>
+      <GarminAttribution label={garminHealthLabel([today, ...recent])} className="mt-0.5" />
 
       <View className="flex-row items-center gap-2 mt-1.5">
         <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: style.color }} />

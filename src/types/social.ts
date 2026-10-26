@@ -29,6 +29,7 @@ export interface SocialFeedActivity {
   is_hidden?: number | boolean;
   linked_activity_id?: number | string | null;
   linked_activity_name?: string | null;
+  garmin_attribution?: string | null;
 }
 
 export interface SocialConnection {

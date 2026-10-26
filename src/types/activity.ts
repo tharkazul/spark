@@ -50,6 +50,8 @@ export interface Activity {
   is_hidden?: number | boolean;
   linked_activity_id?: number | string | null;
   linked_activity_name?: string | null;
+  /** "Garmin <device model>" when Garmin data is in this workout (Garmin's brand rules); shown under the title. */
+  garmin_attribution?: string | null;
 }
 
 export interface PMCDataPoint {

@@ -50,7 +50,7 @@ async function main() {
 
   const users = await all(
     `SELECT u.id, u.username, u.subscription_tier, u.coach_tone, u.gender,
-            u.garmin_username, u.garmin_oauth1_token,
+            EXISTS (SELECT 1 FROM garmin_tokens WHERE user_id = u.id) as has_garmin,
             (SELECT COUNT(*) FROM push_tokens WHERE user_id = u.id AND device_type = 'ios') as is_ios
      FROM users u ${userFilter} ORDER BY u.id ASC`,
     userParams
@@ -81,7 +81,7 @@ async function main() {
   for (const u of users) {
     console.log(`----------------------------------------------------------------------`);
     console.log(`👤 User #${u.id} - ${u.username} (Tier: ${u.subscription_tier || "free"})`);
-    console.log(`   Hardware: ${u.garmin_username || u.garmin_oauth1_token ? "Garmin Connected ✓" : "No Garmin ✗"} | ${u.is_ios > 0 ? "iOS/Apple Watch ✓" : "Non-iOS ✗"}`);
+    console.log(`   Hardware: ${u.has_garmin ? "Garmin Connected ✓" : "No Garmin ✗"} | ${u.is_ios > 0 ? "iOS/Apple Watch ✓" : "Non-iOS ✗"}`);
     console.log(`----------------------------------------------------------------------`);
 
     let usedCount = 0;

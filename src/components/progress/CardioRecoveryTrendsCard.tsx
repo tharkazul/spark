@@ -2,11 +2,14 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { Card } from '../ui/Card';
 import { MetricTile, MetricDeltaTone } from '../ui/MetricTile';
+import { GarminAttribution, garminHealthLabel } from '../ui/GarminAttribution';
 import { useTheme } from '../../hooks/use-theme';
 import { useLanguage } from '../../context/LanguageContext';
 import {
   AppleHealthDailyBiometrics,
   computeCardiovascularStrain,
+  hrvIn,
+  latestHrvSource,
 } from '../../services/appleHealthService';
 
 interface CardioRecoveryTrendsCardProps {
@@ -35,7 +38,9 @@ export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> =
   );
 
   const rhrHistory = chronologicalList.map((r) => r.resting_hr ?? null);
-  const hrvHistory = chronologicalList.map((r) => r.hrv_sdnn ?? null);
+  // One HRV source (Garmin RMSSD or Apple SDNN) per chart: the two don't mix.
+  const hrvSource = latestHrvSource(chronologicalList);
+  const hrvHistory = chronologicalList.map((r) => (hrvSource ? hrvIn(r, hrvSource) : null));
 
   const hasRhr =
     (todayBiometrics?.resting_hr !== undefined &&
@@ -43,11 +48,7 @@ export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> =
       todayBiometrics?.resting_hr > 0) ||
     rhrHistory.some((v) => v !== null && v > 0);
 
-  const hasHrv =
-    (todayBiometrics?.hrv_sdnn !== undefined &&
-      todayBiometrics?.hrv_sdnn !== null &&
-      todayBiometrics?.hrv_sdnn > 0) ||
-    hrvHistory.some((v) => v !== null && v > 0);
+  const hasHrv = hrvHistory.some((v) => v !== null && v > 0);
 
   if (!hasRhr && !hasHrv) {
     return null;
@@ -112,6 +113,7 @@ export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> =
           {t('home.recoveryVsAvg', 'vs your last 7 days')}
         </Text>
       </View>
+      <GarminAttribution label={garminHealthLabel(chronologicalList)} className="mt-0.5" />
 
       {/* Status Headline + Concise 1-line Advice */}
       <View className="flex-row items-center gap-2 mt-1.5">

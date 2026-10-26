@@ -63,6 +63,7 @@ import { Elevation } from '../../constants/theme';
 import { Card } from '../ui/Card';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { SportMedallion } from '../ui/SportMedallion';
+import { GarminAttribution } from '../ui/GarminAttribution';
 import { UserAvatar } from '../ui/UserAvatar';
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 
@@ -997,6 +998,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
           <Text className="text-2xl font-extrabold text-theme-text tracking-tight">
             {activity?.name || t('activityDetail.workoutTelemetry')}
           </Text>
+          <GarminAttribution label={activity?.garmin_attribution} className="mt-0.5" />
 
           <View className="flex-row items-center gap-x-2 mt-1 mb-2">
             <SportMedallion sport={activity?.sport_type} size={24} />

@@ -53,6 +53,7 @@ const {
   STRAVA_SHARE_FLAGS
 } = require('../services/utils');
 const muscleLoad = require('../services/muscleLoad');
+const { garminAttribution } = require('../services/garminIngest');
 const { reconcilePendingBenchmarks } = require('../services/benchmarks');
 
 router.get("/api/micro-plan", authenticateToken, (req, res) => {
@@ -469,6 +470,7 @@ router.get("/api/activity/:id", authenticateToken, (req, res) => {
         is_hidden: row.is_hidden || 0,
         linked_activity_id: row.linked_activity_id || null,
         linked_activity_name: row.linked_activity_name || null,
+        garmin_attribution: garminAttribution(row),
       });
     },
   );
@@ -499,7 +501,7 @@ router.get("/api/dashboard-data", authenticateToken, (req, res) => {
 
 router.get("/api/history", authenticateToken, (req, res) => {
   db.all(
-    `SELECT id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate, average_watts, max_heartrate, elevation_m, polyline, is_hidden, linked_activity_id, linked_activity_name 
+    `SELECT id, name, sport_type, start_date, rooka_score, distance_km, moving_time_min, average_heartrate, average_watts, max_heartrate, elevation_m, polyline, is_hidden, linked_activity_id, linked_activity_name, garmin_activity_id, garmin_device 
      FROM activities 
      WHERE user_id = ? AND (is_hidden IS NULL OR is_hidden = 0) 
      ORDER BY start_date DESC LIMIT 50`,
@@ -512,6 +514,8 @@ router.get("/api/history", authenticateToken, (req, res) => {
             r.elapsed_time_s = Math.round(r.moving_time_min * 60);
             r.moving_time = r.moving_time_s;
           }
+          r.garmin_attribution = garminAttribution(r);
+          delete r.garmin_activity_id;
         });
       }
       res.json(rows || []);

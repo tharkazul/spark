@@ -234,11 +234,19 @@ db.serialize(() => {
         UNIQUE(user_id, sport, kind),
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`, (err) => {});
-  // Cached Garmin Connect session (OAuth1/OAuth2 tokens), encrypted at rest.
-  // Lets /api/sync-garmin reuse a session instead of logging in with
-  // username/password on every sync, which Garmin rate-limits aggressively.
+  // Columns of the removed username/password Garmin login (replaced on 2026-10-26 by
+  // Garmin's official connection, garmin_tokens). They stay only so the stored logins
+  // can be deleted: every start empties them, as the privacy policy promises; once
+  // they are empty this does nothing.
   db.run(`ALTER TABLE users ADD COLUMN garmin_oauth1_token TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN garmin_oauth2_token TEXT`, (err) => {});
+  db.run(
+    `UPDATE users SET garmin_username = NULL, garmin_password = NULL, garmin_oauth1_token = NULL, garmin_oauth2_token = NULL
+      WHERE garmin_username IS NOT NULL OR garmin_password IS NOT NULL OR garmin_oauth1_token IS NOT NULL OR garmin_oauth2_token IS NOT NULL`,
+    function (err) {
+      if (!err && this.changes) console.log(`[Garmin] deleted ${this.changes} stored username/password logins`);
+    },
+  );
   db.run(`CREATE TABLE IF NOT EXISTS push_tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -326,6 +334,58 @@ db.serialize(() => {
         PRIMARY KEY (user_id, workout_key),
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
+  // Garmin official API connection (services/garmin.js). Tokens are stored encrypted.
+  // garmin_user_id is Garmin's id for the athlete; its push notifications name only that.
+  db.run(`CREATE TABLE IF NOT EXISTS garmin_tokens (
+        user_id INTEGER PRIMARY KEY,
+        garmin_user_id TEXT NOT NULL,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        refresh_expires_at INTEGER,
+        permissions TEXT,
+        connected_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_garmin_tokens_garmin_user ON garmin_tokens(garmin_user_id)`);
+  // A connect in progress: the PKCE verifier (encrypted) waits here under its OAuth
+  // state until Garmin sends the athlete back, for at most 15 minutes.
+  db.run(`CREATE TABLE IF NOT EXISTS garmin_oauth_pending (
+        state TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        code_verifier TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+    )`);
+  // Planned sessions on the Garmin calendar through the Training API
+  // (services/garminTraining.js), like trainerday_events: our key (date, sport, n-th
+  // of that sport that day) -> Garmin's workout and schedule ids, so a plan change
+  // updates the workout and a removed session deletes it. owner_id is needed for
+  // updates; garmin_user_id tells rows made for an earlier Garmin account apart.
+  db.run(`CREATE TABLE IF NOT EXISTS garmin_workouts (
+        user_id INTEGER NOT NULL,
+        workout_key TEXT NOT NULL,
+        garmin_user_id TEXT,
+        workout_id TEXT NOT NULL,
+        owner_id TEXT,
+        schedule_id TEXT,
+        calendar_date TEXT NOT NULL,
+        source_hash TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, workout_key),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )`);
+  // Garmin Connect's activity id for workouts pushed by Garmin (services/garminIngest.js),
+  // unique per user like the other source ids, and the device that recorded it: Garmin's
+  // brand rules want "Garmin <device model>" next to every view of Garmin data.
+  db.run(`ALTER TABLE activities ADD COLUMN garmin_activity_id TEXT`, () => {
+    db.run(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_activities_user_garmin ON activities(user_id, garmin_activity_id)`,
+      (idxErr) => {
+        if (idxErr) console.error("Could not create idx_activities_user_garmin:", idxErr.message);
+      },
+    );
+  });
+  db.run(`ALTER TABLE activities ADD COLUMN garmin_device TEXT`, () => {});
   // External Suunto workout id; NULL for non-Suunto rows (NULLs never collide in
   // a SQLite unique index). Required for the ON CONFLICT upsert in routes/suunto.js.
   db.run(`ALTER TABLE activities ADD COLUMN suunto_workout_id TEXT`, () => {
@@ -714,6 +774,9 @@ db.serialize(() => {
   db.run(`ALTER TABLE biometrics ADD COLUMN resting_hr REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN avg_hr REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN hrv_sdnn REAL`, (err) => {});
+  // Garmin's overnight HRV (RMSSD), kept apart from Apple Health's SDNN: the two measures
+  // don't convert, so readiness judges each against its own history.
+  db.run(`ALTER TABLE biometrics ADD COLUMN hrv_rmssd REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN sleep_minutes REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN sleep_deep_minutes REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN sleep_rem_minutes REAL`, (err) => {});
@@ -722,6 +785,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE biometrics ADD COLUMN steps INTEGER`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN active_calories REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN vo2_max REAL`, (err) => {});
+  // 1 once Garmin's Health API filled any value of the day (the app then shows "Garmin" as a source).
+  db.run(`ALTER TABLE biometrics ADD COLUMN from_garmin INTEGER DEFAULT 0`, (err) => {});
   // On-device Apple connections (HealthKit read permissions and WorkoutKit watch push).
   db.run(`ALTER TABLE users ADD COLUMN apple_health_connected INTEGER DEFAULT 0`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN apple_watch_connected INTEGER DEFAULT 0`, (err) => {});
@@ -730,7 +795,7 @@ db.serialize(() => {
       WHERE COALESCE(apple_health_connected, 0) = 0
         AND (
           EXISTS (SELECT 1 FROM activities WHERE user_id = users.id AND healthkit_workout_id IS NOT NULL)
-          OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = users.id AND (sleep_minutes > 0 OR hrv_sdnn > 0 OR steps > 0 OR resting_hr > 0 OR active_calories > 0 OR vo2_max > 0))
+          OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = users.id AND COALESCE(from_garmin, 0) = 0 AND (sleep_minutes > 0 OR hrv_sdnn > 0 OR steps > 0 OR resting_hr > 0 OR active_calories > 0 OR vo2_max > 0))
         )`,
     () => {},
   );
@@ -739,7 +804,7 @@ db.serialize(() => {
       WHERE COALESCE(apple_watch_connected, 0) = 0
         AND (
           EXISTS (SELECT 1 FROM activities WHERE user_id = users.id AND (LOWER(name) LIKE '%apple watch%' OR LOWER(linked_activity_name) LIKE '%apple watch%'))
-          OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = users.id AND (hrv_sdnn > 0 OR sleep_deep_minutes > 0 OR sleep_rem_minutes > 0 OR sleep_core_minutes > 0))
+          OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = users.id AND COALESCE(from_garmin, 0) = 0 AND (hrv_sdnn > 0 OR sleep_deep_minutes > 0 OR sleep_rem_minutes > 0 OR sleep_core_minutes > 0))
         )`,
     () => {},
   );

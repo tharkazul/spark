@@ -37,6 +37,7 @@ import { useHealth } from '../../context/HealthStore';
 import { useUser } from '../../context/UserStore';
 import { usePlan } from '../../context/PlanStore';
 import { useGamification } from '../../context/GamificationStore';
+import { garminTakesWorkouts } from '../../hooks/useConnectedDevices';
 
 const TABS = ['overview', 'fitness', 'body', 'history'] as const;
 type TabType = typeof TABS[number];
@@ -78,7 +79,7 @@ export default function ProgressScreen() {
       if (refreshUser) tasks.push(refreshUser());
       if (refreshGamification) tasks.push(refreshGamification());
 
-      if (user?.garmin_connected || (user as any)?.garmin_username) {
+      if (garminTakesWorkouts(user)) {
         tasks.push(syncGarmin().catch(() => {}));
       }
       if (user?.strava_connected) {

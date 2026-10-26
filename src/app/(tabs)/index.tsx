@@ -28,7 +28,7 @@ import { useSeason } from '../../context/SeasonStore';
 import { normalizeSportType } from '../../utils/disciplineConfig';
 import { calculateActivityStreak } from '../../utils/gamification';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
-import { useConnectedDevices } from '../../hooks/useConnectedDevices';
+import { garminTakesWorkouts, useConnectedDevices } from '../../hooks/useConnectedDevices';
 import { sendWorkoutToTrainerDay } from '../../services/deviceSyncService';
 import { useActivities } from '../../context/ActivityStore';
 import { useCoachChat } from '../../context/CoachChatStore';
@@ -176,7 +176,7 @@ export default function PlanningHomeScreen() {
       if (refreshUser) tasks.push(refreshUser());
       if (refreshNiggles) tasks.push(refreshNiggles());
 
-      if (user?.garmin_connected || (user as any)?.garmin_username) {
+      if (garminTakesWorkouts(user)) {
         tasks.push(syncGarmin().catch(() => {}));
       }
       if (user?.strava_connected) {

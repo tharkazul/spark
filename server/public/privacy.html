@@ -80,8 +80,8 @@
 
       <h3>Things you let us bring in from other services</h3>
       <ul>
-        <li><strong>Garmin Connect:</strong> activities, daily health data such as HRV and sleep, and live workout data
-          if you use live coaching. Section 4 explains exactly what we receive from Garmin and what we do with it.</li>
+        <li><strong>Garmin Connect:</strong> activities and daily health data such as HRV and sleep. Section 4 explains
+          exactly what we receive from Garmin and what we do with it.</li>
         <li><strong>Suunto:</strong> workouts with heart rate, distance and elevation, through Suunto’s official API.
           With your permission we also send planned workouts to your watch as SuuntoPlus Guides.</li>
         <li><strong>Apple Health:</strong> workouts and their distances, heart rate, resting heart rate, HRV, sleep
@@ -147,16 +147,11 @@
           and stress, and menstrual cycle data if you choose to share it in Garmin Connect.</li>
         <li><strong>To Garmin:</strong> the structured workouts rooka plans for you, so they appear in your Garmin
           Connect calendar and on your watch.</li>
-        <li><strong>Live coaching (optional):</strong> if you add your personal rooka address as a LiveTrack contact in
-          Garmin Connect, Garmin emails us your LiveTrack link when you start a workout. While the workout runs we read
-          your live heart rate, pace, power and position from it to send coaching cues to your watch. Positions stay in
-          memory only. We keep the effort numbers, the cues we sent and a short summary, and we delete the LiveTrack link
-          when the workout ends.</li>
       </ul>
-      <p style="margin-top:14px"><strong>How you connect.</strong> We’re moving to Garmin’s official connection, where you sign in on Garmin’s
-        own page, choose what to share, and rooka never sees your Garmin password. Until your account uses it, rooka
-        connects with the Garmin username and password you gave us, stored encrypted. Once you switch, we delete that
-        stored login.</p>
+      <p style="margin-top:14px"><strong>How you connect.</strong> You sign in on Garmin’s own page and choose what to share; rooka never
+        sees your Garmin password. Earlier versions of rooka connected with a Garmin username and password; that login
+        has been switched off and the stored Garmin logins deleted (copies in our daily backups expire within 14
+        days).</p>
       <h3>What we use it for</h3>
       <ul>
         <li>Logging your workouts and comparing them with what was planned.</li>
@@ -168,15 +163,15 @@
       </ul>
       <h3>Who processes it</h3>
       <p>Garmin data is processed only by the providers that run rooka for us, listed in section 5: Google Cloud (our
-        servers and backups), Cloudflare (network traffic and LiveTrack emails), Google’s Gemini API (only if you allow
+        servers and backups), Cloudflare (network traffic), Google’s Gemini API (only if you allow
         the AI coach), Expo, Apple and Google (push notifications, which can mention a workout) and Google Workspace
         (the weekly summary email).</p>
       <p><strong>We don’t sell Garmin data</strong> and we don’t share it with anyone for their own use. We don’t use
         it, or anything derived from it, to train, test or improve AI models.</p>
       <h3>Stopping it</h3>
       <p>You can disconnect Garmin in the app, or remove rooka’s access in your Garmin Connect account settings, at any
-        time. Either way, rooka stops receiving Garmin data and sending workouts to Garmin, and we delete your stored
-        Garmin login or connection tokens. Workouts already synced stay in your training history until you delete
+        time. Either way, rooka stops receiving Garmin data and sending workouts to Garmin, and we delete your Garmin
+        connection tokens. Workouts already synced stay in your training history until you delete
         them, or your account (see section 8).</p>
 
       <h2 id="sharing">5. Who else sees your data</h2>
@@ -186,11 +181,10 @@
           only as far as you authorise.</li>
         <li><strong>Google Cloud:</strong> hosts our servers and database, where your data, including data from Garmin,
           is stored, and our daily backups.</li>
-        <li><strong>Cloudflare:</strong> carries traffic between the app and our servers, and forwards the Garmin
-          LiveTrack emails used for live coaching.</li>
+        <li><strong>Cloudflare:</strong> carries traffic between the app and our servers.</li>
         <li><strong>Google (Gemini API):</strong> AI processing, only if you allow it, as described in section 3.</li>
         <li><strong>Expo, Apple and Google:</strong> deliver push notifications to your phone and watch. A notification
-          can mention a workout or a coaching cue.</li>
+          can mention a workout or a message from the coach.</li>
         <li><strong>Google Workspace:</strong> sends account emails, such as password resets, and the weekly training
           summary email.</li>
         <li><strong>Apple WeatherKit:</strong> to get your forecast, our server sends Apple the area around your home
@@ -213,7 +207,7 @@
       </p>
 
       <h2>7. Security</h2>
-      <p>Connection tokens and Garmin login details are encrypted with AES-256. Passwords are stored as hashes. The app
+      <p>Connection tokens are encrypted with AES-256. Passwords are stored as hashes. The app
         talks to our servers over HTTPS. No system is perfectly secure, but we limit who can access your data and what
         we keep.</p>
 
@@ -227,7 +221,7 @@
       <p>Deleting your account removes your profile, training history, chat, photos and connection details. Copies in
         our daily backups expire within 14 days, so everything is gone within 30 days at the latest. You can also delete
         single workouts, including ones synced from Garmin, in the app. Disconnecting Garmin in the app removes your
-        stored Garmin login or connection tokens straight away. Disconnecting Strava revokes rooka’s access on Strava’s
+        Garmin connection tokens straight away. Disconnecting Strava revokes rooka’s access on Strava’s
         side.</p>
 
       <h2 id="rights">9. Your rights</h2>

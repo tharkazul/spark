@@ -106,7 +106,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   return (
     <View className="gap-y-4">
       {/* TRAINING READINESS GAUGE WIDGET */}
-      <TrainingReadinessWidget biometrics={todayBiometrics} />
+      <TrainingReadinessWidget biometrics={todayBiometrics} recentBiometrics={recentBiometrics} />
 
       {/* APPLE HEALTH CONNECTION & SYNC CARD */}
       <AppleHealthStatusCard

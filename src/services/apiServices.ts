@@ -207,15 +207,12 @@ export interface StravaShareSettingsResponse {
 }
 
 export const integrationsApi = {
-  saveGarminCredentials: (credentials: { garminUsername: string; garminPassword: string }) =>
-    apiClient<{ success?: boolean; message: string }>('/api/user/settings/garmin', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    }),
   disconnectGarmin: () =>
     apiClient<{ success?: boolean; message: string }>('/api/user/disconnect/garmin', {
       method: 'POST',
     }),
+  // Garmin's official connection: the consent page URL (PKCE runs on the server).
+  getGarminConnectUrl: () => apiClient<{ url: string }>('/api/garmin/connect'),
   // allowShared confirms connecting a Strava account that is already linked to
   // another rooka account. Each account keeps its own copy of the activities.
   exchangeStravaCode: (code: string, allowShared: boolean = false) =>

@@ -9,6 +9,7 @@ import { Card } from '../ui/Card';
 import { Chip } from '../ui/Chip';
 import { LevelProgress } from '../ui/LevelProgress';
 import { SportMedallion } from '../ui/SportMedallion';
+import { GarminAttribution, garminActivityLabel } from '../ui/GarminAttribution';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { RookaMark } from '../ui/RookaPoints';
 import { Sparkline } from '../common/Sparkline';
@@ -360,9 +361,11 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
           {/* PHYSIOLOGY PMC TELEMETRY CARD */}
           {hasActivities && (
             <Card className="mb-4 bg-theme-card p-5">
-              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider mb-3">
+              <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
                 {t('athleteProfile.physiologyLoad')}
               </Text>
+              <GarminAttribution label={garminActivityLabel(activities as any[], 42)} className="mt-0.5" />
+              <View className="mb-3" />
 
               <View className="space-y-3">
                 {/* Fitness (CTL) */}
@@ -470,6 +473,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                         <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                           {act.name || act.title || t('activityDetail.workout')}
                         </Text>
+                        <GarminAttribution label={act.garmin_attribution} />
                         <Text className="text-xs text-theme-muted mt-0.5">
                           {act.start_date ? act.start_date.substring(0, 10) : t('uiExtra.recent')}
                           {typeof act.distance_km === 'number' && act.distance_km > 0

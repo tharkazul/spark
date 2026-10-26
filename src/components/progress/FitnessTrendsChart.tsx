@@ -21,6 +21,7 @@ import { getLocaleTag } from '../../locales/i18n';
 import { Activity } from '../../types/activity';
 import { normalizeSportType } from '../../utils/disciplineConfig';
 import { PMCDayPoint } from '../../domain/pmc';
+import { GarminAttribution, garminActivityLabel } from '../ui/GarminAttribution';
 import { usePagerLock } from '../../context/PagerLockContext';
 
 export type Timeframe = '6W' | '3M' | '1Y';
@@ -263,9 +264,12 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
     <Card className="gap-y-3">
       {/* 1. HEADER + TIMEFRAME SELECTOR */}
       <View className="flex-row items-center justify-between">
-        <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted flex-1 mr-2" numberOfLines={1}>
-          {t('progress.trendsTitle', 'Fitness, fatigue & form')}
-        </Text>
+        <View className="flex-1 mr-2">
+          <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted" numberOfLines={1}>
+            {t('progress.trendsTitle', 'Fitness, fatigue & form')}
+          </Text>
+          <GarminAttribution label={garminActivityLabel(activities as any[], TIMEFRAME_DAYS[timeframe])} className="mt-0.5" />
+        </View>
 
         <View className="flex-row bg-theme-inset p-0.5 rounded-lg">
           {(['6W', '3M', '1Y'] as Timeframe[]).map((tf) => {

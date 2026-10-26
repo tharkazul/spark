@@ -29,7 +29,7 @@ LiveTrackClient.prototype.getTrackPoints = async function (begin) {
   return fakeGarmin.points.filter((p) => !begin || p.dateTime > begin);
 };
 
-const { startLiveSession, listLiveSessions } = require("./services/liveSessionWorker");
+const { startLiveSession, listLiveSessions, settings: liveSettings } = require("./services/liveSessionWorker");
 const { getAMSDateString } = require("./services/utils");
 const liveCoachRoutes = require("./routes/liveCoach");
 
@@ -134,6 +134,16 @@ async function waitFor(fn, ms = 5000) {
       body: JSON.stringify(body),
     });
   const link = "https://livetrack.garmin.com/session/db4475a3-e97b-8b4c-9a88-cf993d02a100/token/B956C4215B873EB2EBFC2A1C831B2163";
+
+  // 0. Parked (the default): the email is accepted and dropped, the link is never opened.
+  assert.strictEqual(liveSettings.enabled, false, "live coaching ships switched off");
+  const parked = await post({ to: address, url: link });
+  assert.strictEqual(parked.status, 200);
+  assert.ok((await parked.json()).ignored, "email dropped while parked");
+  assert.strictEqual((await get(`SELECT COUNT(*) AS n FROM live_sessions`)).n, 0, "no session, so no LiveTrack request");
+  await assert.rejects(startLiveSession({ userId, url: link, source: "admin" }), (e) => e.status === 410, "admin start refused too");
+  console.log("✅ Parked: LiveTrack emails are dropped without opening the link");
+  liveSettings.enabled = true; // the rest tests the engine itself
 
   assert.strictEqual((await post({ to: address, url: link }, "wrong")).status, 401, "wrong secret refused");
   assert.strictEqual((await post({ to: "nobody@rookacoach.com", url: link })).status, 404, "unknown address refused");

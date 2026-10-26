@@ -6,13 +6,16 @@ import { useHealth } from '../../context/HealthStore';
 import { useActivities } from '../../context/ActivityStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { ActiveNiggle } from './AnatomicalBodyMap';
-import { AppleHealthDailyBiometrics } from '../../services/appleHealthService';
+import { AppleHealthDailyBiometrics, assessHrv } from '../../services/appleHealthService';
+import { GarminAttribution, garminHealthLabel } from '../ui/GarminAttribution';
 
 interface TrainingReadinessWidgetProps {
   biometrics?: AppleHealthDailyBiometrics | null;
+  /** The last days' biometrics: Garmin HRV is judged against the athlete's own nights. */
+  recentBiometrics?: AppleHealthDailyBiometrics[];
 }
 
-export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = ({ biometrics }) => {
+export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = ({ biometrics, recentBiometrics = [] }) => {
   const { t } = useLanguage();
   const { niggles: storeNiggles } = useHealth();
   const { activities } = useActivities();
@@ -38,18 +41,8 @@ export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = (
       }
     }
 
-    // HRV (SDNN):
-    if (biometrics.hrv_sdnn && biometrics.hrv_sdnn > 0) {
-      if (biometrics.hrv_sdnn >= 65) {
-        score += 7;
-      } else if (biometrics.hrv_sdnn >= 45) {
-        score += 3;
-      } else if (biometrics.hrv_sdnn < 30) {
-        score -= 15;
-      } else if (biometrics.hrv_sdnn < 40) {
-        score -= 6;
-      }
-    }
+    // HRV: Apple's fixed SDNN cut-offs, or Garmin's change against the athlete's own nights
+    score += assessHrv(biometrics, recentBiometrics)?.readinessPoints ?? 0;
 
     // Resting HR:
     if (biometrics.resting_hr && biometrics.resting_hr > 0) {
@@ -132,6 +125,7 @@ export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = (
         </View>
         <Text className="text-xs font-semibold text-theme-muted">{t('progress.dailyReadinessScore', 'Daily Readiness Score')}</Text>
       </View>
+      <GarminAttribution label={garminHealthLabel([biometrics])} className="-mt-1 mb-2" />
 
       {/* Main Gauge & Center Content */}
       <View className="items-center justify-center my-2 relative">

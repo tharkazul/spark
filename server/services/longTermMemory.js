@@ -61,8 +61,12 @@ async function summarizeOnce(userId) {
   const constraints = await constraintsService.getCurrentAndUpcomingConstraints(userId, todayStr);
   const constraintsText = constraintsService.formatConstraintsForPrompt(constraints, todayStr);
 
+  // With Garmin data in the coach's context, the coach's replies can carry it, and Garmin's
+  // license (§15.11) bars an AI-generated knowledge base built from it. Then this pass
+  // reads only what the athlete wrote, so nothing derived from Garmin data reaches the facts.
+  const athleteOnly = await require("./garmin").hasGarminData(userId);
   const historyRows = await all(
-    `SELECT role, content, timestamp FROM (SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT ?) ORDER BY id ASC`,
+    `SELECT role, content, timestamp FROM (SELECT * FROM chat_history WHERE user_id = ?${athleteOnly ? " AND role = 'user'" : ""} ORDER BY id DESC LIMIT ?) ORDER BY id ASC`,
     [userId, HISTORY_ROWS]
   );
   const historyText =
@@ -83,7 +87,7 @@ ${activeText}
 TRAINING CONSTRAINTS (travel / illness / equipment; the constraint table is the truth for dates):
 ${constraintsText}
 
-RECENT CHAT (each line starts with the date it was sent):
+${athleteOnly ? "RECENT MESSAGES FROM THE ATHLETE (only their own words; each line starts with the date it was sent)" : "RECENT CHAT (each line starts with the date it was sent)"}:
 ${historyText}
 
 Return ONLY JSON: {"ops": [...]} with the smallest set of edits that keeps the facts true and useful:
@@ -94,7 +98,7 @@ Rules:
 1. One fact per item, one short sentence, written in ${i18n.languageName(user.language)}. Lasting things (family, job, when they can train, how they like to be coached, goals, experience) and temporary things with an end date (a trip, a busy work period).
 2. Absolute dates only: convert "next week" etc. using the date each message was sent.
 3. Update a fact that changed (e.g. "twins due in March" -> "twins born on 2026-03-14") instead of adding a second one. Remove facts that are no longer true.
-4. No numbers that belong in metrics (FTP, max HR, resting HR, paces) and no injuries: those have their own tables.
+4. No numbers that belong in metrics (FTP, max HR, resting HR, paces) and no injuries: those have their own tables. Nothing taken from synced workouts or watch data either (distances, times, heart rate, HRV, sleep, steps, weight, VO2 max), also not from the coach's reactions to them: that data stays with its source and must not be copied into facts.
 5. Don't repeat what is already there. If nothing changed, return {"ops": []}.
 6. At most ${40} facts in total; merge small related facts.`;
 
