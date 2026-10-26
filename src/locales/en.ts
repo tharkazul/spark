@@ -1880,6 +1880,8 @@ export const en = {
     greetingAfternoon: "Good afternoon, {name}",
     greetingEvening: "Good evening, {name}",
     tomorrow: "Tomorrow",
+    tomorrowPlanTonight: "Next week's plan arrives this evening",
+    tomorrowNotPlanned: "Not planned yet",
     tomorrowRest: "Rest day",
     tomorrowMore: "+{count} more",
     askTitle: "Ask {coach}",

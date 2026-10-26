@@ -833,6 +833,12 @@ ${constraintsText}
 
 UPCOMING SCHEDULED WORKOUTS (Microplan):
 ${planText}
+${(() => {
+  // Days after the last planned one have no plan yet; on Sunday that's all of next
+  // week until the weekly planner runs at 20:00. An unplanned day is not a rest day.
+  const last = planRows && planRows.length ? planRows[planRows.length - 1].date : null;
+  return `PLANNED THROUGH: ${last || "nothing yet"}. Days after that have no plan yet: next week's plan is made on Sunday at 20:00 (Europe/Amsterdam). Never call an unplanned day a rest day; if asked about one, say its session arrives with Sunday evening's plan.`;
+})()}
 
 RECENTLY DELETED WORKOUTS (TEMPORARY ARCHIVE - AVAILABLE FOR RESTORATION):
 ${deletedWorkoutsText}

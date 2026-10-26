@@ -3478,7 +3478,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   // 3. Load today's planned workouts (independent of whether user has goals)
   const workouts = await new Promise((resolve) => {
     db.all(
-      `SELECT sport, description, details FROM micro_plan WHERE user_id = ? AND date = ?`,
+      `SELECT sport, description, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ?`,
       [userId, todayStr],
       (err, rows) => resolve(err || !rows ? [] : rows)
     );
@@ -3626,7 +3626,14 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   } else if (upcomingRace && daysUntilRace !== null && daysUntilRace <= 3) {
     prompt += `Their goal race "${upcomingRace.name}" is in only ${daysUntilRace} day${daysUntilRace === 1 ? '' : 's'}! Keep them calm, confident, and focused on final taper details, rest, and mental readiness. `;
   } else if (workouts.length > 0) {
-    prompt += `They have the following workouts planned for today: ${JSON.stringify(workouts)}. Get them pumped up for it! `;
+    // The structure line (e.g. "9' Z2 / 27' Z3 / 9' Z1") is what the athlete sees in the
+    // app and on the watch; without it the message guessed ("an easy Zone 2 run" for a
+    // Zone 3 tempo).
+    const today = workouts.map((w) => {
+      const structure = summarizeStepsForStrava(w.steps_json);
+      return { sport: w.sport, title: w.description, ...(structure ? { structure } : {}), details: w.details };
+    });
+    prompt += `They have the following workouts planned for today: ${JSON.stringify(today)}. Describe each session exactly as planned: same zones, intensity and durations as its structure and details, never easier or harder. Get them pumped up for it! `;
   } else {
     prompt += `They have a REST DAY today (no workouts planned). Encourage them to recover well and enjoy the day. `;
   }

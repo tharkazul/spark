@@ -49,3 +49,6 @@ eas build --platform ios --profile production --auto-submit
 git add .                        
 git commit -m "translations"        
 git push origin main
+eas build --platform android --profile preview
+eas build --platform ios --profile production --auto-submit 
+npx eas build -p android --profile production

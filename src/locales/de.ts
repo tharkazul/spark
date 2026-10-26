@@ -1882,6 +1882,8 @@ export const de: TranslationKeys = {
     greetingAfternoon: "Guten Tag, {name}",
     greetingEvening: "Guten Abend, {name}",
     tomorrow: "Morgen",
+    tomorrowPlanTonight: "Der Plan für nächste Woche kommt heute Abend",
+    tomorrowNotPlanned: "Noch nicht geplant",
     tomorrowRest: "Ruhetag",
     tomorrowMore: "+{count} weitere",
     askTitle: "Frag {coach}",

@@ -1882,6 +1882,8 @@ export const nl: TranslationKeys = {
     greetingAfternoon: "Goedemiddag, {name}",
     greetingEvening: "Goedenavond, {name}",
     tomorrow: "Morgen",
+    tomorrowPlanTonight: "Het plan voor volgende week komt vanavond",
+    tomorrowNotPlanned: "Nog niet ingepland",
     tomorrowRest: "Rustdag",
     tomorrowMore: "+{count} meer",
     askTitle: "Vraag het {coach}",

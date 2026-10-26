@@ -61,7 +61,13 @@ export function HomeTodayCard({
       ]
         .filter(Boolean)
         .join(' · ')
-    : t('home.tomorrowRest');
+    : (tomorrow?.workouts || []).length > 0
+    ? t('home.tomorrowRest')
+    : // Nothing at all, not even a Rest entry: not planned yet. On Sunday that's next
+      // week, which the weekly planner makes at 20:00.
+      new Date().getDay() === 0
+    ? t('home.tomorrowPlanTonight')
+    : t('home.tomorrowNotPlanned');
 
   return (
     <Card className="p-0 overflow-hidden">
