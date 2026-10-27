@@ -86,6 +86,10 @@ router.post('/api/devices/send-workouts', authenticateToken, async (req, res) =>
     })
     .filter(Boolean);
 
+  console.log(
+    `[Devices] user ${userId} sent ${selected ? selected.length : 'all planned'} workout(s): ` +
+      (devices.map((d) => `${d.id} ${d.success ? `ok (${d.syncedCount})` : `FAILED: ${String(d.error).slice(0, 200)}`}`).join(', ') || 'nothing to send'),
+  );
   res.json({ success: devices.some((d) => d.success), devices });
 });
 

@@ -256,16 +256,19 @@ function primaryTarget(step, sport, ctx) {
     }
     return tt === "pace.zone" && zone ? { note: `Pace zone ${zone}` } : null;
   }
-  // power.zone with a wattage in target_value is watts, as in liveCoach.
-  if (tt === "power.exact" || (tt === "power.zone" && watts)) {
+  // power.zone with a wattage in target_value is watts, as in liveCoach; a number up to 7
+  // there is a zone, never "3 W".
+  if (tt === "power.exact" || (tt === "power.zone" && watts > 7)) {
     if (!watts) return null;
     return { targetType: "POWER", targetValueLow: Math.round(watts * (1 - POWER_BAND)), targetValueHigh: Math.round(watts * (1 + POWER_BAND)) };
   }
-  if (tt === "power.zone" && zone >= 1 && zone <= 7) {
-    const band = powerBand(ctx.powerZones, zone);
+  // The zone in `zone`, or (older steps) the zone number in target_value.
+  const powerZone = zone >= 1 ? zone : watts >= 1 && watts <= 7 ? watts : NaN;
+  if (tt === "power.zone" && powerZone >= 1 && powerZone <= 7) {
+    const band = powerBand(ctx.powerZones, powerZone);
     return band
       ? { targetType: "POWER", targetValueLow: band.min, targetValueHigh: band.max }
-      : { targetType: "POWER", targetValue: zone };
+      : { targetType: "POWER", targetValue: powerZone };
   }
   return null;
 }
@@ -549,11 +552,66 @@ async function apiRequest(userId, accessToken, method, pathname, body) {
   try {
     json = text ? JSON.parse(text) : null;
   } catch (_) {}
+  if (!res.ok) console.warn(`[Garmin Training] ${method} ${pathname} -> HTTP ${res.status} ${text.slice(0, 300)}`);
   return { status: res.status, ok: res.ok, json, text };
 }
 
 const idOf = (v) => (v == null || v === "" ? null : String(v));
 const asNumber = (id) => (/^\d+$/.test(String(id)) ? Number(id) : id);
+
+/**
+ * The athlete's Garmin calendar entries on one day ("Retrieve by Date"), or null when
+ * Garmin won't say. The spec doesn't show the answer, so arrays and wrapped arrays are
+ * both read, with the id under any of its names.
+ */
+async function schedulesOn(userId, accessToken, date) {
+  const r = await apiRequest(userId, accessToken, "GET", `/training-api/schedule?startDate=${date}&endDate=${date}`);
+  if (!r.ok) return null;
+  const j = r.json;
+  const list = Array.isArray(j) ? j : j && typeof j === "object" ? j.schedules || j.workoutSchedules || j.items || [] : [];
+  return list
+    .map((e) => ({
+      scheduleId: idOf(e && (e.scheduleId ?? e.workoutScheduleId ?? e.id)),
+      workoutId: idOf(e && (e.workoutId ?? (e.workout && e.workout.workoutId))),
+      date: String((e && (e.date || e.calendarDate)) || date).slice(0, 10),
+    }))
+    .filter((e) => e.scheduleId && e.workoutId && e.date === date);
+}
+
+/** Steps in a workout as Garmin returns it, repeats counted with what they repeat. */
+function countSteps(workout) {
+  const walk = (steps) => (Array.isArray(steps) ? steps.reduce((n, st) => n + 1 + walk(st && st.steps), 0) : 0);
+  return ((workout && workout.segments) || []).reduce((n, seg) => n + walk(seg && seg.steps), 0);
+}
+
+/**
+ * After a write, leave one calendar entry for this session on its day: a second entry
+ * for the same workout, or another rooka copy of the same sport that rooka no longer
+ * tracks (left by an earlier send), is deleted. Other apps' workouts and rooka's other
+ * sessions that day are left alone.
+ */
+async function removeDuplicates(userId, accessToken, w, workoutId, scheduleId, onDay) {
+  if (!onDay) return 0;
+  const ours = new Set(
+    (await dbAll(`SELECT workout_id FROM garmin_workouts WHERE user_id = ? AND workout_key != ?`, [userId, w.key])).map((r) => idOf(r.workout_id)),
+  );
+  const sport = garminSport(w.sport);
+  let removed = 0;
+  for (const e of onDay) {
+    if (e.scheduleId === scheduleId || ours.has(e.workoutId)) continue;
+    if (e.workoutId !== workoutId) {
+      const r = await apiRequest(userId, accessToken, "GET", `/training-api/workout/v2/${encodeURIComponent(e.workoutId)}`);
+      if (!r.ok || !r.json || r.json.workoutProvider !== PROVIDER || r.json.sport !== sport) continue;
+    }
+    await apiRequest(userId, accessToken, "DELETE", `/training-api/schedule/${encodeURIComponent(e.scheduleId)}`);
+    if (e.workoutId !== workoutId) {
+      await apiRequest(userId, accessToken, "DELETE", `/training-api/workout/v2/${encodeURIComponent(e.workoutId)}`);
+    }
+    removed++;
+  }
+  if (removed) console.log(`[Garmin Training] removed ${removed} duplicate calendar entr${removed === 1 ? "y" : "ies"} for user ${userId} on ${w.date}`);
+  return removed;
+}
 
 /** The schedule id from a create answer: a bare number, or an object with scheduleId. */
 function scheduleIdFromResponse(r) {
@@ -713,7 +771,11 @@ async function upsertWorkout(userId, accessToken, conn, w, body, known, { force 
       if (!gone) throw new Error(`Garmin refused the workout update (HTTP 403) ${put.text.slice(0, 500)}`);
     }
     if (gone) {
-      workoutId = null; // deleted in Garmin Connect: create it again
+      // Deleted in Garmin Connect: create it again. Best effort to remove what may be
+      // left of it, so a refusal that wasn't really a deletion leaves no second copy.
+      if (scheduleId) await apiRequest(userId, accessToken, "DELETE", `/training-api/schedule/${encodeURIComponent(scheduleId)}`).catch(() => {});
+      await apiRequest(userId, accessToken, "DELETE", path).catch(() => {});
+      workoutId = null;
       scheduleId = null;
     } else if (!put.ok) {
       throw new Error(`Garmin rejected the workout update (HTTP ${put.status}) ${put.text.slice(0, 500)}`);
@@ -726,9 +788,19 @@ async function upsertWorkout(userId, accessToken, conn, w, body, known, { force 
     workoutId = idOf(post.json && post.json.workoutId);
     ownerId = idOf(post.json && post.json.ownerId);
     if (!workoutId) throw new Error("Garmin created the workout but returned no id");
+    console.log(`[Garmin Training] created workout ${workoutId} for user ${userId} (${w.key}): ${countSteps(post.json)} steps stored by Garmin, ${countSteps(body)} sent`);
     scheduleId = null;
   }
 
+  // The day's calendar, read once: to reuse an entry whose id we never got back, and to
+  // clear duplicates after the write. The background sync updating a session already on
+  // the calendar skips it (Garmin's 200 calls a day per athlete); a send the athlete asked
+  // for always checks.
+  let onDay = !scheduleId || force ? await schedulesOn(userId, accessToken, w.date) : null;
+  if (!scheduleId && onDay) {
+    const existing = onDay.find((e) => e.workoutId === workoutId);
+    if (existing) scheduleId = existing.scheduleId;
+  }
   if (!scheduleId) {
     const s = await apiRequest(userId, accessToken, "POST", "/training-api/schedule/", { workoutId: asNumber(workoutId), date: w.date });
     if (!s.ok) {
@@ -737,9 +809,17 @@ async function upsertWorkout(userId, accessToken, conn, w, body, known, { force 
       throw new Error(`Garmin rejected the schedule (HTTP ${s.status}) ${s.text.slice(0, 500)}`);
     }
     scheduleId = scheduleIdFromResponse(s);
+    if (!scheduleId) {
+      // An answer without a readable id: look the entry up, or every sync would add one more.
+      onDay = await schedulesOn(userId, accessToken, w.date);
+      const created = onDay && onDay.find((e) => e.workoutId === workoutId);
+      if (created) scheduleId = created.scheduleId;
+      else console.warn(`[Garmin Training] schedule for workout ${workoutId} created, but Garmin returned no id: ${s.text.slice(0, 200)}`);
+    }
   }
 
   await saveRow(userId, conn, w, { workoutId, ownerId, scheduleId }, scheduleId ? hash : null);
+  await removeDuplicates(userId, accessToken, w, workoutId, scheduleId, onDay);
   return { changed: true, workoutId, scheduleId };
 }
 
@@ -837,7 +917,10 @@ async function pushWorkouts(userId, selectedWorkouts) {
         .filter((r) => selectedWorkouts.some((sw) => sw && sw.date === r.date && sw.sport === r.sport))
         .map((r) => ({ ...r, title: r.description }));
     }
-    const workouts = keyWorkouts(source.filter(Boolean).map(normalizeWorkout));
+    let workouts = keyWorkouts(source.filter(Boolean).map(normalizeWorkout));
+    // A batch (the week's "Send to device") skips days already past: putting them on
+    // the Garmin calendar again only makes copies. A single session is sent as asked.
+    if (workouts.length > 1) workouts = workouts.filter((w) => w.date >= amsToday());
     if (workouts.length === 0) {
       // Nothing Garmin takes (rest, or a sport it has no workout for).
       return { status: 200, body: { success: true, skipped: true, syncedCount: 0 } };

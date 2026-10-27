@@ -37,6 +37,8 @@ const workouts = new Map(); // workoutId -> body
 const schedules = new Map(); // scheduleId -> { workoutId, date }
 let permissionsReply = ["ACTIVITY_EXPORT", "WORKOUT_IMPORT"];
 let forceStatus = null; // e.g. 429 or 412 for every training call
+let scheduleAnswer = "bare"; // what a schedule create answers: "bare" id, or "empty" (no id at all)
+let otherAccount = false; // a second Garmin account: its calendar doesn't show the first one's entries
 const reply = (status, json, headers = {}) => ({
   status,
   ok: status >= 200 && status < 300,
@@ -78,7 +80,13 @@ global.fetch = async (url, opts = {}) => {
     if (!workouts.has(body.workoutId)) return reply(400, { error: "unknown workout" });
     const id = nextScheduleId++;
     schedules.set(id, { workoutId: body.workoutId, date: body.date });
-    return reply(200, id); // Garmin answers with the bare schedule id
+    return scheduleAnswer === "empty" ? reply(200, undefined) : reply(200, id); // Garmin answers with the bare schedule id
+  }
+  if (u.pathname === "/training-api/schedule" && method === "GET") {
+    const from = u.searchParams.get("startDate");
+    const to = u.searchParams.get("endDate");
+    if (otherAccount) return reply(200, []);
+    return reply(200, [...schedules].filter(([, e]) => e.date >= from && e.date <= to).map(([id, e]) => ({ scheduleId: id, workoutId: e.workoutId, date: e.date })));
   }
   m = u.pathname.match(/^\/training-api\/schedule\/(\d+)$/);
   if (m && method === "DELETE") {
@@ -231,6 +239,10 @@ const hrZones = [
     ["DISTANCE", 5000, "POWER", 225, 275, "CADENCE", 65, 75],
   );
   assert.deepStrictEqual([s[3].targetType, s[3].targetValue], ["POWER", 7], "an open-ended zone goes as the zone number");
+  // A zone number in target_value (no `zone`) is a zone, never a 1–7 W range.
+  const zoneInValue = gt.buildWorkout({ date: ymd(2), sport: "Bike", title: "Z3", steps: [{ type: "interval", condition_type: "time", condition_value: 27, target_type: "power.zone", target_value: 3 }] }, {});
+  const z3 = zoneInValue.segments[0].steps[0];
+  assert.deepStrictEqual([z3.targetType, z3.targetValue, z3.targetValueLow, z3.targetValueHigh], ["POWER", 3, null, null]);
   console.log("✅ Bike: power zones in the athlete's watts, exact power ±10%, cadence as a secondary target");
 
   // Swim: pool length, distance steps, rest at the wall, stroke/drill/equipment, secondary targets.
@@ -504,7 +516,11 @@ const hrZones = [
   assert.strictEqual(r.body.syncedCount, 1);
   assert.deepStrictEqual(calls.map((c) => `${c.method} ${c.path}`), [
     `PUT /training-api/workout/v2/${strengthRow.workout_id}`,
+    // best effort: whatever is left of the old one goes, so a false "deleted" leaves no copy
+    `DELETE /training-api/schedule/${strengthRow.schedule_id}`,
+    `DELETE /training-api/workout/v2/${strengthRow.workout_id}`,
     "POST /workoutportal/workout/v2",
+    "GET /training-api/schedule",
     "POST /training-api/schedule/",
   ]);
   const remade = await get(`SELECT * FROM garmin_workouts WHERE user_id = 1 AND workout_key = ?`, [strengthRow.workout_key]);
@@ -520,10 +536,62 @@ const hrZones = [
   ]);
   assert.deepStrictEqual([r.status, r.body.syncedCount], [200, 1]);
   const runRow = rows.find((x) => x.workout_key === `${ymd(0)}:running:0`);
-  assert.deepStrictEqual(calls.map((c) => `${c.method} ${c.path}`), [`PUT /training-api/workout/v2/${runRow.workout_id}`], "same session key -> same workout");
+  assert.deepStrictEqual(
+    calls.map((c) => `${c.method} ${c.path}`),
+    [`PUT /training-api/workout/v2/${runRow.workout_id}`, "GET /training-api/schedule"],
+    "same session key -> same workout (and a look at that day for duplicates)",
+  );
   r = await gt.pushWorkouts(1, [{ date: ymd(4), sport: "REST", title: "Rest", steps: [] }]);
   assert.deepStrictEqual([r.status, r.body.skipped], [200, true], "nothing Garmin takes: skipped");
   console.log("✅ Explicit sends update the same workout; a rest-only send is skipped");
+
+  // The week's "Send to device" batch skips days already past; one session is sent as asked.
+  calls = [];
+  r = await gt.pushWorkouts(1, [
+    { date: ymd(-2), sport: "Bike", title: "Old ride", steps: [{ type: "interval", condition_type: "time", condition_value: 60, target_type: "no.target" }] },
+    { date: ymd(0), sport: "RUN", title: "Threshold intervals", rookaPoints: 80, steps: [{ type: "interval", condition_type: "time", condition_value: 50, target_type: "no.target" }] },
+  ]);
+  assert.strictEqual(r.body.syncedCount, 1);
+  assert.ok(!calls.some((c) => c.body && c.body.workoutName === "rooka: Old ride"), "the past ride isn't sent");
+  console.log("✅ A week batch skips days already past");
+
+  // Duplicates from earlier sends are cleared when the athlete sends again; other apps' workouts stay.
+  const runNow = await get(`SELECT * FROM garmin_workouts WHERE user_id = 1 AND workout_key = ?`, [runRow.workout_key]);
+  const extraEntry = nextScheduleId++;
+  schedules.set(extraEntry, { workoutId: Number(runNow.workout_id), date: ymd(0) }); // a second entry for the same workout
+  const strayId = nextWorkoutId++;
+  workouts.set(strayId, { workoutName: "rooka: Threshold intervals", sport: "RUNNING", workoutProvider: "rooka" }); // an older rooka copy
+  const strayEntry = nextScheduleId++;
+  schedules.set(strayEntry, { workoutId: strayId, date: ymd(0) });
+  const otherAppId = nextWorkoutId++;
+  workouts.set(otherAppId, { workoutName: "Tempo", sport: "RUNNING", workoutProvider: "trainingpeaks" });
+  const otherAppEntry = nextScheduleId++;
+  schedules.set(otherAppEntry, { workoutId: otherAppId, date: ymd(0) });
+  r = await gt.pushWorkouts(1, [
+    { date: ymd(0), sport: "RUN", title: "Threshold intervals", rookaPoints: 80, steps: [{ type: "interval", condition_type: "time", condition_value: 50, target_type: "no.target" }] },
+  ]);
+  assert.strictEqual(r.status, 200);
+  assert.ok(!schedules.has(extraEntry), "the second entry for the same workout is gone");
+  assert.ok(!schedules.has(strayEntry) && !workouts.has(strayId), "the older rooka copy is gone");
+  assert.ok(schedules.has(otherAppEntry) && workouts.has(otherAppId), "another app's workout stays");
+  assert.ok(schedules.has(Number(runNow.schedule_id)) && workouts.has(Number(runNow.workout_id)), "the tracked one stays");
+  console.log("✅ Sending again clears duplicate rooka entries on that day; other apps' workouts stay");
+
+  // A schedule create answered without an id: looked up by date, so syncs don't keep adding entries.
+  scheduleAnswer = "empty";
+  await run(`INSERT INTO micro_plan (user_id, date, sport, description, details, target_rooka, steps_json) VALUES (1, ?, 'Run', 'Easy run', '', 50, ?)`, [
+    ymd(8),
+    JSON.stringify([{ type: "interval", condition_type: "time", condition_value: 40, target_type: "no.target" }]),
+  ]);
+  await gt.pushWorkouts(1, null);
+  const easy = await get(`SELECT * FROM garmin_workouts WHERE user_id = 1 AND workout_key = ?`, [`${ymd(8)}:running:0`]);
+  assert.ok(easy && easy.schedule_id && easy.source_hash, "the schedule id is found by date and stored");
+  assert.strictEqual([...schedules.values()].filter((e) => e.workoutId === Number(easy.workout_id)).length, 1, "one calendar entry");
+  calls = [];
+  await gt.pushWorkouts(1, null);
+  assert.strictEqual(calls.length, 0, "the next sync has nothing to do");
+  scheduleAnswer = "bare";
+  console.log("✅ A schedule answer without an id is looked up by date: no repeated calendar entries");
 
   // Past sessions stay in Garmin Connect; rooka stops tracking them without calls.
   await run(`UPDATE garmin_workouts SET calendar_date = ? WHERE user_id = 1 AND workout_key = ?`, [ymd(-1), runRow.workout_key]);
@@ -537,13 +605,18 @@ const hrZones = [
 
   // Another Garmin account connected: old rows are dropped, not updated.
   await run(`UPDATE garmin_tokens SET garmin_user_id = 'g-other' WHERE user_id = 1`);
+  otherAccount = true;
   calls = [];
   r = await gt.pushWorkouts(1, null);
   const tracked = await all(`SELECT * FROM garmin_workouts WHERE user_id = 1`);
   assert.ok(tracked.length > 0 && tracked.every((x) => x.garmin_user_id === "g-other"));
-  assert.ok(calls.every((c) => c.method === "POST"), "made fresh in the new account, nothing touched in the old one");
+  assert.ok(
+    calls.every((c) => c.method === "POST" || (c.method === "GET" && c.path === "/training-api/schedule")),
+    "made fresh in the new account, nothing touched in the old one",
+  );
   await run(`UPDATE garmin_tokens SET garmin_user_id = 'g-1' WHERE user_id = 1`);
   await run(`DELETE FROM garmin_workouts WHERE user_id = 1`);
+  otherAccount = false;
   console.log("✅ After switching Garmin accounts the workouts are made fresh in the new one");
 
   // -------------------------------------------------------------------------
