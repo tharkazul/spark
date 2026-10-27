@@ -23,6 +23,12 @@ interface SparklineProps {
   showEndDot?: boolean;
   /** Optional reference value (e.g. 7-day average or 0 baseline) drawn as a subtle dashed line. */
   baseline?: number | null;
+  /** Dynamic target benchmark at the top (e.g. green dashed line) */
+  targetUpper?: number | null;
+  /** Floor/maintenance line at the bottom (e.g. red dashed line) */
+  targetLower?: number | null;
+  targetUpperColor?: string;
+  targetLowerColor?: string;
 }
 
 /** Normalize 8-digit hex (#RRGGBBAA) to 6-digit hex (#RRGGBB) so SVG stopOpacity works predictably. */
@@ -41,6 +47,10 @@ export const Sparkline: React.FC<SparklineProps> = ({
   breakGapDays,
   showEndDot = true,
   baseline = null,
+  targetUpper = null,
+  targetLower = null,
+  targetUpperColor = '#10B981',
+  targetLowerColor = '#F43F5E',
 }) => {
   const [measuredWidth, setMeasuredWidth] = useState<number>(width);
   const effectiveWidth = fullWidth ? measuredWidth : width;
@@ -63,8 +73,12 @@ export const Sparkline: React.FC<SparklineProps> = ({
     return <View style={{ height, width: fullWidth ? '100%' : width }} />;
   }
 
-  const allValsForScale =
-    typeof baseline === 'number' && !isNaN(baseline) ? [...validVals, baseline] : validVals;
+  const allValsForScale = [
+    ...validVals,
+    ...(typeof baseline === 'number' && !isNaN(baseline) ? [baseline] : []),
+    ...(typeof targetUpper === 'number' && !isNaN(targetUpper) ? [targetUpper] : []),
+    ...(typeof targetLower === 'number' && !isNaN(targetLower) ? [targetLower] : []),
+  ];
 
   const rawMin = Math.min(...allValsForScale);
   const rawMax = Math.max(...allValsForScale);
@@ -119,6 +133,8 @@ export const Sparkline: React.FC<SparklineProps> = ({
   const lastSeg = segments[segments.length - 1];
   const lastPt = lastSeg && lastSeg.length > 0 ? lastSeg[lastSeg.length - 1] : null;
   const baselineY = typeof baseline === 'number' && !isNaN(baseline) ? getY(baseline) : null;
+  const targetUpperY = typeof targetUpper === 'number' && !isNaN(targetUpper) ? getY(targetUpper) : null;
+  const targetLowerY = typeof targetLower === 'number' && !isNaN(targetLower) ? getY(targetLower) : null;
 
   const svgContent = (
     <Svg height={height} width={effectiveWidth} viewBox={`0 0 ${effectiveWidth} ${height}`}>
@@ -128,6 +144,36 @@ export const Sparkline: React.FC<SparklineProps> = ({
           <Stop offset="100%" stopColor={endColor} stopOpacity={0.0} />
         </LinearGradient>
       </Defs>
+
+      {/* Dynamic Upper Target Line */}
+      {targetUpperY !== null && (
+        <Line
+          x1={padX}
+          y1={targetUpperY}
+          x2={effectiveWidth - padX}
+          y2={targetUpperY}
+          stroke={targetUpperColor}
+          strokeWidth={1.35}
+          strokeDasharray="4 4"
+          strokeOpacity={0.42}
+          strokeLinecap="round"
+        />
+      )}
+
+      {/* Dynamic Lower Floor / Baseline Line */}
+      {targetLowerY !== null && (
+        <Line
+          x1={padX}
+          y1={targetLowerY}
+          x2={effectiveWidth - padX}
+          y2={targetLowerY}
+          stroke={targetLowerColor}
+          strokeWidth={1.35}
+          strokeDasharray="4 4"
+          strokeOpacity={0.42}
+          strokeLinecap="round"
+        />
+      )}
 
       {baselineY !== null && (
         <Line

@@ -31,7 +31,9 @@ const CATALOGUE = [
   { id: "ride_100k", group: "ride", icon: "bike", test: (a) => isRide(a) && a.distance_km >= 100 },
   { id: "ride_3h", group: "ride", icon: "bike", test: (a) => isRide(a) && a.moving_time_min >= 180 },
   { id: "swim_1500", group: "swim", icon: "swim", test: (a) => isSwim(a) && a.distance_km >= 1.5 },
+  { id: "swim_1900", group: "swim", icon: "swim", test: (a) => isSwim(a) && a.distance_km >= 1.9 },
   { id: "swim_3800", group: "swim", icon: "swim", test: (a) => isSwim(a) && a.distance_km >= 3.8 },
+  { id: "swim_10k", group: "swim", icon: "swim", test: (a) => isSwim(a) && a.distance_km >= 10 },
 ];
 
 const COUNT_MILESTONES = [10, 50, 100, 250];

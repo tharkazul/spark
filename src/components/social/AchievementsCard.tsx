@@ -120,7 +120,9 @@ function computeAchievementsFromActivities(
     { id: 'ride_100k', group: 'ride', icon: 'bike', test: (a) => isRide(a) && (a.distance_km || 0) >= 100 },
     { id: 'ride_3h', group: 'ride', icon: 'bike', test: (a) => isRide(a) && (a.moving_time_min || 0) >= 180 },
     { id: 'swim_1500', group: 'swim', icon: 'swim', test: (a) => isSwim(a) && (a.distance_km || 0) >= 1.5 },
+    { id: 'swim_1900', group: 'swim', icon: 'swim', test: (a) => isSwim(a) && (a.distance_km || 0) >= 1.9 },
     { id: 'swim_3800', group: 'swim', icon: 'swim', test: (a) => isSwim(a) && (a.distance_km || 0) >= 3.8 },
+    { id: 'swim_10k', group: 'swim', icon: 'swim', test: (a) => isSwim(a) && (a.distance_km || 0) >= 10 },
   ];
 
   const out: Achievement[] = [];
@@ -215,9 +217,15 @@ export function AchievementsCard({
       if (hasPreRookaDates && activities) {
         return computeAchievementsFromActivities(activities, effectiveStartDate);
       }
-      return list.map((a) =>
+      const cleaned = list.map((a) =>
         a.earnedAt && String(a.earnedAt).slice(0, 10) < minValidDate ? { ...a, earnedAt: null } : a
       );
+      if (!cleaned.some((a) => a.id === 'swim_1900') || !cleaned.some((a) => a.id === 'swim_10k')) {
+        const localTemplate = computeAchievementsFromActivities(activities || [], effectiveStartDate);
+        const byId = new Map(cleaned.map((a) => [a.id, a]));
+        return localTemplate.map((tmpl) => byId.get(tmpl.id) || tmpl);
+      }
+      return cleaned;
     },
     [activities, effectiveStartDate, minValidDate]
   );

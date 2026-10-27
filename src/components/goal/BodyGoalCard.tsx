@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
 import { Card } from '../ui/Card';
 import { WeightPathChart } from './WeightPathChart';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '@/hooks/use-theme';
 import { BodyStatus, GoalStatusKind } from '../../types/season';
 
 const STATUS_COLOR: Record<GoalStatusKind, string> = {
@@ -17,8 +18,15 @@ const STATUS_COLOR: Record<GoalStatusKind, string> = {
 const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toFixed(2)}`;
 
 /** Body-weight goal: where you are, the trend so far and the trend needed. */
-export function BodyGoalCard({ status }: { status: BodyStatus }) {
+export function BodyGoalCard({
+  status,
+  onEdit,
+}: {
+  status: BodyStatus;
+  onEdit?: () => void;
+}) {
   const { t } = useLanguage();
+  const theme = useTheme();
   const color = STATUS_COLOR[status.status];
   const headline =
     status.currentKg === null
@@ -27,7 +35,20 @@ export function BodyGoalCard({ status }: { status: BodyStatus }) {
 
   return (
     <Card>
-      <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted mb-2">{status.goalName}</Text>
+      <View className="flex-row items-center justify-between mb-2">
+        <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted">{status.goalName}</Text>
+        {onEdit && (
+          <TouchableOpacity
+            onPress={onEdit}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            className="p-1.5 rounded-full bg-theme-inset border border-theme-border/50"
+            activeOpacity={0.7}
+            accessibilityLabel={t('goals.editGoals', 'Edit Goals')}
+          >
+            <Ionicons name="pencil" size={12} color={theme.textSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
       <View className="flex-row items-center gap-2">
         <Ionicons name="scale-outline" size={18} color={color} />
         <Text className="text-base font-bold text-theme-text flex-1">{headline}</Text>

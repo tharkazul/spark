@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, DeviceEventEmitter } from 'react-native';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { PMCMetricsCard } from '../dashboard/PMCMetricsCard';
 import { FitnessTrendsChart } from './FitnessTrendsChart';
+import { FitnessMetricsInfoModal } from './FitnessMetricsInfoModal';
 import { CardioRecoveryTrendsCard } from './CardioRecoveryTrendsCard';
 import { EmptyState } from '../ui/EmptyState';
 import { useLanguage } from '../../context/LanguageContext';
@@ -28,6 +30,7 @@ export const FitnessSubTab: React.FC = () => {
 
   const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
   const [recentBiometrics, setRecentBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   const loadBiometrics = useCallback(async () => {
     try {
@@ -105,6 +108,11 @@ export const FitnessSubTab: React.FC = () => {
             tier={user?.subscription_tier || 'free'}
             loading={(activitiesLoading || physiqueLoading) && activities.length === 0}
             garminLabel={garminActivityLabel(activities as any[], 42)}
+            fitnessTargetRange={pmcMetrics.fitnessTargetRange}
+            onPressInfo={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowInfoModal(true);
+            }}
           />
 
           {/* 2. 6-WEEK / 3-MONTH / 1-YEAR CHART OF FITNESS, FATIGUE & FORM + WEEKLY HOURS BY SPORT */}
@@ -119,6 +127,11 @@ export const FitnessSubTab: React.FC = () => {
       <CardioRecoveryTrendsCard
         todayBiometrics={todayBiometrics}
         recentBiometrics={recentBiometrics}
+      />
+
+      <FitnessMetricsInfoModal
+        visible={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
       />
     </View>
   );

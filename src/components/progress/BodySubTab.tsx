@@ -201,6 +201,10 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
                 width={156}
                 height={36}
                 color={theme.tint}
+                targetUpper={pmcMetrics.weightKg > 0 ? Math.round((pmcMetrics.weightKg + 1.0) * 10) / 10 : null}
+                targetLower={pmcMetrics.weightKg > 0 ? Math.round((pmcMetrics.weightKg - 1.0) * 10) / 10 : null}
+                targetUpperColor={theme.tint}
+                targetLowerColor={theme.tint}
                 minRangePadding={1.5}
                 showEndDot
               />

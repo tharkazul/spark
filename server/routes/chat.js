@@ -398,41 +398,87 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
               if (recentBiometrics && recentBiometrics.length > 0) {
                 const todayStr = getAMSDateString();
                 const todayBio = recentBiometrics.find(b => b.date === todayStr) || recentBiometrics[0];
+                const latestSleepBio = (todayBio && todayBio.sleep_minutes > 0)
+                  ? todayBio
+                  : (recentBiometrics.find(b => b.sleep_minutes > 0) || null);
+                const latestRHRBio = (todayBio && todayBio.resting_hr)
+                  ? todayBio
+                  : (recentBiometrics.find(b => b.resting_hr) || null);
+
                 const lines = [];
                 if (todayBio) {
-                  lines.push(`TODAY (${todayBio.date}):`);
-                  if (todayBio.sleep_minutes && todayBio.sleep_minutes > 0) {
-                    const h = Math.floor(todayBio.sleep_minutes / 60);
-                    const m = Math.round(todayBio.sleep_minutes % 60);
-                    let stageStr = "";
-                    if (todayBio.sleep_deep_minutes || todayBio.sleep_rem_minutes) {
-                      stageStr = ` (Deep: ${Math.round(todayBio.sleep_deep_minutes || 0)}m, REM: ${Math.round(todayBio.sleep_rem_minutes || 0)}m, Core: ${Math.round(todayBio.sleep_core_minutes || 0)}m, Awake: ${Math.round(todayBio.sleep_awake_minutes || 0)}m)`;
-                    }
-                    lines.push(`- Sleep: ${h}h ${m}m total${stageStr}`);
-                  }
+                  lines.push(`LATEST SYNCED TELEMETRY (${todayBio.date}):`);
+                  if (todayBio.resting_hr) lines.push(`- Resting Heart Rate: ${todayBio.resting_hr} bpm`);
                   if (todayBio.hrv_rmssd) lines.push(`- HRV (overnight RMSSD, Garmin): ${todayBio.hrv_rmssd} ms`);
                   else if (todayBio.hrv_sdnn) lines.push(`- HRV (SDNN, Apple Health): ${todayBio.hrv_sdnn} ms`);
-                  if (todayBio.resting_hr) lines.push(`- Resting Heart Rate: ${todayBio.resting_hr} bpm`);
                   if (todayBio.steps) lines.push(`- Steps: ${todayBio.steps}`);
                   if (todayBio.active_calories) lines.push(`- Active Calories Burned: ${todayBio.active_calories} kcal`);
                   if (todayBio.vo2_max) lines.push(`- VO2 Max: ${todayBio.vo2_max}`);
                   if (todayBio.weight_kg) lines.push(`- Weight: ${todayBio.weight_kg} kg`);
                 }
+
+                if (latestSleepBio && latestSleepBio.sleep_minutes > 0) {
+                  const h = Math.floor(latestSleepBio.sleep_minutes / 60);
+                  const m = Math.round(latestSleepBio.sleep_minutes % 60);
+                  let stageStr = "";
+                  if (latestSleepBio.sleep_deep_minutes || latestSleepBio.sleep_rem_minutes) {
+                    stageStr = ` (Deep: ${Math.round(latestSleepBio.sleep_deep_minutes || 0)}m, REM: ${Math.round(latestSleepBio.sleep_rem_minutes || 0)}m, Core: ${Math.round(latestSleepBio.sleep_core_minutes || 0)}m, Awake: ${Math.round(latestSleepBio.sleep_awake_minutes || 0)}m)`;
+                  }
+                  const sleepDateLabel = latestSleepBio.date === todayStr ? "Today" : latestSleepBio.date;
+                  lines.push(`- Last Night Sleep (${sleepDateLabel}): ${h}h ${m}m total${stageStr}`);
+                }
+
+                let avgRhrVal = null;
+                let avgSleepMinsVal = null;
+                let avgHrvVal = null;
                 if (recentBiometrics.length > 1) {
-                  // Garmin RMSSD and Apple SDNN don't convert: one baseline per measure.
+                  lines.push(`7-DAY RECOVERY BASELINES:`);
                   const rhrs = recentBiometrics.filter(b => b.resting_hr).map(b => b.resting_hr);
                   for (const [col, label] of [["hrv_rmssd", "overnight RMSSD, Garmin"], ["hrv_sdnn", "SDNN, Apple Health"]]) {
                     const hrvs = recentBiometrics.filter(b => b[col]).map(b => b[col]);
                     if (hrvs.length > 0) {
-                      const avgHrv = hrvs.reduce((a, b) => a + b, 0) / hrvs.length;
-                      lines.push(`- 7-Day Baseline HRV (${label}): ${Math.round(avgHrv * 10) / 10} ms`);
+                      avgHrvVal = hrvs.reduce((a, b) => a + b, 0) / hrvs.length;
+                      lines.push(`- 7-Day Baseline HRV (${label}): ${Math.round(avgHrvVal * 10) / 10} ms`);
                     }
                   }
                   if (rhrs.length > 0) {
-                    const avgRhr = rhrs.reduce((a, b) => a + b, 0) / rhrs.length;
-                    lines.push(`- 7-Day Baseline Resting HR: ${Math.round(avgRhr * 10) / 10} bpm`);
+                    avgRhrVal = rhrs.reduce((a, b) => a + b, 0) / rhrs.length;
+                    lines.push(`- 7-Day Baseline Resting HR: ${Math.round(avgRhrVal * 10) / 10} bpm`);
+                  }
+                  const sleeps = recentBiometrics.filter(b => b.sleep_minutes > 0).map(b => b.sleep_minutes);
+                  if (sleeps.length > 0) {
+                    avgSleepMinsVal = sleeps.reduce((a, b) => a + b, 0) / sleeps.length;
+                    const avgH = Math.floor(avgSleepMinsVal / 60);
+                    const avgM = Math.round(avgSleepMinsVal % 60);
+                    lines.push(`- 7-Day Baseline Sleep: ${avgH}h ${avgM}m`);
                   }
                 }
+
+                // Pattern Recognition & Changes (Rest vs Workouts)
+                const patternNotes = [];
+                if (latestRHRBio && avgRhrVal !== null) {
+                  const rhrDelta = Math.round((latestRHRBio.resting_hr - avgRhrVal) * 10) / 10;
+                  if (rhrDelta >= 3.0) {
+                    patternNotes.push(`• Elevated Resting HR: +${rhrDelta} bpm above 7-day baseline (${latestRHRBio.resting_hr} vs ${Math.round(avgRhrVal)} bpm). Indicates acute cardiovascular strain or lingering fatigue from recent training.`);
+                  } else if (rhrDelta <= -3.0) {
+                    patternNotes.push(`• Favorable Resting HR: -${Math.abs(rhrDelta)} bpm below 7-day baseline (${latestRHRBio.resting_hr} vs ${Math.round(avgRhrVal)} bpm). Demonstrates strong recovery and aerobic adaptation.`);
+                  }
+                }
+                if (latestSleepBio && avgSleepMinsVal !== null && latestSleepBio.sleep_minutes > 0) {
+                  const sleepDeltaM = latestSleepBio.sleep_minutes - avgSleepMinsVal;
+                  if (sleepDeltaM <= -45) {
+                    const deficitH = (Math.abs(sleepDeltaM) / 60).toFixed(1);
+                    patternNotes.push(`• Sleep Deficit: ${deficitH}h shorter than typical baseline. Consider factoring potential central fatigue into training intensity.`);
+                  } else if (sleepDeltaM >= 45) {
+                    const surplusH = (sleepDeltaM / 60).toFixed(1);
+                    patternNotes.push(`• Restorative Sleep: +${surplusH}h surplus above typical baseline. Body had ample window for tissue repair and glycogen storage.`);
+                  }
+                }
+                if (patternNotes.length > 0) {
+                  lines.push(`OBSERVED PATTERNS & CHANGES (REST VS RECENT TRAINING LOAD):`);
+                  lines.push(patternNotes.join("\n"));
+                }
+
                 biometricsContextText = lines.join("\n");
               }
 

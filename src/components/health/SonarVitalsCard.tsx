@@ -86,6 +86,10 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({
               series={rhrSeries.length >= 2 ? rhrSeries : undefined}
               color="#38BDF8"
               baseline={avgRhr}
+              targetUpper={avgRhr !== null ? Math.round(avgRhr + 3) : null}
+              targetLower={avgRhr !== null ? Math.max(35, Math.round(avgRhr - 2)) : null}
+              targetUpperColor="#F43F5E"
+              targetLowerColor="#10B981"
               minRangePadding={3}
             />
           </View>
@@ -103,6 +107,10 @@ export const SonarVitalsCard: React.FC<SonarVitalsCardProps> = ({
               series={hrvSeries.length >= 2 ? hrvSeries : undefined}
               color="#10B981"
               baseline={avgHrv}
+              targetUpper={avgHrv !== null ? Math.round(avgHrv * 1.1) : null}
+              targetLower={avgHrv !== null ? Math.round(avgHrv * 0.88) : null}
+              targetUpperColor="#10B981"
+              targetLowerColor="#F43F5E"
               minRangePadding={5}
             />
           </View>

@@ -143,6 +143,10 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
         deltaTone: toDeltaTone(sleepDelta !== null && Math.abs(sleepDelta) >= 15 ? sleepDelta > 0 : null),
         series: sleepDays.map((d) => d.sleep_minutes! / 60),
         baseline: avgSleep !== null ? avgSleep / 60 : null,
+        targetUpper: 8.0,
+        targetLower: 6.5,
+        targetUpperColor: '#10B981',
+        targetLowerColor: '#F43F5E',
       },
       {
         label: t('home.metricHrv'),
@@ -153,6 +157,10 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
         deltaTone: toDeltaTone(hrvDelta !== null && Math.abs(hrvDelta) >= 3 ? hrvDelta > 0 : null),
         series: hrvDays.map((d) => hrvOn(d)!),
         baseline: avgHrv,
+        targetUpper: avgHrv !== null ? Math.round(avgHrv * 1.1) : null,
+        targetLower: avgHrv !== null ? Math.round(avgHrv * 0.88) : null,
+        targetUpperColor: '#10B981',
+        targetLowerColor: '#F43F5E',
       },
       {
         label: t('home.metricRestingHr'),
@@ -163,6 +171,10 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
         deltaTone: toDeltaTone(rhrDelta !== null && Math.abs(rhrDelta) >= 2 ? rhrDelta < 0 : null),
         series: rhrDays.map((d) => d.resting_hr!),
         baseline: avgRhr,
+        targetUpper: avgRhr !== null ? Math.round(avgRhr + 3) : null,
+        targetLower: avgRhr !== null ? Math.max(35, Math.round(avgRhr - 2)) : null,
+        targetUpperColor: '#F43F5E',
+        targetLowerColor: '#10B981',
       },
     ];
 
@@ -206,6 +218,10 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
             deltaTone={tile.deltaTone}
             series={tile.series}
             baseline={tile.baseline}
+            targetUpper={tile.targetUpper}
+            targetLower={tile.targetLower}
+            targetUpperColor={tile.targetUpperColor}
+            targetLowerColor={tile.targetLowerColor}
             color={theme.tint}
           />
         ))}

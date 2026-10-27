@@ -139,6 +139,10 @@ export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> =
             deltaTone={rhrDeltaTone}
             series={rhrHistory}
             baseline={strain.avgRhr ?? null}
+            targetUpper={strain.avgRhr ? Math.round(strain.avgRhr + 3) : null}
+            targetLower={strain.avgRhr ? Math.max(35, Math.round(strain.avgRhr - 2)) : null}
+            targetUpperColor="#F43F5E"
+            targetLowerColor="#10B981"
             color={strain.rhrStatus === 'elevated' ? '#F59E0B' : theme.tint}
           />
         )}
@@ -156,6 +160,10 @@ export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> =
             deltaTone={hrvDeltaTone}
             series={hrvHistory}
             baseline={strain.avgHrv ?? null}
+            targetUpper={strain.avgHrv ? Math.round(strain.avgHrv * 1.1) : null}
+            targetLower={strain.avgHrv ? Math.round(strain.avgHrv * 0.88) : null}
+            targetUpperColor="#10B981"
+            targetLowerColor="#F43F5E"
             color={strain.hrvStatus === 'suppressed' ? '#F59E0B' : '#10B981'}
           />
         )}

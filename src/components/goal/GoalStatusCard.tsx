@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Polygon, Polyline, Stop, Text as SvgText } from 'react-native-svg';
 
 import { Card } from '../ui/Card';
@@ -75,7 +75,15 @@ function Stat({ label, value }: { label: string; value: string }) {
  * The race and how the goal is going, in one card: headline, a few numbers, and
  * one short line per limit the athlete's schedule puts on the plan.
  */
-export function GoalStatusCard({ status, season }: { status: RaceStatus | null; season: Season }) {
+export function GoalStatusCard({
+  status,
+  season,
+  onEdit,
+}: {
+  status: RaceStatus | null;
+  season: Season;
+  onEdit?: () => void;
+}) {
   const { t } = useLanguage();
   const theme = useTheme();
   const { hasActivitySource } = useActivitySources();
@@ -122,6 +130,17 @@ export function GoalStatusCard({ status, season }: { status: RaceStatus | null; 
               {current.isRecovery ? t('goal.recoveryShort') : phaseLabel(t, current.phase)}
             </Text>
           </View>
+        )}
+        {onEdit && (
+          <TouchableOpacity
+            onPress={onEdit}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            className="p-1.5 rounded-full bg-theme-inset border border-theme-border/50 ml-0.5"
+            activeOpacity={0.7}
+            accessibilityLabel={t('goals.editGoals', 'Edit Goals')}
+          >
+            <Ionicons name="pencil" size={12} color={theme.textSecondary} />
+          </TouchableOpacity>
         )}
       </View>
       <Text className="text-xs text-theme-muted mt-0.5">{meta}</Text>

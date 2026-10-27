@@ -13,6 +13,10 @@ export interface MetricTileProps {
   deltaTone?: MetricDeltaTone;
   series?: (number | null)[] | SparklinePoint[];
   baseline?: number | null;
+  targetUpper?: number | null;
+  targetLower?: number | null;
+  targetUpperColor?: string;
+  targetLowerColor?: string;
   color?: string;
   minRangePadding?: number;
   emptyHint?: string;
@@ -106,6 +110,10 @@ export function MetricTile({
   deltaTone = 'neutral',
   series = [],
   baseline = null,
+  targetUpper = null,
+  targetLower = null,
+  targetUpperColor = '#10B981',
+  targetLowerColor = '#F43F5E',
   color = '#0EA5E9',
   minRangePadding = 0.5,
   emptyHint,
@@ -162,11 +170,15 @@ export function MetricTile({
           <Sparkline
             data={cleanSeries}
             color={color}
-            height={34}
+            height={targetUpper !== null ? 38 : 34}
             fullWidth
             strokeWidth={2}
             minRangePadding={minRangePadding}
             baseline={baseline}
+            targetUpper={targetUpper}
+            targetLower={targetLower}
+            targetUpperColor={targetUpperColor}
+            targetLowerColor={targetLowerColor}
             showEndDot
           />
         </View>

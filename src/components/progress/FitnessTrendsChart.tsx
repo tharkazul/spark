@@ -25,6 +25,7 @@ import { PMCDayPoint } from '../../domain/pmc';
 import { GarminAttribution, garminActivityLabel } from '../ui/GarminAttribution';
 import { usePagerLock } from '../../context/PagerLockContext';
 import { FitnessMetricsInfoModal } from './FitnessMetricsInfoModal';
+import { calculateFitnessTargetRange } from '../../utils/pmcUtils';
 
 export type Timeframe = '6W' | '3M' | '1Y';
 
@@ -93,7 +94,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
   }, [history, timeframe]);
 
   // Compute min and max across CTL, ATL, and TSB
-  const { ctlPath, ctlAreaPath, atlPath, tsbPath, zeroY, getX, getY } = useMemo(() => {
+  const { ctlPath, ctlAreaPath, atlPath, tsbPath, zeroY, targetUpperY, getX, getY } = useMemo(() => {
     const calcGetX = (idx: number) => {
       if (filteredHistory.length <= 1) return chartWidth / 2;
       return horizontalPadding + (idx / (filteredHistory.length - 1)) * plotWidth;
@@ -106,6 +107,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
         atlPath: '',
         tsbPath: '',
         zeroY: chartHeight / 2,
+        targetUpperY: null,
         getX: calcGetX,
         getY: () => chartHeight / 2,
       };
@@ -154,12 +156,17 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
     const bottomY = (chartHeight - paddingBottom).toFixed(1);
     const ctlArea = ctlP ? `${ctlP} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z` : '';
 
+    const currentCtl = history && history.length > 0 ? history[history.length - 1].ctl : 0;
+    const { targetUpper } = calculateFitnessTargetRange(currentCtl, history);
+    const targetUpperY = targetUpper <= max ? calcGetY(targetUpper) : null;
+
     return {
       ctlPath: ctlP,
       ctlAreaPath: ctlArea,
       atlPath: atlP,
       tsbPath: tsbP,
       zeroY: calcGetY(0),
+      targetUpperY,
       getX: calcGetX,
       getY: calcGetY,
     };
@@ -399,6 +406,20 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
             strokeDasharray="3 3"
             opacity="0.4"
           />
+
+          {/* Dynamic Green Benchmark Target */}
+          {targetUpperY !== null && (
+            <Line
+              x1={horizontalPadding}
+              y1={targetUpperY}
+              x2={chartWidth - horizontalPadding}
+              y2={targetUpperY}
+              stroke="#10B981"
+              strokeWidth="1.2"
+              strokeDasharray="4 4"
+              opacity="0.38"
+            />
+          )}
 
           {/* Soft Area Fill under Fitness (CTL) */}
           {ctlAreaPath ? <Path d={ctlAreaPath} fill="url(#pmc-ctl-grad)" /> : null}

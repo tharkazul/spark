@@ -52,7 +52,12 @@ export function calculateTargetCTL(eventName: string): number {
   return 70; // Default target CTL
 }
 
-export const GoalsTab: React.FC = () => {
+export interface GoalsTabProps {
+  onDone?: () => void;
+  onSaved?: () => void;
+}
+
+export const GoalsTab: React.FC<GoalsTabProps> = ({ onDone, onSaved }) => {
   const theme = useTheme();
   const { user, refreshUser } = useUser();
   const { refresh: refreshSeason } = useSeason();
@@ -289,6 +294,9 @@ export const GoalsTab: React.FC = () => {
 
       await refreshUser();
       refreshSeason();
+      if (onSaved) {
+        onSaved();
+      }
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
     } catch (err: any) {
@@ -342,15 +350,30 @@ export const GoalsTab: React.FC = () => {
             <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
             <Text className="text-theme-text font-bold text-sm">{t('goals.goalsAndCalendar')}</Text>
           </View>
-          <ScalePressable
-            onPress={handleAddMilestone}
-            activeScale={0.93}
-            haptic="selection"
-            className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
-          >
-            <Ionicons name="add" size={14} color={theme.tint} />
-            <Text className="text-theme-accent font-bold text-xs ml-1">{t('goals.addGoal')}</Text>
-          </ScalePressable>
+          <View className="flex-row items-center gap-2">
+            <ScalePressable
+              onPress={handleAddMilestone}
+              activeScale={0.93}
+              haptic="selection"
+              className="px-3 py-1.5 bg-theme-accent/10 rounded-lg flex-row items-center"
+            >
+              <Ionicons name="add" size={14} color={theme.tint} />
+              <Text className="text-theme-accent font-bold text-xs ml-1">{t('goals.addGoal')}</Text>
+            </ScalePressable>
+            {onDone && (
+              <ScalePressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  onDone();
+                }}
+                activeScale={0.93}
+                className="px-3 py-1.5 bg-theme-accent-strong rounded-lg flex-row items-center gap-1"
+              >
+                <Ionicons name="checkmark" size={14} color="#FFF" />
+                <Text className="text-white font-bold text-xs">{t('common.done', 'Done')}</Text>
+              </ScalePressable>
+            )}
+          </View>
         </View>
 
         {/* CTL TARGET REFERENCE GUIDE (COLLAPSIBLE) */}
@@ -676,6 +699,22 @@ export const GoalsTab: React.FC = () => {
               {saving ? t('goals.savingGoals') : t('goals.goalsSavedSuccess')}
             </Text>
           </View>
+        )}
+
+        {onDone && (
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.selectionAsync();
+              onDone();
+            }}
+            className="mt-4 bg-theme-accent-strong py-3 rounded-button items-center justify-center flex-row gap-1.5"
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark" size={16} color="#FFF" />
+            <Text className="text-white font-black text-sm font-rajdhani">
+              {t('common.done', 'Done')}
+            </Text>
+          </TouchableOpacity>
         )}
       </Card>
 
