@@ -111,6 +111,7 @@ router.post("/api/milestones", authenticateToken, (req, res) => {
     });
     stmt.finalize(() => {
       seasonPlan.ensureSeasonFresh(req.user.id).catch((e) => console.warn("[Season] refresh after goal save failed:", e.message));
+      require("../services/athleteFacts").syncGoalMilestones(req.user.id).catch((e) => console.warn("[Facts] syncGoalMilestones failed:", e.message));
     });
 
     res.json({ success: true, message: "Goals and calendar updated!" });

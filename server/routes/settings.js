@@ -457,12 +457,17 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
             db.run(
               `INSERT INTO milestones (user_id, name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max, event_type) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
               [req.user.id, finalName, finalDate, finalCtl, finalGoalType, finalMode, finalValue, finalWeight, finalVo2, finalGoalType === 'race' ? (seasonPlan.EVENT_TYPES[reqEventType] ? reqEventType : seasonPlan.detectEventType(finalName)) : null],
-              () => seasonPlan.ensureSeasonFresh(req.user.id).catch(() => {}),
+              () => {
+                seasonPlan.ensureSeasonFresh(req.user.id).catch(() => {});
+                require("../services/athleteFacts").syncGoalMilestones(req.user.id).catch(() => {});
+              },
             );
           }
         );
       } else {
-        db.run(`DELETE FROM milestones WHERE user_id = ? AND is_main = 1`, [req.user.id]);
+        db.run(`DELETE FROM milestones WHERE user_id = ? AND is_main = 1`, [req.user.id], () => {
+          require("../services/athleteFacts").syncGoalMilestones(req.user.id).catch(() => {});
+        });
       }
     }
 

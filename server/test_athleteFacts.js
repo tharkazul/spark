@@ -32,8 +32,46 @@ console.log("🧠 Running athlete facts unit tests...\n");
   console.log("✅ Categories guessed for old memory lines");
 }
 
-console.log("\n🎉 All athlete facts tests passed!");
-setTimeout(() => {
+(async () => {
+  const db = require("./services/db");
+  const run = (sql, p = []) => new Promise((res, rej) => db.run(sql, p, (err) => (err ? rej(err) : res())));
+  const get = (sql, p = []) => new Promise((res, rej) => db.get(sql, p, (err, row) => (err ? rej(err) : res(row))));
+
+  await run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, long_term_memory TEXT DEFAULT '', athlete_context TEXT DEFAULT '', facts_migrated INTEGER DEFAULT 0)`);
+  await run(`CREATE TABLE IF NOT EXISTS milestones (id INTEGER PRIMARY KEY, user_id INTEGER, name TEXT, date TEXT, target_ctl REAL, is_main INTEGER DEFAULT 0, goal_type TEXT DEFAULT 'race', target_mode TEXT DEFAULT 'finish', target_value TEXT, target_weight REAL, target_vo2max REAL, event_type TEXT)`);
+
+  const testUserId = 999;
+  await run(`INSERT INTO users (id, username) VALUES (?, 'tharaka_tester')`, [testUserId]);
+
+  // Seed an old goal fact from October
+  await f.addFact(testUserId, { category: "goal", text: "Sub-20 5k attempt in late October", until: "2026-10-28" });
+  await f.renderMemory(testUserId);
+
+  let u = await get(`SELECT long_term_memory FROM users WHERE id = ?`, [testUserId]);
+  assert.ok(u.long_term_memory.includes("late October"), "Memory initially contains old October goal");
+
+  // Athlete postpones race by a month to 2026-11-28
+  await run(`INSERT INTO milestones (user_id, name, date, target_value, is_main) VALUES (?, '5km', '2026-11-28', '20:00', 1)`, [testUserId]);
+
+  // Sync goal milestones
+  await f.syncGoalMilestones(testUserId);
+
+  // Verify memory and facts
+  const factsList = await f.listFacts(testUserId);
+  const goalFacts = factsList.filter((x) => x.category === "goal");
+  assert.strictEqual(goalFacts.length, 1, "Only one active goal fact should exist");
+  assert.ok(goalFacts[0].text.includes("2026-11-28"), "Goal fact text contains postponed date 2026-11-28");
+  assert.strictEqual(goalFacts[0].valid_until, "2026-11-28", "Goal fact valid_until contains 2026-11-28");
+
+  u = await get(`SELECT long_term_memory FROM users WHERE id = ?`, [testUserId]);
+  assert.ok(!u.long_term_memory.includes("late October"), "Old late October goal was removed from long_term_memory");
+  assert.ok(u.long_term_memory.includes("2026-11-28"), "New November date is present in long_term_memory");
+  console.log("✅ syncGoalMilestones purges stale goal facts and updates memory with postponed date");
+
+  console.log("\n🎉 All athlete facts tests passed!");
   try { require("fs").unlinkSync(process.env.DB_PATH); } catch (_) {}
   process.exit(0);
-}, 200);
+})().catch((err) => {
+  console.error("Test failed:", err);
+  process.exit(1);
+});

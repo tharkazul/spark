@@ -199,6 +199,71 @@ async function renderMemory(userId) {
   return text;
 }
 
+/**
+ * Synchronizes the athlete's primary active goal from the milestones table into athlete_facts
+ * and updates long_term_memory. Removes or updates any obsolete/stale goal facts.
+ */
+async function syncGoalMilestones(userId) {
+  if (!userId) return;
+  const milestones = await all(
+    `SELECT name, date, target_ctl, is_main, goal_type, target_mode, target_value, target_weight, target_vo2max 
+     FROM milestones WHERE user_id = ? 
+     ORDER BY is_main DESC, date ASC`,
+    [userId]
+  );
+
+  const mainGoal = milestones.find((m) => m.is_main === 1) || milestones[0];
+  if (!mainGoal || !mainGoal.name) {
+    const existing = await all(`SELECT id FROM athlete_facts WHERE user_id = ? AND category = 'goal'`, [userId]);
+    for (const f of existing) {
+      await deleteFact(userId, f.id);
+    }
+    await renderMemory(userId);
+    return;
+  }
+
+  let goalDesc = mainGoal.name;
+  if (mainGoal.target_value) {
+    goalDesc += ` (target: ${mainGoal.target_value})`;
+  } else if (mainGoal.target_weight) {
+    goalDesc += ` (target weight: ${mainGoal.target_weight} kg)`;
+  }
+  const factText = mainGoal.date
+    ? `Target goal: ${goalDesc} on ${mainGoal.date}`
+    : `Target goal: ${goalDesc}`;
+
+  const existingGoalFacts = await all(
+    `SELECT id, text FROM athlete_facts WHERE user_id = ? AND category = 'goal'`,
+    [userId]
+  );
+
+  const alreadyExact = existingGoalFacts.find((f) => f.text.toLowerCase() === factText.toLowerCase());
+  if (alreadyExact) {
+    if (mainGoal.date) {
+      await updateFact(userId, alreadyExact.id, { until: mainGoal.date });
+    }
+    for (const f of existingGoalFacts) {
+      if (f.id !== alreadyExact.id) await deleteFact(userId, f.id);
+    }
+    await renderMemory(userId);
+    return;
+  }
+
+  // Remove older / conflicting goal facts so memory stays clean and authoritative
+  for (const f of existingGoalFacts) {
+    await deleteFact(userId, f.id);
+  }
+
+  await addFact(userId, {
+    category: "goal",
+    text: factText,
+    until: mainGoal.date || null,
+    source: "athlete",
+  });
+
+  await renderMemory(userId);
+}
+
 // ---------------------------------------------------------------------------
 // Metrics
 // ---------------------------------------------------------------------------
@@ -330,6 +395,7 @@ module.exports = {
   applyOps,
   formatFacts,
   renderMemory,
+  syncGoalMilestones,
   setMetric,
   listMetrics,
   deleteMetric,

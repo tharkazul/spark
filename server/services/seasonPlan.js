@@ -536,6 +536,7 @@ async function ensureSeasonFresh(userId) {
   const current = await dbGet(`SELECT 1 AS ok FROM season_weeks WHERE user_id = ? AND week_start = ?`, [userId, thisMonday]);
   if (!meta || meta.inputs_hash !== hashInputs(inp) || !current) {
     await regenerateSeason(userId, inp);
+    await require('./athleteFacts').syncGoalMilestones(userId).catch(() => {});
     return true;
   }
   return false;

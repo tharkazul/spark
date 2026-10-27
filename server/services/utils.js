@@ -3631,6 +3631,12 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     prompt += `${todayBiometricsNote} `;
   }
 
+  if (upcomingRace) {
+    const targetTxt = upcomingRace.target_value ? `, target: ${upcomingRace.target_value}` : '';
+    prompt += `UPCOMING TARGET EVENT: "${upcomingRace.name}" on ${upcomingRace.date} (${daysUntilRace} day${daysUntilRace === 1 ? '' : 's'} away${targetTxt}). `;
+    prompt += `CRITICAL GOAL DATE TRUTH: The milestones table says the race is in ${daysUntilRace} days on ${upcomingRace.date}. Never claim or imply the race is "in a few days" or "just days away" unless daysUntilRace <= 3. If any memory note mentions an older date, the milestones date (${upcomingRace.date}) is the true date. `;
+  }
+
   if (raceToday) {
     prompt += `🚨 CRITICAL - TODAY IS RACE DAY: "${raceToday.name}"! This is the big target event the athlete has trained for over months! Write an inspiring, electrifying, confident race-day coach message. Wish them good luck, tell them to trust their training, stick to their hydration and pacing strategy, and leave everything on the course! `;
   } else if (raceYesterday) {

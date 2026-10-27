@@ -60,6 +60,7 @@ async function summarizeOnce(userId) {
 
   const constraints = await constraintsService.getCurrentAndUpcomingConstraints(userId, todayStr);
   const constraintsText = constraintsService.formatConstraintsForPrompt(constraints, todayStr);
+  const goalsText = await require("./utils").getUserGoalsContext(userId);
 
   // With Garmin data in the coach's context, the coach's replies can carry it, and Garmin's
   // license (§15.11) bars an AI-generated knowledge base built from it. Then this pass
@@ -81,6 +82,9 @@ TODAY: ${todayStr} (Europe/Amsterdam)
 CURRENT FACTS (id, category, text, optional end date):
 ${facts.formatFacts(current)}
 
+ACTIVE GOALS & MILESTONES (the milestones table is the ground truth for all targets and race dates):
+${goalsText}
+
 ACTIVE INJURIES (the injury table is the truth; do not store injuries as facts):
 ${activeText}
 
@@ -99,8 +103,9 @@ Rules:
 2. Absolute dates only: convert "next week" etc. using the date each message was sent.
 3. Update a fact that changed (e.g. "twins due in March" -> "twins born on 2026-03-14") instead of adding a second one. Remove facts that are no longer true.
 4. No numbers that belong in metrics (FTP, max HR, resting HR, paces) and no injuries: those have their own tables. Nothing taken from synced workouts or watch data either (distances, times, heart rate, HRV, sleep, steps, weight, VO2 max), also not from the coach's reactions to them: that data stays with its source and must not be copied into facts.
-5. Don't repeat what is already there. If nothing changed, return {"ops": []}.
-6. At most ${40} facts in total; merge small related facts.`;
+5. Goals: The ACTIVE GOALS & MILESTONES section is the ground truth. Any goal fact in CURRENT FACTS must match the active milestone names, targets, and dates. If a fact has an outdated date or goal that conflicts with the milestones table, update or remove it.
+6. Don't repeat what is already there. If nothing changed, return {"ops": []}.
+7. At most ${40} facts in total; merge small related facts.`;
 
   const raw = await generateWithFallback(prompt, null, null, null, userId, "common", true, { language: user.language });
   let ops = [];

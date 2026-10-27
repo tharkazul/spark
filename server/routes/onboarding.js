@@ -622,10 +622,12 @@ router.post('/finalize', authenticateToken, async (req, res) => {
           }
         );
       });
+      await require('../services/athleteFacts').syncGoalMilestones(userId).catch(() => {});
     } else {
       await new Promise((resolve) => {
         db.run(`DELETE FROM milestones WHERE user_id = ? AND is_main = 1`, [userId], () => resolve());
       });
+      await require('../services/athleteFacts').syncGoalMilestones(userId).catch(() => {});
     }
 
     // 3. Register baseline test entry into benchmark_tests table.
