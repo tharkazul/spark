@@ -15,6 +15,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../ui/Card';
 import { useLanguage } from '../../context/LanguageContext';
 import { getLocaleTag } from '../../locales/i18n';
@@ -23,6 +24,7 @@ import { normalizeSportType } from '../../utils/disciplineConfig';
 import { PMCDayPoint } from '../../domain/pmc';
 import { GarminAttribution, garminActivityLabel } from '../ui/GarminAttribution';
 import { usePagerLock } from '../../context/PagerLockContext';
+import { FitnessMetricsInfoModal } from './FitnessMetricsInfoModal';
 
 export type Timeframe = '6W' | '3M' | '1Y';
 
@@ -71,6 +73,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
 
   const [timeframe, setTimeframe] = useState<Timeframe>('6W');
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
   const [measuredWidth, setMeasuredWidth] = useState<number>(0);
 
   // Dynamic measured chart width with safe fallback
@@ -265,9 +268,21 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
       {/* 1. HEADER + TIMEFRAME SELECTOR */}
       <View className="flex-row items-center justify-between">
         <View className="flex-1 mr-2">
-          <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted" numberOfLines={1}>
-            {t('progress.trendsTitle', 'Fitness, fatigue & form')}
-          </Text>
+          <View className="flex-row items-center gap-1.5">
+            <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted" numberOfLines={1}>
+              {t('progress.trendsTitle', 'Fitness, fatigue & form')}
+            </Text>
+            <TouchableOpacity
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowInfoModal(true);
+              }}
+              accessibilityLabel="Fitness metrics explanation"
+            >
+              <Ionicons name="information-circle-outline" size={15} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
           <GarminAttribution label={garminActivityLabel(activities as any[], TIMEFRAME_DAYS[timeframe])} className="mt-0.5" />
         </View>
 
@@ -518,6 +533,11 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
           })}
         </View>
       </View>
+
+      <FitnessMetricsInfoModal
+        visible={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+      />
     </Card>
   );
 };
