@@ -2,9 +2,12 @@ import { BrandColors } from '@/constants/theme';
 import type * as NotificationsType from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, Platform } from 'react-native';
 import { notificationsApi } from './apiServices';
 import { router } from 'expo-router';
+
+const PUSH_ENABLED_KEY = '@rooka_push_notifications_enabled';
 
 let Notifications: typeof NotificationsType | null = null;
 
@@ -51,9 +54,18 @@ try {
   Notifications = null;
 }
 
-export async function registerForPushNotificationsAsync(): Promise<string | null> {
+export async function registerForPushNotificationsAsync(force = false): Promise<string | null> {
   if (Platform.OS === 'web' || !Notifications) {
     return null;
+  }
+
+  if (!force) {
+    try {
+      const storedPref = await AsyncStorage.getItem(PUSH_ENABLED_KEY);
+      if (storedPref === 'false') {
+        return null;
+      }
+    } catch (_) {}
   }
 
   // Set up Android channel if applicable
@@ -103,6 +115,49 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   return null;
+}
+
+export async function getPushNotificationsEnabled(): Promise<boolean> {
+  if (Platform.OS === 'web' || !Notifications) {
+    return false;
+  }
+  try {
+    const storedPref = await AsyncStorage.getItem(PUSH_ENABLED_KEY);
+    if (storedPref === 'false') {
+      return false;
+    }
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status === 'denied') {
+      return false;
+    }
+    return true;
+  } catch (_) {
+    return true;
+  }
+}
+
+export async function setPushNotificationsEnabled(enabled: boolean): Promise<boolean> {
+  if (Platform.OS === 'web' || !Notifications) {
+    return false;
+  }
+  try {
+    if (!enabled) {
+      await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'false');
+      await unregisterPushNotificationsAsync();
+      return false;
+    }
+
+    await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'true');
+    await registerForPushNotificationsAsync(true);
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      await AsyncStorage.setItem(PUSH_ENABLED_KEY, 'false');
+      return false;
+    }
+    return true;
+  } catch (_) {
+    return enabled;
+  }
 }
 
 /**

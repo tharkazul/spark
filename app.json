@@ -12,9 +12,8 @@
       "bundleIdentifier": "io.rooka.app",
       "infoPlist": {
         "CFBundleDisplayName": "rooka",
-        "NSCameraUsageDescription": "rooka needs camera access to capture physique check-in photos and coach avatars.",
-        "NSMicrophoneUsageDescription": "rooka needs microphone access for voice coaching notes and audio logs.",
-        "NSPhotoLibraryUsageDescription": "rooka needs photo library access to choose workout and progress photos.",
+        "NSMicrophoneUsageDescription": "rooka needs microphone access to record voice notes for your AI coach.",
+        "NSPhotoLibraryUsageDescription": "rooka needs photo library access so you can choose a profile picture, customize your coach avatar, and share meal or workout photos with your AI coach.",
         "NSHealthShareUsageDescription": "rooka needs access to read your workouts, heart rate, heart rate variability, sleep analysis, steps, active energy, and body metrics.",
         "NSHealthUpdateUsageDescription": "rooka needs permission to save scheduled workouts to your Apple Watch and Apple Health.",
         "ITSAppUsesNonExemptEncryption": false
@@ -34,7 +33,6 @@
         }
       },
       "permissions": [
-        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
@@ -79,11 +77,30 @@
           "iosUrlScheme": "com.googleusercontent.apps.226225996905-cmhh8e7hdon643oliukl5bl7vta26hf6"
         }
       ],
-      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "rooka needs photo library access so you can choose a profile picture, customize your coach avatar, and share meal or workout photos with your AI coach.",
+          "cameraPermission": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "rooka needs microphone access to record voice notes for your AI coach.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
       "expo-asset",
       "expo-font",
       "expo-image",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "expo-sharing",
       "expo-status-bar",
       "expo-web-browser"

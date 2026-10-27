@@ -25,6 +25,7 @@ import { formatRookaPoints, formatTokens } from '../../utils/format';
 import { TitlesSkeleton } from '../skeletons/TitlesSkeleton';
 import { LanguageSelector } from '../LanguageSelector';
 import { confirmEnableAi, confirmDisableAi } from '../../utils/aiConsent';
+import { getPushNotificationsEnabled, setPushNotificationsEnabled } from '../../services/notificationService';
 import { HomeTownSheet } from './HomeTownSheet';
 import { AchievementsCard } from '../social/AchievementsCard';
 
@@ -71,6 +72,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   // Email form state
   const [email, setEmail] = useState(user?.email || initialEmail || '');
   const [savingAccount, setSavingAccount] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(true);
 
   useEffect(() => {
     if (user?.email) {
@@ -80,7 +82,33 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   useEffect(() => {
     fetchTitles();
+    getPushNotificationsEnabled().then(setPushEnabled).catch(() => {});
   }, []);
+
+  const handleTogglePushNotifications = async (nextValue: boolean) => {
+    Haptics.selectionAsync();
+    setPushEnabled(nextValue);
+    const actual = await setPushNotificationsEnabled(nextValue);
+    setPushEnabled(actual);
+    if (nextValue && !actual) {
+      Alert.alert(
+        t('profile.pushNotifications'),
+        t(
+          'profile.pushNotificationsDenied',
+          'Push notifications are disabled in system settings. Enable them in Settings to receive coach briefings and alerts.'
+        ),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.openSettings', 'Open Settings'),
+            onPress: () => {
+              Linking.openSettings().catch(() => {});
+            },
+          },
+        ]
+      );
+    }
+  };
 
   const getFullPhotoUrl = (path?: string) => {
     if (!path) return null;
@@ -599,7 +627,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         {renderSettingRow(
           'notifications',
           t('profile.pushNotifications'),
-          <Switch value={true} trackColor={{ false: '#DDE3E9', true: theme.tint }} />
+          <Switch
+            value={pushEnabled}
+            onValueChange={handleTogglePushNotifications}
+            trackColor={{ false: '#DDE3E9', true: theme.tint }}
+          />
         )}
         <View className="py-4 gap-3">
           <View className="flex-row items-center">

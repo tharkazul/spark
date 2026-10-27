@@ -1607,12 +1607,15 @@ export default function CoachScreen() {
                   accessible={false}
                   importantForAccessibility="no-hide-descendants"
                   onLayout={(e) => {
-                    const h = Math.ceil(e.nativeEvent.layout.height);
-                    setInputHeight(Math.min(INPUT_MAX_HEIGHT, Math.max(INPUT_MIN_HEIGHT, h)));
+                    const h = Math.min(INPUT_MAX_HEIGHT, Math.max(INPUT_MIN_HEIGHT, Math.round(e.nativeEvent.layout.height)));
+                    // A real change is a whole line (22pt). Smaller ones are pixel rounding, and
+                    // following them made the box and the chat above it shake by 1pt, over and over.
+                    setInputHeight((prev) => (Math.abs(h - prev) < 4 ? prev : h));
                   }}
                   className="text-base font-jakarta"
                   style={{
                     position: 'absolute',
+                    top: 0,
                     left: 0,
                     right: 0,
                     opacity: 0,

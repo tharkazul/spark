@@ -1,23 +1,23 @@
 # Terms of Service & End User License Agreement (EULA)
 
-**Last Updated:** August 6, 2026
+**Last Updated:** October 27, 2026
 
-Welcome to **Rooka** ("App"). These Terms of Service and End User License Agreement ("Terms") govern your access to and use of the Rooka mobile application, website, and related coaching services operated by Rooka ("we", "us", or "our").
+Welcome to **rooka** ("App"). These Terms of Service and End User License Agreement ("Terms") govern your access to and use of the rooka mobile application, website, and related coaching services operated by rooka ("we", "us", or "our").
 
-By downloading, installing, or using Rooka, you agree to be bound by these Terms. If you do not agree to these Terms, do not use the App.
+By downloading, installing, or using rooka, you agree to be bound by these Terms. If you do not agree to these Terms, do not use the App.
 
 ---
 
 ## 1. Description of Service
 
-Rooka is an AI-assisted fitness, recovery, physique tracking, and activity logging application designed to help users track workouts, analyze physical recovery metrics, set goals, and interact with an automated AI fitness coach.
+rooka is an AI-assisted fitness, recovery, body composition tracking, and activity logging application designed to help users plan training, analyze physical recovery and muscle workload metrics, set goals, and interact with an automated AI fitness coach. It can connect to Garmin Connect, Suunto, Apple Health, Strava, and TrainerDay.
 
 ---
 
 ## 2. Health & Fitness Disclaimer (Not Medical Advice)
 
-1. **Informational Purpose Only:** All content, fitness calculations, recovery scores, physique estimates, and AI Coach responses provided within Rooka are intended solely for educational, informational, and personal tracking purposes.
-2. **Consult Your Physician:** Rooka is **not** a healthcare provider, medical device, or clinical diagnostic tool. Before participating in any exercise program, altering your diet, or following AI-generated recommendations, you must consult a qualified medical professional.
+1. **Informational Purpose Only:** All content, fitness calculations, recovery scores, nutrition targets, and AI Coach responses provided within rooka are intended solely for educational, informational, and personal tracking purposes.
+2. **Consult Your Physician:** rooka is **not** a healthcare provider, medical device, or clinical diagnostic tool. Before participating in any exercise program, altering your diet, or following AI-generated recommendations, you must consult a qualified medical professional.
 3. **Assumption of Risk:** Exercise and athletic training carry inherent risks of injury or physical strain. You voluntarily assume all risk of injury, illness, or damage resulting from your use of the App or reliance on its suggestions.
 
 ---
@@ -32,24 +32,24 @@ Rooka is an AI-assisted fitness, recovery, physique tracking, and activity loggi
 
 ## 4. User Content & Acceptable Use
 
-- **User Content:** You retain ownership of any text, photos (including physique photos), and activity data you upload to Rooka.
+- **User Content:** You retain ownership of any text, photos, and activity data you upload to rooka.
 - **Prohibited Conduct:** You agree not to:
   - Upload content that is unlawful, abusive, harassing, defamatory, obscene, or violates third-party privacy rights.
   - Reverse engineer, decompile, or attempt to extract the source code of the App.
   - Use automated bots or scrapers to access the App or its APIs.
-  - Attempt to bypass rate limits or compromise the security of the App or third-party APIs (e.g., Strava, Garmin, Gemini).
+  - Attempt to bypass rate limits or compromise the security of the App or third-party APIs (e.g., Strava, Garmin, Suunto, TrainerDay, Gemini).
 
 ---
 
 ## 5. Third-Party Services & Integrations
 
-Rooka integrates with third-party services, including Google Gemini API, Strava API, and Garmin Connect. Your use of third-party services is subject to their respective terms and privacy policies. We are not responsible for the availability, accuracy, or privacy practices of third-party platforms.
+rooka integrates with third-party services, including Google Gemini API, Garmin Connect, Suunto, Apple Health, Strava API, and TrainerDay. Your use of third-party services is subject to their respective terms and privacy policies. We are not responsible for the availability, accuracy, or privacy practices of third-party platforms.
 
 ---
 
 ## 6. AI Interaction Disclaimer
 
-Rooka incorporates artificial intelligence features powered by large language models. While designed to provide helpful fitness insights, AI outputs may occasionally be inaccurate, incomplete, or inappropriate. You acknowledge that AI guidance must be evaluated with common sense and should never override professional human judgment or medical advice.
+rooka incorporates artificial intelligence features powered by Google's Gemini models. While designed to provide helpful fitness insights, AI outputs may occasionally be inaccurate, incomplete, or inappropriate. You acknowledge that AI guidance must be evaluated with common sense and should never override professional human judgment or medical advice.
 
 ---
 
@@ -62,13 +62,13 @@ Rooka incorporates artificial intelligence features powered by large language mo
 
 ## 8. Limitation of Liability
 
-To the maximum extent permitted by applicable law, Rooka and its developers, affiliates, or licensors shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits, data, or physical injury arising out of or related to your use of the App.
+To the maximum extent permitted by applicable law, rooka and its developers, affiliates, or licensors shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits, data, or physical injury arising out of or related to your use of the App.
 
 ---
 
 ## 9. Termination
 
-We reserve the right to suspend or terminate your access to the App at our sole discretion, without notice, if we believe you have violated these Terms. You may terminate your account at any time via App Settings or by contacting **support@rooka.io** or **rutger@rooka.io**.
+We reserve the right to suspend or terminate your access to the App at our sole discretion, without notice, if we believe you have violated these Terms. You may terminate and delete your account at any time in the App (Profile > scroll to bottom > Delete Account & Purge Data) or by contacting **privacy@rooka.io** or **support@rooka.io**.
 
 ---
 

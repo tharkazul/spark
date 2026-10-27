@@ -41,7 +41,7 @@ marathon,triathlon,running,cycling,swim,fitness,recovery,hrv,sleep,strength,gym,
 
 ---
 
-## 3. Full App Description (Apple App Store & Google Play - 3,436 / 4,000 chars)
+## 3. Full App Description (Apple App Store & Google Play - 3,492 / 4,000 chars)
 
 ```text
 rooka is your AI training coach. It builds a plan around your real week, your watch and your goal, and adjusts it when life gets in the way.
@@ -59,8 +59,8 @@ Ask questions, get daily check-ins and receive training advice from a coach that
 • DAILY RECOVERY SCORE
 See how ready you are before every workout. rooka combines your training load with recovery signals such as heart rate, heart rate variability and sleep into one daily score.
 
-• WORKS WITH YOUR WATCH
-Sync workouts, steps, heart rate, heart rate variability, active energy, sleep and body measurements from Apple Health, and send structured workouts to your Apple Watch. Connect Strava or Suunto to import your activities automatically. Using a Garmin? Let the Garmin Connect app share your workouts with Apple Health or Strava, and rooka picks them up from there.
+• WORKS WITH YOUR WATCH & PLATFORMS
+Sync workouts, steps, heart rate, heart rate variability, active energy, sleep and body measurements from Apple Health and Garmin Connect, and send structured workouts directly to your Apple Watch, Garmin watch or Suunto watch. Connect Strava or Suunto to import your activities automatically, and connect TrainerDay to send planned cycling workouts to your TrainerDay calendar.
 
 • NUTRITION & BODY
 Get daily fueling targets matched to your training, and log your weight and body fat.
@@ -68,8 +68,8 @@ Get daily fueling targets matched to your training, and log your weight and body
 • TRAIN WITH FRIENDS
 Connect with training partners you know, see their workouts and send them a spark to cheer them on. Only accepted connections can see your activities.
 
-• STREAKS & LEVELS
-Stay motivated with streaks and levels that reward following your plan. Planned rest days count too.
+• STREAKS, LEVELS & ACHIEVEMENTS
+Stay motivated with streaks, levels and achievements that reward following your plan. Planned rest days count too.
 
 rooka+ SUBSCRIPTION:
 rooka+ is an optional auto-renewing subscription that unlocks more AI coaching and advanced features.
@@ -103,9 +103,9 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
 | **Contact Info** – Name, Email Address | Yes | Yes | No | App Functionality (account, sign-in) |
 | **Health & Fitness** – Health (heart rate, HRV, resting HR, sleep, weight, body fat, VO2 max, cycle tracking) | Yes | Yes | No | App Functionality (recovery score, AI coaching, plans) |
 | **Health & Fitness** – Fitness (workouts, steps, active energy) | Yes | Yes | No | App Functionality (recovery score, AI coaching, plans) |
-| **Location** – Precise Location | Yes | Yes | No | App Functionality (GPS routes of workouts synced from Apple Health and connected services such as Strava and Suunto) |
+| **Location** – Precise Location | Yes | Yes | No | App Functionality (GPS routes of workouts synced from Apple Health and connected services such as Garmin Connect, Strava and Suunto) |
 | **Location** – Coarse Location | Yes | Yes | No | App Functionality (home town the athlete types in Profile, for the weather forecast and the coach) |
-| **User Content** – Photos or Videos (photos sent to the coach, profile picture) | Yes | Yes | No | App Functionality |
+| **User Content** – Photos or Videos (photos sent to the coach, profile picture, custom coach avatar) | Yes | Yes | No | App Functionality |
 | **User Content** – Audio Data (voice notes to the coach) | Yes | Yes | No | App Functionality (speech-to-text) |
 | **User Content** – Other User Content (messages to the AI coach, daily log notes) | Yes | Yes | No | App Functionality |
 | **Purchases** – Purchase History | Yes | Yes | No | App Functionality (rooka+ access, via RevenueCat) |
@@ -116,7 +116,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
 > When asked: **"Do you or your third-party partners use data from this app to track users across apps and websites owned by other companies?"** Select **No**.
 
 > [!NOTE]
-> **Location:** the app never asks for the device's location (no location library, no location permission). Workout routes arrive with workouts from Strava, Suunto and Apple Health, so Location is still declared as collected data above, but no `NSLocationWhenInUseUsageDescription` or Android location permission is needed.
+> **Location:** the app never asks for the device's location (no location library, no location permission). Workout routes arrive with workouts from Garmin Connect, Strava, Suunto and Apple Health, so Location is still declared as collected data above, but no `NSLocationWhenInUseUsageDescription` or Android location permission is needed.
 
 ---
 
@@ -125,7 +125,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
 1. **Does your app collect or share any user data?** -> `Yes`
 2. **Is all user data collected by your app encrypted in transit?** -> `Yes` (HTTPS/TLS)
 3. **Do you provide a way for users to request that their data be deleted?** -> `Yes`
-   * In-app deletion: Yes (Profile > Delete Account)
+   * In-app deletion: Yes (Profile > scroll to bottom > Delete Account & Purge Data)
    * Web deletion URL: `https://rooka.io/privacy`
 4. **Is data shared with third parties?** -> `No`. Google Gemini, Google Cloud and RevenueCat process data on rooka's behalf as service providers, which Google Play does not count as sharing. Data is still declared as **collected** below.
 5. **Data types collected:**
@@ -133,7 +133,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
    * **Personal info:** Name, Email address, User IDs.
    * **Financial info:** Purchase history (subscriptions).
    * **Health and fitness:** Health info (heart rate, HRV, sleep, weight, body composition, cycle tracking), Fitness info (workouts, steps, activity).
-   * **Photos and videos:** Photos (photos sent to the coach, profile picture).
+   * **Photos and videos:** Photos (photos sent to the coach, profile picture, custom coach avatar).
    * **Audio:** Voice or sound recordings (voice notes to the coach).
    * **Messages:** Other in-app messages (conversations with the AI coach).
    * **Device or other IDs:** Push notification token.
@@ -158,12 +158,12 @@ REVIEW NOTES:
   1. An active rooka+ subscription (no paywall).
   2. Synced sample running and strength workouts.
   3. Calculated recovery scores, heart rate variability and sleep data.
-  4. Sample physique check-ins.
+  4. Sample weight and body composition entries and muscle workload data.
 - AI consent (Guideline 5.1.2(i)): the first message in the "Coach" tab asks for permission to share data with Google Gemini, which generates the coach's replies. Nothing is sent to Gemini before the athlete taps "Allow". If they tap "Don't allow", every AI feature stays off and the rest of the app keeps working. The choice can be changed at any time in Profile > Preferences > "AI coach".
 - AI coach: after tapping "Allow", ask any training question in the "Coach" tab.
 - Social: athletes connect by username and must accept each other. Only accepted connections see each other's activities and training data, and they can react with a "spark". There are no comments, posts or free-text messages between users. To remove a connection, open their profile and tap "Friends".
-- Integrations: Profile tab > "Connections" (Apple Health, Strava and Suunto, each through its own permission or sign-in screen). rooka does not ask for Garmin credentials: Garmin users share their workouts with Apple Health or Strava from the Garmin Connect app.
-- Account deletion (Guideline 5.1.1(v)): Profile tab > "Account & Membership" > "Delete Account". A confirmation alert appears before all data is deleted.
+- Integrations: Profile tab > "Connections" (Apple Health, Garmin Connect, Suunto, Strava and TrainerDay, each through its own official OAuth sign-in screen or system permission sheet; rooka never asks for third-party passwords).
+- Account deletion (Guideline 5.1.1(v)): Profile tab > scroll to the bottom > "Delete Account & Purge Data". A confirmation alert appears before all data is permanently deleted.
 - Contact: Rutger van den Berg (support@rooka.io)
 ```
 
@@ -176,12 +176,12 @@ REVIEW NOTES:
 
 - [x] **AI data consent:** the coach's first message asks for explicit permission before any data is sent to Google Gemini (Guideline 5.1.2(i)). It can be changed in Profile > Preferences > AI coach.
 - [x] **Privacy policy matches section 3:** `server/public/privacy.html` describes the consent, names Google Gemini and lists the data sent. It goes live when the server is deployed.
-- [ ] **Account deletion visible:** the Delete Account button (`ProfileTab.tsx` -> `userApi.deleteAccount()`) is reachable on the Profile screen.
+- [x] **Account deletion visible:** the Delete Account button (`ProfileTab.tsx` -> `userApi.deleteAccount()`) is reachable at the bottom of the Profile screen ("Delete Account & Purge Data").
 - [ ] **Paid Apps Agreement signed:** banking and tax details are active in App Store Connect.
-- [ ] **Subscriptions attached:** the rooka+ subscriptions are attached to version 1.0 when you submit.
-- [ ] **Paywall copy matches the app:** the RevenueCat paywall (configured in the RevenueCat dashboard, not in this repo) no longer lists weekly quests or direct Garmin sync. Both are switched off in `src/constants/features.ts` and `QUESTS_ENABLED` in `server/services/utils.js`.
-- [ ] **Website deployed:** the rooka.io pages (`website/`) no longer promise a Garmin login or weekly quests, and the Support URL a reviewer opens matches the app.
+- [ ] **Subscriptions attached:** the rooka+ subscriptions are attached to the app version in App Store Connect when you submit.
+- [ ] **Paywall copy matches the app:** the RevenueCat paywall (configured in the RevenueCat dashboard, not in this repo) does not list weekly quests (`QUESTS_ENABLED = false` in `src/constants/features.ts`).
+- [ ] **Website deployed:** the rooka.io pages (`website/` and `server/public/`) match the current app integrations (Garmin Connect, Suunto, Apple Health, Strava, TrainerDay), do not promise weekly quests, and describe the exact account deletion path.
 - [ ] **Paywall legal links:** the RevenueCat paywall shows working Terms of Use (EULA) and Privacy Policy links.
 - [x] **Review account active:** `reviewer-test@rooka.io` exists on `https://api.rooka.io` with seeded data and rooka+ access.
 - [x] **Backend hosting:** the production backend runs on a Google Cloud VM.
-- [ ] **Backend deployed:** the latest server (comment removal, AI consent, remove-connection, privacy policy) is deployed to the VM before the new build reaches review. Existing athletes get the consent card the next time they open the coach, and their AI features pause until they answer.
+- [ ] **Backend deployed:** the latest server (Garmin Connect OAuth/webhooks/Training API, TrainerDay OAuth, updated public HTML pages) is deployed to the VM before the new build reaches review.
