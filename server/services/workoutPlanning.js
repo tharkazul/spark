@@ -1105,6 +1105,11 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
     // One more try before the generic week: its sessions have no steps, so a strength day
     // shows up without a single exercise.
     console.warn(`[WeeklyPlan] No plan for user ${userId} (${planFailure}); asking again.`);
+    // When every model was busy (as for one athlete on 25 Oct), asking again straight away
+    // meets the same rush. Only the Sunday job calls this, so nobody is kept waiting.
+    if (planFailure.startsWith('AI call failed')) {
+      await new Promise((r) => setTimeout(r, options.retryDelayMs ?? 60000));
+    }
     aiReply = await callPlanner(
       `${userPrompt}\n\nYour previous answer could not be read. Reply with a short summary followed by the complete \`\`\`json block for all 7 days, and make sure the block is closed.`
     );
