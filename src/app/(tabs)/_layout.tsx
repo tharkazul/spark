@@ -60,9 +60,11 @@ export default function TabLayout() {
           swipeEnabled: true,
           animationEnabled: true,
           // Chat and Progress are expensive to mount; building all five up front
-          // would make the first paint of the tab bar noticeably slower.
+          // would make the first paint of the tab bar noticeably slower. The tab bar
+          // builds the others one by one once the app is idle (CustomTabBar), so
+          // nothing is built during a tap.
           lazy: true,
-          lazyPreloadDistance: 1,
+          lazyPreloadDistance: 0,
         }}
       >
         {/* Tab 1: Planning - Dynamic Date Sheet with current date number */}

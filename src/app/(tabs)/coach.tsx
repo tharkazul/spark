@@ -4,7 +4,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -508,13 +509,15 @@ export default function CoachScreen() {
       scrollToBottom(false);
       setChatActive(true);
       markAsRead();
-      refreshMessages();
+      // After the tab slide (the cached messages are already on screen).
+      const refreshTimer = setTimeout(refreshMessages, 400);
       // Chat never hides the bar itself, so make sure it is up on arrival:
       // swiping here mid-momentum from a tab that DID hide it would otherwise
       // leave it stranded off-screen with nothing to bring it back.
       notifyScrollEnd?.();
 
       return () => {
+        clearTimeout(refreshTimer);
         setChatActive(false);
         markAsRead();
       };

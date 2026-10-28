@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { useMemo, createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
+import { keepIfSame } from '../utils/keepIfSame';
 import { Niggle } from '../types/health';
 import { healthApi } from '../services/apiServices';
 import { useUser } from './UserStore';
@@ -28,12 +30,11 @@ export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshNiggles = React.useCallback(async () => {
     if (!isAuthenticated) return;
-    setLoading(true);
     try {
       const data = await healthApi.getActiveNiggles();
       if (data && Array.isArray(data)) {
         hasFreshServerDataRef.current = true;
-        setNiggles(data);
+        setNiggles(keepIfSame(data));
         niggleStorage.setNiggles(data, userId).catch(() => {});
       }
       setError(null);
@@ -147,17 +148,15 @@ export const HealthStore: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [isAuthenticated, userId, refreshNiggles]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ refreshNiggles, saveNiggle, resolveNiggle });
+  const contextValue = useMemo(
+    () => ({ niggles, loading, error, ...stableFns }),
+    [niggles, loading, error, stableFns]
+  );
+
   return (
-    <HealthContext.Provider
-      value={{
-        niggles,
-        loading,
-        error,
-        refreshNiggles,
-        saveNiggle,
-        resolveNiggle,
-      }}
-    >
+    <HealthContext.Provider value={contextValue}>
       {children}
     </HealthContext.Provider>
   );

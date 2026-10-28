@@ -4,7 +4,8 @@ import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import {
   Alert,
   Animated,

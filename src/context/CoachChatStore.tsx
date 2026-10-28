@@ -1,4 +1,5 @@
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useMemo, createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
 import { translate as tr } from '../locales/i18n';
 import { AppState, DeviceEventEmitter } from 'react-native';
 import { chatApi, planApi, socialApi } from '../services/apiServices';
@@ -1074,31 +1075,15 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     };
   }, [isAuthenticated]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ setChatActive, markAsRead, refreshMessages, sendMessage, resendMessage, clearHistory, acceptProposal, rejectProposal, acceptInvite, declineInvite, acceptConnection, declineConnection, checkin });
+  const contextValue = useMemo(
+    () => ({ messages, sending, loading, error, tokenUsage, unreadCount, isChatActive, ...stableFns }),
+    [messages, sending, loading, error, tokenUsage, unreadCount, isChatActive, stableFns]
+  );
+
   return (
-    <CoachChatContext.Provider
-      value={{
-        messages,
-        sending,
-        loading,
-        error,
-        tokenUsage,
-        unreadCount,
-        isChatActive,
-        setChatActive,
-        markAsRead,
-        refreshMessages,
-        sendMessage,
-        resendMessage,
-        clearHistory,
-        acceptProposal,
-        rejectProposal,
-        acceptInvite,
-        declineInvite,
-        acceptConnection,
-        declineConnection,
-        checkin,
-      }}
-    >
+    <CoachChatContext.Provider value={contextValue}>
       {children}
     </CoachChatContext.Provider>
   );

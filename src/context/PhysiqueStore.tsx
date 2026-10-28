@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { useMemo, useRef, createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
+import { keepIfSame } from '../utils/keepIfSame';
 import { translate as tr } from '../locales/i18n';
 import { PhysiqueEntry, NutritionProtocol } from '../types/physique';
 import { physiqueApi } from '../services/apiServices';
@@ -38,9 +40,13 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Placeholder only while empty (see PlanStore).
+  const hasLogsRef = useRef(false);
+  hasLogsRef.current = physiqueLogs.length > 0;
+
   const refreshPhysique = React.useCallback(async () => {
     if (!isAuthenticated) return;
-    setLoading(true);
+    if (!hasLogsRef.current) setLoading(true);
     try {
       const [logsData, nutritionData] = await Promise.allSettled([
         physiqueApi.getPhysiqueLogs(),
@@ -49,7 +55,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
       if (!aiEnabled) setNutrition(defaultNutrition);
 
       if (logsData.status === 'fulfilled' && Array.isArray(logsData.value) && logsData.value.length > 0) {
-        setPhysiqueLogs(logsData.value);
+        setPhysiqueLogs(keepIfSame(logsData.value));
       }
 
       if (nutritionData.status === 'fulfilled' && nutritionData.value) {
@@ -76,7 +82,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
         const rawTiming = suggested.timing || p.timing || suggested.fueling_schedule || p.fueling_schedule;
         const timing = Array.isArray(rawTiming) ? rawTiming : undefined;
 
-        setNutrition({
+        setNutrition(keepIfSame<NutritionProtocol>({
           focusTitle: suggested.title || p.title || p.focusTitle || tr('coachStore.nutritionTitle'),
           rationale: suggested.rationale || p.rationale || tr('coachStore.nutritionRationale'),
           carbs: carbsTarget,
@@ -90,7 +96,7 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
           loggedFat,
           loggedItems,
           timing,
-        });
+        }));
       }
       setError(null);
     } catch (err: any) {
@@ -137,18 +143,15 @@ export const PhysiqueStore: React.FC<{ children: ReactNode }> = ({ children }) =
     refreshPhysique();
   }, [isAuthenticated, refreshPhysique]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ refreshPhysique, logPhysique, clearLoggedNutrition });
+  const contextValue = useMemo(
+    () => ({ physiqueLogs, nutrition, loading, error, ...stableFns }),
+    [physiqueLogs, nutrition, loading, error, stableFns]
+  );
+
   return (
-    <PhysiqueContext.Provider
-      value={{
-        physiqueLogs,
-        nutrition,
-        loading,
-        error,
-        refreshPhysique,
-        logPhysique,
-        clearLoggedNutrition,
-      }}
-    >
+    <PhysiqueContext.Provider value={contextValue}>
       {children}
     </PhysiqueContext.Provider>
   );

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import React, { useCallback, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 

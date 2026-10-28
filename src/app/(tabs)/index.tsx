@@ -1,7 +1,10 @@
 import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+// React Navigation's own hooks: expo-router's versions subscribe to the navigation
+// state, which redrew this whole screen on every tab switch.
+import { useFocusEffect, useNavigation } from 'expo-router/react-navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -289,9 +292,10 @@ export default function PlanningHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      refreshPlan();
+      // After the tab slide, so drawing the fresh plan doesn't hold the slide back.
+      const refreshTimer = setTimeout(refreshPlan, 400);
       const currentMon = getMonday(new Date());
-      setWeekStart(currentMon);
+      setWeekStart((prev) => (prev.getTime() === currentMon.getTime() ? prev : currentMon));
       const todayIdx = (new Date().getDay() + 6) % 7;
       setSelectedDayIndex(todayIdx);
       pendingScrollIndexRef.current = todayIdx;
@@ -318,6 +322,7 @@ export default function PlanningHomeScreen() {
       }, 450);
 
       return () => {
+        clearTimeout(refreshTimer);
         clearTimeout(t1);
         clearTimeout(t2);
         clearTimeout(t3);

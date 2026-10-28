@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
 import { translate as tr } from '../locales/i18n';
 import { Platform, Alert } from 'react-native';
 import Purchases, {
@@ -216,27 +217,34 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
     await refreshUser?.();
   }, [refreshSubscription, refreshUser]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({
+    presentPaywall,
+    presentPaywallIfNeeded,
+    presentCustomerCenter,
+    presentCodeRedemptionSheet,
+    purchasePackage,
+    restorePurchases,
+    refreshSubscription,
+  });
+  const contextValue = useMemo(
+    () => ({
+      isSubscribed,
+      customerInfo,
+      currentOffering,
+      packages: {
+        monthly: monthlyPackage,
+        yearly: yearlyPackage,
+        all: availablePackages,
+      },
+      loading,
+      ...stableFns,
+    }),
+    [isSubscribed, customerInfo, currentOffering, monthlyPackage, yearlyPackage, availablePackages, loading, stableFns]
+  );
+
   return (
-    <SubscriptionContext.Provider
-      value={{
-        isSubscribed,
-        customerInfo,
-        currentOffering,
-        packages: {
-          monthly: monthlyPackage,
-          yearly: yearlyPackage,
-          all: availablePackages,
-        },
-        loading,
-        presentPaywall,
-        presentPaywallIfNeeded,
-        presentCustomerCenter,
-        presentCodeRedemptionSheet,
-        purchasePackage,
-        restorePurchases,
-        refreshSubscription,
-      }}
-    >
+    <SubscriptionContext.Provider value={contextValue}>
       {children}
     </SubscriptionContext.Provider>
   );

@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import {
   fetchTodayBiometricsFromServer,
   getCachedTodayBiometrics,
 } from '../../services/appleHealthService';
+import { keepIfSame } from '../../utils/keepIfSame';
 
 interface HomeRecoveryCardProps {
   /** Pre-fills the "ask your coach" field when recovery is low. */
@@ -59,8 +60,9 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
       Promise.all([fetchTodayBiometricsFromServer(), fetchRecentBiometricsFromServer(8)])
         .then(([todayRow, recentRows]) => {
           if (!active) return;
-          if (todayRow) setToday(todayRow);
-          setRecent(recentRows || []);
+          // Same numbers as last time: keep them, so the screen doesn't redraw on every visit.
+          if (todayRow) setToday(keepIfSame<AppleHealthDailyBiometrics | null>(todayRow));
+          setRecent(keepIfSame(recentRows || []));
         })
         .catch(() => {});
       return () => {

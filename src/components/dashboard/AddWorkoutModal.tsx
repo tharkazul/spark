@@ -23,6 +23,7 @@ import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
 import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
+import { calculateWorkoutDurationMinutes } from '../../utils/format';
 import { WorkoutStructureBar } from './WorkoutStructureBar';
 import { QuickBuildModal } from './QuickBuildModal';
 import { DeviceSyncChip } from './DeviceSyncChip';
@@ -264,6 +265,11 @@ export function AddWorkoutModal({
       if (initialWorkout.steps && initialWorkout.steps.length > 0) {
         setSteps(ensureStepIds(initialWorkout.steps));
         setCustomRooka(initialWorkout.rookaPoints || null);
+      } else if (sp === 'STRENGTH' || sp === 'MOBILITY') {
+        // The template (one goblet squat set between warm-up and cool-down) would pass
+        // for the coach's session. Start empty and say so instead.
+        setSteps([]);
+        setCustomRooka(initialWorkout.rookaPoints || null);
       } else {
         const scaled = scaleStepsForDuration(parsedDur, [], sp);
         setSteps(ensureStepIds(scaled));
@@ -288,7 +294,12 @@ export function AddWorkoutModal({
     setCustomRooka(calculateWbRooka(scaled, selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY', selectedSport));
   };
 
-  const computedRooka = calculateRookaPoints(selectedSport, durationMinutes, steps);
+  // What the steps add up to, as everywhere else in the app (reps and sets don't stretch
+  // with the duration chips). Without steps, the chosen duration stands.
+  const stepsMinutes = steps.length > 0 ? calculateWorkoutDurationMinutes({ sport: selectedSport, steps_json: steps }) : 0;
+  const shownDuration = stepsMinutes > 0 ? stepsMinutes : durationMinutes;
+
+  const computedRooka = calculateRookaPoints(selectedSport, shownDuration, steps);
   const calculatedRooka = customRooka !== null ? customRooka : computedRooka;
 
   const handleSportSelect = (sport: SportType) => {
@@ -308,7 +319,7 @@ export function AddWorkoutModal({
         dateStr: initialWorkout?.dateStr || targetDateStr,
         type: selectedSport,
         title: finalTitle,
-        duration: `${durationMinutes} mins`,
+        duration: `${shownDuration} mins`,
         rookaPoints: calculatedRooka,
         isStructured: steps.length > 0,
         steps,
@@ -437,15 +448,19 @@ export function AddWorkoutModal({
                 {t('dashboard.structurePreview', 'STRUCTURE PREVIEW')}
               </Text>
               <Text className="text-xs font-semibold text-theme-muted font-rajdhani tabular-nums">
-                {durationMinutes} min
+                {shownDuration} min
               </Text>
             </View>
             <WorkoutStructureBar steps={steps} className="my-0" />
           </View>
         )}
+
+        {steps.length === 0 && !isReadOnly && (selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY') && (
+          <Text className="text-xs text-theme-muted">{t('addWorkoutExtra.noExercisesYet')}</Text>
+        )}
       </View>
     ),
-    [selectedSport, title, durationMinutes, calculatedRooka, steps, isReadOnly, t, theme]
+    [selectedSport, title, durationMinutes, shownDuration, calculatedRooka, steps, isReadOnly, t, theme]
   );
 
   if (!showModal) return null;
@@ -633,7 +648,7 @@ export function AddWorkoutModal({
               <View className="flex-row items-center gap-4">
                 <StatValue
                   label={t('dashboard.durationLabel', 'DURATION')}
-                  value={durationMinutes}
+                  value={shownDuration}
                   unit="min"
                   size="sm"
                 />

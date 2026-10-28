@@ -19,9 +19,40 @@ db.run(`CREATE TABLE IF NOT EXISTS exercise_cues (
   name_key TEXT NOT NULL,
   lang TEXT NOT NULL,
   cues_json TEXT NOT NULL,
+  youtube_video_id TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (name_key, lang)
 )`);
+db.run(`ALTER TABLE exercise_cues ADD COLUMN youtube_video_id TEXT`, () => {});
+
+async function findYoutubeVideoId(exerciseName) {
+  try {
+    const q = encodeURIComponent(`${exerciseName} exercise form tutorial`);
+    const res = await fetch(`https://www.youtube.com/results?search_query=${q}`, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const matches = [...html.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)].map((m) => m[1]);
+    const unique = [...new Set(matches)].slice(0, 5);
+    for (const id of unique) {
+      try {
+        const oembed = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${id}&format=json`, {
+          signal: AbortSignal.timeout(2500),
+        });
+        if (oembed.ok) return id;
+      } catch (_) {}
+    }
+    return unique[0] || null;
+  } catch (e) {
+    console.warn("[ExerciseCues] youtube search failed:", e.message);
+    return null;
+  }
+}
 
 router.get("/api/season", authenticateToken, userLimits.heavyRead, async (req, res) => {
   try {
@@ -69,28 +100,53 @@ router.get("/api/exercises/cues", authenticateToken, userLimits.exerciseCues, as
   const key = name.toLowerCase().replace(/\s+/g, " ");
 
   const cached = await new Promise((resolve) =>
-    db.get(`SELECT cues_json FROM exercise_cues WHERE name_key = ? AND lang = ?`, [key, lang], (err, row) => resolve(err ? null : row))
+    db.get(`SELECT cues_json, youtube_video_id FROM exercise_cues WHERE name_key = ? AND lang = ?`, [key, lang], (err, row) => resolve(err ? null : row))
   );
   if (cached) {
     try {
-      return res.json({ cues: JSON.parse(cached.cues_json), cached: true });
+      let youtubeVideoId = cached.youtube_video_id || null;
+      if (!youtubeVideoId) {
+        // Also check if another language already resolved the videoId for this exercise
+        const anyVideoRow = await new Promise((resolve) =>
+          db.get(`SELECT youtube_video_id FROM exercise_cues WHERE name_key = ? AND youtube_video_id IS NOT NULL LIMIT 1`, [key], (err, row) => resolve(err ? null : row))
+        );
+        youtubeVideoId = anyVideoRow?.youtube_video_id || (await findYoutubeVideoId(name));
+        if (youtubeVideoId) {
+          db.run(`UPDATE exercise_cues SET youtube_video_id = ? WHERE name_key = ?`, [youtubeVideoId, key]);
+        }
+      }
+      return res.json({ cues: JSON.parse(cached.cues_json), youtubeVideoId, cached: true });
     } catch (_) {}
   }
-  if (!(await hasAiConsent(req.user.id))) return res.json({ cues: null, code: "AI_CONSENT_REQUIRED" });
+
+  const existingVideoRow = await new Promise((resolve) =>
+    db.get(`SELECT youtube_video_id FROM exercise_cues WHERE name_key = ? AND youtube_video_id IS NOT NULL LIMIT 1`, [key], (err, row) => resolve(err ? null : row))
+  );
+  const videoPromise = existingVideoRow?.youtube_video_id
+    ? Promise.resolve(existingVideoRow.youtube_video_id)
+    : findYoutubeVideoId(name);
+
+  if (!(await hasAiConsent(req.user.id))) {
+    const youtubeVideoId = await videoPromise;
+    return res.json({ cues: null, youtubeVideoId, code: "AI_CONSENT_REQUIRED" });
+  }
 
   try {
-    const raw = await generateWithFallback(
-      `Exercise: "${name}"`,
-      `You write form cues for amateur athletes. ${i18n.languageDirective(lang)}
+    const [raw, youtubeVideoId] = await Promise.all([
+      generateWithFallback(
+        `Exercise: "${name}"`,
+        `You write form cues for amateur athletes. ${i18n.languageDirective(lang)}
 Return ONLY JSON: {"setup": "one short sentence on the starting position", "cues": ["3 short cues, max 12 words each"], "mistake": "the most common mistake, one short sentence"}.
 If the name is not a real exercise, return {"setup": "", "cues": [], "mistake": ""}.`,
-      null,
-      null,
-      req.user.id,
-      "common",
-      true,
-      { language: lang }
-    );
+        null,
+        null,
+        req.user.id,
+        "common",
+        true,
+        { language: lang }
+      ),
+      videoPromise,
+    ]);
     const parsed = typeof raw === "string" ? JSON.parse(raw.replace(/^```json\s*|```$/g, "").trim()) : raw;
     const cues = {
       setup: String(parsed.setup || ""),
@@ -98,12 +154,16 @@ If the name is not a real exercise, return {"setup": "", "cues": [], "mistake": 
       mistake: String(parsed.mistake || ""),
     };
     if (cues.cues.length > 0) {
-      db.run(`INSERT OR REPLACE INTO exercise_cues (name_key, lang, cues_json) VALUES (?, ?, ?)`, [key, lang, JSON.stringify(cues)]);
+      db.run(
+        `INSERT OR REPLACE INTO exercise_cues (name_key, lang, cues_json, youtube_video_id) VALUES (?, ?, ?, ?)`,
+        [key, lang, JSON.stringify(cues), youtubeVideoId]
+      );
     }
-    res.json({ cues });
+    res.json({ cues, youtubeVideoId });
   } catch (e) {
     console.warn("[ExerciseCues] failed:", e.message);
-    res.json({ cues: null });
+    const youtubeVideoId = await videoPromise.catch(() => null);
+    res.json({ cues: null, youtubeVideoId });
   }
 });
 

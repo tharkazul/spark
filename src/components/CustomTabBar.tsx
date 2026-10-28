@@ -1,5 +1,6 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  InteractionManager,
   View,
   Text,
   useColorScheme,
@@ -84,6 +85,23 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
   const canEdit = canEditWorkouts(user?.subscription_tier, isSubscribed);
   const { progress } = useKeyboardMotionContext();
   const { t } = useLanguage();
+
+  // Build the other tabs one at a time in the quiet seconds after start, rather than
+  // during a tab tap: building the chat in the same frame held the slide back ~0.5 s.
+  useEffect(() => {
+    let cancelled = false;
+    const timers = ['physique', 'coach', 'profile', 'social'].map((name, i) =>
+      setTimeout(() => {
+        InteractionManager.runAfterInteractions(() => {
+          if (!cancelled) (navigation as any).preload?.(name);
+        });
+      }, 1500 + i * 700)
+    );
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
+  }, [navigation]);
 
   const lastTapTimeRef = useRef(0);
   const isTransitioningRef = useRef(false);

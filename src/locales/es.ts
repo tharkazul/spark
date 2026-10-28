@@ -1659,6 +1659,7 @@ export const es: TranslationKeys = {
     markResolved: "Marcar como resuelta",
   },
   addWorkoutExtra: {
+    noExercisesYet: "Aún no hay ejercicios. Añádelos abajo o toca Crear con rooka.",
     defaultTitle: "Entrenamiento de {sport}",
     syncFailed: "Error al sincronizar",
     watchSyncFailedTitle: "Error al sincronizar con Apple Watch",

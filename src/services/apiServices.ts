@@ -618,7 +618,9 @@ export const seasonApi = {
   createRacePlan: () => apiClient<{ success: boolean; racePlan: RacePlan }>('/api/season/race-plan', { method: 'POST' }),
   getAchievements: () => apiClient<{ achievements: Achievement[] }>('/api/achievements'),
   getExerciseCues: (name: string) =>
-    apiClient<{ cues: ExerciseCues | null; code?: string }>(`/api/exercises/cues?name=${encodeURIComponent(name)}`),
+    apiClient<{ cues: ExerciseCues | null; youtubeVideoId?: string | null; code?: string }>(
+      `/api/exercises/cues?name=${encodeURIComponent(name)}`
+    ),
 };
 
 export const factsApi = {

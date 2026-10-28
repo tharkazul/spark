@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { useMemo, createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
+import { keepIfSame } from '../utils/keepIfSame';
 import { Quest, UserTitle } from '../types/gamification';
 import { gamificationApi } from '../services/apiServices';
 import { wsService } from '../services/websocket';
@@ -30,12 +32,16 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
   const hasFreshServerDataRef = useRef<boolean>(false);
   const userId = user?.id;
 
+  const hasQuestsRef = useRef(false);
+  hasQuestsRef.current = quests.length > 0;
+
   const refreshGamification = React.useCallback(async () => {
     if (!isAuthenticated) return;
     if (!canAccessQuests(user?.subscription_tier)) {
       setQuests([]);
     }
-    setLoading(true);
+    // Placeholder only while empty (see PlanStore).
+    if (!hasQuestsRef.current) setLoading(true);
     try {
       const data = await gamificationApi.getGamificationData();
       let normalizedQuests: Quest[] = [];
@@ -54,13 +60,13 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
           };
         });
         hasFreshServerDataRef.current = true;
-        setQuests(normalizedQuests);
+        setQuests(keepIfSame(normalizedQuests));
       } else if (!canAccessQuests(user?.subscription_tier)) {
         setQuests([]);
       }
       const fetchedTitles = (data && data.titles) || [];
       if (data && data.titles) {
-        setTitles(fetchedTitles);
+        setTitles(keepIfSame(fetchedTitles));
       }
       gamificationStorage.setGamification(
         { quests: normalizedQuests, titles: fetchedTitles },
@@ -204,19 +210,15 @@ export const GamificationStore: React.FC<{ children: ReactNode }> = ({ children 
     };
   }, [isAuthenticated, userId, user?.subscription_tier, refreshGamification]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ refreshGamification, generateQuest, swapQuest, claimQuest });
+  const contextValue = useMemo(
+    () => ({ quests, titles, loading, error, ...stableFns }),
+    [quests, titles, loading, error, stableFns]
+  );
+
   return (
-    <GamificationContext.Provider
-      value={{
-        quests,
-        titles,
-        loading,
-        error,
-        refreshGamification,
-        generateQuest,
-        swapQuest,
-        claimQuest,
-      }}
-    >
+    <GamificationContext.Provider value={contextValue}>
       {children}
     </GamificationContext.Provider>
   );

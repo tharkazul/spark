@@ -1659,6 +1659,7 @@ export const nl: TranslationKeys = {
     markResolved: "Markeren als hersteld",
   },
   addWorkoutExtra: {
+    noExercisesYet: "Nog geen oefeningen. Voeg ze hieronder toe, of tik op Bouw met rooka.",
     defaultTitle: "Training: {sport}",
     syncFailed: "Synchroniseren mislukt",
     watchSyncFailedTitle: "Apple Watch-synchronisatie mislukt",

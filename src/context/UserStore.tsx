@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { useMemo, createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
 import { UserProfile } from '../types/user';
 import { userApi, authApi } from '../services/apiServices';
 import { ApiError, setAuthToken, setOnUnauthorizedHandler, setOnRateLimitHandler } from '../services/apiClient';
@@ -563,26 +564,15 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     };
   }, [isAuthenticated]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ login, register, loginWithToken, loginWithApple, loginWithGoogle, resetPassword, logout, refreshUser, updateUser, trackRookaPlus, setAiConsent });
+  const contextValue = useMemo(
+    () => ({ user, isAuthenticated, loading, error, ...stableFns }),
+    [user, isAuthenticated, loading, error, stableFns]
+  );
+
   return (
-    <UserContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        loading,
-        error,
-        login,
-        register,
-        loginWithToken,
-        loginWithApple,
-        loginWithGoogle,
-        resetPassword,
-        logout,
-        refreshUser,
-        updateUser,
-        trackRookaPlus,
-        setAiConsent,
-      }}
-    >
+    <UserContext.Provider value={contextValue}>
       {children}
     </UserContext.Provider>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, RefreshControl, Pressable, DeviceEventEmitter } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router/react-navigation';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,

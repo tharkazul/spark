@@ -1659,6 +1659,7 @@ export const de: TranslationKeys = {
     markResolved: "Als ausgeheilt markieren",
   },
   addWorkoutExtra: {
+    noExercisesYet: "Noch keine Übungen. Füge sie unten hinzu oder tippe auf Mit rooka erstellen.",
     defaultTitle: "Training: {sport}",
     syncFailed: "Synchronisierung fehlgeschlagen",
     watchSyncFailedTitle: "Apple-Watch-Synchronisierung fehlgeschlagen",

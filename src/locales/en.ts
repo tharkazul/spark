@@ -1657,6 +1657,7 @@ export const en = {
     markResolved: "Mark as Resolved",
   },
   addWorkoutExtra: {
+    noExercisesYet: "No exercises yet. Add them below, or tap Build with rooka.",
     defaultTitle: "{sport} Workout",
     syncFailed: "Sync failed",
     watchSyncFailedTitle: "Apple Watch Sync Failed",

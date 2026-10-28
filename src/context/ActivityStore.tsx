@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { useMemo, createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
+import { keepIfSame } from '../utils/keepIfSame';
 import { translate as tr } from '../locales/i18n';
 import { Activity } from '../types/activity';
 import { activitiesApi } from '../services/apiServices';
@@ -30,14 +32,18 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
   const hasFreshServerDataRef = useRef<boolean>(false);
   const userId = user?.id;
 
+  // Placeholder only while empty (see PlanStore).
+  const hasActivitiesRef = useRef(false);
+  hasActivitiesRef.current = activities.length > 0;
+
   const refreshActivities = React.useCallback(async () => {
     if (!isAuthenticated) return;
-    setLoading(true);
+    if (!hasActivitiesRef.current) setLoading(true);
     try {
       const data = await activitiesApi.getActivities();
       if (data && Array.isArray(data)) {
         hasFreshServerDataRef.current = true;
-        setActivities(data);
+        setActivities(keepIfSame(data));
         activityStorage.setActivities(data, userId).catch(() => {});
       }
       setError(null);
@@ -198,19 +204,15 @@ export const ActivityStore: React.FC<{ children: ReactNode }> = ({ children }) =
     };
   }, [isAuthenticated, userId, refreshActivities]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ refreshActivities, syncGarmin, syncStrava, syncSuunto, addManualActivity });
+  const contextValue = useMemo(
+    () => ({ activities, loading, error, ...stableFns }),
+    [activities, loading, error, stableFns]
+  );
+
   return (
-    <ActivityContext.Provider
-      value={{
-        activities,
-        loading,
-        error,
-        refreshActivities,
-        syncGarmin,
-        syncStrava,
-        syncSuunto,
-        addManualActivity,
-      }}
-    >
+    <ActivityContext.Provider value={contextValue}>
       {children}
     </ActivityContext.Provider>
   );

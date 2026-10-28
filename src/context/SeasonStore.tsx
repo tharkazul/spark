@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
+import { keepIfSame } from '../utils/keepIfSame';
 import { AppState } from 'react-native';
 
 import { seasonApi } from '../services/apiServices';
@@ -38,14 +40,18 @@ export const SeasonStore: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [loaded, setLoaded] = useState(false);
   const inFlight = useRef(false);
 
+  const hasDataRef = useRef(false);
+  hasDataRef.current = data != null;
+
   const refresh = useCallback(async () => {
     if (!isAuthenticated || !userId || inFlight.current) return;
     inFlight.current = true;
-    setLoading(true);
+    // Placeholder only while empty (see PlanStore).
+    if (!hasDataRef.current) setLoading(true);
     try {
       const res = await seasonApi.getSeason();
       if (res) {
-        setData(res);
+        setData(keepIfSame<SeasonResponse | null>(res));
         AsyncStorage.setItem(cacheKey(userId), JSON.stringify(res)).catch(() => {});
       }
     } catch (e: any) {
@@ -94,7 +100,11 @@ export const SeasonStore: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => sub.remove();
   }, [refresh]);
 
-  return <SeasonContext.Provider value={{ data, loading, loaded, refresh, createRacePlan }}>{children}</SeasonContext.Provider>;
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ refresh, createRacePlan });
+  const contextValue = useMemo(() => ({ data, loading, loaded, ...stableFns }), [data, loading, loaded, stableFns]);
+
+  return <SeasonContext.Provider value={contextValue}>{children}</SeasonContext.Provider>;
 };
 
 export const useSeason = () => useContext(SeasonContext);

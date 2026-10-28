@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AnatomicalBodyMap } from '../progress/AnatomicalBodyMap';
@@ -11,6 +11,14 @@ import { seasonApi } from '../../services/apiServices';
 import { ExerciseCues } from '../../types/season';
 import { bestViewFor, highlightPartsFor, musclesForExercise } from '../../domain/exerciseMuscles';
 
+let WebViewComponent: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    const mod = require('react-native-webview');
+    WebViewComponent = mod.WebView || mod.default || null;
+  } catch (_) {}
+}
+
 interface ExerciseInfoSheetProps {
   exerciseName: string | null;
   onClose: () => void;
@@ -18,15 +26,16 @@ interface ExerciseInfoSheetProps {
 
 /**
  * "What is a Bulgarian split squat?": the muscles it works on the body map,
- * three form cues and a link to a demo video. Cues are generated once per
- * exercise and language on the server (shared, not personal) and need AI consent
- * only the first time anyone asks.
+ * three form cues and an inline demo video. Cues and video ID are resolved once per
+ * exercise on the server (shared, not personal) and need AI consent
+ * only the first time anyone asks for cues.
  */
 export function ExerciseInfoSheet({ exerciseName, onClose }: ExerciseInfoSheetProps) {
   const { t, language } = useLanguage();
   const theme = useTheme();
   const { user } = useUser();
   const [cues, setCues] = useState<ExerciseCues | null>(null);
+  const [youtubeVideoId, setYoutubeVideoId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const muscles = useMemo(() => musclesForExercise(exerciseName), [exerciseName]);
@@ -34,12 +43,17 @@ export function ExerciseInfoSheet({ exerciseName, onClose }: ExerciseInfoSheetPr
 
   useEffect(() => {
     setCues(null);
+    setYoutubeVideoId(null);
     if (!exerciseName) return;
     let active = true;
     setLoading(true);
     seasonApi
       .getExerciseCues(exerciseName)
-      .then((res) => active && setCues(res?.cues && res.cues.cues.length ? res.cues : null))
+      .then((res) => {
+        if (!active) return;
+        setCues(res?.cues && res.cues.cues.length ? res.cues : null);
+        setYoutubeVideoId(res?.youtubeVideoId || null);
+      })
       .catch(() => {})
       .finally(() => active && setLoading(false));
     return () => {
@@ -48,15 +62,41 @@ export function ExerciseInfoSheet({ exerciseName, onClose }: ExerciseInfoSheetPr
   }, [exerciseName, language]);
 
   const openDemo = () => {
+    if (youtubeVideoId) {
+      Linking.openURL(`https://www.youtube.com/watch?v=${youtubeVideoId}`).catch(() => {});
+      return;
+    }
     const q = encodeURIComponent(`${exerciseName} exercise form`);
     Linking.openURL(`https://www.youtube.com/results?search_query=${q}`).catch(() => {});
   };
+
+  const embedHtml = useMemo(() => {
+    if (!youtubeVideoId) return '';
+    const embedUrl = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeVideoId)}?playsinline=1&rel=0&modestbranding=1`;
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; background: #000; }
+      html, body, iframe { width: 100%; height: 100%; border: 0; display: block; }
+    </style>
+  </head>
+  <body>
+    <iframe
+      src="${embedUrl}"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+      allowfullscreen
+    ></iframe>
+  </body>
+</html>`;
+  }, [youtubeVideoId]);
 
   const muscleNames = (list: string[]) => list.map((m) => t(`exercise.muscle_${m}`)).join(', ');
 
   return (
     <BottomSheetModal visible={Boolean(exerciseName)} onClose={onClose} showHandle>
-      <ScrollView style={{ maxHeight: 620 }} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ maxHeight: 660 }} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         <Text className="text-xl font-extrabold text-theme-text">{exerciseName}</Text>
 
         {muscles && highlight ? (
@@ -104,6 +144,31 @@ export function ExerciseInfoSheet({ exerciseName, onClose }: ExerciseInfoSheetPr
             <Text className="text-sm text-theme-muted">{user?.aiConsent === true ? t('exercise.cuesUnavailable') : t('exercise.cuesNeedAi')}</Text>
           )}
         </View>
+
+        {youtubeVideoId && (Platform.OS === 'web' || WebViewComponent) ? (
+          <View className="mt-3 rounded-inset overflow-hidden border border-theme-border bg-black" style={{ height: 200 }}>
+            {Platform.OS === 'web' ? (
+              React.createElement('iframe', {
+                src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeVideoId)}?playsinline=1&rel=0&modestbranding=1`,
+                style: { width: '100%', height: '100%', border: 'none' },
+                allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen',
+                allowFullScreen: true,
+              })
+            ) : (
+              <WebViewComponent
+                originWhitelist={['*']}
+                source={{ html: embedHtml, baseUrl: 'https://www.youtube-nocookie.com' }}
+                allowsInlineMediaPlayback
+                allowsFullscreenVideo
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled
+                domStorageEnabled
+                scrollEnabled={false}
+                style={{ flex: 1, backgroundColor: '#000' }}
+              />
+            )}
+          </View>
+        ) : null}
 
         <TouchableOpacity
           onPress={openDemo}

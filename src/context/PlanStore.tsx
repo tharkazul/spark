@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { useMemo, createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { useStableFns } from '../hooks/useStableFns';
+import { keepIfSame } from '../utils/keepIfSame';
 import { PlannedWorkout } from '../types/plan';
 import { planApi } from '../services/apiServices';
 import { useUser } from './UserStore';
@@ -31,14 +33,19 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const hasFreshServerDataRef = useRef<boolean>(false);
   const userId = user?.id;
 
+  // The loading flag only shows a placeholder while there is no plan yet; flipping it
+  // on every background refresh redrew every screen that uses the plan twice.
+  const hasPlanRef = useRef(false);
+  hasPlanRef.current = plan.length > 0;
+
   const refreshPlan = React.useCallback(async () => {
     if (!isAuthenticated) return;
-    setLoading(true);
+    if (!hasPlanRef.current) setLoading(true);
     try {
       const data = await planApi.getMicroPlan();
       if (data && Array.isArray(data)) {
         hasFreshServerDataRef.current = true;
-        setPlan(data);
+        setPlan(keepIfSame(data));
         planStorage.setPlan(data, userId).catch(() => {});
       }
       setError(null);
@@ -215,21 +222,15 @@ export const PlanStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     };
   }, [isAuthenticated, userId, refreshPlan]);
 
+  // One object per change of the data, not per render (see useStableFns).
+  const stableFns = useStableFns({ refreshPlan, addWorkout, updateWorkout, deleteWorkout, toggleComplete, adaptPlan, pushForward });
+  const contextValue = useMemo(
+    () => ({ plan, loading, error, ...stableFns }),
+    [plan, loading, error, stableFns]
+  );
+
   return (
-    <PlanContext.Provider
-      value={{
-        plan,
-        loading,
-        error,
-        refreshPlan,
-        addWorkout,
-        updateWorkout,
-        deleteWorkout,
-        toggleComplete,
-        adaptPlan,
-        pushForward,
-      }}
-    >
+    <PlanContext.Provider value={contextValue}>
       {children}
     </PlanContext.Provider>
   );
