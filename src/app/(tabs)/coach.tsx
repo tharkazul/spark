@@ -23,7 +23,8 @@ import {
   View,
   useColorScheme
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useKeyboardMotionContext } from '../../context/KeyboardMotionContext';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDisciplineConfig } from '../../utils/disciplineConfig';
 
@@ -377,6 +378,10 @@ export default function CoachScreen() {
   const { nutrition, clearLoggedNutrition } = usePhysique();
   const insets = useSafeAreaInsets();
   const { tabBarOccupied, notifyScrollEnd } = useTabBar();
+  // The screen reaches the bottom of the display, so the keyboard's full height is the
+  // room to leave. Same value that hides the tab bar, so the two can't disagree.
+  const { height: keyboardHeight } = useKeyboardMotionContext();
+  const keyboardRoomStyle = useAnimatedStyle(() => ({ paddingBottom: keyboardHeight.value }));
   const router = useRouter();
   const { quests, generateQuest: generateNewQuest, swapQuest: swapActiveQuest } = useGamification();
 
@@ -926,11 +931,7 @@ export default function CoachScreen() {
 
   return (
     <SafeAreaView className="flex-1 dark:bg-dark-canvas bg-neutral-50" edges={['top']}>
-      <KeyboardAvoidingView
-        behavior="padding"
-        keyboardVerticalOffset={0}
-        className="flex-1"
-      >
+      <Reanimated.View style={[{ flex: 1 }, keyboardRoomStyle]}>
         {/* Click-to-Expand Image Lightbox Modal */}
         <Modal
           visible={!!previewImage}
@@ -1694,7 +1695,7 @@ export default function CoachScreen() {
           </>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </Reanimated.View>
     </SafeAreaView>
   );
 }

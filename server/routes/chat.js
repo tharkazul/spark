@@ -47,6 +47,8 @@ const { getUserGoalPromptContext, getGoalDependentPromptContext } = require('../
 const { formatHrZonesForPrompt } = require('../services/athleteZones');
 const constraintsService = require('../services/athleteConstraints');
 const longTermMemory = require('../services/longTermMemory');
+
+const CHAT_HISTORY_LIMIT = 200;
 const {
   extractAndCleanFoodItems,
   matchGarminExercise,
@@ -171,9 +173,14 @@ router.get("/api/events", authenticateToken, (req, res) => {
 router.get("/api/chat/history", authenticateToken, async (req, res) => {
   // Athletes who joined before the consent card existed get it now.
   await ensureConsentPrompt(req.user.id);
+  // Only the recent part of the thread: the app downloads this every time the chat
+  // opens or a coach message arrives, and the full history made that slow.
   db.all(
-    `SELECT id, role, content, mood, timestamp, image_path, payload_json FROM chat_history WHERE user_id = ? ORDER BY id ASC`,
-    [req.user.id],
+    `SELECT * FROM (
+       SELECT id, role, content, mood, timestamp, image_path, payload_json FROM chat_history
+        WHERE user_id = ? ORDER BY id DESC LIMIT ?
+     ) ORDER BY id ASC`,
+    [req.user.id, CHAT_HISTORY_LIMIT],
     (err, rows) => {
       if (err)
         return res.status(500).json({ error: "Failed to load chat history." });

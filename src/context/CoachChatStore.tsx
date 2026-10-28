@@ -65,6 +65,12 @@ const splitProseParagraphs = (text: string): string[] => {
 // showed up three times and only the tapped copy updated after accepting.
 const hasCard = (m: any) => Boolean(m && m.payload_json);
 
+// What the chat shows of a message list: ids, text, cards and their state, photos.
+const chatSignature = (list: ChatMessage[]): string =>
+  list
+    .map((m: any) => `${m.id}|${m.content}|${JSON.stringify(m.payload_json ?? null)}|${m.proposalStatus ?? ''}|${(m.images || []).join(',')}`)
+    .join('\n');
+
 const splitCoachReply = (text?: string): string[] => {
   if (!text) return [];
   const parts = text
@@ -412,13 +418,38 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     };
   }, []);
 
-  const refreshMessages = useCallback(async () => {
+  // Opening the app from a notification fires several refreshes at once (app active,
+  // chat focus, websocket). They share one request, plus one more if asked again meanwhile.
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshAgainRef = useRef(false);
+
+  const refreshMessages = useCallback(async (): Promise<void> => {
     if (!isAuthenticated || !user?.id) return;
     if (sendingRef.current && isChatActiveRef.current && isAppActiveRef.current) {
       // User is actively in the chat screen sending/animating messages:
       // Do not interrupt and overwrite in-flight local bubbles!
       return;
     }
+    if (refreshInFlightRef.current) {
+      refreshAgainRef.current = true;
+      return refreshInFlightRef.current;
+    }
+    const run = (async () => {
+      do {
+        refreshAgainRef.current = false;
+        await fetchHistoryRef.current();
+      } while (refreshAgainRef.current);
+    })();
+    refreshInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      refreshInFlightRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.id]);
+
+  const fetchHistory = async () => {
     setLoading(true);
     try {
       const response = await chatApi.getHistory();
@@ -461,7 +492,11 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
             consentCardSeen = true;
             return true;
           });
-          setMessages(sorted);
+          // Nothing new: keep the current list, so the chat doesn't redraw every bubble
+          // and rewrite the stored copy on each refresh.
+          if (chatSignature(sorted) !== chatSignature(messagesRef.current)) {
+            setMessages(sorted);
+          }
 
           // Update typing indicator based on latest message
           const lastMsg = sorted[sorted.length - 1];
@@ -490,7 +525,9 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user?.id, processMessageItem, setMessages, setSending]);
+  };
+  const fetchHistoryRef = useRef(fetchHistory);
+  fetchHistoryRef.current = fetchHistory;
 
   // Synchronize chat messages, active status, and unread state across app state transitions
   useEffect(() => {
