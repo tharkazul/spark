@@ -175,7 +175,11 @@ async function processPushReceipts({ now = Date.now() } = {}) {
           await removeDeadToken(p.token);
           summary.removed++;
         } else {
-          console.warn("[Push] Push receipt error:", receipt.details?.error || receipt.message);
+          // Expo's message says what is wrong (credentials, a token from another build, ...);
+          // the code alone ("DeveloperError") doesn't.
+          const owner = await all(`SELECT user_id, device_type, created_at FROM push_tokens WHERE token = ?`, [p.token]);
+          const who = owner[0] ? `user ${owner[0].user_id}, ${owner[0].device_type} token from ${owner[0].created_at}` : "token no longer stored";
+          console.warn(`[Push] Push receipt error (${who}): ${receipt.details?.error || "unknown"} - ${receipt.message || "no message"}`);
         }
       }
       await run(`DELETE FROM push_receipts_pending WHERE ticket_id = ?`, [p.ticket_id]);
