@@ -1036,30 +1036,37 @@ Form (TSB): ${tsb}
 
 Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coaching summary of this week's focus, followed by the JSON block for Monday to Sunday.`;
 
+  // Why the last reply gave no plan; logged if the week falls back to the generic plan.
+  let planFailure = '';
+
   const callPlanner = async (prompt) => {
     try {
       return await generateWithFallback(prompt, systemPrompt, null, null, userId, poolType, false, { language: user.language });
     } catch (errAi) {
       console.warn(`[WeeklyPlan] AI generation warning for user ${userId}:`, errAi.message);
+      planFailure = `AI call failed: ${errAi.message}`;
       return '';
     }
   };
 
+  // Reads the 7-day array from the reply: a ```json block (also when the closing fence is
+  // missing or the block isn't tagged), or a bare array.
   const parsePlan = (reply) => {
-    let parsed = [];
-    const jsonMatch = reply ? reply.match(/```json([\s\S]*?)```/) : null;
-    if (jsonMatch) {
+    if (!reply) return [];
+    const fenced = reply.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/);
+    const candidates = [fenced && fenced[1], reply];
+    for (const text of candidates) {
+      if (!text) continue;
+      const start = text.indexOf('[');
+      const end = text.lastIndexOf(']');
+      if (start === -1 || end <= start) continue;
       try {
-        parsed = JSON.parse(jsonMatch[1]);
-      } catch (e) {
-        console.warn(`[WeeklyPlan] Failed to parse JSON block from AI reply for user ${userId}`);
-      }
-    } else if (reply && reply.trim().startsWith('[') && reply.trim().endsWith(']')) {
-      try {
-        parsed = JSON.parse(reply.trim());
+        const parsed = JSON.parse(text.slice(start, end + 1));
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {}
     }
-    return Array.isArray(parsed) ? parsed : [];
+    planFailure = `no readable plan in the reply (${reply.length} chars, ends with ${JSON.stringify(reply.slice(-80))})`;
+    return [];
   };
 
   // Filter and sanitize plan data; days agreed in chat are never replaced.
@@ -1094,9 +1101,19 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 
   let aiReply = await callPlanner(userPrompt);
   let planData = parsePlan(aiReply);
+  if (planData.length === 0) {
+    // One more try before the generic week: its sessions have no steps, so a strength day
+    // shows up without a single exercise.
+    console.warn(`[WeeklyPlan] No plan for user ${userId} (${planFailure}); asking again.`);
+    aiReply = await callPlanner(
+      `${userPrompt}\n\nYour previous answer could not be read. Reply with a short summary followed by the complete \`\`\`json block for all 7 days, and make sure the block is closed.`
+    );
+    planData = parsePlan(aiReply);
+  }
   const usedFallback = planData.length === 0;
   // Fallback to structured schedule if AI did not return a valid array
   if (usedFallback) {
+    console.error(`[WeeklyPlan] FALLBACK week for user ${userId}: ${planFailure}`);
     planData = buildFallbackPlan(dates, guessPrimarySport(user.athlete_context), user.language);
   }
   let sanitizedPlan = sanitize(planData);

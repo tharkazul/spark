@@ -5,6 +5,8 @@
  *
  *   node scripts/show-plan.js --user Tharaka                (this week and next)
  *   node scripts/show-plan.js --user Tharaka --from 2026-10-26 --to 2026-11-01
+ *   node scripts/show-plan.js --fallback-weeks             (every athlete whose weekly plan
+ *                                                           was the generic backup week)
  */
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env"), quiet: true });
@@ -22,8 +24,10 @@ const arg = (name) => {
   return i === -1 ? null : argv[i + 1];
 };
 const userArg = arg("user");
-if (!userArg) {
+const fallbackWeeks = argv.includes("--fallback-weeks");
+if (!userArg && !fallbackWeeks) {
   console.error("Usage: node scripts/show-plan.js --user <username or id> [--from YYYY-MM-DD] [--to YYYY-MM-DD]");
+  console.error("       node scripts/show-plan.js --fallback-weeks");
   process.exit(1);
 }
 const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
@@ -43,6 +47,19 @@ const countSteps = (json) => {
 };
 
 async function main() {
+  if (fallbackWeeks) {
+    // Monday of the generic week is "Aerobic Base Foundation" (or its translation).
+    const FALLBACK_MONDAY_TITLES = ["Aerobic Base Foundation", "Aerobe Basisduur", "Grundlagen-Dauerlauf", "Base Aeróbica", "Endurance Fondamentale"];
+    const rows = await all(
+      `SELECT u.username, m.user_id, m.date FROM micro_plan m JOIN users u ON u.id = m.user_id
+        WHERE m.origin = 'weekly_job' AND m.description IN (${FALLBACK_MONDAY_TITLES.map(() => "?").join(",")})
+        ORDER BY m.date DESC, u.username`,
+      FALLBACK_MONDAY_TITLES
+    );
+    for (const r of rows) console.log(`  week of ${r.date}  ${r.username} (#${r.user_id})`);
+    console.log(rows.length ? `\n${rows.length} generic week(s).` : "No generic weeks found.");
+    process.exit(0);
+  }
   const users = await all(
     `SELECT id, username FROM users WHERE deleted_at IS NULL AND (id = ? OR LOWER(username) LIKE LOWER(?))`,
     [userArg, `%${userArg}%`]
