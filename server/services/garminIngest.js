@@ -494,7 +494,13 @@ async function importDaily(userId, d) {
   // averageHeartRateInBeatsPerMinute is a 7-day average; the day's own comes from its samples.
   const samples = Object.values(d.timeOffsetHeartRateSamples || {}).map(pos).filter((v) => v !== null);
   const restingHr = pos(d.restingHeartRateInBeatsPerMinute);
-  const saved = await saveBiometrics(userId, d.calendarDate || localDate(d.startTimeInSeconds, d.startTimeOffsetInSeconds), {
+  const date = d.calendarDate || localDate(d.startTimeInSeconds, d.startTimeOffsetInSeconds);
+  // Logged so we can see how much Garmin revises a day's resting HR after the morning message used it.
+  const before = restingHr === null ? null : await dbGet(`SELECT resting_hr FROM biometrics WHERE user_id = ? AND date = ?`, [userId, date]);
+  if (before && before.resting_hr && before.resting_hr !== restingHr) {
+    console.log(`[Garmin] resting HR for user ${userId} on ${date} revised: ${before.resting_hr} -> ${restingHr}`);
+  }
+  const saved = await saveBiometrics(userId, date, {
     steps: num(d.steps),
     active_calories: num(d.activeKilocalories),
     resting_hr: restingHr,

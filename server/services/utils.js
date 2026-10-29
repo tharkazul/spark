@@ -3624,7 +3624,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   // 5b. Load recent biometrics (Sleep, HRV, Resting HR from Apple Health / Garmin) for trends & pattern recognition
   const recentBiometrics = await new Promise((resolve) => {
     db.all(
-      `SELECT date, resting_hr, avg_hr, hrv_sdnn, hrv_rmssd, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, sleep_awake_minutes, steps, active_calories, vo2_max 
+      `SELECT date, resting_hr, avg_hr, hrv_sdnn, hrv_rmssd, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, sleep_awake_minutes, steps, active_calories, vo2_max, from_garmin 
        FROM biometrics WHERE user_id = ? ORDER BY date DESC LIMIT 8`,
       [userId],
       (err, rows) => resolve(err || !rows ? [] : rows)
@@ -3639,6 +3639,9 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     const latestRHRBio = recentBiometrics.find(b => b.resting_hr) || null;
     const latestHRVBio = recentBiometrics.find(b => b.hrv_rmssd || b.hrv_sdnn) || null;
     const asOf = (bio) => (bio.date === todayStr ? 'this morning' : `from ${bio.date}, today's reading has not synced yet`);
+    // Garmin revises the day's resting HR as the day goes on (a 07:00 message said 55, the card
+    // showed 51 by 09:25), so this morning's number isn't final and an "up/down" built on it is noise.
+    const rhrProvisional = !!(latestRHRBio && latestRHRBio.date === todayStr && latestRHRBio.from_garmin);
 
     const parts = [];
     let avgSleepMinsVal = null;
@@ -3667,8 +3670,10 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     }
 
     if (latestRHRBio && latestRHRBio.resting_hr) {
-      let rhrStr = `Resting HR: ${latestRHRBio.resting_hr} bpm (${asOf(latestRHRBio)})`;
-      if (avgRhrVal !== null) {
+      let rhrStr = rhrProvisional
+        ? `Resting HR: ${latestRHRBio.resting_hr} bpm (provisional: Garmin revises today's resting HR during the day, so don't quote it or read a trend into it)`
+        : `Resting HR: ${latestRHRBio.resting_hr} bpm (${asOf(latestRHRBio)})`;
+      if (avgRhrVal !== null && !rhrProvisional) {
         const delta = Math.round((latestRHRBio.resting_hr - avgRhrVal) * 10) / 10;
         if (delta >= 2.5) rhrStr += ` (Elevated by +${delta} bpm vs 7-day baseline of ${Math.round(avgRhrVal)} bpm - acute recovery strain)`;
         else if (delta <= -2.5) rhrStr += ` (Favorable: -${Math.abs(delta)} bpm below 7-day baseline of ${Math.round(avgRhrVal)} bpm - well recovered)`;
@@ -3687,7 +3692,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     if (yesterdayActs.length > 0) {
       const actSummary = yesterdayActs.map(a => `"${a.name}" (${a.sport_type || 'Workout'}, ${a.moving_time_min || 0}m)`).join(", ");
       workoutVsRestPattern = `YESTERDAY TRAINING LOAD: Athlete completed ${actSummary}. `;
-      if (latestRHRBio && latestRHRBio.date === todayStr && avgRhrVal !== null && latestRHRBio.resting_hr > avgRhrVal + 2) {
+      if (latestRHRBio && latestRHRBio.date === todayStr && !rhrProvisional && avgRhrVal !== null && latestRHRBio.resting_hr > avgRhrVal + 2) {
         workoutVsRestPattern += `Their resting HR is elevated following yesterday's workout (+${Math.round((latestRHRBio.resting_hr - avgRhrVal) * 10) / 10} bpm), confirming their cardiovascular system is actively absorbing that training load. `;
       }
     } else {
