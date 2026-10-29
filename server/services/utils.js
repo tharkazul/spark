@@ -776,6 +776,33 @@ function stravaLapsJson(data) {
 }
 
 /**
+ * laps_json (Strava or Garmin) as one prompt line, numbered so the coach can name a rep:
+ * "1. 2.0km 5:31/km 138bpm; 2. 0.2km 2:00 121bpm; ...". A lap that barely moved (a standing
+ * rest) shows its elapsed time instead of a pace. "" when there are no laps.
+ */
+function formatLapsForPrompt(lapsJson) {
+  let laps;
+  try {
+    laps = JSON.parse(lapsJson || "[]");
+  } catch {
+    return "";
+  }
+  if (!Array.isArray(laps) || laps.length === 0) return "";
+  const mmss = (secs) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
+  return laps
+    .map((l, i) => {
+      const km = (Number(l.distance) || 0) / 1000;
+      const effort =
+        l.average_speed > 0 && km >= 0.1
+          ? `${mmss(1000 / l.average_speed)}/km`
+          : mmss(l.elapsed_time || l.moving_time || 0);
+      const hr = l.average_heartrate ? ` ${Math.round(l.average_heartrate)}bpm` : "";
+      return `${i + 1}. ${km.toFixed(km >= 0.1 ? 1 : 2)}km ${effort}${hr}`;
+    })
+    .join("; ");
+}
+
+/**
  * Strava's best efforts for a run (400m, 1k, 1 mile, 5k, ...), as stored in
  * sets_json. pr_rank is Strava's all-time ranking when it was fetched: 1 is a
  * PR, 2 and 3 the athlete's second and third best, null otherwise. Strava only
@@ -1286,7 +1313,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
   return new Promise((resolve) => {
     // Check if activity was already analyzed
     db.get(
-      `SELECT id, coach_analyzed FROM activities WHERE user_id = ? AND (strava_activity_id = ? OR id = ?)`,
+      `SELECT id, coach_analyzed, laps_json, average_heartrate, max_heartrate, average_watts FROM activities WHERE user_id = ? AND (strava_activity_id = ? OR id = ?)`,
       [internalUserId, String(activityId), String(activityId)],
       async (err, actRow) => {
         if (actRow && actRow.coach_analyzed === 1) {
@@ -1329,7 +1356,29 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                 };
                 const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith("nl") ? "Dutch (Nederlands)" : "English");
 
-                let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". Actual execution: ${distanceKm > 0 ? `${distanceKm.toFixed(1)}km, ` : ""}${Math.round(movingTimeMin)} minutes (training load: ~${Math.round(rookaScore)} rooka). `;
+                // The stored row has the laps and heart rate whichever source it came from; Strava's
+                // webhook passes its raw activity, whose laps still need converting.
+                const lapsLine = formatLapsForPrompt(
+                  actRow?.laps_json || activityData.laps_json || (activityData.laps ? stravaLapsJson(activityData) : ""),
+                );
+                const avgHr = Number(actRow?.average_heartrate || activityData.average_heartrate) || 0;
+                const maxHr = Number(actRow?.max_heartrate || activityData.max_heartrate) || 0;
+                const avgWatts = Number(actRow?.average_watts || activityData.average_watts) || 0;
+                const paceSecs = distanceKm > 0 && movingTimeMin > 0 && /run|walk|hike/i.test(rookaSport) ? Math.round((movingTimeMin * 60) / distanceKm) : 0;
+                const overallPace = paceSecs ? `, ${Math.floor(paceSecs / 60)}:${String(paceSecs % 60).padStart(2, "0")}/km` : "";
+
+                let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". Actual execution: ${distanceKm > 0 ? `${distanceKm.toFixed(1)}km, ` : ""}${Math.round(movingTimeMin)} minutes${overallPace}` +
+                  `${avgHr ? `, avg HR ${Math.round(avgHr)}bpm` : ""}${maxHr ? `, max HR ${Math.round(maxHr)}bpm` : ""}${avgWatts ? `, avg ${Math.round(avgWatts)}W` : ""}` +
+                  ` (training load: ~${Math.round(rookaScore)} rooka).\n` +
+                  (lapsLine ? `Laps as recorded by the watch (distance, pace or duration, avg HR): ${lapsLine}\n` : "");
+
+                // The first message should already say how it went; the athlete shouldn't have to
+                // ask "but how did the reps actually go?" to get the real review.
+                const reviewRules =
+                  `Write the review the way a coach who just looked at the file would text it, in your persona tone (${tone}): 2-4 sentences.\n` +
+                  `- Be specific: name the numbers that matter${lapsLine ? " (which reps held the target pace, where pace dropped or heart rate drifted, how the recoveries looked)" : " (pace, heart rate, duration against the plan)"}.\n` +
+                  `- End with one concrete takeaway for next time.\n` +
+                  `- Only claim what the data shows. No generic praise, no guesses about things the data can't tell you.\n`;
 
                 if (plan) {
                   let stepsContent = formatStepsForStrava(plan.steps_json);
@@ -1339,13 +1388,14 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                       ? plan.details
                       : plan.description;
                   prompt += `The planned workout for today was: "${workoutContent}" (estimated training load: ~${Math.round(plan.target_rooka || 0)} rooka).\n` +
-                    `Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}).\n` +
+                    reviewRules +
                     `COACHING EVALUATION HIERARCHY:\n` +
                     `- Execution & consistency first: Did they complete the session, duration, distance, and structure? If they completed the workout, celebrate their consistency and effort.\n` +
                     `- Effort & pacing discipline: On easy, recovery, or Zone 2 workouts, lower heart rate and lower rooka points indicate EXCELLENT pacing discipline (keeping the effort easy and controlled, not overcooking it). On interval sessions, focus on whether the work was done.\n` +
                     `- Rooka points are an estimated load metric, NOT a pass/fail grade: Do NOT roast, scold, or critique the athlete for earning fewer rooka points if they did the session. Only offer constructive guidance if they significantly bailed early or turned an easy recovery session into an all-out race.`;
                 } else {
-                  prompt += `This was an unplanned activity. Give a short, 1-2 sentence coach reaction based on your persona tone (${tone}), acknowledging the extra volume while keeping their recovery in mind.`;
+                  prompt += `This was an unplanned activity.\n` + reviewRules +
+                    `Acknowledge the extra volume while keeping their recovery in mind.`;
                 }
 
                 // Quest evaluation (paid tiers only)
@@ -1377,7 +1427,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                   }
                 }
 
-                prompt += ` CRITICAL LANGUAGE MANDATE: You MUST write your coach reaction fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! Keep it under 3 sentences. DO NOT wrap it in JSON.`;
+                prompt += ` CRITICAL LANGUAGE MANDATE: You MUST write your coach reaction fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! Keep it to 4 sentences at most. DO NOT wrap it in JSON.`;
 
                 const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${tone}. ${userRow?.coach_context ? `Coach Custom Context: ${userRow.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}. ${PLAIN_LANGUAGE_RULE}`;
 
@@ -3385,6 +3435,7 @@ module.exports = {
   stravaLapsJson,
   stravaBestEfforts,
   formatStepsForStrava,
+  formatLapsForPrompt,
   summarizeStepsForStrava,
   tagStravaActivity,
   getStravaActivity,
@@ -3574,7 +3625,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
   const recentBiometrics = await new Promise((resolve) => {
     db.all(
       `SELECT date, resting_hr, avg_hr, hrv_sdnn, hrv_rmssd, sleep_minutes, sleep_deep_minutes, sleep_rem_minutes, sleep_core_minutes, sleep_awake_minutes, steps, active_calories, vo2_max 
-       FROM biometrics WHERE user_id = ? ORDER BY date DESC LIMIT 7`,
+       FROM biometrics WHERE user_id = ? ORDER BY date DESC LIMIT 8`,
       [userId],
       (err, rows) => resolve(err || !rows ? [] : rows)
     );
@@ -3582,37 +3633,31 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
 
   let todayBiometricsNote = "";
   if (recentBiometrics && recentBiometrics.length > 0) {
-    const todayBio = recentBiometrics.find(b => b.date === todayStr);
-    const yesterdayBio = recentBiometrics.find(b => b.date === yesterdayStr);
-    const latestSleepBio = (todayBio && todayBio.sleep_minutes > 0)
-      ? todayBio
-      : (yesterdayBio && yesterdayBio.sleep_minutes > 0 ? yesterdayBio : (recentBiometrics.find(b => b.sleep_minutes > 0) || null));
-    const latestRHRBio = (todayBio && todayBio.resting_hr)
-      ? todayBio
-      : (yesterdayBio && yesterdayBio.resting_hr ? yesterdayBio : (recentBiometrics.find(b => b.resting_hr) || null));
-    const latestHRVBio = (todayBio && (todayBio.hrv_rmssd || todayBio.hrv_sdnn))
-      ? todayBio
-      : (yesterdayBio && (yesterdayBio.hrv_rmssd || yesterdayBio.hrv_sdnn) ? yesterdayBio : (recentBiometrics.find(b => b.hrv_rmssd || b.hrv_sdnn) || null));
+    // Rows are newest first. At 07:00 the watch often hasn't synced yet, so the latest reading
+    // can be yesterday's: say so, or the coach presents it as this morning's.
+    const latestSleepBio = recentBiometrics.find(b => b.sleep_minutes > 0) || null;
+    const latestRHRBio = recentBiometrics.find(b => b.resting_hr) || null;
+    const latestHRVBio = recentBiometrics.find(b => b.hrv_rmssd || b.hrv_sdnn) || null;
+    const asOf = (bio) => (bio.date === todayStr ? 'this morning' : `from ${bio.date}, today's reading has not synced yet`);
 
     const parts = [];
     let avgSleepMinsVal = null;
     let avgRhrVal = null;
 
-    if (recentBiometrics.length > 1) {
-      const sleeps = recentBiometrics.filter(b => b.sleep_minutes > 0).map(b => b.sleep_minutes);
-      if (sleeps.length > 0) {
-        avgSleepMinsVal = sleeps.reduce((a, b) => a + b, 0) / sleeps.length;
-      }
-      const rhrs = recentBiometrics.filter(b => b.resting_hr).map(b => b.resting_hr);
-      if (rhrs.length > 0) {
-        avgRhrVal = rhrs.reduce((a, b) => a + b, 0) / rhrs.length;
-      }
+    // Baselines are the readings before the latest one, as on the app's recovery card, so the
+    // coach and the card agree on "up" and "down".
+    const avgOf = (vals) => (vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null);
+    if (latestSleepBio) {
+      avgSleepMinsVal = avgOf(recentBiometrics.filter(b => b.sleep_minutes > 0 && b.date < latestSleepBio.date).map(b => b.sleep_minutes));
+    }
+    if (latestRHRBio) {
+      avgRhrVal = avgOf(recentBiometrics.filter(b => b.resting_hr && b.date < latestRHRBio.date).map(b => b.resting_hr));
     }
 
     if (latestSleepBio && latestSleepBio.sleep_minutes > 0) {
       const h = Math.floor(latestSleepBio.sleep_minutes / 60);
       const m = Math.round(latestSleepBio.sleep_minutes % 60);
-      let sleepStr = `Sleep: ${h}h ${m}m (${latestSleepBio.date === todayStr ? 'today' : 'last night'})`;
+      let sleepStr = `Sleep: ${h}h ${m}m (${latestSleepBio.date === todayStr ? 'last night' : `night before ${latestSleepBio.date}; last night's sleep has not synced yet`})`;
       if (avgSleepMinsVal !== null) {
         const diffM = Math.round(latestSleepBio.sleep_minutes - avgSleepMinsVal);
         if (diffM >= 30) sleepStr += ` (+${(diffM / 60).toFixed(1)}h surplus vs 7-day average)`;
@@ -3622,7 +3667,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     }
 
     if (latestRHRBio && latestRHRBio.resting_hr) {
-      let rhrStr = `Resting HR: ${latestRHRBio.resting_hr} bpm`;
+      let rhrStr = `Resting HR: ${latestRHRBio.resting_hr} bpm (${asOf(latestRHRBio)})`;
       if (avgRhrVal !== null) {
         const delta = Math.round((latestRHRBio.resting_hr - avgRhrVal) * 10) / 10;
         if (delta >= 2.5) rhrStr += ` (Elevated by +${delta} bpm vs 7-day baseline of ${Math.round(avgRhrVal)} bpm - acute recovery strain)`;
@@ -3632,8 +3677,8 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     }
 
     if (latestHRVBio) {
-      if (latestHRVBio.hrv_rmssd) parts.push(`HRV (overnight RMSSD, Garmin): ${latestHRVBio.hrv_rmssd} ms`);
-      else if (latestHRVBio.hrv_sdnn) parts.push(`HRV (SDNN, Apple Health): ${latestHRVBio.hrv_sdnn} ms`);
+      if (latestHRVBio.hrv_rmssd) parts.push(`HRV (overnight RMSSD, Garmin): ${latestHRVBio.hrv_rmssd} ms (${asOf(latestHRVBio)})`);
+      else if (latestHRVBio.hrv_sdnn) parts.push(`HRV (SDNN, Apple Health): ${latestHRVBio.hrv_sdnn} ms (${asOf(latestHRVBio)})`);
     }
 
     // Cross-reference with yesterday's workout
@@ -3642,7 +3687,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     if (yesterdayActs.length > 0) {
       const actSummary = yesterdayActs.map(a => `"${a.name}" (${a.sport_type || 'Workout'}, ${a.moving_time_min || 0}m)`).join(", ");
       workoutVsRestPattern = `YESTERDAY TRAINING LOAD: Athlete completed ${actSummary}. `;
-      if (latestRHRBio && avgRhrVal !== null && latestRHRBio.resting_hr > avgRhrVal + 2) {
+      if (latestRHRBio && latestRHRBio.date === todayStr && avgRhrVal !== null && latestRHRBio.resting_hr > avgRhrVal + 2) {
         workoutVsRestPattern += `Their resting HR is elevated following yesterday's workout (+${Math.round((latestRHRBio.resting_hr - avgRhrVal) * 10) / 10} bpm), confirming their cardiovascular system is actively absorbing that training load. `;
       }
     } else {
@@ -3650,7 +3695,7 @@ async function sendMorningMessageForUser(userId, { force = false } = {}) {
     }
 
     if (parts.length > 0) {
-      todayBiometricsNote = `ATHLETE REST & RECOVERY TELEMETRY (Apple Health / Garmin): ${parts.join(', ')}. ${workoutVsRestPattern}COACH DIRECTIVE - RECOGNIZE REST VS WORKOUT PATTERNS: Connect their rest metrics (sleep, resting HR, HRV) to their recent workout load. Highlight any pattern or change (e.g. resting HR elevated from yesterday's hard session showing why today's rest/easy day is essential, or strong sleep recharging them). Make the data feel personal, insightful, and valuable! `;
+      todayBiometricsNote = `ATHLETE REST & RECOVERY TELEMETRY (Apple Health / Garmin): ${parts.join(', ')}. ${workoutVsRestPattern}COACH DIRECTIVE - RECOGNIZE REST VS WORKOUT PATTERNS: Connect their rest metrics (sleep, resting HR, HRV) to their recent workout load. Highlight any pattern or change (e.g. resting HR elevated from yesterday's hard session showing why today's rest/easy day is essential, or strong sleep recharging them). Make the data feel personal, insightful, and valuable! Quote each number exactly as given above, and never present a reading marked "not synced yet" as this morning's. `;
     }
   }
 

@@ -66,6 +66,7 @@ const {
   calculateRookaScoreZoned,
   mapStravaSportToRooka,
   formatStepsForStrava,
+  formatLapsForPrompt,
   tagStravaActivity,
   getStravaActivity,
   syncAllStravaUsersOnStartup,
@@ -508,17 +509,8 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                             // digit is a token, so lap lines for all three cost ~1,000 tokens a message.
                             let lapStr = "";
                             if (index === 0 && a.laps_json) {
-                              try {
-                                const laps = JSON.parse(a.laps_json);
-                                if (laps && laps.length > 0) {
-                                  const mmss = (secs) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
-                                  lapStr = " | Laps (distance, pace or duration, avg HR): " + laps.map(l => {
-                                    const effort = l.average_speed > 0 ? `${mmss(1000 / l.average_speed)}/km` : `${mmss(l.moving_time || 0)} min`;
-                                    const hr = l.average_heartrate ? ` ${Math.round(l.average_heartrate)}bpm` : "";
-                                    return `${(l.distance / 1000).toFixed(1)}km ${effort}${hr}`;
-                                  }).join("; ");
-                                }
-                              } catch (e) {}
+                              const laps = formatLapsForPrompt(a.laps_json);
+                              if (laps) lapStr = " | Laps (distance, pace or duration, avg HR): " + laps;
                             }
                             return `- ${getAMSDateString(a.start_date)} at ${new Date(a.start_date).toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.rooka_score || 0)} Rooka${lapStr}`;
                           }
