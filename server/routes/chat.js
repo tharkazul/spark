@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
+const { imageUploadOptions } = require("../services/imageUpload");
 
 const physiqueStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -20,7 +21,7 @@ const physiqueStorage = multer.diskStorage({
     cb(null, `physique_${req.user.id}_${crypto.randomUUID()}${ext}`);
   },
 });
-const uploadPhysique = multer({ storage: physiqueStorage });
+const uploadPhysique = multer({ storage: physiqueStorage, ...imageUploadOptions });
 
 const profileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -33,7 +34,7 @@ const profileStorage = multer.diskStorage({
     cb(null, `profile_${req.user.id}_${Date.now()}${ext}`);
   },
 });
-const uploadProfile = multer({ storage: profileStorage });
+const uploadProfile = multer({ storage: profileStorage, ...imageUploadOptions });
 const { authenticateToken } = require('../services/auth');
 const { requireAiConsent, ensureConsentPrompt } = require("../services/aiConsent");
 const { sseClients, sendSSEEvent } = require('../services/sse');

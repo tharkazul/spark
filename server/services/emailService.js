@@ -21,6 +21,10 @@ function getTransporter() {
       user,
       pass,
     },
+    // nodemailer waits up to 2 min to connect and 10 min on an idle socket by default
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 30000,
   });
 }
 

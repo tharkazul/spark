@@ -369,6 +369,7 @@ async function fetchStravaDetail(userId, stravaActivityId) {
   );
   if (!user || !user.strava_refresh_token) return null;
   const tokenRes = await fetch("https://www.strava.com/oauth/token", {
+    signal: AbortSignal.timeout(15000),
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -381,6 +382,7 @@ async function fetchStravaDetail(userId, stravaActivityId) {
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) return null;
   const actRes = await fetch(`https://www.strava.com/api/v3/activities/${stravaActivityId}`, {
+    signal: AbortSignal.timeout(15000),
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
   });
   return actRes.ok ? actRes.json() : null;

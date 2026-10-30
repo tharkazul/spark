@@ -81,6 +81,7 @@ async function sendExpoPushNotification({ to, title, body, data = {}, sound = "d
 
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      signal: AbortSignal.timeout(15000),
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -143,6 +144,7 @@ async function processPushReceipts({ now = Date.now() } = {}) {
     let receipts;
     try {
       const response = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
+        signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: {
           Accept: "application/json",

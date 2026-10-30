@@ -104,6 +104,7 @@ class GarminAuthError extends Error {}
 
 async function postToken(form) {
   const res = await fetch(TOKEN_URL, {
+    signal: AbortSignal.timeout(15000),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
     body: new URLSearchParams({
@@ -125,6 +126,7 @@ async function postToken(form) {
 
 async function garminApi(accessToken, pathname, { method = "GET" } = {}) {
   const res = await fetch(`${API_BASE}${pathname}`, {
+    signal: AbortSignal.timeout(15000),
     method,
     headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
   });

@@ -86,7 +86,28 @@ function listSnapshots() {
 }
 
 /**
- * Restores a snapshot file by replacing the active database file.
+ * Copies a snapshot into the open database with SQLite's online backup API.
+ * Copying the file over the live database is unsafe in WAL mode: this process
+ * would later checkpoint its old -wal pages into the restored file.
+ */
+function copySnapshotIntoLiveDb(snapshotPath) {
+  return new Promise((resolve, reject) => {
+    const backup = db.backup(snapshotPath, "main", "main", false, (openErr) => {
+      if (openErr) return reject(openErr);
+      const step = () =>
+        backup.step(-1, (err) => {
+          if (backup.completed) return backup.finish(() => resolve());
+          // SQLITE_BUSY / LOCKED while another statement holds the db: retry
+          if (err && !backup.failed) return setTimeout(step, 100);
+          backup.finish(() => reject(err || new Error("Snapshot restore failed")));
+        });
+      step();
+    });
+  });
+}
+
+/**
+ * Restores a snapshot file into the active database.
  */
 function restoreSnapshot(filename) {
   return new Promise((resolve, reject) => {
@@ -96,15 +117,11 @@ function restoreSnapshot(filename) {
         return reject(new Error(`Snapshot file not found: ${filename}`));
       }
 
-      const activeDbPath = process.env.DB_PATH
-        ? path.resolve(__dirname, "..", process.env.DB_PATH)
-        : path.join(__dirname, "..", "rooka_native.db");
-
       createSnapshot("pre_restore")
+        .then(() => copySnapshotIntoLiveDb(snapshotPath))
         .then(() => {
-          fs.copyFileSync(snapshotPath, activeDbPath);
           console.log(`[BACKUP] Successfully restored database from ${filename}`);
-          resolve({ success: true, message: `Database restored from ${filename}. Restart server to apply.` });
+          resolve({ success: true, message: `Database restored from ${filename}.` });
         })
         .catch(reject);
     } catch (e) {

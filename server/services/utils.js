@@ -539,6 +539,7 @@ async function processTokenRefresh(
 ) {
   try {
     const tokenRes = await fetch("https://www.strava.com/oauth/token", {
+      signal: AbortSignal.timeout(15000),
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1231,6 +1232,7 @@ async function tagStravaActivity(userId, activity, token) {
         const updateRes = await fetch(
           `https://www.strava.com/api/v3/activities/${activity.id}`,
           {
+            signal: AbortSignal.timeout(15000),
             method: "PUT",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -1509,6 +1511,7 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
     const res = await fetch(
       `https://www.strava.com/api/v3/activities/${activityId}`,
       {
+        signal: AbortSignal.timeout(15000),
         headers: { Authorization: `Bearer ${accessToken}` },
       },
     );
@@ -1626,6 +1629,7 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
                   const updateRes = await fetch(
                     `https://www.strava.com/api/v3/activities/${activityId}`,
                     {
+                      signal: AbortSignal.timeout(15000),
                       method: "PUT",
                       headers: {
                         Authorization: `Bearer ${accessToken}`,
@@ -1714,6 +1718,7 @@ async function syncAllStravaUsersOnStartup() {
               const actRes = await fetch(
                 "https://www.strava.com/api/v3/athlete/activities?per_page=50",
                 {
+                  signal: AbortSignal.timeout(15000),
                   headers: { Authorization: `Bearer ${token}` },
                 },
               );

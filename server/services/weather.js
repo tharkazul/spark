@@ -119,7 +119,7 @@ async function fetchWeatherKit(cfg, lat, lon, tz) {
   const url =
     `https://weatherkit.apple.com/api/v1/weather/en/${lat}/${lon}` +
     `?dataSets=currentWeather,forecastDaily&timezone=${encodeURIComponent(tz)}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${weatherKitToken(cfg)}` } });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${weatherKitToken(cfg)}` }, signal: AbortSignal.timeout(15000) });
   await countCall();
   if (!res.ok) throw new Error(`WeatherKit ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
@@ -150,7 +150,7 @@ async function fetchOpenMeteo(lat, lon, tz) {
     `&current=temperature_2m,weather_code,wind_speed_10m,precipitation` +
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max` +
     `&timezone=${encodeURIComponent(tz)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
   const data = await res.json();
   const d = data.daily || {};
@@ -290,7 +290,7 @@ async function getAttribution(provider) {
   // Logo paths in the response are relative to this host.
   const abs = (u) => (u ? new URL(u, "https://weatherkit.apple.com").toString() : null);
   try {
-    const res = await fetch("https://weatherkit.apple.com/attribution/en");
+    const res = await fetch("https://weatherkit.apple.com/attribution/en", { signal: AbortSignal.timeout(15000) });
     if (!res.ok) throw new Error(`attribution ${res.status}`);
     const a = await res.json();
     const value = {
@@ -326,7 +326,7 @@ async function searchPlaces(query, lang = "en") {
   const url =
     `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&featureType=settlement` +
     `&accept-language=${encodeURIComponent(lang)}&q=${encodeURIComponent(q)}`;
-  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`Place search ${res.status}`);
   const rows = await res.json();
   const results = (Array.isArray(rows) ? rows : []).map((r) => {

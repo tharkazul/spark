@@ -6,6 +6,18 @@ const dbPath = process.env.DB_PATH
 const db = new sqlite3.Database(dbPath);
 
 db.serialize(() => {
+  // WAL lets the API keep reading while a cron writes; busy_timeout makes a
+  // writer wait for the lock instead of failing with SQLITE_BUSY.
+  // foreign_keys stays OFF on purpose: several routes delete a parent before its
+  // children (an activity before its kudos/comments, micro_plan rows that
+  // event_invitations still point at, the micro_plan rebuild below drops the
+  // table) and existing databases already hold orphan rows. Turning it on would
+  // make those deletes fail.
+  db.run(`PRAGMA journal_mode=WAL`, (err) => {
+    if (err) console.error("Could not enable WAL mode:", err.message);
+  });
+  db.run(`PRAGMA busy_timeout=5000`);
+
   db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         username TEXT UNIQUE, 
@@ -1212,6 +1224,14 @@ db.serialize(() => {
       () => {},
     );
   });
+
+  // Hot-path lookups that were full table scans. connections(user_id, ...) and
+  // kudos(activity_id, ...) are already covered by their UNIQUE constraints.
+  db.run(`CREATE INDEX IF NOT EXISTS idx_chat_history_user_time ON chat_history(user_id, timestamp)`, (err) => {});
+  db.run(`CREATE INDEX IF NOT EXISTS idx_micro_plan_user_date ON micro_plan(user_id, date)`, (err) => {});
+  db.run(`CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(user_id)`, (err) => {});
+  db.run(`CREATE INDEX IF NOT EXISTS idx_connections_friend ON connections(friend_id)`, (err) => {});
+  db.run(`CREATE INDEX IF NOT EXISTS idx_kudos_user ON kudos(user_id)`, (err) => {});
 });
 
 /**

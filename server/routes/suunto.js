@@ -77,6 +77,7 @@ function usernameFromJwt(jwt) {
 
 async function postToken(form) {
   const res = await fetch(`${SUUNTO_OAUTH_BASE}/oauth/token`, {
+    signal: AbortSignal.timeout(15000),
     method: 'POST',
     headers: {
       Authorization: basicAuthHeader(),
@@ -174,6 +175,7 @@ async function fetchWorkouts(accessToken, sinceMs) {
   for (let page = 0; page < MAX_PAGES; page++) {
     const url = `${SUUNTO_API_BASE}/v2/workouts?since=${sinceMs}&limit=${PAGE_SIZE}&offset=${page * PAGE_SIZE}`;
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(15000),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Ocp-Apim-Subscription-Key': process.env.SUUNTO_SUBSCRIPTION_KEY,
@@ -603,7 +605,7 @@ async function suuntoGuideRequest(accessToken, method, pathname, body) {
     'Ocp-Apim-Subscription-Key': process.env.SUUNTO_SUBSCRIPTION_KEY,
   };
   if (body) headers['Content-Type'] = 'application/zip';
-  const res = await fetch(`${SUUNTO_API_BASE}${pathname}`, { method, headers, body });
+  const res = await fetch(`${SUUNTO_API_BASE}${pathname}`, { method, headers, body, signal: AbortSignal.timeout(15000) });
   const text = await res.text().catch(() => '');
   let json = null;
   try {

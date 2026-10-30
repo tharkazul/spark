@@ -5,11 +5,14 @@ const router = express.Router();
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+const { imageUploadOptions } = require("../services/imageUpload");
 const db = require("../services/db");
 const { authenticateToken } = require("../services/auth");
 const { setAiConsent } = require("../services/aiConsent");
 const { getRookaLevelInfo, getUserGamificationContext } = require("../services/utils");
 const athleteZones = require("../services/athleteZones");
+const revenuecat = require("../services/revenuecat");
+const { eraseAccount } = require("../services/accountDeletion");
 const zoneModel = require("../services/zones");
 
 const profileStorage = multer.diskStorage({
@@ -25,7 +28,7 @@ const profileStorage = multer.diskStorage({
     cb(null, `profile_${req.user.id}_${Date.now()}${ext}`);
   },
 });
-const uploadProfile = multer({ storage: profileStorage });
+const uploadProfile = multer({ storage: profileStorage, ...imageUploadOptions });
 
 const coachAvatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -41,7 +44,7 @@ const coachAvatarStorage = multer.diskStorage({
     cb(null, `coach_${req.user.id}_${mood}_${Date.now()}${ext}`);
   },
 });
-const uploadCoachAvatar = multer({ storage: coachAvatarStorage });
+const uploadCoachAvatar = multer({ storage: coachAvatarStorage, ...imageUploadOptions });
 
 
 router.post("/api/settings/privacy", authenticateToken, (req, res) => {
@@ -548,92 +551,31 @@ router.delete('/api/user/account', authenticateToken, (req, res) => {
     const userId = req.user.id;
     if (!userId) return res.status(400).json({ error: "Missing user ID" });
 
-    db.get(`SELECT username FROM users WHERE id = ?`, [userId], async (err, user) => {
+    db.get(`SELECT id FROM users WHERE id = ?`, [userId], async (err, user) => {
         if (err || !user) return res.status(404).json({ error: "User not found" });
 
-        const username = (user.username || "").trim().toLowerCase();
-        if (username === "rutgervandenberg" || username === "felixson") {
-            return res.status(403).json({ error: "Master admin accounts cannot be deleted directly." });
+        if (req.user.role === "admin") {
+            return res.status(403).json({ error: "Admin accounts cannot be deleted directly." });
         }
 
-        // End the OAuth links on the other side while the tokens still exist. Garmin
-        // requires the deregistration call when an athlete deletes their account.
-        for (const [name, service] of [['Garmin', '../services/garmin'], ['TrainerDay', '../services/trainerday']]) {
-            try {
-                await require(service).disconnect(userId);
-            } catch (e) {
-                console.error(`${name} disconnect on account delete failed:`, e.message);
-            }
+        try {
+            await eraseAccount(userId);
+        } catch (e) {
+            return res.status(500).json({ error: "Failed to delete account" });
         }
-
-        const tablesWithUserId = [
-            "activities", "activity_comments", "micro_plan", "deleted_micro_plan", 
-            "weight_log", "chat_history", "athlete_metrics", "athlete_muscle_status", 
-            "user_daily_metrics", "user_quests", "completed_quests", "user_xp", 
-            "nutrition_protocols", "nutrition_intake", "daily_diet_logs", "biometrics",
-            "physique_logs", "milestones", "kudos", "public_profile_cache", 
-            "completed_micro_steps", "push_subscriptions", "push_tokens", 
-            "garmin_health_data", "user_titles", "athlete_niggles", "bonus_points", 
-            "recurring_trainings", "benchmark_tests", "athlete_zones", "strava_tokens", 
-            "suunto_tokens", "suunto_guides", "garmin_tokens", "garmin_oauth_pending", "garmin_workouts",
-            "trainerday_tokens", "trainerday_events",
-            "discount_redemptions", "user_discounts", "user_milestone_history", 
-            "user_feature_onboarding", "password_resets", "athlete_facts"
-        ];
-
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            
-            tablesWithUserId.forEach(table => {
-                db.run(`DELETE FROM ${table} WHERE user_id = ?`, [userId], function(err) {
-                    if (err && !err.message.includes("no such table")) {
-                        console.error(`Error deleting from ${table}:`, err.message);
-                    }
-                });
-            });
-
-            db.run(`DELETE FROM connections WHERE user_id = ? OR friend_id = ?`, [userId, userId], function(err) {
-                if (err && !err.message.includes("no such table")) console.error("Error deleting connections:", err.message);
-            });
-
-            db.run(`DELETE FROM event_invitations WHERE inviter_id = ? OR invitee_id = ?`, [userId, userId], function(err) {
-                if (err && !err.message.includes("no such table")) console.error("Error deleting event_invitations:", err.message);
-            });
-
-            db.run(`DELETE FROM users WHERE id = ?`, [userId], function (err) {
-                if (err) {
-                    console.error("Error deleting user:", err.message);
-                    db.run("ROLLBACK");
-                    return res.status(500).json({ error: "Failed to delete account" });
-                }
-                db.run("COMMIT", function(err) {
-                    if (err) return res.status(500).json({ error: "Failed to commit deletion" });
-                    res.json({ success: true, message: "Account deleted successfully." });
-                });
-            });
-        });
+        res.json({ success: true, message: "Account deleted successfully." });
     });
 });
 
-// Sync RevenueCat subscription entitlement status with the backend database
-router.post("/api/user/sync-subscription", authenticateToken, (req, res) => {
+// Sync RevenueCat subscription entitlement status with the backend database.
+// The app only asks for the sync; the upgrade happens when RevenueCat itself
+// confirms the entitlement. Without REVENUECAT_SECRET_KEY nobody is upgraded here
+// (the webhook still is) and the route only reports the current tier.
+router.post("/api/user/sync-subscription", authenticateToken, async (req, res) => {
   const { hasActiveEntitlement, entitlementId } = req.body;
   const userId = req.user.id;
 
-  if (hasActiveEntitlement && (entitlementId === "rooka" || !entitlementId)) {
-    db.run(
-      `UPDATE users SET subscription_tier = 'rooka_plus', daily_token_limit = 50000 WHERE id = ? AND subscription_tier != 'admin'`,
-      [userId],
-      function (err) {
-        if (err) {
-          console.error("Error syncing subscription to rooka_plus:", err);
-          return res.status(500).json({ error: "DB_ERROR" });
-        }
-        console.log(`[Subscription Sync] User ${userId} successfully synced to rooka_plus.`);
-        return res.json({ success: true, tier: "rooka_plus" });
-      }
-    );
-  } else {
+  const reportCurrentTier = () => {
     db.get(
       `SELECT subscription_tier FROM users WHERE id = ?`,
       [userId],
@@ -649,7 +591,40 @@ router.post("/api/user/sync-subscription", authenticateToken, (req, res) => {
         return res.json({ success: true, tier });
       }
     );
+  };
+
+  const wantsUpgrade = hasActiveEntitlement && (entitlementId === revenuecat.ROOKA_ENTITLEMENT || !entitlementId);
+  if (!wantsUpgrade) return reportCurrentTier();
+
+  if (!revenuecat.isConfigured()) {
+    console.warn(`[Subscription Sync] REVENUECAT_SECRET_KEY is not set; not upgrading user ${userId}.`);
+    return reportCurrentTier();
   }
+
+  let confirmed = false;
+  try {
+    confirmed = await revenuecat.hasActiveRookaEntitlement(userId);
+  } catch (e) {
+    console.error(`[Subscription Sync] RevenueCat lookup for user ${userId} failed:`, e.message);
+    return reportCurrentTier();
+  }
+  if (!confirmed) {
+    console.warn(`[Subscription Sync] User ${userId} claimed an entitlement RevenueCat does not confirm.`);
+    return reportCurrentTier();
+  }
+
+  db.run(
+    `UPDATE users SET subscription_tier = 'rooka_plus', daily_token_limit = 50000 WHERE id = ? AND subscription_tier != 'admin'`,
+    [userId],
+    function (err) {
+      if (err) {
+        console.error("Error syncing subscription to rooka_plus:", err);
+        return res.status(500).json({ error: "DB_ERROR" });
+      }
+      console.log(`[Subscription Sync] User ${userId} confirmed by RevenueCat and synced to rooka_plus.`);
+      return res.json({ success: true, tier: "rooka_plus" });
+    }
+  );
 });
 
 // Recurring Trainings (Non-Rooka Activities) Endpoints

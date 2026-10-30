@@ -154,6 +154,7 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
 
       try {
         const tokenRes = await fetch("https://www.strava.com/oauth/token", {
+          signal: AbortSignal.timeout(15000),
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -192,6 +193,7 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
         const actRes = await fetch(
           "https://www.strava.com/api/v3/athlete/activities?per_page=200",
           {
+            signal: AbortSignal.timeout(15000),
             headers: { Authorization: `Bearer ${tokenData.access_token}` },
           },
         );
@@ -388,6 +390,7 @@ router.post(
 
     try {
       const response = await fetch("https://www.strava.com/oauth/token", {
+        signal: AbortSignal.timeout(15000),
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -470,6 +473,7 @@ router.post("/api/user/disconnect/strava", authenticateToken, (req, res) => {
       if (row && row.access_token) {
         try {
           await fetch("https://www.strava.com/oauth/deauthorize", {
+            signal: AbortSignal.timeout(15000),
             method: "POST",
             headers: { Authorization: `Bearer ${row.access_token}` },
           });

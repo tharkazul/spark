@@ -6,6 +6,7 @@ const { authenticateToken } = require("../services/auth");
 const { getUserLeaderboardString } = require("../services/utils");
 const { generateWithFallback } = require("../services/ai");
 const { sendSSEEvent } = require("../services/sse");
+const { eraseAccount } = require("../services/accountDeletion");
 
 // Admin access comes only from users.role = 'admin' (re-read from the database by
 // authenticateToken). Grant it with scripts/grant-admin.js.
@@ -247,43 +248,25 @@ router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req,
   
   // Removed hardcoded admin deletion block to allow resetting accounts
 
-  db.run(
-    `UPDATE users SET deleted_at = CURRENT_TIMESTAMP, username = username || '_deleted_' || id WHERE username = ? AND deleted_at IS NULL`,
-    [targetUsername],
-    function (err) {
-      if (err) return res.status(500).json({ error: "Database error" });
-      if (this.changes === 0) return res.status(404).json({ error: "User not found or already deleted" });
+  // A full erase, the same as the athlete's own "Delete account". Accounts that were
+  // soft-deleted before this match on their renamed username, so they can be erased too.
+  db.get(`SELECT id FROM users WHERE username = ?`, [targetUsername], async (err, user) => {
+    if (err) return res.status(500).json({ error: "Database error" });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-      // Cut the account off from anything that keeps reaching the user after
-      // deletion: push notifications (the 08:00 coach message) and the live
-      // Strava link that would keep pulling activities in.
-      db.get(
-        `SELECT id FROM users WHERE username = ? || '_deleted_' || id`,
-        [targetUsername],
-        (lookupErr, deletedUser) => {
-          if (lookupErr || !deletedUser) return;
-          db.run(`DELETE FROM push_tokens WHERE user_id = ?`, [deletedUser.id]);
-          db.run(`DELETE FROM strava_tokens WHERE user_id = ?`, [deletedUser.id]);
-          db.run(`DELETE FROM suunto_tokens WHERE user_id = ?`, [deletedUser.id]);
-          db.run(`DELETE FROM suunto_guides WHERE user_id = ?`, [deletedUser.id]);
-          require("../services/garmin")
-            .disconnect(deletedUser.id)
-            .catch((e) => console.error("Garmin disconnect on account delete failed:", e.message));
-          db.run(
-            `UPDATE users SET strava_refresh_token = NULL, garmin_username = NULL, garmin_password = NULL, apple_health_connected = 0, apple_watch_connected = 0 WHERE id = ?`,
-            [deletedUser.id]
-          );
-        }
-      );
-
-      db.run(
-        `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'soft_delete', ?, 'Account soft deleted')`,
-        [req.user.username, targetUsername]
-      );
-      
-      res.json({ success: true, message: "Account deleted (soft)." });
+    try {
+      await eraseAccount(user.id);
+    } catch (e) {
+      return res.status(500).json({ error: "Failed to delete account" });
     }
-  );
+
+    db.run(
+      `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'delete_user', ?, ?)`,
+      [req.user.username, targetUsername, `Account erased (user id ${user.id})`]
+    );
+
+    res.json({ success: true, message: "Account deleted." });
+  });
 });
 
 router.post("/api/admin/set-tier", authenticateToken, (req, res) => {

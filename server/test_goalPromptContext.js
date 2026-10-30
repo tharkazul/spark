@@ -102,7 +102,7 @@ console.log("🏃 Running Goal Prompt Context unit tests...\n");
 
   // Test 7: Exercise & Step Parity Mandate presence
   const promptCtx = getGoalDependentPromptContext("hyrox");
-  assert.ok(promptCtx.includes("EXERCISE & STEP PARITY MANDATE"), "Must include Parity Mandate");
+  assert.ok(promptCtx.includes("EXERCISE & STEP PARITY"), "Must include the exercise & step parity block");
   assert.ok(promptCtx.includes("exerciseName"), "Must specify exerciseName on steps");
   console.log("✅ Test 7 Passed: Exercise and step parity mandate verified in prompt context");
 

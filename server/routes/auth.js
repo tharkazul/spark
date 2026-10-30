@@ -7,15 +7,40 @@ const db = require("../services/db");
 const { verifyAppleIdentityToken } = require("../services/appleAuth");
 const { authLimits } = require("../services/rateLimit");
 
+// Usernames are shown in the admin page and to other athletes, so markup characters
+// are refused outright. Letters in any script, digits, space and _ . - are allowed;
+// @ and + only so an email address can double as the username.
+const USERNAME_CHARS = /^[\p{L}\p{N} _.@+-]+$/u;
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function usernameError(name) {
+  if (!USERNAME_CHARS.test(name)) {
+    return "Usernames can only contain letters, numbers, spaces and _ . - (or be an email address).";
+  }
+  const isEmail = EMAIL_SHAPE.test(name);
+  if (name.length < 3 || name.length > (isEmail ? 254 : 40)) {
+    return "Usernames must be 3 to 40 characters long.";
+  }
+  if (!isEmail && name.includes("@")) {
+    return "Usernames can only contain letters, numbers, spaces and _ . - (or be an email address).";
+  }
+  return null;
+}
+
 // Register a new friend
 router.post("/register", ...authLimits.register, async (req, res) => {
   const { username, email, password, context } = req.body;
 
+  const cleanUsername = String(username || email || "").trim();
+  const nameError = usernameError(cleanUsername);
+  if (nameError) {
+    return res.status(400).json({ error: nameError });
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const nowIso = new Date().toISOString();
-    const cleanUsername = (username || email || "").trim();
-    const cleanEmail = (email || (cleanUsername.includes("@") ? cleanUsername : "")).trim().toLowerCase() || null;
+    const cleanEmail = String(email || (cleanUsername.includes("@") ? cleanUsername : "")).trim().toLowerCase() || null;
 
     db.run(
       // coach_name is set explicitly: older databases still default this column
@@ -243,7 +268,8 @@ router.post("/google", async (req, res) => {
   try {
     // Verify token with Google TokenInfo API
     const googleRes = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+      { signal: AbortSignal.timeout(15000) },
     );
     const payload = await googleRes.json();
 

@@ -59,7 +59,7 @@ function renderTable(users) {
 
         const tier = u.subscription_tier || 'free';
         const tierSelect = `
-            <select onchange="setTier('${u.username}', this.value)" class="text-xs bg-gray-50 border border-gray-200 rounded p-1">
+            <select data-action="set-tier" class="text-xs bg-gray-50 border border-gray-200 rounded p-1">
                 <option value="free" ${tier === 'free' ? 'selected' : ''}>Free</option>
                 <option value="rooka_plus" ${tier === 'rooka_plus' ? 'selected' : ''}>Rooka+</option>
                 <option value="premium" ${tier === 'premium' ? 'selected' : ''}>Premium</option>
@@ -74,10 +74,10 @@ function renderTable(users) {
         const dataReqDisplay = dataReq > 0 ? `<span class="text-blue-600 font-bold flex items-center gap-1">${dataReq} <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg></span>` : '<span class="text-gray-400">0</span>';
 
         tr.innerHTML = `
-            <td class="p-4 text-gray-500 tabular-nums">${u.id}</td>
-            <td class="p-4 font-medium text-gray-900">${u.username}</td>
-            <td class="p-4 text-gray-600">${u.login_count || 0}</td>
-            <td class="p-4 text-gray-600">${u.chat_count || 0}</td>
+            <td class="p-4 text-gray-500 tabular-nums">${esc(u.id)}</td>
+            <td class="p-4 font-medium text-gray-900">${esc(u.username)}</td>
+            <td class="p-4 text-gray-600">${esc(u.login_count || 0)}</td>
+            <td class="p-4 text-gray-600">${esc(u.chat_count || 0)}</td>
             <td class="p-4">${tierSelect}</td>
             <td class="p-4">${clicksDisplay}</td>
             <td class="p-4">${dataReqDisplay}</td>
@@ -87,10 +87,14 @@ function renderTable(users) {
                 <div class="flex flex-wrap gap-1">${connections.join('') || '<span class="text-gray-400 text-xs italic">None</span>'}</div>
             </td>
             <td class="p-4 text-right flex justify-end items-center gap-4">
-                <button onclick="addTokens('${u.username}')" class="text-xs bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 px-3 py-1 rounded transition">+50k Tokens</button>
-                <button onclick="deleteAccount('${u.username}')" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition">Delete Account</button>
+                <button type="button" data-action="add-tokens" class="text-xs bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 px-3 py-1 rounded transition">+50k Tokens</button>
+                <button type="button" data-action="delete-account" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition">Delete Account</button>
             </td>
         `;
+        // Usernames are user-chosen, so they are bound here rather than spliced into inline handlers.
+        tr.querySelector('[data-action="set-tier"]').addEventListener('change', (e) => setTier(u.username, e.target.value));
+        tr.querySelector('[data-action="add-tokens"]').addEventListener('click', () => addTokens(u.username));
+        tr.querySelector('[data-action="delete-account"]').addEventListener('click', () => deleteAccount(u.username));
         tbody.appendChild(tr);
     });
 }
@@ -278,7 +282,7 @@ function formatDate(iso) {
 /** What the code does to the price, in words. */
 function discountEffect(c) {
     switch (c.discountType) {
-        case 'percent': return `${c.percentOff ?? 0}% off`;
+        case 'percent': return `${esc(c.percentOff ?? 0)}% off`;
         case 'fixed_yearly': return `${money(c.fixedYearlyPrice ?? 0)}/year`;
         case 'fixed_monthly': return `${money(c.fixedMonthlyPrice ?? 0)}/month`;
         case 'fixed_both': return `${money(c.fixedMonthlyPrice ?? 0)}/mo &middot; ${money(c.fixedYearlyPrice ?? 0)}/yr`;
@@ -287,9 +291,9 @@ function discountEffect(c) {
 }
 
 function usageLabel(c) {
-    if (c.redemptionType === 'unlimited') return `Unlimited &middot; ${c.redemptionCount} used`;
+    if (c.redemptionType === 'unlimited') return `Unlimited &middot; ${esc(c.redemptionCount)} used`;
     if (c.redemptionType === 'one_time') return c.redemptionCount > 0 ? 'One time &middot; used' : 'One time &middot; available';
-    return `Limited &middot; ${c.redemptionCount} of ${c.maxRedemptions ?? 0} used`;
+    return `Limited &middot; ${esc(c.redemptionCount)} of ${esc(c.maxRedemptions ?? 0)} used`;
 }
 
 /**
@@ -399,7 +403,7 @@ function renderDiscountTable(codes) {
 
         const remaining = c.remainingUses === null
             ? ''
-            : `<div class="text-xs mt-0.5 ${c.remainingUses === 0 ? 'text-red-600 font-bold' : 'text-gray-500'}">${c.remainingUses} left</div>`;
+            : `<div class="text-xs mt-0.5 ${c.remainingUses === 0 ? 'text-red-600 font-bold' : 'text-gray-500'}">${esc(c.remainingUses)} left</div>`;
 
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-50 transition' + (c.active ? '' : ' opacity-60');
@@ -410,11 +414,11 @@ function renderDiscountTable(codes) {
                 ${c.createdBy ? `<div class="text-xs text-gray-400 mt-0.5">by ${esc(c.createdBy)}</div>` : ''}
             </td>
             <td class="p-4"><span class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-semibold whitespace-nowrap">${discountEffect(c)}</span></td>
-            <td class="p-4 text-gray-600 whitespace-nowrap">${c.durationMonths ? `${c.durationMonths} mo` : 'Forever'}</td>
+            <td class="p-4 text-gray-600 whitespace-nowrap">${c.durationMonths ? `${esc(c.durationMonths)} mo` : 'Forever'}</td>
             <td class="p-4 text-gray-600">
                 <div class="whitespace-nowrap">${usageLabel(c)}</div>
                 ${remaining}
-                <div class="text-xs text-gray-400 mt-0.5">${c.activeHolders} on it now</div>
+                <div class="text-xs text-gray-400 mt-0.5">${esc(c.activeHolders)} on it now</div>
             </td>
             <td class="p-4 whitespace-nowrap">
                 <div class="text-gray-900"><span class="text-xs text-gray-400 uppercase">mo</span> <strong>${money(p.monthly.final)}</strong>${strike(p.monthly)}</div>
@@ -423,13 +427,13 @@ function renderDiscountTable(codes) {
             <td class="p-4">${window_}</td>
             <td class="p-4">
                 <label class="inline-flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleDiscountActive(${c.id})" class="w-4 h-4">
+                    <input type="checkbox" ${c.active ? 'checked' : ''} onchange="toggleDiscountActive(${Number(c.id)})" class="w-4 h-4">
                     <span class="text-xs font-semibold ${c.active ? 'text-green-600' : 'text-gray-400'}">${c.active ? 'Active' : 'Off'}</span>
                 </label>
             </td>
             <td class="p-4 text-right whitespace-nowrap">
-                <button onclick="openDiscountModal(${c.id})" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-1 rounded transition">Edit</button>
-                <button onclick="deleteDiscount(${c.id})" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition ml-2">${c.redemptionCount > 0 ? 'Disable' : 'Delete'}</button>
+                <button onclick="openDiscountModal(${Number(c.id)})" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-1 rounded transition">Edit</button>
+                <button onclick="deleteDiscount(${Number(c.id)})" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition ml-2">${c.redemptionCount > 0 ? 'Disable' : 'Delete'}</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -712,14 +716,14 @@ function renderLiveTable(sessions) {
             : `<span class="text-gray-400">${s.sport ? `${esc(s.sport)}, no plan today` : '—'}</span>`;
         const canStop = s.status === 'active' || s.status === 'waiting';
         return `<tr class="hover:bg-gray-50 transition align-top">
-            <td class="p-4 text-gray-500 tabular-nums">${s.id}</td>
+            <td class="p-4 text-gray-500 tabular-nums">${esc(s.id)}</td>
             <td class="p-4 font-medium text-gray-900">${esc(s.username || `#${s.user_id}`)}<div class="text-xs text-gray-400">${esc(s.source || '')}</div></td>
             <td class="p-4">${liveStatusBadge(s)}</td>
             <td class="p-4 text-gray-600">${workout}</td>
             <td class="p-4 text-gray-600">${liveLatest(s.last_metrics)}</td>
             <td class="p-4 text-gray-600">${cueList}</td>
             <td class="p-4 text-right">${canStop
-                ? `<button onclick="stopLiveSession(${s.id})" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition">Stop</button>`
+                ? `<button onclick="stopLiveSession(${Number(s.id)})" class="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-3 py-1 rounded transition">Stop</button>`
                 : ''}</td>
         </tr>`;
     }).join('');

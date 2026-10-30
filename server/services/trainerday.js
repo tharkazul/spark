@@ -332,6 +332,7 @@ class TrainerDayAuthError extends Error {}
 
 async function postForm(pathname, form) {
   const res = await fetch(`${TD_BASE}${pathname}`, {
+    signal: AbortSignal.timeout(15000),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
     body: new URLSearchParams({
@@ -485,6 +486,7 @@ async function apiRequest(userId, accessToken, method, pathname, body) {
   const headers = { Authorization: `Bearer ${accessToken}`, Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch(`${TD_BASE}${pathname}`, {
+    signal: AbortSignal.timeout(15000),
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),

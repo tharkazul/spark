@@ -16,7 +16,10 @@ const server = http.createServer(app);
 app.set("trust proxy", "loopback");
 
 app.use(cors());
-app.use(bodyParser.json({ limit: "50mb" }));
+// Chat, voice transcription and feedback carry base64 images/audio in the JSON
+// body; everything else is small, so the global limit stays tight.
+app.post(["/api/chat", "/api/chat/transcribe", "/api/feedback"], bodyParser.json({ limit: "25mb" }));
+app.use(bodyParser.json({ limit: "1mb" }));
 // Localize API error/success messages into the athlete's selected language.
 app.use(require("./services/i18n").localizeResponses);
 app.use("/api", require("./services/rateLimit").apiLimit);
@@ -30,7 +33,16 @@ app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "adm
 app.get("/privacy", (req, res) => res.sendFile(path.join(__dirname, "public", "privacy.html")));
 app.get("/terms", (req, res) => res.sendFile(path.join(__dirname, "public", "terms.html")));
 app.get("/support", (req, res) => res.sendFile(path.join(__dirname, "public", "support.html")));
-app.get("/status", (req, res) => res.status(200).json({ status: "healthy", service: "rooka-api", timestamp: new Date().toISOString() }));
+// Uptime monitors poll this, so it has to touch the database, not just the process.
+app.get("/status", (req, res) => {
+  db.get("SELECT 1", (err) => {
+    if (err) {
+      console.error("[Status] database check failed:", err);
+      return res.status(503).json({ status: "unhealthy", service: "rooka-api", error: "database unavailable", timestamp: new Date().toISOString() });
+    }
+    res.status(200).json({ status: "healthy", service: "rooka-api", timestamp: new Date().toISOString() });
+  });
+});
 
 // Route modules
 const authRoutes = require("./routes/auth");
@@ -70,6 +82,17 @@ app.use("/", require("./routes/facts"));
 app.use("/", require("./routes/feedback"));
 app.use("/", require("./routes/weather"));
 app.use("/", require("./routes/liveCoach"));
+
+// Body/upload limit errors as JSON the app can show, instead of Express's HTML page.
+app.use((err, req, res, next) => {
+  if (err && (err.type === "entity.too.large" || err.code === "LIMIT_FILE_SIZE")) {
+    return res.status(413).json({ error: "Upload too large." });
+  }
+  if (err && (err.code === "UNSUPPORTED_FILE_TYPE" || err.name === "MulterError")) {
+    return res.status(400).json({ error: err.message });
+  }
+  next(err);
+});
 
 // Utilities and cron jobs
 const {
@@ -219,15 +242,39 @@ setInterval(() => {
 
 
 
-// Graceful Shutdown
-process.on("SIGINT", () => {
-  console.log("Closing database connection...");
+// Graceful Shutdown (SIGINT from the terminal, SIGTERM from systemd/pm2 on a restart)
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received, closing server and database connection...`);
   server.close(() => {
     db.close(() => {
       console.log("Database and server closed.");
       process.exit(0);
     });
   });
+  // In-flight requests get 5s to finish; open SSE streams would otherwise keep
+  // server.close() waiting forever.
+  setTimeout(() => server.closeAllConnections(), 5000).unref();
+  setTimeout(() => {
+    console.error("Shutdown took longer than 10s, exiting anyway.");
+    process.exit(1);
+  }, 10000).unref();
+}
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+// With this many crons and background workers, one forgotten .catch() would
+// otherwise take the whole API down (Node exits on an unhandled rejection).
+process.on("unhandledRejection", (reason) => {
+  console.error("🚨 [UNHANDLED REJECTION] (process kept alive):", reason);
+});
+// After an uncaught exception the process state is unknown: log and exit so the
+// process manager restarts a clean one.
+process.on("uncaughtException", (err, origin) => {
+  console.error(`🚨 [FATAL] Uncaught exception (${origin}), exiting:`, err);
+  process.exit(1);
 });
 
 const PORT = process.env.PORT || 3001;

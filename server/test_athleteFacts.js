@@ -43,15 +43,21 @@ console.log("🧠 Running athlete facts unit tests...\n");
   const testUserId = 999;
   await run(`INSERT INTO users (id, username) VALUES (?, 'tharaka_tester')`, [testUserId]);
 
-  // Seed an old goal fact from October
-  await f.addFact(testUserId, { category: "goal", text: "Sub-20 5k attempt in late October", until: "2026-10-28" });
+  // Dates relative to today: facts past their valid_until are dropped, so fixed
+  // dates made this test fail once they slipped into the past.
+  const daysFromNow = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const firstDate = daysFromNow(14);
+  const postponedDate = daysFromNow(44);
+
+  // Seed the original goal fact
+  await f.addFact(testUserId, { category: "goal", text: "Sub-20 5k attempt, original race day", until: firstDate });
   await f.renderMemory(testUserId);
 
   let u = await get(`SELECT long_term_memory FROM users WHERE id = ?`, [testUserId]);
-  assert.ok(u.long_term_memory.includes("late October"), "Memory initially contains old October goal");
+  assert.ok(u.long_term_memory.includes("original race day"), "Memory initially contains the original goal");
 
-  // Athlete postpones race by a month to 2026-11-28
-  await run(`INSERT INTO milestones (user_id, name, date, target_value, is_main) VALUES (?, '5km', '2026-11-28', '20:00', 1)`, [testUserId]);
+  // Athlete postpones the race by a month
+  await run(`INSERT INTO milestones (user_id, name, date, target_value, is_main) VALUES (?, '5km', ?, '20:00', 1)`, [testUserId, postponedDate]);
 
   // Sync goal milestones
   await f.syncGoalMilestones(testUserId);
@@ -60,12 +66,12 @@ console.log("🧠 Running athlete facts unit tests...\n");
   const factsList = await f.listFacts(testUserId);
   const goalFacts = factsList.filter((x) => x.category === "goal");
   assert.strictEqual(goalFacts.length, 1, "Only one active goal fact should exist");
-  assert.ok(goalFacts[0].text.includes("2026-11-28"), "Goal fact text contains postponed date 2026-11-28");
-  assert.strictEqual(goalFacts[0].valid_until, "2026-11-28", "Goal fact valid_until contains 2026-11-28");
+  assert.ok(goalFacts[0].text.includes(postponedDate), "Goal fact text contains the postponed date");
+  assert.strictEqual(goalFacts[0].valid_until, postponedDate, "Goal fact valid_until is the postponed date");
 
   u = await get(`SELECT long_term_memory FROM users WHERE id = ?`, [testUserId]);
-  assert.ok(!u.long_term_memory.includes("late October"), "Old late October goal was removed from long_term_memory");
-  assert.ok(u.long_term_memory.includes("2026-11-28"), "New November date is present in long_term_memory");
+  assert.ok(!u.long_term_memory.includes("original race day"), "Original goal was removed from long_term_memory");
+  assert.ok(u.long_term_memory.includes(postponedDate), "Postponed date is present in long_term_memory");
   console.log("✅ syncGoalMilestones purges stale goal facts and updates memory with postponed date");
 
   console.log("\n🎉 All athlete facts tests passed!");

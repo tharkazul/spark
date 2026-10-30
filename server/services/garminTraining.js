@@ -534,6 +534,7 @@ async function apiRequest(userId, accessToken, method, pathname, body) {
   const headers = { Authorization: `Bearer ${accessToken}`, Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const res = await fetch(`${API_BASE}${pathname}`, {
+    signal: AbortSignal.timeout(15000),
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
