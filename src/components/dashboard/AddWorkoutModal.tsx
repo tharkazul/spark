@@ -1,5 +1,5 @@
 import { SheetSurface, SHEET_BACKDROP, useSheetShape } from '@/components/ui/SheetSurface';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Reanimated, { FadeInDown, FadeOut, LinearTransition, SlideInRight } from 'react-native-reanimated';
 
 import { useTheme } from '@/hooks/use-theme';
 import { useUser } from '../../context/UserStore';
 import { useLanguage } from '../../context/LanguageContext';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
+import { useSheetPresentation } from '../../hooks/use-sheet-presentation';
 import { WorkoutStepBuilder, calculateWbRooka } from './WorkoutStepBuilder';
 import { calculateWorkoutDurationMinutes } from '../../utils/format';
 import { WorkoutStructureBar } from './WorkoutStructureBar';
@@ -31,6 +32,8 @@ import { Button } from '../ui/Button';
 import { SportMedallion } from '../ui/SportMedallion';
 import { StatValue } from '../ui/StatValue';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
+import { ExerciseInfoContext, ExerciseInfoView } from '../workout/ExerciseInfoSheet';
+import { getLocalizedDayName } from './DetailedDayCard';
 
 import { WorkoutItem, SportType } from '../../types/dashboard';
 import { WorkoutStep } from '../../types/plan';
@@ -44,6 +47,8 @@ interface AddWorkoutModalProps {
   targetFullDate?: string;
   initialWorkout?: WorkoutItem | null;
   isReadOnly?: boolean;
+  /** Open an existing workout straight in edit mode (the day card's Edit button). Otherwise it opens to read. */
+  startInEditMode?: boolean;
   onUpgradePress?: () => void;
   onClose: () => void;
   onSave: (workout: Omit<WorkoutItem, 'id'>, existingId?: string) => void;
@@ -152,6 +157,7 @@ export function AddWorkoutModal({
   targetFullDate,
   initialWorkout = null,
   isReadOnly = false,
+  startInEditMode = false,
   onUpgradePress,
   onClose,
   onSave,
@@ -162,63 +168,7 @@ export function AddWorkoutModal({
   const { user } = useUser();
   const { safeBottom } = useSheetShape();
 
-  const [showModal, setShowModal] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const isClosingRef = useRef(false);
-
-  const { panHandlers } = useSheetDismiss(onClose, {
-    animY: slideAnim,
-    backdropOpacity,
-    onWillClose: () => {
-      isClosingRef.current = true;
-    },
-  });
-
-  useEffect(() => {
-    if (visible) {
-      isClosingRef.current = false;
-      setShowModal(true);
-      slideAnim.setValue(SCREEN_HEIGHT);
-      backdropOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 24,
-          stiffness: 220,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      if (isClosingRef.current) {
-        setShowModal(false);
-        isClosingRef.current = false;
-        return;
-      }
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowModal(false);
-      });
-    }
-  }, [visible, slideAnim, backdropOpacity]);
+  const { showModal, slideAnim, backdropOpacity, panHandlers, onSheetLayout } = useSheetPresentation(visible, onClose);
 
   const [selectedSport, setSelectedSport] = useState<SportType>('RUN');
   const [title, setTitle] = useState('');
@@ -226,6 +176,13 @@ export function AddWorkoutModal({
   const [steps, setSteps] = useState<WorkoutStep[]>([]);
   const [customRooka, setCustomRooka] = useState<number | null>(null);
   const [isQuickBuildOpen, setIsQuickBuildOpen] = useState(false);
+  // An existing workout opens to read (athletes keep it open mid-session to see the next
+  // step); the editing controls only appear after tapping edit. A new workout starts editable.
+  const [isEditing, setIsEditing] = useState(false);
+  const canEditHere = isEditing && !isReadOnly;
+  // An exercise's info page replaces the workout inside this sheet instead of stacking a second one.
+  const [infoExercise, setInfoExercise] = useState<string | null>(null);
+  const showExerciseInfo = useCallback((name: string) => setInfoExercise(name), []);
 
   // Garmin only gets a send button when it will take the workout (import allowed).
   const isGarminConnected = garminTakesWorkouts(user);
@@ -252,7 +209,7 @@ export function AddWorkoutModal({
     };
   }, []);
 
-  useEffect(() => {
+  const loadWorkout = () => {
     if (initialWorkout) {
       const sp = (initialWorkout.type || 'RUN').toUpperCase() as SportType;
       setSelectedSport(sp);
@@ -283,9 +240,28 @@ export function AddWorkoutModal({
       setSteps(ensureStepIds(scaled));
       setCustomRooka(null);
     }
+  };
+
+  useEffect(() => {
+    loadWorkout();
+    setIsEditing(!initialWorkout || startInEditMode);
+    setInfoExercise(null);
     setIsGarminSynced(false);
     setIsAppleWatchSynced(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialWorkout, visible]);
+
+  const handleEditPress = () => {
+    if (isReadOnly) {
+      onClose();
+      onUpgradePress?.();
+      return;
+    }
+    Haptics.selectionAsync();
+    // Leaving edit mode without saving puts the workout back the way it was.
+    if (isEditing) loadWorkout();
+    setIsEditing(!isEditing);
+  };
 
   const handleDurationChange = (mins: number) => {
     setDurationMinutes(mins);
@@ -343,106 +319,108 @@ export function AddWorkoutModal({
     }
   };
 
+  const sportLabel = t(`sports.${selectedSport.toLowerCase()}`, selectedSport.charAt(0) + selectedSport.slice(1).toLowerCase());
+  const dayName = initialWorkout?.day || targetDayName;
+  const dateStr = initialWorkout?.dateStr || targetDateStr;
+
   const listHeaderComponent = useMemo(
     () => (
       <View className="pt-3 gap-y-4">
-        {/* Workout Name Input */}
-        <View>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            editable={!isReadOnly}
-            placeholder={t('dashboard.workoutNamePlaceholder', 'Workout name (optional)')}
-            placeholderTextColor={theme.textSecondary}
-            className="bg-theme-inset px-3.5 py-2.5 rounded-control text-sm font-semibold text-theme-text border border-theme-border"
-          />
-        </View>
+        {/* The coach's note on the session: worth having at hand while doing it */}
+        {!canEditHere && initialWorkout?.coachNote ? (
+          <View className="bg-theme-inset rounded-inset p-3 flex-row items-start gap-2">
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#0EA5E9" style={{ marginTop: 2 }} />
+            <Text className="flex-1 text-sm text-theme-text leading-relaxed font-jakarta">{initialWorkout.coachNote}</Text>
+          </View>
+        ) : null}
 
-        {/* Sport Tiles Strip (64pt wide, 76pt high, 8pt gap) */}
-        <View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8 }}
-          >
-            {[
-              { type: 'RUN' as SportType, label: t('sports.run', 'Run') },
-              { type: 'BIKE' as SportType, label: t('sports.bike', 'Bike') },
-              { type: 'SWIM' as SportType, label: t('sports.swim', 'Swim') },
-              { type: 'STRENGTH' as SportType, label: t('sports.strength', 'Strength') },
-              { type: 'MOBILITY' as SportType, label: t('sports.mobility', 'Mobility') },
-            ].map((item) => {
-              const isSelected = selectedSport === item.type;
-              return (
-                <TouchableOpacity
-                  key={item.type}
-                  disabled={isReadOnly}
-                  activeOpacity={isReadOnly ? 1 : 0.8}
-                  onPress={() => handleSportSelect(item.type)}
-                  style={{ width: 64, height: 76 }}
-                  className={`rounded-inset items-center justify-center ${
-                    isSelected
-                      ? 'bg-theme-accent-soft border-[1.5px] border-theme-accent'
-                      : 'bg-transparent border border-transparent opacity-70'
-                  }`}
-                >
-                  <SportMedallion sport={item.type} size={40} />
-                  <Text
-                    className={`text-xs font-semibold mt-1.5 ${
-                      isSelected ? 'text-theme-accent font-bold' : 'text-theme-muted'
+        {canEditHere && (
+          <>
+            {/* Sport Tiles Strip (64pt wide, 76pt high, 8pt gap) */}
+            <Reanimated.View entering={FadeInDown.duration(220)} exiting={FadeOut.duration(140)}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+              >
+                {[
+                  { type: 'RUN' as SportType, label: t('sports.run', 'Run') },
+                  { type: 'BIKE' as SportType, label: t('sports.bike', 'Bike') },
+                  { type: 'SWIM' as SportType, label: t('sports.swim', 'Swim') },
+                  { type: 'STRENGTH' as SportType, label: t('sports.strength', 'Strength') },
+                  { type: 'MOBILITY' as SportType, label: t('sports.mobility', 'Mobility') },
+                ].map((item) => {
+                  const isSelected = selectedSport === item.type;
+                  return (
+                    <TouchableOpacity
+                      key={item.type}
+                      activeOpacity={0.8}
+                      onPress={() => handleSportSelect(item.type)}
+                      style={{ width: 64, height: 76 }}
+                      className={`rounded-inset items-center justify-center ${
+                        isSelected
+                          ? 'bg-theme-accent-soft border-[1.5px] border-theme-accent'
+                          : 'bg-transparent border border-transparent opacity-70'
+                      }`}
+                    >
+                      <SportMedallion sport={item.type} size={40} />
+                      <Text
+                        className={`text-xs font-semibold mt-1.5 ${
+                          isSelected ? 'text-theme-accent font-bold' : 'text-theme-muted'
+                        }`}
+                      >
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </Reanimated.View>
+
+            {/* Quick Duration Chips (R2-28: 20, 30, 45, 60, 90 min) */}
+            <Reanimated.View entering={FadeInDown.duration(220).delay(50)} exiting={FadeOut.duration(140)} className="flex-row items-center gap-2">
+              {quickDurations.map((mins) => {
+                const isSelected = durationMinutes === mins;
+                return (
+                  <TouchableOpacity
+                    key={`dur-${mins}`}
+                    onPress={() => handleDurationChange(mins)}
+                    activeOpacity={0.8}
+                    className={`flex-1 py-2 items-center justify-center rounded-button-md border ${
+                      isSelected
+                        ? 'bg-theme-accent-strong border-theme-accent-strong'
+                        : 'bg-theme-inset border-theme-border/60'
                     }`}
                   >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+                    <Text
+                      className={`text-xs font-bold font-rajdhani tabular-nums ${
+                        isSelected ? 'text-white' : 'text-theme-text'
+                      }`}
+                    >
+                      {mins}m
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </Reanimated.View>
 
-        {/* Quick Duration Chips (R2-28: 20, 30, 45, 60, 90 min) */}
-        <View className="flex-row items-center gap-2">
-          {quickDurations.map((mins) => {
-            const isSelected = durationMinutes === mins;
-            return (
-              <TouchableOpacity
-                key={`dur-${mins}`}
-                disabled={isReadOnly}
-                onPress={() => handleDurationChange(mins)}
-                activeOpacity={isReadOnly ? 1 : 0.8}
-                className={`flex-1 py-2 items-center justify-center rounded-button-md border ${
-                  isSelected
-                    ? 'bg-theme-accent-strong border-theme-accent-strong'
-                    : 'bg-theme-inset border-theme-border/60'
-                }`}
-              >
-                <Text
-                  className={`text-xs font-bold font-rajdhani tabular-nums ${
-                    isSelected ? 'text-white' : 'text-theme-text'
-                  }`}
-                >
-                  {mins}m
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Build with rooka (Renamed from Quick Build) */}
-        {!isReadOnly && (
-          <Button
-            variant="secondary"
-            size="md"
-            label={t('dashboard.buildWithRooka', 'Build with rooka')}
-            leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
-            onPress={() => setIsQuickBuildOpen(true)}
-            className="w-full"
-          />
+            {/* Build with rooka (Renamed from Quick Build) */}
+            <Reanimated.View entering={FadeInDown.duration(220).delay(100)} exiting={FadeOut.duration(140)}>
+              <Button
+                variant="secondary"
+                size="md"
+                label={t('dashboard.buildWithRooka', 'Build with rooka')}
+                leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
+                onPress={() => setIsQuickBuildOpen(true)}
+                className="w-full"
+              />
+            </Reanimated.View>
+          </>
         )}
 
         {/* Structure Preview Bar (proportional, rounded-full matching dashboard view) */}
         {steps && steps.length > 0 && (
-          <View className="gap-y-1.5">
+          <Reanimated.View layout={LinearTransition.duration(220)} className="gap-y-1.5">
             <View className="flex-row justify-between items-center">
               <Text className="text-[10px] font-semibold text-theme-muted uppercase tracking-wider">
                 {t('dashboard.structurePreview', 'STRUCTURE PREVIEW')}
@@ -452,15 +430,15 @@ export function AddWorkoutModal({
               </Text>
             </View>
             <WorkoutStructureBar steps={steps} className="my-0" />
-          </View>
+          </Reanimated.View>
         )}
 
-        {steps.length === 0 && !isReadOnly && (selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY') && (
+        {steps.length === 0 && canEditHere && (selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY') && (
           <Text className="text-xs text-theme-muted">{t('addWorkoutExtra.noExercisesYet')}</Text>
         )}
       </View>
     ),
-    [selectedSport, title, durationMinutes, shownDuration, calculatedRooka, steps, isReadOnly, t, theme]
+    [selectedSport, durationMinutes, shownDuration, steps, canEditHere, initialWorkout, t]
   );
 
   if (!showModal) return null;
@@ -470,7 +448,7 @@ export function AddWorkoutModal({
       visible={showModal}
       transparent
       animationType="none"
-      onRequestClose={onClose}
+      onRequestClose={() => (infoExercise ? setInfoExercise(null) : onClose())}
       statusBarTranslucent
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -478,7 +456,7 @@ export function AddWorkoutModal({
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{ flex: 1 }}
         >
-          <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }} onLayout={onSheetLayout}>
             {/* Backdrop: Fades In/Out Simultaneously */}
             <Animated.View
               style={[
@@ -498,65 +476,80 @@ export function AddWorkoutModal({
               style={{ transform: [{ translateY: slideAnim }], height: '92%' }}
               className="flex-col"
             >
-              {/* Draggable Header Region */}
+              {/* Draggable Header Region: grabber and the workout's name, like the other sheets (no close button) */}
               <View {...panHandlers} className="self-stretch">
                 <View className="items-center justify-center py-3 self-stretch">
                   <SheetGrabber />
                 </View>
 
-                {/* Top Title Bar with Close Action */}
-                <View className="flex-row items-center justify-between px-5 pt-0 pb-3 border-b border-theme-border/60">
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-xl font-bold text-theme-text font-jakarta">
-                      {initialWorkout
-                        ? isReadOnly
-                          ? t('dashboard.workoutDetails', 'Workout Details')
-                          : t('dashboard.editWorkout', 'Edit Workout')
-                        : t('dashboard.addWorkoutTitle', 'Add Workout')}
+                {infoExercise ? (
+                  <TouchableOpacity
+                    onPress={() => setInfoExercise(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    className="flex-row items-center gap-1 px-4 pb-3 self-start"
+                  >
+                    <Ionicons name="chevron-back" size={20} color="#0EA5E9" />
+                    <Text numberOfLines={1} className="text-sm font-bold text-theme-accent font-jakarta max-w-[280px]">
+                      {title.trim() || sportLabel}
                     </Text>
-                    {isReadOnly && (
-                      <View className="flex-row items-center gap-1 bg-theme-accent/15 px-2 py-0.5 rounded-full">
-                        <Ionicons name="lock-closed" size={10} color="#0EA5E9" />
-                        <Text className="text-[10px] font-bold text-theme-accent">ROOKA+</Text>
-                      </View>
+                  </TouchableOpacity>
+                ) : (
+                  <View className="flex-row items-start gap-3 px-5 pb-3 border-b border-theme-border/60">
+                    <View className="flex-1">
+                      {canEditHere ? (
+                        <TextInput
+                          value={title}
+                          onChangeText={setTitle}
+                          placeholder={t('dashboard.workoutNamePlaceholder', 'Workout name (optional)')}
+                          placeholderTextColor={theme.textSecondary}
+                          className="bg-theme-inset px-3.5 py-2.5 rounded-control text-sm font-semibold text-theme-text border border-theme-border"
+                        />
+                      ) : (
+                        <>
+                          <Text numberOfLines={2} className="text-xl font-bold text-theme-text font-jakarta">
+                            {title.trim() || sportLabel}
+                          </Text>
+                          <View className="flex-row items-center gap-1.5 mt-1">
+                            <SportMedallion sport={selectedSport} size={18} />
+                            <Text className="text-xs font-semibold text-theme-muted">
+                              {sportLabel}
+                              {dateStr ? ` · ${getLocalizedDayName(dayName, t)} ${dateStr}` : ''}
+                            </Text>
+                          </View>
+                        </>
+                      )}
+                    </View>
+                    {initialWorkout && (
+                      <TouchableOpacity
+                        onPress={handleEditPress}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('common.edit', 'Edit')}
+                        accessibilityState={{ selected: canEditHere }}
+                        className={`w-10 h-10 rounded-full items-center justify-center ${
+                          canEditHere ? 'bg-theme-accent' : 'bg-theme-accent/10'
+                        }`}
+                      >
+                        <Ionicons
+                          name={isReadOnly ? 'lock-closed-outline' : 'create-outline'}
+                          size={19}
+                          color={canEditHere ? '#FFFFFF' : '#0EA5E9'}
+                        />
+                      </TouchableOpacity>
                     )}
                   </View>
-                  <TouchableOpacity
-                    onPress={onClose}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
-                  >
-                    <Ionicons name="close" size={18} color={theme.text} />
-                  </TouchableOpacity>
-                </View>
+                )}
               </View>
 
-          {isReadOnly && (
-            <View className="mx-5 my-2.5 p-3 bg-theme-accent/10 border border-theme-accent/30 rounded-xl flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2 flex-1 mr-2">
-                <Ionicons name="lock-closed" size={16} color="#0EA5E9" />
-                <Text className="text-xs text-theme-text font-medium flex-1">
-                  {t('dashboard.freeTierViewCoach', 'Free tier can view coach workouts. Upgrade to rooka+ to edit steps, targets, and create custom workouts.')}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  onClose();
-                  onUpgradePress?.();
-                }}
-                className="px-2.5 py-1.5 bg-theme-accent rounded-lg"
-              >
-                <Text className="text-xs font-bold text-white">{t('dashboard.upgradeToEdit', 'Upgrade')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
+          <View style={{ flex: 1, display: infoExercise ? 'none' : 'flex' }}>
           {/* SCROLLABLE FORM AREA */}
           <View className="flex-1 px-5">
+            <ExerciseInfoContext.Provider value={showExerciseInfo}>
             <WorkoutStepBuilder
               steps={steps}
               sport={selectedSport}
-              readOnly={isReadOnly}
+              readOnly={!canEditHere}
               durationMinutes={durationMinutes}
               quickDurations={quickDurations}
               onDurationChange={handleDurationChange}
@@ -566,6 +559,7 @@ export function AddWorkoutModal({
               }}
               ListHeaderComponent={listHeaderComponent}
             />
+            </ExerciseInfoContext.Provider>
           </View>
 
           {/* STICKY FOOTER PINNED OUTSIDE SCROLL VIEW (P0 Defect #6) */}
@@ -660,40 +654,22 @@ export function AddWorkoutModal({
                 />
               </View>
 
-              {isReadOnly ? (
-                <View className="flex-row items-center gap-2 flex-1">
-                  <Button
-                    variant="neutral"
-                    size="md"
-                    label={t('common.close', 'Close')}
-                    onPress={onClose}
-                  />
+              {canEditHere && (
+                <Reanimated.View entering={FadeInDown.duration(200)} exiting={FadeOut.duration(140)} className="flex-1">
                   <Button
                     variant="primary"
                     size="md"
-                    label={t('dashboard.upgradeToEdit', 'Upgrade to Edit')}
-                    leftIcon={<Ionicons name="lock-closed" size={13} color="#FFFFFF" />}
-                    onPress={() => {
-                      onClose();
-                      onUpgradePress?.();
-                    }}
-                    className="flex-1"
+                    label={t('common.save', 'Save')}
+                    disabled={steps.length === 0}
+                    onPress={handleSave}
+                    className="w-full"
                   />
-                </View>
-              ) : (
-                <Button
-                  variant="primary"
-                  size="md"
-                  label={t('common.save', 'Save')}
-                  disabled={steps.length === 0}
-                  onPress={handleSave}
-                  className="flex-1"
-                />
+                </Reanimated.View>
               )}
             </View>
 
             {/* Optional Delete action if editing existing workout */}
-            {initialWorkout && !isReadOnly && (
+            {initialWorkout && canEditHere && (
               <TouchableOpacity
                 onPress={handleDelete}
                 className="mt-2.5 items-center justify-center py-1.5"
@@ -704,6 +680,13 @@ export function AddWorkoutModal({
               </TouchableOpacity>
             )}
           </View>
+          </View>
+
+          {infoExercise && (
+            <Reanimated.View entering={SlideInRight.duration(240)} className="flex-1 px-5" style={{ paddingBottom: safeBottom }}>
+              <ExerciseInfoView exerciseName={infoExercise} />
+            </Reanimated.View>
+          )}
             </SheetSurface>
           </View>
         </KeyboardAvoidingView>

@@ -18,7 +18,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
+import { useSheetPresentation } from '../../hooks/use-sheet-presentation';
 import * as Haptics from 'expo-haptics';
 import { socialApi } from '../../services/apiServices';
 import { getFullProfilePhotoUrl } from '../../utils/avatarUtils';
@@ -73,19 +73,8 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
 }) => {
   const theme = useTheme();
   const { t } = useLanguage();
-  const [showModal, setShowModal] = useState(visible);
+  const { showModal, slideAnim, backdropOpacity, panHandlers, onSheetLayout } = useSheetPresentation(visible, onClose);
   const [searchQuery, setSearchQuery] = useState('');
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const isClosingRef = useRef(false);
-
-  const { panHandlers } = useSheetDismiss(onClose, {
-    animY: slideAnim,
-    backdropOpacity,
-    onWillClose: () => {
-      isClosingRef.current = true;
-    },
-  });
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchUserResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -95,56 +84,15 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
   const latestDisplayedSearchIdRef = useRef<number>(0);
 
   useEffect(() => {
-    if (visible) {
-      isClosingRef.current = false;
-      setShowModal(true);
-      slideAnim.setValue(SCREEN_HEIGHT);
-      backdropOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 24,
-          stiffness: 220,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      setSearchQuery('');
-      setSearchResults([]);
-      setHasSearched(false);
-      lastSearchIdRef.current = 0;
-      latestDisplayedSearchIdRef.current = 0;
-      fetchPendingRequests();
-    } else {
-      if (isClosingRef.current) {
-        setShowModal(false);
-        isClosingRef.current = false;
-        return;
-      }
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowModal(false);
-      });
-    }
-  }, [visible, slideAnim, backdropOpacity]);
+    if (!visible) return;
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
+    lastSearchIdRef.current = 0;
+    latestDisplayedSearchIdRef.current = 0;
+    fetchPendingRequests();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   // Instant active live search on every keystroke
   const handleQueryChange = (text: string) => {
@@ -284,7 +232,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }} onLayout={onSheetLayout}>
           {/* Static Fullscreen Backdrop: Fades In Simultaneously */}
           <Animated.View
             style={[

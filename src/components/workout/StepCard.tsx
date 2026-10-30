@@ -1,7 +1,7 @@
 import { ExerciseAutocompleteInput } from "./ExerciseAutocompleteInput";
-import { ExerciseInfoSheet } from "./ExerciseInfoSheet";
+import { ExerciseInfoContext } from "./ExerciseInfoSheet";
 import { BrandColors, Fonts } from '@/constants/theme';
-import React, { useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, KeyboardTypeOptions } from 'react-native';
 import { useColorScheme } from 'nativewind';
@@ -14,6 +14,8 @@ import Animated, {
   FadeOut,
   FadeOutUp,
   LinearTransition,
+  ZoomIn,
+  ZoomOut,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
@@ -160,7 +162,7 @@ const StepCardComponent = ({
     const theme = useTheme();
   const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [infoExercise, setInfoExercise] = useState<string | null>(null);
+  const showExerciseInfo = useContext(ExerciseInfoContext);
   const { colorScheme } = useColorScheme();
 
   // These numeric fields (reps / minutes / metres) are typed into, so their
@@ -352,19 +354,21 @@ const StepCardComponent = ({
             style={{ backgroundColor: colorConfig.bar }}
           />
           {!isSubStep && !readOnly && (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPressIn={() => Haptics.selectionAsync()}
-              onLongPress={drag}
-              delayLongPress={120}
-              className="flex-1 items-center justify-center w-full h-full"
-            >
-              <Ionicons
-                name="reorder-three-outline"
-                size={22}
-                color={isActive ? colorConfig.bar : '#94A3B8'}
-              />
-            </TouchableOpacity>
+            <Animated.View entering={ZoomIn.duration(200)} exiting={ZoomOut.duration(150)} className="flex-1 w-full">
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPressIn={() => Haptics.selectionAsync()}
+                onLongPress={drag}
+                delayLongPress={120}
+                className="flex-1 items-center justify-center w-full h-full"
+              >
+                <Ionicons
+                  name="reorder-three-outline"
+                  size={22}
+                  color={isActive ? colorConfig.bar : '#94A3B8'}
+                />
+              </TouchableOpacity>
+            </Animated.View>
           )}
         </View>
 
@@ -383,20 +387,22 @@ const StepCardComponent = ({
             </View>
 
             {!readOnly && (
-              <ScalePressable
-                onPress={() => {
-                  if (isSubStep && onRemoveSub) {
-                    onRemoveSub(step.id, step.id);
-                  } else {
-                    onRemove(step.id);
-                  }
-                }}
-                activeScale={0.88}
-                haptic="light"
-                className="w-6 h-6 rounded-full items-center justify-center bg-slate-100 dark:bg-slate-800"
-              >
-                <Ionicons name="close" size={14} color={theme.textSecondary} />
-              </ScalePressable>
+              <Animated.View entering={ZoomIn.duration(200)} exiting={ZoomOut.duration(150)}>
+                <ScalePressable
+                  onPress={() => {
+                    if (isSubStep && onRemoveSub) {
+                      onRemoveSub(step.id, step.id);
+                    } else {
+                      onRemove(step.id);
+                    }
+                  }}
+                  activeScale={0.88}
+                  haptic="light"
+                  className="w-6 h-6 rounded-full items-center justify-center bg-slate-100 dark:bg-slate-800"
+                >
+                  <Ionicons name="close" size={14} color={theme.textSecondary} />
+                </ScalePressable>
+              </Animated.View>
             )}
           </View>
 
@@ -436,9 +442,9 @@ const StepCardComponent = ({
                       editable={!readOnly}
                     />
                   </View>
-                  {Boolean(step.exerciseName && step.exerciseName.trim().length > 2) && step.type !== 'rest' && (
+                  {showExerciseInfo && Boolean(step.exerciseName && step.exerciseName.trim().length > 2) && step.type !== 'rest' && (
                     <TouchableOpacity
-                      onPress={() => setInfoExercise(step.exerciseName || null)}
+                      onPress={() => showExerciseInfo(step.exerciseName!.trim())}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       accessibilityRole="button"
                       accessibilityLabel={t('exercise.infoA11y', { name: step.exerciseName || '' })}
@@ -695,7 +701,6 @@ const StepCardComponent = ({
           )}
         </View>
       </View>
-      <ExerciseInfoSheet exerciseName={infoExercise} onClose={() => setInfoExercise(null)} />
     </Animated.View>
   );
 };

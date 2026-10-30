@@ -2,7 +2,7 @@ import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Animated, Dimensions, StyleSheet } from 'react-native';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
+import { useSheetPresentation } from '../../hooks/use-sheet-presentation';
 import { Button } from '../ui/Button';
 import { ScalePressable } from '../ui/ScalePressable';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,63 +26,8 @@ export function LogWeightModal({
 }: LogWeightModalProps) {
   const { t } = useLanguage();
   const [weight, setWeight] = useState<number>(previousWeight || 70.0);
-  const [showModal, setShowModal] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const isClosingRef = useRef(false);
+  const { showModal, slideAnim, backdropOpacity, panHandlers, onSheetLayout } = useSheetPresentation(visible, onClose);
 
-  const { panHandlers } = useSheetDismiss(onClose, {
-    animY: slideAnim,
-    backdropOpacity,
-    onWillClose: () => {
-      isClosingRef.current = true;
-    },
-  });
-
-  useEffect(() => {
-    if (visible) {
-      isClosingRef.current = false;
-      setShowModal(true);
-      slideAnim.setValue(SCREEN_HEIGHT);
-      backdropOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 24,
-          stiffness: 220,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      if (isClosingRef.current) {
-        setShowModal(false);
-        isClosingRef.current = false;
-        return;
-      }
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowModal(false);
-      });
-    }
-  }, [visible, slideAnim, backdropOpacity]);
 
   const adjustWeight = (amount: number) => {
     Haptics.selectionAsync();
@@ -108,7 +53,7 @@ export function LogWeightModal({
       animationType="none"
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }} onLayout={onSheetLayout}>
         {/* Static Fullscreen Backdrop: Fades In/Out Simultaneously */}
         <Animated.View
           style={[

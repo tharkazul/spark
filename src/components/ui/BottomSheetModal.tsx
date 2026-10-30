@@ -1,21 +1,19 @@
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 import {
   Modal,
   View,
   TouchableOpacity,
   Animated,
-  Dimensions,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   GestureResponderHandlers,
   ViewProps,
 } from 'react-native';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
+import { useSheetPresentation } from '../../hooks/use-sheet-presentation';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface BottomSheetContextValue {
   panHandlers: GestureResponderHandlers;
@@ -69,67 +67,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   showHandle = false,
   header,
 }) => {
-  const [showModal, setShowModal] = useState(visible);
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const isClosingRef = useRef(false);
-
-  if (visible && !showModal) {
-    setShowModal(true);
-  }
-
-  const { panHandlers } = useSheetDismiss(onClose, {
-    animY: translateY,
-    backdropOpacity,
-    onWillClose: () => {
-      isClosingRef.current = true;
-    },
-  });
-
-  useEffect(() => {
-    if (visible) {
-      isClosingRef.current = false;
-      setShowModal(true);
-      translateY.setValue(SCREEN_HEIGHT);
-      backdropOpacity.setValue(0);
-      
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.spring(translateY, {
-          toValue: 0,
-          damping: 24,
-          stiffness: 220,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      if (isClosingRef.current) {
-        setShowModal(false);
-        isClosingRef.current = false;
-        return;
-      }
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: SCREEN_HEIGHT,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowModal(false);
-      });
-    }
-  }, [visible, translateY, backdropOpacity]);
+  const { showModal, slideAnim: translateY, backdropOpacity, panHandlers, onSheetLayout } = useSheetPresentation(visible, onClose);
 
   if (!showModal) return null;
 
@@ -145,7 +83,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-        <View className="flex-1 justify-end relative">
+        <View className="flex-1 justify-end relative" onLayout={onSheetLayout}>
           {/* Static Fullscreen Backdrop: Fades In Simultaneously */}
           <Animated.View
             style={[

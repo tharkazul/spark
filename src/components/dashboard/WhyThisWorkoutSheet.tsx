@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { BottomSheetModal, BottomSheetHeader } from '../ui/BottomSheetModal';
@@ -87,8 +87,8 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
       onClose={onClose}
       showHandle={true}
       header={
-        <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/40">
-          <View className="flex-row items-center gap-2 flex-1 mr-2">
+        <View className="flex-row items-center pb-3 mb-3 border-b border-theme-border/40">
+          <View className="flex-row items-center gap-2 flex-1">
             <View className="w-8 h-8 rounded-full bg-theme-accent/15 items-center justify-center">
               <Ionicons name="sparkles" size={16} color={theme.tint} />
             </View>
@@ -101,17 +101,6 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
               </Text>
             </View>
           </View>
-
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.selectionAsync();
-              onClose();
-            }}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            className="w-8 h-8 rounded-full bg-theme-inset items-center justify-center"
-          >
-            <Ionicons name="close" size={18} color={theme.textSecondary} />
-          </TouchableOpacity>
         </View>
       }
     >

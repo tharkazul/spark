@@ -9,6 +9,7 @@ import { WorkoutStep } from '../../types/plan';
 import { SportType } from '../../types/dashboard';
 import { makeStepId } from '../../utils/stepId';
 import { StepCard } from '../workout/StepCard';
+import { StepReadCard } from '../workout/StepReadCard';
 import { CARD_COLORS } from '../workout/StepCard.styles';
 import { stepMultiplier } from '../../domain/rookaScore';
 import { ScalePressable } from '@/components/ui/ScalePressable';
@@ -53,7 +54,8 @@ const MemoizedHeader = React.memo(({
 
       {/* STRUCTURE BUILDER SECTION (One Surface Rule - no nested card container) */}
       <View className="my-3 flex-col gap-3">
-        {/* Section Header */}
+        {/* Section Header: only with the add-step buttons under it; reading, it's just a title over nothing */}
+        {!readOnly && (
         <View className="flex-row items-center justify-between pb-2 border-b border-theme-border/40">
           <View className="flex-row items-center gap-2">
             <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
@@ -62,10 +64,11 @@ const MemoizedHeader = React.memo(({
             <Text className="text-sm font-bold text-theme-text font-jakarta">{t('dashboard.structure', 'Structure')}</Text>
           </View>
         </View>
+        )}
 
         {/* Add Interval Blocks */}
         {!readOnly && (
-        <View>
+        <Animated.View entering={FadeIn.duration(220)} exiting={FadeOut.duration(150)} layout={LinearTransition.duration(200)}>
           <View className="flex-row flex-wrap gap-2 mb-1">
             <ScalePressable
               onPress={() => handleAddStep('warmup')}
@@ -136,7 +139,7 @@ const MemoizedHeader = React.memo(({
               </Text>
             </Animated.View>
           )}
-        </View>
+        </Animated.View>
         )}
       </View>
 
@@ -305,6 +308,14 @@ export function WorkoutStepBuilder({
   }, [steps, updateStepsAndNotify]);
 
   const renderItem = useCallback(({ item, drag, isActive }: { item: WorkoutStep; drag?: () => void; isActive?: boolean }) => {
+    if (readOnly) {
+      // Reading (often mid-session): plain large type instead of the editor's inputs.
+      return (
+        <Animated.View layout={LinearTransition.duration(200)}>
+          <StepReadCard step={item} isStrength={isStrength} />
+        </Animated.View>
+      );
+    }
     return (
       <Animated.View layout={isActive ? undefined : LinearTransition.duration(200)}>
         <ScaleDecorator>

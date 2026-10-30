@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSheetDismiss } from '../../hooks/use-sheet-dismiss';
+import { useSheetPresentation } from '../../hooks/use-sheet-presentation';
 import { useHealth } from '../../context/HealthStore';
 import { getBodyPartLabel } from '../progress/AnatomicalBodyMap';
 import { Button } from '../ui/Button';
@@ -112,64 +112,13 @@ export function LogNiggleModal({
   const [selectedSide, setSelectedSide] = useState<'left' | 'right'>('left');
   const [isManuallySelected, setIsManuallySelected] = useState<boolean>(false);
 
-  const [showModal, setShowModal] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const isClosingRef = useRef(false);
-
-  const { panHandlers } = useSheetDismiss(onClose, {
-    animY: slideAnim,
-    backdropOpacity,
-    onWillClose: () => {
-      isClosingRef.current = true;
-    },
-  });
+  const { showModal, slideAnim, backdropOpacity, panHandlers, onSheetLayout } = useSheetPresentation(visible, onClose);
 
   useEffect(() => {
-    if (visible) {
-      isClosingRef.current = false;
-      setShowModal(true);
-      slideAnim.setValue(SCREEN_HEIGHT);
-      backdropOpacity.setValue(0);
-      setIsManuallySelected(false);
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 25,
-          stiffness: 220,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      if (isClosingRef.current) {
-        setShowModal(false);
-        isClosingRef.current = false;
-        return;
-      }
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowModal(false);
-      });
-    }
-  }, [visible, slideAnim, backdropOpacity]);
+    if (!visible) return;
+    setIsManuallySelected(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const handleDescriptionChange = (text: string) => {
     setDescription(text);
@@ -235,7 +184,7 @@ export function LogNiggleModal({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', position: 'relative' }} onLayout={onSheetLayout}>
           {/* Static Fullscreen Backdrop: Fades In Simultaneously */}
           <Animated.View
             style={[

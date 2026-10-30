@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
+import { useSheetPresentation } from '../../hooks/use-sheet-presentation';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, Modal, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,47 +16,7 @@ export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalPr
   const theme = useTheme();
   const { t } = useLanguage();
   const [mins, setMins] = useState('45');
-  const [showModal, setShowModal] = useState(visible);
-  const slideAnim = useRef(new Animated.Value(40)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (visible) {
-      setShowModal(true);
-      slideAnim.setValue(40);
-      backdropOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 24,
-          stiffness: 240,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 40,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setShowModal(false);
-      });
-    }
-  }, [visible]);
+  const { showModal, slideAnim, backdropOpacity, onSheetLayout } = useSheetPresentation(visible, onClose, { offset: 40 });
 
   const handleBuild = () => {
     const val = parseInt(mins, 10);
@@ -69,7 +30,7 @@ export function QuickBuildModal({ visible, onClose, onBuild }: QuickBuildModalPr
 
   return (
     <Modal visible={showModal} transparent animationType="none" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'center', position: 'relative', padding: 24 }}>
+      <View style={{ flex: 1, justifyContent: 'center', position: 'relative', padding: 24 }} onLayout={onSheetLayout}>
         <Animated.View
           style={[
             StyleSheet.absoluteFill,

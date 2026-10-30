@@ -244,6 +244,7 @@ export default function PlanningHomeScreen() {
 
   const [recordedWeight, setRecordedWeight] = useState<number>(user?.athlete_metrics?.weight_kg || 0);
   const [selectedWorkoutForEdit, setSelectedWorkoutForEdit] = useState<WorkoutItem | null>(null);
+  const [openWorkoutInEditMode, setOpenWorkoutInEditMode] = useState(false);
 
   // Selected week start date (defaults to Monday of current week)
   const currentMonday = useMemo(() => getMonday(new Date()), []);
@@ -552,8 +553,9 @@ export default function PlanningHomeScreen() {
     setIsAddModalOpen(true);
   };
 
-  const handleSelectWorkoutForEdit = (workout: WorkoutItem) => {
+  const handleSelectWorkoutForEdit = (workout: WorkoutItem, options?: { edit?: boolean }) => {
     setSelectedWorkoutForEdit(workout);
+    setOpenWorkoutInEditMode(Boolean(options?.edit));
     if (workout.day && workout.dateStr) {
       const dayIdx = weeklyAgenda.findIndex(
         (d) => d.dayName === workout.day || d.dateStr === workout.dateStr
@@ -1057,6 +1059,7 @@ export default function PlanningHomeScreen() {
         targetFullDate={targetAddDay.fullDate}
         initialWorkout={selectedWorkoutForEdit}
         isReadOnly={!canEdit && Boolean(selectedWorkoutForEdit)}
+        startInEditMode={openWorkoutInEditMode}
         onUpgradePress={() => presentPaywall()}
         onClose={() => {
           setIsAddModalOpen(false);

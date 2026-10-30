@@ -1578,6 +1578,22 @@ export const fr: TranslationKeys = {
     addSubStep: "+ Sous-étape",
     exercisePlaceholder: "Nom de l'exercice (ex. : Core Plank / Squats)",
   },
+  // A workout step as it reads mid-session (the sheet's read mode).
+  stepRead: {
+    type_warmup: "Échauffement",
+    type_interval: "Intervalle",
+    type_recovery: "Récupération",
+    type_cooldown: "Retour au calme",
+    type_rest: "Repos",
+    type_repeat: "Répéter",
+    rounds: "{count} tours",
+    reps: "{count} rép.",
+    min: "{count} min",
+    sec: "{count} s",
+    metres: "{count} m",
+    km: "{count} km",
+    restAfter: "{value} de repos",
+  },
   questUi: {
     quests: "Quêtes",
     activeQuest: "Quête active",

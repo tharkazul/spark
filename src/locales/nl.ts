@@ -1578,6 +1578,22 @@ export const nl: TranslationKeys = {
     addSubStep: "+ Substap",
     exercisePlaceholder: "Naam oefening (bijv. Core Plank / Squats)",
   },
+  // A workout step as it reads mid-session (the sheet's read mode).
+  stepRead: {
+    type_warmup: "Warming-up",
+    type_interval: "Interval",
+    type_recovery: "Herstel",
+    type_cooldown: "Cooling-down",
+    type_rest: "Rust",
+    type_repeat: "Herhaling",
+    rounds: "{count} rondes",
+    reps: "{count} herh.",
+    min: "{count} min",
+    sec: "{count} s",
+    metres: "{count} m",
+    km: "{count} km",
+    restAfter: "{value} rust",
+  },
   questUi: {
     quests: "Quests",
     activeQuest: "Actieve quest",

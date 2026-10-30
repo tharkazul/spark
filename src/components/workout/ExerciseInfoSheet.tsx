@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { createContext, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-import { BottomSheetModal } from '../ui/BottomSheetModal';
 import { AnatomicalBodyMap } from '../progress/AnatomicalBodyMap';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
@@ -19,9 +18,41 @@ if (Platform.OS !== 'web') {
   } catch (_) {}
 }
 
-interface ExerciseInfoSheetProps {
-  exerciseName: string | null;
-  onClose: () => void;
+const youtubeVideoCache = new Map<string, string>();
+
+async function resolveClientYoutubeVideoId(exerciseName: string): Promise<string | null> {
+  const key = exerciseName.toLowerCase().trim();
+  const cached = youtubeVideoCache.get(key);
+  if (cached) return cached;
+  try {
+    const q = encodeURIComponent(`${exerciseName} exercise form tutorial`);
+    const res = await fetch(`https://www.youtube.com/results?search_query=${q}`, {
+      headers: {
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const matches = [...html.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)].map((m) => m[1]);
+    const unique = [...new Set(matches)];
+    const videoId = unique[0] || null;
+    if (videoId) {
+      youtubeVideoCache.set(key, videoId);
+    }
+    return videoId;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Opens an exercise's info page inside the sheet that shows the workout, instead of a second
+ * sheet of another size stacked on top. A step card without this provider shows no (i) button.
+ */
+export const ExerciseInfoContext = createContext<((exerciseName: string) => void) | null>(null);
+
+interface ExerciseInfoViewProps {
+  exerciseName: string;
 }
 
 /**
@@ -30,7 +61,7 @@ interface ExerciseInfoSheetProps {
  * exercise on the server (shared, not personal) and need AI consent
  * only the first time anyone asks for cues.
  */
-export function ExerciseInfoSheet({ exerciseName, onClose }: ExerciseInfoSheetProps) {
+export function ExerciseInfoView({ exerciseName }: ExerciseInfoViewProps) {
   const { t, language } = useLanguage();
   const theme = useTheme();
   const { user } = useUser();
@@ -49,12 +80,20 @@ export function ExerciseInfoSheet({ exerciseName, onClose }: ExerciseInfoSheetPr
     setLoading(true);
     seasonApi
       .getExerciseCues(exerciseName)
-      .then((res) => {
+      .then(async (res) => {
         if (!active) return;
         setCues(res?.cues && res.cues.cues.length ? res.cues : null);
-        setYoutubeVideoId(res?.youtubeVideoId || null);
+        if (res?.youtubeVideoId) {
+          setYoutubeVideoId(res.youtubeVideoId);
+        } else {
+          const fallbackId = await resolveClientYoutubeVideoId(exerciseName);
+          if (active && fallbackId) setYoutubeVideoId(fallbackId);
+        }
       })
-      .catch(() => {})
+      .catch(async () => {
+        const fallbackId = await resolveClientYoutubeVideoId(exerciseName);
+        if (active && fallbackId) setYoutubeVideoId(fallbackId);
+      })
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -95,91 +134,89 @@ export function ExerciseInfoSheet({ exerciseName, onClose }: ExerciseInfoSheetPr
   const muscleNames = (list: string[]) => list.map((m) => t(`exercise.muscle_${m}`)).join(', ');
 
   return (
-    <BottomSheetModal visible={Boolean(exerciseName)} onClose={onClose} showHandle>
-      <ScrollView style={{ maxHeight: 660 }} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-        <Text className="text-xl font-extrabold text-theme-text">{exerciseName}</Text>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      <Text className="text-xl font-extrabold text-theme-text">{exerciseName}</Text>
 
-        {muscles && highlight ? (
-          <>
-            <Text className="text-xs text-theme-muted mt-1">
-              <Text className="font-bold text-theme-accent">{t('exercise.primary')}: </Text>
-              {muscleNames(muscles.primary)}
-              {muscles.secondary.length > 0 && (
-                <>
-                  {'  ·  '}
-                  <Text className="font-bold">{t('exercise.secondary')}: </Text>
-                  {muscleNames(muscles.secondary)}
-                </>
-              )}
-            </Text>
-            <View className="mt-2">
-              <AnatomicalBodyMap highlightParts={highlight} initialView={bestViewFor(muscles)} initialSize="small" />
-            </View>
-          </>
+      {muscles && highlight ? (
+        <>
+          <Text className="text-xs text-theme-muted mt-1">
+            <Text className="font-bold text-theme-accent">{t('exercise.primary')}: </Text>
+            {muscleNames(muscles.primary)}
+            {muscles.secondary.length > 0 && (
+              <>
+                {'  ·  '}
+                <Text className="font-bold">{t('exercise.secondary')}: </Text>
+                {muscleNames(muscles.secondary)}
+              </>
+            )}
+          </Text>
+          <View className="mt-2">
+            <AnatomicalBodyMap highlightParts={highlight} initialView={bestViewFor(muscles)} initialSize="small" />
+          </View>
+        </>
+      ) : (
+        <Text className="text-xs text-theme-muted mt-1">{t('exercise.noMuscleMap')}</Text>
+      )}
+
+      <View className="mt-3 bg-theme-inset rounded-inset p-3">
+        <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted mb-1.5">{t('exercise.howTo')}</Text>
+        {loading ? (
+          <ActivityIndicator color={theme.tint} />
+        ) : cues ? (
+          <View className="gap-y-1.5">
+            {cues.setup ? <Text className="text-sm text-theme-text">{cues.setup}</Text> : null}
+            {cues.cues.map((c, i) => (
+              <View key={i} className="flex-row gap-2">
+                <Ionicons name="checkmark-circle" size={15} color="#22C55E" style={{ marginTop: 1 }} />
+                <Text className="flex-1 text-sm text-theme-text">{c}</Text>
+              </View>
+            ))}
+            {cues.mistake ? (
+              <View className="flex-row gap-2 mt-1">
+                <Ionicons name="alert-circle" size={15} color="#F59E0B" style={{ marginTop: 1 }} />
+                <Text className="flex-1 text-sm text-theme-muted">{cues.mistake}</Text>
+              </View>
+            ) : null}
+          </View>
         ) : (
-          <Text className="text-xs text-theme-muted mt-1">{t('exercise.noMuscleMap')}</Text>
+          <Text className="text-sm text-theme-muted">{user?.aiConsent === true ? t('exercise.cuesUnavailable') : t('exercise.cuesNeedAi')}</Text>
         )}
+      </View>
 
-        <View className="mt-3 bg-theme-inset rounded-inset p-3">
-          <Text className="text-xs font-bold uppercase tracking-wider text-theme-muted mb-1.5">{t('exercise.howTo')}</Text>
-          {loading ? (
-            <ActivityIndicator color={theme.tint} />
-          ) : cues ? (
-            <View className="gap-y-1.5">
-              {cues.setup ? <Text className="text-sm text-theme-text">{cues.setup}</Text> : null}
-              {cues.cues.map((c, i) => (
-                <View key={i} className="flex-row gap-2">
-                  <Ionicons name="checkmark-circle" size={15} color="#22C55E" style={{ marginTop: 1 }} />
-                  <Text className="flex-1 text-sm text-theme-text">{c}</Text>
-                </View>
-              ))}
-              {cues.mistake ? (
-                <View className="flex-row gap-2 mt-1">
-                  <Ionicons name="alert-circle" size={15} color="#F59E0B" style={{ marginTop: 1 }} />
-                  <Text className="flex-1 text-sm text-theme-muted">{cues.mistake}</Text>
-                </View>
-              ) : null}
-            </View>
+      {youtubeVideoId && (Platform.OS === 'web' || WebViewComponent) ? (
+        <View className="mt-3 rounded-inset overflow-hidden border border-theme-border bg-black" style={{ height: 200 }}>
+          {Platform.OS === 'web' ? (
+            React.createElement('iframe', {
+              src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeVideoId)}?playsinline=1&rel=0&modestbranding=1`,
+              style: { width: '100%', height: '100%', border: 'none' },
+              allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen',
+              allowFullScreen: true,
+            })
           ) : (
-            <Text className="text-sm text-theme-muted">{user?.aiConsent === true ? t('exercise.cuesUnavailable') : t('exercise.cuesNeedAi')}</Text>
+            <WebViewComponent
+              originWhitelist={['*']}
+              source={{ html: embedHtml, baseUrl: 'https://www.youtube-nocookie.com' }}
+              allowsInlineMediaPlayback
+              allowsFullscreenVideo
+              mediaPlaybackRequiresUserAction={false}
+              javaScriptEnabled
+              domStorageEnabled
+              scrollEnabled={false}
+              style={{ flex: 1, backgroundColor: '#000' }}
+            />
           )}
         </View>
+      ) : null}
 
-        {youtubeVideoId && (Platform.OS === 'web' || WebViewComponent) ? (
-          <View className="mt-3 rounded-inset overflow-hidden border border-theme-border bg-black" style={{ height: 200 }}>
-            {Platform.OS === 'web' ? (
-              React.createElement('iframe', {
-                src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(youtubeVideoId)}?playsinline=1&rel=0&modestbranding=1`,
-                style: { width: '100%', height: '100%', border: 'none' },
-                allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen',
-                allowFullScreen: true,
-              })
-            ) : (
-              <WebViewComponent
-                originWhitelist={['*']}
-                source={{ html: embedHtml, baseUrl: 'https://www.youtube-nocookie.com' }}
-                allowsInlineMediaPlayback
-                allowsFullscreenVideo
-                mediaPlaybackRequiresUserAction={false}
-                javaScriptEnabled
-                domStorageEnabled
-                scrollEnabled={false}
-                style={{ flex: 1, backgroundColor: '#000' }}
-              />
-            )}
-          </View>
-        ) : null}
-
-        <TouchableOpacity
-          onPress={openDemo}
-          activeOpacity={0.8}
-          accessibilityRole="link"
-          className="mt-3 py-3 rounded-button bg-theme-accent/10 border border-theme-accent/25 flex-row items-center justify-center gap-2"
-        >
-          <Ionicons name="logo-youtube" size={18} color="#EF4444" />
-          <Text className="text-sm font-bold text-theme-accent">{t('exercise.watchDemo')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </BottomSheetModal>
+      <TouchableOpacity
+        onPress={openDemo}
+        activeOpacity={0.8}
+        accessibilityRole="link"
+        className="mt-3 py-3 rounded-button bg-theme-accent/10 border border-theme-accent/25 flex-row items-center justify-center gap-2"
+      >
+        <Ionicons name="logo-youtube" size={18} color="#EF4444" />
+        <Text className="text-sm font-bold text-theme-accent">{t('exercise.watchDemo')}</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }

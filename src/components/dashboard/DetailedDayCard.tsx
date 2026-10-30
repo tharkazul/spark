@@ -54,7 +54,8 @@ interface DetailedDayCardProps {
   onToggleExpand?: () => void;
   onAdaptPress: () => void;
   onAddWorkout: (dayName: string, dateStr: string) => void;
-  onSelectWorkout: (workout: WorkoutItem) => void;
+  /** Opens the workout sheet; `edit` opens it straight in edit mode instead of to read. */
+  onSelectWorkout: (workout: WorkoutItem, options?: { edit?: boolean }) => void;
   onDeleteWorkout: (workoutId: string) => void;
   onInvitePartner: (workout: WorkoutItem) => void;
   hasAnyDevices?: boolean;
@@ -103,6 +104,8 @@ export function DetailedDayCard({
   const [activeMenuWorkout, setActiveMenuWorkout] = useState<WorkoutItem | null>(null);
   const [whyWorkout, setWhyWorkout] = useState<WorkoutItem | null>(null);
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
+  // Whether a coach note runs past its 3 collapsed lines, measured rather than guessed from its length.
+  const [overflowingNotes, setOverflowingNotes] = useState<Record<string, boolean>>({});
   const [syncedWorkoutIds, setSyncedWorkoutIds] = useState<Record<string, boolean>>({});
 
   const isRest = (sport?: SportType | string) => String(sport || '').toUpperCase() === 'REST';
@@ -220,6 +223,15 @@ export function DetailedDayCard({
                 </Text>
                 {day.isToday && (
                   <Chip variant="accent" size="sm" label={t('common.today', 'Today')} />
+                )}
+                {/* Same rule as the week bar's check: every workout that day is done. */}
+                {activeWorkouts.every((w) => w.isCompleted) && (
+                  <View className="flex-row items-center gap-1 bg-semantic-success-bg px-2 py-0.5 rounded-full">
+                    <Ionicons name="checkmark-circle" size={11} color="#10B981" />
+                    <Text className="text-[10px] font-extrabold text-semantic-success-text">
+                      {t('common.doneUpper', 'DONE')}
+                    </Text>
+                  </View>
                 )}
               </View>
               <Text numberOfLines={1} className="text-sm font-bold text-theme-text font-jakarta mt-0.5">
@@ -465,14 +477,32 @@ export function DetailedDayCard({
                         color="#0EA5E9"
                         style={{ marginTop: 2 }}
                       />
-                      <Text
-                        numberOfLines={noteExpanded ? undefined : 3}
-                        className="flex-1 text-xs text-theme-muted leading-relaxed font-jakarta"
-                      >
-                        {workout.coachNote}
-                      </Text>
+                      <View className="flex-1">
+                        <Text
+                          numberOfLines={noteExpanded ? undefined : 3}
+                          className="text-xs text-theme-muted leading-relaxed font-jakarta"
+                        >
+                          {workout.coachNote}
+                        </Text>
+                        {/* Invisible full-length copy at the same width: its line count says whether "Show more" has anything to show. */}
+                        <Text
+                          pointerEvents="none"
+                          accessibilityElementsHidden
+                          importantForAccessibility="no-hide-descendants"
+                          style={{ position: 'absolute', left: 0, right: 0, opacity: 0 }}
+                          className="text-xs leading-relaxed font-jakarta"
+                          onTextLayout={(e) => {
+                            const overflows = e.nativeEvent.lines.length > 3;
+                            if (overflows !== Boolean(overflowingNotes[workout.id])) {
+                              setOverflowingNotes((prev) => ({ ...prev, [workout.id]: overflows }));
+                            }
+                          }}
+                        >
+                          {workout.coachNote}
+                        </Text>
+                      </View>
                     </View>
-                    {workout.coachNote.length > 120 && (
+                    {overflowingNotes[workout.id] && (
                       <TouchableOpacity
                         onPress={() => {
                           setExpandedNotes((prev) => ({
@@ -527,7 +557,7 @@ export function DetailedDayCard({
                       if (!canEdit) {
                         onUpgradePress?.();
                       } else {
-                        onSelectWorkout(workout);
+                        onSelectWorkout(workout, { edit: true });
                       }
                     }}
                   />
