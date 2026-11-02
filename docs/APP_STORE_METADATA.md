@@ -110,6 +110,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
 | **User Content** – Other User Content (messages to the AI coach, daily log notes) | Yes | Yes | No | App Functionality |
 | **Purchases** – Purchase History | Yes | Yes | No | App Functionality (rooka+ access, via RevenueCat) |
 | **Identifiers** – User ID, Device ID (push token) | Yes | Yes | No | App Functionality (authentication, notifications) |
+| **Usage Data** – Product Interaction (login, coach-chat and rooka+ button counts per account, shown on the admin page) | Yes | Yes | No | Analytics |
 | **Diagnostics** | No | – | – | No crash or analytics SDK is included. Change this if one is added. |
 
 > [!IMPORTANT]
@@ -137,6 +138,7 @@ Data processed by service providers on rooka's behalf (Google Gemini for AI, Goo
    * **Audio:** Voice or sound recordings (voice notes to the coach).
    * **Messages:** Other in-app messages (conversations with the AI coach).
    * **Device or other IDs:** Push notification token.
+   * **App activity:** App interactions (login, coach-chat and rooka+ button counts per account, for analytics).
 6. **Health apps declaration:**
    * Category: **Fitness and wellness**
    * Confirm the app does not claim to provide medical diagnosis, treatment or clinical intervention.
@@ -153,18 +155,28 @@ Username / Email: reviewer-test@rooka.io
 Password: Testreview123
 
 REVIEW NOTES:
-- rooka is an AI training coach: it plans training around the athlete's available time, fixed sessions, travel and niggles, and adds recovery and nutrition guidance.
-- The reviewer account is pre-configured with:
-  1. An active rooka+ subscription (no paywall).
-  2. Synced sample running and strength workouts.
-  3. Calculated recovery scores, heart rate variability and sleep data.
-  4. Sample weight and body composition entries and muscle workload data.
-- AI consent (Guideline 5.1.2(i)): the first message in the "Coach" tab asks for permission to share data with Google Gemini, which generates the coach's replies. Nothing is sent to Gemini before the athlete taps "Allow". If they tap "Don't allow", every AI feature stays off and the rest of the app keeps working. The choice can be changed at any time in Profile > Preferences > "AI coach".
-- AI coach: after tapping "Allow", ask any training question in the "Coach" tab.
-- Social: athletes connect by username and must accept each other. Only accepted connections see each other's activities and training data, and they can react with a "spark". There are no comments, posts or free-text messages between users. To remove a connection, open their profile and tap "Friends".
-- Integrations: Profile tab > "Connections" (Apple Health, Garmin Connect, Suunto, Strava and TrainerDay, each through its own official OAuth sign-in screen or system permission sheet; rooka never asks for third-party passwords).
-- Account deletion (Guideline 5.1.1(v)): Profile tab > scroll to the bottom > "Delete Account & Purge Data". A confirmation alert appears before all data is permanently deleted.
-- Contact: Rutger van den Berg (support@rooka.io)
+rooka is an AI training coach: it plans training around the athlete's available time, fixed sessions, travel and niggles, and adds recovery and nutrition guidance.
+
+REVIEWER ACCOUNT
+- Signs in with the username and password above. It has a training goal, a weekly plan and a history of synced workouts.
+
+AI CONSENT (Guideline 5.1.2(i))
+- The coach's first message asks for permission to share data with Google Gemini, which writes the coach's replies. Nothing is sent to Gemini before "Allow" is tapped. With "Don't allow", every AI feature stays off and the rest of the app keeps working. The choice can be changed at any time in Profile > Preferences > "AI coach".
+- To try the coach: tap the round button in the middle of the tab bar, tap "Allow" if asked, and ask any training question.
+
+SUBSCRIPTION (rooka+)
+- Monthly and yearly auto-renewing subscriptions. The paywall opens from any feature marked rooka+, for example Planning > Week > "+ Add Workout", and includes Restore Purchases, Terms and Privacy links.
+
+SOCIAL
+- Athletes connect by username and must accept each other. Only accepted connections see each other's activities and training data; they can react with a "spark". There are no comments, posts or free-text messages between users. To remove a connection, open their profile and tap "Friends".
+
+INTEGRATIONS
+- Profile > Connections: Apple Health, Garmin Connect, Suunto, Strava and TrainerDay, each through its own official sign-in screen or the system permission sheet. rooka never asks for third-party passwords.
+
+ACCOUNT DELETION (Guideline 5.1.1(v))
+- Profile > scroll to the bottom > "Delete Account & Purge Data". A confirmation appears before all data is permanently deleted.
+
+Contact: Rutger van den Berg, support@rooka.io
 ```
 
 > [!WARNING]

@@ -394,9 +394,31 @@ router.post("/api/user/settings/account", authenticateToken, (req, res) => {
   // Note: we can also add username here later if we want to allow username changes, but that requires checking for uniqueness.
   
   if (email !== undefined) {
+    // Stored the way login compares it. The iOS keyboard's email suggestion adds a trailing
+    // space, and an email saved with it could no longer be used to log in.
+    const cleanEmail = String(email || "").trim().toLowerCase() || null;
+    if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ error: "That doesn't look like an email address." });
+    }
+    // The column has no unique constraint, so check by hand: a second account answering to
+    // the same address makes logging in with it ambiguous.
+    db.get(
+      `SELECT id FROM users WHERE id != ? AND deleted_at IS NULL AND (LOWER(TRIM(email)) = ? OR LOWER(TRIM(username)) = ?) LIMIT 1`,
+      [req.user.id, cleanEmail, cleanEmail],
+      (lookupErr, taken) => {
+        if (lookupErr) return res.status(500).json({ error: "Failed to update account details." });
+        if (cleanEmail && taken) return res.status(400).json({ error: "Email is already in use by another account." });
+        saveEmail(cleanEmail);
+      },
+    );
+  } else {
+    res.status(400).json({ error: "No fields to update." });
+  }
+
+  function saveEmail(cleanEmail) {
     db.run(
       `UPDATE users SET email = ? WHERE id = ?`,
-      [email, req.user.id],
+      [cleanEmail, req.user.id],
       function (err) {
         if (err) {
           if (err.message.includes('UNIQUE constraint failed')) {
@@ -407,8 +429,6 @@ router.post("/api/user/settings/account", authenticateToken, (req, res) => {
         res.json({ success: true, message: "Account updated successfully" });
       }
     );
-  } else {
-    res.status(400).json({ error: "No fields to update." });
   }
 });
 

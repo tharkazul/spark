@@ -430,9 +430,14 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <Text className="text-theme-muted text-xs text-center px-4 mb-3">
             {t('profile.titlesDescription')}
           </Text>
-          <View className="px-3 py-1 bg-theme-accent/10 rounded-full">
+          <ScalePressable
+            onPress={() => presentPaywall().catch(() => {})}
+            activeScale={0.96}
+            haptic="selection"
+            className="px-3 py-1 bg-theme-accent/10 rounded-full"
+          >
             <Text className="text-theme-accent text-xs font-bold font-rajdhani">{t('profile.includedWithRookaPlus')}</Text>
-          </View>
+          </ScalePressable>
         </Card>
       ) : (
         <Card className="p-4 mb-2">

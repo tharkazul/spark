@@ -25,7 +25,7 @@ Steps to build and publish rooka to the **Apple App Store** and **Google Play St
 - [ ] **Google Play Console** account registered.
 - [x] **Policy pages online:** `https://rooka.io/privacy`, `https://rooka.io/terms`, `https://rooka.io/support`.
 - [x] **Privacy policy** (`server/public/privacy.html`, copied to `website/`) describes the AI consent and the data sent to Google Gemini. It goes live with the next server deploy.
-- [ ] **Apple Paid Apps Agreement** signed, with banking and tax details active in App Store Connect.
+- [x] **Apple Paid Apps Agreement** active, with banking and tax details (checked 2 Nov; updated agreements accepted).
 
 ---
 
@@ -58,9 +58,9 @@ Steps to build and publish rooka to the **Apple App Store** and **Google Play St
 ## Phase 4: Store assets
 
 ### Apple App Store
-- [ ] **iPhone screenshots, 6.9-inch** (1320 x 2868 or 1290 x 2796 px), 3 to 10 images. Apple scales these down for smaller iPhones. No iPad screenshots are needed because the app is iPhone-only.
+- [x] **iPhone screenshots** (1206 x 2622 px, "iPhone with Dynamic Island, medium display"), 5 uploaded on 2 Nov from `docs/store-screenshots/`: coach, why this workout, week, swim session, marathon goal. Apple reuses them for the other iPhone sizes.
 - [x] App icon: `assets/images/icon.png` (1600 x 1600). Prebuild removes transparency for iOS automatically.
-- [ ] Subscriptions (rooka+) configured in App Store Connect with display names, descriptions and a review screenshot.
+- [x] Subscriptions (rooka+ Monthly and Yearly) configured in App Store Connect and "Ready for Review".
 - [ ] RevenueCat paywall shows working Terms of Use (EULA) and Privacy Policy links.
 
 ### Google Play Store
@@ -103,11 +103,11 @@ eas submit --platform android --profile production
 ## Phase 6: Store console & review
 
 ### App Store Connect
-- [ ] App record created for bundle ID `io.rooka.app`.
-- [ ] Name, subtitle, description, keywords, support and privacy URLs entered from [APP_STORE_METADATA.md](APP_STORE_METADATA.md).
-- [ ] Screenshots uploaded.
-- [ ] **App Privacy** questionnaire completed (metadata section 4).
-- [ ] Age-rating questionnaire completed (metadata section 1).
+- [x] App record created for bundle ID `io.rooka.app`.
+- [x] Name (`rooka.io`), subtitle, description, keywords, support and privacy URLs entered. The iOS description leaves out Google Play mentions (guideline 2.3.10).
+- [x] Screenshots uploaded.
+- [x] **App Privacy** questionnaire published on 2 Nov (13 data types, see metadata section 4).
+- [x] Age-rating questionnaire completed (metadata section 1).
 - [ ] Reviewer credentials and notes entered (metadata section 6).
 - [ ] Subscriptions attached to version 1.0.
 - [ ] TestFlight build tested on a real device, then selected and submitted for review.

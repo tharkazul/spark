@@ -74,20 +74,36 @@ router.post("/login", ...authLimits.login, (req, res) => {
     return res.status(400).json({ error: "Please enter your username/email and password." });
   }
 
-  db.get(
-    `SELECT * FROM users 
-     WHERE (LOWER(username) = ? OR (email IS NOT NULL AND LOWER(email) = ?)) 
-       AND deleted_at IS NULL 
-     LIMIT 1`,
-    [identifier, identifier],
-    async (err, user) => {
-      if (err || !user)
+  // TRIM: emails saved from the settings screen used to keep the trailing space the iOS
+  // keyboard's email suggestion adds, so "name@live.nl" never matched.
+  db.all(
+    `SELECT * FROM users
+     WHERE (LOWER(TRIM(username)) = ? OR (email IS NOT NULL AND LOWER(TRIM(email)) = ?))
+       AND deleted_at IS NULL
+     ORDER BY (LOWER(TRIM(username)) = ?) DESC, id ASC`,
+    [identifier, identifier, identifier],
+    async (err, candidates) => {
+      if (err || !candidates || candidates.length === 0)
         return res.status(400).json({
           error: "No account found with that email or username.",
           code: "ACCOUNT_NOT_FOUND",
         });
 
-      if (await bcrypt.compare(password, user.password_hash)) {
+      // Email isn't unique and a username may itself be an email address, so one address can
+      // answer for several accounts. Taking the first one meant "Incorrect password" whenever
+      // the other account came first; sign in to the account the password belongs to.
+      let user = null;
+      for (const candidate of candidates) {
+        if (candidate.password_hash && (await bcrypt.compare(password, candidate.password_hash))) {
+          user = candidate;
+          break;
+        }
+      }
+      if (candidates.length > 1) {
+        console.warn(`[Auth] Login identifier matches ${candidates.length} accounts (${candidates.map((c) => c.id).join(", ")}); signed in to ${user ? user.id : "none"}.`);
+      }
+
+      if (user) {
         const token = jwt.sign(
           { id: user.id, username: user.username },
           process.env.JWT_SECRET,

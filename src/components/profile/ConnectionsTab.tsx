@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, DeviceEventEmitter, Platform, Switch, Text, T
 import { useActivities } from '../../context/ActivityStore';
 import { usePlan } from '../../context/PlanStore';
 import { useUser } from '../../context/UserStore';
+import { useSubscription } from '../../context/SubscriptionStore';
 import { useLanguage } from '../../context/LanguageContext';
 import { integrationsApi, StravaShareFlags } from '../../services/apiServices';
 import { canHideRookaLink } from '../../utils/permissions';
@@ -82,6 +83,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
 }) => {
   const theme = useTheme();
   const { user } = useUser();
+  const { presentPaywall } = useSubscription();
   const { plan } = usePlan();
   const { t, language } = useLanguage();
   const { syncStrava, syncSuunto, refreshActivities } = useActivities();
@@ -910,9 +912,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                   {isLocked ? (
                     // A greyed-out switch stuck on read as broken: free athletes
                     // turned everything off and still saw the credit on Strava.
-                    <View className="px-2.5 py-1 rounded-full bg-theme-accent/10">
+                    <TouchableOpacity
+                      onPress={() => presentPaywall().catch(() => {})}
+                      activeOpacity={0.8}
+                      className="px-2.5 py-1 rounded-full bg-theme-accent/10"
+                    >
                       <Text className="text-theme-accent text-xs font-bold">{t('connections.rookaPlusOnly')}</Text>
-                    </View>
+                    </TouchableOpacity>
                   ) : (
                     <Switch
                       value={currentToggles[row.key]}
