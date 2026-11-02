@@ -364,5 +364,26 @@ console.log("🏃 Running Workout Planning unit tests...\n");
     console.log("✅ Test 11b Passed: recurring sessions take place on 0-minute days");
   }
 
+  // Test 11c: recurring sessions are planned as the sport the watch records them as
+  {
+    const { buildTemplatePlan } = require("./services/workoutPlanning");
+    const dates = ["2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08"];
+    const recurringByDate = {
+      "2026-11-03": [{ title: "Field Hockey", sport: "Hockey", intensity: "hard", duration_minutes: 90 }],
+      "2026-11-04": [{ title: "Padel Match", sport: "Padel" }],
+      "2026-11-05": [{ title: "Spinning Class", sport: "Spinning" }],
+      "2026-11-06": [{ title: "CrossFit / WOD", sport: "Strength" }],
+      "2026-11-07": [{ title: "Swim Club / Masters", sport: "Swim" }],
+    };
+    const plan = buildTemplatePlan(dates, { primarySport: "Run", recurringByDate });
+    const sportOf = (title) => plan.find((w) => w.description === title)?.sport;
+    assert.strictEqual(sportOf("Field Hockey"), "Run", "hockey is recorded as a run, so it is planned as one");
+    assert.strictEqual(sportOf("Padel Match"), "Run");
+    assert.strictEqual(sportOf("Spinning Class"), "Bike");
+    assert.strictEqual(sportOf("CrossFit / WOD"), "Strength");
+    assert.strictEqual(sportOf("Swim Club / Masters"), "Swim");
+    console.log("✅ Test 11c Passed: recurring sessions are planned as the sport the watch records");
+  }
+
   console.log("\n🎉 All 11 Workout Planning unit tests passed successfully!");
 })();

@@ -328,13 +328,30 @@ function getDedicatedRestContent(lang = 'en') {
  * rooka training", not "no sport".
  */
 function isRecurringSession(item, recurringByDate = {}) {
-  if (item.source === 'recurring') return true;
+  return item.source === 'recurring' || !!findRecurringSession(item, recurringByDate);
+}
+
+/** The recurring session a plan entry stands for, matched on its day by title. */
+function findRecurringSession(item, recurringByDate = {}) {
   const desc = String(item.description || '').toLowerCase().trim();
-  if (!desc) return false;
-  return (recurringByDate[item.date] || []).some((rt) => {
+  if (!desc) return null;
+  return (recurringByDate[item.date] || []).find((rt) => {
     const title = String(rt.title || '').toLowerCase().trim();
     return title && (desc.includes(title) || title.includes(desc));
-  });
+  }) || null;
+}
+
+/**
+ * The plan sport for a recurring session. Plans only know Run, Bike, Swim and Strength, and
+ * sports played on foot (hockey, football, tennis, padel) get recorded on the watch as a run.
+ * Planned as Strength, the synced run found no plan that day and the coach called it unplanned.
+ */
+function plannedSportForRecurring(rt) {
+  const s = `${rt.sport || ''} ${rt.title || ''}`.toLowerCase();
+  if (/spin|bike|ride|cycl/.test(s)) return 'Bike';
+  if (/swim/.test(s)) return 'Swim';
+  if (/strength|gym|weight|lift|crossfit|wod|pilates|yoga|core|mobility/.test(s)) return 'Strength';
+  return 'Run';
 }
 
 function findAvailabilityViolations(plan, availMap, recurringByDate = {}) {
@@ -552,7 +569,7 @@ function buildTemplatePlan(dates, opts = {}) {
       recurringByDate[d.date].forEach((rt) => {
         plan.push({
           date: d.date,
-          sport: rt.sport || 'Other',
+          sport: plannedSportForRecurring(rt),
           description: rt.title,
           target_rooka: rt.intensity === 'hard' ? 65 : rt.intensity === 'easy' ? 30 : 45,
           details: (RECURRING_DETAILS[lang] || RECURRING_DETAILS.en)(rt.title, rt.duration_minutes || 60, rt.start_time),
@@ -911,7 +928,7 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
     recurringTrainingsNotice = `\nATHLETE'S RECURRING PERIODICAL SESSIONS (NON-ROOKA TRAININGS - MUST BE INCLUDED ON THE CALENDAR):\n` +
       `The athlete has regular recurring sports/sessions that take place every week. You MUST include these sessions on their exact designated days in the weekly plan so the athlete has a full schedule of their active life, and you MUST balance their remaining endurance training and recovery load around these sessions:\n` +
       Object.entries(dateToRecurringMap).map(([dStr, rts]) => {
-        return rts.map(rt => `- ${dStr} (${rt.day_of_week}): "${rt.title}" (Sport: ${rt.sport || 'Other'}, Duration: ${rt.duration_minutes || 60}m, Intensity: ${rt.intensity || 'moderate'}${rt.start_time ? `, Time: ${rt.start_time}` : ''})`).join("\n");
+        return rts.map(rt => `- ${dStr} (${rt.day_of_week}): "${rt.title}" (Sport: ${rt.sport || 'Other'}, plan it with sport "${plannedSportForRecurring(rt)}", Duration: ${rt.duration_minutes || 60}m, Intensity: ${rt.intensity || 'moderate'}${rt.start_time ? `, Time: ${rt.start_time}` : ''})`).join("\n");
       }).join("\n");
   }
 
@@ -992,7 +1009,7 @@ ${datesListWithAvailability}
    You MUST strictly adhere to the athlete's daily schedule boundaries:
    ${restDaysDirective}
    Every active session must stay within that day's max duration limit.
-3b. RECURRING NON-ROOKA ACTIVITIES: If any recurring non-Rooka activities are listed in ATHLETE'S RECURRING PERIODICAL SESSIONS above (e.g. hockey, spinning, tennis, club sports), you MUST include a workout entry on that exact day representing this activity. Set 'sport' to the relevant sport or 'CrossTraining' / 'Cardio' / 'Strength' / 'Other' (or closest match), use the exact session name as the description, set an appropriate target_rooka reflecting the duration and intensity (e.g. 40-70), and in 'details' describe the session and coaching notes on how it fits into their weekly athletic development. Balance the athlete's other workouts, intensities, and recovery days around these sessions.
+3b. RECURRING NON-ROOKA ACTIVITIES: If any recurring non-Rooka activities are listed in ATHLETE'S RECURRING PERIODICAL SESSIONS above (e.g. hockey, spinning, tennis, club sports), you MUST include a workout entry on that exact day representing this activity. Set 'sport' to the plan sport given for that session (the athlete records it on their watch as that sport), use the exact session name as the description, set an appropriate target_rooka reflecting the duration and intensity (e.g. 40-70), and in 'details' describe the session and coaching notes on how it fits into their weekly athletic development. Balance the athlete's other workouts, intensities, and recovery days around these sessions.
 3c. TRAVEL, VACATION, HOLIDAYS & SPECIAL CONSTRAINTS (CRITICAL): Follow HARD TRAINING CONSTRAINTS exactly, then check ATHLETE LIFE CONTEXT & LONG-TERM MEMORY and the recent CONVERSATION. If the athlete is traveling, on holiday, away from home, lacks gym/equipment access, or is recovering from illness/injury in this week, you MUST adapt the entire weekly plan to fit those exact constraints:
    - Do NOT schedule gym/strength workouts with barbells, machines, or heavy weights if they do not have gym access while traveling (prescribe bodyweight mobility or omit strength).
    - Do NOT schedule indoor bike FTP sessions or road bike workouts if they do not have their bike on vacation.
@@ -1098,7 +1115,8 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   const validSports = new Set(['Run', 'Bike', 'Swim', 'Strength', 'Rest']);
   const sanitize = (rawPlan) => rawPlan.map((item, idx) => {
     const assignedDate = dates.includes(item.date) ? item.date : (dates[idx] || dates[0]);
-    const sport = validSports.has(item.sport) ? item.sport : 'Run';
+    const recurring = findRecurringSession({ date: assignedDate, description: item.description }, dateToRecurringMap);
+    const sport = recurring ? plannedSportForRecurring(recurring) : validSports.has(item.sport) ? item.sport : 'Run';
     const description = item.description || (sport === 'Rest' ? 'Rest & Recovery' : `${sport} Session`);
     const details = item.details || '';
     const stepsJson = typeof item.steps === 'object'
@@ -1191,7 +1209,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
         if (!alreadyHas) {
           sanitizedPlan.push({
             date: dStr,
-            sport: rt.sport || 'Other',
+            sport: plannedSportForRecurring(rt),
             description: rt.title,
             target_rooka: rt.intensity === 'hard' ? 65 : rt.intensity === 'easy' ? 30 : 45,
             details: `${rt.title} (${rt.duration_minutes} min${rt.start_time ? ` at ${rt.start_time}` : ''}) - Scheduled recurring session.`,
