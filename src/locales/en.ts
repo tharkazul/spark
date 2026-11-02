@@ -1674,6 +1674,8 @@ export const en = {
   },
   addWorkoutExtra: {
     noExercisesYet: "No exercises yet. Add them below, or tap Build with rooka.",
+    noStepsYet: "No steps yet. Add them below, or tap Build with rooka.",
+    noStepsPlanned: "No steps planned for this session. Your watch gets it as one open {minutes}-minute step.",
     defaultTitle: "{sport} Workout",
     syncFailed: "Sync failed",
     watchSyncFailedTitle: "Apple Watch Sync Failed",

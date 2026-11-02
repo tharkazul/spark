@@ -1676,6 +1676,8 @@ export const de: TranslationKeys = {
   },
   addWorkoutExtra: {
     noExercisesYet: "Noch keine Übungen. Füge sie unten hinzu oder tippe auf Mit rooka erstellen.",
+    noStepsYet: "Noch keine Schritte. Füge sie unten hinzu oder tippe auf Mit rooka erstellen.",
+    noStepsPlanned: "Für diese Einheit sind keine Schritte geplant. Deine Uhr bekommt sie als einen offenen Schritt von {minutes} Minuten.",
     defaultTitle: "Training: {sport}",
     syncFailed: "Synchronisierung fehlgeschlagen",
     watchSyncFailedTitle: "Apple-Watch-Synchronisierung fehlgeschlagen",

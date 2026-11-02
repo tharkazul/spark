@@ -1676,6 +1676,8 @@ export const fr: TranslationKeys = {
   },
   addWorkoutExtra: {
     noExercisesYet: "Pas encore d'exercices. Ajoute-les ci-dessous ou touche Créer avec rooka.",
+    noStepsYet: "Pas encore d'étapes. Ajoute-les ci-dessous ou touche Créer avec rooka.",
+    noStepsPlanned: "Aucune étape prévue pour cette séance. Ta montre la reçoit comme une seule étape libre de {minutes} minutes.",
     defaultTitle: "Séance de {sport}",
     syncFailed: "Échec de la synchronisation",
     watchSyncFailedTitle: "Échec de la synchronisation Apple Watch",

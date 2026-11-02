@@ -1676,6 +1676,8 @@ export const nl: TranslationKeys = {
   },
   addWorkoutExtra: {
     noExercisesYet: "Nog geen oefeningen. Voeg ze hieronder toe, of tik op Bouw met rooka.",
+    noStepsYet: "Nog geen stappen. Voeg ze hieronder toe, of tik op Bouw met rooka.",
+    noStepsPlanned: "Voor deze training zijn geen stappen gepland. Je horloge krijgt hem als één open stap van {minutes} minuten.",
     defaultTitle: "Training: {sport}",
     syncFailed: "Synchroniseren mislukt",
     watchSyncFailedTitle: "Apple Watch-synchronisatie mislukt",

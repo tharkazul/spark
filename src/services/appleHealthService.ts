@@ -17,6 +17,7 @@ import type {
 } from 'react-native-workouts';
 import { PlannedWorkout, WorkoutStep } from '../types/plan';
 import { zonesApi, ZoneBandDto } from './apiServices';
+import { minutesFromRooka } from '../utils/format';
 
 type WorkoutKitModule = typeof ReactNativeWorkouts;
 
@@ -684,8 +685,7 @@ function toDateComponents(dateStr: string): DateComponents {
 }
 
 function estimateMinutes(workout: PlannedWorkout): number {
-  const points = workout.target_rooka || workout.rookaPoints || 55;
-  return Math.max(5, Math.round((points / 55) * 60));
+  return minutesFromRooka(workout.target_rooka || workout.rookaPoints || 55);
 }
 
 /** rooka stores exact paces as "M:SS" per kilometre, with no unit suffix. */

@@ -219,19 +219,11 @@ export function AddWorkoutModal({
       const parsedDur = durMatch ? parseInt(durMatch[0], 10) : 45;
       setDurationMinutes(parsedDur);
 
-      if (initialWorkout.steps && initialWorkout.steps.length > 0) {
-        setSteps(ensureStepIds(initialWorkout.steps));
-        setCustomRooka(initialWorkout.rookaPoints || null);
-      } else if (sp === 'STRENGTH' || sp === 'MOBILITY') {
-        // The template (one goblet squat set between warm-up and cool-down) would pass
-        // for the coach's session. Start empty and say so instead.
-        setSteps([]);
-        setCustomRooka(initialWorkout.rookaPoints || null);
-      } else {
-        const scaled = scaleStepsForDuration(parsedDur, [], sp);
-        setSteps(ensureStepIds(scaled));
-        setCustomRooka(initialWorkout.rookaPoints || null);
-      }
+      // A saved workout without steps shows none. A template here (warm-up, Z3 block, cool-down,
+      // or one goblet squat set) passed for the coach's session: Tharaka's step-less 82-minute
+      // long run, sent to Garmin as one open step, showed up here as 9/27/9 minutes in HR zones.
+      setSteps(initialWorkout.steps && initialWorkout.steps.length > 0 ? ensureStepIds(initialWorkout.steps) : []);
+      setCustomRooka(initialWorkout.rookaPoints || null);
     } else {
       setSelectedSport('RUN');
       setTitle('');
@@ -433,8 +425,14 @@ export function AddWorkoutModal({
           </Reanimated.View>
         )}
 
-        {steps.length === 0 && canEditHere && (selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY') && (
-          <Text className="text-xs text-theme-muted">{t('addWorkoutExtra.noExercisesYet')}</Text>
+        {steps.length === 0 && (
+          <Text className={canEditHere ? 'text-xs text-theme-muted' : 'text-sm text-theme-muted'}>
+            {!canEditHere
+              ? t('addWorkoutExtra.noStepsPlanned', { minutes: shownDuration })
+              : selectedSport === 'STRENGTH' || selectedSport === 'MOBILITY'
+                ? t('addWorkoutExtra.noExercisesYet')
+                : t('addWorkoutExtra.noStepsYet')}
+          </Text>
         )}
       </View>
     ),

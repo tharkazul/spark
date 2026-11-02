@@ -1676,6 +1676,8 @@ export const es: TranslationKeys = {
   },
   addWorkoutExtra: {
     noExercisesYet: "Aún no hay ejercicios. Añádelos abajo o toca Crear con rooka.",
+    noStepsYet: "Aún no hay pasos. Añádelos abajo o toca Crear con rooka.",
+    noStepsPlanned: "Esta sesión no tiene pasos planificados. Tu reloj la recibe como un solo paso libre de {minutes} minutos.",
     defaultTitle: "Entrenamiento de {sport}",
     syncFailed: "Error al sincronizar",
     watchSyncFailedTitle: "Error al sincronizar con Apple Watch",

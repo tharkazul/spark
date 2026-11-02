@@ -285,6 +285,11 @@ export const SET_SETUP_SECONDS = 15;
  * Calculates planned workout duration in minutes safely without mistaking
  * distance annotations (like 200m warmup) for minutes.
  */
+/** Minutes for a workout known only by its rooka points (no steps): 55 rooka an hour, at least 5. Same as the server's device exports. */
+export function minutesFromRooka(points: number): number {
+  return Math.max(5, Math.round((points / 55) * 60));
+}
+
 export function calculateWorkoutDurationMinutes(workout: any): number {
   if (!workout) return 45;
 
@@ -357,6 +362,12 @@ export function calculateWorkoutDurationMinutes(workout: any): number {
       return parseInt(detailsMatch[1], 10);
     }
   }
+
+  // 5. No steps and no stated minutes: the length the device exports give it (Garmin,
+  // TrainerDay, Suunto and Apple Watch all send one open step of this), so the app and the
+  // watch show the same session. A flat 45 here once showed "45 min" for an 82-minute run.
+  const points = Number(workout.target_rooka ?? workout.rookaPoints) || 0;
+  if (points > 0) return minutesFromRooka(points);
 
   return 45;
 }

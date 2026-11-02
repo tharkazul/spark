@@ -198,18 +198,43 @@ const RECURRING_DETAILS = {
   fr: (title, mins, time) => `${title} (${mins} min${time ? ` à ${time}` : ''}) - Séance récurrente programmée.`,
 };
 
+/**
+ * Steps for a backup (fallback or template) session of `minutes`, so the app and the watch
+ * agree on its length. Without steps every device export guessed it from the rooka points
+ * (÷ 55 an hour: a 75-minute long run went to Garmin as 82 minutes) while the app said 45.
+ * `steady`: one Zone 2 block. `quality`: warm-up, 8-minute Zone 4 reps with 3 minutes easy,
+ * cool-down; under 40 minutes there's no room for that, so it's steady too. Swims get no
+ * heart-rate target (a wrist reads it badly in the water). Strength gets none: '[]'.
+ */
+function backupSessionSteps(kind, sport, minutes) {
+  const s = String(sport || '').toLowerCase();
+  if (s.includes('strength') || s === 'rest') return '[]';
+  const hr = (zone) => (s.includes('swim') ? { target_type: 'no.target' } : { target_type: 'heart.rate.zone', zone });
+  const block = (type, mins, zone) => ({ type, condition_type: 'time', condition_value: mins, ...hr(zone) });
+  if (kind !== 'quality' || minutes < 40) return JSON.stringify([block('interval', minutes, 2)]);
+  const cooldown = Math.max(5, Math.round(minutes * 0.15));
+  let warmup = Math.max(10, Math.round(minutes * 0.25));
+  const reps = Math.max(2, Math.floor((minutes - warmup - cooldown) / 11));
+  warmup = minutes - cooldown - reps * 11; // whatever the reps leave goes to the warm-up
+  return JSON.stringify([
+    block('warmup', warmup, 2),
+    { type: 'repeat', iterations: reps, steps: [block('interval', 8, 4), block('recovery', 3, 1)] },
+    block('cooldown', cooldown, 1),
+  ]);
+}
+
 function buildFallbackPlan(dates, primarySport = 'Run', userLang = 'en') {
   const text = FALLBACK_PLAN_TEXT[userLang] || FALLBACK_PLAN_TEXT.en;
   const sport = primarySport && primarySport !== 'Rest' ? primarySport : 'Run';
   const density = sportDensityMultiplier(sport);
   const strengthDensity = sportDensityMultiplier('Strength');
   const layout = [
-    { sport, target_rooka: Math.round(45 * density) },
+    { sport, target_rooka: Math.round(45 * density), kind: 'steady', minutes: 45 },
     { sport: 'Strength', target_rooka: Math.round(35 * strengthDensity) },
     { sport: 'Rest', target_rooka: 0 },
-    { sport, target_rooka: Math.round(60 * density) },
+    { sport, target_rooka: Math.round(60 * density), kind: 'quality', minutes: 60 },
     { sport: 'Rest', target_rooka: 0 },
-    { sport, target_rooka: Math.round(75 * density) },
+    { sport, target_rooka: Math.round(75 * density), kind: 'steady', minutes: 75 },
     { sport: 'Rest', target_rooka: 0 },
   ];
   return layout.map((day, i) => ({
@@ -218,7 +243,7 @@ function buildFallbackPlan(dates, primarySport = 'Run', userLang = 'en') {
     description: text[i][0],
     target_rooka: day.target_rooka,
     details: text[i][1],
-    steps_json: '[]',
+    steps_json: day.minutes ? backupSessionSteps(day.kind, day.sport, day.minutes) : '[]',
   }));
 }
 
@@ -568,7 +593,7 @@ function buildTemplatePlan(dates, opts = {}) {
       description: `${minutes} min ${content.description}`,
       target_rooka: Math.round(minutes * perMin),
       details: content.details,
-      steps_json: '[]',
+      steps_json: backupSessionSteps(name === 'quality' && !isBeginner ? 'quality' : 'steady', def.sport, minutes),
       source: 'template',
     });
   });

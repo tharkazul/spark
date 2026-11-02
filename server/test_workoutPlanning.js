@@ -103,6 +103,19 @@ console.log("🏃 Running Workout Planning unit tests...\n");
   assert.strictEqual(planNl[0].sport, "Bike");
   assert.ok(planNl[0].description.includes("Aerobe Basisduur"));
 
+  // Its sessions carry steps of the intended length, so app and watch agree on the minutes.
+  const { calculateWorkoutDurationMinutes } = require("./services/workoutPlanning");
+  const stepMinutes = (day) => JSON.parse(day.steps_json).reduce(
+    (sum, st) => sum + (st.type === "repeat" ? st.iterations * st.steps.reduce((a, b) => a + b.condition_value, 0) : st.condition_value), 0);
+  assert.deepStrictEqual([0, 3, 5].map((i) => stepMinutes(planEn[i])), [45, 60, 75]);
+  assert.deepStrictEqual(JSON.parse(planEn[5].steps_json), [{ type: "interval", condition_type: "time", condition_value: 75, target_type: "heart.rate.zone", zone: 2 }]);
+  assert.strictEqual(JSON.parse(planEn[3].steps_json)[1].type, "repeat");
+  assert.strictEqual(planEn[1].steps_json, "[]"); // strength: no made-up exercises
+  assert.strictEqual(planEn[2].steps_json, "[]"); // rest
+  assert.strictEqual(calculateWorkoutDurationMinutes({ sport: "Run", steps_json: planEn[5].steps_json }), 75);
+  const swim = buildFallbackPlan(dates, "Swim", "en");
+  assert.strictEqual(JSON.parse(swim[5].steps_json)[0].target_type, "no.target");
+
   console.log("✅ Test 5 Passed: Fallback plan produces valid 7-day schedule with language localization");
 }
 
