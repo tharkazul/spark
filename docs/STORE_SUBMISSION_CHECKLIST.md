@@ -21,7 +21,7 @@ Steps to build and publish rooka to the **Apple App Store** and **Google Play St
 
 ## Phase 1: Accounts & legal
 
-- [ ] **Apple Developer Program** membership active.
+- [x] **Apple Developer Program** membership active (production builds are signed by team Q4XC4JKJDW).
 - [ ] **Google Play Console** account registered.
 - [x] **Policy pages online:** `https://rooka.io/privacy`, `https://rooka.io/terms`, `https://rooka.io/support`.
 - [x] **Privacy policy** (`server/public/privacy.html`, copied to `website/`) describes the AI consent and the data sent to Google Gemini. It goes live with the next server deploy.
@@ -39,17 +39,17 @@ Steps to build and publish rooka to the **Apple App Store** and **Google Play St
 - [x] Connections can be removed from the athlete's profile (tap "Friends").
 - [x] **AI data consent:** the coach's first message asks for permission before any data goes to Google Gemini (Guideline 5.1.2(i)). Declining turns every AI feature off. The switch is in Profile > Preferences > AI coach.
 - [x] In-app Privacy Policy and Terms links point at `rooka.io`.
-- [ ] **Location permission text:** remove `NSLocationWhenInUseUsageDescription` from `app.json` (no device location is used), or ship the feature it describes.
-- [ ] **Display name:** decide whether the home-screen name in `app.json` should be `rooka` (lowercase) instead of `Rooka`.
-- [ ] `npx tsc --noEmit` and `npx expo-doctor` pass.
-- [ ] All changes committed, so the build matches a known commit.
+- [x] **Location permission text** removed from `app.json` (no device location is used). The camera permission is off too.
+- [x] **Display name** is `rooka` (lowercase) in `app.json`.
+- [x] `npx tsc --noEmit` passes. `npx expo-doctor` (2 Nov) only flags patch-level updates; run `npx expo install --check` to apply them.
+- [x] All changes committed, so the build matches a known commit. Build from the latest commit: the last build (31, 26 Oct) is 19 commits behind.
 
 ---
 
 ## Phase 3: Backend
 
 - [x] Production backend runs on a Google Cloud VM behind `https://api.rooka.io`.
-- [ ] Latest server code deployed to the VM: comment removal, AI consent, remove-connection, restricted public profiles and the updated privacy policy.
+- [x] Latest server code deployed to the VM (checked 2 Nov: consent, remove-connection, race plans, exercise cues, Garmin and TrainerDay sign-in are live; comment and progress-photo endpoints are gone).
 - [x] Reviewer account `reviewer-test@rooka.io` exists with seeded data and rooka+ access.
 - [ ] Backend monitored and kept online for the whole review period.
 

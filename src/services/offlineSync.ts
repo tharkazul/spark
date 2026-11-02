@@ -144,11 +144,13 @@ class OfflineSyncService {
 
   private startHeartbeat() {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    // Periodically check status if queue has pending items
+    // Periodically check status if queue has pending items, or while offline:
+    // one failed request (e.g. a server restart) otherwise left the app in
+    // Offline Mode until it was backgrounded, because nothing re-checked.
     this.heartbeatTimer = setInterval(() => {
-      if (this.queue.length > 0 && !this.isFlushing) {
+      if ((this.queue.length > 0 || !this.isOnline) && !this.isFlushing) {
         this.checkOnlineStatus().then((online) => {
-          if (online) {
+          if (online && this.queue.length > 0) {
             this.flushQueue();
           }
         });

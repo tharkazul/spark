@@ -180,8 +180,8 @@ REVIEW NOTES:
 - [ ] **Paid Apps Agreement signed:** banking and tax details are active in App Store Connect.
 - [ ] **Subscriptions attached:** the rooka+ subscriptions are attached to the app version in App Store Connect when you submit.
 - [ ] **Paywall copy matches the app:** the RevenueCat paywall (configured in the RevenueCat dashboard, not in this repo) does not list weekly quests (`QUESTS_ENABLED = false` in `src/constants/features.ts`).
-- [ ] **Website deployed:** the rooka.io pages (`website/` and `server/public/`) match the current app integrations (Garmin Connect, Suunto, Apple Health, Strava, TrainerDay), do not promise weekly quests, and describe the exact account deletion path.
+- [x] **Website deployed** (checked 2 Nov: live privacy policy matches the repo): the rooka.io pages (`website/` and `server/public/`) match the current app integrations (Garmin Connect, Suunto, Apple Health, Strava, TrainerDay), do not promise weekly quests, and describe the exact account deletion path.
 - [ ] **Paywall legal links:** the RevenueCat paywall shows working Terms of Use (EULA) and Privacy Policy links.
 - [x] **Review account active:** `reviewer-test@rooka.io` exists on `https://api.rooka.io` with seeded data and rooka+ access.
 - [x] **Backend hosting:** the production backend runs on a Google Cloud VM.
-- [ ] **Backend deployed:** the latest server (Garmin Connect OAuth/webhooks/Training API, TrainerDay OAuth, updated public HTML pages) is deployed to the VM before the new build reaches review.
+- [x] **Backend deployed** (checked 2 Nov): the latest server (Garmin Connect OAuth/webhooks/Training API, TrainerDay OAuth, updated public HTML pages) is deployed to the VM before the new build reaches review.
