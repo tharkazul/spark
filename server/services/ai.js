@@ -240,9 +240,13 @@ async function generateWithFallback(
         recordDailyTokenUsage(usage);
         if (userId) {
           const columnToUpdate = poolType === "common" ? "common_token_usage" : "daily_token_usage";
-          db.run(
-            `UPDATE users SET ${columnToUpdate} = ${columnToUpdate} + ? WHERE id = ?`,
-            [chargedTokens, userId],
+          // Awaited so a caller reading the usage right after (the chat reply's meter) sees this call.
+          await new Promise((resolve) =>
+            db.run(
+              `UPDATE users SET ${columnToUpdate} = ${columnToUpdate} + ? WHERE id = ?`,
+              [chargedTokens, userId],
+              () => resolve(),
+            ),
           );
         }
       }

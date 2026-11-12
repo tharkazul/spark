@@ -55,6 +55,14 @@ export default function ProfileScreen() {
 
   const [activeTab, setActiveTab] = useState<ProfileSubTab>('profile');
 
+  // The usage meter and account details come from the profile; fetch it fresh on arrival so a
+  // new day (or a budget spent elsewhere) shows without a pull to refresh.
+  useFocusEffect(
+    useCallback(() => {
+      refreshUser().catch(() => {});
+    }, [refreshUser])
+  );
+
   useFocusEffect(
     useCallback(() => {
       const rawSubtab = params.subtab;

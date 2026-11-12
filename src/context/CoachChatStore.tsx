@@ -921,9 +921,12 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
 
   useEffect(() => {
     if (user) {
+      // A freshly fetched profile wins. With the previous value first, the meter kept whatever
+      // it read at launch: empty all day while the coach said the budget was spent, and still
+      // full the next morning after the server had reset it.
       setTokenUsage((prev) => ({
-        daily_token_usage: prev?.daily_token_usage ?? user.daily_token_usage ?? (user as any).dailyTokenUsage ?? 0,
-        daily_token_limit: prev?.daily_token_limit ?? user.daily_token_limit ?? (user as any).dailyTokenLimit ?? (user.subscription_tier === 'admin' ? 500000 : user.subscription_tier === 'rooka_plus' ? 50000 : 5000),
+        daily_token_usage: user.daily_token_usage ?? (user as any).dailyTokenUsage ?? prev?.daily_token_usage ?? 0,
+        daily_token_limit: user.daily_token_limit ?? (user as any).dailyTokenLimit ?? prev?.daily_token_limit ?? (user.subscription_tier === 'admin' ? 500000 : user.subscription_tier === 'rooka_plus' ? 50000 : 5000),
         subscription_tier: user.subscription_tier || 'free',
       }));
     }

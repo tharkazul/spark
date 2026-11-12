@@ -276,8 +276,10 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
         };
       }
 
-      // Token limit logic
-      const todayStr = new Date().toISOString().split("T")[0];
+      // Token limit logic. The Amsterdam day, like the midnight reset and the profile's meter:
+      // with the UTC date a chat between 00:00 and 01:00 stamped yesterday's date, the meter
+      // then read zero all day, and at 01:00 the budget was reset a second time.
+      const todayStr = getAMSDateString();
       let currentDailyUsage = user.daily_token_usage || 0;
       let currentDailyLimit = getEffectiveTokenLimit(user);
 
@@ -313,7 +315,15 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
               `INSERT INTO chat_history (user_id, role, content, mood) VALUES (?, 'coach', ?, 'default')`,
               [req.user.id, replyText],
               (err) => {
-                return res.json({ reply: replyText, mood: "default" });
+                return res.json({
+                  reply: replyText,
+                  mood: "default",
+                  tokenUsage: {
+                    daily_token_usage: currentDailyUsage,
+                    daily_token_limit: currentDailyLimit,
+                    subscription_tier: user.subscription_tier || "free",
+                  },
+                });
               }
             );
           }
@@ -1667,6 +1677,23 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                          }
                                        }
 
+                                        // The usage after this reply, for the meter on the profile page. The app
+                                        // always read it from here, but it was never sent, so the meter only
+                                        // moved when the whole profile was fetched again.
+                                        const tokenUsage = await new Promise((resolveUsage) =>
+                                          db.get(`SELECT daily_token_usage FROM users WHERE id = ?`, [req.user.id], (usageErr, usageRow) =>
+                                            resolveUsage(
+                                              usageErr || !usageRow
+                                                ? undefined
+                                                : {
+                                                    daily_token_usage: usageRow.daily_token_usage || 0,
+                                                    daily_token_limit: currentDailyLimit,
+                                                    subscription_tier: user.subscription_tier || "free",
+                                                  },
+                                            ),
+                                          ),
+                                        );
+
                                         // 1. Send the instant response to the client immediately if socket is open
                                         if (!res.headersSent && !res.writableEnded) {
                                           try {
@@ -1676,6 +1703,7 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                               mood: mood,
                                               planUpdated: planUpdated,
                                               workouts: createdWorkouts || undefined,
+                                              tokenUsage,
                                             });
                                           } catch (sendErr) {
                                             console.warn("Client disconnected before res.json completed:", sendErr.message);
