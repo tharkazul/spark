@@ -1,0 +1,168 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Rajdhani:wght@600;700&display=block" rel="stylesheet">
+<style>
+  :root {
+    --ink: #050816;
+    --navy: #0B1330;
+    --blue: #2563EB;
+    --sky: #0EA5E9;
+    --cyan: #38BDF8;
+    --text: #F5F7FF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1206px; height: 2622px; overflow: hidden; background: var(--ink); }
+  .frame {
+    position: relative; width: 1206px; height: 2622px; overflow: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text);
+    background:
+      radial-gradient(1200px 900px at 50% 118%, rgba(37,99,235,.95) 0%, rgba(37,99,235,.35) 38%, rgba(5,8,22,0) 70%),
+      radial-gradient(700px 600px at 92% 40%, rgba(14,165,233,.22) 0%, rgba(5,8,22,0) 70%),
+      radial-gradient(800px 700px at -5% 22%, rgba(56,189,248,.14) 0%, rgba(5,8,22,0) 70%),
+      linear-gradient(180deg, #050816 0%, #08102A 55%, #0B1A4A 100%);
+  }
+  /* oversized brand mark, very faint, for texture */
+  .mark {
+    position: absolute; width: 1500px; height: 2275px; left: 380px; top: 260px;
+    background: url('../../../website/rooka-mark-white.svg') no-repeat center / contain;
+    opacity: .035; transform: rotate(-8deg);
+  }
+  /* speed streaks */
+  .streak { position: absolute; height: 6px; border-radius: 6px;
+    background: linear-gradient(90deg, rgba(56,189,248,0), rgba(56,189,248,.55));
+    transform: rotate(-24deg); }
+
+  .head { position: absolute; left: 0; right: 0; top: 150px; text-align: center; padding: 0 70px; }
+  .kicker {
+    font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 46px; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--cyan); margin-bottom: 26px;
+  }
+  h1 {
+    font-weight: 800; font-size: 118px; line-height: 1.02; letter-spacing: -0.035em;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(95deg, #7DD3FC 0%, #38BDF8 45%, #3B82F6 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .phone {
+    position: absolute; left: 50%; top: 640px; width: 900px; height: 1957px;
+    transform: translateX(-50%);
+    border-radius: 128px; padding: 16px;
+    background: linear-gradient(160deg, #3A4256 0%, #12151F 30%, #0A0C12 70%, #2B3244 100%);
+    box-shadow:
+      0 0 0 3px rgba(255,255,255,.06),
+      0 60px 140px rgba(0,0,0,.65),
+      0 0 180px rgba(37,99,235,.35);
+  }
+  .phone .screen {
+    width: 100%; height: 100%; border-radius: 112px; overflow: hidden; position: relative;
+    background-size: cover; background-position: top center;
+  }
+  .cover { position: absolute; background: #0F172A; }
+  .cover span { font-weight: 800; color: #F8FAFC; letter-spacing: -0.02em; white-space: nowrap; }
+
+  /* zoomed-in slice of the UI floating over the phone */
+  .callout {
+    position: absolute; border-radius: 44px; overflow: hidden;
+    background-repeat: no-repeat;
+    box-shadow:
+      0 0 0 2px rgba(125,211,252,.45),
+      0 40px 90px rgba(0,0,0,.6),
+      0 0 120px rgba(56,189,248,.35);
+  }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"></div>
+
+<script>
+// Each crop is in raw-screenshot pixels (1206 x 2622).
+const FRAMES = {
+  1: {
+    kicker: 'AI personal coach',
+    title: 'A coach who<br><em>plans with you</em>',
+    shot: 'coach.png',
+    callout: { crop: [96, 1777, 851, 205], scale: 1.12, x: 150, y: 1960, rot: -3 },
+  },
+  2: {
+    kicker: 'Smart planning',
+    title: 'Built around<br><em>your real week</em>',
+    shot: 'week.png',
+    callout: { crop: [44, 612, 1121, 262], scale: 0.98, x: 52, y: 1560, rot: 2.5 },
+  },
+  3: {
+    kicker: 'Adapts daily',
+    title: 'Life happens.<br><em>Your plan adapts.</em>',
+    shot: 'today.png',
+    greeting: { bg: '#0F172A', color: '#F8FAFC' },
+    callout: { crop: [50, 1640, 1107, 423], scale: 0.92, x: 92, y: 1990, rot: -2.5 },
+  },
+  4: {
+    kicker: 'Explained',
+    title: 'Know <em>why</em> every<br>workout matters',
+    shot: 'why.png',
+    greeting: { bg: '#090E19', color: '#959697' },
+    callout: { crop: [87, 1739, 1029, 539], scale: 0.94, x: 120, y: 1940, rot: 2 },
+  },
+  5: {
+    kicker: 'Garmin & more',
+    title: 'Straight to<br><em>your watch</em>',
+    shot: 'detail-run.png',
+    callout: { shot: 'week.png', crop: [96, 1841, 361, 102], scale: 1.9, x: 260, y: 2190, rot: -3 },
+  },
+};
+
+const n = Number(new URLSearchParams(location.search).get('f') || 1);
+const f = FRAMES[n];
+const raw = '../dark-raw/';
+const el = document.getElementById('frame');
+
+const streaks = [
+  [-120, 560, 520, .9], [820, 300, 460, .6], [930, 1180, 380, .5], [-60, 1460, 340, .45],
+];
+
+el.innerHTML = `
+  <div class="mark"></div>
+  ${streaks.map(([x, y, w, o]) => `<div class="streak" style="left:${x}px;top:${y}px;width:${w}px;opacity:${o}"></div>`).join('')}
+  <div class="head">
+    <div class="kicker">${f.kicker}</div>
+    <h1>${f.title}</h1>
+  </div>
+  <div class="phone"><div class="screen" style="background-image:url('${raw}${f.shot}')"></div></div>
+`;
+
+// Phone screen is 868px wide; raw is 1206px -> scale
+const screenScale = 868 / 1206;
+const screen = el.querySelector('.screen');
+
+if (f.greeting) {
+  // Replace the test account's username in the greeting.
+  const c = document.createElement('div');
+  c.className = 'cover';
+  const s = screenScale;
+  Object.assign(c.style, { left: 30 * s + 'px', top: 165 * s + 'px', width: 1150 * s + 'px', height: 150 * s + 'px',
+    display: 'flex', alignItems: 'center', paddingLeft: 14 * s + 'px', background: f.greeting.bg });
+  c.innerHTML = `<span style="font-size:${84 * s}px;color:${f.greeting.color}">Good morning, Leon</span>`;
+  screen.appendChild(c);
+}
+
+const co = f.callout;
+const [cx, cy, cw, ch] = co.crop;
+const box = document.createElement('div');
+box.className = 'callout';
+Object.assign(box.style, {
+  left: co.x + 'px', top: co.y + 'px',
+  width: cw * co.scale + 'px', height: ch * co.scale + 'px',
+  backgroundImage: `url('${raw}${co.shot || f.shot}')`,
+  backgroundSize: `${1206 * co.scale}px ${2622 * co.scale}px`,
+  backgroundPosition: `${-cx * co.scale}px ${-cy * co.scale}px`,
+  transform: `rotate(${co.rot}deg)`,
+});
+el.appendChild(box);
+</script>
+</body>
+</html>

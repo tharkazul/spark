@@ -936,7 +936,7 @@ export default function CoachScreen() {
   const dateBadgeStr = now.toLocaleDateString(getLocaleTag(language), { weekday: 'short', month: 'short', day: 'numeric' });
 
   return (
-    <SafeAreaView className="flex-1 dark:bg-dark-canvas bg-neutral-50" edges={['top']}>
+    <SafeAreaView className="flex-1 dark:bg-theme-bg bg-neutral-50" edges={['top']}>
       <Reanimated.View style={[{ flex: 1 }, keyboardRoomStyle]}>
         {/* Click-to-Expand Image Lightbox Modal */}
         <Modal
