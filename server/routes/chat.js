@@ -285,8 +285,8 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
 
       if (user.last_token_reset_date !== todayStr) {
         currentDailyUsage = 0;
-        // Reset to their tier default limit on a new day
-        currentDailyLimit = user.subscription_tier === 'rooka_plus' ? 50000 : 10000;
+        // Reset to their tier default limit on a new day (same table as the midnight reset)
+        currentDailyLimit = getEffectiveTokenLimit({ subscription_tier: user.subscription_tier, daily_token_limit: 0 });
         db.run(
           `UPDATE users SET daily_token_usage = 0, common_token_usage = 0, daily_token_limit = ?, last_token_reset_date = ? WHERE id = ?`,
           [currentDailyLimit, todayStr, req.user.id],
