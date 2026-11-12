@@ -393,6 +393,49 @@ export const planStorage = {
   },
 };
 
+const NUTRITION_CACHE_KEY = 'rooka_nutrition_cache';
+
+/**
+ * Today's nutrition as last loaded, so the logged food is there at launch instead of zeros
+ * until the server answers (or for good, if that first request fails without a connection).
+ * Only the given day's copy is returned: logged food starts empty again every day.
+ */
+export const nutritionStorage = {
+  async get<T>(userId: string | number | undefined, day: string): Promise<T | null> {
+    if (!userId) return null;
+    try {
+      const raw =
+        Platform.OS === 'web'
+          ? typeof window !== 'undefined' && window.localStorage
+            ? window.localStorage.getItem(`${NUTRITION_CACHE_KEY}_${userId}`)
+            : null
+          : await AsyncStorage.getItem(`${NUTRITION_CACHE_KEY}_${userId}`);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed?.day === day ? (parsed.nutrition as T) : null;
+    } catch (e) {
+      console.warn('nutritionStorage read error:', e);
+      return null;
+    }
+  },
+
+  async set(userId: string | number | undefined, day: string, nutrition: unknown): Promise<void> {
+    if (!userId) return;
+    try {
+      const data = JSON.stringify({ day, nutrition });
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(`${NUTRITION_CACHE_KEY}_${userId}`, data);
+        }
+        return;
+      }
+      await AsyncStorage.setItem(`${NUTRITION_CACHE_KEY}_${userId}`, data);
+    } catch (e) {
+      console.warn('nutritionStorage save error:', e);
+    }
+  },
+};
+
 const ACTIVITY_CACHE_KEY = 'rooka_activity_cache';
 
 export const activityStorage = {

@@ -1,4 +1,4 @@
-import Constants from 'expo-constants';
+import { formatAppVersion } from './appVersion';
 import { Alert, Platform } from 'react-native';
 import { translate } from '../locales/i18n';
 import { feedbackApi } from '../services/apiServices';
@@ -47,7 +47,7 @@ export const submitFeedback = async (message: string, imagesBase64?: string[]): 
       imagesBase64,
       platform: Platform.OS,
       osVersion: String(Platform.Version),
-      appVersion: Constants.expoConfig?.version,
+      appVersion: formatAppVersion(),
     });
     Alert.alert(translate('feedback.sentTitle'), translate('feedback.sentBody'));
     return true;

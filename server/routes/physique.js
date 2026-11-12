@@ -716,7 +716,9 @@ router.get("/api/physique/nutrition/summary", authenticateToken, async (req, res
   );
 });
 
-router.post("/api/physique/nutrition/reset", authenticateToken, (req, res) => {
+// The app calls /clear (physiqueApi.clearLoggedNutrition); /reset was the only path here,
+// so its "clear logged food" button got a 404 and did nothing.
+router.post(["/api/physique/nutrition/reset", "/api/physique/nutrition/clear"], authenticateToken, (req, res) => {
   const { getAMSDateString } = require("../services/utils");
   const todayStr = getAMSDateString();
   db.run(

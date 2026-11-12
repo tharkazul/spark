@@ -16,6 +16,7 @@ export const fr: TranslationKeys = {
     gpsOnly: 'Fonctionne uniquement en extérieur avec le GPS. Les séances sur tapis ou home trainer n’envoient pas de données en direct.',
   },
   common: {
+    copied: 'Copié',
     save: 'Enregistrer',
     saving: 'Enregistrement...',
     cancel: 'Annuler',
@@ -2119,5 +2120,13 @@ export const fr: TranslationKeys = {
     metric_threshold_pace: "Allure seuil",
     metric_css: "CSS (natation)",
     metric_vo2max: "VO2max",
+  },
+  appUpdate: {
+    readyTitle: "Une nouvelle version de rooka est prête",
+    readyBody: "Je viens de télécharger une mise à jour pour toi. Touche recharger pour y passer ; ça ne prend que quelques secondes et tu ne perds rien.",
+    reload: "Recharger",
+    doneTitle: "Tu es à jour",
+    doneBody: "rooka tourne maintenant avec la dernière version.",
+    failed: "La mise à jour n’a pas pu être chargée. Elle sera installée la prochaine fois que tu ouvriras rooka.",
   },
 };

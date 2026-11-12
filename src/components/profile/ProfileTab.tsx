@@ -8,6 +8,8 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
+import { describeAppVersion, formatAppVersion } from '../../utils/appVersion';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
 import { useLanguage } from '../../context/LanguageContext';
@@ -803,6 +805,20 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <Text className="text-theme-muted font-medium text-xs">
             {t('account.deleteAccount')}
           </Text>
+        </TouchableOpacity>
+
+        {/* Which build and OTA update this is; long-press copies the details for bug reports. */}
+        <TouchableOpacity
+          onLongPress={() => {
+            const details = describeAppVersion();
+            Clipboard.setStringAsync(details).catch(() => {});
+            Haptics.selectionAsync();
+            Alert.alert(t('common.copied'), details);
+          }}
+          activeOpacity={0.6}
+          className="pb-2 self-center"
+        >
+          <Text className="text-theme-muted text-[11px]">rooka {formatAppVersion()}</Text>
         </TouchableOpacity>
       </View>
 

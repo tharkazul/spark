@@ -16,6 +16,7 @@ export const de: TranslationKeys = {
     gpsOnly: 'Funktioniert nur draußen mit GPS. Laufband- und Indoor-Trainer-Einheiten senden keine Live-Daten.',
   },
   common: {
+    copied: 'Kopiert',
     save: 'Speichern',
     saving: 'Speichern...',
     cancel: 'Abbrechen',
@@ -2119,5 +2120,13 @@ export const de: TranslationKeys = {
     metric_threshold_pace: "Schwellentempo",
     metric_css: "CSS (Schwimmen)",
     metric_vo2max: "VO2max",
+  },
+  appUpdate: {
+    readyTitle: "Es gibt eine neue Version von rooka",
+    readyBody: "Ich habe gerade ein Update für dich heruntergeladen. Tippe auf Neu laden, um zu wechseln; das dauert nur ein paar Sekunden und es geht nichts verloren.",
+    reload: "Neu laden",
+    doneTitle: "Du bist auf dem neuesten Stand",
+    doneBody: "rooka läuft jetzt in der neuesten Version.",
+    failed: "Das Update konnte nicht geladen werden. Es wird beim nächsten Öffnen von rooka installiert.",
   },
 };

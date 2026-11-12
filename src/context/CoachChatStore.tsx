@@ -13,6 +13,7 @@ import { usePhysique } from './PhysiqueStore';
 import { usePlan } from './PlanStore';
 import { useUser } from './UserStore';
 import { confirmEnableAi } from '../utils/aiConsent';
+import { useAppUpdateCard } from '../hooks/useAppUpdateCard';
 
 interface CoachChatContextType {
   messages: ChatMessage[];
@@ -261,9 +262,25 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     messagesRef.current = messages;
   }, [messages]);
 
+  // The coach's over-the-air update card lives on this device only, so it's
+  // merged into what the chat shows (and counts as unread) but kept out of
+  // messagesRef, the server history the rest of the store reasons about.
+  const appUpdateCard = useAppUpdateCard();
+  const visibleMessages = useMemo(
+    () =>
+      appUpdateCard
+        ? sortMessagesChronological([...messages.filter((m) => m.id !== appUpdateCard.id), appUpdateCard])
+        : messages,
+    [messages, appUpdateCard],
+  );
+  const visibleMessagesRef = useRef<ChatMessage[]>(visibleMessages);
+  useEffect(() => {
+    visibleMessagesRef.current = visibleMessages;
+  }, [visibleMessages]);
+
   const markAsRead = useCallback(async () => {
     let maxMsgTime = 0;
-    for (const m of messagesRef.current) {
+    for (const m of visibleMessagesRef.current) {
       if (m.id === 'welcome-msg') continue;
       const t = new Date(m.timestamp || 0).getTime();
       if (!isNaN(t) && t > maxMsgTime) maxMsgTime = t;
@@ -332,7 +349,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     if (!isReadInitialized) {
       return;
     }
-    if (!messages || messages.length === 0) {
+    if (!visibleMessages || visibleMessages.length === 0) {
       setUnreadCount(0);
       clearBadgeCountAsync();
       return;
@@ -342,7 +359,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     // all incoming messages are instantly marked as read in real time.
     if (isChatActive && isAppActiveRef.current) {
       let maxMsgTime = 0;
-      for (const m of messages) {
+      for (const m of visibleMessages) {
         if (m.id === 'welcome-msg') continue;
         const t = new Date(m.timestamp || 0).getTime();
         if (!isNaN(t) && t > maxMsgTime) maxMsgTime = t;
@@ -359,7 +376,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       return;
     }
 
-    const unread = messages.filter((m) => {
+    const unread = visibleMessages.filter((m) => {
       if (m.id === 'welcome-msg') return false;
       if (m.role !== 'coach' && m.role !== 'assistant') return false;
       const msgTime = new Date(m.timestamp || 0).getTime();
@@ -372,7 +389,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
     } else {
       setBadgeCountAsync(unread);
     }
-  }, [messages, lastReadTimestamp, isReadInitialized, isChatActive, user?.id]);
+  }, [visibleMessages, lastReadTimestamp, isReadInitialized, isChatActive, user?.id]);
 
   const setMessages = useCallback((action: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     setMessagesState((prev) => {
@@ -1078,8 +1095,8 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
   // One object per change of the data, not per render (see useStableFns).
   const stableFns = useStableFns({ setChatActive, markAsRead, refreshMessages, sendMessage, resendMessage, clearHistory, acceptProposal, rejectProposal, acceptInvite, declineInvite, acceptConnection, declineConnection, checkin });
   const contextValue = useMemo(
-    () => ({ messages, sending, loading, error, tokenUsage, unreadCount, isChatActive, ...stableFns }),
-    [messages, sending, loading, error, tokenUsage, unreadCount, isChatActive, stableFns]
+    () => ({ messages: visibleMessages, sending, loading, error, tokenUsage, unreadCount, isChatActive, ...stableFns }),
+    [visibleMessages, sending, loading, error, tokenUsage, unreadCount, isChatActive, stableFns]
   );
 
   return (

@@ -30,6 +30,13 @@ export interface AiConsentPayload {
   type: 'ai_consent';
 }
 
+/** Local coach card about an over-the-air app update (never stored on the server). */
+export interface AppUpdatePayload {
+  type: 'app_update';
+  status: 'ready' | 'done';
+  updateId: string;
+}
+
 export interface WorkoutProposalPayload {
   type: 'workout_proposal';
   plan: ProposedWorkoutItem[];
@@ -73,6 +80,7 @@ export interface WorkoutDebriefPayload {
 
 export type ChatPayload =
   | AiConsentPayload
+  | AppUpdatePayload
   | EventInvitePayload
   | WorkoutProposalPayload
   | ConnectionRequestPayload

@@ -8,7 +8,7 @@
     <!-- Pre-compiled Tailwind for this page (see README) instead of
          cdn.tailwindcss.com, which is an in-browser compiler and warns that it
          should not be used in production. Regenerate after adding new classes. -->
-    <link rel="stylesheet" href="/admin.css?v=live-3">
+    <link rel="stylesheet" href="/admin.css?v=sort-1">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -162,7 +162,7 @@
         <!-- User Management Table -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                <h2 class="text-xl font-semibold">User Management</h2>
+                <div class="flex items-baseline gap-3"><h2 class="text-xl font-semibold">User Management</h2><span id="userCount" class="text-sm text-gray-500"></span></div>
                 <div class="flex items-center gap-2">
                     <button onclick="triggerWeeklyPlanning()"
                         class="text-sm bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 shadow-sm transition font-medium">🗓️ Trigger Weekly Planning</button>
@@ -174,22 +174,9 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">ID</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Username</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Logins</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Chats</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Tier</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Rooka+ Clicks
-                            </th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Data Req.</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Personal Tokens
-                            </th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Common Tokens
-                            </th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Connections</th>
-                            <th class="text-right p-4 font-bold text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
+                        <!-- Header and filter cells are generated from USER_COLUMNS in admin.js -->
+                        <tr id="userHeaderRow" class="bg-gray-50 text-sm text-gray-600"></tr>
+                        <tr id="userFilterRow" class="bg-gray-50 border-b border-gray-200 text-sm"></tr>
                     </thead>
                     <tbody id="userTableBody" class="text-sm divide-y divide-gray-100">
                         <tr>
@@ -450,7 +437,7 @@
     <!-- Version query busts the Cloudflare/browser cache for this script.
          Bump it whenever admin.js changes, otherwise a fresh admin.html can be
          paired with a stale admin.js and the new sections never populate. -->
-    <script src="/admin.js?v=esc-1"></script>
+    <script src="/admin.js?v=sort-1"></script>
 </body>
 
 </html>

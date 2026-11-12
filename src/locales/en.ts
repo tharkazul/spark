@@ -14,6 +14,7 @@ export const en = {
     gpsOnly: 'Only works outdoors with GPS. Treadmill and indoor trainer sessions send no live data.',
   },
   common: {
+    copied: 'Copied',
     save: 'Save',
     saving: 'Saving...',
     cancel: 'Cancel',
@@ -2117,6 +2118,14 @@ export const en = {
     metric_threshold_pace: "Threshold pace",
     metric_css: "CSS (swim)",
     metric_vo2max: "VO2max",
+  },
+  appUpdate: {
+    readyTitle: "There's a new version of rooka",
+    readyBody: "I've just downloaded an update for you. Tap reload to switch to it; it only takes a few seconds and nothing you've done is lost.",
+    reload: "Reload",
+    doneTitle: "You're up to date",
+    doneBody: "rooka is running the newest version.",
+    failed: "The update couldn't be loaded. It will be installed the next time you open rooka.",
   },
 };
 

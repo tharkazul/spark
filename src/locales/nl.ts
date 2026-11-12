@@ -16,6 +16,7 @@ export const nl: TranslationKeys = {
     gpsOnly: 'Werkt alleen buiten met gps. Loopband- en indoortrainersessies sturen geen live gegevens.',
   },
   common: {
+    copied: 'Gekopieerd',
     save: 'Opslaan',
     saving: 'Opslaan...',
     cancel: 'Annuleren',
@@ -2119,5 +2120,13 @@ export const nl: TranslationKeys = {
     metric_threshold_pace: "Drempeltempo",
     metric_css: "CSS (zwem)",
     metric_vo2max: "VO2max",
+  },
+  appUpdate: {
+    readyTitle: "Er is een nieuwe versie van rooka",
+    readyBody: "Ik heb net een update voor je gedownload. Tik op herladen om over te stappen; het duurt maar een paar seconden en je raakt niets kwijt.",
+    reload: "Herladen",
+    doneTitle: "Je bent helemaal bij",
+    doneBody: "rooka draait nu de nieuwste versie.",
+    failed: "De update kon niet worden geladen. Hij wordt geïnstalleerd als je rooka de volgende keer opent.",
   },
 };

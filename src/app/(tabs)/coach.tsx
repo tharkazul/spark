@@ -54,6 +54,7 @@ import { useSubscription } from '../../context/SubscriptionStore';
 import { useTabBar } from '../../context/TabBarContext';
 import { useUser } from '../../context/UserStore';
 import { AiConsentCard } from '../../components/chat/AiConsentCard';
+import { AppUpdateCard } from '../../components/chat/AppUpdateCard';
 import { AiOffNotice } from '../../components/ui/AiOffNotice';
 import { getAuthToken } from '../../services/apiClient';
 import { tokenStorage } from '../../services/storage';
@@ -297,6 +298,8 @@ const MessageRow = React.memo(({
 
         {item.payload_json?.type === 'ai_consent' ? (
           <AiConsentCard />
+        ) : item.payload_json?.type === 'app_update' ? (
+          <AppUpdateCard payload={item.payload_json} />
         ) : item.payload_json?.type === 'event_invite' ? (
           <EventInviteCard
             payload={item.payload_json}

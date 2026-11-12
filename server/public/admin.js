@@ -21,20 +21,187 @@ async function fetchUsage() {
         }
 
         const users = await response.json();
-        renderTable(users);
-        updateStats(users);
+        allUsers = Array.isArray(users) ? users : [];
+        applyUserView();
+        updateStats(allUsers);
     } catch (err) {
         showError("Could not load user data. Are you an admin?");
         console.error(err);
     }
 }
 
+// --- User table: sorting and per-column filters ---------------------------------
+// Every column is described once here; the header buttons, the filter row and the
+// comparison logic are all generated from this list. Default view: ID ascending.
+
+const CONNECTIONS = [
+    ['strava_connected', 'Strava'],
+    ['garmin_connected', 'Garmin'],
+    ['suunto_connected', 'Suunto'],
+    ['apple_health_connected', 'Apple Health'],
+    ['apple_watch_connected', 'Apple Watch'],
+];
+const TIERS = [['free', 'Free'], ['rooka_plus', 'Rooka+'], ['premium', 'Premium'], ['admin', 'Admin']];
+const TIER_ORDER = { free: 0, rooka_plus: 1, premium: 2, admin: 3 };
+
+const USER_COLUMNS = [
+    { key: 'id', label: 'ID', type: 'number', value: u => Number(u.id) || 0 },
+    { key: 'username', label: 'Username', type: 'text', value: u => u.username || '' },
+    { key: 'logins', label: 'Logins', type: 'number', value: u => u.login_count || 0 },
+    { key: 'chats', label: 'Chats', type: 'number', value: u => u.chat_count || 0 },
+    { key: 'tier', label: 'Tier', type: 'choice', options: TIERS,
+      value: u => u.subscription_tier || 'free', sortValue: u => TIER_ORDER[u.subscription_tier || 'free'] ?? 0 },
+    { key: 'plusClicks', label: 'Rooka+ Clicks', type: 'number', value: u => u.rooka_plus_clicks || 0 },
+    { key: 'dataReq', label: 'Data Req.', type: 'number', value: u => u.data_request_clicks || 0 },
+    { key: 'personal', label: 'Personal Tokens', type: 'number', value: u => u.daily_token_usage || 0 },
+    { key: 'common', label: 'Common Tokens', type: 'number', value: u => u.common_token_usage || 0 },
+    { key: 'connections', label: 'Connections', type: 'connections',
+      value: u => CONNECTIONS.filter(([k]) => u[k]).map(([, name]) => name),
+      sortValue: u => CONNECTIONS.filter(([k]) => u[k]).length },
+];
+
+let allUsers = [];
+const userView = { sortKey: 'id', sortDir: 'asc', filters: {} };
+
+// Number filters accept 5, >5, >=5, <5, <=5, =5 or a range like 5-10.
+function matchesNumber(value, raw) {
+    const q = raw.replace(/\s+/g, '');
+    if (!q) return true;
+    const range = q.match(/^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/);
+    if (range) return value >= Number(range[1]) && value <= Number(range[2]);
+    const cmp = q.match(/^(>=|<=|>|<|=)?(-?\d+(?:\.\d+)?)$/);
+    if (!cmp) return true; // half-typed input: don't hide everything while typing
+    const n = Number(cmp[2]);
+    switch (cmp[1]) {
+        case '>': return value > n;
+        case '>=': return value >= n;
+        case '<': return value < n;
+        case '<=': return value <= n;
+        default: return value === n;
+    }
+}
+
+function matchesFilter(col, u, raw) {
+    if (raw === undefined || raw === '') return true;
+    const v = col.value(u);
+    if (col.type === 'number') return matchesNumber(v, raw);
+    if (col.type === 'text') return String(v).toLowerCase().includes(raw.trim().toLowerCase());
+    if (col.type === 'choice') return v === raw;
+    if (col.type === 'connections') return raw === '__none' ? v.length === 0 : v.includes(raw);
+    return true;
+}
+
+function applyUserView() {
+    const cols = USER_COLUMNS;
+    const filtered = allUsers.filter(u => cols.every(c => matchesFilter(c, u, userView.filters[c.key])));
+    const col = cols.find(c => c.key === userView.sortKey) || cols[0];
+    const key = col.sortValue || col.value;
+    const dir = userView.sortDir === 'desc' ? -1 : 1;
+    filtered.sort((a, b) => {
+        const va = key(a), vb = key(b);
+        const r = typeof va === 'string' ? va.localeCompare(vb, undefined, { sensitivity: 'base', numeric: true }) : va - vb;
+        // Ties fall back to ID so the order never jumps around between refreshes.
+        return r !== 0 ? r * dir : (Number(a.id) - Number(b.id));
+    });
+    renderTable(filtered);
+    updateUserHeader(filtered.length);
+}
+
+function setUserSort(key) {
+    if (userView.sortKey === key) {
+        userView.sortDir = userView.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        userView.sortKey = key;
+        // Text reads naturally A→Z; counts are usually wanted biggest first.
+        const col = USER_COLUMNS.find(c => c.key === key);
+        userView.sortDir = col && (col.type === 'text' || key === 'id') ? 'asc' : 'desc';
+    }
+    applyUserView();
+}
+
+function clearUserFilters() {
+    userView.filters = {};
+    document.querySelectorAll('#userFilterRow [data-filter]').forEach(el => { el.value = ''; });
+    applyUserView();
+}
+
+function updateUserHeader(shown) {
+    document.querySelectorAll('#userHeaderRow [data-sort]').forEach(btn => {
+        const active = btn.dataset.sort === userView.sortKey;
+        const th = btn.closest('th');
+        th.setAttribute('aria-sort', active ? (userView.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+        btn.querySelector('.sort-arrow').textContent = active ? (userView.sortDir === 'asc' ? '▲' : '▼') : '↕';
+        btn.querySelector('.sort-arrow').classList.toggle('text-gray-300', !active);
+        btn.querySelector('.sort-arrow').classList.toggle('text-purple-600', active);
+    });
+    const count = document.getElementById('userCount');
+    if (count) {
+        const active = Object.values(userView.filters).some(v => v !== undefined && v !== '');
+        count.textContent = active ? `Showing ${shown} of ${allUsers.length}` : `${allUsers.length} users`;
+        document.getElementById('clearUserFilters').classList.toggle('hidden', !active);
+    }
+}
+
+function buildUserTableHeader() {
+    const headerRow = document.getElementById('userHeaderRow');
+    const filterRow = document.getElementById('userFilterRow');
+    if (!headerRow || !filterRow) return;
+    const inputClass = 'w-full min-w-[4.5rem] text-xs font-normal normal-case tracking-normal text-gray-700 bg-white border border-gray-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-300';
+
+    headerRow.innerHTML = '';
+    filterRow.innerHTML = '';
+    USER_COLUMNS.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'text-left px-4 pt-4 pb-2 font-bold text-gray-500 uppercase tracking-wider align-bottom';
+        th.innerHTML = `<button type="button" data-sort="${col.key}" class="inline-flex items-center gap-1 uppercase font-bold tracking-wider hover:text-gray-900" title="Sort by ${esc(col.label)}">${esc(col.label)} <span class="sort-arrow text-xs text-gray-300" aria-hidden="true">↕</span></button>`;
+        th.querySelector('button').addEventListener('click', () => setUserSort(col.key));
+        headerRow.appendChild(th);
+
+        const fth = document.createElement('th');
+        fth.className = 'px-4 pb-3';
+        let control;
+        if (col.type === 'choice' || col.type === 'connections') {
+            control = document.createElement('select');
+            const opts = col.type === 'choice'
+                ? [['', 'All'], ...col.options]
+                : [['', 'Any'], ['__none', 'None'], ...CONNECTIONS.map(([, name]) => [name, name])];
+            control.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
+            control.addEventListener('change', () => { userView.filters[col.key] = control.value; applyUserView(); });
+        } else {
+            control = document.createElement('input');
+            control.type = 'search';
+            control.placeholder = col.type === 'number' ? 'e.g. >5' : 'Search';
+            control.title = col.type === 'number' ? 'Number: 5, >5, >=5, <5, <=5 or a range like 5-10' : 'Contains';
+            control.addEventListener('input', () => { userView.filters[col.key] = control.value; applyUserView(); });
+        }
+        control.className = inputClass;
+        control.dataset.filter = col.key;
+        control.setAttribute('aria-label', `Filter ${col.label}`);
+        fth.appendChild(control);
+        filterRow.appendChild(fth);
+    });
+
+    const actions = document.createElement('th');
+    actions.className = 'text-right px-4 pt-4 pb-2 font-bold text-gray-500 uppercase tracking-wider align-bottom';
+    actions.textContent = 'Actions';
+    headerRow.appendChild(actions);
+    const clearCell = document.createElement('th');
+    clearCell.className = 'px-4 pb-3 text-right';
+    clearCell.innerHTML = '<button type="button" id="clearUserFilters" class="hidden text-xs text-purple-700 hover:underline whitespace-nowrap">Clear filters</button>';
+    clearCell.querySelector('button').addEventListener('click', clearUserFilters);
+    filterRow.appendChild(clearCell);
+    updateUserHeader(0);
+}
+
+buildUserTableHeader();
+
 function renderTable(users) {
     const tbody = document.getElementById('userTableBody');
     tbody.innerHTML = '';
 
     if (!users || users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="p-8 text-center text-gray-500">No users found.</td></tr>';
+        const msg = allUsers.length ? 'No users match these filters.' : 'No users found.';
+        tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-gray-500">${msg}</td></tr>`;
         return;
     }
 

@@ -16,6 +16,7 @@ export const es: TranslationKeys = {
     gpsOnly: 'Solo funciona al aire libre con GPS. Las sesiones en cinta o rodillo no envían datos en directo.',
   },
   common: {
+    copied: 'Copiado',
     save: 'Guardar',
     saving: 'Guardando...',
     cancel: 'Cancelar',
@@ -2119,5 +2120,13 @@ export const es: TranslationKeys = {
     metric_threshold_pace: "Ritmo umbral",
     metric_css: "CSS (natación)",
     metric_vo2max: "VO2máx",
+  },
+  appUpdate: {
+    readyTitle: "Hay una nueva versión de rooka",
+    readyBody: "Acabo de descargar una actualización para ti. Toca recargar para cambiar a ella; solo tarda unos segundos y no pierdes nada.",
+    reload: "Recargar",
+    doneTitle: "Ya estás al día",
+    doneBody: "rooka ya funciona con la versión más reciente.",
+    failed: "No se pudo cargar la actualización. Se instalará la próxima vez que abras rooka.",
   },
 };

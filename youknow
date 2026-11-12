@@ -52,3 +52,4 @@ git push origin main
 eas build --platform android --profile preview
 eas build --platform ios --profile production --auto-submit 
 npx eas build -p android --profile production
+eas update --channel production --message "Fix paywall button"

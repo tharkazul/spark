@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { RookaMark } from '../../components/ui/RookaPoints';
 import {
   createMaterialTopTabNavigator,
@@ -30,9 +31,39 @@ const Tabs = withLayoutContext<
   MaterialTopTabNavigationEventMap
 >(MaterialTopTabs.Navigator, undefined, true);
 
+const REBUILD_TABS_AFTER_MS = 30 * 60 * 1000;
+
+/**
+ * A key for the tabs that changes when the app comes back from a long stay in the background.
+ * After hours suspended, a tester's chat page came back black and stayed that way across tab
+ * switches until the app was restarted. Rebuilding the pager does what that restart did.
+ */
+function useTabsRebuildKey() {
+  const [rebuildKey, setRebuildKey] = useState(0);
+  const backgroundedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        backgroundedAtRef.current = Date.now();
+      } else if (state === 'active') {
+        const backgroundedAt = backgroundedAtRef.current;
+        backgroundedAtRef.current = null;
+        if (backgroundedAt !== null && Date.now() - backgroundedAt >= REBUILD_TABS_AFTER_MS) {
+          setRebuildKey((key) => key + 1);
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  return rebuildKey;
+}
+
 export default function TabLayout() {
   const { isAuthenticated, loading, user } = useUser();
   const router = useRouter();
+  const tabsRebuildKey = useTabsRebuildKey();
 
   useEffect(() => {
     if (!loading) {
@@ -51,6 +82,7 @@ export default function TabLayout() {
   return (
     <HeaderLayoutProvider>
       <Tabs
+        key={tabsRebuildKey}
         initialRouteName="index"
         tabBar={(props: CustomTabBarProps) => <CustomTabBar {...props} />}
         // The bar floats over the content on `position: absolute`, so it is
