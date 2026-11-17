@@ -1546,6 +1546,27 @@ export default function CoachScreen() {
             <AiOffNotice
               message={user?.aiConsent === false ? t('aiConsent.offInputHint') : t('aiConsent.pendingInputHint')}
             />
+          ) : isOutOfTokens ? (
+            // Today's budget is spent: nothing more goes to the coach (the server would answer
+            // with the same notice). Free athletes can upgrade; paid ones get it back at midnight.
+            <View className="bg-theme-card rounded-[20px] px-4 py-3 border border-theme-border flex-row items-center gap-3 opacity-90">
+              <Ionicons name="moon-outline" size={18} color={theme.textSecondary} />
+              <Text className="flex-1 text-xs text-theme-muted font-medium leading-4">
+                {hasSubscriptionTier(user?.subscription_tier) ? t('coach.outOfMessagesPaid') : t('coach.outOfMessagesFree')}
+              </Text>
+              {!hasSubscriptionTier(user?.subscription_tier) ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    presentPaywall();
+                  }}
+                  activeOpacity={0.8}
+                  className="bg-theme-accent-strong px-3.5 py-2 rounded-full"
+                >
+                  <Text className="text-xs font-extrabold text-white">{t('coach.upgradeShort')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           ) : (
           <>
           <View className="bg-theme-card rounded-[24px] px-3 py-1.5 border border-theme-border flex-row items-end gap-2 min-h-[48px]">

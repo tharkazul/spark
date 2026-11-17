@@ -2689,13 +2689,15 @@ function triggerLevelUpCoachPrompt(userId, newLevel) {
           const prompt = `The athlete just leveled up to rooka Level ${newLevel}! Here is everything they have done since joining rooka: ${statsStr}. Write a short, highly motivating congratulatory message (1-3 sentences). Acknowledge their hard work. Only reference the numbers given above — do not invent distances, counts or achievements, and do not imply they have done more than this.`;
 
           try {
+            // Charged to the shared pool, like the other unrequested coach messages: on the
+            // athlete's own chat budget, one level-up could use up a free athlete's whole day.
             const aiReply = await generateWithFallback(
               prompt,
               systemPrompt,
               null,
               null,
               userId,
-              "personal",
+              "common",
               false,
               { language: user.language },
             );

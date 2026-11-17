@@ -305,8 +305,12 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
       }
       const canGenerateImage = isAdminTier && dailyImageCount < 1;
 
-      if (currentDailyUsage > currentDailyLimit) {
-        const replyText = require("../services/i18n").t(user.language, "chat.tokenLimit");
+      // Out of today's budget: answered here, without an LLM call. Free athletes are
+      // pointed to rooka+, paying ones to midnight. (>= so the server refuses at the same
+      // point where the app greys out the chat box.)
+      if (currentDailyUsage >= currentDailyLimit) {
+        const isPaid = ["rooka_plus", "subscription", "premium", "admin"].includes(user.subscription_tier);
+        const replyText = require("../services/i18n").t(user.language, isPaid ? "chat.tokenLimitPaid" : "chat.tokenLimit");
         return db.run(
           `INSERT INTO chat_history (user_id, role, content) VALUES (?, 'user', ?)`,
           [req.user.id, message],

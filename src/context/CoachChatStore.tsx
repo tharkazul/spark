@@ -124,6 +124,12 @@ const parsePayloadJson = (msg: ChatMessage): any | undefined => {
   return parseConnectionRequestFromContent(msg.content);
 };
 
+// The chat_history id behind a message: "2547", or "2547-1" for the 2nd bubble of a split reply.
+const storedIdOf = (id: unknown): string | null => {
+  const m = /^(\d+)(?:-\d+)?$/.exec(String(id ?? ''));
+  return m ? m[1] : null;
+};
+
 export const deduplicateMessages = (messagesList: ChatMessage[]): ChatMessage[] => {
   if (!messagesList || messagesList.length <= 1) return messagesList || [];
 
@@ -149,6 +155,12 @@ export const deduplicateMessages = (messagesList: ChatMessage[]): ChatMessage[] 
     const isDuplicate = result.some((existing) => {
       if (existing.id === 'welcome-msg') return false;
       if (existing.role !== msg.role) return false;
+      // Two stored messages (each with its own database id, or a bubble of one) are two
+      // messages, however alike. The same "out of messages" answer twice in a row was
+      // dropped here, so the second reply never appeared and the chat looked frozen.
+      const a = storedIdOf(existing.id);
+      const b = storedIdOf(msg.id);
+      if (a && b && a !== b) return false;
 
       const existingContent = (existing.content || '').trim();
       const newContent = (msg.content || '').trim();

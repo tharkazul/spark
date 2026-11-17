@@ -110,11 +110,18 @@ const messages = {
   },
   chat: {
     tokenLimit: {
-      en: "You have run out of coach messages for today. If you're eager to chat more, consider upgrading: [Upgrade Page](rooka://profile?subtab=account)",
-      nl: "Je coachberichten voor vandaag zijn op. Wil je meer chatten? Overweeg dan een upgrade: [Upgradepagina](rooka://profile?subtab=account)",
-      de: "Deine Coach-Nachrichten für heute sind aufgebraucht. Wenn du mehr chatten möchtest, denk über ein Upgrade nach: [Upgrade-Seite](rooka://profile?subtab=account)",
-      es: "Has agotado tus mensajes con el coach por hoy. Si quieres seguir chateando, considera mejorar tu plan: [Página de mejora](rooka://profile?subtab=account)",
-      fr: "Tu as épuisé tes messages avec le coach pour aujourd'hui. Pour discuter davantage, pense à passer à l'offre supérieure : [Page d'abonnement](rooka://profile?subtab=account)",
+      en: "You've used today's coach messages. Upgrade to rooka+ for more coach messages every day: [Upgrade to rooka+](rooka://profile?subtab=account)",
+      nl: "Je coachberichten voor vandaag zijn op. Met rooka+ krijg je elke dag meer coachberichten: [Upgrade naar rooka+](rooka://profile?subtab=account)",
+      de: "Deine Coach-Nachrichten für heute sind aufgebraucht. Mit rooka+ bekommst du jeden Tag mehr Coach-Nachrichten: [Upgrade auf rooka+](rooka://profile?subtab=account)",
+      es: "Has usado tus mensajes con el coach de hoy. Con rooka+ tienes más mensajes con el coach cada día: [Mejorar a rooka+](rooka://profile?subtab=account)",
+      fr: "Tu as utilisé tes messages avec le coach pour aujourd'hui. Avec rooka+, tu as plus de messages avec le coach chaque jour : [Passer à rooka+](rooka://profile?subtab=account)",
+    },
+    tokenLimitPaid: {
+      en: "You've used today's coach messages. They're back at midnight.",
+      nl: "Je coachberichten voor vandaag zijn op. Om middernacht zijn ze er weer.",
+      de: "Deine Coach-Nachrichten für heute sind aufgebraucht. Um Mitternacht sind sie wieder da.",
+      es: "Has usado tus mensajes con el coach de hoy. Vuelven a medianoche.",
+      fr: "Tu as utilisé tes messages avec le coach pour aujourd'hui. Ils reviennent à minuit.",
     },
     scheduleShifted: {
       en: "I've shifted your schedule starting from {date} forward by one day. Take it easy and recover!",
