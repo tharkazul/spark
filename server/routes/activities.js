@@ -4,6 +4,7 @@ const coachingTopics = require("../services/coachingTopics");
 const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("../services/coachPersona");
 const router = express.Router();
 const db = require('../services/db');
+const { readStravaJson } = require('../services/stravaJson');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -385,7 +386,7 @@ async function fetchStravaDetail(userId, stravaActivityId) {
     signal: AbortSignal.timeout(15000),
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
   });
-  return actRes.ok ? actRes.json() : null;
+  return actRes.ok ? readStravaJson(actRes) : null;
 }
 
 // The app opens an activity by rooka's own row id. This used to be handed to

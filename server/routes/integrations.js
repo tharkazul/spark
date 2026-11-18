@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../services/db');
 const activityMerge = require('../services/activityMerge');
+const { readStravaJson } = require('../services/stravaJson');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -198,7 +199,7 @@ router.post("/api/sync-strava", authenticateToken, async (req, res) => {
           },
         );
 
-        const activities = await actRes.json();
+        const activities = await readStravaJson(actRes);
 
         const userRow = await new Promise((resolve) =>
           db.get(`SELECT rooka_start_date FROM users WHERE id = ?`, [req.user.id], (err, row) => resolve(row))
@@ -401,7 +402,7 @@ router.post(
         }),
       });
 
-      const data = await response.json();
+      const data = await readStravaJson(response);
 
       if (data.errors) {
         console.error("Strava OAuth exchange error response:", data);

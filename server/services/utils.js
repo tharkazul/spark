@@ -4,6 +4,7 @@ const { resolveCoachName, PLAIN_LANGUAGE_RULE } = require("./coachPersona");
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { readStravaJson } = require('./stravaJson');
 const fuzzysort = require('fuzzysort');
 const { sendSSEEvent } = require('./sse');
 const zoneModel = require('./zones');
@@ -1515,7 +1516,7 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
         headers: { Authorization: `Bearer ${accessToken}` },
       },
     );
-    const data = await res.json();
+    const data = await readStravaJson(res);
 
     if (!data.id) {
       console.error(
@@ -1730,7 +1731,7 @@ async function syncAllStravaUsersOnStartup() {
                 continue;
               }
 
-              const activities = await actRes.json();
+              const activities = await readStravaJson(actRes);
 
               if (Array.isArray(activities)) {
                 const userStartDateDay = user.rooka_start_date ? user.rooka_start_date.substring(0, 10) : null;

@@ -567,6 +567,10 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       if (isNowActive) {
         if (isAuthenticated && user?.id) {
           refreshMessages();
+          // The token meter and the "out of messages" bar read today's usage from the profile.
+          // Without this, a budget spent last night kept the chat locked the next morning until
+          // the app was restarted, because nothing else re-reads usage after the midnight reset.
+          refreshUser().catch(() => {});
           if (isChatActiveRef.current) {
             markAsRead();
           }
@@ -580,7 +584,7 @@ export const CoachChatStore: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     });
     return () => sub.remove();
-  }, [isAuthenticated, user?.id, markAsRead, refreshMessages]);
+  }, [isAuthenticated, user?.id, markAsRead, refreshMessages, refreshUser]);
 
   const sendMessage = async (text: string, imagesBase64?: string[]) => {
     if (!text.trim() && (!imagesBase64 || imagesBase64.length === 0)) return;

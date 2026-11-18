@@ -19,6 +19,8 @@ app.use(cors());
 // Chat, voice transcription and feedback carry base64 images/audio in the JSON
 // body; everything else is small, so the global limit stays tight.
 app.post(["/api/chat", "/api/chat/transcribe", "/api/feedback"], bodyParser.json({ limit: "25mb" }));
+// Strava webhooks carry activity and athlete ids that may exceed 2^53 from June 2027 on; keep them exact.
+app.post("/webhook/strava", bodyParser.json({ limit: "1mb", reviver: require("./services/stravaJson").stravaReviver }));
 app.use(bodyParser.json({ limit: "1mb" }));
 // Localize API error/success messages into the athlete's selected language.
 app.use(require("./services/i18n").localizeResponses);
