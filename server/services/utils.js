@@ -773,6 +773,7 @@ function stravaLapsJson(data) {
       average_speed: l.average_speed,
       average_heartrate: l.average_heartrate ?? null,
       max_heartrate: l.max_heartrate ?? null,
+      ...(l.average_watts > 0 ? { average_watts: l.average_watts } : {}),
     })),
   );
 }
@@ -781,8 +782,12 @@ function stravaLapsJson(data) {
  * laps_json (Strava or Garmin) as one prompt line, numbered so the coach can name a rep:
  * "1. 2.0km 5:31/km 138bpm; 2. 0.2km 2:00 121bpm; ...". A lap that barely moved (a standing
  * rest) shows its elapsed time instead of a pace. "" when there are no laps.
+ *
+ * The unit follows the sport: a ride's laps in km/h (plus watts when the lap has them), a
+ * swim's per 100 m, anything else per km. Rides used to get min/km too, and the coach then
+ * talked about a cyclist's "1:36/km".
  */
-function formatLapsForPrompt(lapsJson) {
+function formatLapsForPrompt(lapsJson, sport = "") {
   let laps;
   try {
     laps = JSON.parse(lapsJson || "[]");
@@ -791,15 +796,20 @@ function formatLapsForPrompt(lapsJson) {
   }
   if (!Array.isArray(laps) || laps.length === 0) return "";
   const mmss = (secs) => `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, "0")}`;
+  const isRide = /ride|bike|cycl|spin/i.test(sport || "");
+  const isSwim = /swim/i.test(sport || "");
+  const speedText = (speed) =>
+    isRide ? `${(speed * 3.6).toFixed(1)}km/h` : isSwim ? `${mmss(100 / speed)}/100m` : `${mmss(1000 / speed)}/km`;
   return laps
     .map((l, i) => {
       const km = (Number(l.distance) || 0) / 1000;
       const effort =
         l.average_speed > 0 && km >= 0.1
-          ? `${mmss(1000 / l.average_speed)}/km`
+          ? speedText(l.average_speed)
           : mmss(l.elapsed_time || l.moving_time || 0);
+      const watts = isRide && l.average_watts > 0 ? ` ${Math.round(l.average_watts)}W` : "";
       const hr = l.average_heartrate ? ` ${Math.round(l.average_heartrate)}bpm` : "";
-      return `${i + 1}. ${km.toFixed(km >= 0.1 ? 1 : 2)}km ${effort}${hr}`;
+      return `${i + 1}. ${km.toFixed(km >= 0.1 ? 1 : 2)}km ${effort}${watts}${hr}`;
     })
     .join("; ");
 }
@@ -1363,12 +1373,18 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                 // webhook passes its raw activity, whose laps still need converting.
                 const lapsLine = formatLapsForPrompt(
                   actRow?.laps_json || activityData.laps_json || (activityData.laps ? stravaLapsJson(activityData) : ""),
+                  rookaSport,
                 );
                 const avgHr = Number(actRow?.average_heartrate || activityData.average_heartrate) || 0;
                 const maxHr = Number(actRow?.max_heartrate || activityData.max_heartrate) || 0;
                 const avgWatts = Number(actRow?.average_watts || activityData.average_watts) || 0;
                 const paceSecs = distanceKm > 0 && movingTimeMin > 0 && /run|walk|hike/i.test(rookaSport) ? Math.round((movingTimeMin * 60) / distanceKm) : 0;
-                const overallPace = paceSecs ? `, ${Math.floor(paceSecs / 60)}:${String(paceSecs % 60).padStart(2, "0")}/km` : "";
+                const rideKmh = distanceKm > 0 && movingTimeMin > 0 && /bike|ride|cycl/i.test(rookaSport) ? distanceKm / (movingTimeMin / 60) : 0;
+                const overallPace = paceSecs
+                  ? `, ${Math.floor(paceSecs / 60)}:${String(paceSecs % 60).padStart(2, "0")}/km`
+                  : rideKmh
+                    ? `, ${rideKmh.toFixed(1)}km/h`
+                    : "";
 
                 let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". Actual execution: ${distanceKm > 0 ? `${distanceKm.toFixed(1)}km, ` : ""}${Math.round(movingTimeMin)} minutes${overallPace}` +
                   `${avgHr ? `, avg HR ${Math.round(avgHr)}bpm` : ""}${maxHr ? `, max HR ${Math.round(maxHr)}bpm` : ""}${avgWatts ? `, avg ${Math.round(avgWatts)}W` : ""}` +

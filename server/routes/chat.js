@@ -524,8 +524,8 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
                             // digit is a token, so lap lines for all three cost ~1,000 tokens a message.
                             let lapStr = "";
                             if (index === 0 && a.laps_json) {
-                              const laps = formatLapsForPrompt(a.laps_json);
-                              if (laps) lapStr = " | Laps (distance, pace or duration, avg HR): " + laps;
+                              const laps = formatLapsForPrompt(a.laps_json, a.sport_type);
+                              if (laps) lapStr = " | Laps (distance, pace/speed or duration, avg HR): " + laps;
                             }
                             return `- ${getAMSDateString(a.start_date)} at ${new Date(a.start_date).toLocaleTimeString("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit" })}: ${a.name} (${a.sport_type}) | ${parseFloat(a.distance_km).toFixed(1)}km | ${Math.round(a.moving_time_min)}min | ${Math.round(a.rooka_score || 0)} Rooka${lapStr}`;
                           }
