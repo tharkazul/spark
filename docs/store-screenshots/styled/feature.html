@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Rajdhani:wght@600;700&display=block" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1024px; height: 500px; overflow: hidden; background: #050816; }
+  .f {
+    position: relative; width: 1024px; height: 500px; overflow: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif; color: #F5F7FF;
+    background:
+      radial-gradient(520px 420px at 78% 115%, rgba(37,99,235,.9) 0%, rgba(37,99,235,.3) 40%, rgba(5,8,22,0) 72%),
+      radial-gradient(380px 300px at 100% 10%, rgba(14,165,233,.22) 0%, rgba(5,8,22,0) 70%),
+      linear-gradient(120deg, #050816 0%, #08102A 55%, #0B1A4A 100%);
+  }
+  .streak { position: absolute; height: 4px; border-radius: 4px; transform: rotate(-24deg);
+    background: linear-gradient(90deg, rgba(56,189,248,0), rgba(56,189,248,.55)); }
+  .brand { position: absolute; left: 64px; top: 70px; display: flex; align-items: center; gap: 14px; }
+  .brand img { width: 46px; height: 46px; }
+  .brand span { font-weight: 800; font-size: 40px; letter-spacing: -0.03em; }
+  .kicker { position: absolute; left: 66px; top: 160px; font-family: 'Rajdhani', sans-serif; font-weight: 700;
+    font-size: 22px; letter-spacing: .22em; text-transform: uppercase; color: #38BDF8; }
+  h1 { position: absolute; left: 64px; top: 196px; font-weight: 800; font-size: 60px; line-height: 1.04; letter-spacing: -0.035em; }
+  h1 em { font-style: normal; background: linear-gradient(95deg, #7DD3FC 0%, #38BDF8 45%, #3B82F6 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .phone { position: absolute; width: 250px; height: 543px; border-radius: 38px; padding: 6px;
+    background: linear-gradient(160deg, #3A4256 0%, #12151F 30%, #0A0C12 70%, #2B3244 100%);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 30px 70px rgba(0,0,0,.6), 0 0 80px rgba(37,99,235,.35); }
+  .phone div { width: 100%; height: 100%; border-radius: 32px; background-size: cover; background-position: top center; }
+</style>
+</head>
+<body>
+<div class="f">
+  <div class="streak" style="left:470px;top:40px;width:260px;opacity:.6"></div>
+  <div class="streak" style="left:-40px;top:430px;width:220px;opacity:.45"></div>
+  <div class="phone" style="left:560px;top:96px;transform:rotate(-8deg)"><div style="background-image:url('../dark-raw/week.png')"></div></div>
+  <div class="phone" style="left:760px;top:56px;transform:rotate(6deg)"><div style="background-image:url('../dark-raw/coach.png')"></div></div>
+  <div class="brand"><img src="../../../website/rooka-mark-white.svg"><span>rooka</span></div>
+  <div class="kicker">AI endurance coach</div>
+  <h1>A coach who<br><em>plans with you</em></h1>
+</div>
+</body>
+</html>
