@@ -46,7 +46,7 @@ router.post("/register", ...authLimits.register, async (req, res) => {
       // coach_name is set explicitly: older databases still default this column
       // to the pre-rename value 'Spark'.
       `INSERT INTO users (username, email, password_hash, athlete_context, rooka_start_date, coach_name) VALUES (?, ?, ?, ?, ?, ?)`,
-      [cleanUsername, cleanEmail, hashedPassword, context || "New athlete.", nowIso, "Rooka"],
+      [cleanUsername, cleanEmail, hashedPassword, context || "", nowIso, "Rooka"],
       function (err) {
         if (err)
           return res
@@ -234,7 +234,7 @@ router.post("/apple", async (req, res) => {
                   cleanEmail,
                   sub,
                   hashedPassword,
-                  "New athlete joined via Apple Sign-In.",
+                  "",
                   nowIso,
                   "Rooka",
                 ],
@@ -391,7 +391,7 @@ router.post("/google", async (req, res) => {
                   sub,
                   pictureUrl,
                   hashedPassword,
-                  "New athlete joined via Google Sign-In.",
+                  "",
                   nowIso,
                   "Rooka",
                 ],
