@@ -116,7 +116,14 @@ const FRAMES = {
   },
 };
 
-const n = Number(new URLSearchParams(location.search).get('f') || 1);
+const qs = new URLSearchParams(location.search);
+const n = Number(qs.get('f') || 1);
+// ?h=2144 renders a 9:16 variant (Google Play) by shrinking the phone stage.
+const H = Number(qs.get('h') || 2622);
+if (H !== 2622) {
+  document.documentElement.style.height = document.body.style.height = H + 'px';
+  document.getElementById('frame').style.height = H + 'px';
+}
 const f = FRAMES[n];
 const raw = '../dark-raw/';
 const el = document.getElementById('frame');
@@ -132,8 +139,14 @@ el.innerHTML = `
     <div class="kicker">${f.kicker}</div>
     <h1>${f.title}</h1>
   </div>
-  <div class="phone"><div class="screen" style="background-image:url('${raw}${f.shot}')"></div></div>
+  <div class="stage"><div class="phone"><div class="screen" style="background-image:url('${raw}${f.shot}')"></div></div></div>
 `;
+const stage = el.querySelector('.stage');
+Object.assign(stage.style, { position: 'absolute', inset: '0' });
+if (H !== 2622) {
+  // keep phone top at 560 and scale everything below the heading by 0.8
+  Object.assign(stage.style, { transformOrigin: '603px 640px', transform: 'translateY(-80px) scale(0.8)' });
+}
 
 // Phone screen is 868px wide; raw is 1206px -> scale
 const screenScale = 868 / 1206;
@@ -162,7 +175,7 @@ Object.assign(box.style, {
   backgroundPosition: `${-cx * co.scale}px ${-cy * co.scale}px`,
   transform: `rotate(${co.rot}deg)`,
 });
-el.appendChild(box);
+stage.appendChild(box);
 </script>
 </body>
 </html>

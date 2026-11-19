@@ -7,3 +7,11 @@ for i in 1 2 3 4 5; do
     --window-size=1206,2622 --virtual-time-budget=4000 --allow-file-access-from-files \
     --screenshot="$PWD/0$i.png" "file://$PWD/frames.html?f=$i" >/dev/null 2>&1
 done
+
+# Google Play wants 9:16 -> 1206x2144 variants in play/.
+mkdir -p play
+for i in 1 2 3 4 5; do
+  "$CH" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
+    --window-size=1206,2144 --virtual-time-budget=4000 --allow-file-access-from-files \
+    --screenshot="$PWD/play/rooka-play-0$i.png" "file://$PWD/frames.html?f=$i&h=2144" >/dev/null 2>&1
+done

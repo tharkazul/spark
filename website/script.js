@@ -1,4 +1,4 @@
-// rooka.io site script: theme toggle, mobile menu, beta and support forms.
+// rooka.io site script: theme toggle, mobile menu, newsletter and support forms.
 (function () {
   const root = document.documentElement;
   const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -48,26 +48,13 @@
 
   const validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-  // --- Beta invite form: emails rutger@rooka.io and records the request in /api/auth/waitlist ---
-  const betaForm = document.getElementById('beta-form');
-  if (betaForm) {
-    const label = document.getElementById('beta-email-label');
-    const hint = document.getElementById('beta-email-hint');
-    const status = document.getElementById('beta-status');
-    const copy = {
-      ios: { label: 'Apple ID email', hint: 'Use the address you sign in to the App Store with. TestFlight sends the invite there.' },
-      android: { label: 'Google account email', hint: 'Use the Google account on your phone. Play Store testing only works for that account.' },
-    };
-    const platform = () => (betaForm.querySelector('input[name="platform"]:checked') || {}).value || 'ios';
-    betaForm.addEventListener('change', (e) => {
-      if (e.target.name !== 'platform') return;
-      label.textContent = copy[platform()].label;
-      hint.textContent = copy[platform()].hint;
-    });
-
-    betaForm.addEventListener('submit', (e) => {
+  // --- Newsletter form: emails rutger@rooka.io and records the address in /api/auth/waitlist ---
+  const newsForm = document.getElementById('news-form');
+  if (newsForm) {
+    const status = document.getElementById('news-status');
+    newsForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const emailInput = betaForm.querySelector('input[name="email"]');
+      const emailInput = newsForm.querySelector('input[name="email"]');
       const email = emailInput.value.trim();
       status.className = 'form-status';
       if (!validEmail(email)) {
@@ -76,8 +63,7 @@
         emailInput.focus();
         return;
       }
-      const os = platform() === 'android' ? 'Android' : 'iPhone';
-      const btn = betaForm.querySelector('button[type="submit"]');
+      const btn = newsForm.querySelector('button[type="submit"]');
       btn.disabled = true;
       btn.textContent = 'Sending…';
 
@@ -86,34 +72,31 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           email,
-          platform: os,
-          _subject: `[rooka beta] ${os} invite request: ${email}`,
+          _subject: `[rooka news] signup: ${email}`,
           _replyto: email,
           _template: 'table',
           _captcha: 'false',
-          source: 'rooka.io beta form',
+          source: 'rooka.io newsletter form',
         }),
       }).then((r) => r.ok);
       const waitlist = fetch('/api/auth/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, notes: `Web beta signup (${os})` }),
+        body: JSON.stringify({ email, notes: 'Web newsletter signup' }),
       }).then((r) => r.ok);
 
       Promise.allSettled([mail, waitlist]).then((results) => {
         const sent = results.some((r) => r.status === 'fulfilled' && r.value);
         if (sent) {
-          betaForm.querySelectorAll('.field').forEach((el) => { el.hidden = true; });
+          newsForm.querySelectorAll('.field').forEach((el) => { el.hidden = true; });
           btn.hidden = true;
           status.classList.add('ok');
-          status.textContent = os === 'Android'
-            ? `Request sent. We’ll email a Google Play testing link to ${email}.`
-            : `Request sent. Your TestFlight invite will go to ${email}.`;
+          status.textContent = `Thanks! We’ll send rooka news to ${email}.`;
         } else {
           btn.disabled = false;
-          btn.textContent = 'Request an invite';
+          btn.textContent = 'Keep me posted';
           status.classList.add('err');
-          status.innerHTML = 'The request didn’t go through. Try again, or email <a href="mailto:support@rooka.io">support@rooka.io</a>.';
+          status.innerHTML = 'That didn’t go through. Try again, or email <a href="mailto:support@rooka.io">support@rooka.io</a>.';
         }
       });
     });

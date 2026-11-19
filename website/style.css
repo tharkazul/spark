@@ -131,6 +131,7 @@ p { margin: 0; text-wrap: pretty; }
 .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
 .btn-ghost:hover { border-color: var(--ink); text-decoration: none; }
 .btn-sm { min-height: 40px; padding: 0 16px; font-size: 15px; }
+.btn svg { width: 18px; height: 18px; flex: none; }
 
 /* ---------- Nav ---------- */
 .nav {
