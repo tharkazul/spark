@@ -1863,6 +1863,17 @@ export const en = {
     purchaseFailed: "The purchase could not be completed. Please try again.",
     restoreFailed: "Failed to restore purchases.",
   },
+  usageStats: {
+    settingLabel: "Share usage statistics",
+    offTitle: "Stop sharing usage statistics?",
+    offBody: "rooka will stop recording which screens you open and which buttons you press, and delete what was recorded so far. Your training data isn't affected.",
+    turnOff: "Turn off",
+    updateFailed: "Couldn't change the setting. Please try again.",
+    noticeTitle: "Helping us improve rooka",
+    noticeBody: "rooka now records which screens you open and which buttons you press, so we can see what works and where people get stuck. Never what you type or say, and no health or workout data. It stays on our own servers. You can turn it off in Profile.",
+    noticeOk: "OK",
+    noticeSettings: "Settings",
+  },
   aiConsent: {
     cardTitle: "Before we start",
     cardIntro: "I'm an AI coach. To answer your messages, plan and adjust your training, set nutrition targets and send you check-ins, rooka shares the data I need with Google's Gemini AI service, which processes it on our behalf.",

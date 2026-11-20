@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter, Platform } from 'react-native';
 import { notificationsApi } from './apiServices';
 import { router } from 'expo-router';
+import { track } from './analytics';
 
 const PUSH_ENABLED_KEY = '@rooka_push_notifications_enabled';
 
@@ -88,6 +89,7 @@ export async function registerForPushNotificationsAsync(force = false): Promise<
     if (existingStatus !== 'granted') {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
+      track('notifications_answered', { granted: status === 'granted' });
     }
 
     if (finalStatus !== 'granted') {
@@ -215,6 +217,16 @@ export function setupNotificationListeners(
     });
 
     const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const pushType = String(response.notification.request.content.data?.type || '');
+      track('push_opened', {
+        type: /coach|message/.test(pushType)
+          ? 'coach'
+          : /social|connection|kudos|spark|invite/.test(pushType)
+            ? 'social'
+            : /plan/.test(pushType)
+              ? 'plan'
+              : 'other',
+      });
       if (onNotificationResponse) {
         onNotificationResponse(response);
       } else {

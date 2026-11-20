@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router/react-navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { track, trackOnce } from '../../services/analytics';
 import {
   ActivityIndicator,
   Alert,
@@ -332,8 +333,14 @@ const MessageRow = React.memo(({
           <ProposalCard
             plan={item.proposedPlan}
             status={item.proposalStatus}
-            onAccept={() => onAccept(item.id, item.proposedPlan!)}
-            onReject={() => onReject(item.id)}
+            onAccept={() => {
+              track('proposal_answered', { answer: 'accept' });
+              onAccept(item.id, item.proposedPlan!);
+            }}
+            onReject={() => {
+              track('proposal_answered', { answer: 'reject' });
+              onReject(item.id);
+            }}
           />
         ) : null}
       </View>
@@ -588,6 +595,11 @@ export default function CoachScreen() {
   const remainingPercent = Math.round((remainingTokens / dailyLimit) * 100);
   const showTokenWarning = remainingPercent <= 10;
   const isOutOfTokens = remainingTokens <= 0;
+  // Set when the text in the field came from a voice note, for the usage statistics.
+  const dictatedRef = useRef(false);
+  useEffect(() => {
+    if (isOutOfTokens) trackOnce('out_of_messages', 'out_of_messages_shown');
+  }, [isOutOfTokens]);
 
   const todayWorkouts = useMemo(() => {
     if (!plan || !Array.isArray(plan)) return [];
@@ -730,6 +742,7 @@ export default function CoachScreen() {
         const res = await chatApi.transcribeAudio(result.base64Audio, result.mimeType, language);
         const transcribedText = res?.text?.trim();
         if (transcribedText) {
+          dictatedRef.current = true;
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setInputText((prev) => {
             if (!prev || !prev.trim()) return transcribedText;
@@ -819,6 +832,8 @@ export default function CoachScreen() {
     setSelectedImages([]);
     setIsRecording(false);
 
+    track('coach_message_sent', { kind: imagesToSend.length > 0 ? 'photo' : dictatedRef.current ? 'voice' : 'text' });
+    dictatedRef.current = false;
     sendMessage(textToSend, imagesToSend.length > 0 ? imagesToSend : undefined);
 
     isPinnedToBottom.current = true;
@@ -1465,7 +1480,7 @@ export default function CoachScreen() {
               <TouchableOpacity
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  presentPaywall();
+                  presentPaywall('coach');
                 }}
                 activeOpacity={0.8}
                 className="bg-theme-accent px-2.5 py-1 rounded-md"
@@ -1558,7 +1573,7 @@ export default function CoachScreen() {
                 <TouchableOpacity
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    presentPaywall();
+                    presentPaywall('out_of_messages');
                   }}
                   activeOpacity={0.8}
                   className="bg-theme-accent-strong px-3.5 py-2 rounded-full"

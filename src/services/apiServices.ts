@@ -78,6 +78,11 @@ export const userApi = {
       method: 'PUT',
       body: JSON.stringify({ place }),
     }),
+  setUsageStats: (enabled: boolean) =>
+    apiClient<{ success: boolean; usageStatsEnabled: boolean }>('/api/user/usage-stats', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
   setAiConsent: (consent: boolean) =>
     apiClient<{ success: boolean; aiConsent: boolean }>('/api/user/ai-consent', {
       method: 'POST',

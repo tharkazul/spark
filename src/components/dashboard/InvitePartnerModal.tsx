@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { track } from '../../services/analytics';
 import { View, Text, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, FlatList } from 'react-native';
 import { ScalePressable } from '../ui/ScalePressable';
 import { Image } from 'expo-image';
@@ -91,6 +92,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
     setSending(true);
     try {
       await socialApi.invite(workout.id, Array.from(selectedIds), location, time);
+      track('partner_invited');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onClose();
     } catch (e) {

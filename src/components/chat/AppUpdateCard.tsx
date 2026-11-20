@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { AppUpdatePayload } from '../../types/chat';
 import { reloadIntoUpdate } from '../../services/appUpdates';
+import { flushUsageStats, track } from '../../services/analytics';
 import { UPDATE_NOTES } from '../../constants/releaseNotes';
 import { formatAppVersion } from '../../utils/appVersion';
 
@@ -40,7 +41,9 @@ export const AppUpdateCard: React.FC<{ payload: AppUpdatePayload }> = ({ payload
     if (reloading) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setReloading(true);
+    track('app_update_reloaded');
     try {
+      await flushUsageStats();
       await reloadIntoUpdate();
     } catch {
       setReloading(false);

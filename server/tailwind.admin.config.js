@@ -17,6 +17,7 @@ module.exports = {
   content: [
     'server/public/admin.html',
     'server/public/admin.js',
+    'server/public/admin-usage.js',
   ],
   theme: { extend: {} },
 };

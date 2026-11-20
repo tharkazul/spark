@@ -1,6 +1,7 @@
 import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
+import { sportFamily, track } from '../../services/analytics';
 import {
   View,
   Text,
@@ -78,6 +79,7 @@ export function LogActivityModal({
         distance: distNum ? distNum * 1000 : 0,
         distance_km: distNum || 0,
       });
+      track('activity_logged_manually', { sport: sportFamily(sport) });
 
       if (onSaveActivity) {
         onSaveActivity({

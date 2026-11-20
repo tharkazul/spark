@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { track } from '../../services/analytics';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -129,6 +130,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
       } else {
         const res = await socialApi.connectUser(profile.id);
         if (!res || !res.success) throw new Error('Connect user failed');
+        track('friend_request_sent');
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {

@@ -119,6 +119,8 @@ db.serialize(() => {
   // 1 = accepted, 0 = declined. Every AI feature is off unless this is 1.
   db.run(`ALTER TABLE users ADD COLUMN ai_consent INTEGER`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN ai_consent_at TEXT`, (err) => {});
+  // Usage statistics (services/usageAnalytics.js): on unless the athlete turns them off.
+  db.run(`ALTER TABLE users ADD COLUMN usage_stats_enabled INTEGER DEFAULT 1`, (err) => {});
   // Set when onboarding skipped its AI plan tailoring because consent was
   // still missing; the tailoring runs once the athlete accepts.
   db.run(`ALTER TABLE users ADD COLUMN onboarding_ai_pending INTEGER DEFAULT 0`, (err) => {});
@@ -269,6 +271,51 @@ db.serialize(() => {
         FOREIGN KEY (user_id) REFERENCES users(id)
     )`);
   // Expo push tickets waiting for their receipt (pushNotificationService.processPushReceipts).
+  // Usage analytics (services/usageAnalytics.js). app_events is the raw log, deleted after
+  // 90 days; the other tables are the summaries the admin charts read, kept for good.
+  db.run(`CREATE TABLE IF NOT EXISTS app_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        session_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        props_json TEXT,
+        platform TEXT,
+        app_version TEXT,
+        update_id TEXT,
+        day TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_app_events_day_name ON app_events(day, name)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_app_events_user_day ON app_events(user_id, day)`);
+  db.run(`CREATE TABLE IF NOT EXISTS app_event_rollup (
+        period TEXT NOT NULL,
+        period_start TEXT NOT NULL,
+        name TEXT NOT NULL,
+        dim TEXT NOT NULL DEFAULT '',
+        dim_value TEXT NOT NULL DEFAULT '',
+        events INTEGER NOT NULL DEFAULT 0,
+        users INTEGER NOT NULL DEFAULT 0,
+        sessions INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (period, period_start, name, dim, dim_value)
+    )`);
+  db.run(`CREATE TABLE IF NOT EXISTS app_cohort_funnel (
+        cohort_week TEXT NOT NULL,
+        step TEXT NOT NULL,
+        users INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (cohort_week, step)
+    )`);
+  db.run(`CREATE TABLE IF NOT EXISTS app_cohort_retention (
+        cohort_week TEXT NOT NULL,
+        week_offset INTEGER NOT NULL,
+        cohort_size INTEGER NOT NULL DEFAULT 0,
+        active_users INTEGER NOT NULL DEFAULT 0,
+        complete INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (cohort_week, week_offset)
+    )`);
+  db.run(`CREATE TABLE IF NOT EXISTS app_analytics_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )`);
   db.run(`CREATE TABLE IF NOT EXISTS push_receipts_pending (
         ticket_id TEXT PRIMARY KEY,
         token TEXT NOT NULL,

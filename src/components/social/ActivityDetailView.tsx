@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { track } from '../../services/analytics';
 import { useTheme } from '@/hooks/use-theme';
 import {
   View,
@@ -508,6 +509,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     setHasKudosed(!prevHasKudosed);
     setKudosCount(prevHasKudosed ? Math.max(0, prevCount - 1) : prevCount + 1);
 
+    if (!prevHasKudosed) track('kudos_given');
     try {
       await socialApi.toggleKudos(activityId);
     } catch (e) {

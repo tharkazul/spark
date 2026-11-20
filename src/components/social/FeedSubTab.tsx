@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { track } from '../../services/analytics';
 import { View, Text, TouchableOpacity, RefreshControl, Pressable, DeviceEventEmitter } from 'react-native';
 import { useFocusEffect } from 'expo-router/react-navigation';
 import Animated, {
@@ -250,6 +251,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
       })
     );
 
+    if (nextHasKudosed) track('kudos_given');
     try {
       await socialApi.toggleKudos(ids);
     } catch (err) {

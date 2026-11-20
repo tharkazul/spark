@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { useTrackSubtab } from '../../services/analytics';
 import {
   ScrollView,
   View,
@@ -117,6 +118,7 @@ export default function ProgressScreen() {
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  useTrackSubtab('progress', activeTab);
   const scrollX = useRef(new Animated.Value(0)).current;
   const handleHorizontalScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { x: scrollX } } }],

@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { track } from '../../services/analytics';
 import {
   ActivityIndicator,
   Alert,
@@ -121,6 +122,9 @@ function TypingDots() {
   );
 }
 
+// Usage statistics names for the wizard's steps, in order.
+const ONBOARDING_STEP_NAMES = ['welcome', 'language', 'coach_style', 'coach_gender', 'goal'];
+
 export default function OnboardingWizard() {
     const theme = useTheme();
 
@@ -130,6 +134,14 @@ export default function OnboardingWizard() {
   // Onboarding Step Flow (0 = Welcome Hero, 1 = Language, 2 = Persona, 3 = Gender, 4 = Goal & Age -> Finalize)
   const [currentStep, setCurrentStep] = useState(0);
   const totalSteps = 4;
+
+  // Usage statistics: where athletes stop during onboarding.
+  const onboardingStartedAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (onboardingStartedAtRef.current === null) onboardingStartedAtRef.current = Date.now();
+    const step = ONBOARDING_STEP_NAMES[currentStep];
+    if (step) track('onboarding_step_viewed', { step });
+  }, [currentStep]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { height: keyboardHeight } = useKeyboardMotionContext();
 
@@ -680,6 +692,7 @@ export default function OnboardingWizard() {
         await updateUser({ onboarding_completed: true } as any);
       } catch (_) {}
 
+      track('onboarding_completed', { seconds: Math.round((Date.now() - (onboardingStartedAtRef.current ?? Date.now())) / 1000) });
       await refreshUser();
       router.replace('/(tabs)/coach');
     } catch (err: any) {

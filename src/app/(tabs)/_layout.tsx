@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RookaMark } from '../../components/ui/RookaPoints';
 import {
   createMaterialTopTabNavigator,
@@ -14,6 +15,7 @@ import { CustomTabBar, type CustomTabBarProps } from '../../components/CustomTab
 import { DynamicDateIcon } from '../../components/ui/DynamicDateIcon';
 import { useUser } from '../../context/UserStore';
 import { HeaderLayoutProvider } from '../../context/HeaderLayoutContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const MaterialTopTabs = createMaterialTopTabNavigator();
 
@@ -60,10 +62,40 @@ function useTabsRebuildKey() {
   return rebuildKey;
 }
 
+const USAGE_NOTICE_KEY = 'rooka.usageStatsNoticeShown';
+
+/**
+ * Tells each athlete once that usage statistics are recorded and where to turn them off
+ * (the privacy policy promises notice before a change applies). Waits until onboarding
+ * is done, so it never interrupts it.
+ */
+function useUsageStatsNotice(ready: boolean, enabled: boolean) {
+  const { t } = useLanguage();
+  const router = useRouter();
+  useEffect(() => {
+    if (!ready || !enabled) return;
+    let cancelled = false;
+    AsyncStorage.getItem(USAGE_NOTICE_KEY)
+      .then((shown) => {
+        if (shown || cancelled) return;
+        AsyncStorage.setItem(USAGE_NOTICE_KEY, '1').catch(() => {});
+        Alert.alert(t('usageStats.noticeTitle'), t('usageStats.noticeBody'), [
+          { text: t('usageStats.noticeSettings'), onPress: () => router.push('/(tabs)/profile') },
+          { text: t('usageStats.noticeOk'), style: 'cancel' },
+        ]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, enabled, t, router]);
+}
+
 export default function TabLayout() {
   const { isAuthenticated, loading, user } = useUser();
   const router = useRouter();
   const tabsRebuildKey = useTabsRebuildKey();
+  useUsageStatsNotice(!loading && isAuthenticated && !!user?.onboarding_completed, user?.usageStatsEnabled !== false);
 
   useEffect(() => {
     if (!loading) {

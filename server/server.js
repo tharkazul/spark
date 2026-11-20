@@ -70,6 +70,7 @@ app.use("/", socialRoutes);
 app.use("/", gamificationRoutes);
 app.use("/", integrationsRoutes);
 app.use("/", require("./routes/suunto"));
+app.use("/", require("./routes/usage"));
 app.use("/", require("./routes/trainerday"));
 app.use("/", require("./routes/garmin"));
 app.use("/", require("./routes/devices"));
@@ -131,6 +132,24 @@ db.serialize(() => {
 cron.schedule('0 0 * * *', () => {
   resetDailyTokensForAllUsers();
   resetDailyNutritionForAllUsers();
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
+// Usage statistics: today and yesterday every hour, the whole open window (85 days) nightly,
+// which also deletes raw events older than 90 days. The summaries the admin charts read stay.
+cron.schedule('7 * * * *', () => {
+  require("./services/usageAnalytics").runRollup({ days: 1 }).catch((err) => console.error("[Usage] hourly rollup failed:", err));
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+cron.schedule('40 2 * * *', () => {
+  require("./services/usageAnalytics")
+    .runRollup()
+    .then((r) => r.purged && console.log(`[Usage] deleted ${r.purged} raw event(s) older than 90 days`))
+    .catch((err) => console.error("[Usage] nightly rollup failed:", err));
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"

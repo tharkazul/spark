@@ -1865,6 +1865,17 @@ export const nl: TranslationKeys = {
     purchaseFailed: "De aankoop kon niet worden afgerond. Probeer het opnieuw.",
     restoreFailed: "Aankopen herstellen is mislukt.",
   },
+  usageStats: {
+    settingLabel: "Gebruiksstatistieken delen",
+    offTitle: "Stoppen met gebruiksstatistieken delen?",
+    offBody: "rooka houdt dan niet meer bij welke schermen je opent en op welke knoppen je drukt, en wist wat tot nu toe is vastgelegd. Je trainingsgegevens blijven gewoon staan.",
+    turnOff: "Uitzetten",
+    updateFailed: "De instelling kon niet worden aangepast. Probeer het opnieuw.",
+    noticeTitle: "Help ons rooka beter te maken",
+    noticeBody: "rooka houdt vanaf nu bij welke schermen je opent en op welke knoppen je drukt, zodat we zien wat werkt en waar mensen vastlopen. Nooit wat je typt of zegt, en geen gezondheids- of trainingsgegevens. Het blijft op onze eigen servers. Je kunt het uitzetten onder Profiel.",
+    noticeOk: "Oké",
+    noticeSettings: "Instellingen",
+  },
   aiConsent: {
     cardTitle: "Voordat we beginnen",
     cardIntro: "Ik ben een AI-coach. Om je berichten te beantwoorden, je training te plannen en bij te sturen, voedingsdoelen te bepalen en je check-ins te sturen, deelt rooka de gegevens die ik nodig heb met de Gemini AI-dienst van Google, die ze namens ons verwerkt.",

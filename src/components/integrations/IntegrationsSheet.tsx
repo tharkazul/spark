@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
+import { track } from '../../services/analytics';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
@@ -32,6 +33,7 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
   // Garmin's official connection: the server makes the PKCE pair and swaps the code at
   // /garminredirect, which deep-links back with ?status= (same flow as Profile -> Connections).
   const handleConnectGarmin = async () => {
+    track('integration_connect_started', { service: 'garmin' });
     setGarminLoading(true);
     try {
       const { url: authUrl } = await integrationsApi.getGarminConnectUrl();
@@ -50,6 +52,7 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
         }
       }
     } catch (err: any) {
+      track('integration_failed', { service: 'garmin' });
       Alert.alert(t('integrationMsgs.garminErrorTitle'), err?.message || t('integrationMsgs.garminOauthFailed'));
     } finally {
       setGarminLoading(false);
@@ -86,6 +89,7 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
 
   // Strava connect OAuth
   const handleConnectStrava = async () => {
+    track('integration_connect_started', { service: 'strava' });
     setStravaLoading(true);
     try {
       const clientId = '208765';
@@ -141,6 +145,7 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
         }
       }
     } catch (err: any) {
+      track('integration_failed', { service: 'strava' });
       Alert.alert(t('integrationMsgs.stravaErrorTitle'), err?.message || t('integrationMsgs.stravaOpenFailed'));
     } finally {
       setStravaLoading(false);

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { track } from '../../services/analytics';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -69,6 +70,7 @@ export function DiscountCodeField({
       try {
         const res = await discountApi.validate(trimmed);
         if (seq !== requestSeq.current) return;
+        track('discount_code_tried', { valid: Boolean(res?.valid) });
         setResult(res);
         onResultRef.current(res);
         if (res.valid) {

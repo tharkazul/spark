@@ -90,7 +90,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
         await presentCustomerCenter();
       } else {
         userApi.trackRookaPlusClick().catch(() => {});
-        await presentPaywall();
+        await presentPaywall('account');
       }
     } catch (err) {
       console.error('Subscription UI error:', err);

@@ -159,7 +159,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             <TouchableOpacity
               onPress={async () => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                const res = await presentPaywall();
+                const res = await presentPaywall('my_log');
                 if (res === PAYWALL_RESULT.NOT_PRESENTED || res === PAYWALL_RESULT.ERROR) {
                   router.navigate({ pathname: '/profile', params: { subtab: 'account' } });
                 }

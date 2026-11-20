@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { track } from '../../services/analytics';
 import { View, Text, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -34,6 +35,10 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
   const { activities } = useActivities();
   const { physiqueLogs } = usePhysique();
   const { niggles } = useHealth();
+
+  useEffect(() => {
+    if (visible && workout) track('why_this_workout_opened');
+  }, [visible, workout]);
 
   if (!workout) return null;
 

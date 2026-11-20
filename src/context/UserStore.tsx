@@ -1,4 +1,5 @@
 import React, { useMemo, createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { setUsageStatsEnabled, track } from '../services/analytics';
 import { useStableFns } from '../hooks/useStableFns';
 import { UserProfile } from '../types/user';
 import { userApi, authApi } from '../services/apiServices';
@@ -44,6 +45,8 @@ interface UserContextType {
   trackRookaPlus: () => Promise<void>;
   /** Accept (true) or withdraw (false) consent for AI processing. Throws if the server refuses. */
   setAiConsent: (consent: boolean) => Promise<void>;
+  /** Usage statistics on or off. Off also makes the server delete what it recorded. */
+  setUsageStats: (enabled: boolean) => Promise<void>;
 }
 
 /**
@@ -424,6 +427,51 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     });
   }, []);
 
+  const setUsageStats = React.useCallback(async (enabled: boolean) => {
+    // Off takes effect on the phone straight away, before the server confirms.
+    if (!enabled) setUsageStatsEnabled(false);
+    await userApi.setUsageStats(enabled);
+    setUsageStatsEnabled(enabled);
+    setUser((prev) => {
+      const newProfile = prev ? { ...prev, usageStatsEnabled: enabled } : prev;
+      if (newProfile) profileStorage.setProfile(newProfile).catch(() => {});
+      return newProfile;
+    });
+  }, []);
+
+  // Usage statistics: a connection flag flipping on the same account is a (dis)connect,
+  // whichever screen (or the server) did it.
+  // One string per account and connection state, e.g. "12|garmin,strava".
+  const connectionKey = user
+    ? `${user.id}|${[
+        user.garmin_connected && 'garmin',
+        user.strava_connected && 'strava',
+        user.suunto_connected && 'suunto',
+        user.trainerday_connected && 'trainerday',
+      ]
+        .filter(Boolean)
+        .join(',')}`
+    : null;
+  const connectionKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = connectionKeyRef.current;
+    connectionKeyRef.current = connectionKey;
+    if (!prev || !connectionKey) return;
+    const [prevId, prevList] = prev.split('|');
+    const [id, list] = connectionKey.split('|');
+    if (prevId !== id) return;
+    const before = new Set(prevList.split(',').filter(Boolean));
+    const now = new Set(list.split(',').filter(Boolean));
+    for (const service of now) if (!before.has(service)) track('integration_connected', { service });
+    for (const service of before) if (!now.has(service)) track('integration_disconnected', { service });
+  }, [connectionKey]);
+
+  // Usage statistics follow the athlete's switch; before login they're anonymous.
+  const usageStatsChoice = user ? user.usageStatsEnabled !== false : null;
+  useEffect(() => {
+    setUsageStatsEnabled(usageStatsChoice);
+  }, [usageStatsChoice]);
+
   const trackRookaPlus = React.useCallback(async () => {
     try {
       await userApi.trackRookaPlusClick();
@@ -565,7 +613,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   }, [isAuthenticated]);
 
   // One object per change of the data, not per render (see useStableFns).
-  const stableFns = useStableFns({ login, register, loginWithToken, loginWithApple, loginWithGoogle, resetPassword, logout, refreshUser, updateUser, trackRookaPlus, setAiConsent });
+  const stableFns = useStableFns({ login, register, loginWithToken, loginWithApple, loginWithGoogle, resetPassword, logout, refreshUser, updateUser, trackRookaPlus, setAiConsent, setUsageStats });
   const contextValue = useMemo(
     () => ({ user, isAuthenticated, loading, error, ...stableFns }),
     [user, isAuthenticated, loading, error, stableFns]

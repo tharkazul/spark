@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTrackScreen } from '../../services/analytics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityDetailView } from '../../components/social/ActivityDetailView';
 
 export default function ActivityDetailScreen() {
+  useTrackScreen('activity_detail');
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 

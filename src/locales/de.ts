@@ -1865,6 +1865,17 @@ export const de: TranslationKeys = {
     purchaseFailed: "Der Kauf konnte nicht abgeschlossen werden. Bitte versuche es erneut.",
     restoreFailed: "Käufe konnten nicht wiederhergestellt werden.",
   },
+  usageStats: {
+    settingLabel: "Nutzungsstatistiken teilen",
+    offTitle: "Nutzungsstatistiken nicht mehr teilen?",
+    offBody: "rooka zeichnet dann nicht mehr auf, welche Bildschirme du öffnest und welche Tasten du drückst, und löscht, was bisher aufgezeichnet wurde. Deine Trainingsdaten bleiben unberührt.",
+    turnOff: "Ausschalten",
+    updateFailed: "Die Einstellung konnte nicht geändert werden. Bitte versuche es erneut.",
+    noticeTitle: "Hilf uns, rooka besser zu machen",
+    noticeBody: "rooka zeichnet ab jetzt auf, welche Bildschirme du öffnest und welche Tasten du drückst, damit wir sehen, was funktioniert und wo es hakt. Nie, was du tippst oder sagst, und keine Gesundheits- oder Trainingsdaten. Alles bleibt auf unseren eigenen Servern. Du kannst es unter Profil ausschalten.",
+    noticeOk: "OK",
+    noticeSettings: "Einstellungen",
+  },
   aiConsent: {
     cardTitle: "Bevor wir loslegen",
     cardIntro: "Ich bin ein KI-Coach. Um deine Nachrichten zu beantworten, dein Training zu planen und anzupassen, Ernährungsziele festzulegen und dir Check-ins zu schicken, teilt rooka die Daten, die ich brauche, mit Googles KI-Dienst Gemini, der sie in unserem Auftrag verarbeitet.",

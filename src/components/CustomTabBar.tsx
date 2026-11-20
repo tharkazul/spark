@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { track } from '../services/analytics';
 import {
   InteractionManager,
   View,
@@ -72,8 +73,21 @@ export type CustomTabBarProps = {
   >;
 };
 
+const TAB_NAMES: Record<string, string> = { index: 'planning', physique: 'progress', coach: 'coach', social: 'social', profile: 'profile' };
+
 export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
+
+  // Usage statistics: a tab change right after a press on the bar was a tap, otherwise a swipe.
+  // The tab the app opens on isn't counted.
+  const lastBarPressRef = useRef(0);
+  const shownTabIndexRef = useRef(state.index);
+  useEffect(() => {
+    if (state.index === shownTabIndexRef.current) return;
+    shownTabIndexRef.current = state.index;
+    const tab = TAB_NAMES[state.routes[state.index]?.name];
+    if (tab) track('tab_viewed', { tab, via: Date.now() - lastBarPressRef.current < 1500 ? 'tap' : 'swipe' });
+  }, [state.index, state.routes]);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { setTabBarOccupied } = useTabBar();
@@ -320,7 +334,7 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
                 onPress={() => {
                   if (!canEdit) {
                     closeQuickMenu();
-                    presentPaywall();
+                    presentPaywall('tab_bar');
                     return;
                   }
                   handleQuickAction('workout');
@@ -471,6 +485,7 @@ export function CustomTabBar({ state, descriptors, navigation }: CustomTabBarPro
               }
 
               Haptics.selectionAsync();
+              lastBarPressRef.current = now;
 
               const event = navigation.emit({
                 type: 'tabPress',

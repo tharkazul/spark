@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { track } from '../services/analytics';
 import { useTheme } from '@/hooks/use-theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -69,6 +70,10 @@ export default function LoginScreen() {
   const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
   useEffect(() => {
+    track('login_viewed');
+  }, []);
+
+  useEffect(() => {
     AppleAuthentication.isAvailableAsync()
       .then(setAppleAuthAvailable)
       .catch(() => setAppleAuthAvailable(false));
@@ -101,6 +106,7 @@ export default function LoginScreen() {
       setSubmitting(true);
       try {
         await login(email, password);
+        track('login_completed', { method: 'email' });
         router.replace('/(tabs)');
       } catch (err: any) {
         setErrorMessage(err.message || t('authErrors.signInFailed'));
@@ -117,8 +123,10 @@ export default function LoginScreen() {
         return;
       }
       setSubmitting(true);
+      track('signup_started', { method: 'email' });
       try {
         await register(email, password, username || undefined);
+        track('signup_completed', { method: 'email' });
         router.replace('/(tabs)');
       } catch (err: any) {
         setErrorMessage(err.message || t('loginErrors.createFailed'));
@@ -197,12 +205,14 @@ export default function LoginScreen() {
       }
 
       setSubmitting(true);
-      await loginWithApple({
+      if (mode === 'register') track('signup_started', { method: 'apple' });
+      const appleResult = await loginWithApple({
         identityToken: credential.identityToken,
         user: credential.user,
         email: credential.email,
         fullName: credential.fullName,
       });
+      track(appleResult?.isNewUser ? 'signup_completed' : 'login_completed', { method: 'apple' });
 
       router.replace('/(tabs)');
     } catch (e: any) {
@@ -220,8 +230,10 @@ export default function LoginScreen() {
       setErrorMessage(null);
       setSuccessMessage(null);
       setSubmitting(true);
+      if (mode === 'register') track('signup_started', { method: 'google' });
       const result = await loginWithGoogle();
       if (result !== undefined) {
+        track(result.isNewUser ? 'signup_completed' : 'login_completed', { method: 'google' });
         router.replace('/(tabs)');
       }
     } catch (e: any) {

@@ -61,6 +61,18 @@ router.post("/api/settings/privacy", authenticateToken, (req, res) => {
 
 // Accept or withdraw consent for AI processing (Google Gemini). Answering the
 // coach's consent card and the switch in Profile both land here.
+// Usage statistics switch. Off also deletes what was recorded (privacy policy, section 9).
+router.post("/api/user/usage-stats", authenticateToken, async (req, res) => {
+  if (typeof req.body?.enabled !== "boolean") return res.status(400).json({ error: "enabled must be true or false" });
+  try {
+    await require("../services/usageAnalytics").setUsageStatsEnabled(req.user.id, req.body.enabled);
+    res.json({ success: true, usageStatsEnabled: req.body.enabled });
+  } catch (err) {
+    console.error("[Usage] Could not change usage statistics:", err.message);
+    res.status(500).json({ error: "Could not save the setting" });
+  }
+});
+
 router.post("/api/user/ai-consent", authenticateToken, async (req, res) => {
   if (typeof req.body.consent !== "boolean") {
     return res.status(400).json({ error: "consent must be true or false." });
@@ -162,7 +174,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent, detail_level, home_place FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent, usage_stats_enabled, detail_level, home_place FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -236,6 +248,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             searchPrivacy: row.search_privacy === 1,
             // null = not answered yet, true = accepted, false = declined
             aiConsent: row.ai_consent === null || row.ai_consent === undefined ? null : row.ai_consent === 1,
+            usageStatsEnabled: row.usage_stats_enabled !== 0,
             homeTown: row.home_place || null,
             profilePictureUrl: row.profile_picture_url,
             trainingAvailability: availability,

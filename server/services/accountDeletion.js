@@ -19,7 +19,7 @@ const TABLES_WITH_USER_ID = [
     "discount_redemptions", "user_discounts", "user_milestone_history",
     "user_feature_onboarding", "password_resets", "athlete_facts",
     "live_sessions", "athlete_constraints", "season_weeks", "season_meta",
-    "athlete_topics", "feedback", "race_plans", "race_moments"
+    "athlete_topics", "feedback", "race_plans", "race_moments", "app_events"
 ];
 
 // Every file an athlete can leave on disk carries their id right after the prefix.

@@ -1,6 +1,7 @@
 import { BrandColors } from '@/constants/theme';
 import { useLanguage } from '@/context/LanguageContext';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { track, trackOnce } from '../../services/analytics';
 import { View, Text, TouchableOpacity, Linking, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -18,8 +19,13 @@ export const AiConsentCard: React.FC = () => {
   const [saving, setSaving] = useState<boolean | null>(null);
   const consent = user?.aiConsent;
 
+  useEffect(() => {
+    if (consent !== true) trackOnce('ai_consent_card', 'ai_consent_shown', { where: 'coach' });
+  }, [consent]);
+
   const answer = async (value: boolean) => {
     if (saving !== null) return;
+    track('ai_consent_answered', { answer: value ? 'allow' : 'not_now', where: 'coach' });
     Haptics.impactAsync(value ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
     setSaving(value);
     try {

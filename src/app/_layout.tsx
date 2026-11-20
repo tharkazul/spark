@@ -4,6 +4,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments }
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme, View, ActivityIndicator, DeviceEventEmitter, AppState } from 'react-native';
+import { startUsageStats } from '../services/analytics';
 import React, { useEffect } from 'react';
 import { AppProviders } from '../context/AppProviders';
 import { useUser } from '../context/UserStore';
@@ -98,6 +99,10 @@ export default function RootLayout() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    startUsageStats();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return (

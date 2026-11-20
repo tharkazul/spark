@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { useMemo, useRef, useState, useCallback } from 'react';
+import { track, useTrackSubtab } from '../../services/analytics';
 import { useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from 'expo-router/react-navigation';
 import {
@@ -54,6 +55,7 @@ export default function ProfileScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
 
   const [activeTab, setActiveTab] = useState<ProfileSubTab>('profile');
+  useTrackSubtab('profile', activeTab);
 
   // The usage meter and account details come from the profile; fetch it fresh on arrival so a
   // new day (or a budget spent elsewhere) shows without a pull to refresh.
@@ -165,6 +167,7 @@ export default function ProfileScreen() {
   // Garmin's official connection: the server makes the PKCE pair and swaps the code at
   // /garminredirect, which deep-links back here with ?status=.
   const handleConnectGarminOAuth = async () => {
+    track('integration_connect_started', { service: 'garmin' });
     setGarminLoading(true);
     try {
       const { url: authUrl } = await integrationsApi.getGarminConnectUrl();
@@ -185,6 +188,7 @@ export default function ProfileScreen() {
         await refreshUser();
       }
     } catch (err: any) {
+      track('integration_failed', { service: 'garmin' });
       Alert.alert(t('integrationMsgs.garminErrorTitle'), err.message || t('integrationMsgs.garminOauthFailed'));
     } finally {
       setGarminLoading(false);
@@ -205,6 +209,7 @@ export default function ProfileScreen() {
 
   // Strava handlers (Direct OAuth flow without modal)
   const handleConnectStravaOAuth = async () => {
+    track('integration_connect_started', { service: 'strava' });
     setStravaLoading(true);
     try {
       const clientId = '208765';
@@ -262,6 +267,7 @@ export default function ProfileScreen() {
         }
       }
     } catch (err: any) {
+      track('integration_failed', { service: 'strava' });
       Alert.alert(t('integrationMsgs.stravaErrorTitle'), err.message || t('integrationMsgs.stravaOauthFailed'));
     } finally {
       setStravaLoading(false);
@@ -296,6 +302,7 @@ export default function ProfileScreen() {
 
   // Suunto handlers (OAuth via in-app browser; authorize URL is built server-side)
   const handleConnectSuuntoOAuth = async () => {
+    track('integration_connect_started', { service: 'suunto' });
     setSuuntoLoading(true);
     try {
       const { url: authUrl } = await integrationsApi.getSuuntoAuthUrl();
@@ -321,6 +328,7 @@ export default function ProfileScreen() {
         }
       }
     } catch (err: any) {
+      track('integration_failed', { service: 'suunto' });
       Alert.alert(t('integrationMsgs.suuntoErrorTitle'), err.message || t('integrationMsgs.suuntoOauthFailed'));
     } finally {
       setSuuntoLoading(false);
@@ -355,6 +363,7 @@ export default function ProfileScreen() {
 
   // TrainerDay: the server exchanges the code at /trainerdayredirect and deep-links back with ?status=
   const handleConnectTrainerDay = async () => {
+    track('integration_connect_started', { service: 'trainerday' });
     setTrainerDayLoading(true);
     try {
       const { url: authUrl } = await integrationsApi.getTrainerDayConnectUrl();
@@ -377,6 +386,7 @@ export default function ProfileScreen() {
         await refreshUser();
       }
     } catch (err: any) {
+      track('integration_failed', { service: 'trainerday' });
       Alert.alert(t('integrationMsgs.trainerdayErrorTitle'), err.message || t('integrationMsgs.trainerdayOauthFailed'));
     } finally {
       setTrainerDayLoading(false);

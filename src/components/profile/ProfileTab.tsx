@@ -1,6 +1,7 @@
 import { BrandColors } from '@/constants/theme';
 import { RookaMark } from '../ui/RookaPoints';
 import React, { useState, useEffect, useMemo } from 'react';
+import { track } from '../../services/analytics';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, Switch, TouchableOpacity, Alert, ActivityIndicator, TextInput, Platform } from 'react-native';
 import * as Linking from 'expo-linking';
@@ -53,7 +54,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 }) => {
   const theme = useTheme();
   const { t } = useLanguage();
-  const { user, updateUser, refreshUser, logout, setAiConsent } = useUser();
+  const { user, updateUser, refreshUser, logout, setAiConsent, setUsageStats } = useUser();
   const { activities } = useActivities();
   const { plan } = usePlan();
   const { tokenUsage } = useCoachChatStore();
@@ -433,7 +434,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             {t('profile.titlesDescription')}
           </Text>
           <ScalePressable
-            onPress={() => presentPaywall().catch(() => {})}
+            onPress={() => presentPaywall('profile').catch(() => {})}
             activeScale={0.96}
             haptic="selection"
             className="px-3 py-1 bg-theme-accent/10 rounded-full"
@@ -618,7 +619,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           t('profile.darkMode'),
           <Switch
             value={colorScheme === 'dark'}
-            onValueChange={toggleColorScheme}
+            onValueChange={() => {
+              track('setting_changed', { setting: 'dark_mode', value: colorScheme === 'dark' ? 'off' : 'on' });
+              toggleColorScheme();
+            }}
             trackColor={{ false: '#DDE3E9', true: theme.tint }}
           />
         )}
@@ -627,7 +631,29 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           t('aiConsent.settingLabel'),
           <Switch
             value={user?.aiConsent === true}
-            onValueChange={(on) => (on ? confirmEnableAi(t, setAiConsent) : confirmDisableAi(t, setAiConsent))}
+            onValueChange={(on) => (on ? confirmEnableAi(t, setAiConsent, 'settings') : confirmDisableAi(t, setAiConsent))}
+            trackColor={{ false: '#DDE3E9', true: theme.tint }}
+          />
+        )}
+        {renderSettingRow(
+          'stats-chart',
+          t('usageStats.settingLabel'),
+          <Switch
+            value={user?.usageStatsEnabled !== false}
+            onValueChange={(on) => {
+              const save = (value: boolean) =>
+                setUsageStats(value)
+                  .then(() => value && track('setting_changed', { setting: 'usage_stats', value: 'on' }))
+                  .catch(() => Alert.alert(t('usageStats.updateFailed')));
+              if (on) {
+                save(true);
+                return;
+              }
+              Alert.alert(t('usageStats.offTitle'), t('usageStats.offBody'), [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('usageStats.turnOff'), style: 'destructive', onPress: () => save(false) },
+              ]);
+            }}
             trackColor={{ false: '#DDE3E9', true: theme.tint }}
           />
         )}
@@ -664,7 +690,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               if (isPaidTier) {
                 presentCustomerCenter().catch(() => {});
               } else {
-                presentPaywall().catch(() => {});
+                presentPaywall('profile').catch(() => {});
               }
             }}
             activeScale={0.96}

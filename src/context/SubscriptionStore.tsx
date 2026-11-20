@@ -9,6 +9,8 @@ import Purchases, {
 } from 'react-native-purchases';
 import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useUser } from './UserStore';
+import { track } from '../services/analytics';
+
 import {
   initializeRevenueCat,
   identifyUserInRevenueCat,
@@ -26,6 +28,17 @@ import {
   ROOKA_ENTITLEMENT_ID,
 } from '../services/subscriptionService';
 
+export type PaywallSource =
+  | 'tab_bar'
+  | 'planning'
+  | 'coach'
+  | 'out_of_messages'
+  | 'profile'
+  | 'account'
+  | 'connections'
+  | 'my_log'
+  | 'other';
+
 interface SubscriptionContextType {
   isSubscribed: boolean;
   customerInfo: CustomerInfo | null;
@@ -36,7 +49,8 @@ interface SubscriptionContextType {
     all: PurchasesPackage[];
   };
   loading: boolean;
-  presentPaywall: () => Promise<PAYWALL_RESULT>;
+  /** `from` is where the paywall was opened, for the usage statistics. */
+  presentPaywall: (from?: PaywallSource) => Promise<PAYWALL_RESULT>;
   presentPaywallIfNeeded: () => Promise<PAYWALL_RESULT>;
   presentCustomerCenter: () => Promise<void>;
   presentCodeRedemptionSheet: () => Promise<void>;
@@ -188,8 +202,16 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
     return res.success;
   }, [refreshUser]);
 
-  const presentPaywall = useCallback(async (): Promise<PAYWALL_RESULT> => {
-    const result = await rcPresentPaywall();
+  const presentPaywall = useCallback(async (from: PaywallSource = 'other'): Promise<PAYWALL_RESULT> => {
+    track('paywall_shown', { from });
+    let result: PAYWALL_RESULT;
+    try {
+      result = await rcPresentPaywall();
+    } catch (err) {
+      track('paywall_closed', { from, result: 'error' });
+      throw err;
+    }
+    track('paywall_closed', { from, result: String(result).toLowerCase() });
     if (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED) {
       await syncSubscriptionWithBackend(true);
       await refreshSubscription();

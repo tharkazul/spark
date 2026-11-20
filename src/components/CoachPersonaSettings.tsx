@@ -1,6 +1,7 @@
 import { BrandColors } from '@/constants/theme';
 import { RookaMark } from './ui/RookaPoints';
 import React, { useState, useEffect, useRef } from 'react';
+import { track } from '../services/analytics';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Image } from 'expo-image';
@@ -81,6 +82,7 @@ export const CoachPersonaSettings: React.FC = () => {
         detail_level: detailLevel,
       });
       await refreshUser();
+      if (selectedTone !== user?.coach_tone) track('setting_changed', { setting: 'coach_style' });
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
     } catch (err: any) {
@@ -357,6 +359,7 @@ export const CoachPersonaSettings: React.FC = () => {
                 onPress={() => {
                   Haptics.selectionAsync();
                   setGender(opt.value);
+                  if (opt.value !== gender) track('setting_changed', { setting: 'coach_gender' });
                   updateUser({ gender: opt.value }).catch(() => {});
                 }}
                 activeOpacity={0.7}

@@ -1865,6 +1865,17 @@ export const es: TranslationKeys = {
     purchaseFailed: "No se pudo completar la compra. Inténtalo de nuevo.",
     restoreFailed: "No se pudieron restaurar las compras.",
   },
+  usageStats: {
+    settingLabel: "Compartir estadísticas de uso",
+    offTitle: "¿Dejar de compartir estadísticas de uso?",
+    offBody: "rooka dejará de registrar qué pantallas abres y qué botones pulsas, y borrará lo registrado hasta ahora. Tus datos de entrenamiento no se ven afectados.",
+    turnOff: "Desactivar",
+    updateFailed: "No se pudo cambiar el ajuste. Inténtalo de nuevo.",
+    noticeTitle: "Ayúdanos a mejorar rooka",
+    noticeBody: "rooka ahora registra qué pantallas abres y qué botones pulsas, para ver qué funciona y dónde se atasca la gente. Nunca lo que escribes o dices, ni datos de salud o de entrenamiento. Todo se queda en nuestros propios servidores. Puedes desactivarlo en Perfil.",
+    noticeOk: "De acuerdo",
+    noticeSettings: "Ajustes",
+  },
   aiConsent: {
     cardTitle: "Antes de empezar",
     cardIntro: "Soy un coach de IA. Para responder a tus mensajes, planificar y ajustar tu entrenamiento, fijar objetivos de nutrición y enviarte check-ins, rooka comparte los datos que necesito con Gemini, el servicio de IA de Google, que los procesa en nuestro nombre.",

@@ -1,6 +1,7 @@
 import { SheetSurface, SHEET_BACKDROP } from '@/components/ui/SheetSurface';
 import { SheetGrabber } from '@/components/ui/SheetGrabber';
 import React, { useState, useEffect, useRef } from 'react';
+import { track } from '../../services/analytics';
 import { useTheme } from '@/hooks/use-theme';
 import {
   Modal,
@@ -182,6 +183,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
     try {
       const res = await socialApi.connectUser(friendId);
       if (res && res.success) {
+        track('friend_request_sent');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         if (onConnectionsUpdated) onConnectionsUpdated();
       } else {

@@ -2,6 +2,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
+import { track } from '../../services/analytics';
 import { Image } from 'expo-image';
 import { ActivityIndicator, Alert, DeviceEventEmitter, Platform, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useActivities } from '../../context/ActivityStore';
@@ -192,8 +193,10 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
         return;
       }
 
+      track('integration_connect_started', { service: 'apple_health' });
       const healthKitGranted = await requestFullHealthKitPermissions(healthPrefs);
       setIsHealthKitConnected(healthKitGranted);
+      track(healthKitGranted ? 'integration_connected' : 'integration_failed', { service: 'apple_health' });
 
       if (healthKitGranted) {
         // Sync straight away, so the athlete sees what rooka can actually read.
@@ -913,7 +916,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                     // A greyed-out switch stuck on read as broken: free athletes
                     // turned everything off and still saw the credit on Strava.
                     <TouchableOpacity
-                      onPress={() => presentPaywall().catch(() => {})}
+                      onPress={() => presentPaywall('connections').catch(() => {})}
                       activeOpacity={0.8}
                       className="px-2.5 py-1 rounded-full bg-theme-accent/10"
                     >

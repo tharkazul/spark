@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTrackScreen } from '../../services/analytics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AthleteProfileView } from '../../components/social/AthleteProfileView';
 
 export default function AthleteProfileScreen() {
+  useTrackScreen('athlete_profile');
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 

@@ -1,5 +1,6 @@
 import { BrandColors } from '@/constants/theme';
 import React from 'react';
+import { track } from '../services/analytics';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLanguage, Language } from '../context/LanguageContext';
 import { useColorScheme } from 'nativewind';
@@ -34,7 +35,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
           return (
             <TouchableOpacity
               key={opt.id}
-              onPress={() => setLanguage(opt.id)}
+              onPress={() => {
+              if (opt.id !== language) track('setting_changed', { setting: 'language', value: opt.id });
+              setLanguage(opt.id);
+            }}
               activeOpacity={0.7}
               style={[
                 styles.compactButton,
@@ -63,7 +67,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
         return (
           <TouchableOpacity
             key={opt.id}
-            onPress={() => setLanguage(opt.id)}
+            onPress={() => {
+              if (opt.id !== language) track('setting_changed', { setting: 'language', value: opt.id });
+              setLanguage(opt.id);
+            }}
             activeOpacity={0.7}
             style={[
               styles.optionButton,

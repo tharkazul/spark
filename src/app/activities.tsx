@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTrackScreen } from '../services/analytics';
 import { View, Text, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '../components/ui/Card';
@@ -12,6 +13,7 @@ import { formatPaceOrSpeed, getPaceParts } from '../utils/paceFormat';
 import { formatRelativeDay, formatDistance, formatDuration } from '../utils/format';
 
 export default function ActivitiesScreen() {
+  useTrackScreen('activities');
   const { activities, loading, refreshActivities } = useActivities();
   const { t, language } = useLanguage();
   const tabBarInset = useTabBarInset();

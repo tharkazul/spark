@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useTrackSubtab } from '../../services/analytics';
 import { useTheme } from '@/hooks/use-theme';
 import {
   View,
@@ -50,6 +51,7 @@ export default function SocialScreen() {
 
   const horizontalScrollViewRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState<TabType>('feed');
+  useTrackSubtab('social', activeTab);
   const scrollX = useRef(new Animated.Value(0)).current;
 
   // Leaderboard data

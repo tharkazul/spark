@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 // state, which redrew this whole screen on every tab switch.
 import { useFocusEffect, useNavigation } from 'expo-router/react-navigation';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { sportFamily, track } from '../../services/analytics';
 import {
   Alert,
   AppState,
@@ -231,7 +232,7 @@ export default function PlanningHomeScreen() {
         setIsWeightModalOpen(true);
       } else if (action === 'workout') {
         if (!canEdit) {
-          presentPaywall();
+          presentPaywall('planning');
           return;
         }
         setIsAddModalOpen(true);
@@ -543,7 +544,7 @@ export default function PlanningHomeScreen() {
 
   const handleOpenAddModal = (dayName = dayOfWeekUpper, dateStr = todayDateStr, knownFullDate?: string) => {
     if (!canEdit) {
-      presentPaywall();
+      presentPaywall('planning');
       return;
     }
     setSelectedWorkoutForEdit(null);
@@ -558,7 +559,18 @@ export default function PlanningHomeScreen() {
     setIsAddModalOpen(true);
   };
 
-  const handleSelectWorkoutForEdit = (workout: WorkoutItem, options?: { edit?: boolean }) => {
+  const openAdapt = () => {
+    track('adapt_opened');
+    setIsAdaptModalOpen(true);
+  };
+
+  // `from` is where the workout was opened, for the usage statistics.
+  const handleSelectWorkoutForEdit = (
+    workout: WorkoutItem,
+    options?: { edit?: boolean },
+    from: 'today_card' | 'agenda' | 'other' = 'other'
+  ) => {
+    track('workout_opened', { sport: sportFamily(workout.type), from });
     setSelectedWorkoutForEdit(workout);
     setOpenWorkoutInEditMode(Boolean(options?.edit));
     if (workout.day && workout.dateStr) {
@@ -607,6 +619,7 @@ export default function PlanningHomeScreen() {
         await updateWorkout(existingId, plannedWorkout as any);
       } else {
         await addWorkout(plannedWorkout as any);
+        track('workout_added', { sport: sportFamily(workoutData.type), how: 'manual' });
       }
       setIsAddModalOpen(false);
       setSelectedWorkoutForEdit(null);
@@ -631,7 +644,9 @@ export default function PlanningHomeScreen() {
   };
 
   const handleConfirmAdaptation = async (type: string) => {
+    track('adapt_submitted');
     if (type === 'MOVE_ALL_ONE_DAY') {
+      track('plan_shifted', { days: 1 });
       try {
         const todayStr = formatDateToYYYYMMDD(new Date());
         await planApi.pushForward(todayStr);
@@ -694,6 +709,7 @@ export default function PlanningHomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const result = await syncWorkouts([workout]);
     if (result.success) {
+      track('workout_sent_to_device', { target: user?.garmin_connected ? 'garmin' : user?.suunto_connected ? 'suunto' : 'apple_watch' });
       Alert.alert(t('deviceSync.sentTitle'), result.message);
     } else {
       Alert.alert(t('deviceSync.sendFailedTitle'), result.message);
@@ -703,6 +719,7 @@ export default function PlanningHomeScreen() {
   const handleSendToTrainerDay = async (workout: WorkoutItem) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const result = await sendWorkoutToTrainerDay(workout);
+    if (result.success) track('workout_sent_to_device', { target: 'trainerday' });
     Alert.alert(result.success ? t('deviceSync.sentTitle') : t('deviceSync.sendFailedTitle'), result.message);
   };
 
@@ -837,9 +854,9 @@ export default function PlanningHomeScreen() {
                 weatherTemp={weatherForecast[todayYYYYMMDD]?.tempMax}
                 weatherIcon={weatherForecast[todayYYYYMMDD]?.icon}
                 hasAnyDevices={hasAnyDevices}
-                onSelectWorkout={handleSelectWorkoutForEdit}
+                onSelectWorkout={(workout) => handleSelectWorkoutForEdit(workout, undefined, 'today_card')}
                 onSendToDevice={handleSendSingleWorkout}
-                onAdapt={() => setIsAdaptModalOpen(true)}
+                onAdapt={openAdapt}
                 onOpenTomorrow={handleOpenTomorrow}
               />
             )}
@@ -1032,9 +1049,9 @@ export default function PlanningHomeScreen() {
                         weatherIcon={dayWeather?.icon}
                         isExpanded={selectedDayIndex === idx}
                         onToggleExpand={() => handleSelectDay(idx)}
-                        onAdaptPress={() => setIsAdaptModalOpen(true)}
+                        onAdaptPress={openAdapt}
                         onAddWorkout={(dayName, dateStr) => handleOpenAddModal(dayName, dateStr)}
-                        onSelectWorkout={handleSelectWorkoutForEdit}
+                        onSelectWorkout={(workout, options) => handleSelectWorkoutForEdit(workout, options, 'agenda')}
                         onDeleteWorkout={handleDeleteWorkout}
                         onInvitePartner={handleInvitePartner}
                         hasAnyDevices={hasAnyDevices}
@@ -1042,7 +1059,7 @@ export default function PlanningHomeScreen() {
                         hasTrainerDay={hasTrainerDay}
                         onSendWorkoutToTrainerDay={handleSendToTrainerDay}
                         canEdit={canEdit}
-                        onUpgradePress={() => presentPaywall()}
+                        onUpgradePress={() => presentPaywall('planning')}
                         weekHasMissed={weekHasMissed}
                       />
                     );
@@ -1065,7 +1082,7 @@ export default function PlanningHomeScreen() {
         initialWorkout={selectedWorkoutForEdit}
         isReadOnly={!canEdit && Boolean(selectedWorkoutForEdit)}
         startInEditMode={openWorkoutInEditMode}
-        onUpgradePress={() => presentPaywall()}
+        onUpgradePress={() => presentPaywall('planning')}
         onClose={() => {
           setIsAddModalOpen(false);
           setSelectedWorkoutForEdit(null);

@@ -31,6 +31,8 @@ export interface UserProfile {
   trainerday_pro?: boolean;
   /** Consent to send data to the AI coach (Google Gemini): null = not answered yet. */
   aiConsent?: boolean | null;
+  /** Usage statistics (which screens and buttons are used); on unless the athlete turned them off. */
+  usageStatsEnabled?: boolean;
   target_event?: string;
   event_date?: string;
   target_ctl?: number;
