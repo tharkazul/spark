@@ -31,6 +31,7 @@ import { useSeason } from '../../context/SeasonStore';
 import { normalizeSportType } from '../../utils/disciplineConfig';
 import { calculateActivityStreak } from '../../utils/gamification';
 import { useTabBarInset } from '../../hooks/useTabBarInset';
+import { useReviewPrompt } from '../../hooks/useReviewPrompt';
 import { garminTakesWorkouts, useConnectedDevices } from '../../hooks/useConnectedDevices';
 import { sendWorkoutToTrainerDay } from '../../services/deviceSyncService';
 import { useActivities } from '../../context/ActivityStore';
@@ -122,6 +123,10 @@ export default function PlanningHomeScreen() {
   const [isLogActivityOpen, setIsLogActivityOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [workoutToInvite, setWorkoutToInvite] = useState<WorkoutItem | null>(null);
+  useReviewPrompt(
+    plan,
+    !(isAddModalOpen || isAdaptModalOpen || isWeightModalOpen || isNiggleModalOpen || isLogActivityOpen || isInviteModalOpen),
+  );
   const [weatherForecast, setWeatherForecast] = useState<Record<string, DayWeather>>({});
   const [weatherAttribution, setWeatherAttribution] = useState<WeatherAttributionInfo | null>(null);
 
