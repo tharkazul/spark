@@ -73,7 +73,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
         <View className="flex-row items-center gap-2 pt-2 border border-theme-border/60">
           <TouchableOpacity
             onPress={handleAccept}
-            className="flex-1 bg-theme-accent py-2.5 rounded-xl items-center justify-center flex-row gap-1.5 active:opacity-80"
+            className="flex-1 bg-theme-accent-strong py-2.5 rounded-xl items-center justify-center flex-row gap-1.5 active:opacity-80"
           >
             <Ionicons name="checkmark" size={16} color="#FFFFFF" />
             <Text className="text-white font-bold text-xs">{t('chatCards.accept')}</Text>

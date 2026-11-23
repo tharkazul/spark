@@ -269,9 +269,9 @@ export function LogNiggleModal({
                         }}
                         activeScale={0.94}
                         haptic="selection"
-                        className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'left' ? 'bg-theme-accent' : ''}`}
+                        className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'left' ? 'bg-theme-card dark:bg-theme-border' : ''}`}
                       >
-                        <Text className={`text-xs font-bold ${selectedSide === 'left' ? 'text-white' : 'text-theme-muted'}`}>{t('common.left', 'Left')}</Text>
+                        <Text className={`text-xs font-bold ${selectedSide === 'left' ? 'text-theme-text' : 'text-theme-muted'}`}>{t('common.left', 'Left')}</Text>
                       </ScalePressable>
                       <ScalePressable
                         onPress={() => {
@@ -280,9 +280,9 @@ export function LogNiggleModal({
                         }}
                         activeScale={0.94}
                         haptic="selection"
-                        className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'right' ? 'bg-theme-accent' : ''}`}
+                        className={`px-2.5 py-0.5 rounded-md ${selectedSide === 'right' ? 'bg-theme-card dark:bg-theme-border' : ''}`}
                       >
-                        <Text className={`text-xs font-bold ${selectedSide === 'right' ? 'text-white' : 'text-theme-muted'}`}>{t('common.right', 'Right')}</Text>
+                        <Text className={`text-xs font-bold ${selectedSide === 'right' ? 'text-theme-text' : 'text-theme-muted'}`}>{t('common.right', 'Right')}</Text>
                       </ScalePressable>
                     </View>
                   )}

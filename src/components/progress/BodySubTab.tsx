@@ -160,7 +160,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
       <Card className="p-4 bg-theme-card border border-theme-border">
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2">
-            <View className="w-2 h-2 rounded-full bg-theme-accent" />
+            <View className="w-2 h-2 rounded-full bg-theme-muted/50" />
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
               {t('dashboard.bodyWeight', 'Body Weight')}
             </Text>
@@ -220,12 +220,14 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
       <Card className="bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-2">
-            <View className="w-2 h-2 rounded-full bg-theme-accent" />
+            <View className="w-2 h-2 rounded-full bg-theme-muted/50" />
             <Text className="text-xs font-bold text-theme-muted uppercase tracking-wider">
               {t('dashboard.injuryHeatmap', 'Injury & Soreness Heatmap')}
             </Text>
           </View>
-          <Text className="text-xs font-semibold text-theme-accent">
+          {/* A status, not an action: quiet when there is nothing to report,
+              the warning colour only when there is. */}
+          <Text className={`text-xs font-semibold ${niggles.length === 0 ? 'text-theme-muted' : 'text-semantic-warning'}`}>
             {niggles.length === 0
               ? t('progress.noIssues', 'No issues')
               : niggles.length === 1
@@ -291,15 +293,15 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
                   Haptics.selectionAsync();
                   setSeverity(level);
                 }}
-                className={`w-12 h-12 rounded-xl items-center justify-center ${
+                className={`w-12 h-12 rounded-xl items-center justify-center border ${
                   severity === level
-                    ? 'bg-theme-accent'
-                    : 'bg-theme-bg'
+                    ? 'bg-theme-accent/15 border-theme-accent'
+                    : 'bg-theme-bg border-transparent'
                 }`}
               >
                 <Text
                   className={`text-base font-extrabold ${
-                    severity === level ? 'text-white' : 'text-theme-text'
+                    severity === level ? 'text-theme-accent' : 'text-theme-text'
                   }`}
                 >
                   {level}
@@ -330,7 +332,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
 
           {/* Buttons */}
           <View className="gap-y-3 mb-4">
-            <Button label={t('dashboard.saveIssue', 'Save Issue')} onPress={handleSave} className="bg-theme-accent mb-2" />
+            <Button label={t('dashboard.saveIssue', 'Save Issue')} onPress={handleSave} className="mb-2" />
 
             {editingNiggleId ? (
               <Button

@@ -301,7 +301,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
             onPress={handleOpenRequestModal}
             activeScale={0.96}
             haptic="light"
-            className="px-3.5 py-2 bg-theme-accent rounded-lg flex-row items-center justify-center gap-x-1.5 shadow-sm max-w-full"
+            className="px-3.5 py-2 bg-theme-accent-strong rounded-lg flex-row items-center justify-center gap-x-1.5 shadow-sm max-w-full"
           >
             <Ionicons name="chatbubble-ellipses" size={14} color="#FFFFFF" />
             <Text className="text-white text-xs font-bold font-rajdhani text-center" numberOfLines={1}>
@@ -489,7 +489,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                   disabled={sendingRequest}
                   activeScale={0.96}
                   haptic="selection"
-                  className={`bg-theme-accent py-3.5 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-2 ${
+                  className={`bg-theme-accent-strong py-3.5 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-2 ${
                     sendingRequest ? 'opacity-60' : ''
                   }`}
                 >
@@ -565,12 +565,12 @@ export const BenchmarkSessionsCard: React.FC = () => {
                         activeScale={0.94}
                         haptic="selection"
                         className={`px-3 py-1.5 rounded-lg border flex-1 items-center ${
-                          isSel ? 'bg-theme-accent border-theme-accent' : 'bg-theme-bg border-theme-border'
+                          isSel ? 'bg-theme-accent/15 border-theme-accent' : 'bg-theme-bg border-theme-border'
                         }`}
                       >
                         <Text
                           className={`text-xs font-bold font-rajdhani ${
-                            isSel ? 'text-white' : 'text-theme-muted'
+                            isSel ? 'text-theme-accent' : 'text-theme-muted'
                           }`}
                         >
                           {s.label}
@@ -672,7 +672,7 @@ export const BenchmarkSessionsCard: React.FC = () => {
                   disabled={savingLog}
                   activeScale={0.96}
                   haptic="selection"
-                  className={`bg-theme-accent py-3 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-2 ${
+                  className={`bg-theme-accent-strong py-3 rounded-xl items-center justify-center flex-row gap-x-2 shadow-sm mb-2 ${
                     savingLog ? 'opacity-50' : ''
                   }`}
                 >

@@ -89,10 +89,10 @@ export function HomeTodayCard({
           }}
           activeOpacity={0.75}
           accessibilityRole="button"
-          className="flex-row items-center gap-1 px-2.5 py-1 rounded-full bg-theme-accent/10"
+          className="flex-row items-center gap-1 px-2.5 py-1 rounded-full bg-theme-text/10"
         >
-          <Ionicons name="flash" size={12} color={theme.tint} />
-          <Text className="text-xs font-bold text-theme-accent">{t('dashboard.adapt', 'Adapt')}</Text>
+          <Ionicons name="flash" size={12} color={theme.textSecondary} />
+          <Text className="text-xs font-bold text-theme-text">{t('dashboard.adapt', 'Adapt')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -148,10 +148,10 @@ export function HomeTodayCard({
                           }}
                           activeOpacity={0.7}
                           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          className="flex-row items-center gap-1 px-2 py-0.5 rounded-full bg-theme-accent/10 border border-theme-accent/25"
+                          className="flex-row items-center gap-1 px-2 py-0.5 rounded-full border border-theme-border"
                         >
-                          <Ionicons name="sparkles" size={10} color={theme.tint} />
-                          <Text className="text-[11px] font-bold text-theme-accent-text">{t('whyWorkout.titleShort')}</Text>
+                          <Ionicons name="sparkles" size={10} color={theme.textSecondary} />
+                          <Text className="text-[11px] font-bold text-theme-text">{t('whyWorkout.titleShort')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -164,9 +164,9 @@ export function HomeTodayCard({
                     activeOpacity={0.75}
                     accessibilityRole="button"
                     accessibilityLabel={t('dashboard.sendToDevice', 'Send to device')}
-                    className="w-10 h-10 rounded-full bg-theme-accent/10 items-center justify-center"
+                    className="w-10 h-10 rounded-full bg-theme-accent-strong items-center justify-center"
                   >
-                    <Ionicons name="watch-outline" size={18} color={theme.tint} />
+                    <Ionicons name="watch-outline" size={18} color="#FFFFFF" />
                   </TouchableOpacity>
                 )}
               </View>

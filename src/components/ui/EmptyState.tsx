@@ -382,7 +382,7 @@ export function EmptyState({
               ? 'bg-theme-accent/15 border border-theme-accent/30'
               : action.variant === 'outline'
               ? 'bg-transparent border border-theme-border'
-              : 'bg-theme-accent'
+              : 'bg-theme-accent-strong'
           }`}
         >
           {action.icon && (

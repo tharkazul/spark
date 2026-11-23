@@ -1,4 +1,4 @@
-import { BrandColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { track, trackOnce } from '../../services/analytics';
@@ -14,6 +14,7 @@ import { PRIVACY_POLICY_URL } from '../../utils/aiConsent';
  * reflects a later change made in Profile as well.
  */
 export const AiConsentCard: React.FC = () => {
+  const theme = useTheme();
   const { t } = useLanguage();
   const { user, setAiConsent } = useUser();
   const [saving, setSaving] = useState<boolean | null>(null);
@@ -65,7 +66,7 @@ export const AiConsentCard: React.FC = () => {
             declined ? 'bg-theme-inset border-theme-border' : 'bg-theme-accent/20 border-theme-accent/40'
           }`}
         >
-          <Ionicons name={declined ? 'pause-circle' : 'shield-checkmark'} size={18} color={declined ? '#9CA3AF' : BrandColors.primary} />
+          <Ionicons name={declined ? 'pause-circle' : 'shield-checkmark'} size={18} color={declined ? theme.textSecondary : theme.tint} />
         </View>
         <Text className="ml-2.5 shrink text-sm font-extrabold text-theme-text font-rajdhani">
           {declined ? t('aiConsent.declinedTitle') : t('aiConsent.cardTitle')}

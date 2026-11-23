@@ -244,11 +244,11 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
               onPress={() => selectMonth(idx)}
               activeScale={0.94}
               haptic="selection"
-              className={`w-[23%] py-2 rounded-lg items-center ${
-                isSelected ? 'bg-theme-accent' : 'bg-theme-card border border-theme-border/50'
+              className={`w-[23%] py-2 rounded-lg items-center border ${
+                isSelected ? 'bg-theme-accent/15 border-theme-accent' : 'bg-theme-card border-theme-border/50'
               }`}
             >
-              <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-theme-text'}`}>
+              <Text className={`text-xs font-bold ${isSelected ? 'text-theme-accent' : 'text-theme-text'}`}>
                 {mName}
               </Text>
             </ScalePressable>
@@ -269,11 +269,11 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
               haptic="selection"
               className={`w-10 h-10 rounded-xl items-center justify-center mr-2 border ${
                 isSelected
-                  ? 'bg-theme-accent border-theme-accent'
+                  ? 'bg-theme-accent/15 border-theme-accent'
                   : 'bg-theme-card border-theme-border/50'
               }`}
             >
-              <Text className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-theme-text'}`}>
+              <Text className={`text-xs font-bold ${isSelected ? 'text-theme-accent' : 'text-theme-text'}`}>
                 {dNum}
               </Text>
             </ScalePressable>
@@ -287,7 +287,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
         disabled={isInPast}
         activeScale={0.96}
         haptic="selection"
-        className={`bg-theme-accent py-3.5 rounded-xl items-center shadow-sm ${
+        className={`bg-theme-accent-strong py-3.5 rounded-xl items-center shadow-sm ${
           isInPast ? 'opacity-40' : ''
         }`}
       >

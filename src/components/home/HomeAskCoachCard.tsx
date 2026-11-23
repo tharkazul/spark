@@ -135,10 +135,10 @@ export function HomeAskCoachCard({ draft, onChangeDraft, inputRef }: HomeAskCoac
               }}
               activeOpacity={0.75}
               accessibilityRole="button"
-              className="flex-row items-center gap-1 px-2.5 py-1.5 rounded-full bg-theme-accent/10 border border-theme-accent/25"
+              className="flex-row items-center gap-1 px-2.5 py-1.5 rounded-full border border-theme-border"
             >
-              <Ionicons name={q.icon} size={12} color={theme.tint} />
-              <Text className="text-xs font-semibold text-theme-accent">{q.label}</Text>
+              <Ionicons name={q.icon} size={12} color={theme.textSecondary} />
+              <Text className="text-xs font-semibold text-theme-text">{q.label}</Text>
             </TouchableOpacity>
           ))}
         </View>

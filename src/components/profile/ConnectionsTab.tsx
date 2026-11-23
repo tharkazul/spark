@@ -421,7 +421,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <Ionicons name="logo-apple" size={20} color="#FF2D55" />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.appleHealthAndWatch')}</Text>
+              <Text className="text-sm font-bold text-theme-text">{t('connections.appleHealthAndWatch')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
                 {isHealthKitConnected
                   ? `${t('connections.connected', 'Connected')} · ${isWatchConnected ? t('connections.watchReadyBadge', 'Watch Ready') : t('connections.watchOffBadge', 'Watch Off')}`
@@ -442,12 +442,12 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             className={`px-3 py-1.5 rounded-lg border ${
               isHealthKitConnected
                 ? 'bg-theme-bg border-theme-border'
-                : 'bg-theme-accent border-theme-accent'
+                : 'bg-theme-accent/10 border-theme-accent/30'
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                isHealthKitConnected ? 'text-theme-accent' : 'text-white'
+                isHealthKitConnected ? 'text-theme-text' : 'text-theme-accent'
               }`}
             >
               {isHealthKitConnected ? (showAppleManage ? t('common.done', 'Done') : t('common.manage', 'Manage')) : t('common.connect', 'Connect')}
@@ -505,7 +505,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <TouchableOpacity
                 onPress={handleSyncAppleHealth}
                 disabled={appleSyncing}
-                className="flex-1 py-2 px-3 rounded-lg bg-theme-accent flex-row items-center justify-center"
+                className="flex-1 py-2 px-3 rounded-lg bg-theme-accent-strong flex-row items-center justify-center"
               >
                 {appleSyncing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -559,7 +559,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                     <Switch
                       value={!!healthPrefs[metric.key]}
                       onValueChange={(val) => handleToggleHealthPref(metric.key, val)}
-                      trackColor={{ false: '#DDE3E9', true: theme.tint }}
+                      trackColor={{ false: theme.border, true: theme.accentStrong }}
+                      ios_backgroundColor={theme.border}
                     />
                   </View>
                 ))}
@@ -582,7 +583,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               accessibilityLabel="Garmin Connect"
             />
             <View className="flex-1">
-              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.garminConnect')}</Text>
+              <Text className="text-sm font-bold text-theme-text">{t('connections.garminConnect')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
                 {isGarminConnected ? t('connections.connected', 'Connected') : t('connections.disconnected', 'Not connected')}
               </Text>
@@ -597,13 +598,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             }}
             disabled={garminLoading}
             className={`px-3 py-1.5 rounded-lg border ${
-              isGarminConnected ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent border-theme-accent'
+              isGarminConnected ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent/10 border-theme-accent/30'
             }`}
           >
             {garminLoading ? (
-              <ActivityIndicator size="small" color={isGarminConnected ? theme.tint : '#FFFFFF'} />
+              <ActivityIndicator size="small" color={isGarminConnected ? theme.textSecondary : theme.tint} />
             ) : (
-              <Text className={`text-xs font-bold ${isGarminConnected ? 'text-theme-accent' : 'text-white'}`}>
+              <Text className={`text-xs font-bold ${isGarminConnected ? 'text-theme-text' : 'text-theme-accent'}`}>
                 {isGarminConnected && showGarminManage
                   ? t('common.done', 'Done')
                   : isGarminConnected
@@ -641,7 +642,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <Ionicons name="watch-outline" size={20} color="#DC2626" />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.suuntoIntegration')}</Text>
+              <Text className="text-sm font-bold text-theme-text">{t('connections.suuntoIntegration')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
                 {isSuuntoConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.workoutSync')}` : t('connections.disconnected', 'Not connected')}
               </Text>
@@ -675,15 +676,15 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               className={`px-3 py-1.5 rounded-lg border ${
                 isSuuntoConnected
                   ? 'bg-theme-bg border-theme-border'
-                  : 'bg-theme-accent border-theme-accent'
+                  : 'bg-theme-accent/10 border-theme-accent/30'
               }`}
             >
               {suuntoLoading ? (
-                <ActivityIndicator size="small" color={isSuuntoConnected ? theme.tint : '#FFFFFF'} />
+                <ActivityIndicator size="small" color={isSuuntoConnected ? theme.textSecondary : theme.tint} />
               ) : (
                 <Text
                   className={`text-xs font-bold ${
-                    isSuuntoConnected ? 'text-theme-accent' : 'text-white'
+                    isSuuntoConnected ? 'text-theme-text' : 'text-theme-accent'
                   }`}
                 >
                   {isSuuntoConnected ? (showSuuntoManage ? t('common.done', 'Done') : t('common.manage', 'Manage')) : t('common.connect', 'Connect')}
@@ -717,7 +718,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <Ionicons name="bicycle-outline" size={20} color="#0EA5E9" />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.trainerdayIntegration')}</Text>
+              <Text className="text-sm font-bold text-theme-text">{t('connections.trainerdayIntegration')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
                 {isTrainerDayConnected
                   ? `${t('connections.connected', 'Connected')} · ${t(
@@ -739,13 +740,13 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
             }}
             disabled={trainerDayLoading}
             className={`px-3 py-1.5 rounded-lg border ${
-              isTrainerDayConnected ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent border-theme-accent'
+              isTrainerDayConnected ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent/10 border-theme-accent/30'
             }`}
           >
             {trainerDayLoading ? (
-              <ActivityIndicator size="small" color={isTrainerDayConnected ? theme.tint : '#FFFFFF'} />
+              <ActivityIndicator size="small" color={isTrainerDayConnected ? theme.textSecondary : theme.tint} />
             ) : (
-              <Text className={`text-xs font-bold ${isTrainerDayConnected ? 'text-theme-accent' : 'text-white'}`}>
+              <Text className={`text-xs font-bold ${isTrainerDayConnected ? 'text-theme-text' : 'text-theme-accent'}`}>
                 {isTrainerDayConnected
                   ? showTrainerDayManage
                     ? t('common.done', 'Done')
@@ -781,7 +782,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               <Ionicons name="fitness-outline" size={20} color="#EA580C" />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-bold text-theme-text font-jakarta">{t('connections.stravaIntegration')}</Text>
+              <Text className="text-sm font-bold text-theme-text">{t('connections.stravaIntegration')}</Text>
               <Text className="text-xs text-theme-muted mt-0.5">
                 {isStravaConnected ? `${t('connections.connected', 'Connected')} · ${t('healthConnect.sharingActive')}` : t('connections.disconnected', 'Not connected')}
               </Text>
@@ -815,15 +816,15 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
               className={`px-3 py-1.5 rounded-lg border ${
                 isStravaConnected
                   ? 'bg-theme-bg border-theme-border'
-                  : 'bg-theme-accent border-theme-accent'
+                  : 'bg-theme-accent/10 border-theme-accent/30'
               }`}
             >
               {stravaLoading ? (
-                <ActivityIndicator size="small" color={isStravaConnected ? theme.tint : '#FFFFFF'} />
+                <ActivityIndicator size="small" color={isStravaConnected ? theme.textSecondary : theme.tint} />
               ) : (
                 <Text
                   className={`text-xs font-bold ${
-                    isStravaConnected ? 'text-theme-accent' : 'text-white'
+                    isStravaConnected ? 'text-theme-text' : 'text-theme-accent'
                   }`}
                 >
                   {isStravaConnected ? (showStravaManage ? t('common.done', 'Done') : t('common.manage', 'Manage')) : t('common.connect', 'Connect')}
@@ -853,7 +854,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
       {/* STRAVA AUTOMATIONS PER SPORT TYPE */}
       <Card className="p-4">
         <View className="flex-row items-center gap-2 pb-3 mb-3 border-b border-theme-border">
-          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
+          <View className="w-2.5 h-2.5 rounded-full bg-theme-muted/50" />
           <Text className="text-theme-text font-bold text-sm">{t('connections.stravaAutomations')}</Text>
         </View>
 
@@ -866,7 +867,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 key={sport.id}
                 onPress={() => setSelectedSport(sport.id)}
                 className={`flex-1 flex-row items-center justify-center py-2 rounded-lg gap-1 ${
-                  isSelected ? 'bg-theme-accent' : 'bg-transparent'
+                  isSelected ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                 }`}
               >
                 <SportMedallion
@@ -878,7 +879,7 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                 <Text
                   numberOfLines={1}
                   className={`text-xs font-bold ${
-                    isSelected ? 'text-white' : 'text-theme-muted'
+                    isSelected ? 'text-theme-text' : 'text-theme-muted'
                   }`}
                 >
                   {getSportOptionLabel(sport.id)}
@@ -926,7 +927,8 @@ export const ConnectionsTab: React.FC<ConnectionsTabProps> = ({
                     <Switch
                       value={currentToggles[row.key]}
                       onValueChange={(val) => handleToggleChange(row.key, val)}
-                      trackColor={{ false: '#DDE3E9', true: theme.tint }}
+                      trackColor={{ false: theme.border, true: theme.accentStrong }}
+                      ios_backgroundColor={theme.border}
                     />
                   )}
                 </View>

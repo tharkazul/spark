@@ -1,4 +1,4 @@
-import { BrandColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/context/LanguageContext';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
@@ -25,6 +25,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
   onDecline,
   onConnectionAccepted,
 }) => {
+  const theme = useTheme();
   const { t } = useLanguage();
   const targetId = payload.friend_id || payload.fromUserId;
   const initialStatus =
@@ -105,7 +106,7 @@ export const ConnectionRequestCard: React.FC<ConnectionRequestCardProps> = ({
             <Ionicons
               name={isAccepted ? 'checkmark-circle' : isDeclined ? 'close-circle' : 'person-add'}
               size={18}
-              color={isAccepted ? '#10B981' : isDeclined ? '#EF4444' : BrandColors.primary}
+              color={isAccepted ? '#10B981' : isDeclined ? '#EF4444' : theme.tint}
             />
           </View>
           <View className="ml-2.5 flex-1">

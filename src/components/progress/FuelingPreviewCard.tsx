@@ -92,7 +92,10 @@ export const FuelingPreviewCard: React.FC<FuelingPreviewCardProps> = ({ onOpenNu
             </Text>
           </View>
           <View className="flex-row items-center gap-x-1">
-            <Text className="text-xs font-semibold text-theme-tint">{t('progress.viewPlan', 'View Plan')}</Text>
+            {/* text-theme-accent, not text-theme-tint: the theme has no `tint`
+                colour, so that class produced no rule and the link fell back to
+                React Native's default black, unreadable on a dark card. */}
+            <Text className="text-xs font-semibold text-theme-accent">{t('progress.viewPlan', 'View Plan')}</Text>
             <Ionicons name="chevron-forward" size={13} color={theme.tint} />
           </View>
         </View>
@@ -118,7 +121,7 @@ export const FuelingPreviewCard: React.FC<FuelingPreviewCardProps> = ({ onOpenNu
                   </Text>
                 </View>
               ) : (
-                <Text className="text-xs font-bold text-theme-tint tabular-nums">
+                <Text className="text-xs font-bold text-theme-text tabular-nums">
                   {calRemaining.toLocaleString()} kcal left
                 </Text>
               )

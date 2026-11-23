@@ -320,7 +320,7 @@ export function TrainingZonesCard() {
               disabled={saving}
               activeScale={0.96}
               haptic="selection"
-              className={`flex-1 bg-theme-accent py-3 rounded-xl items-center justify-center ${
+              className={`flex-1 bg-theme-accent-strong py-3 rounded-xl items-center justify-center ${
                 saving ? 'opacity-50' : ''
               }`}
             >

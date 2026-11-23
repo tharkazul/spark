@@ -1,4 +1,4 @@
-import { BrandColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import React, { useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +47,7 @@ const MemoizedHeader = React.memo(({
   handleAddStep,
   handleAddRepeat
 }: any) => {
+  const theme = useTheme();
   const { t } = useLanguage();
   return (
     <>
@@ -59,9 +60,9 @@ const MemoizedHeader = React.memo(({
         <View className="flex-row items-center justify-between pb-2 border-b border-theme-border/40">
           <View className="flex-row items-center gap-2">
             <View className="w-7 h-7 rounded-lg bg-theme-accent/15 items-center justify-center">
-              <Ionicons name="layers-outline" size={15} color={BrandColors.primary} />
+              <Ionicons name="layers-outline" size={15} color={theme.tint} />
             </View>
-            <Text className="text-sm font-bold text-theme-text font-jakarta">{t('dashboard.structure', 'Structure')}</Text>
+            <Text className="text-sm font-bold text-theme-text">{t('dashboard.structure', 'Structure')}</Text>
           </View>
         </View>
         )}
@@ -77,7 +78,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-emerald-500" />
-              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-jakarta">{t('dashboard.addWarmup', '+ Warmup')}</Text>
+              <Text className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{t('dashboard.addWarmup', '+ Warmup')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -87,7 +88,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-blue-500" />
-              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400 font-jakarta">{t('dashboard.addInterval', '+ Interval')}</Text>
+              <Text className="text-xs font-bold text-blue-600 dark:text-blue-400">{t('dashboard.addInterval', '+ Interval')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -97,7 +98,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-amber-500" />
-              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400 font-jakarta">{t('dashboard.addRecovery', '+ Recovery')}</Text>
+              <Text className="text-xs font-bold text-amber-600 dark:text-amber-400">{t('dashboard.addRecovery', '+ Recovery')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -107,7 +108,7 @@ const MemoizedHeader = React.memo(({
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
               <View className="w-2 h-2 rounded-full bg-purple-500" />
-              <Text className="text-xs font-bold text-purple-600 dark:text-purple-400 font-jakarta">{t('dashboard.addCooldown', '+ Cooldown')}</Text>
+              <Text className="text-xs font-bold text-purple-600 dark:text-purple-400">{t('dashboard.addCooldown', '+ Cooldown')}</Text>
             </ScalePressable>
 
             <ScalePressable
@@ -116,8 +117,8 @@ const MemoizedHeader = React.memo(({
               haptic="light"
               className="px-3 py-2 bg-theme-inset border border-theme-border/60 rounded-button-md flex-row items-center gap-1.5"
             >
-              <Ionicons name="repeat" size={13} color={BrandColors.primary} />
-              <Text className="text-xs font-bold text-theme-accent font-jakarta">{t('dashboard.addRepeat', 'Repeat')}</Text>
+              <Ionicons name="repeat" size={13} color={theme.tint} />
+              <Text className="text-xs font-bold text-theme-accent">{t('dashboard.addRepeat', 'Repeat')}</Text>
             </ScalePressable>
           </View>
 
@@ -129,12 +130,12 @@ const MemoizedHeader = React.memo(({
               className="py-6 px-4 items-center justify-center border border-dashed border-theme-border rounded-inset bg-theme-inset/60 mt-3"
             >
               <View className="w-10 h-10 rounded-full bg-theme-accent/10 items-center justify-center mb-2.5">
-                <Ionicons name="layers-outline" size={20} color={BrandColors.primary} />
+                <Ionicons name="layers-outline" size={20} color={theme.tint} />
               </View>
-              <Text className="text-xs font-bold text-theme-text text-center mb-1 font-jakarta">
+              <Text className="text-xs font-bold text-theme-text text-center mb-1">
                 {t('dashboard.buildIntervalStructure', 'Build Your Interval Structure')}
               </Text>
-              <Text className="text-[11px] text-theme-muted text-center max-w-[240px] font-jakarta">
+              <Text className="text-[11px] text-theme-muted text-center max-w-[240px]">
                 {t('dashboard.buildIntervalHint', 'Tap the blocks above to add warmup, work intervals, and recovery targets.')}
               </Text>
             </Animated.View>

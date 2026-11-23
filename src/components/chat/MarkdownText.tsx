@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import { RookaMark } from '../ui/RookaPoints';
-import { BrandColors, accentAlpha } from '@/constants/theme';
+import { Colors, accentAlpha } from '@/constants/theme';
 import { View, Text, StyleSheet, Platform, useColorScheme, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -107,18 +107,18 @@ const LoadingImagePlaceholder: React.FC<{
         borderRadius: 16,
         backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
         borderWidth: 1,
-        borderColor: isDark ? 'rgba(14, 165, 233, 0.3)' : 'rgba(14, 165, 233, 0.25)',
+        borderColor: accentAlpha(isDark ? 0.3 : 0.25, isDark),
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-        <RookaMark size={16} color={BrandColors.primary} />
+        <RookaMark size={16} color={Colors[isDark ? 'dark' : 'light'].tint} />
         <Text style={{ color: textColor, fontWeight: '700', fontSize: 14 }}>
           {t('chatCards.visualGuideLoading')}
         </Text>
       </View>
-      <ActivityIndicator size="small" color={BrandColors.primary} style={{ marginVertical: 8 }} />
+      <ActivityIndicator size="small" color={Colors[isDark ? 'dark' : 'light'].tint} style={{ marginVertical: 8 }} />
       <Text style={{ color: mutedColor, fontSize: 12, textAlign: 'center' }}>
         {alt || t('chatCards.visualGuideGenerating')}
       </Text>
@@ -184,7 +184,7 @@ export const MarkdownText: React.FC<MarkdownTextProps> = React.memo(({ content, 
 
   const defaultCoachColor = isDark ? '#F8FAFC' : '#0F172A';
   const textColor = textColorOverride || (isUser ? '#FFFFFF' : defaultCoachColor);
-  const accentColor = isUser ? '#FFFFFF' : BrandColors.primary;
+  const accentColor = isUser ? '#FFFFFF' : Colors[isDark ? 'dark' : 'light'].tint;
   const mutedColor = isUser ? 'rgba(255,255,255,0.7)' : isDark ? '#94A3B8' : '#64748B';
 
   const markdownRules = useMemo(() => ({

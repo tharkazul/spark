@@ -203,7 +203,7 @@ export function InvitePartnerModal({ visible, onClose, workout }: InvitePartnerM
 
         {workout && (
           <View className="bg-theme-bg p-3 rounded-xl mb-4 border border-theme-border/50 flex-row items-center">
-            <View className="w-10 h-10 rounded-full bg-theme-tint/10 items-center justify-center mr-3">
+            <View className="w-10 h-10 rounded-full bg-theme-accent/10 items-center justify-center mr-3">
                <Ionicons name="calendar-outline" size={20} color={theme.tint} />
             </View>
             <View className="flex-1">

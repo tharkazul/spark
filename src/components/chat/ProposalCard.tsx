@@ -77,7 +77,7 @@ export const ProposalCard: React.FC<ProposalCardProps> = ({
 
           <TouchableOpacity
             onPress={onAccept}
-            className="flex-1 py-2.5 rounded-lg bg-theme-accent items-center justify-center flex-row gap-1"
+            className="flex-1 py-2.5 rounded-lg bg-theme-accent-strong items-center justify-center flex-row gap-1"
           >
             <Ionicons name="checkmark" size={16} color="white" />
             <Text className="text-white font-bold text-xs">{t('chatCards.acceptPlan')}</Text>

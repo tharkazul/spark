@@ -1,4 +1,4 @@
-import { BrandColors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useLanguage } from '@/context/LanguageContext';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
@@ -16,6 +16,7 @@ import { formatAppVersion } from '../../utils/appVersion';
  * text comes from the new code itself (UPDATE_NOTES), so it describes that update.
  */
 export const AppUpdateCard: React.FC<{ payload: AppUpdatePayload }> = ({ payload }) => {
+  const theme = useTheme();
   const { t, language } = useLanguage();
   const [reloading, setReloading] = useState(false);
 
@@ -55,7 +56,7 @@ export const AppUpdateCard: React.FC<{ payload: AppUpdatePayload }> = ({ payload
     <View className="mt-1">
       <View className="flex-row items-center mb-2">
         <View className="w-9 h-9 rounded-full items-center justify-center border bg-theme-accent/20 border-theme-accent/40">
-          <Ionicons name="sparkles" size={18} color={BrandColors.primary} />
+          <Ionicons name="sparkles" size={18} color={theme.tint} />
         </View>
         <Text className="ml-2.5 shrink text-sm font-extrabold text-theme-text font-rajdhani">{t('appUpdate.readyTitle')}</Text>
       </View>

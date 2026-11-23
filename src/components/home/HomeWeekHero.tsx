@@ -1,11 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import { getLocalizedDayName } from '../dashboard/DetailedDayCard';
 import { useLanguage } from '../../context/LanguageContext';
-import { BrandColors } from '../../constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { DayAgenda } from '../../types/dashboard';
 import { BodyStatus, Season } from '../../types/season';
 import { normalizeSportType } from '../../utils/disciplineConfig';
@@ -26,11 +25,19 @@ interface HomeWeekHeroProps {
 const isRest = (type?: string) => String(type || '').toUpperCase() === 'REST';
 
 /**
- * The colourful top of Home: how far the goal is, how this week is going and
- * the streak, with one dot per day. Tapping a day opens it in the Week view.
+ * The top of Home: how far the goal is, how this week is going and the
+ * streak, with one dot per day. Tapping a day opens it in the Week view.
+ *
+ * A neutral card under a light accent wash, not a solid accent block. The
+ * full-bleed gradient this replaced covered about a quarter of the screen,
+ * and in dark mode it was hardcoded to the light-mode sky blue while
+ * everything around it used ultramarine, so it read as a second accent
+ * colour. Now the only solid accent here is today's circle, which leaves the
+ * accent for the one action on the screen: send-to-watch on the Today card.
  */
 export function HomeWeekHero({ week, streak, season, bodyGoal, onPressDay, onPressGoal }: HomeWeekHeroProps) {
   const { t } = useLanguage();
+  const theme = useTheme();
 
   const sessions = week.flatMap((d) => d.workouts.filter((w) => !isRest(w.type)));
   const done = sessions.filter((w) => w.isCompleted).length;
@@ -72,97 +79,98 @@ export function HomeWeekHero({ week, streak, season, bodyGoal, onPressDay, onPre
   })();
 
   return (
-    <LinearGradient
-      colors={[BrandColors.primary, BrandColors.deep]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ borderRadius: 20, padding: 16 }}
-    >
-      {/* Goal countdown, or a plain "this week" label when there is no dated goal */}
-      <View className="flex-row items-center justify-between">
-        <TouchableOpacity
-          onPress={onPressGoal}
-          disabled={!onPressGoal || !showGoal}
-          activeOpacity={0.75}
-          className="flex-row items-center gap-1.5 flex-1 mr-2"
-        >
-          <Ionicons name={showGoal ? 'flag' : 'calendar-outline'} size={13} color="#FFFFFF" />
-          <Text className="text-xs font-bold text-white/90 flex-shrink" numberOfLines={1}>
-            {showGoal ? t('home.heroDaysTo', { days: goalDays ?? 0, goal: goalName ?? '' }) : t('home.heroThisWeek')}
-          </Text>
-          {showGoal && onPressGoal && <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.8)" />}
-        </TouchableOpacity>
-        {current && (
-          <View className="bg-white/20 px-2 py-0.5 rounded-full">
-            <Text className="text-[10px] font-extrabold uppercase tracking-wider text-white">
-              {current.isRecovery ? t('goal.recoveryShort') : phaseLabel(t, current.phase)} · {t('home.heroWeekOf', { n: current.index, total: current.total })}
+    <View className="rounded-card overflow-hidden bg-theme-card border border-theme-accent/35">
+      <View className="bg-theme-accent/10 p-4">
+        {/* Goal countdown, or a plain "this week" label when there is no dated goal */}
+        <View className="flex-row items-center justify-between">
+          <TouchableOpacity
+            onPress={onPressGoal}
+            disabled={!onPressGoal || !showGoal}
+            activeOpacity={0.75}
+            className="flex-row items-center gap-1.5 flex-1 mr-2"
+          >
+            <Ionicons name={showGoal ? 'flag' : 'calendar-outline'} size={13} color={theme.accentText} />
+            <Text className="text-xs font-bold text-theme-text flex-shrink" numberOfLines={1}>
+              {showGoal ? t('home.heroDaysTo', { days: goalDays ?? 0, goal: goalName ?? '' }) : t('home.heroThisWeek')}
             </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Week progress and streak */}
-      <View className="flex-row items-end justify-between mt-3">
-        <View>
-          <Text className="text-white font-extrabold font-rajdhani" style={{ fontSize: 34, lineHeight: 36 }}>
-            {done}
-            <Text className="text-white/60" style={{ fontSize: 22 }}>
-              {' '}/ {sessions.length}
-            </Text>
-          </Text>
-          <Text className="text-xs font-semibold text-white/80">{t('home.heroSessionsDone')}</Text>
-          {weekPlanned && (
-            <Text className="text-[11px] font-semibold text-white/80 mt-0.5" numberOfLines={1}>
-              {t('home.heroPlanned', { planned: weekPlanned })}
-            </Text>
+            {showGoal && onPressGoal && <Ionicons name="chevron-forward" size={12} color={theme.textSecondary} />}
+          </TouchableOpacity>
+          {current && (
+            <View className="bg-theme-text/10 px-2 py-0.5 rounded-full">
+              <Text className="text-[10px] font-extrabold uppercase tracking-wider text-theme-muted">
+                {current.isRecovery ? t('goal.recoveryShort') : phaseLabel(t, current.phase)} · {t('home.heroWeekOf', { n: current.index, total: current.total })}
+              </Text>
+            </View>
           )}
         </View>
-        {streak > 0 && (
-          <View className="flex-row items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full">
-            <Ionicons name="flame" size={13} color="#FDBA74" />
-            <Text className="text-xs font-extrabold text-white">{t('home.heroStreak', { count: streak })}</Text>
-          </View>
-        )}
-      </View>
 
-      {/* One dot per day */}
-      <View className="flex-row justify-between mt-4">
-        {week.map((day, idx) => {
-          const active = day.workouts.filter((w) => !isRest(w.type));
-          const first = active[0];
-          const allDone = active.length > 0 && active.every((w) => w.isCompleted);
-          const missed = active.length > 0 && !allDone && day.isPast && !day.isToday;
-
-          let circle = 'bg-white/20';
-          if (allDone) circle = 'bg-white';
-          else if (missed) circle = 'bg-white/10';
-          if (day.isToday && !allDone) circle += ' border-2 border-white';
-
-          return (
-            <TouchableOpacity
-              key={day.fullDate || idx}
-              onPress={() => onPressDay(idx)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel={day.dateStr}
-              className="items-center gap-1.5"
-            >
-              <Text className={`text-[10px] font-bold ${day.isToday ? 'text-white' : 'text-white/70'}`}>
-                {getLocalizedDayName(day.dayName, t).charAt(0)}
+        {/* Week progress and streak */}
+        <View className="flex-row items-end justify-between mt-3">
+          <View>
+            <Text className="text-theme-text font-extrabold font-rajdhani" style={{ fontSize: 34, lineHeight: 36 }}>
+              {done}
+              <Text className="text-theme-muted" style={{ fontSize: 22 }}>
+                {' '}/ {sessions.length}
               </Text>
-              <View className={`w-9 h-9 rounded-full items-center justify-center ${circle}`}>
-                {allDone ? (
-                  <Ionicons name="checkmark" size={18} color={BrandColors.deep} />
-                ) : first ? (
-                  <MaterialCommunityIcons name={getSportGlyph(first.type)} size={17} color={missed ? 'rgba(255,255,255,0.45)' : '#FFFFFF'} />
-                ) : (
-                  <View className="w-1.5 h-1.5 rounded-full bg-white/50" />
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+            </Text>
+            <Text className="text-xs font-semibold text-theme-muted">{t('home.heroSessionsDone')}</Text>
+            {weekPlanned && (
+              <Text className="text-[11px] font-semibold text-theme-muted mt-0.5" numberOfLines={1}>
+                {t('home.heroPlanned', { planned: weekPlanned })}
+              </Text>
+            )}
+          </View>
+          {streak > 0 && (
+            <View className="flex-row items-center gap-1 bg-theme-text/10 px-2.5 py-1 rounded-full">
+              <Ionicons name="flame" size={13} color={theme.warm} />
+              <Text className="text-xs font-extrabold text-theme-text">{t('home.heroStreak', { count: streak })}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* One dot per day. Done days invert (text colour fill, card-coloured
+            check), today is the one solid accent, the rest stay quiet. */}
+        <View className="flex-row justify-between mt-4">
+          {week.map((day, idx) => {
+            const active = day.workouts.filter((w) => !isRest(w.type));
+            const first = active[0];
+            const allDone = active.length > 0 && active.every((w) => w.isCompleted);
+            const missed = active.length > 0 && !allDone && day.isPast && !day.isToday;
+            const isTodayOpen = day.isToday && !allDone;
+
+            let circle = 'bg-theme-text/5';
+            if (allDone) circle = 'bg-theme-text';
+            else if (isTodayOpen) circle = 'bg-theme-accent-strong';
+
+            // 73 = ~45% alpha: a missed session stays visible but recedes.
+            const glyphColor = isTodayOpen ? '#FFFFFF' : missed ? `${theme.textSecondary}73` : theme.textSecondary;
+
+            return (
+              <TouchableOpacity
+                key={day.fullDate || idx}
+                onPress={() => onPressDay(idx)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={day.dateStr}
+                className="items-center gap-1.5"
+              >
+                <Text className={`text-[10px] ${day.isToday ? 'font-extrabold text-theme-text' : 'font-bold text-theme-muted'}`}>
+                  {getLocalizedDayName(day.dayName, t).charAt(0)}
+                </Text>
+                <View className={`w-9 h-9 rounded-full items-center justify-center ${circle}`}>
+                  {allDone ? (
+                    <Ionicons name="checkmark" size={18} color={theme.card} />
+                  ) : first ? (
+                    <MaterialCommunityIcons name={getSportGlyph(first.type)} size={17} color={glyphColor} />
+                  ) : (
+                    <View className="w-1.5 h-1.5 rounded-full bg-theme-text/30" />
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }

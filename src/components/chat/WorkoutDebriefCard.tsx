@@ -39,7 +39,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
             </View>
             <Text
               numberOfLines={1}
-              className="text-sm font-bold text-theme-text font-jakarta mt-0.5"
+              className="text-sm font-bold text-theme-text mt-0.5"
             >
               {workout_title}
             </Text>
@@ -138,7 +138,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
       {/* 4. WHAT'S NEXT */}
       <View className="p-3 bg-theme-inset/80 rounded-xl border border-theme-border/40">
         <View className="flex-row items-center gap-1.5 mb-1">
-          <Ionicons name="arrow-forward-circle-outline" size={14} color="#0EA5E9" />
+          <Ionicons name="arrow-forward-circle-outline" size={14} color={theme.tint} />
           <Text className="text-[11px] font-extrabold text-theme-text uppercase tracking-wider">
             {t('chatCards.whatsNext')}
           </Text>

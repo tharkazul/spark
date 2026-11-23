@@ -321,8 +321,8 @@ export function AddWorkoutModal({
         {/* The coach's note on the session: worth having at hand while doing it */}
         {!canEditHere && initialWorkout?.coachNote ? (
           <View className="bg-theme-inset rounded-inset p-3 flex-row items-start gap-2">
-            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#0EA5E9" style={{ marginTop: 2 }} />
-            <Text className="flex-1 text-sm text-theme-text leading-relaxed font-jakarta">{initialWorkout.coachNote}</Text>
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color={theme.tint} style={{ marginTop: 2 }} />
+            <Text className="flex-1 text-sm text-theme-text leading-relaxed">{initialWorkout.coachNote}</Text>
           </View>
         ) : null}
 
@@ -380,13 +380,13 @@ export function AddWorkoutModal({
                     activeOpacity={0.8}
                     className={`flex-1 py-2 items-center justify-center rounded-button-md border ${
                       isSelected
-                        ? 'bg-theme-accent-strong border-theme-accent-strong'
+                        ? 'bg-theme-accent/15 border-theme-accent'
                         : 'bg-theme-inset border-theme-border/60'
                     }`}
                   >
                     <Text
                       className={`text-xs font-bold font-rajdhani tabular-nums ${
-                        isSelected ? 'text-white' : 'text-theme-text'
+                        isSelected ? 'text-theme-accent' : 'text-theme-text'
                       }`}
                     >
                       {mins}m
@@ -402,7 +402,7 @@ export function AddWorkoutModal({
                 variant="secondary"
                 size="md"
                 label={t('dashboard.buildWithRooka', 'Build with rooka')}
-                leftIcon={<Ionicons name="flash" size={16} color="#0EA5E9" />}
+                leftIcon={<Ionicons name="flash" size={16} color={theme.tint} />}
                 onPress={() => setIsQuickBuildOpen(true)}
                 className="w-full"
               />
@@ -487,8 +487,8 @@ export function AddWorkoutModal({
                     accessibilityRole="button"
                     className="flex-row items-center gap-1 px-4 pb-3 self-start"
                   >
-                    <Ionicons name="chevron-back" size={20} color="#0EA5E9" />
-                    <Text numberOfLines={1} className="text-sm font-bold text-theme-accent font-jakarta max-w-[280px]">
+                    <Ionicons name="chevron-back" size={20} color={theme.tint} />
+                    <Text numberOfLines={1} className="text-sm font-bold text-theme-accent max-w-[280px]">
                       {title.trim() || sportLabel}
                     </Text>
                   </TouchableOpacity>
@@ -505,7 +505,7 @@ export function AddWorkoutModal({
                         />
                       ) : (
                         <>
-                          <Text numberOfLines={2} className="text-xl font-bold text-theme-text font-jakarta">
+                          <Text numberOfLines={2} className="text-xl font-bold text-theme-text">
                             {title.trim() || sportLabel}
                           </Text>
                           <View className="flex-row items-center gap-1.5 mt-1">
@@ -532,7 +532,7 @@ export function AddWorkoutModal({
                         <Ionicons
                           name={isReadOnly ? 'lock-closed-outline' : 'create-outline'}
                           size={19}
-                          color={canEditHere ? '#FFFFFF' : '#0EA5E9'}
+                          color={canEditHere ? '#FFFFFF' : theme.tint}
                         />
                       </TouchableOpacity>
                     )}

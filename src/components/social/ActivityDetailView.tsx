@@ -1078,7 +1078,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   {t('activityDetail.effort')}
                 </Text>
                 <View className="flex-row items-center mt-1 px-3 py-1.5 rounded-inset bg-theme-accent-soft">
-                  <Ionicons name="flash" size={16} color="#0EA5E9" />
+                  <Ionicons name="flash" size={16} color={theme.tint} />
                   <Text className="text-2xl font-bold font-rajdhani text-theme-accent-text ml-1 tabular-nums">
                     +{rookaScore}
                   </Text>

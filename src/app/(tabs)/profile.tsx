@@ -466,7 +466,7 @@ export default function ProfileScreen() {
         >
           {/* Smooth Real-time Animated Indicator Bubble */}
           <Animated.View
-            className="absolute top-1 bottom-1 bg-theme-accent-strong rounded-button"
+            className="absolute top-1 bottom-1 bg-theme-card dark:bg-theme-border rounded-button"
             style={{
               left: indicatorLeft,
               width: tabWidth,
@@ -476,7 +476,7 @@ export default function ProfileScreen() {
           {TABS.map((tab, i) => {
             const textColor = scrollX.interpolate({
               inputRange: [(i - 0.5) * SCREEN_WIDTH, i * SCREEN_WIDTH, (i + 0.5) * SCREEN_WIDTH],
-              outputRange: ['#8E8E93', '#FFFFFF', '#8E8E93'],
+              outputRange: [theme.textSecondary, theme.text, theme.textSecondary],
               extrapolate: 'clamp',
             });
 

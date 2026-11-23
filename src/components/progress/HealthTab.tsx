@@ -127,7 +127,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
       <Card className="mb-4 bg-theme-card">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-x-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
+            <View className="w-2.5 h-2.5 rounded-full bg-theme-muted/50 mr-2" />
             <Text className="text-xs font-bold text-theme-muted">
               {t('healthTab.heatmapTitle')}
             </Text>
@@ -185,15 +185,15 @@ export const HealthTab: React.FC<HealthTabProps> = ({
                   Haptics.selectionAsync();
                   setSeverity(level);
                 }}
-                className={`w-12 h-12 rounded-xl items-center justify-center ${
+                className={`w-12 h-12 rounded-xl items-center justify-center border ${
                   severity === level
-                    ? 'bg-theme-accent'
-                    : 'bg-theme-bg'
+                    ? 'bg-theme-accent/15 border-theme-accent'
+                    : 'bg-theme-bg border-transparent'
                 }`}
               >
                 <Text
                   className={`text-base font-extrabold ${
-                    severity === level ? 'text-white' : 'text-theme-text'
+                    severity === level ? 'text-theme-accent' : 'text-theme-text'
                   }`}
                 >
                   {level}
@@ -224,7 +224,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
 
           {/* Buttons */}
           <View className="gap-y-3 mb-4">
-            <Button label={t('healthTab.saveIssue')} onPress={handleSave} className="bg-theme-accent mb-2" />
+            <Button label={t('healthTab.saveIssue')} onPress={handleSave} className="mb-2" />
 
             {editingNiggleId ? (
               <Button

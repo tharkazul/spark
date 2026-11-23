@@ -1,4 +1,3 @@
-import { BrandColors } from '@/constants/theme';
 import { RookaMark } from './ui/RookaPoints';
 import React, { useState, useEffect, useRef } from 'react';
 import { track } from '../services/analytics';
@@ -216,7 +215,7 @@ export const CoachPersonaSettings: React.FC = () => {
                     </View>
                   ) : (
                     <View className="w-8 h-8 rounded-full items-center justify-center mr-3 bg-theme-accent/20">
-                      <RookaMark size={16} color={BrandColors.primary} />
+                      <RookaMark size={16} color={theme.tint} />
                     </View>
                   )}
                   <Text className={`text-sm flex-1 text-theme-text ${isSelected ? 'font-bold' : 'font-medium'}`}>

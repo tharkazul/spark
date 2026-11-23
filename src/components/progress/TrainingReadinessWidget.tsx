@@ -118,7 +118,7 @@ export const TrainingReadinessWidget: React.FC<TrainingReadinessWidgetProps> = (
       {/* Header Row */}
       <View className="flex-row items-center justify-between mb-2">
         <View className="flex-row items-center gap-x-2">
-          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent-strong mr-1.5" />
+          <View className="w-2.5 h-2.5 rounded-full bg-theme-muted/50 mr-1.5" />
           <Text className="text-xs font-semibold text-theme-muted uppercase tracking-wider">
             {t('progress.trainingReadiness', 'Training Readiness')}
           </Text>

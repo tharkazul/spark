@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { RookaMark } from '../ui/RookaPoints';
-import { BrandColors, Colors } from '@/constants/theme';
+import { BrandColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import * as Haptics from 'expo-haptics';
 import React, { useMemo, useState } from 'react';
@@ -221,7 +221,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
               <Ionicons name="trophy-outline" size={26} color={theme.tint} />
               <Text className="text-xs font-bold text-theme-text mt-2 text-center">{t('questUi.noActiveQuest')}</Text>
               
-              <View className="mt-3 px-3 py-1.5 bg-theme-accent rounded-lg flex-row items-center gap-1">
+              <View className="mt-3 px-3 py-1.5 bg-theme-accent-strong rounded-lg flex-row items-center gap-1">
                 {questActionLoading ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
@@ -254,7 +254,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                 <CircularProgressChamber
                   progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
                   icon="flame"
-                  iconColor={theme.tint}
+                  iconColor={theme.warm}
                 />
               </View>
             </View>
@@ -278,7 +278,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
             <CircularProgressChamber
               progress={realStreak > 0 ? Math.min(1, realStreak / 7) : 0.05}
               icon="flame"
-              iconColor={theme.tint}
+              iconColor={theme.warm}
               size={46}
             />
           </View>
@@ -480,7 +480,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
 
           <TouchableOpacity
             onPress={() => setIsQuestModalOpen(false)}
-            className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+            className="flex-1 py-3.5 bg-theme-accent-strong rounded-xl items-center justify-center"
           >
             <Text className="text-xs font-extrabold text-white">{t('common.gotIt')}</Text>
           </TouchableOpacity>

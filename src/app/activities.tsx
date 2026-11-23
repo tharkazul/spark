@@ -33,10 +33,10 @@ export default function ActivitiesScreen() {
   return (
     <SafeAreaView className="flex-1 bg-theme-bg" edges={['top']}>
       <View className="px-4 my-6">
-        <Text className="text-theme-text text-3xl font-extrabold font-jakarta">
+        <Text className="text-theme-text text-3xl font-extrabold">
           {t('activities.title', 'Activities')}
         </Text>
-        <Text className="text-theme-muted text-sm mt-1 font-jakarta">
+        <Text className="text-theme-muted text-sm mt-1">
           {t('activities.subtitle', 'Past workouts and synced sessions')}
         </Text>
       </View>
@@ -52,11 +52,11 @@ export default function ActivitiesScreen() {
             <View className="flex-row items-center mb-3">
               <SportMedallion sport={item.type} size={40} className="mr-3" />
               <View className="flex-1">
-                <Text numberOfLines={1} className="text-theme-text font-bold text-base font-jakarta">
+                <Text numberOfLines={1} className="text-theme-text font-bold text-base">
                   {item.title}
                 </Text>
                 <GarminAttribution label={item.garminAttribution} className="mt-0.5" />
-                <Text className="text-theme-muted text-xs font-jakarta mt-0.5">
+                <Text className="text-theme-muted text-xs mt-0.5">
                   {item.relativeDate}
                 </Text>
               </View>

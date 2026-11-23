@@ -1,6 +1,6 @@
 import { ExerciseAutocompleteInput } from "./ExerciseAutocompleteInput";
 import { ExerciseInfoContext } from "./ExerciseInfoSheet";
-import { BrandColors, Fonts } from '@/constants/theme';
+import { Fonts } from '@/constants/theme';
 import React, { useContext, useMemo, useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TextInput, KeyboardTypeOptions } from 'react-native';
@@ -450,7 +450,7 @@ const StepCardComponent = ({
                       accessibilityLabel={t('exercise.infoA11y', { name: step.exerciseName || '' })}
                       className="w-8 h-8 rounded-full bg-theme-accent/10 items-center justify-center"
                     >
-                      <Ionicons name="information-circle-outline" size={18} color="#0EA5E9" />
+                      <Ionicons name="information-circle-outline" size={18} color={theme.tint} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -500,7 +500,7 @@ const StepCardComponent = ({
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={11}
-                      color={hasActiveTarget ? BrandColors.primary : theme.textSecondary}
+                      color={hasActiveTarget ? theme.tint : theme.textSecondary}
                     />
                   )}
                 </ScalePressable>
@@ -528,19 +528,15 @@ const StepCardComponent = ({
                           onPress={() => handleTargetTypeSelect(t.key)}
                           activeScale={0.94}
                           haptic="selection"
-                          style={{
-                            backgroundColor: isSelected ? BrandColors.primary : undefined,
-                            borderColor: isSelected ? BrandColors.primary : undefined,
-                          }}
                           className={`px-3 py-1.5 rounded-xl border ${
                             isSelected
-                              ? 'shadow-xs'
+                              ? 'bg-theme-accent/15 border-theme-accent'
                               : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-white/10'
                           }`}
                         >
                           <Text
                             className={`text-xs font-extrabold ${
-                              isSelected ? 'text-white' : 'text-slate-700 dark:text-slate-200'
+                              isSelected ? 'text-theme-accent' : 'text-slate-700 dark:text-slate-200'
                             }`}
                           >
                             {t.label}

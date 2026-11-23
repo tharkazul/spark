@@ -47,7 +47,7 @@ export const MuscleFatigueCard: React.FC = () => {
     <Card className="mb-4 bg-theme-card">
       <View className="flex-row items-center justify-between mb-3">
         <View className="flex-row items-center gap-x-2">
-          <View className="w-2.5 h-2.5 rounded-full bg-theme-accent mr-2" />
+          <View className="w-2.5 h-2.5 rounded-full bg-theme-muted/50 mr-2" />
           <Text className="text-xs font-bold text-theme-muted">
             {t('progress.muscleFatigueBreakdown')}
           </Text>

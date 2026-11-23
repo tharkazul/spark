@@ -240,10 +240,10 @@ export function CoachMemoryCard() {
                     <TouchableOpacity
                       key={c}
                       onPress={() => setDraftCategory(c)}
-                      className={`flex-row items-center gap-1 px-2.5 py-1.5 rounded-full border ${selected ? 'bg-theme-accent border-theme-accent' : 'border-theme-border'}`}
+                      className={`flex-row items-center gap-1 px-2.5 py-1.5 rounded-full border ${selected ? 'bg-theme-accent/15 border-theme-accent' : 'border-theme-border'}`}
                     >
-                      <Ionicons name={CATEGORY_ICONS[c]} size={12} color={selected ? '#FFFFFF' : theme.textSecondary} />
-                      <Text className={`text-xs font-semibold ${selected ? 'text-white' : 'text-theme-text'}`}>{t(`coachMemory.cat_${c}`)}</Text>
+                      <Ionicons name={CATEGORY_ICONS[c]} size={12} color={selected ? theme.tint : theme.textSecondary} />
+                      <Text className={`text-xs font-semibold ${selected ? 'text-theme-accent' : 'text-theme-text'}`}>{t(`coachMemory.cat_${c}`)}</Text>
                     </TouchableOpacity>
                   );
                 })}

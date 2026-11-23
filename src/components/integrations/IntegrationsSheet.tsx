@@ -260,7 +260,7 @@ export const IntegrationsSheet: React.FC<IntegrationsSheetProps> = ({ visible, o
                 <Pressable
                   disabled={garminLoading}
                   onPress={handleConnectGarmin}
-                  className="px-4 py-2 bg-theme-accent rounded-xl flex-row items-center gap-1.5 shadow-sm"
+                  className="px-4 py-2 bg-theme-accent-strong rounded-xl flex-row items-center gap-1.5 shadow-sm"
                 >
                   {garminLoading ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />

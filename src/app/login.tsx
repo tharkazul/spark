@@ -289,7 +289,7 @@ export default function LoginScreen() {
 
           {/* Mode Switcher */}
           {mode !== 'forgot' ? (
-            <View className="flex-row bg-theme-card p-1 rounded-control mb-6">
+            <View className="flex-row bg-theme-inset p-1 rounded-control mb-6">
               <TouchableOpacity
                 onPress={() => {
                   setMode('login');
@@ -297,12 +297,12 @@ export default function LoginScreen() {
                   setSuccessMessage(null);
                 }}
                 className={`flex-1 py-3 rounded-lg items-center ${
-                  mode === 'login' ? 'bg-theme-accent' : 'bg-transparent'
+                  mode === 'login' ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                 }`}
               >
                 <Text
                   className={`font-semibold text-sm ${
-                    mode === 'login' ? 'text-white' : 'text-theme-muted'
+                    mode === 'login' ? 'text-theme-text' : 'text-theme-muted'
                   }`}
                 >
                   {t('auth.signIn')}
@@ -316,12 +316,12 @@ export default function LoginScreen() {
                   setSuccessMessage(null);
                 }}
                 className={`flex-1 py-3 rounded-lg items-center ${
-                  mode === 'register' ? 'bg-theme-accent' : 'bg-transparent'
+                  mode === 'register' ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                 }`}
               >
                 <Text
                   className={`font-semibold text-sm ${
-                    mode === 'register' ? 'text-white' : 'text-theme-muted'
+                    mode === 'register' ? 'text-theme-text' : 'text-theme-muted'
                   }`}
                 >
                   {t('auth.register')}
@@ -461,7 +461,7 @@ export default function LoginScreen() {
               <TouchableOpacity
                 onPress={handleSubmit}
                 disabled={submitting || storeLoading}
-                className="bg-theme-accent rounded-xl py-4 items-center justify-center shadow-md shadow-blue-500/20 active:opacity-90 mt-2"
+                className="bg-theme-accent-strong rounded-xl py-4 items-center justify-center shadow-md shadow-blue-500/20 active:opacity-90 mt-2"
               >
                 {submitting || storeLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -544,7 +544,7 @@ export default function LoginScreen() {
                   <TouchableOpacity
                     onPress={handleSendResetCode}
                     disabled={submitting}
-                    className="bg-theme-accent rounded-xl py-4 items-center justify-center shadow-md shadow-blue-500/20 active:opacity-90"
+                    className="bg-theme-accent-strong rounded-xl py-4 items-center justify-center shadow-md shadow-blue-500/20 active:opacity-90"
                   >
                     {submitting ? (
                       <ActivityIndicator color="#FFFFFF" />
@@ -624,7 +624,7 @@ export default function LoginScreen() {
                   <TouchableOpacity
                     onPress={handleResetPassword}
                     disabled={submitting}
-                    className="bg-theme-accent rounded-xl py-4 items-center justify-center shadow-md shadow-blue-500/20 active:opacity-90"
+                    className="bg-theme-accent-strong rounded-xl py-4 items-center justify-center shadow-md shadow-blue-500/20 active:opacity-90"
                   >
                     {submitting ? (
                       <ActivityIndicator color="#FFFFFF" />

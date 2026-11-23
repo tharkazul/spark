@@ -246,7 +246,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
           </Text>
           <TouchableOpacity
             onPress={onClose}
-            className="mt-6 bg-theme-accent px-6 py-2.5 rounded-full"
+            className="mt-6 bg-theme-accent-strong px-6 py-2.5 rounded-full"
           >
             <Text className="text-white font-extrabold text-sm">{t('athleteProfile.close')}</Text>
           </TouchableOpacity>
@@ -310,8 +310,8 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                       : profile.connectionStatus === 'pending'
                       ? 'bg-slate-200 dark:bg-slate-700'
                       : profile.connectionStatus === 'pending_received'
-                      ? 'bg-theme-accent'
-                      : 'bg-theme-accent'
+                      ? 'bg-theme-accent-strong'
+                      : 'bg-theme-accent-strong'
                   }`}
                 >
                   <Ionicons

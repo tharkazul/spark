@@ -184,7 +184,7 @@ export const RecurringTrainingsCard: React.FC = () => {
           </Text>
           <TouchableOpacity
             onPress={handleOpenAddModal}
-            className="px-3 py-1.5 bg-theme-accent rounded-lg flex-row items-center gap-x-1"
+            className="px-3 py-1.5 bg-theme-accent-strong rounded-lg flex-row items-center gap-x-1"
           >
             <Ionicons name="add-circle-outline" size={14} color="#FFFFFF" />
             <Text className="text-white text-xs font-bold">{t('recurring.addActivity')}</Text>
@@ -313,11 +313,11 @@ export const RecurringTrainingsCard: React.FC = () => {
                       haptic="selection"
                       className={`px-2.5 py-2 rounded-xl border ${
                         isSel
-                          ? 'bg-theme-accent border-theme-accent'
+                          ? 'bg-theme-accent/15 border-theme-accent'
                           : 'bg-theme-bg border-theme-border/60'
                       }`}
                     >
-                      <Text className={`text-xs font-bold ${isSel ? 'text-white' : 'text-theme-text'}`}>
+                      <Text className={`text-xs font-bold ${isSel ? 'text-theme-accent' : 'text-theme-text'}`}>
                         {dayLabel}
                       </Text>
                     </ScalePressable>
@@ -342,11 +342,11 @@ export const RecurringTrainingsCard: React.FC = () => {
                       activeOpacity={0.8}
                       className={`px-3 py-1.5 rounded-lg border ${
                         isSel
-                          ? 'bg-theme-accent border-theme-accent'
+                          ? 'bg-theme-accent/15 border-theme-accent'
                           : 'bg-theme-bg border-theme-border/60'
                       }`}
                     >
-                      <Text className={`text-xs font-bold ${isSel ? 'text-white' : 'text-theme-text'}`}>
+                      <Text className={`text-xs font-bold ${isSel ? 'text-theme-accent' : 'text-theme-text'}`}>
                         {dur} min
                       </Text>
                     </TouchableOpacity>
@@ -371,11 +371,11 @@ export const RecurringTrainingsCard: React.FC = () => {
                       activeOpacity={0.8}
                       className={`flex-1 py-2 rounded-xl border items-center capitalize ${
                         isSel
-                          ? 'bg-theme-accent border-theme-accent'
+                          ? 'bg-theme-accent/15 border-theme-accent'
                           : 'bg-theme-bg border-theme-border/60'
                       }`}
                     >
-                      <Text className={`text-xs font-bold capitalize ${isSel ? 'text-white' : 'text-theme-text'}`}>
+                      <Text className={`text-xs font-bold capitalize ${isSel ? 'text-theme-accent' : 'text-theme-text'}`}>
                         {lvl}
                       </Text>
                     </TouchableOpacity>
@@ -401,7 +401,7 @@ export const RecurringTrainingsCard: React.FC = () => {
                 disabled={savingNew}
                 activeScale={0.96}
                 haptic="selection"
-                className={`w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center shadow-md mb-6 ${
+                className={`w-full py-3.5 bg-theme-accent-strong rounded-xl items-center justify-center shadow-md mb-6 ${
                   savingNew ? 'opacity-50' : ''
                 }`}
               >

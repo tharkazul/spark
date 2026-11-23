@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Animated, TouchableOpacity, View } from 'react-native';
 
+import { useTheme } from '@/hooks/use-theme';
+
 export interface PagerTab {
   key: string;
   label: string;
@@ -18,10 +20,16 @@ interface PagerTabsProps {
 
 /**
  * Sub-tab switcher for a horizontal swipe pager (Progress, Planning). The
- * accent pill and the label colours follow the pager's scroll position, so the
+ * pill and the label colours follow the pager's scroll position, so the
  * pill slides along with the finger instead of jumping when a page settles.
+ *
+ * The selected pill is a raised neutral surface, as in SegmentedControl, not
+ * the accent. A solid accent pill sat at the top of every tab screen, so the
+ * accent's biggest shape on each screen was "which tab is open" rather than
+ * the screen's one action.
  */
 export function PagerTabs({ tabs, scrollX, pageWidth, onPressTab, className = '' }: PagerTabsProps) {
+  const theme = useTheme();
   // Start from the usual full-width guess so the pill is there on first paint;
   // onLayout corrects it.
   const [width, setWidth] = useState(pageWidth - 32);
@@ -45,7 +53,7 @@ export function PagerTabs({ tabs, scrollX, pageWidth, onPressTab, className = ''
       className={`relative flex-row bg-theme-inset rounded-tile p-1 overflow-hidden ${className}`}
     >
       <Animated.View
-        className="absolute top-1 bottom-1 bg-theme-accent-strong rounded-button"
+        className="absolute top-1 bottom-1 bg-theme-card dark:bg-theme-border rounded-button"
         style={{ left: indicatorLeft, width: tabWidth }}
       />
 
@@ -54,10 +62,10 @@ export function PagerTabs({ tabs, scrollX, pageWidth, onPressTab, className = ''
           tabs.length > 1
             ? scrollX.interpolate({
                 inputRange: [(i - 0.5) * pageWidth, i * pageWidth, (i + 0.5) * pageWidth],
-                outputRange: ['#8E8E93', '#FFFFFF', '#8E8E93'],
+                outputRange: [theme.textSecondary, theme.text, theme.textSecondary],
                 extrapolate: 'clamp',
               })
-            : '#FFFFFF';
+            : theme.text;
         return (
           <TouchableOpacity
             key={tab.key}

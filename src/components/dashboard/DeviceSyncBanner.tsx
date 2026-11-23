@@ -97,7 +97,7 @@ export const DeviceSyncBanner: React.FC<DeviceSyncBannerProps> = ({ className = 
 
         <View className="flex-row items-center justify-between mt-3 pt-2.5 border-t border-theme-border/40">
           <View className="flex-row items-center gap-1.5">
-            <View className="w-2 h-2 rounded-full bg-theme-accent" />
+            <View className="w-2 h-2 rounded-full bg-theme-muted/50" />
             <Text className="text-[10px] font-bold text-theme-muted uppercase tracking-wider">
               {Platform.OS === 'ios' ? 'Apple Health · Strava · Garmin' : 'Strava · Garmin'}
             </Text>

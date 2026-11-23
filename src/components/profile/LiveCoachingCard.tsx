@@ -73,7 +73,7 @@ export const LiveCoachingCard: React.FC<{
             <Ionicons name="radio-outline" size={20} color="#10B981" />
           </View>
           <View className="flex-1">
-            <Text className="text-sm font-bold text-theme-text font-jakarta">{t('liveCoach.title')}</Text>
+            <Text className="text-sm font-bold text-theme-text">{t('liveCoach.title')}</Text>
             <Text className="text-xs text-theme-muted mt-0.5">{t('liveCoach.subtitle')}</Text>
           </View>
         </View>
@@ -81,7 +81,7 @@ export const LiveCoachingCard: React.FC<{
         <TouchableOpacity
           onPress={handleToggle}
           className={`px-3 py-1.5 rounded-lg border ${
-            open ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent border-theme-accent'
+            open ? 'bg-theme-bg border-theme-border' : 'bg-theme-accent-strong border-theme-accent'
           }`}
         >
           <Text className={`text-xs font-bold ${open ? 'text-theme-accent' : 'text-white'}`}>
@@ -124,7 +124,7 @@ export const LiveCoachingCard: React.FC<{
                   onPress={handleCopy}
                   accessibilityRole="button"
                   accessibilityLabel={t('liveCoach.copy')}
-                  className="flex-row items-center px-2.5 py-1.5 rounded-md bg-theme-accent"
+                  className="flex-row items-center px-2.5 py-1.5 rounded-md bg-theme-accent-strong"
                 >
                   <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={13} color="#FFFFFF" />
                   <Text className="text-xs font-bold text-white ml-1">

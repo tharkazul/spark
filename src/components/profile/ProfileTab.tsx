@@ -1,4 +1,3 @@
-import { BrandColors } from '@/constants/theme';
 import { RookaMark } from '../ui/RookaPoints';
 import React, { useState, useEffect, useMemo } from 'react';
 import { track } from '../../services/analytics';
@@ -403,7 +402,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <View className="w-[1px] h-8 bg-theme-border" />
           <View className="flex-1 items-center">
             <View className="flex-row items-center gap-0.5">
-              <Ionicons name="flame" size={14} color="#EA580C" />
+              <Ionicons name="flame" size={14} color={theme.warm} />
               <Text className="text-2xl font-bold font-rajdhani text-amber-800 dark:text-amber-400 tabular-nums">
                 {streakDays}
               </Text>
@@ -501,11 +500,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                             Haptics.selectionAsync();
                             handleEquipTitle(item.id);
                           }}
+                          // "Equipped" is a status, so it is neutral; "Equip" is the
+                          // action and keeps the accent text.
                           className={`px-2.5 py-1 rounded-full ${
-                            isEquipped ? 'bg-theme-accent-strong' : 'bg-theme-card border border-theme-border'
+                            isEquipped ? 'bg-theme-text/10' : 'bg-theme-card border border-theme-border'
                           }`}
                         >
-                          <Text className={`text-xs font-bold ${isEquipped ? 'text-white' : 'text-theme-muted'}`}>
+                          <Text className={`text-xs font-bold ${isEquipped ? 'text-theme-text' : 'text-theme-accent'}`}>
                             {isEquipped ? t('profile.equipped') : t('profile.equip')}
                           </Text>
                         </TouchableOpacity>
@@ -623,7 +624,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               track('setting_changed', { setting: 'dark_mode', value: colorScheme === 'dark' ? 'off' : 'on' });
               toggleColorScheme();
             }}
-            trackColor={{ false: '#DDE3E9', true: theme.tint }}
+            trackColor={{ false: theme.border, true: theme.accentStrong }}
+            ios_backgroundColor={theme.border}
           />
         )}
         {renderSettingRow(
@@ -632,7 +634,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <Switch
             value={user?.aiConsent === true}
             onValueChange={(on) => (on ? confirmEnableAi(t, setAiConsent, 'settings') : confirmDisableAi(t, setAiConsent))}
-            trackColor={{ false: '#DDE3E9', true: theme.tint }}
+            trackColor={{ false: theme.border, true: theme.accentStrong }}
+            ios_backgroundColor={theme.border}
           />
         )}
         {renderSettingRow(
@@ -654,7 +657,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 { text: t('usageStats.turnOff'), style: 'destructive', onPress: () => save(false) },
               ]);
             }}
-            trackColor={{ false: '#DDE3E9', true: theme.tint }}
+            trackColor={{ false: theme.border, true: theme.accentStrong }}
+            ios_backgroundColor={theme.border}
           />
         )}
         {renderSettingRow(
@@ -663,7 +667,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <Switch
             value={pushEnabled}
             onValueChange={handleTogglePushNotifications}
-            trackColor={{ false: '#DDE3E9', true: theme.tint }}
+            trackColor={{ false: theme.border, true: theme.accentStrong }}
+            ios_backgroundColor={theme.border}
           />
         )}
         <View className="py-4 gap-3">
@@ -722,7 +727,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   disabled={savingAccount}
                   activeScale={0.96}
                   haptic="selection"
-                  className="px-4 py-3 rounded-xl bg-theme-accent justify-center items-center"
+                  className="px-4 py-3 rounded-xl bg-theme-accent-strong justify-center items-center"
                 >
                   {savingAccount ? (
                     <ActivityIndicator size="small" color="#FFF" />

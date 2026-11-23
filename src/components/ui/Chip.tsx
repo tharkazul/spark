@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ScalePressable } from './ScalePressable';
-import { sportColor } from '../../constants/theme';
+import { Colors, sportColor } from '../../constants/theme';
 
 export type ChipVariant = 'neutral' | 'accent' | 'sport' | 'status' | 'points' | 'tier';
 export type ChipSize = 'sm' | 'md';
@@ -47,13 +47,17 @@ export function Chip({
   if (variant === 'points') {
     return (
       <View
-        className={`${heightClass} px-2.5 rounded-pill bg-theme-accent-soft flex-row items-center justify-center gap-1 ${className}`}
+        className={`${heightClass} px-2.5 rounded-pill bg-theme-text/10 flex-row items-center justify-center gap-1 ${className}`}
       >
-        <Ionicons name="flash" size={isSm ? 12 : 14} color="#0EA5E9" />
+        {/* Neutral on purpose: points sit next to the session's real action
+            (send to watch, start), so they must not wear the accent too. The
+            bolt used to be hardcoded #0EA5E9, the light-mode sky, in both
+            themes. */}
+        <Ionicons name="flash" size={isSm ? 12 : 14} color={Colors[scheme].textSecondary} />
         <Text
           numberOfLines={1}
           style={{ fontVariant: ['tabular-nums'] }}
-          className="font-rajdhani font-bold text-theme-accent-text text-sm"
+          className="font-rajdhani font-bold text-theme-text text-sm"
         >
           {label !== undefined ? (typeof label === 'number' && label > 0 ? `+${label}` : label) : ''}
         </Text>

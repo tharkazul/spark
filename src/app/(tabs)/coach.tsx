@@ -1,4 +1,3 @@
-import { BrandColors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -868,7 +867,7 @@ export default function CoachScreen() {
             <Text className="text-theme-accent-text font-bold text-xs mr-2 font-rajdhani">{getCoachDisplayName(user)}</Text>
           </View>
           <View className="px-4 py-3 flex-row items-center bg-theme-card border border-theme-border rounded-2xl rounded-bl-[6px]">
-            <ActivityIndicator size="small" color="#0EA5E9" />
+            <ActivityIndicator size="small" color={theme.tint} />
             <Text className="text-theme-muted text-xs font-semibold ml-2.5">
               {t('chat.thinking')}
             </Text>
@@ -1177,7 +1176,7 @@ export default function CoachScreen() {
                 setIsWorkoutModalOpen(false);
                 setSelectedPillWorkout(null);
               }}
-              className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+              className="flex-1 py-3.5 bg-theme-accent-strong rounded-xl items-center justify-center"
             >
               <Text className="text-xs font-extrabold text-white">{t('common.gotIt', 'Got it')}</Text>
             </TouchableOpacity>
@@ -1331,7 +1330,7 @@ export default function CoachScreen() {
 
             <TouchableOpacity
               onPress={() => setIsQuestModalOpen(false)}
-              className="flex-1 py-3.5 bg-theme-accent rounded-xl items-center justify-center"
+              className="flex-1 py-3.5 bg-theme-accent-strong rounded-xl items-center justify-center"
             >
               <Text className="text-xs font-extrabold text-white">{t('common.gotIt', 'Got it')}</Text>
             </TouchableOpacity>
@@ -1483,9 +1482,9 @@ export default function CoachScreen() {
                   presentPaywall('coach');
                 }}
                 activeOpacity={0.8}
-                className="bg-theme-accent px-2.5 py-1 rounded-md"
+                className="bg-theme-accent-strong px-2.5 py-1 rounded-md"
               >
-                <Text className="text-black font-bold text-xs">{t('coach.upgrade', 'UPGRADE')}</Text>
+                <Text className="text-white font-bold text-xs">{t('coach.upgrade', 'UPGRADE')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -1610,7 +1609,7 @@ export default function CoachScreen() {
                 </TouchableOpacity>
                 <View className="flex-1 flex-row items-center gap-2">
                   <Animated.View style={{ opacity: pulseAnim }} className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                  <Text className="text-theme-text text-sm font-semibold font-jakarta">
+                  <Text className="text-theme-text text-sm font-semibold">
                     {t('coachExtra.voiceRecording', 'Recording...')}
                   </Text>
                 </View>
@@ -1621,7 +1620,7 @@ export default function CoachScreen() {
             ) : isTranscribing ? (
               <View className="flex-1 flex-row items-center gap-2.5 py-2.5 px-2">
                 <ActivityIndicator size="small" color={theme.tint} />
-                <Text className="text-theme-textSecondary text-sm font-medium font-jakarta">
+                <Text className="text-theme-textSecondary text-sm font-medium">
                   {t('coachExtra.voiceTranscribing', 'Transcribing...')}
                 </Text>
               </View>
@@ -1655,7 +1654,7 @@ export default function CoachScreen() {
                     // following them made the box and the chat above it shake by 1pt, over and over.
                     setInputHeight((prev) => (Math.abs(h - prev) < 4 ? prev : h));
                   }}
-                  className="text-base font-jakarta"
+                  className="text-base"
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -1688,7 +1687,7 @@ export default function CoachScreen() {
                   onSubmitEditing={() => handleSend()}
                   multiline={true}
                   returnKeyType="default"
-                  className="text-theme-text text-base font-jakarta"
+                  className="text-theme-text text-base"
                   style={{
                     height: inputHeight,
                     paddingTop: Platform.OS === 'ios' ? 4 : 2,

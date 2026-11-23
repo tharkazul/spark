@@ -98,7 +98,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
               <Ionicons name="sparkles" size={16} color={theme.tint} />
             </View>
             <View className="flex-1">
-              <Text className="text-base font-bold text-theme-text font-jakarta">
+              <Text className="text-base font-bold text-theme-text">
                 {t('whyWorkout.title')}
               </Text>
               <Text className="text-xs text-theme-muted font-medium" numberOfLines={1}>
@@ -175,7 +175,7 @@ export const WhyThisWorkoutSheet: React.FC<WhyThisWorkoutSheetProps> = ({
             <View className="p-3.5 bg-theme-card/80 border border-theme-border/60 rounded-tile">
               <View className="flex-row items-center justify-between mb-1.5">
                 <View className="flex-row items-center gap-2">
-                  <Ionicons name="time-outline" size={16} color="#0EA5E9" />
+                  <Ionicons name="time-outline" size={16} color={theme.tint} />
                   <Text className="text-xs font-bold text-theme-text uppercase tracking-wider">
                     {t('whyWorkout.timeTitle')}
                   </Text>

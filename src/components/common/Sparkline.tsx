@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
+import { useTheme } from '@/hooks/use-theme';
 
 export interface SparklinePoint {
   val: number | null;
@@ -36,7 +37,7 @@ const toBaseHex = (c: string) => (c.startsWith('#') && c.length === 9 ? c.slice(
 
 export const Sparkline: React.FC<SparklineProps> = ({
   data,
-  color = '#0EA5E9',
+  color: colorProp,
   gradientFrom,
   gradientTo,
   height = 36,
@@ -52,6 +53,8 @@ export const Sparkline: React.FC<SparklineProps> = ({
   targetUpperColor = '#10B981',
   targetLowerColor = '#F43F5E',
 }) => {
+  const theme = useTheme();
+  const color = colorProp ?? theme.tint;
   const [measuredWidth, setMeasuredWidth] = useState<number>(width);
   const effectiveWidth = fullWidth ? measuredWidth : width;
 

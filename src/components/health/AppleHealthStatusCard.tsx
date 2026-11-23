@@ -120,7 +120,7 @@ export const AppleHealthStatusCard: React.FC<AppleHealthStatusCardProps> = ({
           onPress={handleConnectOrSync}
           disabled={syncing}
           activeOpacity={0.8}
-          className="px-3.5 py-2 rounded-xl bg-theme-accent flex-row items-center gap-x-1.5 shadow-xs"
+          className="px-3.5 py-2 rounded-xl bg-theme-accent-strong flex-row items-center gap-x-1.5 shadow-xs"
         >
           {syncing ? (
             <ActivityIndicator size="small" color="#FFFFFF" />

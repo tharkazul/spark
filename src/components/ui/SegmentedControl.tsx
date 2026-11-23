@@ -110,7 +110,7 @@ export function SegmentedControl({
             },
             animatedPillStyle,
           ]}
-          className="bg-theme-card rounded-[7px] shadow-xs"
+          className="bg-theme-card dark:bg-theme-border rounded-[7px] shadow-xs"
         />
       )}
 

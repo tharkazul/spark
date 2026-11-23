@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import { useTheme } from '@/hooks/use-theme';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -55,6 +56,7 @@ function targetText(step: WorkoutStep, t: T): string {
 const joinParts = (parts: string[]) => parts.filter(Boolean).join(' · ');
 
 function InfoButton({ name }: { name?: string }) {
+  const theme = useTheme();
   const showExerciseInfo = useContext(ExerciseInfoContext);
   const { t } = useLanguage();
   if (!showExerciseInfo || !name || name.trim().length <= 2) return null;
@@ -66,7 +68,7 @@ function InfoButton({ name }: { name?: string }) {
       accessibilityLabel={t('exercise.infoA11y', { name })}
       className="w-9 h-9 rounded-full bg-theme-accent/10 items-center justify-center"
     >
-      <Ionicons name="information-circle-outline" size={20} color="#0EA5E9" />
+      <Ionicons name="information-circle-outline" size={20} color={theme.tint} />
     </TouchableOpacity>
   );
 }

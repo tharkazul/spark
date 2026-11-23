@@ -194,7 +194,7 @@ export const WeeklyAvailabilityCard: React.FC = () => {
       {/* ACTIVE DAY DURATION SELECTOR */}
       <View className="bg-theme-bg p-3 rounded-xl border border-theme-border/60">
         <View className="flex-row items-center justify-between mb-2">
-          <Text className="text-xs font-bold text-theme-text font-jakarta">
+          <Text className="text-xs font-bold text-theme-text">
             {selectedDay} {t('availability.daySettings', 'Target Window')}
           </Text>
           <Text className="text-xs font-bold text-theme-accent font-rajdhani">
@@ -215,13 +215,13 @@ export const WeeklyAvailabilityCard: React.FC = () => {
                 activeOpacity={0.7}
                 className={`px-3 py-1.5 rounded-lg border ${
                   isActive
-                    ? 'bg-theme-accent border-theme-accent'
+                    ? 'bg-theme-accent/15 border-theme-accent'
                     : 'bg-theme-card border-theme-border'
                 }`}
               >
                 <Text
                   className={`text-xs font-bold font-rajdhani ${
-                    isActive ? 'text-white' : 'text-theme-text'
+                    isActive ? 'text-theme-accent' : 'text-theme-text'
                   }`}
                 >
                   {mins === 0 ? t('zonesExtra.rest') : `${mins}m`}

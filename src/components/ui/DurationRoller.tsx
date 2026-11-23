@@ -1,4 +1,4 @@
-import { BrandColors } from '@/constants/theme';
+import { Colors, accentAlpha } from '@/constants/theme';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useColorScheme } from 'nativewind';
@@ -63,10 +63,10 @@ export function DurationRoller({
   // Colours are set explicitly rather than through utility classes: these sit
   // on a surface that flips with the theme, and an unresolved text colour here
   // renders invisible.
-  const selectedColor = BrandColors.primary;
+  const selectedColor = Colors[isDark ? 'dark' : 'light'].tint;
   const idleColor = isDark ? '#64748B' : '#94A3B8';
-  const trackColor = isDark ? 'rgba(14, 165, 233,0.12)' : 'rgba(14, 165, 233,0.08)';
-  const trackBorder = 'rgba(14, 165, 233,0.45)';
+  const trackColor = accentAlpha(isDark ? 0.12 : 0.08, isDark);
+  const trackBorder = accentAlpha(0.45, isDark);
 
   const clampIndex = useCallback(
     (i: number) => Math.max(0, Math.min(options.length - 1, i)),

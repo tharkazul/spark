@@ -397,7 +397,7 @@ export const AddFriendsModal: React.FC<AddFriendsModalProps> = ({
                               onPress={() => handleConnect(item.id)}
                               activeScale={0.94}
                               haptic="selection"
-                              className="bg-theme-accent px-3.5 py-1.5 rounded-xl"
+                              className="bg-theme-accent-strong px-3.5 py-1.5 rounded-xl"
                             >
                               <Text className="text-xs font-extrabold text-white">+ {t('social.connect')}</Text>
                             </ScalePressable>

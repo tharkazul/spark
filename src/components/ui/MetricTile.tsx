@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Text, View } from 'react-native';
 import { Sparkline, SparklinePoint } from '../common/Sparkline';
+import { useTheme } from '@/hooks/use-theme';
 
 export type MetricDeltaTone = 'good' | 'warn' | 'bad' | 'neutral' | 'accent';
 
@@ -114,11 +115,14 @@ export function MetricTile({
   targetLower = null,
   targetUpperColor = '#10B981',
   targetLowerColor = '#F43F5E',
-  color = '#0EA5E9',
+  color,
   minRangePadding = 0.5,
   emptyHint,
   className = '',
 }: MetricTileProps) {
+  const theme = useTheme();
+  // The line follows the theme accent unless a caller picks a data colour.
+  const lineColor = color ?? theme.tint;
   const cleanSeries = useMemo(() => {
     if (!series || series.length === 0) return [];
     // Keep SparklinePoint[] intact if passed, or filter valid numbers
@@ -169,7 +173,7 @@ export function MetricTile({
         <View className="mt-2 w-full">
           <Sparkline
             data={cleanSeries}
-            color={color}
+            color={lineColor}
             height={targetUpper !== null ? 38 : 34}
             fullWidth
             strokeWidth={2}

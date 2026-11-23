@@ -347,7 +347,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ onDone, onSaved }) => {
       <Card className="p-4 mb-6">
         <View className="flex-row justify-between items-center pb-3 mb-4 border-b border-theme-border/50">
           <View className="flex-row items-center gap-2">
-            <View className="w-2.5 h-2.5 rounded-full bg-theme-accent" />
+            <View className="w-2.5 h-2.5 rounded-full bg-theme-muted/50" />
             <Text className="text-theme-text font-bold text-sm">{t('goals.goalsAndCalendar')}</Text>
           </View>
           <View className="flex-row items-center gap-2">
@@ -478,25 +478,25 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ onDone, onSaved }) => {
                   </View>
 
                   {/* GOAL TYPE SELECTOR: RACE vs PHYSIOLOGICAL */}
-                  <View className="flex-row bg-theme-card p-1 rounded-xl border border-theme-border/40">
+                  <View className="flex-row bg-theme-inset p-1 rounded-xl">
                     <TouchableOpacity
                       onPress={() => handleUpdateMilestone(row.id, 'goalType', 'race')}
-                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${isRace ? 'bg-theme-accent' : 'bg-transparent'
+                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${isRace ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                         }`}
                     >
-                      <Ionicons name="flag-outline" size={13} color={isRace ? '#FFFFFF' : theme.textSecondary} />
-                      <Text className={`text-xs font-bold ml-1.5 ${isRace ? 'text-white' : 'text-theme-muted'}`}>
+                      <Ionicons name="flag-outline" size={13} color={isRace ? theme.text : theme.textSecondary} />
+                      <Text className={`text-xs font-bold ml-1.5 ${isRace ? 'text-theme-text' : 'text-theme-muted'}`}>
                         {t('goals.raceGoal')}
                       </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       onPress={() => handleUpdateMilestone(row.id, 'goalType', 'physiological')}
-                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${!isRace ? 'bg-theme-accent' : 'bg-transparent'
+                      className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${!isRace ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                         }`}
                     >
-                      <Ionicons name="fitness-outline" size={13} color={!isRace ? '#FFFFFF' : theme.textSecondary} />
-                      <Text className={`text-xs font-bold ml-1.5 ${!isRace ? 'text-white' : 'text-theme-muted'}`}>
+                      <Ionicons name="fitness-outline" size={13} color={!isRace ? theme.text : theme.textSecondary} />
+                      <Text className={`text-xs font-bold ml-1.5 ${!isRace ? 'text-theme-text' : 'text-theme-muted'}`}>
                         {t('goals.physiological')}
                       </Text>
                     </TouchableOpacity>
@@ -554,9 +554,9 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ onDone, onSaved }) => {
                                     handleUpdateMilestone(row.id, 'eventType', selected ? '' : type);
                                   }}
                                   activeOpacity={0.8}
-                                  className={`px-3 py-1.5 rounded-full border ${selected ? 'bg-theme-accent border-theme-accent' : 'bg-theme-card border-theme-border/60'}`}
+                                  className={`px-3 py-1.5 rounded-full border ${selected ? 'bg-theme-accent/15 border-theme-accent' : 'bg-theme-card border-theme-border/60'}`}
                                 >
-                                  <Text className={`text-xs font-bold ${selected ? 'text-white' : 'text-theme-text'}`}>
+                                  <Text className={`text-xs font-bold ${selected ? 'text-theme-accent' : 'text-theme-text'}`}>
                                     {t(`goal.event_${type.replace('.', '_')}`)}
                                   </Text>
                                 </TouchableOpacity>

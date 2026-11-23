@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Pressable, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors } from '@/constants/theme';
 import Svg, { G, Path, Ellipse, Circle, Line } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -537,12 +538,12 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               setView('front');
             }}
             className={`px-3.5 py-1.5 rounded-lg ${
-              view === 'front' ? 'bg-theme-accent' : 'bg-transparent'
+              view === 'front' ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                view === 'front' ? 'text-white' : 'text-theme-muted'
+                view === 'front' ? 'text-theme-text' : 'text-theme-muted'
               }`}
             >
               {t('bodyMap.front')}
@@ -555,12 +556,12 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
               setView('back');
             }}
             className={`px-3.5 py-1.5 rounded-lg ${
-              view === 'back' ? 'bg-theme-accent' : 'bg-transparent'
+              view === 'back' ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
             }`}
           >
             <Text
               className={`text-xs font-bold ${
-                view === 'back' ? 'text-white' : 'text-theme-muted'
+                view === 'back' ? 'text-theme-text' : 'text-theme-muted'
               }`}
             >
               {t('bodyMap.back')}
@@ -904,7 +905,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           {/* Actionable Coach Recommendation */}
           <View className="bg-theme-accent/10 p-3.5 rounded-2xl border border-theme-accent/25 mb-4">
             <View className="flex-row items-center gap-2 mb-1">
-              <Ionicons name="sparkles" size={14} color="#0EA5E9" />
+              <Ionicons name="sparkles" size={14} color={Colors[isDark ? 'dark' : 'light'].tint} />
               <Text className="text-xs font-bold text-theme-accent">
                 {t('bodyMap.coachRecommendation')}
               </Text>
@@ -917,7 +918,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
           {/* Close Button */}
           <TouchableOpacity
             onPress={() => setShowCardioModal(false)}
-            className="w-full py-3 bg-theme-accent rounded-xl items-center justify-center mt-1"
+            className="w-full py-3 bg-theme-accent-strong rounded-xl items-center justify-center mt-1"
           >
             <Text className="text-white font-bold text-sm">{t('bodyMap.understood')}</Text>
           </TouchableOpacity>

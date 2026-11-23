@@ -803,7 +803,7 @@ export default function OnboardingWizard() {
                       <Pressable
                         onPress={handleBeginPress}
                         disabled={isHeroTransitioning}
-                        className="w-full py-4 rounded-2xl bg-theme-accent items-center justify-center flex-row gap-2 active:opacity-90"
+                        className="w-full py-4 rounded-2xl bg-theme-accent-strong items-center justify-center flex-row gap-2 active:opacity-90"
                       >
                         <Text className="text-white font-extrabold text-lg">{t('onboarding.meetCoachBegin')}</Text>
                         <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
@@ -875,7 +875,7 @@ export default function OnboardingWizard() {
               if (node.type === 'user_text') {
                 return (
                   <View key={node.id} className="flex-row justify-end mb-7 pl-12">
-                    <View className="bg-theme-accent rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] shadow-sm">
+                    <View className="bg-theme-accent-strong rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] shadow-sm">
                       <Text className="text-white font-medium text-base leading-[24px]">{node.text}</Text>
                     </View>
                   </View>
@@ -1152,7 +1152,7 @@ export default function OnboardingWizard() {
                       </Text>
 
                       {/* GOAL TYPE SELECTOR: RACE vs PHYSIOLOGICAL */}
-                      <View className="flex-row bg-theme-card p-1 rounded-xl border border-theme-border/50">
+                      <View className="flex-row bg-theme-inset p-1 rounded-xl">
                         <Pressable
                           disabled={isStreamingMessage}
                           onPress={() => {
@@ -1160,17 +1160,17 @@ export default function OnboardingWizard() {
                             setGoalType('race');
                           }}
                           className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
-                            goalType === 'race' ? 'bg-theme-accent' : 'bg-transparent'
+                            goalType === 'race' ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                           }`}
                         >
                           <Ionicons
                             name="flag-outline"
                             size={13}
-                            color={goalType === 'race' ? '#FFFFFF' : theme.textSecondary}
+                            color={goalType === 'race' ? theme.text : theme.textSecondary}
                           />
                           <Text
                             className={`text-xs font-bold ml-1.5 ${
-                              goalType === 'race' ? 'text-white' : 'text-theme-muted'
+                              goalType === 'race' ? 'text-theme-text' : 'text-theme-muted'
                             }`}
                           >
                             {t('onboarding.goalTypeRace')}
@@ -1184,17 +1184,17 @@ export default function OnboardingWizard() {
                             setGoalType('physiological');
                           }}
                           className={`flex-1 py-1.5 rounded-lg items-center flex-row justify-center ${
-                            goalType === 'physiological' ? 'bg-theme-accent' : 'bg-transparent'
+                            goalType === 'physiological' ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                           }`}
                         >
                           <Ionicons
                             name="fitness-outline"
                             size={13}
-                            color={goalType === 'physiological' ? '#FFFFFF' : theme.textSecondary}
+                            color={goalType === 'physiological' ? theme.text : theme.textSecondary}
                           />
                           <Text
                             className={`text-xs font-bold ml-1.5 ${
-                              goalType === 'physiological' ? 'text-white' : 'text-theme-muted'
+                              goalType === 'physiological' ? 'text-theme-text' : 'text-theme-muted'
                             }`}
                           >
                             {t('onboarding.goalTypePhysiological')}
@@ -1381,7 +1381,7 @@ export default function OnboardingWizard() {
                     <Pressable
                       disabled={isStreamingMessage || isSubmitting}
                       onPress={handleConfirmContextAndEvent}
-                      className="w-full py-3.5 bg-theme-accent rounded-xl items-center justify-center shadow-md mt-1"
+                      className="w-full py-3.5 bg-theme-accent-strong rounded-xl items-center justify-center shadow-md mt-1"
                     >
                       {isSubmitting ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />

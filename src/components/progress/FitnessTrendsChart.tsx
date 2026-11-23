@@ -305,12 +305,12 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
                   setSelectedIndex(null);
                 }}
                 className={`px-2.5 py-1 rounded-md ${
-                  active ? 'bg-theme-accent-strong' : 'bg-transparent'
+                  active ? 'bg-theme-card dark:bg-theme-border' : 'bg-transparent'
                 }`}
               >
                 <Text
                   className={`text-[11px] font-bold ${
-                    active ? 'text-white' : 'text-theme-muted'
+                    active ? 'text-theme-text' : 'text-theme-muted'
                   }`}
                 >
                   {tf}

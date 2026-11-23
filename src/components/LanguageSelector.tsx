@@ -1,4 +1,4 @@
-import { BrandColors } from '@/constants/theme';
+import { Colors, accentAlpha } from '@/constants/theme';
 import React from 'react';
 import { track } from '../services/analytics';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -21,13 +21,18 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
   const { language, setLanguage } = useLanguage();
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const c = Colors[isDark ? 'dark' : 'light'];
 
+  // Compact is a segmented control, so the selected option is a raised neutral
+  // pill like every other tab and segment; the full list is a set of choices,
+  // so the selected one gets the accent outline. Both used to be solid sky blue
+  // on an untinted zinc track.
   if (compact) {
     return (
       <View
         style={[
           styles.compactContainer,
-          { backgroundColor: isDark ? 'rgba(39, 39, 42, 0.8)' : '#F3F4F6' },
+          { backgroundColor: c.inset },
         ]}
       >
         {OPTIONS.map((opt) => {
@@ -42,13 +47,13 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
               activeOpacity={0.7}
               style={[
                 styles.compactButton,
-                active && styles.activeButton,
+                active && [styles.activeButton, { backgroundColor: isDark ? c.border : c.card }],
               ]}
             >
               <Text
                 style={[
                   styles.compactText,
-                  { color: active ? '#FFFFFF' : isDark ? '#A1A1AA' : '#4B5563' },
+                  { color: active ? c.text : c.textSecondary },
                 ]}
               >
                 {opt.id.toUpperCase()}
@@ -76,12 +81,12 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
               styles.optionButton,
               {
                 backgroundColor: active
-                  ? BrandColors.primary
+                  ? accentAlpha(0.15, isDark)
                   : isDark
                   ? 'rgba(30, 41, 59, 0.7)'
                   : '#F1F5F9',
                 borderColor: active
-                  ? BrandColors.primary
+                  ? c.tint
                   : isDark
                   ? 'rgba(51, 65, 85, 0.6)'
                   : 'rgba(226, 232, 240, 0.8)',
@@ -91,7 +96,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = fa
             <Text
               style={[
                 styles.optionLabel,
-                { color: active ? '#FFFFFF' : isDark ? '#F8FAFC' : '#0F172A' },
+                { color: active ? c.tint : c.text },
               ]}
             >
               {opt.label}
@@ -123,7 +128,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activeButton: {
-    backgroundColor: BrandColors.primary,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,

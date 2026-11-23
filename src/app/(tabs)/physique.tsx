@@ -288,7 +288,7 @@ export default function ProgressScreen() {
         showHandle
         header={
           <View className="flex-row items-center justify-between pb-3 border-b border-theme-border/40 mb-3">
-            <Text className="text-base font-extrabold text-theme-text font-jakarta">{t('progress.fuelingNutrition', 'Daily Fueling & Nutrition')}</Text>
+            <Text className="text-base font-extrabold text-theme-text">{t('progress.fuelingNutrition', 'Daily Fueling & Nutrition')}</Text>
           </View>
         }
       >

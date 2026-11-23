@@ -50,6 +50,10 @@ import { DetailedDayCard } from '../../components/dashboard/DetailedDayCard';
 import { SideBySideWeekBar } from '../../components/dashboard/SideBySideWeekBar';
 import { TodaysPlanSkeleton } from '../../components/skeletons/TodaysPlanSkeleton';
 import { HomeAskCoachCard } from '../../components/home/HomeAskCoachCard';
+
+// The "Ask your coach" card on Today. Hidden since 23 Nov 2026 (testers found Home cluttered);
+// set to true to bring it back. Its code is untouched in components/home/HomeAskCoachCard.tsx.
+const SHOW_HOME_ASK_COACH = false;
 import { HomeRecoveryCard } from '../../components/home/HomeRecoveryCard';
 import { HomeTodayCard } from '../../components/home/HomeTodayCard';
 import { HomeWeekHero } from '../../components/home/HomeWeekHero';
@@ -758,6 +762,12 @@ export default function PlanningHomeScreen() {
   };
 
   const handleAskAdjust = () => {
+    if (!SHOW_HOME_ASK_COACH) {
+      // Without the Ask card on Home, the question goes to the coach straight away.
+      sendMessage(t('home.adjustPrompt'));
+      router.push('/coach');
+      return;
+    }
     setAskDraft(t('home.adjustPrompt'));
     setTimeout(() => askInputRef.current?.focus(), 50);
   };
@@ -861,7 +871,9 @@ export default function PlanningHomeScreen() {
               />
             )}
 
-            <HomeAskCoachCard draft={askDraft} onChangeDraft={setAskDraft} inputRef={askInputRef} />
+            {SHOW_HOME_ASK_COACH ? (
+              <HomeAskCoachCard draft={askDraft} onChangeDraft={setAskDraft} inputRef={askInputRef} />
+            ) : null}
 
             <HomeRecoveryCard
               onAskAdjust={handleAskAdjust}
@@ -890,7 +902,7 @@ export default function PlanningHomeScreen() {
                 />
               </TouchableOpacity>
 
-              <Text className="text-base font-bold text-theme-text font-jakarta px-1">
+              <Text className="text-base font-bold text-theme-text px-1">
                 {weekRangeLabel}
               </Text>
 
@@ -930,7 +942,7 @@ export default function PlanningHomeScreen() {
 
           {/* Week Summary Line & Progress Bar */}
           <View className="flex-row items-center justify-between mt-2.5 min-h-[34px]">
-            <Text className="text-[12px] text-theme-muted font-jakarta flex-1 pr-2" numberOfLines={1}>
+            <Text className="text-[12px] text-theme-muted flex-1 pr-2" numberOfLines={1}>
               {t('dashboard.weekSummary', '{done} of {total} done · {points} rooka planned', {
                 done: doneCount,
                 total: totalPlannedCount,
@@ -940,7 +952,9 @@ export default function PlanningHomeScreen() {
 
             {hasAnyDevices && totalPlannedCount > 0 && (
               <Button
-                variant="secondary"
+                // Neutral: this sends the whole week. The day card's solid
+                // "Send to device" is the screen's one action.
+                variant="neutral"
                 size="sm"
                 label={
                   isSyncedSuccess
@@ -951,7 +965,7 @@ export default function PlanningHomeScreen() {
                   isSyncedSuccess ? (
                     <Ionicons name="checkmark-circle" size={13} color="#10B981" />
                   ) : (
-                    <Ionicons name="watch-outline" size={13} color="#0EA5E9" />
+                    <Ionicons name="watch-outline" size={13} color={theme.textSecondary} />
                   )
                 }
                 isLoading={isSyncing}
@@ -977,10 +991,10 @@ export default function PlanningHomeScreen() {
               accessibilityRole="button"
               className="flex-row items-center gap-1.5 mt-2 self-start bg-theme-accent/15 px-2.5 py-1 rounded-full"
             >
-              <Text className="text-[11px] font-semibold text-theme-accent font-jakarta">
+              <Text className="text-[11px] font-semibold text-theme-accent">
                 {t('dashboard.templatePlanChip', 'Standard plan · Ask your coach to tailor it')}
               </Text>
-              <Ionicons name="chevron-forward" size={12} color="#0EA5E9" />
+              <Ionicons name="chevron-forward" size={12} color={theme.tint} />
             </TouchableOpacity>
           )}
           </View>

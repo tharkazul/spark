@@ -53,13 +53,11 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
             accessibilityState={{ selected: isSelected }}
             accessibilityLabel={`${getLocalizedDayAbbr(day.dayName, t)} ${day.dateStr}, ${hasActiveWorkouts ? t(`sports.${String(activeWorkouts[0].type || '').toLowerCase()}`, String(activeWorkouts[0].type || '')) : t('common.restDay')}`}
             style={{ height: 84 }}
+            // Selected is a raised neutral surface, like every tab and segment;
+            // today keeps its accent outline whether or not it is selected.
             className={`flex-1 rounded-[14px] items-center justify-between py-2 relative overflow-hidden ${
-              isSelected
-                ? 'bg-theme-accent-strong border border-transparent'
-                : isToday
-                ? 'bg-theme-inset border-[1.5px] border-theme-accent'
-                : 'bg-theme-inset border border-transparent'
-            }`}
+              isSelected ? 'bg-theme-card dark:bg-theme-border' : 'bg-theme-inset'
+            } ${isToday ? 'border-[1.5px] border-theme-accent' : 'border border-transparent'}`}
           >
             {/* Top-Right Status Badge (Green check if completed workout or honored rest day, warning dot if missed) */}
             {(isCompleted || isRestHonored) && (
@@ -74,8 +72,8 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
             {/* Top: Weekday Letter / Abbreviation in Caption */}
             <Text
               numberOfLines={1}
-              className={`text-[11px] font-semibold uppercase tracking-wider font-jakarta ${
-                isSelected ? 'text-white' : 'text-theme-muted'
+              className={`text-[11px] font-semibold uppercase tracking-wider ${
+                isToday ? 'text-theme-accent' : isSelected ? 'text-theme-text' : 'text-theme-muted'
               }`}
             >
               {getLocalizedDayAbbr(day.dayName, t)}
@@ -84,9 +82,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
             {/* Middle: Date Number in stat-md Rajdhani */}
             <Text
               style={{ fontVariant: ['tabular-nums'] }}
-              className={`text-lg font-bold font-rajdhani -my-1 ${
-                isSelected ? 'text-white' : 'text-theme-text'
-              }`}
+              className="text-lg font-bold font-rajdhani -my-1 text-theme-text"
             >
               {dayNumber}
             </Text>
@@ -98,11 +94,10 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                   <SportMedallion
                     sport={activeWorkouts[0].type}
                     size={28}
-                    onAccent={isSelected}
                   />
                   {activeWorkouts.length > 1 && (
-                    <View className={`absolute -top-1 -right-1.5 rounded-full px-1 py-0.2 ${isSelected ? 'bg-white' : 'bg-theme-accent-strong'}`}>
-                      <Text className={`text-[9px] font-bold font-rajdhani ${isSelected ? 'text-theme-accent-strong' : 'text-white'}`}>
+                    <View className="absolute -top-1 -right-1.5 rounded-full px-1 py-0.2 bg-theme-text">
+                      <Text className="text-[9px] font-bold font-rajdhani text-theme-card">
                         +{activeWorkouts.length - 1}
                       </Text>
                     </View>
@@ -112,7 +107,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                 <Ionicons
                   name="moon"
                   size={16}
-                  color={isSelected ? '#FFFFFF' : '#94A3B8'}
+                  color="#94A3B8"
                 />
               )}
             </View>

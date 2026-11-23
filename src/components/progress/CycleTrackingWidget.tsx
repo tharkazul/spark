@@ -123,7 +123,8 @@ export const CycleTrackingWidget: React.FC<CycleTrackingWidgetProps> = ({
           <Switch
             value={false}
             onValueChange={handleToggleEnable}
-            trackColor={{ false: '#2A343D', true: theme.tint }}
+            trackColor={{ false: theme.border, true: theme.accentStrong }}
+            ios_backgroundColor={theme.border}
           />
         </View>
       </Card>

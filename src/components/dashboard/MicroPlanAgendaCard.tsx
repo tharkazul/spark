@@ -109,7 +109,7 @@ export function MicroPlanAgendaCard({
           {/* Title */}
           <View className="flex-row items-center gap-2">
             <View className="w-8 h-8 rounded-xl bg-theme-accent/15 items-center justify-center">
-              <Ionicons name="calendar-outline" size={16} color="#38BDF8" />
+              <Ionicons name="calendar-outline" size={16} color={theme.tint} />
             </View>
             <Text className="text-lg font-extrabold text-theme-text">{t('weekPlan.title')}</Text>
           </View>
@@ -117,7 +117,7 @@ export function MicroPlanAgendaCard({
           {/* Week Selector Navigator */}
           <View className="flex-row items-center bg-theme-bg/80 rounded-xl px-2 py-1 shrink-0">
             <TouchableOpacity onPress={handlePrev} className="px-2 py-1 active:opacity-60">
-              <Ionicons name="chevron-back" size={14} color="#38BDF8" />
+              <Ionicons name="chevron-back" size={14} color={theme.tint} />
             </TouchableOpacity>
 
             <Text className="text-xs font-mono font-extrabold text-theme-text px-1">
@@ -125,7 +125,7 @@ export function MicroPlanAgendaCard({
             </Text>
 
             <TouchableOpacity onPress={handleNext} className="px-2 py-1 active:opacity-60">
-              <Ionicons name="chevron-forward" size={14} color="#38BDF8" />
+              <Ionicons name="chevron-forward" size={14} color={theme.tint} />
             </TouchableOpacity>
           </View>
         </View>
@@ -135,7 +135,7 @@ export function MicroPlanAgendaCard({
           onPress={handleGenerate}
           disabled={isLoading}
           activeOpacity={0.85}
-          className={`w-full bg-theme-accent py-3 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${
+          className={`w-full bg-theme-accent-strong py-3 px-4 rounded-2xl flex-row items-center justify-center gap-2 ${
             isLoading ? 'opacity-80' : 'active:opacity-90'
           }`}
         >
@@ -218,7 +218,7 @@ export function MicroPlanAgendaCard({
 
                     {/* Distinct Expand Chevron */}
                     <View className="w-6 h-6 rounded-full bg-theme-bg/80 items-center justify-center">
-                      <Ionicons name="chevron-down" size={13} color="#38BDF8" />
+                      <Ionicons name="chevron-down" size={13} color={theme.tint} />
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -248,14 +248,14 @@ export function MicroPlanAgendaCard({
                       <Text className="text-xs font-extrabold text-theme-text">{day.dateStr}</Text>
 
                       {day.isToday && (
-                        <View className="bg-theme-accent px-2.5 py-0.5 rounded-full">
-                          <Text className="text-xs font-extrabold text-white">
+                        <View className="bg-theme-text/10 px-2.5 py-0.5 rounded-full">
+                          <Text className="text-xs font-extrabold text-theme-text">
                             {t('common.today')}
                           </Text>
                         </View>
                       )}
 
-                      <Ionicons name="chevron-up" size={14} color="#38BDF8" />
+                      <Ionicons name="chevron-up" size={14} color={theme.tint} />
                     </View>
 
                     {/* "+ Add" Button */}
@@ -268,7 +268,7 @@ export function MicroPlanAgendaCard({
                       activeOpacity={0.8}
                       className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-theme-accent/15 active:bg-theme-accent/30"
                     >
-                      <Ionicons name="add-circle-outline" size={14} color="#38BDF8" />
+                      <Ionicons name="add-circle-outline" size={14} color={theme.tint} />
                       <Text className="text-xs font-extrabold text-theme-accent">{t('common.add')}</Text>
                     </TouchableOpacity>
                   </TouchableOpacity>

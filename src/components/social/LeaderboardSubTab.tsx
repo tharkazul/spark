@@ -436,7 +436,9 @@ export const LeaderboardSubTab: React.FC<LeaderboardSubTabProps> = ({
                 {t('social.connectToSeeWeek')}
               </Text>
               <Button
-                variant="secondary"
+                // The only action on an empty leaderboard, so it is solid, the
+                // same as "Find & add athletes" on the empty Feed.
+                variant="primary"
                 size="md"
                 label={t('social.findAthletes')}
                 className="mt-3.5"
