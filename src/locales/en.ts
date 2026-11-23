@@ -1937,7 +1937,6 @@ export const en = {
     adjustPrompt: "My recovery looks low today. Can you adjust today's session?",
     heroDaysTo: "{days} days to {goal}",
     heroThisWeek: "This week",
-    heroSessionsDone: "sessions done this week",
     heroStreak: "{count}-day streak",
     askChipTime: "Short on time",
     askChipTimeText: "I only have 30 minutes today. What should I do?",
@@ -1946,7 +1945,7 @@ export const en = {
     askChipSore: "Feeling sore",
     askChipSoreText: "My legs are sore today. Should I adjust my session?",
     heroWeekOf: "wk {n}/{total}",
-    heroPlanned: "Planned: {planned}",
+    heroHoursOf: "of {planned} h this week",
   },
   goal: {
     tabLabel: "Goal",

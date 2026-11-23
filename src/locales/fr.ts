@@ -1939,7 +1939,6 @@ export const fr: TranslationKeys = {
     adjustPrompt: "Ma récupération est faible aujourd'hui, peux-tu adapter la séance du jour ?",
     heroDaysTo: "Plus que {days} jours avant {goal}",
     heroThisWeek: "Cette semaine",
-    heroSessionsDone: "séances faites cette semaine",
     heroStreak: "{count} jours d'affilée",
     askChipTime: "Peu de temps",
     askChipTimeText: "Je n'ai que 30 minutes aujourd'hui. Que faire ?",
@@ -1948,7 +1947,7 @@ export const fr: TranslationKeys = {
     askChipSore: "Courbatures",
     askChipSoreText: "J'ai des courbatures aux jambes aujourd'hui. Dois-je adapter ma séance ?",
     heroWeekOf: "sem {n}/{total}",
-    heroPlanned: "Prévu : {planned}",
+    heroHoursOf: "sur {planned} h cette semaine",
   },
   goal: {
     tabLabel: "Objectif",

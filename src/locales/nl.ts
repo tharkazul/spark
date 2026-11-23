@@ -1939,7 +1939,6 @@ export const nl: TranslationKeys = {
     adjustPrompt: "Mijn herstel is vandaag laag. Kun je de training van vandaag aanpassen?",
     heroDaysTo: "Nog {days} dagen tot {goal}",
     heroThisWeek: "Deze week",
-    heroSessionsDone: "trainingen gedaan deze week",
     heroStreak: "{count} dagen op rij",
     askChipTime: "Weinig tijd",
     askChipTimeText: "Ik heb vandaag maar 30 minuten. Wat kan ik het beste doen?",
@@ -1948,7 +1947,7 @@ export const nl: TranslationKeys = {
     askChipSore: "Spierpijn",
     askChipSoreText: "Ik heb vandaag spierpijn in mijn benen. Moet ik mijn training aanpassen?",
     heroWeekOf: "wk {n}/{total}",
-    heroPlanned: "Gepland: {planned}",
+    heroHoursOf: "van {planned} u deze week",
   },
   goal: {
     tabLabel: "Doel",

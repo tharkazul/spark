@@ -1939,7 +1939,6 @@ export const de: TranslationKeys = {
     adjustPrompt: "Meine Erholung ist heute niedrig. Bitte pass die heutige Einheit an.",
     heroDaysTo: "Noch {days} Tage bis {goal}",
     heroThisWeek: "Diese Woche",
-    heroSessionsDone: "Einheiten diese Woche erledigt",
     heroStreak: "{count} Tage in Folge",
     askChipTime: "Wenig Zeit",
     askChipTimeText: "Ich habe heute nur 30 Minuten. Was soll ich machen?",
@@ -1948,7 +1947,7 @@ export const de: TranslationKeys = {
     askChipSore: "Muskelkater",
     askChipSoreText: "Ich habe heute Muskelkater in den Beinen. Soll ich meine Einheit anpassen?",
     heroWeekOf: "Wo {n}/{total}",
-    heroPlanned: "Geplant: {planned}",
+    heroHoursOf: "von {planned} h diese Woche",
   },
   goal: {
     tabLabel: "Ziel",
