@@ -47,6 +47,7 @@ interface UserContextType {
   setAiConsent: (consent: boolean) => Promise<void>;
   /** Usage statistics on or off. Off also makes the server delete what it recorded. */
   setUsageStats: (enabled: boolean) => Promise<void>;
+  setMorningMessageTime: (time: string) => Promise<void>;
 }
 
 /**
@@ -439,6 +440,15 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
     });
   }, []);
 
+  const setMorningMessageTime = React.useCallback(async (time: string) => {
+    const res = await userApi.setMorningMessageTime(time);
+    setUser((prev) => {
+      const newProfile = prev ? { ...prev, morningMessageTime: res.morningMessageTime } : prev;
+      if (newProfile) profileStorage.setProfile(newProfile).catch(() => {});
+      return newProfile;
+    });
+  }, []);
+
   // Usage statistics: a connection flag flipping on the same account is a (dis)connect,
   // whichever screen (or the server) did it.
   // One string per account and connection state, e.g. "12|garmin,strava".
@@ -613,7 +623,7 @@ export const UserStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   }, [isAuthenticated]);
 
   // One object per change of the data, not per render (see useStableFns).
-  const stableFns = useStableFns({ login, register, loginWithToken, loginWithApple, loginWithGoogle, resetPassword, logout, refreshUser, updateUser, trackRookaPlus, setAiConsent, setUsageStats });
+  const stableFns = useStableFns({ login, register, loginWithToken, loginWithApple, loginWithGoogle, resetPassword, logout, refreshUser, updateUser, trackRookaPlus, setAiConsent, setUsageStats, setMorningMessageTime });
   const contextValue = useMemo(
     () => ({ user, isAuthenticated, loading, error, ...stableFns }),
     [user, isAuthenticated, loading, error, stableFns]

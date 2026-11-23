@@ -1863,6 +1863,14 @@ export const en = {
     purchaseFailed: "The purchase could not be completed. Please try again.",
     restoreFailed: "Failed to restore purchases.",
   },
+  morningMessage: {
+    title: "Morning message",
+    body: "Your coach sends it once your Garmin says you're awake (from 07:00) or when you open rooka. Without either, it comes at this time.",
+    latestLabel: "No later than",
+    earlier: "Earlier",
+    later: "Later",
+    saveFailed: "Couldn't save the time. Please try again.",
+  },
   usageStats: {
     settingLabel: "Share usage statistics",
     offTitle: "Stop sharing usage statistics?",

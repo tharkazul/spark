@@ -337,6 +337,20 @@ router.post("/api/admin/trigger-weekly-planning", authenticateToken, async (req,
   }
 });
 
+// Plans the days after today again for one athlete, as when they move a race close by
+// (services/raceMoveReplan.js). For a race that was moved before that existed.
+router.post("/api/admin/replan-rest-of-week", authenticateToken, async (req, res) => {
+  const userId = Number(req.body?.userId);
+  if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ error: "userId required" });
+  try {
+    const result = await require("../services/raceMoveReplan").replanRestOfWeek(userId, []);
+    res.json(result || { skipped: true });
+  } catch (e) {
+    console.error("Admin replan failed:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.post("/api/admin/repair-availability", authenticateToken, async (req, res) => {
   const { repairAvailabilityInMicroPlan } = require("../services/workoutPlanning");
   console.log(`🤖 Admin triggering availability repair on micro_plan...`, req.body);

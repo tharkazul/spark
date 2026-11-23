@@ -467,6 +467,7 @@ const BIOMETRIC_COLUMNS = new Set([
   "sleep_rem_minutes",
   "sleep_core_minutes",
   "sleep_awake_minutes",
+  "sleep_end_at",
   "steps",
   "active_calories",
   "vo2_max",
@@ -519,9 +520,29 @@ async function updateRestingHrBaseline(userId) {
   if (row && row.n >= 3) await athleteFacts.setMetric(userId, "resting_hr", String(Math.round(row.rhr)), "garmin").catch(() => {});
 }
 
+/**
+ * When the night ended, in Unix seconds: the end of the last sleep or awake stretch Garmin
+ * recorded, else start + asleep + awake (durationInSeconds leaves the time awake out).
+ * Null for a night the watch wasn't worn: that length is Garmin's guess. The morning
+ * message goes out once this is in (sendDueMorningMessages in utils.js).
+ */
+function sleepEndAt(s) {
+  if (String(s.validation || "").toUpperCase() === "OFF_WRIST") return null;
+  const ends = Object.values(s.sleepLevelsMap || {})
+    .flatMap((list) => (Array.isArray(list) ? list : []))
+    .map((x) => num(x && x.endTimeInSeconds))
+    .filter((v) => v !== null && v > 0);
+  if (ends.length) return Math.max(...ends);
+  const start = pos(s.startTimeInSeconds);
+  const asleep = pos(s.durationInSeconds);
+  if (start === null || asleep === null) return null;
+  return start + asleep + (pos(s.awakeDurationInSeconds) || 0);
+}
+
 function importSleep(userId, s) {
   const end = num(s.startTimeInSeconds) === null ? null : num(s.startTimeInSeconds) + (num(s.durationInSeconds) || 0);
   return saveBiometrics(userId, s.calendarDate || localDate(end, s.startTimeOffsetInSeconds), {
+    sleep_end_at: sleepEndAt(s),
     // Garmin's sleep duration leaves out the time awake, like Apple Health's asleep time.
     sleep_minutes: minutes(s.durationInSeconds),
     sleep_deep_minutes: minutes(s.deepSleepDurationInSeconds),

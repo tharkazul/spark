@@ -61,6 +61,16 @@ router.post("/api/settings/privacy", authenticateToken, (req, res) => {
 
 // Accept or withdraw consent for AI processing (Google Gemini). Answering the
 // coach's consent card and the switch in Profile both land here.
+// Latest time for the morning message ("08:30"); it comes earlier when the watch says the athlete is up.
+router.post("/api/user/morning-time", authenticateToken, (req, res) => {
+  const time = require("../services/morningSchedule").normalizeMorningTime(req.body?.time);
+  if (!time) return res.status(400).json({ error: "time must be a quarter hour between 06:30 and 11:00" });
+  db.run(`UPDATE users SET morning_message_time = ? WHERE id = ?`, [time, req.user.id], (err) => {
+    if (err) return res.status(500).json({ error: "Could not save the setting" });
+    res.json({ success: true, morningMessageTime: time });
+  });
+});
+
 // Usage statistics switch. Off also deletes what was recorded (privacy policy, section 9).
 router.post("/api/user/usage-stats", authenticateToken, async (req, res) => {
   if (typeof req.body?.enabled !== "boolean") return res.status(400).json({ error: "enabled must be true or false" });
@@ -174,7 +184,7 @@ router.post(
 
 router.get("/api/user/settings", authenticateToken, (req, res) => {
   db.get(
-    `SELECT id, username, email, strava_refresh_token, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent, usage_stats_enabled, detail_level, home_place FROM users WHERE id = ?`,
+    `SELECT id, username, email, strava_refresh_token, coach_tone, coach_name, coach_context, coach_avatar_neutral, coach_avatar_hype, coach_avatar_disappointed, athlete_context, gender, language, last_cycle_start, average_cycle_length, search_privacy, profile_picture_url, training_availability, total_rooka, daily_token_usage, daily_token_limit, subscription_tier, last_token_reset_date, onboarding_completed, ai_consent, usage_stats_enabled, morning_message_time, detail_level, home_place FROM users WHERE id = ?`,
     [req.user.id],
     (err, row) => {
       if (err || !row) return res.status(500).json({ error: "DB Error" });
@@ -249,6 +259,7 @@ router.get("/api/user/settings", authenticateToken, (req, res) => {
             // null = not answered yet, true = accepted, false = declined
             aiConsent: row.ai_consent === null || row.ai_consent === undefined ? null : row.ai_consent === 1,
             usageStatsEnabled: row.usage_stats_enabled !== 0,
+            morningMessageTime: require("../services/morningSchedule").latestTimeFor(row.morning_message_time),
             homeTown: row.home_place || null,
             profilePictureUrl: row.profile_picture_url,
             trainingAvailability: availability,
@@ -478,6 +489,9 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
       const finalWeight = (reqTargetWeight !== undefined && reqTargetWeight !== null && reqTargetWeight !== '') ? parseFloat(reqTargetWeight) : null;
       const finalVo2 = (reqTargetVo2max !== undefined && reqTargetVo2max !== null && reqTargetVo2max !== '') ? parseFloat(reqTargetVo2max) : null;
       const hasRealGoal = Boolean(cleanEventName.length > 0 || (finalWeight && finalWeight > 0) || (finalVo2 && finalVo2 > 0));
+
+      // A race moved close by: the rest of this week is planned again (services/raceMoveReplan.js).
+      await require("../services/raceMoveReplan").goalsAboutToChange(req.user.id).catch(() => {});
 
       if (hasRealGoal) {
         const finalName = cleanEventName || (finalGoalType === 'physiological' ? 'Physiological Goal' : 'Target Goal');

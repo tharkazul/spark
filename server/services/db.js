@@ -121,6 +121,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN ai_consent_at TEXT`, (err) => {});
   // Usage statistics (services/usageAnalytics.js): on unless the athlete turns them off.
   db.run(`ALTER TABLE users ADD COLUMN usage_stats_enabled INTEGER DEFAULT 1`, (err) => {});
+  // Latest time (HH:MM, Amsterdam) for the morning message; it goes earlier once the watch says the athlete is up.
+  db.run(`ALTER TABLE users ADD COLUMN morning_message_time TEXT DEFAULT '08:30'`, (err) => {});
   // Set when onboarding skipped its AI plan tailoring because consent was
   // still missing; the tailoring runs once the athlete accepts.
   db.run(`ALTER TABLE users ADD COLUMN onboarding_ai_pending INTEGER DEFAULT 0`, (err) => {});
@@ -841,6 +843,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE biometrics ADD COLUMN sleep_rem_minutes REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN sleep_core_minutes REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN sleep_awake_minutes REAL`, (err) => {});
+  // When the watch says the night ended (Unix seconds, Garmin only): the morning message waits for it.
+  db.run(`ALTER TABLE biometrics ADD COLUMN sleep_end_at INTEGER`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN steps INTEGER`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN active_calories REAL`, (err) => {});
   db.run(`ALTER TABLE biometrics ADD COLUMN vo2_max REAL`, (err) => {});

@@ -99,7 +99,6 @@ app.use((err, req, res, next) => {
 
 // Utilities and cron jobs
 const {
-  sendMorningMessage,
   runDailyRecoveryJob,
   resetDailyTokensForAllUsers,
   resetDailyNutritionForAllUsers,
@@ -174,9 +173,12 @@ cron.schedule('30 3 * * *', () => {
   timezone: "Europe/Amsterdam"
 });
 
-// Schedule morning message to run every day at 07:00 AM (Europe/Amsterdam timezone)
-cron.schedule('0 7 * * *', () => {
-  sendMorningMessage();
+// Morning message: every 5 minutes from 06:00 to 11:55, each athlete once their watch says they're
+// up (from 07:00) or at their own latest time (08:30 by default). Rules in services/morningSchedule.js.
+cron.schedule('*/5 6-11 * * *', () => {
+  require("./services/morningSchedule").sendDueMorningMessages().catch((err) =>
+    console.error('[CRON] Morning message job failed:', err)
+  );
 }, {
   scheduled: true,
   timezone: "Europe/Amsterdam"

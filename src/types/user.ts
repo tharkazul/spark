@@ -33,6 +33,8 @@ export interface UserProfile {
   aiConsent?: boolean | null;
   /** Usage statistics (which screens and buttons are used); on unless the athlete turned them off. */
   usageStatsEnabled?: boolean;
+  /** Latest time ("08:30") for the coach's morning message; earlier once a Garmin watch says the athlete is up. */
+  morningMessageTime?: string;
   target_event?: string;
   event_date?: string;
   target_ctl?: number;

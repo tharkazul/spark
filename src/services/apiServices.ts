@@ -78,6 +78,11 @@ export const userApi = {
       method: 'PUT',
       body: JSON.stringify({ place }),
     }),
+  setMorningMessageTime: (time: string) =>
+    apiClient<{ success: boolean; morningMessageTime: string }>('/api/user/morning-time', {
+      method: 'POST',
+      body: JSON.stringify({ time }),
+    }),
   setUsageStats: (enabled: boolean) =>
     apiClient<{ success: boolean; usageStatsEnabled: boolean }>('/api/user/usage-stats', {
       method: 'POST',

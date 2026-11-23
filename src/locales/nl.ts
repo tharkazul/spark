@@ -1865,6 +1865,14 @@ export const nl: TranslationKeys = {
     purchaseFailed: "De aankoop kon niet worden afgerond. Probeer het opnieuw.",
     restoreFailed: "Aankopen herstellen is mislukt.",
   },
+  morningMessage: {
+    title: "Ochtendbericht",
+    body: "Je coach stuurt het zodra je Garmin ziet dat je wakker bent (vanaf 07:00) of wanneer je rooka opent. Zonder een van beide komt het op dit tijdstip.",
+    latestLabel: "Uiterlijk om",
+    earlier: "Eerder",
+    later: "Later",
+    saveFailed: "De tijd kon niet worden opgeslagen. Probeer het opnieuw.",
+  },
   usageStats: {
     settingLabel: "Gebruiksstatistieken delen",
     offTitle: "Stoppen met gebruiksstatistieken delen?",

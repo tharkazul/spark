@@ -94,7 +94,7 @@ The server keeps the same list in `EVENTS` (usageAnalytics.js) and drops anythin
 |---|---|---|
 | `friend_request_sent` | | |
 | `kudos_given` | | |
-| `setting_changed` | `setting`: coach_style / coach_gender / language / dark_mode / usage_stats; `value` for language, dark mode and turning usage statistics back on | Which settings people touch |
+| `setting_changed` | `setting`: coach_style / coach_gender / language / dark_mode / usage_stats / morning_time; `value` for language, dark mode and turning usage statistics back on | Which settings people touch |
 
 ### Deliberately not tracked
 

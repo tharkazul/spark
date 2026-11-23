@@ -67,12 +67,15 @@ router.get("/api/milestones", authenticateToken, (req, res) => {
   );
 });
 
-router.post("/api/milestones", authenticateToken, (req, res) => {
+router.post("/api/milestones", authenticateToken, async (req, res) => {
   const { milestones } = req.body;
 
   if (!Array.isArray(milestones)) {
     return res.status(400).json({ error: "milestones must be an array" });
   }
+
+  // A race moved close by: the rest of this week is planned again (services/raceMoveReplan.js).
+  await require("../services/raceMoveReplan").goalsAboutToChange(req.user.id).catch(() => {});
 
   db.serialize(() => {
     db.run(`DELETE FROM milestones WHERE user_id = ?`, [req.user.id]);

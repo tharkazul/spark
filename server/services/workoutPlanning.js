@@ -861,6 +861,24 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
       lockedChatRows.map((w) => `- ${w.date}: ${w.sport} - ${w.description}`).join("\n");
   }
 
+  // 7b. A mid-week replan (options.keepThrough, e.g. after the race moved) keeps the days up to
+  // and including that date exactly as they are: they're done or under way.
+  const keptDates = options.keepThrough ? dates.filter((d) => d <= options.keepThrough) : [];
+  keptDates.forEach((d) => lockedDates.add(d));
+  if (keptDates.length > 0) {
+    const keptRows = await new Promise((resolve) => {
+      db.all(
+        `SELECT date, sport, description FROM micro_plan WHERE user_id = ? AND date IN (${keptDates.map(() => '?').join(',')}) ORDER BY date`,
+        [userId, ...keptDates],
+        (err, rows) => resolve(err || !rows ? [] : rows)
+      );
+    });
+    lockedChatNotice += `\nDAYS ALREADY GONE OR UNDER WAY (KEPT AS THEY ARE, DO NOT OUTPUT THESE DATES: ${keptDates.join(', ')}). Plan only the days after them, taking this load into account:\n` +
+      (keptRows.length ? keptRows.map((w) => `- ${w.date}: ${w.sport} - ${w.description}`).join("\n") : "- nothing planned");
+  }
+  // Only these dates get new workouts; kept days are never archived or deleted.
+  const replaceDates = dates.filter((d) => !keptDates.includes(d));
+
   // 7c. Dated constraints (travel, illness, equipment) are hard rules, checked in code below.
   const constraints = await constraintsService.getConstraintsForRange(userId, dates[0], dates[6]).catch(() => []);
   const constraintsNotice = constraints.length > 0
@@ -1076,7 +1094,7 @@ Fitness (CTL): ${ctl}
 Fatigue (ATL): ${atl}
 Form (TSB): ${tsb}
 
-Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coaching summary of this week's focus, followed by the JSON block for Monday to Sunday.`;
+Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coaching summary of this week's focus, followed by the JSON block for Monday to Sunday.${options.replanNote ? `\n\n${options.replanNote}` : ''}`;
 
   // Why the last reply gave no plan; logged if the week falls back to the generic plan.
   let planFailure = '';
@@ -1159,6 +1177,10 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
     planData = parsePlan(aiReply);
   }
   const usedFallback = planData.length === 0;
+  if (usedFallback && keptDates.length > 0) {
+    console.error(`[WeeklyPlan] Replan for user ${userId} failed (${planFailure}); the existing plan stays.`);
+    return { skipped: true, reason: `AI plan failed (${planFailure}); existing plan kept` };
+  }
   // Fallback to structured schedule if AI did not return a valid array
   if (usedFallback) {
     console.error(`[WeeklyPlan] FALLBACK week for user ${userId}: ${planFailure}`);
@@ -1236,14 +1258,14 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   // 8. Atomic Database Write:
   // First archive existing coach/recurring workouts that are being replaced so user can recover if desired
   await new Promise((resolve) => {
-    const placeholders = dates.map(() => '?').join(',');
+    const placeholders = replaceDates.map(() => '?').join(',');
     db.run(
       `INSERT INTO deleted_micro_plan (user_id, date, sport, description, target_rooka, details, steps_json, source)
        SELECT user_id, date, sport, description, target_rooka, details, steps_json, source
        FROM micro_plan
        WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source IS NULL)${keepChatClause}
          AND sport IS NOT NULL AND LOWER(sport) != 'rest'`,
-      [userId, ...dates],
+      [userId, ...replaceDates],
       (archiveErr) => {
         if (archiveErr) console.error(`[WeeklyPlan] Error archiving prior plan for user ${userId}:`, archiveErr);
         resolve();
@@ -1253,11 +1275,11 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 
   // Remove existing coach/recurring generated workouts for these dates, leaving user-created workouts intact
   await new Promise((resolve) => {
-    const placeholders = dates.map(() => '?').join(',');
+    const placeholders = replaceDates.map(() => '?').join(',');
     db.run(
       `DELETE FROM micro_plan 
        WHERE user_id = ? AND date IN (${placeholders}) AND (source = 'coach' OR source = 'recurring' OR source = 'template' OR source IS NULL)${keepChatClause}`,
-      [userId, ...dates],
+      [userId, ...replaceDates],
       (err) => {
         if (err) console.error(`[WeeklyPlan] Error clearing prior plan for user ${userId}:`, err);
         resolve();
@@ -1290,6 +1312,9 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   let coachNote = aiReply ? aiReply.replace(/```json[\s\S]*?```/, "").trim() : "";
   coachNote = coachNote.replace(/[^.!?\n]*:\s*$/i, "").trim();
 
+  if ((!coachNote || coachNote.length < 10) && options.fallbackNote) {
+    coachNote = options.fallbackNote(user.language);
+  }
   if (!coachNote || coachNote.length < 10) {
     coachNote = user.language === 'nl'
       ? `Ik heb zojuist je trainingsschema voor komende week (maandag ${dates[0]} t/m zondag ${dates[6]}) klaargezet. Check je dashboard en laten we er een sterke week van maken!`
@@ -1324,7 +1349,7 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
     mood: 'hype',
   });
 
-  sendPushToUser(userId, {
+  if (options.notify !== false) sendPushToUser(userId, {
     title: i18n.t(user.language, 'push.weeklyPlanReady.title'),
     body: i18n.t(user.language, 'push.weeklyPlanReady.body', { coach: coachName }),
     data: { url: '/(tabs)/coach', type: 'plan_updated', dates },

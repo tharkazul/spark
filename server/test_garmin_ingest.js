@@ -416,6 +416,8 @@ const summary = (fields) => ({
     sleeps: [
       { userId: "garmin-u1", summaryId: "s1", calendarDate: "2026-10-25", startTimeInSeconds: 1761341000, startTimeOffsetInSeconds: 7200, durationInSeconds: 27000, deepSleepDurationInSeconds: 5400, lightSleepDurationInSeconds: 15600, remSleepInSeconds: 6000, awakeDurationInSeconds: 1200, validation: "ENHANCED_FINAL" },
       { userId: "garmin-u1", summaryId: "s2", calendarDate: "2026-10-24", startTimeInSeconds: 1761254000, durationInSeconds: 25200, deepSleepDurationInSeconds: 0, lightSleepDurationInSeconds: 0, remSleepInSeconds: 0, awakeDurationInSeconds: 0, validation: "OFF_WRIST" },
+      { userId: "garmin-u1", summaryId: "s3", calendarDate: "2026-10-23", startTimeInSeconds: 1761170000, durationInSeconds: 3600, awakeDurationInSeconds: 600, validation: "ENHANCED_TENTATIVE",
+        sleepLevelsMap: { light: [{ startTimeInSeconds: 1761170000, endTimeInSeconds: 1761172000 }], awake: [{ startTimeInSeconds: 1761172000, endTimeInSeconds: 1761174500 }] } },
     ],
   });
   await push("hrv", { hrv: [{ userId: "garmin-u1", summaryId: "h1", calendarDate: "2026-10-25", lastNightAvg: 58, lastNight5MinHigh: 81 }] });
@@ -432,9 +434,13 @@ const summary = (fields) => ({
   const offWrist = await get(`SELECT * FROM biometrics WHERE user_id = 1 AND date = '2026-10-24'`);
   assert.strictEqual(offWrist.sleep_minutes, 420);
   assert.strictEqual(offWrist.sleep_deep_minutes, null, "an off-wrist night has its length but no stages");
+  assert.strictEqual(bio.sleep_end_at, 1761341000 + 27000 + 1200, "the night ends after the time asleep and the time awake");
+  assert.strictEqual(offWrist.sleep_end_at, null, "an off-wrist night has no wake-up time: the morning message waits for the athlete's latest time");
+  const withStages = await get(`SELECT sleep_end_at FROM biometrics WHERE user_id = 1 AND date = '2026-10-23'`);
+  assert.strictEqual(withStages.sleep_end_at, 1761174500, "the end of the last stage when Garmin sends the stages");
   const weighIn = await get(`SELECT * FROM biometrics WHERE user_id = 1 AND date = '2026-10-26'`);
   assert.deepStrictEqual([weighIn.weight_kg, weighIn.body_fat_percent, weighIn.bmi], [70.9, 14.2, 22.1], "weighed at 00:30 on the scale's clock: that day");
-  console.log("✅ Sleeps, body composition and VO2 max land in the Apple Health columns and HRV in its own, by the athlete's day");
+  console.log("✅ Sleeps (with when the night ended), body composition and VO2 max land in the Apple Health columns and HRV in its own, by the athlete's day");
 
   // -------------------------------------------------------------------------
   // 7. No AI-generated knowledge base from Garmin data (license §15.11)

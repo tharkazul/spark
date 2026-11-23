@@ -1865,6 +1865,14 @@ export const es: TranslationKeys = {
     purchaseFailed: "No se pudo completar la compra. Inténtalo de nuevo.",
     restoreFailed: "No se pudieron restaurar las compras.",
   },
+  morningMessage: {
+    title: "Mensaje de la mañana",
+    body: "Tu coach lo envía en cuanto tu Garmin detecta que estás despierto (desde las 07:00) o cuando abres rooka. Si no ocurre ninguna de las dos cosas, llega a esta hora.",
+    latestLabel: "Como muy tarde",
+    earlier: "Antes",
+    later: "Después",
+    saveFailed: "No se pudo guardar la hora. Inténtalo de nuevo.",
+  },
   usageStats: {
     settingLabel: "Compartir estadísticas de uso",
     offTitle: "¿Dejar de compartir estadísticas de uso?",

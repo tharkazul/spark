@@ -1865,6 +1865,14 @@ export const fr: TranslationKeys = {
     purchaseFailed: "L'achat n'a pas pu être finalisé. Veuillez réessayer.",
     restoreFailed: "Impossible de restaurer les achats.",
   },
+  morningMessage: {
+    title: "Message du matin",
+    body: "Ton coach l'envoie dès que ta Garmin détecte que tu es réveillé (à partir de 07:00) ou quand tu ouvres rooka. Sinon, il arrive à cette heure-ci.",
+    latestLabel: "Au plus tard à",
+    earlier: "Plus tôt",
+    later: "Plus tard",
+    saveFailed: "L'heure n'a pas pu être enregistrée. Réessaie.",
+  },
   usageStats: {
     settingLabel: "Partager les statistiques d'utilisation",
     offTitle: "Arrêter de partager les statistiques d'utilisation ?",
