@@ -14,6 +14,9 @@ const constraintsService = require("./athleteConstraints");
 const seasonPlan = require("./seasonPlan");
 const coachingTopics = require("./coachingTopics");
 
+/** Per-attempt AI limit for planning a week (the default 90 s is for chat-sized calls). */
+const PLANNER_TIMEOUT_MS = 180000;
+
 /**
  * Calculates the exact 7 consecutive dates (YYYY-MM-DD) from Monday to Sunday
  * for the upcoming week in the Europe/Amsterdam timezone.
@@ -1101,7 +1104,9 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 
   const callPlanner = async (prompt) => {
     try {
-      return await generateWithFallback(prompt, systemPrompt, null, null, userId, poolType, false, { language: user.language });
+      // A whole week thinks for ~9k tokens and sometimes ran past the default 90 s
+      // (Tharaka's race-move replan, 24 Nov 2026), so the planner gets 3 minutes.
+      return await generateWithFallback(prompt, systemPrompt, null, null, userId, poolType, false, { language: user.language, timeoutMs: PLANNER_TIMEOUT_MS });
     } catch (errAi) {
       console.warn(`[WeeklyPlan] AI generation warning for user ${userId}:`, errAi.message);
       planFailure = `AI call failed: ${errAi.message}`;

@@ -133,15 +133,15 @@ function withContextBlock(promptContent, contextText) {
   return preface + promptContent;
 }
 
-function withAttemptTimeout(promise, controller, label) {
+function withAttemptTimeout(promise, controller, label, timeoutMs = AI_ATTEMPT_TIMEOUT_MS) {
   let timer;
   const timeout = new Promise((_, reject) => {
     timer = setTimeout(() => {
       try {
         controller.abort();
       } catch (_) { }
-      reject(new Error(`timed out after ${AI_ATTEMPT_TIMEOUT_MS}ms`));
-    }, AI_ATTEMPT_TIMEOUT_MS);
+      reject(new Error(`timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
@@ -198,7 +198,8 @@ async function generateWithFallback(
         const request = chatHistory
           ? ai.chats.create({ model: config.model, config: genConfig, history: chatHistory }).sendMessage({ message: content })
           : ai.models.generateContent({ model: config.model, contents: content, config: genConfig });
-        return withAttemptTimeout(request, controller, config.name);
+        // options.timeoutMs: a longer limit for big jobs (the weekly planner thinks for minutes).
+        return withAttemptTimeout(request, controller, config.name, Number(options && options.timeoutMs) || AI_ATTEMPT_TIMEOUT_MS);
       };
       const uncachedConfig = systemInstruction ? { systemInstruction } : {};
 
