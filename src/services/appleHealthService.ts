@@ -18,6 +18,10 @@ import type {
 import { PlannedWorkout, WorkoutStep } from '../types/plan';
 import { zonesApi, ZoneBandDto } from './apiServices';
 import { minutesFromRooka } from '../utils/format';
+import { assessRecoveryTrend, RECOVERY_TREND } from '../domain/recoveryTrend';
+import type { RecoveryTrend } from '../domain/recoveryTrend';
+export { assessRecoveryTrend, RECOVERY_TREND };
+export type { RecoveryTrend };
 
 type WorkoutKitModule = typeof ReactNativeWorkouts;
 
@@ -1332,6 +1336,31 @@ export async function fetchRecentBiometricsFromServer(limit = 7): Promise<AppleH
   return [];
 }
 
+const RECOVERY_HISTORY_KEY = '@rooka:recovery_history_cache';
+
+/**
+ * The last RECOVERY_TREND.HISTORY_DAYS days for the recovery trend (the server's
+ * /api/healthkit/recent allows up to 30). Cached apart from the 7-day list, which other
+ * widgets read as "the last week".
+ */
+export async function fetchRecoveryHistoryFromServer(): Promise<AppleHealthDailyBiometrics[]> {
+  try {
+    const res = await apiClient<{ success: boolean; biometrics?: AppleHealthDailyBiometrics[] }>(
+      `/api/healthkit/recent?limit=${RECOVERY_TREND.HISTORY_DAYS}`
+    );
+    if (res.success && Array.isArray(res.biometrics)) {
+      await AsyncStorage.setItem(RECOVERY_HISTORY_KEY, JSON.stringify(res.biometrics)).catch(() => {});
+      return res.biometrics;
+    }
+  } catch {
+    try {
+      const cached = await AsyncStorage.getItem(RECOVERY_HISTORY_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+  }
+  return [];
+}
+
 export type HrvSource = 'garmin' | 'apple';
 
 /** A day's HRV: Garmin's overnight value when there is one, else Apple Health's. */
@@ -1370,6 +1399,7 @@ export interface HrvAssessment {
 
 // Garmin HRV needs this many earlier Garmin nights before it counts at all.
 const GARMIN_HRV_MIN_DAYS = 3;
+
 
 /**
  * How today's HRV reads, for the strain score and the readiness gauge.
@@ -1436,6 +1466,8 @@ export interface CardiovascularStrainResult {
   hrvStatus: 'prime' | 'balanced' | 'suppressed';
   hrvSource: HrvSource | null;
   sleepMinutes: number | null;
+  /** The last week against the athlete's normal; its points are already in strainScore. */
+  trend: RecoveryTrend;
   headline: string;
   description: string;
   actionAdvice: string;
@@ -1443,12 +1475,15 @@ export interface CardiovascularStrainResult {
 
 export function computeCardiovascularStrain(
   today: AppleHealthDailyBiometrics | null | undefined,
-  recent: AppleHealthDailyBiometrics[] = []
+  recent: AppleHealthDailyBiometrics[] = [],
+  /** Up to RECOVERY_TREND.HISTORY_DAYS of days for the trend; without it, only `recent` is used (sleep debt only). */
+  history?: AppleHealthDailyBiometrics[]
 ): CardiovascularStrainResult {
   if (!today) {
     return {
       strainLevel: 'none',
       strainScore: 0,
+      trend: assessRecoveryTrend(null),
       restingHr: null,
       avgRhr: null,
       rhrDelta: null,
@@ -1516,6 +1551,10 @@ export function computeCardiovascularStrain(
     }
   }
 
+  // The last week against the athlete's own normal (sleep debt, HRV and resting HR trend).
+  const trend = assessRecoveryTrend(today, history ?? recent);
+  strainScore += trend.points;
+
   strainScore = Math.min(100, Math.max(0, Math.round(strainScore)));
 
   let strainLevel: 'none' | 'moderate' | 'elevated' | 'high' = 'none';
@@ -1559,6 +1598,7 @@ export function computeCardiovascularStrain(
     hrvStatus,
     hrvSource: hrv ? hrv.source : null,
     sleepMinutes,
+    trend,
     headline,
     description,
     actionAdvice,

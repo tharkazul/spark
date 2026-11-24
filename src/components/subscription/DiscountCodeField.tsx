@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { discountApi } from '../../services/apiServices';
 import { DiscountValidationResult } from '../../types/discount';
-import { getDiscountErrorFallback } from '../../utils/discountFormat';
+import { formatDiscountSummary, getDiscountErrorFallback } from '../../utils/discountFormat';
 import { useLanguage } from '../../context/LanguageContext';
 
 interface DiscountCodeFieldProps {
@@ -23,7 +23,7 @@ const DEBOUNCE_MS = 400;
 
 /**
  * A discount code input that checks the code as it is typed and hands the
- * resulting prices back to its parent.
+ * result (what the code gives, or why it cannot be used) back to its parent.
  *
  * Validation is a preview with no side effects on the server, so live-checking
  * is safe: typing a one-time code here does not consume it. Committing the code
@@ -136,7 +136,7 @@ export function DiscountCodeField({
 
       {showValid ? (
         <Text className="text-[11px] font-bold text-semantic-success mt-1.5">
-          {result?.code?.description || `${result?.code?.code} applied`}
+          {result?.code ? formatDiscountSummary(result.code) : null}
         </Text>
       ) : showInvalid ? (
         <Text className="text-[11px] font-bold text-semantic-error mt-1.5">

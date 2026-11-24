@@ -424,14 +424,15 @@ document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
 /* ===========================================================================
  * Discount codes
  *
- * A code is three independent choices: what it does to the price
- * (percent / fixed yearly / fixed monthly / fixed both), how long it keeps
- * doing it (forever or X months), and how many athletes may redeem it
- * (one time / limited / unlimited).
+ * A code is three independent choices: what it gives (a free rooka+ period,
+ * or a store offer — a RevenueCat offering whose App Store / Google Play
+ * products carry the discount), how many athletes may redeem it (one time /
+ * limited / unlimited), and when it can be redeemed.
  *
- * Every price shown here is computed by the server (server/services/pricing.js)
- * and returned with each code, so this table shows exactly what the athlete
- * will be charged rather than a second copy of the same arithmetic.
+ * The page never shows a discounted price: Apple and Google set what the
+ * athlete pays, per country. The "Subscribed" column counts redeemers who
+ * then started a paid subscription, which is what tells you which club or
+ * creator actually brought in members.
  * ======================================================================== */
 
 let discountBasePricing = { currency: '€', monthly: 6.99, yearly: 69.99 };
@@ -458,21 +459,38 @@ function formatDate(iso) {
     return isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** What the code does to the price, in words. */
+function plural(n, one, many) {
+    return `${n} ${n === 1 ? one : many}`;
+}
+
+/** What the code gives, in words. */
 function discountEffect(c) {
-    switch (c.discountType) {
-        case 'percent': return `${esc(c.percentOff ?? 0)}% off`;
-        case 'fixed_yearly': return `${money(c.fixedYearlyPrice ?? 0)}/year`;
-        case 'fixed_monthly': return `${money(c.fixedMonthlyPrice ?? 0)}/month`;
-        case 'fixed_both': return `${money(c.fixedMonthlyPrice ?? 0)}/mo &middot; ${money(c.fixedYearlyPrice ?? 0)}/yr`;
-        default: return '&mdash;';
+    if (c.retired) {
+        return '<span class="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded font-semibold whitespace-nowrap" title="Priced the paywall on the server, which the stores never charged. Does nothing now; edit to convert it.">Retired type</span>';
     }
+    if (c.discountType === 'free_access') {
+        const length = c.durationMonths
+            ? plural(c.durationMonths, 'month', 'months')
+            : plural(c.durationDays || 0, 'day', 'days');
+        return `<span class="bg-green-50 text-green-700 text-xs px-2 py-1 rounded font-semibold whitespace-nowrap">${esc(length)} free</span>`;
+    }
+    if (c.discountType === 'store_offer') {
+        return `<span class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-semibold whitespace-nowrap">Store offer</span>
+                <div class="text-xs text-gray-500 mt-1 font-mono">${esc(c.offeringId)}</div>`;
+    }
+    return '&mdash;';
 }
 
 function usageLabel(c) {
     if (c.redemptionType === 'unlimited') return `Unlimited &middot; ${esc(c.redemptionCount)} used`;
     if (c.redemptionType === 'one_time') return c.redemptionCount > 0 ? 'One time &middot; used' : 'One time &middot; available';
     return `Limited &middot; ${esc(c.redemptionCount)} of ${esc(c.maxRedemptions ?? 0)} used`;
+}
+
+function subscribedLabel(c) {
+    if (!c.redemptionCount) return '<span class="text-gray-400">&mdash;</span>';
+    const pct = Math.round((c.subscribedCount / c.redemptionCount) * 100);
+    return `<strong class="text-gray-900">${esc(c.subscribedCount)}</strong> <span class="text-xs text-gray-400">of ${esc(c.redemptionCount)} &middot; ${pct}%</span>`;
 }
 
 /**
@@ -487,7 +505,7 @@ function showDiscountMessage(message, options) {
     const { summary, isError = false, retry = false } = options || {};
     document.getElementById('discountSummary').innerText = summary || (isError ? 'Could not load codes' : '');
     document.getElementById('discountTableBody').innerHTML = `
-        <tr><td colspan="8" class="p-8 text-center ${isError ? 'text-red-600' : 'text-gray-400'}">
+        <tr><td colspan="7" class="p-8 text-center ${isError ? 'text-red-600' : 'text-gray-400'}">
             <div>${esc(message)}</div>
             ${retry ? '<button onclick="fetchDiscounts()" class="mt-3 text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 shadow-sm transition">&#8635; Try again</button>' : ''}
         </td></tr>`;
@@ -539,11 +557,7 @@ async function fetchDiscounts() {
 
     try {
         const data = await response.json();
-        if (data.basePricing) {
-            discountBasePricing = data.basePricing;
-            document.querySelectorAll('.dc-base-monthly').forEach((el) => { el.innerText = money(discountBasePricing.monthly); });
-            document.querySelectorAll('.dc-base-yearly').forEach((el) => { el.innerText = money(discountBasePricing.yearly); });
-        }
+        if (data.basePricing) discountBasePricing = data.basePricing;
         renderDiscountTable(data.codes || []);
     } catch (err) {
         console.error('Discount response was not valid JSON:', err);
@@ -556,23 +570,19 @@ function renderDiscountTable(codes) {
     window.__discountCodes = codes;
     const tbody = document.getElementById('discountTableBody');
     const summary = document.getElementById('discountSummary');
-    const activeCount = codes.filter((c) => c.active).length;
+    const activeCount = codes.filter((c) => c.active && !c.retired).length;
+    const listPrice = `list price ${money(discountBasePricing.monthly)}/mo, ${money(discountBasePricing.yearly)}/yr in the euro stores`;
     summary.innerText = codes.length
-        ? `${codes.length} code${codes.length === 1 ? '' : 's'} · ${activeCount} active · list price ${money(discountBasePricing.monthly)}/mo, ${money(discountBasePricing.yearly)}/yr`
-        : `No codes yet · list price ${money(discountBasePricing.monthly)}/mo, ${money(discountBasePricing.yearly)}/yr`;
+        ? `${codes.length} code${codes.length === 1 ? '' : 's'} · ${activeCount} active · ${listPrice}`
+        : `No codes yet · ${listPrice}`;
 
     tbody.innerHTML = '';
     if (!codes.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-gray-400">No discount codes yet. Create one to offer a percentage off, a fixed price, or a limited-time deal.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-gray-400">No discount codes yet. Create one per club or creator: a free rooka+ period, or a store offer with a paid discount.</td></tr>';
         return;
     }
 
     codes.forEach((c) => {
-        const p = c.pricing;
-        const strike = (plan) => plan.discounted
-            ? ` <span class="text-gray-400 line-through text-xs">${money(plan.original)}</span>`
-            : '';
-
         const from = formatDate(c.validFrom);
         const until = formatDate(c.validUntil);
         let window_ = '<span class="text-gray-400 text-xs">Always</span>';
@@ -585,24 +595,20 @@ function renderDiscountTable(codes) {
             : `<div class="text-xs mt-0.5 ${c.remainingUses === 0 ? 'text-red-600 font-bold' : 'text-gray-500'}">${esc(c.remainingUses)} left</div>`;
 
         const tr = document.createElement('tr');
-        tr.className = 'hover:bg-gray-50 transition' + (c.active ? '' : ' opacity-60');
+        tr.className = 'hover:bg-gray-50 transition' + (c.active && !c.retired ? '' : ' opacity-60');
         tr.innerHTML = `
             <td class="p-4">
                 <div class="font-bold text-gray-900 tracking-wider">${esc(c.code)}</div>
                 ${c.description ? `<div class="text-xs text-gray-500 mt-0.5">${esc(c.description)}</div>` : ''}
                 ${c.createdBy ? `<div class="text-xs text-gray-400 mt-0.5">by ${esc(c.createdBy)}</div>` : ''}
             </td>
-            <td class="p-4"><span class="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-semibold whitespace-nowrap">${discountEffect(c)}</span></td>
-            <td class="p-4 text-gray-600 whitespace-nowrap">${c.durationMonths ? `${esc(c.durationMonths)} mo` : 'Forever'}</td>
+            <td class="p-4">${discountEffect(c)}</td>
             <td class="p-4 text-gray-600">
                 <div class="whitespace-nowrap">${usageLabel(c)}</div>
                 ${remaining}
-                <div class="text-xs text-gray-400 mt-0.5">${esc(c.activeHolders)} on it now</div>
+                <div class="text-xs text-gray-400 mt-0.5">${esc(c.activeHolders)} holding it now</div>
             </td>
-            <td class="p-4 whitespace-nowrap">
-                <div class="text-gray-900"><span class="text-xs text-gray-400 uppercase">mo</span> <strong>${money(p.monthly.final)}</strong>${strike(p.monthly)}</div>
-                <div class="text-gray-900 mt-0.5"><span class="text-xs text-gray-400 uppercase">yr</span> <strong>${money(p.yearly.final)}</strong>${strike(p.yearly)}</div>
-            </td>
+            <td class="p-4 whitespace-nowrap">${subscribedLabel(c)}</td>
             <td class="p-4">${window_}</td>
             <td class="p-4">
                 <label class="inline-flex items-center gap-2 cursor-pointer">
@@ -631,16 +637,11 @@ function getRadio(name) {
     return el ? el.value : null;
 }
 
-/** Only the inputs the chosen type/duration/usage actually needs stay visible. */
+/** Only the inputs the chosen type and usage actually need stay visible. */
 function syncDiscountForm() {
     const type = getRadio('dcType');
-    document.getElementById('dcPercentWrap').classList.toggle('hidden', type !== 'percent');
-    document.getElementById('dcMonthlyWrap').classList.toggle('hidden', !(type === 'fixed_monthly' || type === 'fixed_both'));
-    document.getElementById('dcYearlyWrap').classList.toggle('hidden', !(type === 'fixed_yearly' || type === 'fixed_both'));
-
-    const forMonths = getRadio('dcDur') === 'months';
-    document.getElementById('dcMonthsWrap').classList.toggle('hidden', !forMonths);
-    document.getElementById('dcForeverNote').classList.toggle('hidden', forMonths);
+    document.getElementById('dcFreeWrap').classList.toggle('hidden', type !== 'free_access');
+    document.getElementById('dcOfferWrap').classList.toggle('hidden', type !== 'store_offer');
 
     const use = getRadio('dcUse');
     document.getElementById('dcMaxWrap').classList.toggle('hidden', use !== 'limited');
@@ -653,26 +654,30 @@ function syncDiscountForm() {
 
 function openDiscountModal(id) {
     const code = id != null ? (window.__discountCodes || []).find((c) => c.id === id) : null;
+    const current = code && !code.retired ? code : null;
 
     document.getElementById('dcError').classList.add('hidden');
     document.getElementById('dcId').value = code ? code.id : '';
     document.getElementById('dcCode').value = code ? code.code : '';
     document.getElementById('dcDescription').value = code && code.description ? code.description : '';
-    document.getElementById('dcPercentOff').value = code && code.percentOff != null ? code.percentOff : '';
-    document.getElementById('dcFixedMonthly').value = code && code.fixedMonthlyPrice != null ? code.fixedMonthlyPrice : '';
-    document.getElementById('dcFixedYearly').value = code && code.fixedYearlyPrice != null ? code.fixedYearlyPrice : '';
-    document.getElementById('dcDurationMonths').value = code && code.durationMonths != null ? code.durationMonths : '';
+    document.getElementById('dcLength').value = current
+        ? (current.durationMonths ?? current.durationDays ?? '')
+        : '';
+    document.getElementById('dcOfferingId').value = current && current.offeringId ? current.offeringId : '';
     document.getElementById('dcMaxRedemptions').value = code && code.maxRedemptions != null ? code.maxRedemptions : '';
     document.getElementById('dcValidFrom').value = code && code.validFrom ? code.validFrom.slice(0, 10) : '';
     document.getElementById('dcValidUntil').value = code && code.validUntil ? code.validUntil.slice(0, 10) : '';
     document.getElementById('dcActive').checked = code ? !!code.active : true;
 
-    setRadio('dcType', code ? code.discountType : 'percent');
-    setRadio('dcDur', code && code.durationMonths ? 'months' : 'forever');
+    // A retired code opens as a new free-access code to convert it to.
+    setRadio('dcType', current ? current.discountType : 'free_access');
+    setRadio('dcUnit', current && current.durationDays ? 'days' : 'months');
     setRadio('dcUse', code ? code.redemptionType : 'unlimited');
     syncDiscountForm();
 
-    document.getElementById('discountModalTitle').innerText = code ? `Edit ${code.code}` : 'New Discount Code';
+    document.getElementById('discountModalTitle').innerText = code
+        ? (code.retired ? `Convert ${code.code}` : `Edit ${code.code}`)
+        : 'New Discount Code';
     document.getElementById('dcSaveBtn').innerText = code ? 'Save Changes' : 'Create Code';
     document.getElementById('discountModal').classList.remove('hidden');
 }
@@ -681,7 +686,7 @@ function closeDiscountModal() {
     document.getElementById('discountModal').classList.add('hidden');
 }
 
-/** Blank must travel as null, not 0 — 0 is a legitimate fixed price. */
+/** Blank must travel as null so the server can say what is missing. */
 function numOrNull(id) {
     const v = document.getElementById(id).value.trim();
     if (!v) return null;
@@ -696,14 +701,16 @@ async function saveDiscount(e) {
     const btn = document.getElementById('dcSaveBtn');
     const original = btn.innerText;
 
+    const type = getRadio('dcType');
+    const unit = getRadio('dcUnit');
+    const length = type === 'free_access' ? numOrNull('dcLength') : null;
     const payload = {
         code: document.getElementById('dcCode').value.trim().toUpperCase().replace(/\s+/g, ''),
         description: document.getElementById('dcDescription').value.trim() || null,
-        discountType: getRadio('dcType'),
-        percentOff: numOrNull('dcPercentOff'),
-        fixedMonthlyPrice: numOrNull('dcFixedMonthly'),
-        fixedYearlyPrice: numOrNull('dcFixedYearly'),
-        durationMonths: getRadio('dcDur') === 'months' ? numOrNull('dcDurationMonths') : null,
+        discountType: type,
+        durationMonths: unit === 'months' ? length : null,
+        durationDays: unit === 'days' ? length : null,
+        offeringId: type === 'store_offer' ? document.getElementById('dcOfferingId').value.trim() : null,
         redemptionType: getRadio('dcUse'),
         maxRedemptions: getRadio('dcUse') === 'limited' ? numOrNull('dcMaxRedemptions') : null,
         validFrom: document.getElementById('dcValidFrom').value || null,
@@ -745,23 +752,10 @@ async function toggleDiscountActive(id) {
     if (!code) return;
 
     try {
-        const response = await fetch(`/api/admin/discounts/${id}`, {
-            method: 'PUT',
+        const response = await fetch(`/api/admin/discounts/${id}/active`, {
+            method: 'PATCH',
             headers: authHeaders(true),
-            body: JSON.stringify({
-                code: code.code,
-                description: code.description,
-                discountType: code.discountType,
-                percentOff: code.percentOff,
-                fixedMonthlyPrice: code.fixedMonthlyPrice,
-                fixedYearlyPrice: code.fixedYearlyPrice,
-                durationMonths: code.durationMonths,
-                redemptionType: code.redemptionType,
-                maxRedemptions: code.maxRedemptions,
-                validFrom: code.validFrom,
-                validUntil: code.validUntil,
-                active: !code.active,
-            }),
+            body: JSON.stringify({ active: !code.active }),
         });
         const data = await response.json();
         if (!response.ok) showError(data.error || 'Failed to update the code.');
@@ -776,11 +770,14 @@ async function deleteDiscount(id) {
     const code = (window.__discountCodes || []).find((c) => c.id === id);
     if (!code) return;
 
-    // A redeemed code cannot be deleted without orphaning the athletes on it,
-    // so the server deactivates it instead. Say which will happen up front.
+    // A redeemed code cannot be deleted without losing its counts, so the
+    // server deactivates it instead. Say which will happen up front.
     const redeemed = code.redemptionCount > 0;
+    const effect = code.discountType === 'free_access'
+        ? 'Free periods that already started keep running to their end.'
+        : `The ${code.activeHolders} athlete(s) holding it stop seeing the offer and get the normal paywall.`;
     const message = redeemed
-        ? `${code.code} has ${code.redemptionCount} redemption(s), so it cannot be deleted. It will be switched off instead — including for the ${code.activeHolders} athlete(s) currently on it, who go back to full price.\n\nContinue?`
+        ? `${code.code} has ${code.redemptionCount} redemption(s), so it cannot be deleted. It will be switched off instead. ${effect}\n\nContinue?`
         : `${code.code} has never been redeemed and will be permanently removed.\n\nContinue?`;
     if (!confirm(message)) return;
 
@@ -802,7 +799,7 @@ document.getElementById('discountForm')?.addEventListener('submit', saveDiscount
 document.getElementById('discountModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'discountModal') closeDiscountModal();
 });
-['dcType', 'dcDur', 'dcUse'].forEach((name) => {
+['dcType', 'dcUse'].forEach((name) => {
     document.querySelectorAll(`input[name="${name}"]`).forEach((el) => {
         el.addEventListener('change', syncDiscountForm);
     });

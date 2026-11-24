@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const db = require('../services/db');
+const { upgradeToRookaPlus, downgradeToFree } = require('../services/subscriptionTier');
 
 // Each RevenueCat event id is stored once, so retried deliveries are skipped.
 db.run(
@@ -11,6 +12,15 @@ db.run(
      app_user_id TEXT,
      received_at DATETIME DEFAULT CURRENT_TIMESTAMP
    )`,
+  () => {
+    // What the admin Discount page needs to count, per code, the athletes who
+    // went on to subscribe: which store (PROMOTIONAL = a free-access grant, not
+    // a sale), sandbox or production, and the offering they bought from. Added
+    // once the table surely exists.
+    for (const column of ['store TEXT', 'environment TEXT', 'presented_offering_id TEXT', 'product_id TEXT', 'period_type TEXT']) {
+      db.run(`ALTER TABLE revenuecat_events ADD COLUMN ${column}`, () => {});
+    }
+  },
 );
 
 function secretMatches(header, secret) {
@@ -43,8 +53,19 @@ router.post('/revenuecat', async (req, res) => {
 
     const isNew = await new Promise((resolve, reject) => {
       db.run(
-        `INSERT OR IGNORE INTO revenuecat_events (event_id, type, app_user_id) VALUES (?, ?, ?)`,
-        [String(event.id), event.type || null, event.app_user_id != null ? String(event.app_user_id) : null],
+        `INSERT OR IGNORE INTO revenuecat_events
+           (event_id, type, app_user_id, store, environment, presented_offering_id, product_id, period_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          String(event.id),
+          event.type || null,
+          event.app_user_id != null ? String(event.app_user_id) : null,
+          event.store || null,
+          event.environment || null,
+          event.presented_offering_id || null,
+          event.product_id || null,
+          event.period_type || null,
+        ],
         function (err) {
           if (err) return reject(err);
           resolve(this.changes > 0);
@@ -66,33 +87,13 @@ router.post('/revenuecat', async (req, res) => {
     console.log(`[RevenueCat Webhook] Received ${type} for user ID ${appUserId}`);
 
     if (type === 'INITIAL_PURCHASE' || type === 'RENEWAL' || type === 'UNCANCELLATION') {
-      db.run(
-        `UPDATE users SET subscription_tier = 'rooka_plus', daily_token_limit = 50000 WHERE id = ?`,
-        [appUserId],
-        function (err) {
-          if (err) {
-            console.error(`[RevenueCat Webhook] Error upgrading user ${appUserId}:`, err);
-          } else {
-            console.log(`[RevenueCat Webhook] User ${appUserId} upgraded to rooka_plus.`);
-          }
-        }
-      );
+      upgradeToRookaPlus(appUserId)
+        .then(() => console.log(`[RevenueCat Webhook] User ${appUserId} upgraded to rooka_plus.`))
+        .catch((err) => console.error(`[RevenueCat Webhook] Error upgrading user ${appUserId}:`, err));
     } else if (type === 'EXPIRATION') {
-      db.run(
-        `UPDATE users SET subscription_tier = 'free', daily_token_limit = 5000 WHERE id = ?`,
-        [appUserId],
-        function (err) {
-          if (err) {
-            console.error(`[RevenueCat Webhook] Error downgrading user ${appUserId}:`, err);
-          } else {
-            console.log(`[RevenueCat Webhook] User ${appUserId} downgraded to free.`);
-            db.run(
-              `UPDATE user_quests SET status = 'closed' WHERE user_id = ? AND status = 'active'`,
-              [appUserId],
-            );
-          }
-        }
-      );
+      downgradeToFree(appUserId)
+        .then(() => console.log(`[RevenueCat Webhook] User ${appUserId} downgraded to free.`))
+        .catch((err) => console.error(`[RevenueCat Webhook] Error downgrading user ${appUserId}:`, err));
     }
 
     res.json({ received: true });

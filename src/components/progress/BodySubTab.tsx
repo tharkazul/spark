@@ -28,6 +28,7 @@ import {
   getCachedTodayBiometrics,
   fetchTodayBiometricsFromServer,
   fetchRecentBiometricsFromServer,
+  fetchRecoveryHistoryFromServer,
 } from '../../services/appleHealthService';
 
 interface BodySubTabProps {
@@ -54,18 +55,23 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
   const [logWeightModalVisible, setLogWeightModalVisible] = useState(false);
   const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
   const [recentBiometrics, setRecentBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
+  const [historyBiometrics, setHistoryBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
 
   const loadBiometrics = useCallback(async () => {
     try {
-      const [freshToday, freshRecent] = await Promise.allSettled([
+      const [freshToday, freshRecent, freshHistory] = await Promise.allSettled([
         fetchTodayBiometricsFromServer(),
         fetchRecentBiometricsFromServer(7),
+        fetchRecoveryHistoryFromServer(),
       ]);
       if (freshToday.status === 'fulfilled' && freshToday.value) {
         setTodayBiometrics(freshToday.value);
       }
       if (freshRecent.status === 'fulfilled' && Array.isArray(freshRecent.value)) {
         setRecentBiometrics(freshRecent.value);
+      }
+      if (freshHistory.status === 'fulfilled' && Array.isArray(freshHistory.value)) {
+        setHistoryBiometrics(freshHistory.value);
       }
     } catch (e) {
       console.warn('[BodySubTab] Biometrics fetch failed:', e);
@@ -242,6 +248,7 @@ export const BodySubTab: React.FC<BodySubTabProps> = ({
           onSelectBodyPart={handleSelectBodyPart}
           biometrics={todayBiometrics}
           recentBiometrics={recentBiometrics}
+          historyBiometrics={historyBiometrics}
         />
       </Card>
 

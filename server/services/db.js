@@ -1223,6 +1223,17 @@ db.serialize(() => {
         FOREIGN KEY(user_id) REFERENCES users(id)
     )`);
 
+  // Codes now do what the stores can honour (see services/pricing.js): a free
+  // period of duration_months OR duration_days, or a RevenueCat offering_id
+  // with discounted store products. percent_off and the fixed prices are left
+  // in place for old rows but no longer read.
+  db.run(`ALTER TABLE discount_codes ADD COLUMN duration_days INTEGER`, () => {});
+  db.run(`ALTER TABLE discount_codes ADD COLUMN offering_id TEXT`, () => {});
+  // A free-access redemption remembers until when RevenueCat was told to grant
+  // rooka+, and when the hourly check (services/freeAccess.js) finished with it.
+  db.run(`ALTER TABLE discount_redemptions ADD COLUMN granted_until TEXT`, () => {});
+  db.run(`ALTER TABLE discount_redemptions ADD COLUMN grant_closed_at TEXT`, () => {});
+
   db.run(`CREATE TABLE IF NOT EXISTS password_resets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,

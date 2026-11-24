@@ -30,6 +30,7 @@ import { confirmEnableAi, confirmDisableAi } from '../../utils/aiConsent';
 import { getPushNotificationsEnabled, setPushNotificationsEnabled } from '../../services/notificationService';
 import { HomeTownSheet } from './HomeTownSheet';
 import { AchievementsCard } from '../social/AchievementsCard';
+import { DiscountCodeCard } from '../subscription/DiscountCodeCard';
 
 interface ProfileTabProps {
   username: string;
@@ -757,6 +758,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
             </TouchableOpacity>
           )}
+
+          {/* A rooka code from a club or creator: a free period or a store offer. */}
+          <DiscountCodeCard isMember={isPaidTier || isRookaPlus} />
         </View>
       </Card>
 

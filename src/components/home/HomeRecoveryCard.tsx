@@ -10,10 +10,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '@/hooks/use-theme';
 import {
   AppleHealthDailyBiometrics,
+  RecoveryTrend,
   computeCardiovascularStrain,
   hrvIn,
   latestHrvSource,
-  fetchRecentBiometricsFromServer,
+  fetchRecoveryHistoryFromServer,
   fetchTodayBiometricsFromServer,
   getCachedTodayBiometrics,
 } from '../../services/appleHealthService';
@@ -39,6 +40,22 @@ const avg = (values: number[]) => (values.length > 0 ? values.reduce((a, b) => a
 
 const formatSleep = (minutes: number) => `${Math.floor(minutes / 60)}h ${String(Math.round(minutes % 60)).padStart(2, '0')}m`;
 
+/** One sentence for the biggest trend reason, or null when the trend added nothing. */
+function trendReason(trend: RecoveryTrend, t: (key: string, params?: Record<string, string | number>) => string): string | null {
+  switch (trend.reasons[0]) {
+    case 'sleepDebt':
+      return t('home.recoveryWhySleepDebt', { short: formatSleep(Math.round((trend.sleepDebtMin ?? 0) / 5) * 5) });
+    case 'hrvDrop':
+      return t('home.recoveryWhyHrvDrop', { pct: Math.round(Math.abs(trend.hrvWeekChange ?? 0) * 100) });
+    case 'hrvSwings':
+      return t('home.recoveryWhyHrvSwings');
+    case 'rhrRise':
+      return t('home.recoveryWhyRhrRise', { delta: Math.round(trend.rhrWeekDelta ?? 0) });
+    default:
+      return null;
+  }
+}
+
 const toDeltaTone = (good: boolean | null): MetricDeltaTone =>
   good === null ? 'neutral' : good ? 'good' : 'warn';
 
@@ -57,7 +74,7 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
         })
         .catch(() => {});
 
-      Promise.all([fetchTodayBiometricsFromServer(), fetchRecentBiometricsFromServer(8)])
+      Promise.all([fetchTodayBiometricsFromServer(), fetchRecoveryHistoryFromServer()])
         .then(([todayRow, recentRows]) => {
           if (!active) return;
           // Same numbers as last time: keep them, so the screen doesn't redraw on every visit.
@@ -93,10 +110,10 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
       byDate.set(today.date, merged);
     }
 
-    // Oldest -> newest, up to last 8 days
-    const days = Array.from(byDate.values())
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-8);
+    // Oldest -> newest. The tiles and "today vs the last 7 days" use the last 8 days; the
+    // trend (sleep debt, HRV and resting HR against the athlete's normal) all of them.
+    const history = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const days = history.slice(-8);
 
     if (days.length === 0) return null;
 
@@ -122,7 +139,7 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
       resting_hr: latestRhr ?? undefined,
     };
 
-    const strain = computeCardiovascularStrain(effectiveToday, days);
+    const strain = computeCardiovascularStrain(effectiveToday, days, history);
 
     const avgSleep = avg(sleepDays.slice(0, -1).map((d) => d.sleep_minutes!));
     const sleepDelta = latestSleep !== null && avgSleep !== null ? Math.round(latestSleep - avgSleep) : null;
@@ -184,6 +201,7 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
 
     return {
       level: strain.strainLevel,
+      trend: strain.trend,
       tiles: populatedTiles.length > 0 ? populatedTiles : allTiles,
     };
   }, [today, recent, t]);
@@ -193,7 +211,10 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
 
   const style = LEVEL_STYLE[view.level];
   const isLow = view.level === 'elevated' || view.level === 'high';
-  const advice = isRestDay ? t(isLow ? 'home.recoveryRestDayLow' : 'home.recoveryRestDayGood') : t(style.advice);
+  // "You're recovering well" only when nothing is off; from "Mostly recovered" on, the rest-day line is about sleep.
+  const advice = isRestDay ? t(view.level === 'none' ? 'home.recoveryRestDayGood' : 'home.recoveryRestDayLow') : t(style.advice);
+  // The tiles compare with last week only, so when the longer trend is what lowers the status, say so.
+  const why = view.level === 'none' ? null : trendReason(view.trend, t);
 
   return (
     <Card>
@@ -207,6 +228,7 @@ export function HomeRecoveryCard({ onAskAdjust, isRestDay = false }: HomeRecover
         <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: style.color }} />
         <Text className="text-base font-bold text-theme-text">{t(style.headline)}</Text>
       </View>
+      {why ? <Text className="text-xs text-theme-text mt-0.5 leading-snug">{why}</Text> : null}
       <Text className="text-xs text-theme-muted mt-0.5 leading-snug">{advice}</Text>
 
       <View className="flex-row gap-2.5 mt-3">

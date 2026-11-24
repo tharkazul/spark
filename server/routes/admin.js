@@ -412,18 +412,29 @@ router.get("/api/admin/onboarding-status/:userId", authenticateToken, async (req
 /* ---------------------------------------------------------------------------
  * Discount codes
  *
- * The list is the admin's Discount page: every code with a live count of how
- * many athletes have redeemed it and how many hold it right now. Counts are
- * queried rather than kept in a column so they cannot drift out of step with
- * the ledger they are derived from.
+ * The list is the admin's Discount page: every code with live counts of how
+ * many athletes redeemed it, how many hold it right now, and how many of its
+ * redeemers went on to start a paid subscription (from the RevenueCat webhook,
+ * production only, free-access grants excluded). Counts are queried rather
+ * than kept in a column so they cannot drift from the tables they come from.
  * ------------------------------------------------------------------------- */
 
 const pricing = require("../services/pricing");
 
-const DISCOUNT_LIST_QUERY = `
-    SELECT c.*,
+const DISCOUNT_COUNTS = `
            (SELECT COUNT(*) FROM discount_redemptions r WHERE r.code_id = c.id) AS redemption_count,
-           (SELECT COUNT(*) FROM user_discounts u WHERE u.code_id = c.id) AS active_holders
+           (SELECT COUNT(*) FROM user_discounts u WHERE u.code_id = c.id) AS active_holders,
+           (SELECT COUNT(DISTINCT r.user_id)
+              FROM discount_redemptions r
+              JOIN revenuecat_events e ON e.app_user_id = CAST(r.user_id AS TEXT)
+             WHERE r.code_id = c.id
+               AND e.type = 'INITIAL_PURCHASE'
+               AND COALESCE(e.store, '') != 'PROMOTIONAL'
+               AND COALESCE(e.environment, '') != 'SANDBOX'
+               AND e.received_at >= r.first_redeemed_at) AS subscribed_count`;
+
+const DISCOUNT_LIST_QUERY = `
+    SELECT c.*, ${DISCOUNT_COUNTS}
       FROM discount_codes c
      ORDER BY c.active DESC, c.created_at DESC
 `;
@@ -435,12 +446,12 @@ function serializeDiscount(row) {
     code: row.code,
     description: row.description || null,
     discountType: row.discount_type,
-    percentOff: row.percent_off != null ? Number(row.percent_off) : null,
-    fixedMonthlyPrice:
-      row.fixed_monthly_price != null ? Number(row.fixed_monthly_price) : null,
-    fixedYearlyPrice:
-      row.fixed_yearly_price != null ? Number(row.fixed_yearly_price) : null,
+    // Codes from before codes were tied to what the stores charge. They do
+    // nothing any more; the page shows them so their counts stay visible.
+    retired: pricing.isRetiredType(row.discount_type),
     durationMonths: row.duration_months != null ? Number(row.duration_months) : null,
+    durationDays: row.duration_days != null ? Number(row.duration_days) : null,
+    offeringId: row.offering_id || null,
     redemptionType: row.redemption_type,
     maxRedemptions: row.max_redemptions != null ? Number(row.max_redemptions) : null,
     validFrom: row.valid_from || null,
@@ -450,10 +461,8 @@ function serializeDiscount(row) {
     createdAt: row.created_at || null,
     redemptionCount: row.redemption_count || 0,
     activeHolders: row.active_holders || 0,
+    subscribedCount: row.subscribed_count || 0,
     remainingUses: cap === Infinity ? null : Math.max(0, cap - (row.redemption_count || 0)),
-    // What the two paywall boxes look like under this code, so the admin sees
-    // the same numbers the athlete will.
-    pricing: pricing.computePricing(row),
   };
 }
 
@@ -472,10 +481,7 @@ router.get("/api/admin/discounts", authenticateToken, (req, res) => {
 
 function respondWithSingleDiscount(res, id, extra = {}) {
   db.get(
-    `SELECT c.*,
-            (SELECT COUNT(*) FROM discount_redemptions r WHERE r.code_id = c.id) AS redemption_count,
-            (SELECT COUNT(*) FROM user_discounts u WHERE u.code_id = c.id) AS active_holders
-       FROM discount_codes c WHERE c.id = ?`,
+    `SELECT c.*, ${DISCOUNT_COUNTS} FROM discount_codes c WHERE c.id = ?`,
     [id],
     (err, row) => {
       if (err || !row) {
@@ -493,13 +499,12 @@ router.post("/api/admin/discounts", authenticateToken, (req, res) => {
 
   db.run(
     `INSERT INTO discount_codes
-       (code, description, discount_type, percent_off, fixed_monthly_price, fixed_yearly_price,
-        duration_months, redemption_type, max_redemptions, valid_from, valid_until, active, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (code, description, discount_type, duration_months, duration_days, offering_id,
+        redemption_type, max_redemptions, valid_from, valid_until, active, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      v.code, v.description, v.discountType, v.percentOff, v.fixedMonthlyPrice,
-      v.fixedYearlyPrice, v.durationMonths, v.redemptionType, v.maxRedemptions,
-      v.validFrom, v.validUntil, v.active, req.user.username,
+      v.code, v.description, v.discountType, v.durationMonths, v.durationDays, v.offeringId,
+      v.redemptionType, v.maxRedemptions, v.validFrom, v.validUntil, v.active, req.user.username,
     ],
     function (err) {
       if (err) {
@@ -526,16 +531,17 @@ router.put("/api/admin/discounts/:id", authenticateToken, (req, res) => {
   if (parsed.errors) return res.status(400).json({ error: parsed.errors.join(" ") });
   const v = parsed.value;
 
+  // The retired price columns are cleared so an edited code carries nothing
+  // from its old type.
   db.run(
     `UPDATE discount_codes SET
-        code = ?, description = ?, discount_type = ?, percent_off = ?,
-        fixed_monthly_price = ?, fixed_yearly_price = ?, duration_months = ?,
+        code = ?, description = ?, discount_type = ?, duration_months = ?, duration_days = ?,
+        offering_id = ?, percent_off = NULL, fixed_monthly_price = NULL, fixed_yearly_price = NULL,
         redemption_type = ?, max_redemptions = ?, valid_from = ?, valid_until = ?, active = ?
       WHERE id = ?`,
     [
-      v.code, v.description, v.discountType, v.percentOff, v.fixedMonthlyPrice,
-      v.fixedYearlyPrice, v.durationMonths, v.redemptionType, v.maxRedemptions,
-      v.validFrom, v.validUntil, v.active, id,
+      v.code, v.description, v.discountType, v.durationMonths, v.durationDays, v.offeringId,
+      v.redemptionType, v.maxRedemptions, v.validFrom, v.validUntil, v.active, id,
     ],
     function (err) {
       if (err) {
@@ -553,6 +559,28 @@ router.put("/api/admin/discounts/:id", authenticateToken, (req, res) => {
       respondWithSingleDiscount(res, id);
     },
   );
+});
+
+// PATCH /api/admin/discounts/:id/active { active } — the list's on/off switch.
+// Separate from PUT so a retired code can still be switched off without first
+// being converted to a current type.
+router.patch("/api/admin/discounts/:id/active", authenticateToken, (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  const active = req.body && req.body.active ? 1 : 0;
+
+  db.run(`UPDATE discount_codes SET active = ? WHERE id = ?`, [active, id], function (err) {
+    if (err) {
+      console.error("Failed to switch discount code:", err.message);
+      return res.status(500).json({ error: "Database error" });
+    }
+    if (this.changes === 0) return res.status(404).json({ error: "Code not found" });
+    db.run(
+      `INSERT INTO audit_logs (admin_username, action, target_username, details) VALUES (?, 'discount_update', NULL, ?)`,
+      [req.user.username, `Switched code ${id} ${active ? "on" : "off"}`],
+    );
+    respondWithSingleDiscount(res, id);
+  });
 });
 
 /**

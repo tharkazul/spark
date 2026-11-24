@@ -235,10 +235,9 @@
                     <thead>
                         <tr class="bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
                             <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Code</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Discount</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Duration</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Gives</th>
                             <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Usage</th>
-                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Athlete Pays</th>
+                            <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider" title="Redeemers who then started a paid App Store / Google Play subscription (production only)">Subscribed</th>
                             <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Window</th>
                             <th class="text-left p-4 font-bold text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="text-right p-4 font-bold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -246,7 +245,7 @@
                     </thead>
                     <tbody id="discountTableBody" class="text-sm divide-y divide-gray-100">
                         <tr>
-                            <td colspan="8" class="p-8 text-center text-gray-400">Loading discount codes...</td>
+                            <td colspan="7" class="p-8 text-center text-gray-400">Loading discount codes...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -420,56 +419,50 @@
                     </div>
                 </div>
 
-                <!-- 1. What it does to the price -->
+                <!-- 1. What the code gives -->
                 <fieldset class="border-t border-gray-200 pt-4 mb-5">
-                    <legend class="text-sm font-bold text-gray-900 mb-2">1 &middot; Discount type</legend>
+                    <legend class="text-sm font-bold text-gray-900 mb-2">1 &middot; What the code gives</legend>
                     <div class="flex flex-wrap gap-2 mb-3" id="dcTypeGroup">
-                        <label class="dc-chip"><input type="radio" name="dcType" value="percent" class="sr-only" checked><span>% off</span></label>
-                        <label class="dc-chip"><input type="radio" name="dcType" value="fixed_yearly" class="sr-only"><span>Fixed yearly price</span></label>
-                        <label class="dc-chip"><input type="radio" name="dcType" value="fixed_monthly" class="sr-only"><span>Fixed monthly price</span></label>
-                        <label class="dc-chip"><input type="radio" name="dcType" value="fixed_both" class="sr-only"><span>Fixed both prices</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcType" value="free_access" class="sr-only" checked><span>Free rooka+ period</span></label>
+                        <label class="dc-chip"><input type="radio" name="dcType" value="store_offer" class="sr-only"><span>Store offer (paid discount)</span></label>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div id="dcPercentWrap">
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Percent off</label>
-                            <input id="dcPercentOff" type="number" step="0.01" min="0" max="100" placeholder="25"
-                                class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-400 mt-1">Applied to both plans</p>
-                        </div>
-                        <div id="dcMonthlyWrap" class="hidden">
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Monthly price</label>
-                            <input id="dcFixedMonthly" type="number" step="0.01" min="0" placeholder="3.99"
-                                class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-400 mt-1">Replaces <span class="dc-base-monthly">…</span></p>
-                        </div>
-                        <div id="dcYearlyWrap" class="hidden">
-                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Yearly price</label>
-                            <input id="dcFixedYearly" type="number" step="0.01" min="0" placeholder="49.00"
-                                class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-400 mt-1">Replaces <span class="dc-base-yearly">…</span></p>
-                        </div>
-                    </div>
-                </fieldset>
 
-                <!-- 2. How long it lasts -->
-                <fieldset class="border-t border-gray-200 pt-4 mb-5">
-                    <legend class="text-sm font-bold text-gray-900 mb-2">2 &middot; Duration</legend>
-                    <div class="flex flex-wrap gap-2 mb-3">
-                        <label class="dc-chip"><input type="radio" name="dcDur" value="forever" class="sr-only" checked><span>Forever</span></label>
-                        <label class="dc-chip"><input type="radio" name="dcDur" value="months" class="sr-only"><span>For X months</span></label>
+                    <div id="dcFreeWrap">
+                        <div class="flex items-end gap-3 max-w-md">
+                            <div class="w-28">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Length</label>
+                                <input id="dcLength" type="number" min="1" step="1" placeholder="1"
+                                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="flex gap-2 pb-1">
+                                <label class="dc-chip"><input type="radio" name="dcUnit" value="days" class="sr-only"><span>Days</span></label>
+                                <label class="dc-chip"><input type="radio" name="dcUnit" value="months" class="sr-only" checked><span>Months</span></label>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2">rooka+ starts the moment the athlete applies the code, on iPhone and Android, with nothing to pay and no card needed. When it ends they go back to free and see the normal paywall. One free period per athlete, ever.</p>
                     </div>
-                    <div id="dcMonthsWrap" class="hidden max-w-xs">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Discounted months</label>
-                        <input id="dcDurationMonths" type="number" min="1" step="1" placeholder="3"
-                            class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-xs text-gray-400 mt-1">Then the price returns to normal</p>
+
+                    <div id="dcOfferWrap" class="hidden">
+                        <div class="max-w-md">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">RevenueCat offering identifier</label>
+                            <input id="dcOfferingId" type="text" placeholder="club20_3m" autocomplete="off"
+                                class="w-full border rounded px-3 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="text-xs text-gray-500 mt-2 space-y-1">
+                            <p>Athletes holding this code see this offering's paywall, with the prices Apple and Google will charge. The discount itself lives in the stores, so set these up first (several codes can share one offering):</p>
+                            <ul class="list-disc ml-5 space-y-0.5">
+                                <li><strong>App Store Connect:</strong> a monthly and a yearly subscription in the existing rooka+ group, each with an introductory offer for the discount (or priced at the discount for a permanent one). Submit them for review.</li>
+                                <li><strong>Play Console:</strong> two new base plans on <code>rooka_plus</code>, each with a &ldquo;new customer acquisition&rdquo; offer for the discount. Leave the existing <code>monthly</code> / <code>yearly</code> base plans alone.</li>
+                                <li><strong>RevenueCat:</strong> import the four products, attach them to the <code>rooka</code> entitlement, create the offering with Monthly and Annual packages under this identifier, and give it a paywall.</li>
+                            </ul>
+                            <p>Older app builds are asked to update before they can use a store-offer code.</p>
+                        </div>
                     </div>
-                    <p id="dcForeverNote" class="text-xs text-gray-400">Applies for as long as the athlete stays subscribed.</p>
                 </fieldset>
 
                 <!-- 3. How many can use it -->
                 <fieldset class="border-t border-gray-200 pt-4 mb-5">
-                    <legend class="text-sm font-bold text-gray-900 mb-2">3 &middot; Usage limit</legend>
+                    <legend class="text-sm font-bold text-gray-900 mb-2">2 &middot; Usage limit</legend>
                     <div class="flex flex-wrap gap-2 mb-3">
                         <label class="dc-chip"><input type="radio" name="dcUse" value="one_time" class="sr-only"><span>One time</span></label>
                         <label class="dc-chip"><input type="radio" name="dcUse" value="limited" class="sr-only"><span>Limited use</span></label>
@@ -497,13 +490,13 @@
                             <input id="dcValidUntil" type="date" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">Limits when the code can be redeemed — separate from how long the discount then lasts.</p>
+                    <p class="text-xs text-gray-400 mt-1">Limits when the code can be redeemed. A free period that has started always runs to its end; a store offer stops being shown once the window closes.</p>
                 </fieldset>
 
                 <label class="flex items-center gap-2 border-t border-gray-200 pt-4 mb-2 cursor-pointer">
                     <input id="dcActive" type="checkbox" checked class="w-4 h-4">
                     <span class="text-sm font-bold text-gray-700">Active</span>
-                    <span class="text-xs text-gray-400">— switching a code off also stops it for athletes already on it</span>
+                    <span class="text-xs text-gray-400">— switching a store offer off also stops it for athletes already holding it; running free periods are kept</span>
                 </label>
 
                 <p id="dcError" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm rounded px-3 py-2 my-3"></p>

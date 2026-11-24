@@ -12,7 +12,9 @@ export const LIVE_COACHING_ENABLED = false;
 // Mirrors QUESTS_ENABLED in server/services/utils.js.
 export const QUESTS_ENABLED = false;
 
-// Screens this build has that the server may point athletes to (sent as X-App-Caps).
-// The coach's feature reminders only mention a screen when the athlete's app has it.
-// Add a name here when a release adds a screen a reminder links to.
-export const APP_CAPABILITIES = ['health-connect', 'home-town'];
+// Features this build has that the server may rely on (sent as X-App-Caps).
+// The coach's feature reminders only mention a screen when the athlete's app has it,
+// and store-offer discount codes are only accepted from builds that can open the
+// code's own paywall (server/routes/discounts.js).
+// Add a name here when a release adds such a feature.
+export const APP_CAPABILITIES = ['health-connect', 'home-town', 'store-offer-codes'];

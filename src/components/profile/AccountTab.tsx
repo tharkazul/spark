@@ -9,14 +9,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Card } from '../ui/Card';
 import { ScalePressable } from '../ui/ScalePressable';
-import { discountApi, userApi } from '../../services/apiServices';
+import { userApi } from '../../services/apiServices';
 import { useLanguage } from '../../context/LanguageContext';
 import { useUser } from '../../context/UserStore';
 import { useCoachChatStore } from '../../context/CoachChatStore';
 import { useSubscription } from '../../context/SubscriptionStore';
-import { AppliedDiscount, DiscountValidationResult, PricingBreakdown } from '../../types/discount';
-import { DiscountCodeField } from '../subscription/DiscountCodeField';
-import { formatDate, formatDiscountSummary } from '../../utils/discountFormat';
+import { DiscountCodeCard } from '../subscription/DiscountCodeCard';
 import { formatTokens, formatCompactNumber } from '../../utils/format';
 import { LanguageSelector } from '../LanguageSelector';
 
@@ -139,82 +137,6 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
             }
           }
         }
-      ]
-    );
-  };
-
-  /* --- Discount code -------------------------------------------------------
-   * The athlete holds at most one code. Editing means entering a different one,
-   * which replaces it; the numbers shown are always the server's.
-   * ---------------------------------------------------------------------- */
-  const [discount, setDiscount] = useState<AppliedDiscount | null>(null);
-  const [discountPricing, setDiscountPricing] = useState<PricingBreakdown | null>(null);
-  const [loadingDiscount, setLoadingDiscount] = useState(true);
-  const [editingDiscount, setEditingDiscount] = useState(false);
-  const [pendingDiscount, setPendingDiscount] = useState<DiscountValidationResult | null>(null);
-  const [savingDiscount, setSavingDiscount] = useState(false);
-
-  const loadDiscount = async () => {
-    try {
-      const res = await discountApi.mine();
-      setDiscount(res.discount);
-      setDiscountPricing(res.pricing);
-    } catch (err) {
-      console.log('Could not load discount:', err);
-    } finally {
-      setLoadingDiscount(false);
-    }
-  };
-
-  useEffect(() => {
-    loadDiscount();
-  }, []);
-
-  const handleApplyDiscount = async () => {
-    const code = pendingDiscount?.code?.code;
-    if (!code) return;
-    setSavingDiscount(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      await discountApi.apply(code);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setEditingDiscount(false);
-      setPendingDiscount(null);
-      await loadDiscount();
-    } catch (err: any) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(t('accountMsgs.discountTitle'), err?.data?.error || err?.message || t('accountMsgs.discountApplyFailed'));
-    } finally {
-      setSavingDiscount(false);
-    }
-  };
-
-  const handleRemoveDiscount = () => {
-    Alert.alert(
-      t('accountMsgs.removeDiscountTitle'),
-      discountPricing
-        ? t('accountMsgs.removeDiscountBodyPrice', { price: `${discountPricing.currency}${discountPricing.yearly.original.toFixed(2)}` })
-        : t('accountMsgs.removeDiscountBody'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.remove'),
-          style: 'destructive',
-          onPress: async () => {
-            setSavingDiscount(true);
-            try {
-              await discountApi.remove();
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setEditingDiscount(false);
-              setPendingDiscount(null);
-              await loadDiscount();
-            } catch (err: any) {
-              Alert.alert(t('accountMsgs.discountTitle'), err?.message || t('accountMsgs.discountRemoveFailed'));
-            } finally {
-              setSavingDiscount(false);
-            }
-          },
-        },
       ]
     );
   };
@@ -441,152 +363,8 @@ export const AccountTab: React.FC<AccountTabProps> = ({ onLogout, isRookaPlus })
           </TouchableOpacity>
         )}
 
-        {/* MANAGE DISCOUNT CODE */}
-        <View className="mt-3 p-3 bg-theme-bg rounded-xl">
-          <View className="flex-row items-center justify-between mb-2">
-            <View className="flex-row items-center flex-1 pr-2">
-              <Ionicons name="pricetag-outline" size={18} color={theme.textSecondary} />
-              <Text className="text-theme-text font-bold text-xs ml-3">{t('account.manageDiscountCode')}</Text>
-            </View>
-            {loadingDiscount ? <ActivityIndicator size="small" color={theme.tint} /> : null}
-          </View>
-
-          {loadingDiscount ? null : discount && !editingDiscount ? (
-            <>
-              {/* The code currently on the account */}
-              <View
-                className={`p-3 rounded-xl border mb-2 ${
-                  discount.active
-                    ? 'bg-semantic-success/10 border-semantic-success/30'
-                    : 'bg-semantic-warning/10 border-semantic-warning/30'
-                }`}
-              >
-                <View className="flex-row items-center justify-between">
-                  <Text
-                    className={`font-extrabold text-sm tracking-wider ${
-                      discount.active ? 'text-semantic-success' : 'text-semantic-warning'
-                    }`}
-                  >
-                    {discount.code}
-                  </Text>
-                  <Text
-                    className={`text-[10px] font-extrabold uppercase ${
-                      discount.active ? 'text-semantic-success' : 'text-semantic-warning'
-                    }`}
-                  >
-                    {discount.active ? t('common.active') : discount.expired ? t('accountMsgs.expired') : t('accountMsgs.inactive')}
-                  </Text>
-                </View>
-                <Text className="text-theme-text text-xs mt-1">
-                  {formatDiscountSummary(discount, discountPricing?.currency || '€')}
-                </Text>
-                {discount.expiresAt ? (
-                  <Text className="text-theme-muted text-[10px] mt-0.5">
-                    {discount.expired
-                      ? t('accountMsgs.endedOn', { date: formatDate(discount.expiresAt) })
-                      : t('accountMsgs.runsUntil', { date: formatDate(discount.expiresAt) })}
-                  </Text>
-                ) : null}
-              </View>
-
-              {/* What they pay under it — server-computed, same as the paywall */}
-              {discountPricing ? (
-                <View className="flex-row justify-between p-3 bg-theme-card rounded-tile mb-2">
-                  <View>
-                    <Text className="text-[10px] font-bold text-theme-muted uppercase">{t('accountMsgs.monthly')}</Text>
-                    <View className="flex-row items-baseline gap-1.5">
-                      <Text className="text-sm font-extrabold text-theme-text">
-                        {discountPricing.currency}{discountPricing.monthly.final.toFixed(2)}
-                      </Text>
-                      {discountPricing.monthly.discounted ? (
-                        <Text className="text-[10px] text-theme-muted line-through">
-                          {discountPricing.currency}{discountPricing.monthly.original.toFixed(2)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-[10px] font-bold text-theme-muted uppercase">{t('accountMsgs.yearly')}</Text>
-                    <View className="flex-row items-baseline gap-1.5">
-                      <Text className="text-sm font-extrabold text-theme-text">
-                        {discountPricing.currency}{discountPricing.yearly.final.toFixed(2)}
-                      </Text>
-                      {discountPricing.yearly.discounted ? (
-                        <Text className="text-[10px] text-theme-muted line-through">
-                          {discountPricing.currency}{discountPricing.yearly.original.toFixed(2)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                </View>
-              ) : null}
-
-              <View className="flex-row gap-2">
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setPendingDiscount(null);
-                    setEditingDiscount(true);
-                  }}
-                  disabled={savingDiscount}
-                  className="flex-1 py-2.5 rounded-xl bg-theme-accent/15 border border-theme-accent/30 items-center"
-                >
-                  <Text className="text-theme-accent font-bold text-xs">{t('account.changeCode')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleRemoveDiscount}
-                  disabled={savingDiscount}
-                  className="flex-1 py-2.5 rounded-xl bg-semantic-error/10 border border-semantic-error/30 items-center"
-                >
-                  {savingDiscount ? (
-                    <ActivityIndicator size="small" color="#EF4444" />
-                  ) : (
-                    <Text className="text-semantic-error font-bold text-xs">{t('common.remove')}</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text className="text-theme-muted text-[11px] mb-2">
-                {discount
-                  ? t('accountMsgs.replaceCode', { code: discount.code })
-                  : t('accountMsgs.haveCode')}
-              </Text>
-              <DiscountCodeField
-                onResult={setPendingDiscount}
-                disabled={savingDiscount}
-                placeholder={t('accountMsgs.discountPlaceholder')}
-              />
-              <View className="flex-row gap-2 mt-2.5">
-                <TouchableOpacity
-                  onPress={handleApplyDiscount}
-                  disabled={!pendingDiscount?.valid || savingDiscount}
-                  className={`flex-1 py-2.5 rounded-xl items-center ${
-                    pendingDiscount?.valid && !savingDiscount ? 'bg-theme-accent' : 'bg-theme-accent/40'
-                  }`}
-                >
-                  {savingDiscount ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <Text className="text-white font-bold text-xs">{t('account.applyCode')}</Text>
-                  )}
-                </TouchableOpacity>
-                {discount ? (
-                  <TouchableOpacity
-                    onPress={() => {
-                      setEditingDiscount(false);
-                      setPendingDiscount(null);
-                    }}
-                    disabled={savingDiscount}
-                    className="flex-1 py-2.5 rounded-xl border border-theme-border items-center"
-                  >
-                    <Text className="text-theme-muted font-bold text-xs">{t('common.cancel')}</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </>
-          )}
+        <View className="mt-3">
+          <DiscountCodeCard isMember={isMember} />
         </View>
       </Card>
 

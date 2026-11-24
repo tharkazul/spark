@@ -137,6 +137,14 @@ cron.schedule('0 0 * * *', () => {
   timezone: "Europe/Amsterdam"
 });
 
+// Free periods from free-access discount codes: back to free once one ends (services/freeAccess.js).
+cron.schedule('23 * * * *', () => {
+  require("./services/freeAccess").expireEndedFreeAccess().catch((err) => console.error("[FreeAccess] hourly check failed:", err));
+}, {
+  scheduled: true,
+  timezone: "Europe/Amsterdam"
+});
+
 // Usage statistics: today and yesterday every hour, the whole open window (85 days) nightly,
 // which also deletes raw events older than 90 days. The summaries the admin charts read stay.
 cron.schedule('7 * * * *', () => {

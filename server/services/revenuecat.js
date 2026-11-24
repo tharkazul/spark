@@ -35,4 +35,34 @@ async function hasActiveRookaEntitlement(userId) {
   return entitlementIsActive(body?.subscriber?.entitlements?.[ROOKA_ENTITLEMENT]);
 }
 
-module.exports = { isConfigured, entitlementIsActive, hasActiveRookaEntitlement, ROOKA_ENTITLEMENT };
+// Gives the athlete the `rooka` entitlement until endTimeMs without any store
+// purchase (RevenueCat "promotional" grant). Used for free-access discount
+// codes; the app sees it in CustomerInfo like any subscription. Throws when the
+// key is missing or RevenueCat refuses.
+async function grantPromotionalRooka(userId, endTimeMs) {
+  const key = process.env.REVENUECAT_SECRET_KEY;
+  if (!key) throw new Error("REVENUECAT_SECRET_KEY is not set");
+  if (!Number.isFinite(endTimeMs) || endTimeMs <= Date.now()) {
+    throw new Error("Promotional end time must lie in the future");
+  }
+
+  const url = `${API_BASE}/subscribers/${encodeURIComponent(String(userId))}/entitlements/${ROOKA_ENTITLEMENT}/promotional`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ end_time_ms: Math.floor(endTimeMs) }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw new Error(`RevenueCat responded ${res.status}`);
+
+  const body = await res.json().catch(() => null);
+  return entitlementIsActive(body?.subscriber?.entitlements?.[ROOKA_ENTITLEMENT]);
+}
+
+module.exports = {
+  isConfigured,
+  entitlementIsActive,
+  hasActiveRookaEntitlement,
+  grantPromotionalRooka,
+  ROOKA_ENTITLEMENT,
+};

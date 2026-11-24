@@ -20,6 +20,7 @@ import {
   getCachedTodayBiometrics,
   fetchTodayBiometricsFromServer,
   fetchRecentBiometricsFromServer,
+  fetchRecoveryHistoryFromServer,
 } from '../../services/appleHealthService';
 
 interface HealthTabProps {
@@ -38,6 +39,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [todayBiometrics, setTodayBiometrics] = useState<AppleHealthDailyBiometrics | null>(null);
   const [recentBiometrics, setRecentBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
+  const [historyBiometrics, setHistoryBiometrics] = useState<AppleHealthDailyBiometrics[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +51,9 @@ export const HealthTab: React.FC<HealthTabProps> = ({
     });
     fetchRecentBiometricsFromServer(7).then((recent) => {
       if (!cancelled && Array.isArray(recent)) setRecentBiometrics(recent);
+    });
+    fetchRecoveryHistoryFromServer().then((history) => {
+      if (!cancelled && Array.isArray(history)) setHistoryBiometrics(history);
     });
     return () => {
       cancelled = true;
@@ -143,6 +148,7 @@ export const HealthTab: React.FC<HealthTabProps> = ({
           onSelectBodyPart={handleSelectBodyPart}
           biometrics={todayBiometrics}
           recentBiometrics={recentBiometrics}
+          historyBiometrics={historyBiometrics}
         />
       </Card>
 

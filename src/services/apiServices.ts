@@ -435,7 +435,7 @@ export const adminApi = {
 
 export const discountApi = {
   /**
-   * Price preview with no side effects — safe to call on every keystroke, and
+   * Preview with no side effects — safe to call on every keystroke, and
    * it will not burn a one-time code before the athlete commits.
    */
   validate: (code: string) =>

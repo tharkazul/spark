@@ -43,6 +43,8 @@ export interface AnatomicalBodyMapProps {
   genderOverride?: BodyGender;
   biometrics?: AppleHealthDailyBiometrics | null;
   recentBiometrics?: AppleHealthDailyBiometrics[];
+  /** Up to 30 days for the recovery trend (fetchRecoveryHistoryFromServer); without it, the trend only sees recentBiometrics. */
+  historyBiometrics?: AppleHealthDailyBiometrics[];
 }
 
 export const BODY_PARTS_LOOKUP: Record<string, string> = {
@@ -380,6 +382,7 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
   genderOverride,
   biometrics,
   recentBiometrics = [],
+  historyBiometrics,
   highlightParts,
   initialView,
 }) => {
@@ -412,10 +415,10 @@ export const AnatomicalBodyMap: React.FC<AnatomicalBodyMapProps> = ({
 
   // Compute systemic cardiovascular & autonomic recovery strain:
   const cardioStrain = useMemo(() => {
-    return computeCardiovascularStrain(isExerciseMode ? null : biometrics, isExerciseMode ? [] : recentBiometrics);
+    return computeCardiovascularStrain(isExerciseMode ? null : biometrics, isExerciseMode ? [] : recentBiometrics, isExerciseMode ? [] : historyBiometrics);
     // `t` changes with the language, so the localized strain copy is recomputed too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [biometrics, recentBiometrics, t]);
+  }, [biometrics, recentBiometrics, historyBiometrics, t]);
 
   // Load persisted size preference on mount if not provided as initialSize:
   useEffect(() => {

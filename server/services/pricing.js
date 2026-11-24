@@ -1,29 +1,44 @@
 /**
- * Subscription pricing and discount-code evaluation.
+ * Subscription list price and discount-code rules.
  *
- * This module is the single authority for what an athlete pays. The client
- * deliberately does NOT recompute discounted prices — it renders the numbers
- * produced here (see POST /api/discounts/validate) — so the onboarding paywall,
- * the account screen and the admin list can never drift apart the way two
- * copies of the same arithmetic always eventually do.
+ * The server never computes a discounted price. Apple and Google charge the
+ * athlete, per country and in their own currency, so a number worked out here
+ * could only ever be a promise the store does not keep. What a code does is
+ * one of two things the server can actually honour:
+ *
+ *   free_access  – N days or months of rooka+ with nothing to pay, granted
+ *                  server-side through RevenueCat (see routes/discounts.js).
+ *   store_offer  – the athlete is shown a different RevenueCat offering whose
+ *                  App Store / Google Play products carry the discount. The app
+ *                  shows the store's own prices for it, which is what the store
+ *                  then charges.
+ *
+ * This module stays the authority on WHO gets a deal: whether a code exists,
+ * is switched on, is inside its window and has uses left, and when a free
+ * period ends.
  */
 
+// List price, as set in App Store Connect and Play Console for the euro
+// storefronts. Only for the admin page's summary line; the app shows the
+// store's localized price.
 const BASE_PRICING = {
   currency: "€",
   monthly: 6.99,
   yearly: 69.99,
 };
 
-/**
- * What the code does to the price. Orthogonal to how long it lasts
- * (duration_months) and to how many athletes may use it (redemption_type).
- */
+/** What a code does. */
 const DISCOUNT_TYPES = [
-  "percent", // X% off both plans
-  "fixed_yearly", // yearly plan costs exactly N, monthly untouched
-  "fixed_monthly", // monthly plan costs exactly N, yearly untouched
-  "fixed_both", // both plans pinned to their own fixed price
+  "free_access", // N days or months of rooka+, nothing to pay
+  "store_offer", // a RevenueCat offering with discounted store products
 ];
+
+/**
+ * Types from before codes were tied to what the stores charge. They priced
+ * the paywall on the server, which Apple and Google never saw, so a code of
+ * one of these types no longer does anything and cannot be created again.
+ */
+const RETIRED_DISCOUNT_TYPES = ["percent", "fixed_yearly", "fixed_monthly", "fixed_both"];
 
 const REDEMPTION_TYPES = [
   "one_time", // exactly one athlete may ever redeem it
@@ -31,12 +46,14 @@ const REDEMPTION_TYPES = [
   "unlimited", // no cap
 ];
 
+// RevenueCat offering identifiers: letters, digits and . _ - only.
+const OFFERING_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+
+const MAX_FREE_MONTHS = 24;
+const MAX_FREE_DAYS = 365;
+
 function round2(n) {
   return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-}
-
-function clamp(n, min, max) {
-  return Math.min(max, Math.max(min, n));
 }
 
 /**
@@ -48,6 +65,10 @@ function normalizeCode(raw) {
     .trim()
     .toUpperCase()
     .replace(/\s+/g, "");
+}
+
+function isRetiredType(type) {
+  return !DISCOUNT_TYPES.includes(type);
 }
 
 /**
@@ -85,6 +106,7 @@ function evaluateCodeAvailability(row, opts = {}) {
   } = opts;
 
   if (!row) return { ok: false, reason: "not_found" };
+  if (isRetiredType(row.discount_type)) return { ok: false, reason: "retired" };
   if (!row.active) return { ok: false, reason: "inactive" };
 
   if (row.valid_from && now < new Date(row.valid_from)) {
@@ -101,12 +123,38 @@ function evaluateCodeAvailability(row, opts = {}) {
   return { ok: true };
 }
 
+/**
+ * Whether this athlete may take this code, beyond the code itself being
+ * usable. Kept apart from evaluateCodeAvailability because it depends on the
+ * athlete, not the code.
+ *
+ *   athlete.tier             users.subscription_tier
+ *   athlete.hadFreeAccess    true when any earlier code already gave them a
+ *                            free period (one per athlete, ever, so codes
+ *                            from different clubs cannot be chained)
+ *   athlete.supportsOffers   the app build can show a store offer's paywall
+ */
+function evaluateAthleteEligibility(row, athlete = {}) {
+  if (athlete.tier === "rooka_plus") return { ok: false, reason: "already_subscribed" };
+  if (row.discount_type === "free_access" && athlete.hadFreeAccess) {
+    return { ok: false, reason: "free_access_used" };
+  }
+  if (row.discount_type === "store_offer" && !athlete.supportsOffers) {
+    return { ok: false, reason: "update_required" };
+  }
+  return { ok: true };
+}
+
 const AVAILABILITY_MESSAGES = {
   not_found: "That discount code does not exist.",
   inactive: "That discount code is no longer active.",
+  retired: "That discount code is no longer active.",
   not_started: "That discount code is not active yet.",
   expired: "That discount code has expired.",
   exhausted: "That discount code has reached its usage limit.",
+  already_subscribed: "You already have rooka+, so there is nothing for this code to do.",
+  free_access_used: "You have already had a free rooka+ period.",
+  update_required: "Update rooka to use this code.",
 };
 
 function availabilityMessage(reason) {
@@ -114,140 +162,98 @@ function availabilityMessage(reason) {
 }
 
 /**
- * When a discount applied now stops applying. NULL duration means it rides
- * along for as long as the subscription does.
+ * When a free period granted now ends. Store offers have no end of their own:
+ * the store product decides how long its discount lasts, and the code's
+ * redemption window decides how long the offer stays on show.
  */
 function computeExpiry(row, from = new Date()) {
-  const months = Number(row && row.duration_months);
-  if (!Number.isFinite(months) || months <= 0) return null;
+  if (!row || row.discount_type !== "free_access") return null;
+  const months = Number(row.duration_months);
+  const days = Number(row.duration_days);
   const end = new Date(from.getTime());
-  end.setMonth(end.getMonth() + Math.floor(months));
-  return end.toISOString();
+  if (Number.isFinite(months) && months > 0) {
+    end.setMonth(end.getMonth() + Math.floor(months));
+    return end.toISOString();
+  }
+  if (Number.isFinite(days) && days > 0) {
+    end.setDate(end.getDate() + Math.floor(days));
+    return end.toISOString();
+  }
+  return null;
 }
 
 /**
- * The paywall's two price boxes, discounted or not.
- *
- * Passing a falsy `code` yields list price, which is what the free/base state
- * renders — so there is exactly one code path behind both states.
+ * List price in the old paywall shape. Older app builds still render
+ * `pricing` from the discount endpoints; sending list price there means they
+ * can never again show a discount the store will not give.
  */
-function computePricing(code) {
-  let monthly = BASE_PRICING.monthly;
-  let yearly = BASE_PRICING.yearly;
-
-  if (code) {
-    switch (code.discount_type) {
-      case "percent": {
-        const pct = clamp(Number(code.percent_off) || 0, 0, 100);
-        monthly = BASE_PRICING.monthly * (1 - pct / 100);
-        yearly = BASE_PRICING.yearly * (1 - pct / 100);
-        break;
-      }
-      case "fixed_monthly":
-        monthly = Math.max(0, Number(code.fixed_monthly_price) || 0);
-        break;
-      case "fixed_yearly":
-        yearly = Math.max(0, Number(code.fixed_yearly_price) || 0);
-        break;
-      case "fixed_both":
-        monthly = Math.max(0, Number(code.fixed_monthly_price) || 0);
-        yearly = Math.max(0, Number(code.fixed_yearly_price) || 0);
-        break;
-      default:
-        break;
-    }
-  }
-
-  monthly = round2(monthly);
-  yearly = round2(yearly);
-
-  // The "SAVE x%" badge on the annual box is derived, not hardcoded, so it stays
-  // truthful once a code moves one price and not the other.
-  const yearlyVsMonthly = monthly > 0 ? 1 - yearly / (monthly * 12) : 0;
-
+function computePricing() {
+  const monthly = BASE_PRICING.monthly;
+  const yearly = BASE_PRICING.yearly;
   return {
     currency: BASE_PRICING.currency,
-    monthly: {
-      original: BASE_PRICING.monthly,
-      final: monthly,
-      discounted: monthly !== BASE_PRICING.monthly,
-    },
+    monthly: { original: monthly, final: monthly, discounted: false },
     yearly: {
-      original: BASE_PRICING.yearly,
+      original: yearly,
       final: yearly,
-      discounted: yearly !== BASE_PRICING.yearly,
-      originalPerMonth: round2(BASE_PRICING.yearly / 12),
+      discounted: false,
+      originalPerMonth: round2(yearly / 12),
       perMonth: round2(yearly / 12),
     },
-    annualSavingsPercent: Math.max(0, Math.round(yearlyVsMonthly * 100)),
+    annualSavingsPercent: Math.max(0, Math.round((1 - yearly / (monthly * 12)) * 100)),
   };
 }
 
 /**
- * The client-facing shape of a code: enough to render "40% off for 3 months"
- * without exposing usage caps or who else holds it.
+ * The client-facing shape of a code: enough to say "1 month of rooka+ free" or
+ * open the right offering, without usage caps, who else holds it, or the
+ * admin's internal description.
  */
 function publicCode(row, expiresAt) {
   if (!row) return null;
   return {
     code: row.code,
-    description: row.description || null,
     discountType: row.discount_type,
-    percentOff: row.percent_off != null ? Number(row.percent_off) : null,
-    fixedMonthlyPrice:
-      row.fixed_monthly_price != null ? Number(row.fixed_monthly_price) : null,
-    fixedYearlyPrice:
-      row.fixed_yearly_price != null ? Number(row.fixed_yearly_price) : null,
-    durationMonths:
-      row.duration_months != null ? Number(row.duration_months) : null,
+    durationMonths: row.duration_months != null ? Number(row.duration_months) : null,
+    durationDays: row.duration_days != null ? Number(row.duration_days) : null,
+    offeringId: row.discount_type === "store_offer" ? row.offering_id || null : null,
     expiresAt: expiresAt || null,
   };
 }
 
-/**
- * Rejects a half-specified code before it can reach the paywall and render a
- * price of €0 or NaN.
- */
+/** Rejects a half-specified code before an athlete can redeem it. */
 function validateCodeDefinition(input) {
   const errors = [];
   const code = normalizeCode(input.code);
 
   if (!code) errors.push("Code is required.");
   else if (!/^[A-Z0-9._-]{2,32}$/.test(code)) {
-    errors.push(
-      "Code must be 2-32 characters, letters/numbers/._- only.",
-    );
+    errors.push("Code must be 2-32 characters, letters/numbers/._- only.");
   }
 
-  if (!DISCOUNT_TYPES.includes(input.discountType)) {
-    errors.push(`Type must be one of: ${DISCOUNT_TYPES.join(", ")}.`);
+  const type = input.discountType;
+  if (!DISCOUNT_TYPES.includes(type)) {
+    errors.push("Type must be free access or store offer.");
   }
 
   const num = (v) => (v === "" || v == null ? null : Number(v));
-  const percentOff = num(input.percentOff);
-  const fixedMonthly = num(input.fixedMonthlyPrice);
-  const fixedYearly = num(input.fixedYearlyPrice);
+  const durationMonths = num(input.durationMonths);
+  const durationDays = num(input.durationDays);
+  const offeringId = String(input.offeringId || "").trim();
 
-  if (input.discountType === "percent") {
-    if (!Number.isFinite(percentOff) || percentOff <= 0 || percentOff > 100) {
-      errors.push("Percent off must be between 0 and 100.");
+  if (type === "free_access") {
+    const hasMonths = durationMonths != null;
+    const hasDays = durationDays != null;
+    if (hasMonths === hasDays) {
+      errors.push("Free access needs a length in days or in months.");
+    } else if (hasMonths && !(Number.isInteger(durationMonths) && durationMonths >= 1 && durationMonths <= MAX_FREE_MONTHS)) {
+      errors.push(`Free months must be a whole number from 1 to ${MAX_FREE_MONTHS}.`);
+    } else if (hasDays && !(Number.isInteger(durationDays) && durationDays >= 1 && durationDays <= MAX_FREE_DAYS)) {
+      errors.push(`Free days must be a whole number from 1 to ${MAX_FREE_DAYS}.`);
     }
   }
-  if (
-    input.discountType === "fixed_monthly" ||
-    input.discountType === "fixed_both"
-  ) {
-    if (!Number.isFinite(fixedMonthly) || fixedMonthly < 0) {
-      errors.push("Fixed monthly price must be 0 or more.");
-    }
-  }
-  if (
-    input.discountType === "fixed_yearly" ||
-    input.discountType === "fixed_both"
-  ) {
-    if (!Number.isFinite(fixedYearly) || fixedYearly < 0) {
-      errors.push("Fixed yearly price must be 0 or more.");
-    }
+  if (type === "store_offer" && !OFFERING_ID_PATTERN.test(offeringId)) {
+    errors.push("Store offers need the RevenueCat offering identifier (letters, numbers, . _ - only).");
   }
 
   const redemptionType = input.redemptionType || "unlimited";
@@ -259,14 +265,6 @@ function validateCodeDefinition(input) {
     if (!Number.isFinite(maxRedemptions) || maxRedemptions < 1) {
       errors.push("Limited-use codes need a max number of uses of 1 or more.");
     }
-  }
-
-  const durationMonths = num(input.durationMonths);
-  if (
-    durationMonths != null &&
-    (!Number.isFinite(durationMonths) || durationMonths < 1)
-  ) {
-    errors.push("Duration in months must be 1 or more, or left empty.");
   }
 
   const isoOrNull = (v) => {
@@ -289,24 +287,14 @@ function validateCodeDefinition(input) {
     value: {
       code,
       description: (input.description || "").trim() || null,
-      discountType: input.discountType,
-      // Only the fields the chosen type actually uses are stored, so a type
-      // change can never leave a stale price behind to be picked up later.
-      percentOff: input.discountType === "percent" ? percentOff : null,
-      fixedMonthlyPrice:
-        input.discountType === "fixed_monthly" ||
-        input.discountType === "fixed_both"
-          ? fixedMonthly
-          : null,
-      fixedYearlyPrice:
-        input.discountType === "fixed_yearly" ||
-        input.discountType === "fixed_both"
-          ? fixedYearly
-          : null,
-      durationMonths: durationMonths != null ? Math.floor(durationMonths) : null,
+      discountType: type,
+      // Only the fields the chosen type uses are stored, so a type change can
+      // never leave a stale length or offering behind to be picked up later.
+      durationMonths: type === "free_access" ? durationMonths : null,
+      durationDays: type === "free_access" ? durationDays : null,
+      offeringId: type === "store_offer" ? offeringId : null,
       redemptionType,
-      maxRedemptions:
-        redemptionType === "limited" ? Math.floor(maxRedemptions) : null,
+      maxRedemptions: redemptionType === "limited" ? Math.floor(maxRedemptions) : null,
       validFrom: validFrom || null,
       validUntil: validUntil || null,
       active: input.active === undefined ? 1 : input.active ? 1 : 0,
@@ -317,10 +305,13 @@ function validateCodeDefinition(input) {
 module.exports = {
   BASE_PRICING,
   DISCOUNT_TYPES,
+  RETIRED_DISCOUNT_TYPES,
   REDEMPTION_TYPES,
   normalizeCode,
+  isRetiredType,
   redemptionCap,
   evaluateCodeAvailability,
+  evaluateAthleteEligibility,
   availabilityMessage,
   computeExpiry,
   computePricing,

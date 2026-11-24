@@ -15,11 +15,14 @@ import {
 interface CardioRecoveryTrendsCardProps {
   todayBiometrics?: AppleHealthDailyBiometrics | null;
   recentBiometrics?: AppleHealthDailyBiometrics[];
+  /** Up to 30 days for the recovery trend (fetchRecoveryHistoryFromServer); without it, the trend only sees recentBiometrics. */
+  historyBiometrics?: AppleHealthDailyBiometrics[];
 }
 
 export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> = ({
   todayBiometrics,
   recentBiometrics = [],
+  historyBiometrics,
 }) => {
   const theme = useTheme();
   const { t } = useLanguage();
@@ -54,7 +57,7 @@ export const CardioRecoveryTrendsCard: React.FC<CardioRecoveryTrendsCardProps> =
     return null;
   }
 
-  const strain = computeCardiovascularStrain(todayBiometrics, recentBiometrics);
+  const strain = computeCardiovascularStrain(todayBiometrics, recentBiometrics, historyBiometrics);
 
   const getStrainStyle = () => {
     switch (strain.strainLevel) {

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { translate as tr } from '../locales/i18n';
 import Purchases, {
   CustomerInfo,
+  INTRO_ELIGIBILITY_STATUS,
   LOG_LEVEL,
   PURCHASES_ERROR_CODE,
   PurchasesOffering,
@@ -140,6 +141,68 @@ export async function getCustomerInfo(): Promise<CustomerInfo | null> {
 }
 
 /**
+ * Fetch CustomerInfo straight from RevenueCat, skipping the SDK's cache. Needed
+ * after the server grants rooka+ (a free-access code): the cached copy would
+ * still say "not subscribed" for several minutes.
+ */
+export async function getFreshCustomerInfo(): Promise<CustomerInfo | null> {
+  if (!isConfigured || Platform.OS === 'web') return null;
+  try {
+    await Purchases.invalidateCustomerInfoCache();
+    return await Purchases.getCustomerInfo();
+  } catch (error) {
+    console.error('[RevenueCat] Error refreshing customer info:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch a specific offering by its RevenueCat identifier, e.g. the one a
+ * store-offer discount code points at. Null when it does not exist (or has no
+ * products this store can sell), so the caller falls back to the default.
+ */
+export async function getOfferingById(identifier: string): Promise<PurchasesOffering | null> {
+  if (!isConfigured || Platform.OS === 'web' || !identifier) return null;
+  try {
+    const offerings = await Purchases.getOfferings();
+    const offering = offerings.all[identifier] ?? null;
+    return offering && offering.availablePackages.length > 0 ? offering : null;
+  } catch (error) {
+    console.error('[RevenueCat] Error fetching offering:', identifier, error);
+    return null;
+  }
+}
+
+/**
+ * Whether the athlete gets each product's introductory price, by product id.
+ * true / false only when the store says so; null when it cannot tell, in which
+ * case the regular price is what to show (RevenueCat's own advice).
+ *
+ * On Android the SDK cannot answer, but Google only returns the offers the
+ * athlete qualifies for, so a product's intro price is theirs if it has one.
+ */
+export async function getIntroEligibility(products: { identifier: string; hasIntro: boolean }[]): Promise<Record<string, boolean | null>> {
+  const result: Record<string, boolean | null> = {};
+  if (Platform.OS === 'android') {
+    products.forEach((p) => { result[p.identifier] = p.hasIntro; });
+    return result;
+  }
+  products.forEach((p) => { result[p.identifier] = null; });
+  if (!isConfigured || Platform.OS !== 'ios' || products.length === 0) return result;
+  try {
+    const statuses = await Purchases.checkTrialOrIntroductoryPriceEligibility(products.map((p) => p.identifier));
+    Object.entries(statuses).forEach(([id, info]) => {
+      if (info.status === INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE) result[id] = true;
+      else if (info.status === INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_INELIGIBLE) result[id] = false;
+      else if (info.status === INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_NO_INTRO_OFFER_EXISTS) result[id] = false;
+    });
+  } catch (error) {
+    console.warn('[RevenueCat] Intro eligibility check failed:', error);
+  }
+  return result;
+}
+
+/**
  * Fetch current offerings and packages (Monthly / Yearly)
  */
 export async function getOfferings(): Promise<PurchasesOffering | null> {
@@ -201,16 +264,17 @@ export async function restorePurchases(): Promise<{
 
 /**
  * Present RevenueCatUI Paywall
- * Opens the native RevenueCat remote paywall modal
+ * Opens the native RevenueCat remote paywall modal for `offering`, or for the
+ * current (default) offering when none is given.
  */
-export async function presentPaywall(): Promise<PAYWALL_RESULT> {
+export async function presentPaywall(offering?: PurchasesOffering | null): Promise<PAYWALL_RESULT> {
   if (Platform.OS === 'web') {
     console.warn('[RevenueCatUI] Paywalls are not supported on Web.');
     return PAYWALL_RESULT.NOT_PRESENTED;
   }
 
   try {
-    const result = await RevenueCatUI.presentPaywall();
+    const result = await RevenueCatUI.presentPaywall(offering ? { offering } : undefined);
     return result;
   } catch (error: any) {
     console.warn('[RevenueCatUI] Remote paywall unavailable in this environment:', error?.message || error);
@@ -221,7 +285,7 @@ export async function presentPaywall(): Promise<PAYWALL_RESULT> {
 /**
  * Present RevenueCatUI Paywall only if the user lacks the 'rooka' entitlement
  */
-export async function presentPaywallIfNeeded(): Promise<PAYWALL_RESULT> {
+export async function presentPaywallIfNeeded(offering?: PurchasesOffering | null): Promise<PAYWALL_RESULT> {
   if (Platform.OS === 'web') {
     return PAYWALL_RESULT.NOT_PRESENTED;
   }
@@ -229,6 +293,7 @@ export async function presentPaywallIfNeeded(): Promise<PAYWALL_RESULT> {
   try {
     const result = await RevenueCatUI.presentPaywallIfNeeded({
       requiredEntitlementIdentifier: ROOKA_ENTITLEMENT_ID,
+      ...(offering ? { offering } : {}),
     });
     return result;
   } catch (error: any) {

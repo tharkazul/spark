@@ -10,13 +10,18 @@ import Purchases, {
 import { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import { useUser } from './UserStore';
 import { track } from '../services/analytics';
+import { discountApi } from '../services/apiServices';
+import { AppliedDiscount } from '../types/discount';
 
 import {
   initializeRevenueCat,
   identifyUserInRevenueCat,
   resetUserInRevenueCat,
   getCustomerInfo,
+  getFreshCustomerInfo,
   getOfferings,
+  getOfferingById,
+  getIntroEligibility,
   hasRookaEntitlement,
   purchasePackage as rcPurchasePackage,
   restorePurchases as rcRestorePurchases,
@@ -49,6 +54,19 @@ interface SubscriptionContextType {
     all: PurchasesPackage[];
   };
   loading: boolean;
+  /** The discount code the athlete holds, or null. */
+  discount: AppliedDiscount | null;
+  discountLoading: boolean;
+  /**
+   * The offering an active store-offer code points at, once loaded from
+   * RevenueCat. Every paywall opens with it instead of the default offering,
+   * so the athlete is sold the discounted products they were shown.
+   */
+  offerOffering: PurchasesOffering | null;
+  /** Per product id of offerOffering: does the athlete get its intro price? null = unknown. */
+  offerIntroEligibility: Record<string, boolean | null>;
+  /** Reload the held code (and its offering) after applying or removing one. */
+  refreshDiscount: () => Promise<void>;
   /** `from` is where the paywall was opened, for the usage statistics. */
   presentPaywall: (from?: PaywallSource) => Promise<PAYWALL_RESULT>;
   presentPaywallIfNeeded: () => Promise<PAYWALL_RESULT>;
@@ -61,11 +79,54 @@ interface SubscriptionContextType {
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
+interface HeldDiscount {
+  owner: number | string;
+  discount: AppliedDiscount | null;
+  offering: PurchasesOffering | null;
+  introEligibility: Record<string, boolean | null>;
+}
+
+const NO_ELIGIBILITY: Record<string, boolean | null> = {};
+
 export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user, refreshUser } = useUser();
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [currentOffering, setCurrentOffering] = useState<PurchasesOffering | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  // The held code, its offering and eligibility, plus the user they were loaded
+  // for: after a logout or an account switch nothing of the previous athlete's
+  // code is exposed, and their offer can never open on someone else's paywall.
+  const [heldDiscount, setHeldDiscount] = useState<HeldDiscount | null>(null);
+
+  const refreshDiscount = useCallback(async () => {
+    const owner = user?.id;
+    if (owner == null) return;
+    const next: HeldDiscount = { owner, discount: null, offering: null, introEligibility: {} };
+    try {
+      const res = await discountApi.mine();
+      next.discount = res.discount ?? null;
+      const offeringId =
+        next.discount?.active && next.discount.discountType === 'store_offer' ? next.discount.offeringId : null;
+      next.offering = offeringId ? await getOfferingById(offeringId) : null;
+      if (next.offering) {
+        next.introEligibility = await getIntroEligibility(
+          next.offering.availablePackages.map((p) => ({
+            identifier: p.product.identifier,
+            hasIntro: !!p.product.introPrice,
+          }))
+        );
+      }
+    } catch (err) {
+      console.log('[Discounts] Could not load the held code:', err);
+    }
+    setHeldDiscount(next);
+  }, [user?.id]);
+
+  const ownHeld = heldDiscount && user?.id != null && heldDiscount.owner === user.id ? heldDiscount : null;
+  const discount = ownHeld?.discount ?? null;
+  const discountLoading = user?.id != null && !ownHeld;
+  const offerOffering = ownHeld?.offering ?? null;
+  const offerIntroEligibility = ownHeld?.introEligibility ?? NO_ELIGIBILITY;
 
   // Initialize RevenueCat and listen to customer info updates
   useEffect(() => {
@@ -74,6 +135,7 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
     async function init() {
       if (Platform.OS === 'web') {
         setLoading(false);
+        refreshDiscount();
         return;
       }
 
@@ -92,6 +154,8 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
         setCustomerInfo(info);
         setCurrentOffering(offering);
         setLoading(false);
+        // After RevenueCat is configured, so a store-offer code's offering can load.
+        refreshDiscount();
         if (hasRookaEntitlement(info)) {
           syncSubscriptionWithBackend(true).then(() => {
             refreshUser?.();
@@ -152,10 +216,12 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
     ) ||
     null;
 
+  // Skips the SDK's cached CustomerInfo: this runs right after a purchase or
+  // a server-side grant, which the cached copy does not know about yet.
   const refreshSubscription = useCallback(async () => {
     setLoading(true);
     const [info, offering] = await Promise.all([
-      getCustomerInfo(),
+      getFreshCustomerInfo(),
       getOfferings(),
     ]);
     setCustomerInfo(info);
@@ -206,7 +272,7 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
     track('paywall_shown', { from });
     let result: PAYWALL_RESULT;
     try {
-      result = await rcPresentPaywall();
+      result = await rcPresentPaywall(offerOffering);
     } catch (err) {
       track('paywall_closed', { from, result: 'error' });
       throw err;
@@ -218,16 +284,16 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
       await refreshUser?.();
     }
     return result;
-  }, [refreshSubscription, refreshUser]);
+  }, [offerOffering, refreshSubscription, refreshUser]);
 
   const presentPaywallIfNeeded = useCallback(async (): Promise<PAYWALL_RESULT> => {
-    const result = await rcPresentPaywallIfNeeded();
+    const result = await rcPresentPaywallIfNeeded(offerOffering);
     if (result === PAYWALL_RESULT.PURCHASED || result === PAYWALL_RESULT.RESTORED) {
       await refreshSubscription();
       await refreshUser?.();
     }
     return result;
-  }, [refreshSubscription, refreshUser]);
+  }, [offerOffering, refreshSubscription, refreshUser]);
 
   const presentCustomerCenter = useCallback(async (): Promise<void> => {
     await rcPresentCustomerCenter();
@@ -248,6 +314,7 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
     purchasePackage,
     restorePurchases,
     refreshSubscription,
+    refreshDiscount,
   });
   const contextValue = useMemo(
     () => ({
@@ -260,9 +327,13 @@ export const SubscriptionStore: React.FC<{ children: ReactNode }> = ({ children 
         all: availablePackages,
       },
       loading,
+      discount,
+      discountLoading,
+      offerOffering,
+      offerIntroEligibility,
       ...stableFns,
     }),
-    [isSubscribed, customerInfo, currentOffering, monthlyPackage, yearlyPackage, availablePackages, loading, stableFns]
+    [isSubscribed, customerInfo, currentOffering, monthlyPackage, yearlyPackage, availablePackages, loading, discount, discountLoading, offerOffering, offerIntroEligibility, stableFns]
   );
 
   return (
