@@ -41,6 +41,17 @@ const CONNECTIONS = [
     ['apple_health_connected', 'Apple Health'],
     ['apple_watch_connected', 'Apple Watch'],
 ];
+const DEVICES = [
+    ['ios_device', 'iOS'],
+    ['android_device', 'Android'],
+];
+const TAG_STYLE = {
+    Strava: 'bg-orange-100 text-orange-800', Garmin: 'bg-blue-100 text-blue-800', Suunto: 'bg-red-100 text-red-800',
+    'Apple Health': 'bg-pink-100 text-pink-800', 'Apple Watch': 'bg-purple-100 text-purple-800',
+    iOS: 'bg-gray-800 text-white', Android: 'bg-green-100 text-green-800',
+};
+const tagChips = (names) => names.map(n => `<span class="${TAG_STYLE[n] || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded font-medium whitespace-nowrap">${esc(n)}</span>`).join('')
+    || '<span class="text-gray-400 text-xs italic">None</span>';
 const TIERS = [['free', 'Free'], ['rooka_plus', 'Rooka+'], ['premium', 'Premium'], ['admin', 'Admin']];
 const TIER_ORDER = { free: 0, rooka_plus: 1, premium: 2, admin: 3 };
 
@@ -55,7 +66,10 @@ const USER_COLUMNS = [
     { key: 'dataReq', label: 'Data Req.', type: 'number', value: u => u.data_request_clicks || 0 },
     { key: 'personal', label: 'Personal Tokens', type: 'number', value: u => u.daily_token_usage || 0 },
     { key: 'common', label: 'Common Tokens', type: 'number', value: u => u.common_token_usage || 0 },
-    { key: 'connections', label: 'Connections', type: 'connections',
+    { key: 'devices', label: 'Devices', type: 'tags', options: DEVICES,
+      value: u => DEVICES.filter(([k]) => u[k]).map(([, name]) => name),
+      sortValue: u => DEVICES.reduce((s, [k], i) => s + (u[k] ? i + 1 : 0), 0) },
+    { key: 'connections', label: 'Connections', type: 'tags', options: CONNECTIONS,
       value: u => CONNECTIONS.filter(([k]) => u[k]).map(([, name]) => name),
       sortValue: u => CONNECTIONS.filter(([k]) => u[k]).length },
 ];
@@ -87,7 +101,7 @@ function matchesFilter(col, u, raw) {
     if (col.type === 'number') return matchesNumber(v, raw);
     if (col.type === 'text') return String(v).toLowerCase().includes(raw.trim().toLowerCase());
     if (col.type === 'choice') return v === raw;
-    if (col.type === 'connections') return raw === '__none' ? v.length === 0 : v.includes(raw);
+    if (col.type === 'tags') return raw === '__none' ? v.length === 0 : v.includes(raw);
     return true;
 }
 
@@ -160,11 +174,11 @@ function buildUserTableHeader() {
         const fth = document.createElement('th');
         fth.className = 'px-4 pb-3';
         let control;
-        if (col.type === 'choice' || col.type === 'connections') {
+        if (col.type === 'choice' || col.type === 'tags') {
             control = document.createElement('select');
             const opts = col.type === 'choice'
                 ? [['', 'All'], ...col.options]
-                : [['', 'Any'], ['__none', 'None'], ...CONNECTIONS.map(([, name]) => [name, name])];
+                : [['', 'Any'], ['__none', 'None'], ...col.options.map(([, name]) => [name, name])];
             control.innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('');
             control.addEventListener('change', () => { userView.filters[col.key] = control.value; applyUserView(); });
         } else {
@@ -201,7 +215,7 @@ function renderTable(users) {
 
     if (!users || users.length === 0) {
         const msg = allUsers.length ? 'No users match these filters.' : 'No users found.';
-        tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-gray-500">${msg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-gray-500">${msg}</td></tr>`;
         return;
     }
 
@@ -209,12 +223,7 @@ function renderTable(users) {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-gray-50 transition";
         
-        const connections = [];
-        if (u.strava_connected) connections.push('<span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Strava</span>');
-        if (u.garmin_connected) connections.push('<span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Garmin</span>');
-        if (u.suunto_connected) connections.push('<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Suunto</span>');
-        if (u.apple_health_connected) connections.push('<span class="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Apple Health</span>');
-        if (u.apple_watch_connected) connections.push('<span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-medium whitespace-nowrap">Apple Watch</span>');
+        const col = (key) => USER_COLUMNS.find(c => c.key === key);
         
         const personalTokens = u.daily_token_usage || 0;
         const commonTokens = u.common_token_usage || 0;
@@ -251,7 +260,10 @@ function renderTable(users) {
             <td class="p-4 ${personalTokenClass}">${personalTokens.toLocaleString()} / ${(currentLimit/1000)}k</td>
             <td class="p-4 text-gray-600">${commonTokens.toLocaleString()}</td>
             <td class="p-4">
-                <div class="flex flex-wrap gap-1">${connections.join('') || '<span class="text-gray-400 text-xs italic">None</span>'}</div>
+                <div class="flex flex-wrap gap-1">${tagChips(col('devices').value(u))}</div>
+            </td>
+            <td class="p-4">
+                <div class="flex flex-wrap gap-1">${tagChips(col('connections').value(u))}</div>
             </td>
             <td class="p-4 text-right flex justify-end items-center gap-4">
                 <button type="button" data-action="add-tokens" class="text-xs bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 px-3 py-1 rounded transition">+50k Tokens</button>

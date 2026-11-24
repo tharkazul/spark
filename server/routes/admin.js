@@ -92,6 +92,13 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
                    OR EXISTS (SELECT 1 FROM activities WHERE user_id = u.id AND (LOWER(name) LIKE '%apple watch%' OR LOWER(linked_activity_name) LIKE '%apple watch%'))
                    OR EXISTS (SELECT 1 FROM biometrics WHERE user_id = u.id AND COALESCE(from_garmin, 0) = 0 AND (hrv_sdnn > 0 OR sleep_deep_minutes > 0 OR sleep_rem_minutes > 0 OR sleep_core_minutes > 0))
                  THEN 1 ELSE 0 END as apple_watch_connected,
+            -- Phone platform: from push-notification registration (Platform.OS) or usage-analytics events (last 90 days).
+            CASE WHEN EXISTS (SELECT 1 FROM push_tokens WHERE user_id = u.id AND device_type = 'ios')
+                   OR EXISTS (SELECT 1 FROM app_events WHERE user_id = u.id AND platform = 'ios')
+                 THEN 1 ELSE 0 END as ios_device,
+            CASE WHEN EXISTS (SELECT 1 FROM push_tokens WHERE user_id = u.id AND device_type = 'android')
+                   OR EXISTS (SELECT 1 FROM app_events WHERE user_id = u.id AND platform = 'android')
+                 THEN 1 ELSE 0 END as android_device,
             (SELECT COUNT(*) FROM activities WHERE user_id = u.id) as activities_count
         FROM users u
         WHERE u.deleted_at IS NULL
