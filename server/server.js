@@ -85,6 +85,7 @@ app.use("/", require("./routes/facts"));
 app.use("/", require("./routes/feedback"));
 app.use("/", require("./routes/weather"));
 app.use("/", require("./routes/liveCoach"));
+app.use("/", require("./routes/campaigns"));
 
 // Body/upload limit errors as JSON the app can show, instead of Express's HTML page.
 app.use((err, req, res, next) => {
