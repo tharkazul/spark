@@ -3,7 +3,7 @@
 // Uses a throwaway database. That a Garmin sleep push stores the end of the night is in test_garmin_ingest.js.
 const path = require("path");
 const os = require("os");
-process.env.TZ = "Europe/Amsterdam";
+process.env.TZ = "UTC"; // like the server: nothing may lean on SQLite's 'localtime' being Amsterdam
 process.env.DB_PATH = path.join(os.tmpdir(), `rooka_morning_test_${process.pid}.db`);
 
 const assert = require("assert");
@@ -47,6 +47,11 @@ const sec = (hm) => Math.floor(at(hm).getTime() / 1000);
   assert.deepStrictEqual(due("07:40", null, sec("08:10")), { due: false, reason: "asleep_or_unknown" }, "an end in the future doesn't count");
   ok("Watch wake-up from 07:00, otherwise the latest time");
 
+  // 04:00 Amsterdam in the UTC the chat is stored in, summer and winter.
+  assert.strictEqual(ms.morningStartUtc("2026-11-23"), "2026-11-23 03:00:00");
+  assert.strictEqual(ms.morningStartUtc("2026-07-01"), "2026-07-01 02:00:00");
+  ok("The coach day starts at 04:00 Amsterdam time");
+
   // --- The job ---------------------------------------------------------------------
   const users = [
     // id, morning time, ai consent, sleep end
@@ -56,6 +61,7 @@ const sec = (hm) => Math.floor(at(hm).getTime() / 1000);
     [4, null, 1, sec("07:05")], // already had a coach message
     [5, null, 0, sec("07:05")], // AI not allowed
     [6, "06:30", 1, null], // early bird without a watch
+    [7, null, 1, null], // Apple Watch, got a friend's Spark at 07:26
   ];
   for (const [id, time, consent] of users) {
     await dbRun(
@@ -67,13 +73,18 @@ const sec = (hm) => Math.floor(at(hm).getTime() / 1000);
     if (end) await dbRun(`INSERT INTO biometrics (user_id, date, sleep_minutes, sleep_end_at, from_garmin) VALUES (?, '2026-11-23', 420, ?, 1)`, [id, end]);
   }
   // Stored in UTC like CURRENT_TIMESTAMP: 06:15 UTC is 07:15 in Amsterdam.
-  await dbRun(`INSERT INTO chat_history (user_id, role, content, timestamp) VALUES (4, 'coach', 'Good morning', '2026-11-23 06:15:00')`);
+  const MORNING = JSON.stringify({ type: "morning_message" });
+  await dbRun(`INSERT INTO chat_history (user_id, role, content, payload_json, timestamp) VALUES (4, 'coach', 'Good morning', ?, '2026-11-23 06:15:00')`, [MORNING]);
+  // A Spark's coach note is not the morning message (Quinten, 24 Nov 2026), and last night's chat doesn't count.
+  await dbRun(`INSERT INTO chat_history (user_id, role, content, mood, timestamp) VALUES (7, 'coach', 'Rutger saw your session', 'hype', '2026-11-23 06:26:00')`);
+  await dbRun(`INSERT INTO chat_history (user_id, role, content, timestamp) VALUES (7, 'user', 'night', '2026-11-22 23:30:00')`);
 
   const sentTo = [];
   const send = async (userId) => {
     sentTo.push(userId);
-    await dbRun(`INSERT INTO chat_history (user_id, role, content, timestamp) VALUES (?, 'coach', 'Good morning', ?)`, [
+    await dbRun(`INSERT INTO chat_history (user_id, role, content, payload_json, timestamp) VALUES (?, 'coach', 'Good morning', ?, ?)`, [
       userId,
+      MORNING,
       "2026-11-23 06:45:00",
     ]);
     return { success: true };
@@ -86,10 +97,10 @@ const sec = (hm) => Math.floor(at(hm).getTime() / 1000);
   r = await ms.sendDueMorningMessages({ now: at("08:00"), send });
   assert.deepStrictEqual(r.sent, [], "nobody new: user 2 sleeps on, the rest already have it");
   r = await ms.sendDueMorningMessages({ now: at("08:30"), send });
-  assert.deepStrictEqual(r.sent.map((x) => x.userId), [2]);
+  assert.deepStrictEqual(r.sent.map((x) => x.userId), [2, 7], "a Spark earlier this morning doesn't cancel it");
   r = await ms.sendDueMorningMessages({ now: at("09:00"), send });
   assert.deepStrictEqual(r.sent, []);
-  assert.deepStrictEqual(sentTo, [6, 1, 3, 2], "each athlete once; not the one who already had a message, not without AI consent");
+  assert.deepStrictEqual(sentTo, [6, 1, 3, 2, 7], "each athlete once; not the one who already had a message, not without AI consent");
   ok("The job sends each athlete once, at the right moment");
 
   console.log("All morning schedule checks passed.");

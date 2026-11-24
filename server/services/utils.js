@@ -3542,25 +3542,17 @@ async function writeMorningMessageForUser(userId, { force = false } = {}) {
       return { skipped: true, reason: `Outside morning window (${earliest} - 13:00, now ${hm} in Amsterdam)` };
     }
 
+    // Same rule as the scheduled job: the athlete wrote to the coach, or already got the
+    // morning message, since 04:00. Other coach messages (a Spark, an invite) don't count.
     const alreadyInteractedToday = await new Promise((resolve) => {
       db.get(
-        `SELECT id, role, mood FROM chat_history 
-         WHERE user_id = ? 
-           AND date(timestamp, 'localtime') = ? 
-           AND (
-             role = 'user' 
-             OR (role = 'coach' AND time(timestamp, 'localtime') >= '04:00:00')
-           )
-         LIMIT 1`,
-        [userId, todayStr],
+        `${morningSchedule.ALREADY_STARTED_SQL} LIMIT 1`,
+        [userId, morningSchedule.morningStartUtc(todayStr)],
         (err, row) => resolve(row)
       );
     });
     if (alreadyInteractedToday) {
-      return { 
-        skipped: true, 
-        reason: `Athlete already interacted or received message today (msg #${alreadyInteractedToday.id}, role: ${alreadyInteractedToday.role})` 
-      };
+      return { skipped: true, reason: "Athlete already wrote to the coach or got the morning message today" };
     }
   }
 

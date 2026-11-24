@@ -77,21 +77,35 @@ const amsterdamParts = (date) => {
 const dbAll = (sql, params) => new Promise((resolve, reject) => db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows || []))));
 
 /**
- * Athletes who may still get today's morning message: onboarded, AI allowed, and nothing
- * from the coach (after 04:00) or from them yet today, the same rule sendMorningMessageForUser uses.
+ * 04:00 Amsterdam time on `day`, as the UTC "YYYY-MM-DD HH:MM:SS" that chat_history.timestamp
+ * is stored in (CURRENT_TIMESTAMP). The server runs in UTC, so SQLite's 'localtime' isn't Amsterdam.
  */
+function morningStartUtc(day) {
+  const midnightUtc = new Date(`${day}T00:00:00Z`);
+  const offsetHours = Number(amsterdamParts(midnightUtc).hm.slice(0, 2)); // 1 in winter, 2 in summer
+  return new Date(midnightUtc.getTime() + (4 - offsetHours) * 3600 * 1000).toISOString().slice(0, 19).replace("T", " ");
+}
+
+/**
+ * The day has started with the coach when, since 04:00, the athlete wrote to the coach or got
+ * the morning message itself. Other coach messages (a friend's Spark, an invite, a note about an
+ * activity or the plan) don't count: a Spark at 07:26 used to cancel the 08:30 message (24 Nov 2026).
+ * Use with params [userId, morningStartUtc(day)].
+ */
+const ALREADY_STARTED_SQL = `
+  SELECT 1 FROM chat_history c
+   WHERE c.user_id = ? AND c.timestamp >= ?
+     AND (c.role = 'user' OR (c.role = 'coach' AND c.payload_json LIKE '%"type":"morning_message"%'))`;
+
+/** Athletes who may still get today's morning message: onboarded, AI allowed, day not started with the coach. */
 function candidates(day) {
   return dbAll(
     `SELECT u.id, u.morning_message_time, b.sleep_end_at
        FROM users u
        LEFT JOIN biometrics b ON b.user_id = u.id AND b.date = ?
       WHERE u.deleted_at IS NULL AND u.onboarding_completed = 1 AND u.ai_consent = 1
-        AND NOT EXISTS (
-          SELECT 1 FROM chat_history c
-           WHERE c.user_id = u.id AND date(c.timestamp, 'localtime') = ?
-             AND (c.role = 'user' OR (c.role = 'coach' AND time(c.timestamp, 'localtime') >= '04:00:00'))
-        )`,
-    [day, day],
+        AND NOT EXISTS (${ALREADY_STARTED_SQL.replace("c.user_id = ?", "c.user_id = u.id")})`,
+    [day, morningStartUtc(day)],
   );
 }
 
@@ -138,4 +152,6 @@ module.exports = {
   morningMessageDue,
   sendDueMorningMessages,
   amsterdamParts,
+  morningStartUtc,
+  ALREADY_STARTED_SQL,
 };
