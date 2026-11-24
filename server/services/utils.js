@@ -1660,8 +1660,12 @@ async function getStravaActivity(stravaAthleteId, activityId, explicitUserId) {
                   );
 
                   if (updateRes.ok) {
+                    // How long after the activity ended (pm2 logs carry no timestamps), so "it
+                    // used to be instant" can be checked against the log.
+                    const endedMs = Date.parse(data.start_date) + (data.elapsed_time || 0) * 1000;
+                    const lagMin = Number.isFinite(endedMs) ? Math.round((Date.now() - endedMs) / 60000) : null;
                     console.log(
-                      `✅ Strava activity updated for activity ${activityId}!`,
+                      `✅ Strava activity updated for activity ${activityId}${lagMin != null ? ` (${lagMin} min after it ended)` : ""}`,
                     );
                     // Keep rooka's own copy in step with the title it just gave the activity on Strava.
                     if (updatePayload.name) {
