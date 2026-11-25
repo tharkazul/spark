@@ -78,6 +78,7 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
             u.common_token_usage,
             u.daily_token_limit,
             u.subscription_tier,
+            u.language,
             u.last_token_reset_date,
             u.rooka_plus_clicks,
             u.data_request_clicks,

@@ -53,6 +53,9 @@ const TAG_STYLE = {
 const tagChips = (names) => names.map(n => `<span class="${TAG_STYLE[n] || 'bg-gray-100 text-gray-800'} text-xs px-2 py-1 rounded font-medium whitespace-nowrap">${esc(n)}</span>`).join('')
     || '<span class="text-gray-400 text-xs italic">None</span>';
 const TIERS = [['free', 'Free'], ['rooka_plus', 'Rooka+'], ['premium', 'Premium'], ['admin', 'Admin']];
+// Same list the app accepts in POST /api/user/settings/language.
+const LANGUAGES = [['en', 'English'], ['nl', 'Dutch'], ['de', 'German'], ['es', 'Spanish'], ['fr', 'French'], ['pt', 'Portuguese']];
+const languageName = (code) => (LANGUAGES.find(([c]) => c === code) || [code, code])[1];
 const TIER_ORDER = { free: 0, rooka_plus: 1, premium: 2, admin: 3 };
 
 const USER_COLUMNS = [
@@ -62,6 +65,8 @@ const USER_COLUMNS = [
     { key: 'chats', label: 'Chats', type: 'number', value: u => u.chat_count || 0 },
     { key: 'tier', label: 'Tier', type: 'choice', options: TIERS,
       value: u => u.subscription_tier || 'free', sortValue: u => TIER_ORDER[u.subscription_tier || 'free'] ?? 0 },
+    { key: 'language', label: 'Language', type: 'choice', options: LANGUAGES,
+      value: u => u.language || 'en', sortValue: u => languageName(u.language || 'en') },
     { key: 'plusClicks', label: 'Rooka+ Clicks', type: 'number', value: u => u.rooka_plus_clicks || 0 },
     { key: 'dataReq', label: 'Data Req.', type: 'number', value: u => u.data_request_clicks || 0 },
     { key: 'personal', label: 'Personal Tokens', type: 'number', value: u => u.daily_token_usage || 0 },
@@ -215,7 +220,7 @@ function renderTable(users) {
 
     if (!users || users.length === 0) {
         const msg = allUsers.length ? 'No users match these filters.' : 'No users found.';
-        tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-gray-500">${msg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="p-8 text-center text-gray-500">${msg}</td></tr>`;
         return;
     }
 
@@ -255,6 +260,7 @@ function renderTable(users) {
             <td class="p-4 text-gray-600">${esc(u.login_count || 0)}</td>
             <td class="p-4 text-gray-600">${esc(u.chat_count || 0)}</td>
             <td class="p-4">${tierSelect}</td>
+            <td class="p-4 text-gray-600 whitespace-nowrap">${esc(languageName(u.language || 'en'))}</td>
             <td class="p-4">${clicksDisplay}</td>
             <td class="p-4">${dataReqDisplay}</td>
             <td class="p-4 ${personalTokenClass}">${personalTokens.toLocaleString()} / ${(currentLimit/1000)}k</td>
