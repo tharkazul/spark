@@ -13,6 +13,7 @@ const { formatHrZonesForPrompt } = require("./athleteZones");
 const constraintsService = require("./athleteConstraints");
 const seasonPlan = require("./seasonPlan");
 const coachingTopics = require("./coachingTopics");
+const raceDayWorkout = require("./raceDayWorkout");
 
 /** Per-attempt AI limit for planning a week (the default 90 s is for chat-sized calls). */
 const PLANNER_TIMEOUT_MS = 180000;
@@ -1106,13 +1107,15 @@ ${datesListWithAvailability}
 ]
 \`\`\``;
 
+  // An agreed race plan this week: the planner uses its paces, not the goal pace.
+  const racePlanLine = await raceDayWorkout.racePlanPromptLine(userId, dates).catch(() => null);
   const userPrompt = `Please build my training plan for the upcoming week (Monday ${dates[0]} to Sunday ${dates[6]}) in ${targetLanguageName}.
 Current Training Phase: ${phase}
 Fitness (CTL): ${ctl}
 Fatigue (ATL): ${atl}
 Form (TSB): ${tsb}
 
-Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coaching summary of this week's focus, followed by the JSON block for Monday to Sunday.${options.replanNote ? `\n\n${options.replanNote}` : ''}`;
+Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coaching summary of this week's focus, followed by the JSON block for Monday to Sunday.${options.replanNote ? `\n\n${options.replanNote}` : ''}${racePlanLine ? `\n\n${racePlanLine}` : ''}`;
 
   // Why the last reply gave no plan; logged if the week falls back to the generic plan.
   let planFailure = '';
@@ -1327,6 +1330,11 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
 
   await new Promise((resolve) => insertStmt.finalize(() => resolve()));
   await coachingTopics.markTopicIntroduced(userId, detail.newTopic).catch(() => {});
+  // A race this week with a race plan: the race day takes the plan's pacing (raceDayWorkout.js).
+  for (const d of replaceDates) {
+    const r = await raceDayWorkout.applyRacePlanToRaceDay(userId, d).catch(() => null);
+    if (r && r.applied) console.log(`[WeeklyPlan] race day ${d} for user ${userId} follows the race plan (${r.time})`);
+  }
 
   // 9. Coach Acknowledgement in chat history
   let coachNote = aiReply ? aiReply.replace(/```json[\s\S]*?```/, "").trim() : "";

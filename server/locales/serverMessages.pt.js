@@ -141,6 +141,10 @@ const messages = {
   "season.taperPushTitle": "Hora da afinação",
   "season.debrief": "Como correu {race}? 🏅 Conta-me como te sentiste: o ritmo, a alimentação, qualquer coisa que te tenha surpreendido. Vou usar isso para planear o que vem a seguir.",
   "season.debriefPushTitle": "Como correu?",
+  "raceDay.warmup": "Aquecimento, carrega em volta na partida",
+  "raceDay.segment": "km {from}–{to}",
+  "raceDay.cooldown": "Retorno à calma fácil",
+  "raceDay.planLine": "Plano de prova: cerca de {time}, {pace}/km em média. Estes são os ritmos no teu relógio.",
 };
 
 const api = {

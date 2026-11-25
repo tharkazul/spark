@@ -109,6 +109,27 @@ async function replanRestOfWeek(userId, changes, { now = new Date() } = {}) {
   });
 }
 
+/**
+ * A moved race keeps its race plan (pacing, fuelling, race week): the plan is stored by race
+ * date, so without this it stayed on the old date and the new race day never got its pacing.
+ */
+async function moveRacePlans(userId, changes) {
+  for (const c of changes) {
+    if (!c.from || !c.to) continue;
+    await new Promise((resolve) =>
+      db.run(
+        `UPDATE race_plans SET race_date = ? WHERE user_id = ? AND race_date = ?
+           AND NOT EXISTS (SELECT 1 FROM race_plans WHERE user_id = ? AND race_date = ?)`,
+        [c.to, userId, c.from, userId, c.to],
+        (err) => {
+          if (err && !/no such table/.test(err.message)) console.warn(`[RaceMove] race plan for user ${userId} not moved:`, err.message);
+          resolve();
+        },
+      ),
+    );
+  }
+}
+
 const pending = new Map(); // userId -> { baseline: goals before the first save, timer }
 const running = new Set();
 
@@ -122,6 +143,7 @@ async function check(userId, baseline, { now = new Date() } = {}) {
   }
   const current = await dbAll(`SELECT name, date, goal_type FROM milestones WHERE user_id = ?`, [userId]);
   const changes = raceChanges(baseline, current);
+  await moveRacePlans(userId, changes);
   if (!changes.length || !affectsThisWeek(changes, amsterdamToday(now))) return { skipped: true, reason: "no race change near this week" };
   running.add(userId);
   try {
@@ -166,5 +188,6 @@ module.exports = {
   affectsThisWeek,
   describeChanges,
   sundayOf,
+  moveRacePlans,
   _check: check,
 };

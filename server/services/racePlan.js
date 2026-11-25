@@ -16,6 +16,7 @@ const { sendSSEEvent } = require("./sse");
 const { sendPushToUser } = require("./pushNotificationService");
 const { resolveCoachName } = require("./coachPersona");
 const i18n = require("./i18n");
+const raceDayWorkout = require("./raceDayWorkout");
 
 const dbAll = (sql, params = []) => new Promise((resolve) => db.all(sql, params, (err, rows) => resolve(err || !rows ? [] : rows)));
 const dbGet = (sql, params = []) => new Promise((resolve) => db.get(sql, params, (err, row) => resolve(err ? null : row || null)));
@@ -78,6 +79,14 @@ async function createRacePlan(userId) {
   const lang = i18n.normalizeLang(user?.language);
   const cfg = seasonPlan.EVENT_TYPES[season.eventType] || seasonPlan.EVENT_TYPES.other;
   const isTri = cfg.discipline === "triathlon";
+  // Running races also get the pacing as watch steps, which become the race-day workout.
+  const raceKm = raceDayWorkout.RUN_DISTANCE_KM[season.eventType];
+  const raceStepsSchema = raceKm
+    ? `,\n  "raceSteps": [{ "distance_m": 1000, "pace": "4:25" }]`
+    : "";
+  const raceStepsRule = raceKm
+    ? `\n"raceSteps" is the same pacing as watch steps: one entry per pacing segment, "distance_m" in metres adding up to exactly ${Math.round(raceKm * 1000)}, "pace" as m:ss per km. Use the same paces as in "pacing".`
+    : "";
 
   const facts = [
     `Race: ${season.raceName} (${season.eventType}) on ${season.raceDate}, in ${season.daysToRace} days.`,
@@ -99,9 +108,9 @@ Return ONLY JSON with this shape:
   "fueling": [{ "when": "e.g. 3 h before / every 30 min / km 25", "what": "what and how much (g carbs, ml fluid, sodium)" }],
   "raceWeek": [{ "day": "e.g. Mon / 3 days before", "items": ["short actionable items"] }],
   "raceMorning": ["short actionable items, in order"],
-  "mindset": ["2-4 short cues for when it gets hard"]
+  "mindset": ["2-4 short cues for when it gets hard"]${raceStepsSchema}
 }
-Use 4-8 pacing segments, 4-8 fuelling moments, 4-6 race-week days.`;
+Use 4-8 pacing segments, 4-8 fuelling moments, 4-6 race-week days.${raceStepsRule}`;
 
   const raw = await generateWithFallback(
     `Write my race plan.\n${facts.join("\n")}`,
@@ -129,10 +138,16 @@ Use 4-8 pacing segments, 4-8 fuelling moments, 4-6 race-week days.`;
     raceMorning: Array.isArray(plan.raceMorning) ? plan.raceMorning.slice(0, 10) : [],
     mindset: Array.isArray(plan.mindset) ? plan.mindset.slice(0, 6) : [],
   };
+  if (raceKm && raceDayWorkout.segmentsFromRaceSteps(plan.raceSteps, raceKm)) clean.raceSteps = plan.raceSteps.slice(0, 20);
   await dbRun(
     `INSERT OR REPLACE INTO race_plans (user_id, race_date, race_name, plan_json, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
     [userId, season.raceDate, season.raceName, JSON.stringify(clean)]
   );
+  // The race-day session (and so the watch) follows this plan's pacing, not the goal pace.
+  await raceDayWorkout
+    .applyRacePlanToRaceDay(userId, season.raceDate)
+    .then((r) => r.skipped && console.log(`[RacePlan] race day for user ${userId} unchanged: ${r.reason}`))
+    .catch((e) => console.warn(`[RacePlan] race day for user ${userId} not updated:`, e.message));
   return getRacePlan(userId, season.raceDate);
 }
 

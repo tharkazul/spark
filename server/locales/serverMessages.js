@@ -427,6 +427,19 @@ const messages = {
     },
     debriefPushTitle: { en: "How did it go?", nl: "Hoe ging het?", de: "Wie lief es?", es: "¿Qué tal fue?", fr: "Alors, comment c'était ?" },
   },
+  // The race-day workout built from the race plan's pacing (services/raceDayWorkout.js).
+  raceDay: {
+    warmup: { en: "Warm-up, press lap at the start", nl: "Warming-up, druk op lap bij de start", de: "Aufwärmen, am Start Runde drücken", es: "Calentamiento, pulsa vuelta en la salida", fr: "Échauffement, appuie sur tour au départ" },
+    segment: { en: "km {from}–{to}", nl: "km {from}–{to}", de: "km {from}–{to}", es: "km {from}–{to}", fr: "km {from}–{to}" },
+    cooldown: { en: "Easy cool-down", nl: "Rustige cooling-down", de: "Lockeres Auslaufen", es: "Vuelta a la calma suave", fr: "Retour au calme facile" },
+    planLine: {
+      en: "Race plan: about {time}, {pace}/km on average. These are the paces on your watch.",
+      nl: "Wedstrijdplan: ongeveer {time}, gemiddeld {pace}/km. Dit zijn de tempo's op je horloge.",
+      de: "Rennplan: etwa {time}, im Schnitt {pace}/km. Das sind die Tempi auf deiner Uhr.",
+      es: "Plan de carrera: unos {time}, {pace}/km de media. Estos son los ritmos de tu reloj.",
+      fr: "Plan de course : environ {time}, {pace}/km en moyenne. Ce sont les allures sur ta montre.",
+    },
+  },
 };
 
 // English API text -> [nl, de, es, fr]
