@@ -5,18 +5,19 @@
  * written without the LLM, API error/success messages) must be in the athlete's selected
  * language (users.language). LLM prompts must carry languageDirective(lang).
  *
- * Supported languages mirror the app: en, nl, de, es, fr.
+ * Supported languages mirror the app: en, nl, de, es, fr, pt (European Portuguese).
  */
 const db = require("./db");
 const { messages, apiMessages, apiPatterns } = require("../locales/serverMessages");
 
-const SUPPORTED = ["en", "nl", "de", "es", "fr"];
+const SUPPORTED = ["en", "nl", "de", "es", "fr", "pt"];
 const LANGUAGE_NAMES = {
   en: "English",
   nl: "Dutch (Nederlands)",
   de: "German (Deutsch)",
   es: "Spanish (Español)",
   fr: "French (Français)",
+  pt: "European Portuguese (Português de Portugal, not Brazilian)",
 };
 
 function normalizeLang(lang) {

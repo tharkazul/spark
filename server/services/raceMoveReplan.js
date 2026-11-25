@@ -81,6 +81,7 @@ const FALLBACK_NOTES = {
   de: "Ich habe den Rest deiner Woche rund um dein neues Wettkampfdatum neu geplant. Schau mal in deinen Kalender.",
   es: "He vuelto a planificar el resto de tu semana en torno a la nueva fecha de tu carrera. Échale un vistazo a tu calendario.",
   fr: "J'ai replanifié le reste de ta semaine autour de la nouvelle date de ta course. Jette un œil à ton calendrier.",
+  pt: "Voltei a planear o resto da tua semana à volta da nova data da prova. Dá uma vista de olhos ao teu calendário.",
 };
 
 /**

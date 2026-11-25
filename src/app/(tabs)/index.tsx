@@ -94,6 +94,7 @@ const getLocaleCode = (lang: string) => {
     case 'de': return 'de-DE';
     case 'es': return 'es-ES';
     case 'fr': return 'fr-FR';
+    case 'pt': return 'pt-PT';
     default: return 'en-US';
   }
 };

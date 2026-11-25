@@ -1255,6 +1255,7 @@ router.post("/api/generate-plan", authenticateToken, requireAiConsent, async (re
                     de: 'German (Deutsch)',
                     es: 'Spanish (Español)',
                     fr: 'French (Français)',
+                    pt: 'European Portuguese (Português de Portugal)',
                     en: 'English'
                   };
                   const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith('nl') ? 'Dutch (Nederlands)' : 'English');

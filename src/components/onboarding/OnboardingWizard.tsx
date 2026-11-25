@@ -49,6 +49,7 @@ const SUPPORTED_LANGUAGES: Array<{ code: string; label: string; disabled?: boole
   { code: 'de', label: 'Deutsch' },
   { code: 'es', label: 'Español' },
   { code: 'fr', label: 'Français' },
+  { code: 'pt', label: 'Português' },
 ];
 
 export type ChatItemType =
@@ -353,7 +354,7 @@ export default function OnboardingWizard() {
       const parts = dateStr.split('-').map(Number);
       if (parts.length === 3) {
         const d = new Date(parts[0], parts[1] - 1, parts[2]);
-        const loc = language === 'nl' ? 'nl-NL' : language === 'de' ? 'de-DE' : language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US';
+        const loc = language === 'nl' ? 'nl-NL' : language === 'de' ? 'de-DE' : language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : language === 'pt' ? 'pt-PT' : 'en-US';
         return d.toLocaleDateString(loc, {
           weekday: 'short',
           month: 'short',

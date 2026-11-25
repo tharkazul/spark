@@ -80,6 +80,7 @@ export const EventDatePickerSheet: React.FC<EventDatePickerSheetProps> = ({
     de: 'de-DE',
     es: 'es-ES',
     fr: 'fr-FR',
+    pt: 'pt-PT',
   };
   const activeLocale = localeMap[language] || 'en-US';
 

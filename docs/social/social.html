@@ -1,0 +1,275 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Social images for the launch: render with ./render.sh (headless Chrome). ?p=<piece>&lang=nl|en -->
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Rajdhani:wght@600;700&family=Archivo:wdth,wght@115,800&display=block" rel="stylesheet">
+<style>
+  :root {
+    --ink: #050816;
+    --blue: #2563EB;
+    --sky: #0EA5E9;
+    --cyan: #38BDF8;
+    --text: #F5F7FF;
+    --muted: #A9B4D0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--ink); overflow: hidden; }
+  .frame {
+    position: relative; overflow: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text);
+    background:
+      radial-gradient(70% 55% at 50% 112%, rgba(37,99,235,.9) 0%, rgba(37,99,235,.3) 40%, rgba(5,8,22,0) 72%),
+      radial-gradient(45% 40% at 95% 35%, rgba(14,165,233,.22) 0%, rgba(5,8,22,0) 70%),
+      radial-gradient(55% 45% at -5% 18%, rgba(56,189,248,.14) 0%, rgba(5,8,22,0) 70%),
+      linear-gradient(180deg, #050816 0%, #08102A 55%, #0B1A4A 100%);
+  }
+  .mark-bg {
+    position: absolute; background: url('../../website/rooka-mark-white.svg') no-repeat center / contain;
+    opacity: .04; transform: rotate(-8deg); pointer-events: none;
+  }
+  .streak { position: absolute; border-radius: 6px;
+    background: linear-gradient(90deg, rgba(56,189,248,0), rgba(56,189,248,.55));
+    transform: rotate(-24deg); }
+
+  .brand { position: absolute; display: flex; align-items: center; color: var(--text); }
+  .brand svg { color: var(--cyan); display: block; }
+  .brand span { font-family: 'Archivo', sans-serif; font-weight: 800; font-variation-settings: 'wdth' 115;
+    letter-spacing: -0.04em; line-height: 1; }
+
+  .head { position: absolute; }
+  .kicker {
+    font-family: 'Rajdhani', sans-serif; font-weight: 700; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--cyan);
+  }
+  h1 { font-weight: 800; line-height: 1.02; letter-spacing: -0.035em; text-wrap: balance; }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(95deg, #7DD3FC 0%, #38BDF8 45%, #3B82F6 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { font-weight: 500; color: var(--muted); line-height: 1.3; }
+
+  .phone {
+    position: absolute;
+    background: linear-gradient(160deg, #3A4256 0%, #12151F 30%, #0A0C12 70%, #2B3244 100%);
+    box-shadow: 0 0 0 3px rgba(255,255,255,.06), 0 50px 120px rgba(0,0,0,.65), 0 0 160px rgba(37,99,235,.35);
+  }
+  .screen { width: 100%; height: 100%; overflow: hidden; position: relative;
+    background-size: 100% auto; background-position: top center; background-repeat: no-repeat; }
+  .cover { position: absolute; display: flex; align-items: center; }
+  .cover span { font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; }
+
+  .callout {
+    position: absolute; overflow: hidden; background-repeat: no-repeat;
+    box-shadow: 0 0 0 2px rgba(125,211,252,.45), 0 36px 80px rgba(0,0,0,.6), 0 0 110px rgba(56,189,248,.35);
+  }
+  .fade { position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(180deg, rgba(5,8,22,0) 0%, rgba(5,8,22,.9) 40%, rgba(5,8,22,.97) 100%); }
+  .nw { white-space: nowrap; }
+
+  .foot { position: absolute; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+  .stores { display: flex; gap: 12px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: .45em; border: 2px solid rgba(125,211,252,.55);
+    border-radius: 999px; font-weight: 700; color: var(--text); background: rgba(5,8,22,.55); white-space: nowrap; }
+  .chip svg { display: block; }
+  .url { font-family: 'Archivo', sans-serif; font-weight: 800; font-variation-settings: 'wdth' 115;
+    letter-spacing: -0.03em; color: var(--text); white-space: nowrap; }
+  .url b { color: var(--cyan); font-weight: 800; }
+  .works { position: absolute; left: 0; right: 0; text-align: center; color: var(--muted); font-weight: 600; }
+  .glowmark { position: absolute; background: url('../../website/rooka-mark-white.svg') no-repeat center / contain;
+    filter: drop-shadow(0 0 60px rgba(56,189,248,.55)); }
+</style>
+</head>
+<body>
+<div class="frame" id="frame"></div>
+<script>
+const RAW = '../store-screenshots/dark-raw/';
+const MARK = '<path fill-rule="evenodd" fill="currentColor" d="M12.65 38.11 L41.31 25.04 L51.08 21.15 L48.5 39.06 L39.84 49.55 L59.48 64.46 L11.02 93.54 L10.6 93.65 L10.81 93.07 L21.94 79.0 L24.83 77.06 L42.94 65.72 L43.04 65.35 L42.2 64.62 L32.97 58.11 L0.31 100.0 L3.52 87.35 L25.41 52.91 L33.96 38.69 L12.65 38.16 Z M0.26 30.5 L65.93 0.0 L60.52 41.78 L48.56 48.82 L48.45 48.5 L53.96 41.21 L56.64 20.79 L57.69 12.97 L57.59 11.18 L7.09 34.7 L7.09 51.55 L17.32 47.03 L21.05 45.83 L0.31 66.19 L0.0 65.83 L0.26 30.55 Z"/>';
+
+// Raw screenshots are 1206 x 2622. Greeting covers hide the test account's name.
+const SHOTS = {
+  coach: { file: 'coach.png', callout: [96, 1777, 851, 205] },
+  week:  { file: 'week.png',  callout: [44, 612, 1121, 262] },
+  today: { file: 'today.png', callout: [50, 1640, 1107, 423], greeting: { bg: '#0F172A', color: '#F8FAFC' } },
+  why:   { file: 'why.png',   callout: [87, 1739, 1029, 539], greeting: { bg: '#090E19', color: '#959697' } },
+};
+
+const COPY = {
+  en: {
+    stores: 'Free on the App Store and Google Play',
+    square:   { kicker: 'Now on iPhone & Android', title: 'rooka is <em>live</em>', sub: 'An AI training coach for running, cycling and triathlon.' },
+    portrait: { kicker: 'AI training coach', title: 'A plan that moves<br><em>with your week</em>', sub: 'For runners, cyclists and triathletes. Ill, travelling or carrying a niggle? Your plan adapts.' },
+    story:    { kicker: 'Out now', title: 'Meet your<br><em>AI coach</em>', sub: 'Running · Cycling · Triathlon' },
+    wide:     { kicker: 'Now on iPhone & Android', title: 'rooka is <em>live</em>', sub: 'An AI training coach that plans around your week.' },
+    s1: { kicker: 'Meet rooka', title: 'Your AI<br><em>training coach</em>', sub: 'For runners, cyclists and triathletes' },
+    s2: { kicker: 'Ask your coach', title: 'A coach who<br><em>plans with you</em>' },
+    s3: { kicker: 'Smart planning', title: 'Built around<br><em>your real week</em>' },
+    s4: { kicker: 'Adapts daily', title: 'Life happens.<br><em>Your plan adapts.</em>' },
+    s5: { kicker: 'Explained', title: 'Know <em>why</em> every<br>workout matters' },
+    s6: { kicker: 'Free to download', title: 'Start training<br><em>with rooka</em>', sub: 'On iPhone and Android', works: 'Works with Garmin · Apple Watch · Suunto · Strava · TrainerDay' },
+  },
+  nl: {
+    stores: 'Gratis in de App Store en Google Play',
+    square:   { kicker: 'Nu op iPhone en Android', title: 'rooka is <em>live</em>', sub: 'Een <span class="nw">AI-trainingscoach</span> voor hardlopen, fietsen en triatlon.' },
+    portrait: { kicker: 'AI-trainingscoach', title: 'Een schema dat<br><em>met je week meebeweegt</em>', sub: 'Voor hardlopers, fietsers en triatleten. Ziek, op reis of ergens last van? Je schema past zich aan.' },
+    story:    { kicker: 'Nu beschikbaar', title: 'Maak kennis met<br><em>je AI-coach</em>', sub: 'Hardlopen · Fietsen · Triatlon' },
+    wide:     { kicker: 'Nu op iPhone en Android', title: 'rooka is <em>live</em>', sub: 'Een <span class="nw">AI-trainingscoach</span> die rond jouw week plant.' },
+    s1: { kicker: 'Maak kennis met rooka', title: 'Jouw<br><em class="nw">AI-trainingscoach</em>', sub: 'Voor hardlopers, fietsers en triatleten' },
+    s2: { kicker: 'Vraag het je coach', title: 'Een coach die<br><em>met je meedenkt</em>' },
+    s3: { kicker: 'Slim plannen', title: 'Gebouwd rond<br><em>jouw echte week</em>' },
+    s4: { kicker: 'Past zich elke dag aan', title: 'Het leven gebeurt.<br><em>Je schema beweegt mee.</em>' },
+    s5: { kicker: 'Uitgelegd', title: 'Weet <em>waarom</em><br>elke training telt' },
+    s6: { kicker: 'Gratis te downloaden', title: 'Begin met<br><em>trainen met rooka</em>', sub: 'Op iPhone en Android', works: 'Werkt met Garmin · Apple Watch · Suunto · Strava · TrainerDay' },
+  },
+};
+
+// Layout per piece. Units are output pixels.
+const PIECES = {
+  square:   { w: 1080, h: 1080, layout: 'split', shot: 'today',
+              head: { x: 72, y: 250, w: 520, kicker: 30, h1: 112, sub: 34 },
+              phone: { x: 600, y: 92, w: 430, rot: 4 } },
+  wide:     { w: 1200, h: 627, layout: 'split', shot: 'coach',
+              head: { x: 64, y: 150, w: 660, kicker: 24, h1: 92, sub: 30 },
+              phone: { x: 820, y: 56, w: 300, rot: 4 } },
+  portrait: { w: 1080, h: 1350, layout: 'stack', shot: 'week',
+              head: { y: 150, kicker: 30, h1: 92, sub: 32, subW: 820 },
+              phone: { y: 640, w: 560 }, foot: 1225 },
+  story:    { w: 1080, h: 1920, layout: 'stack', shot: 'coach', brandY: 250,
+              head: { y: 370, kicker: 36, h1: 124, sub: 40, subW: 860 },
+              phone: { y: 830, w: 700 }, foot: 1520 },
+  s1: { w: 1080, h: 1350, layout: 'stack', shot: 'coach',
+        head: { y: 150, kicker: 30, h1: 104, sub: 34, subW: 860 }, phone: { y: 560, w: 600 } },
+  s2: { w: 1080, h: 1350, layout: 'stack', shot: 'coach',
+        head: { y: 150, kicker: 30, h1: 104 }, phone: { y: 470, w: 600 }, callout: { y: 1010, cs: 0.98, rot: -3 } },
+  s3: { w: 1080, h: 1350, layout: 'stack', shot: 'week',
+        head: { y: 150, kicker: 30, h1: 104 }, phone: { y: 470, w: 600 }, callout: { y: 930, cs: 0.76, rot: 2.5 } },
+  s4: { w: 1080, h: 1350, layout: 'stack', shot: 'today',
+        head: { y: 150, kicker: 30, h1: 96 }, phone: { y: 470, w: 600 }, callout: { y: 900, cs: 0.74, rot: -2.5 } },
+  s5: { w: 1080, h: 1350, layout: 'stack', shot: 'why',
+        head: { y: 150, kicker: 30, h1: 104 }, phone: { y: 470, w: 600 }, callout: { y: 860, cs: 0.78, rot: 2 } },
+  s6: { w: 1080, h: 1350, layout: 'cta' },
+};
+
+const qs = new URLSearchParams(location.search);
+const lang = qs.get('lang') === 'en' ? 'en' : 'nl';
+const key = qs.get('p') || 'square';
+const P = PIECES[key];
+const T = COPY[lang][key];
+const C = COPY[lang];
+const W = P.w, H = P.h;
+
+document.documentElement.style.width = document.body.style.width = W + 'px';
+document.documentElement.style.height = document.body.style.height = H + 'px';
+const el = document.getElementById('frame');
+Object.assign(el.style, { width: W + 'px', height: H + 'px' });
+
+const px = (n) => n + 'px';
+function add(html) { el.insertAdjacentHTML('beforeend', html); return el.lastElementChild; }
+
+// Texture
+const big = Math.max(W, H);
+add(`<div class="mark-bg" style="width:${px(big * .95)};height:${px(big * 1.44)};left:${px(W * .32)};top:${px(H * .08)}"></div>`);
+[[-.1, .22, .45, .9], [.72, .12, .4, .6], [.82, .55, .34, .5], [-.05, .7, .3, .45]].forEach(([x, y, w, o]) =>
+  add(`<div class="streak" style="left:${px(W * x)};top:${px(H * y)};width:${px(W * w)};height:${px(Math.max(4, W / 200))};opacity:${o}"></div>`));
+
+function brand(x, y, size, center) {
+  const b = add(`<div class="brand" style="gap:${px(size * .38)};top:${px(y)};${center ? 'left:0;right:0;justify-content:center' : 'left:' + px(x)}">
+    <svg viewBox="0 0 65.93 100" style="width:${px(size * .8)};height:${px(size * 1.21)}">${MARK}</svg>
+    <span style="font-size:${px(size)}">rooka</span></div>`);
+  return b;
+}
+
+const STORE_ICON = (s) => `<svg viewBox="0 0 24 24" style="width:${px(s)};height:${px(s)}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>`;
+function chips(size) {
+  return `<div class="stores">
+    <span class="chip" style="font-size:${px(size)};padding:${px(size * .45)} ${px(size * .85)}">${STORE_ICON(size * .95)}App Store</span>
+    <span class="chip" style="font-size:${px(size)};padding:${px(size * .45)} ${px(size * .85)}">${STORE_ICON(size * .95)}Google Play</span>
+  </div>`;
+}
+
+// Shrinks the title until the heading block ends above `limit` (once fonts have loaded).
+function fit(node, limit, h1px) {
+  const h1 = node.querySelector('h1');
+  let size = h1px;
+  while (node.offsetTop + node.offsetHeight > limit && size > h1px * 0.55) {
+    size -= 2; h1.style.fontSize = px(size);
+  }
+}
+
+function head(h, center, limit) {
+  const pos = center ? `left:${px((W - (h.subW || W - 140)) / 2)};width:${px(h.subW || W - 140)};text-align:center`
+                     : `left:${px(h.x)};width:${px(h.w)}`;
+  const node = add(`<div class="head" style="top:${px(h.y)};${pos}">
+    <div class="kicker" style="font-size:${px(h.kicker)};margin-bottom:${px(h.kicker * .55)}">${T.kicker}</div>
+    <h1 style="font-size:${px(h.h1)}">${T.title}</h1>
+    ${T.sub ? `<p class="sub" style="font-size:${px(h.sub)};margin-top:${px(h.sub * .7)}">${T.sub}</p>` : ''}
+  </div>`);
+  if (limit) document.fonts.ready.then(() => fit(node, limit, h.h1));
+}
+
+function phone(shotKey, x, y, w, rot) {
+  const pad = w * .0178, r = w * .1422;
+  const ph = w * 2.1744;
+  const s = SHOTS[shotKey];
+  const p = add(`<div class="phone" style="left:${px(x)};top:${px(y)};width:${px(w)};height:${px(ph)};border-radius:${px(r)};padding:${px(pad)};transform:rotate(${rot || 0}deg)">
+    <div class="screen" style="border-radius:${px(r - pad)};background-image:url('${RAW}${s.file}')"></div></div>`);
+  if (s.greeting) {
+    const k = (w - 2 * pad) / 1206;
+    p.querySelector('.screen').insertAdjacentHTML('beforeend',
+      `<div class="cover" style="left:${px(30 * k)};top:${px(165 * k)};width:${px(1150 * k)};height:${px(150 * k)};padding-left:${px(14 * k)};background:${s.greeting.bg}">
+        <span style="font-size:${px(84 * k)};color:${s.greeting.color}">Good morning, Leon</span></div>`);
+  }
+  return p;
+}
+
+function callout(shotKey, c) {
+  const [cx, cy, cw, ch] = SHOTS[shotKey].callout;
+  const w = cw * c.cs, h = ch * c.cs;
+  add(`<div class="callout" style="left:${px((W - w) / 2 + (c.dx || 0))};top:${px(c.y)};width:${px(w)};height:${px(h)};border-radius:${px(36 * c.cs)};
+    background-image:url('${RAW}${SHOTS[shotKey].file}');background-size:${px(1206 * c.cs)} ${px(2622 * c.cs)};
+    background-position:${px(-cx * c.cs)} ${px(-cy * c.cs)};transform:rotate(${c.rot}deg)"></div>`);
+}
+
+function footer(y, size) {
+  add(`<div class="fade" style="height:${px(H - y + 260)}"></div>`);
+  add(`<div class="foot" style="left:64px;right:64px;top:${px(y)}">
+    <div style="display:grid;gap:${px(size * .55)}">
+      <div class="sub" style="font-size:${px(size)};color:var(--text);font-weight:700">${C.stores}</div>
+      ${chips(size * .8)}
+    </div>
+    <div class="url" style="font-size:${px(size * 1.9)}">rooka<b>.io</b></div>
+  </div>`);
+}
+
+if (P.layout === 'split') {
+  brand(P.head.x, Math.round(H * .075), Math.round(W * .03), false);
+  const wideFoot = W > 1100;
+  const fs = Math.round(W * (wideFoot ? .021 : .027));
+  const foot = add(`<div class="foot" style="left:${px(P.head.x)};bottom:${px(Math.round(H * .075))};width:${px(P.head.w)};justify-content:flex-start;gap:${px(fs * (wideFoot ? 1.2 : .7))};${wideFoot ? '' : 'flex-direction:column;align-items:flex-start'}">
+    ${chips(fs)}<div class="url" style="font-size:${px(fs * (wideFoot ? 1.5 : 1.7))}">rooka<b>.io</b></div></div>`);
+  head(P.head, false, H - foot.offsetHeight - Math.round(H * .075) - 40);
+  phone(P.shot, P.phone.x, P.phone.y, P.phone.w, P.phone.rot);
+} else if (P.layout === 'stack') {
+  brand(0, P.brandY || 64, 38, true);
+  head(P.head, true, P.phone.y - 34);
+  phone(P.shot, (W - P.phone.w) / 2, P.phone.y, P.phone.w, 0);
+  if (P.callout) callout(P.shot, P.callout);
+  if (P.foot) footer(P.foot, Math.round(W * .03));
+  else add(`<div class="fade" style="height:${px(H * .16)}"></div>`);
+  if (!P.foot) add(`<div class="url" style="position:absolute;left:0;right:0;bottom:56px;text-align:center;font-size:44px">rooka<b>.io</b></div>`);
+} else {
+  // Closing slide: no phone, one call to action.
+  add(`<div class="glowmark" style="width:240px;height:364px;left:${px((W - 240) / 2)};top:150px"></div>`);
+  add(`<div class="head" style="top:600px;left:70px;right:70px;text-align:center">
+    <div class="kicker" style="font-size:32px;margin-bottom:18px">${T.kicker}</div>
+    <h1 style="font-size:100px">${T.title}</h1>
+    <p class="sub" style="font-size:36px;margin-top:22px">${T.sub}</p>
+  </div>`);
+  add(`<div style="position:absolute;left:0;right:0;top:1010px;display:flex;justify-content:center">${chips(34)}</div>`);
+  add(`<div class="url" style="position:absolute;left:0;right:0;top:1110px;text-align:center;font-size:76px">rooka<b>.io</b></div>`);
+  add(`<div class="works" style="top:1250px;font-size:26px">${T.works}</div>`);
+}
+</script>
+</body>
+</html>

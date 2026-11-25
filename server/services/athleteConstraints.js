@@ -474,7 +474,7 @@ async function repairStoredPlan(userId, fromDate, toDate, lang) {
 function describeChangesForChat(changes, lang) {
   if (!changes || changes.length === 0) return "";
   const l = i18n.normalizeLang(lang);
-  const locale = { en: "en-GB", nl: "nl-NL", de: "de-DE", es: "es-ES", fr: "fr-FR" }[l];
+  const locale = { en: "en-GB", nl: "nl-NL", de: "de-DE", es: "es-ES", fr: "fr-FR", pt: "pt-PT" }[l];
   const days = [...new Set(changes.map((c) => c.date))]
     .sort()
     .map((d) => new Date(d + "T12:00:00Z").toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }))

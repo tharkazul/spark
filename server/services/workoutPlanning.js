@@ -191,6 +191,15 @@ const FALLBACK_PLAN_TEXT = {
     ['Sortie Longue', 'Distance régulière pour développer la capacité aérobie et la gestion de l\'allure.'],
     ['Repos & Bilan', 'Mobilité légère, rouleau de massage et préparation de la semaine suivante.'],
   ],
+  pt: [
+    ['Base aeróbia', 'Treino de resistência a ritmo de conversa (zona 2).'],
+    ['Força e core', 'Foco na estabilidade da anca, ativação do core e controlo postural.'],
+    ['Recuperação ativa', 'Caminhada leve, hidratação e recuperação muscular.'],
+    ['Intervalos de tempo', 'Intervalos controlados ao limiar com recuperações completas.'],
+    ['Dia de descanso', 'Dá prioridade ao sono profundo e a uma alimentação reparadora antes do fim de semana.'],
+    ['Corrida longa aeróbia', 'Distância constante para desenvolver capacidade aeróbia e disciplina de ritmo.'],
+    ['Descanso e balanço', 'Mobilidade leve, rolo de espuma e preparação para a próxima semana.'],
+  ],
 };
 
 const RECURRING_DETAILS = {
@@ -199,6 +208,7 @@ const RECURRING_DETAILS = {
   de: (title, mins, time) => `${title} (${mins} Min.${time ? ` um ${time}` : ''}) - Regelmäßige, fest geplante Einheit.`,
   es: (title, mins, time) => `${title} (${mins} min${time ? ` a las ${time}` : ''}) - Sesión recurrente programada.`,
   fr: (title, mins, time) => `${title} (${mins} min${time ? ` à ${time}` : ''}) - Séance récurrente programmée.`,
+  pt: (title, mins, time) => `${title} (${mins} min${time ? ` às ${time}` : ''}) - Sessão recorrente agendada.`,
 };
 
 /**
@@ -315,6 +325,10 @@ const DEDICATED_REST_COPY = {
   fr: {
     title: 'Jour de Repos Dédié',
     details: 'Journée de repos complet selon vos disponibilités hebdomadaires. Privilégiez une alimentation réparatrice, une bonne hydratation et un sommeil de qualité.',
+  },
+  pt: {
+    title: 'Dia de descanso agendado',
+    details: 'Dia de descanso completo de acordo com a tua disponibilidade semanal. Dá prioridade a uma alimentação reparadora, boa hidratação e sono de qualidade.',
   },
 };
 
@@ -959,6 +973,7 @@ async function generateWeeklyPlanForUser(userId, targetDates = null, options = {
     de: 'German (Deutsch)',
     es: 'Spanish (Español)',
     fr: 'French (Français)',
+    pt: 'European Portuguese (Português de Portugal)',
     en: 'English'
   };
   const targetLanguageName = langMap[user.language] || 'English';
@@ -1329,6 +1344,8 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
       ? `He preparado tu plan de entrenamiento para la próxima semana (lunes ${dates[0]} a domingo ${dates[6]}). ¡Revisa tu panel y a darlo todo!`
       : user.language === 'fr'
       ? `J'ai préparé ton programme d'entraînement pour la semaine prochaine (du lundi ${dates[0]} au dimanche ${dates[6]}). Regarde ton tableau de bord et allons-y à fond !`
+      : user.language === 'pt'
+      ? `Preparei o teu plano de treino para a próxima semana (de segunda ${dates[0]} a domingo ${dates[6]}). Vê o teu painel e vamos dar tudo!`
       : `I've just built and pushed your training schedule for the coming week (Monday ${dates[0]} to Sunday ${dates[6]}). Check your calendar—let's make it a great week!`;
   }
   if (constraintChanges.length > 0) {
@@ -1387,7 +1404,7 @@ async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
     db.get(
       `SELECT id FROM chat_history 
        WHERE user_id = ? AND role = 'coach' 
-         AND (content LIKE '%trainingsschema%' OR content LIKE '%training plan%' OR content LIKE '%Trainingsplan%' OR content LIKE '%plan de entrenamiento%' OR content LIKE '%programme d''entraînement%')
+         AND (content LIKE '%trainingsschema%' OR content LIKE '%training plan%' OR content LIKE '%Trainingsplan%' OR content LIKE '%plan de entrenamiento%' OR content LIKE '%programme d''entraînement%' OR content LIKE '%plano de treino%')
          AND substr(timestamp, 1, 10) = date('now')
        LIMIT 1`,
       [userId],
@@ -1415,6 +1432,10 @@ async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
     pushTitle = `Planifier la semaine avec Coach ${coachName} ?`;
     pushBody = `Salut ${displayName} ! Tu veux préparer tes entraînements pour la semaine prochaine ? Touche ici !`;
     chatMessage = `Salut ${displayName} ! J'ai remarqué qu'on a un peu moins bougé cette semaine. Tu veux qu'on prépare ton programme d'entraînement pour la semaine prochaine ensemble ? Dis-moi ce qui t'arrange par ici et je m'en occupe !`;
+  } else if (lang === 'pt') {
+    pushTitle = `Planear a próxima semana com o coach ${coachName}?`;
+    pushBody = `Olá ${displayName}! Queres preparar os teus treinos para a próxima semana? Toca aqui!`;
+    chatMessage = `Olá ${displayName}! Reparei que treinámos um pouco menos esta semana. Queres que preparemos juntos o teu plano de treino para a próxima semana? Diz-me aqui os teus objetivos ou a tua disponibilidade e eu trato do resto!`;
   }
 
   // Template week written: tell the athlete it's there and offer to tailor it.
@@ -1445,6 +1466,11 @@ async function sendInactiveUserWeeklyPlanInquiry(user, options = {}) {
         title: `Ta semaine est prête`,
         body: `Coach ${coachName} t'a préparé un programme d'entraînement standard. Touche pour le personnaliser.`,
         chat: `Salut ${displayName} ! J'ai mis un programme d'entraînement standard dans ton calendrier pour la semaine prochaine, pour que tu aies une base. Tu veux que je l'adapte à ton emploi du temps, ton énergie et tes objectifs ? Réponds-moi ici !`,
+      },
+      pt: {
+        title: `A tua semana está pronta`,
+        body: `O coach ${coachName} preparou-te um plano de treino padrão. Toca para o personalizar.`,
+        chat: `Olá ${displayName}! Pus um plano de treino padrão no teu calendário para a próxima semana, para teres por onde começar. Queres que o adapte à tua agenda, energia e objetivos? Responde-me aqui e ajustamos juntos!`,
       },
     }[lang] || null;
     const chosen = tpl || {

@@ -7,7 +7,9 @@
  *                 (applied automatically by the localizeResponses middleware).
  * `apiPatterns` – English API strings with {placeholders} -> translations.
  *
- * Tone: informal (nl "je", de "du", es "tú", fr "tu"), matching the app.
+ * Tone: informal (nl "je", de "du", es "tú", fr "tu", pt "tu"), matching the app.
+ *
+ * Portuguese (pt-PT) lives in serverMessages.pt.js and is merged in below.
  */
 
 const messages = {
@@ -637,8 +639,10 @@ const RAW_API = {
   "Only bike workouts can be sent to TrainerDay.": ["Alleen fietstrainingen kunnen naar TrainerDay.", "Nur Radtrainings können an TrainerDay gesendet werden.", "Solo se pueden enviar entrenamientos de bici a TrainerDay.", "Seules les séances de vélo peuvent être envoyées à TrainerDay."],
 };
 
+const PT = require("./serverMessages.pt");
+
 const apiMessages = {};
-for (const [en, [nl, de, es, fr]] of Object.entries(RAW_API)) apiMessages[en] = { nl, de, es, fr };
+for (const [en, [nl, de, es, fr]] of Object.entries(RAW_API)) apiMessages[en] = { nl, de, es, fr, pt: PT.api[en] };
 
 const apiPatterns = [
   { en: "Successfully synced {count} activities!", nl: "{count} activiteiten gesynchroniseerd!", de: "{count} Aktivitäten synchronisiert!", es: "¡{count} actividades sincronizadas!", fr: "{count} activités synchronisées !" },
@@ -655,5 +659,12 @@ const apiPatterns = [
   { en: "Sent {count}; the rest follows automatically in {minutes} minutes.", nl: "{count} gestuurd; de rest volgt over {minutes} minuten vanzelf.", de: "{count} gesendet; der Rest folgt automatisch in {minutes} Minuten.", es: "{count} enviados; el resto llegará automáticamente en {minutes} minutos.", fr: "{count} envoyées ; le reste suivra automatiquement dans {minutes} minutes." },
   { en: "Evaluated and completed {count} quests!", nl: "{count} quests voltooid!", de: "{count} Quests abgeschlossen!", es: "¡{count} misiones completadas!", fr: "{count} quêtes terminées !" },
 ];
+
+// Portuguese: each text goes into its entry next to the other languages.
+for (const [path, text] of Object.entries(PT.messages)) {
+  const entry = path.split(".").reduce((o, k) => (o ? o[k] : undefined), messages);
+  if (entry && typeof entry === "object" && "en" in entry) entry.pt = text;
+}
+for (const p of apiPatterns) p.pt = PT.patterns[p.en];
 
 module.exports = { messages, apiMessages, apiPatterns };

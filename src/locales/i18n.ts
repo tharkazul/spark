@@ -10,11 +10,12 @@ import { nl } from './nl';
 import { de } from './de';
 import { es } from './es';
 import { fr } from './fr';
+import { pt } from './pt';
 
-export type Language = 'en' | 'nl' | 'de' | 'es' | 'fr';
-export const SUPPORTED_LANGUAGES: Language[] = ['en', 'nl', 'de', 'es', 'fr'];
+export type Language = 'en' | 'nl' | 'de' | 'es' | 'fr' | 'pt';
+export const SUPPORTED_LANGUAGES: Language[] = ['en', 'nl', 'de', 'es', 'fr', 'pt'];
 
-export const dictionaries: Record<Language, any> = { en, nl, de, es, fr };
+export const dictionaries: Record<Language, any> = { en, nl, de, es, fr, pt };
 
 /** BCP-47 locale per app language, for Intl / toLocale*String. */
 export const LOCALE_TAGS: Record<Language, string> = {
@@ -23,6 +24,8 @@ export const LOCALE_TAGS: Record<Language, string> = {
   de: 'de-DE',
   es: 'es-ES',
   fr: 'fr-FR',
+  // European Portuguese (pt-PT), not Brazilian.
+  pt: 'pt-PT',
 };
 
 let currentLanguage: Language = 'en';

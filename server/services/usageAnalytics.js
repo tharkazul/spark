@@ -84,7 +84,7 @@ const EVENTS = {
   setting_changed: {
     props: {
       setting: ["coach_style", "coach_gender", "language", "dark_mode", "units", "usage_stats", "morning_time"],
-      value: ["en", "nl", "de", "es", "fr", "on", "off", "metric", "imperial"],
+      value: ["en", "nl", "de", "es", "fr", "pt", "on", "off", "metric", "imperial"],
     },
     dims: [["setting"], ["setting", "value"]],
   },

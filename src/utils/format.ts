@@ -40,6 +40,7 @@ export function formatRelativeDay(dateInput: string | Date, locale: string = 'en
     de: { today: 'Heute', yesterday: 'Gestern', tomorrow: 'Morgen' },
     es: { today: 'Hoy', yesterday: 'Ayer', tomorrow: 'Mañana' },
     fr: { today: "Aujourd'hui", yesterday: 'Hier', tomorrow: 'Demain' },
+    pt: { today: 'Hoje', yesterday: 'Ontem', tomorrow: 'Amanhã' },
   };
 
   const labels = relativeLabels[locale] || relativeLabels.en;
@@ -270,6 +271,12 @@ export function pluralize(noun: string, count: number, locale: string = 'en'): s
     if (noun === 'quest') return `${c} ${c === 1 ? 'quête' : 'quêtes'}`;
     if (noun === 'workout') return `${c} ${c === 1 ? 'séance' : 'séances'}`;
     if (noun === 'day') return `${c} ${c === 1 ? 'jour' : 'jours'}`;
+    return `${c} ${noun}${c === 1 ? '' : 's'}`;
+  }
+  if (locale === 'pt') {
+    if (noun === 'quest') return `${c} ${c === 1 ? 'missão' : 'missões'}`;
+    if (noun === 'workout') return `${c} ${c === 1 ? 'treino' : 'treinos'}`;
+    if (noun === 'day') return `${c} ${c === 1 ? 'dia' : 'dias'}`;
     return `${c} ${noun}${c === 1 ? '' : 's'}`;
   }
   // English default

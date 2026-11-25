@@ -204,24 +204,28 @@ const BENCHMARK_I18N = {
     de: ['5-km-Tempo- & HF-Test', 'Leistungstest: 5-km-Tempo- & HF-Test', 'Aufwärmen 10 Min. lockeres Joggen + 4 Steigerungsläufe. Hauptteil: 5 km (oder 20 Min.) im Wettkampftempo / maximal haltbarer Belastung. Auslaufen 8 Min.'],
     es: ['Test de ritmo y FC en 5 km', 'Prueba de referencia: test de ritmo y FC en 5 km', 'Calentamiento: 10 min de trote suave + 4 progresivos. Parte principal: 5 km (o 20 min) a ritmo de carrera / máximo esfuerzo sostenido. Vuelta a la calma: 8 min.'],
     fr: ['Test allure & FC sur 5 km', 'Test de référence : allure & FC sur 5 km', 'Échauffement 10 min de footing léger + 4 accélérations. Corps de séance : 5 km (ou 20 min) à allure course / effort maximal soutenu. Retour au calme 8 min.'],
+    pt: ['Teste de ritmo e FC em 5 km', 'Teste de referência: ritmo e FC em 5 km', 'Aquecimento: 10 min de corrida leve + 4 acelerações. Parte principal: 5 km (ou 20 min) a ritmo de prova / esforço máximo sustentado. Retorno à calma: 8 min.'],
   },
   '20-Min FTP Baseline Test': {
     nl: ['20-minuten FTP-test', 'Nulmeting: 20-minuten FTP-test', 'Warming-up 15 min met 3x1 min hoge cadans. Kern: 20 minuten maximale constante inspanning. Houd je cadans stabiel (85-95 rpm). Cooling-down 10 min.'],
     de: ['20-Min-FTP-Test', 'Leistungstest: 20-Min-FTP-Test', 'Aufwärmen 15 Min. mit 3x1 Min. hoher Trittfrequenz. Hauptteil: 20 Minuten maximal haltbare Belastung. Trittfrequenz konstant halten (85-95 U/min). Ausfahren 10 Min.'],
     es: ['Test de FTP de 20 min', 'Prueba de referencia: test de FTP de 20 min', 'Calentamiento: 15 min con 3x1 min a cadencia alta. Parte principal: 20 minutos al máximo esfuerzo sostenible. Mantén la cadencia estable (85-95 rpm). Vuelta a la calma: 10 min.'],
     fr: ['Test FTP de 20 min', 'Test de référence : FTP de 20 min', 'Échauffement 15 min avec 3x1 min à haute cadence. Corps de séance : 20 minutes à effort maximal soutenable. Gardez une cadence stable (85-95 tr/min). Retour au calme 10 min.'],
+    pt: ['Teste de FTP de 20 min', 'Teste de referência: FTP de 20 min', 'Aquecimento: 15 min com 3x1 min a cadência alta. Parte principal: 20 minutos ao máximo esforço sustentável. Mantém a cadência estável (85-95 rpm). Retorno à calma: 10 min.'],
   },
   'Hyrox Functional Fitness Test': {
     nl: ['Hyrox functionele fitheidstest', 'Nulmeting: Hyrox functionele fitheidstest', 'Warming-up 8 min licht roeien/joggen. Kern: 1000 m roeien/SkiErg + 50 wallballs (6/9 kg) + 40 burpee broad jumps + 200 m farmers carry. Noteer je totale tijd.'],
     de: ['Hyrox-Funktionsfitnesstest', 'Leistungstest: Hyrox-Funktionsfitnesstest', 'Aufwärmen 8 Min. lockeres Rudern/Joggen. Hauptteil: 1000 m Rudern/SkiErg + 50 Wallballs (6/9 kg) + 40 Burpee Broad Jumps + 200 m Farmers Carry. Gesamtzeit notieren.'],
     es: ['Test funcional Hyrox', 'Prueba de referencia: test funcional Hyrox', 'Calentamiento: 8 min de remo/trote suave. Parte principal: 1000 m de remo/SkiErg + 50 wall balls (6/9 kg) + 40 burpee broad jumps + 200 m de farmers carry. Anota el tiempo total.'],
     fr: ['Test fonctionnel Hyrox', 'Test de référence : test fonctionnel Hyrox', 'Échauffement 8 min rameur/footing léger. Corps de séance : 1000 m rameur/SkiErg + 50 wall balls (6/9 kg) + 40 burpee broad jumps + 200 m farmers carry. Notez votre temps total.'],
+    pt: ['Teste funcional Hyrox', 'Teste de referência: teste funcional Hyrox', 'Aquecimento: 8 min de remo/corrida leve. Parte principal: 1000 m de remo/SkiErg + 50 wall balls (6/9 kg) + 40 burpee broad jumps + 200 m de farmers carry. Regista o tempo total.'],
   },
   '400m CSS Swim Test': {
     nl: ['400 m CSS-zwemtest', 'Nulmeting: 400 m CSS-zwemtest', 'Inzwemmen 200 m rustig. Kern: 400 m tijdrit (noteer tijd), 100 m rustig herstel, 50 m tijdrit (noteer tijd). Uitzwemmen 150 m rustig.'],
     de: ['400-m-CSS-Schwimmtest', 'Leistungstest: 400-m-CSS-Schwimmtest', 'Einschwimmen 200 m locker. Hauptteil: 400 m Zeitschwimmen (Zeit notieren), 100 m locker, 50 m Zeitschwimmen (Zeit notieren). Ausschwimmen 150 m locker.'],
     es: ['Test de natación CSS 400 m', 'Prueba de referencia: test de natación CSS 400 m', 'Calentamiento: 200 m suaves. Parte principal: 400 m contrarreloj (anota el tiempo), 100 m de recuperación suave, 50 m contrarreloj (anota el tiempo). Vuelta a la calma: 150 m suaves.'],
     fr: ['Test de natation CSS 400 m', 'Test de référence : natation CSS 400 m', 'Échauffement 200 m facile. Corps de séance : 400 m chrono (notez votre temps), 100 m de récupération facile, 50 m chrono (notez votre temps). Retour au calme 150 m facile.'],
+    pt: ['Teste de natação CSS de 400 m', 'Teste de referência: natação CSS de 400 m', 'Aquecimento: 200 m fáceis. Parte principal: 400 m contrarrelógio (regista o tempo), 100 m de recuperação fácil, 50 m contrarrelógio (regista o tempo). Retorno à calma: 150 m fáceis.'],
   },
 };
 const BENCHMARK_STEP_NAMES = {
@@ -229,6 +233,7 @@ const BENCHMARK_STEP_NAMES = {
   de: ['Dynamisches Aufwärmen', 'Lockeres Auslaufen'],
   es: ['Calentamiento dinámico', 'Vuelta a la calma suave'],
   fr: ['Échauffement dynamique', 'Retour au calme facile'],
+  pt: ['Aquecimento dinâmico', 'Retorno à calma fácil'],
 };
 
 function localizeBenchmarkInfo(info, lang) {
@@ -244,6 +249,7 @@ const ONBOARDING_LANG_NAMES = {
   de: 'German (Deutsch)',
   es: 'Spanish (Español)',
   fr: 'French (Français)',
+  pt: 'European Portuguese (Português de Portugal)',
   en: 'English'
 };
 
@@ -680,17 +686,17 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       {
         date: dates[1],
         sport: 'Rest',
-        description: selectedLang === 'nl' ? 'Actief Herstel & Mobiliteit' : selectedLang === 'de' ? 'Aktive Regeneration & Mobility' : selectedLang === 'es' ? 'Recuperación Activa y Movilidad' : selectedLang === 'fr' ? 'Récupération Active & Mobilité' : 'Active Recovery & Mobility',
+        description: selectedLang === 'nl' ? 'Actief Herstel & Mobiliteit' : selectedLang === 'de' ? 'Aktive Regeneration & Mobility' : selectedLang === 'es' ? 'Recuperación Activa y Movilidad' : selectedLang === 'fr' ? 'Récupération Active & Mobilité' : selectedLang === 'pt' ? 'Recuperação ativa e mobilidade' : 'Active Recovery & Mobility',
         target_rooka: 0,
-        details: selectedLang === 'nl' ? 'Lichte wandeling of stretching na je benchmark test.' : selectedLang === 'de' ? 'Leichter Spaziergang oder Dehnen nach deinem Baseline-Test.' : selectedLang === 'es' ? 'Caminata ligera o estiramientos tras tu prueba de referencia.' : selectedLang === 'fr' ? 'Marche légère ou étirements après votre test de référence.' : 'Light walk or stretching after your baseline assessment.',
+        details: selectedLang === 'nl' ? 'Lichte wandeling of stretching na je benchmark test.' : selectedLang === 'de' ? 'Leichter Spaziergang oder Dehnen nach deinem Baseline-Test.' : selectedLang === 'es' ? 'Caminata ligera o estiramientos tras tu prueba de referencia.' : selectedLang === 'fr' ? 'Marche légère ou étirements après votre test de référence.' : selectedLang === 'pt' ? 'Caminhada leve ou alongamentos depois do teu teste de referência.' : 'Light walk or stretching after your baseline assessment.',
         steps: []
       },
       {
         date: dates[2],
         sport: benchmarkInfo.sport,
-        description: selectedLang === 'nl' ? 'Zone 2 Aerobe Duur' : selectedLang === 'de' ? 'Zone 2 Grundlagenlauf' : selectedLang === 'es' ? 'Resistencia Aeróbica Zona 2' : selectedLang === 'fr' ? 'Endurance Aérobie Zone 2' : 'Zone 2 Aerobic Base',
+        description: selectedLang === 'nl' ? 'Zone 2 Aerobe Duur' : selectedLang === 'de' ? 'Zone 2 Grundlagenlauf' : selectedLang === 'es' ? 'Resistencia Aeróbica Zona 2' : selectedLang === 'fr' ? 'Endurance Aérobie Zone 2' : selectedLang === 'pt' ? 'Base aeróbia na zona 2' : 'Zone 2 Aerobic Base',
         target_rooka: 40,
-        details: selectedLang === 'nl' ? 'Rustig aerobe duurtraining op praattempo.' : selectedLang === 'de' ? 'Ruhige Ausdauereinheit im Gesprächstempo.' : selectedLang === 'es' ? 'Sesión aeróbica controlada a ritmo de conversación.' : selectedLang === 'fr' ? 'Séance aérobie contrôlée à allure de conversation.' : 'Controlled conversational pace endurance session.',
+        details: selectedLang === 'nl' ? 'Rustig aerobe duurtraining op praattempo.' : selectedLang === 'de' ? 'Ruhige Ausdauereinheit im Gesprächstempo.' : selectedLang === 'es' ? 'Sesión aeróbica controlada a ritmo de conversación.' : selectedLang === 'fr' ? 'Séance aérobie contrôlée à allure de conversation.' : selectedLang === 'pt' ? 'Sessão aeróbia controlada a ritmo de conversa.' : 'Controlled conversational pace endurance session.',
         steps: [
           { type: 'warmup', exerciseName: 'Warm-up', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
           { type: 'interval', exerciseName: 'Zone 2 Aerobic Base', condition_type: 'time', condition_value: 40, target_type: 'heart.rate.zone', zone: 2 },
@@ -700,9 +706,9 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       {
         date: dates[3],
         sport: 'Strength',
-        description: selectedLang === 'nl' ? 'Core & Atletische Kracht' : selectedLang === 'de' ? 'Core & Rumpfkraft' : selectedLang === 'es' ? 'Fuerza Funcional y Core' : selectedLang === 'fr' ? 'Renforcement Core & Postural' : 'Core & Foundation Strength',
+        description: selectedLang === 'nl' ? 'Core & Atletische Kracht' : selectedLang === 'de' ? 'Core & Rumpfkraft' : selectedLang === 'es' ? 'Fuerza Funcional y Core' : selectedLang === 'fr' ? 'Renforcement Core & Postural' : selectedLang === 'pt' ? 'Core e força de base' : 'Core & Foundation Strength',
         target_rooka: 35,
-        details: selectedLang === 'nl' ? 'Planks, lunges, heupstabiliteit en glute bridges (30 min).' : selectedLang === 'de' ? 'Planks, Ausfallschritte und Rumpfstabilität (30 Min).' : selectedLang === 'es' ? 'Planchas, zancadas y estabilidad de cadera (30 min).' : selectedLang === 'fr' ? 'Gainage, fentes et renforcement des hanches (30 min).' : 'Planks, lunges, hip stability and glute activation (30 min).',
+        details: selectedLang === 'nl' ? 'Planks, lunges, heupstabiliteit en glute bridges (30 min).' : selectedLang === 'de' ? 'Planks, Ausfallschritte und Rumpfstabilität (30 Min).' : selectedLang === 'es' ? 'Planchas, zancadas y estabilidad de cadera (30 min).' : selectedLang === 'fr' ? 'Gainage, fentes et renforcement des hanches (30 min).' : selectedLang === 'pt' ? 'Pranchas, afundos, estabilidade da anca e ativação dos glúteos (30 min).' : 'Planks, lunges, hip stability and glute activation (30 min).',
         steps: [
           { type: 'warmup', exerciseName: 'Dynamic Movement Prep', condition_type: 'time', condition_value: 5, target_type: 'no.target' },
           { type: 'interval', exerciseName: 'Core & Foundation Circuit', condition_type: 'time', condition_value: 25, target_type: 'no.target' }
@@ -711,17 +717,17 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       {
         date: dates[4],
         sport: 'Rest',
-        description: selectedLang === 'nl' ? 'Rustdag' : selectedLang === 'de' ? 'Ruhetag' : selectedLang === 'es' ? 'Día de Descanso' : selectedLang === 'fr' ? 'Jour de Repos' : 'Rest & Recharge',
+        description: selectedLang === 'nl' ? 'Rustdag' : selectedLang === 'de' ? 'Ruhetag' : selectedLang === 'es' ? 'Día de Descanso' : selectedLang === 'fr' ? 'Jour de Repos' : selectedLang === 'pt' ? 'Descanso e recarga' : 'Rest & Recharge',
         target_rooka: 0,
-        details: selectedLang === 'nl' ? 'Volledige rust om spierherstel en adaptatie te stimuleren.' : selectedLang === 'de' ? 'Vollständige Erholung zur Förderung der Muskelregeneration.' : selectedLang === 'es' ? 'Descanso completo para asimilar la carga de entrenamiento.' : selectedLang === 'fr' ? 'Repos complet pour optimiser la récupération et l\'adaptation.' : 'Full rest to promote cellular repair and adaptation.',
+        details: selectedLang === 'nl' ? 'Volledige rust om spierherstel en adaptatie te stimuleren.' : selectedLang === 'de' ? 'Vollständige Erholung zur Förderung der Muskelregeneration.' : selectedLang === 'es' ? 'Descanso completo para asimilar la carga de entrenamiento.' : selectedLang === 'fr' ? 'Repos complet pour optimiser la récupération et l\'adaptation.' : selectedLang === 'pt' ? 'Descanso completo para favorecer a recuperação e a adaptação.' : 'Full rest to promote cellular repair and adaptation.',
         steps: []
       },
       {
         date: dates[5],
         sport: benchmarkInfo.sport,
-        description: selectedLang === 'nl' ? 'Langere Aerobe Duur' : selectedLang === 'de' ? 'Langer Grundlagen-Dauerlauf' : selectedLang === 'es' ? 'Tirada Larga Aeróbica' : selectedLang === 'fr' ? 'Sortie Longue Fondamentale' : 'Long Aerobic Progression',
+        description: selectedLang === 'nl' ? 'Langere Aerobe Duur' : selectedLang === 'de' ? 'Langer Grundlagen-Dauerlauf' : selectedLang === 'es' ? 'Tirada Larga Aeróbica' : selectedLang === 'fr' ? 'Sortie Longue Fondamentale' : selectedLang === 'pt' ? 'Progressão aeróbia longa' : 'Long Aerobic Progression',
         target_rooka: 60,
-        details: selectedLang === 'nl' ? 'Gestage duurtraining met focus op cadans en hydratatie.' : selectedLang === 'de' ? 'Gleichmäßige Grundlagenausdauer mit Fokus auf Tritt-/Schrittfrequenz.' : selectedLang === 'es' ? 'Sesión de volumen aeróbico constante con hidratación controlada.' : selectedLang === 'fr' ? 'Endurance fondamentale régulière avec gestion de l\'hydratation.' : 'Steady aerobic endurance focusing on rhythm and fueling.',
+        details: selectedLang === 'nl' ? 'Gestage duurtraining met focus op cadans en hydratatie.' : selectedLang === 'de' ? 'Gleichmäßige Grundlagenausdauer mit Fokus auf Tritt-/Schrittfrequenz.' : selectedLang === 'es' ? 'Sesión de volumen aeróbico constante con hidratación controlada.' : selectedLang === 'fr' ? 'Endurance fondamentale régulière avec gestion de l\'hydratation.' : selectedLang === 'pt' ? 'Resistência aeróbia constante, com foco no ritmo e na alimentação.' : 'Steady aerobic endurance focusing on rhythm and fueling.',
         steps: [
           { type: 'warmup', exerciseName: 'Easy Warm-up', condition_type: 'time', condition_value: 10, target_type: 'no.target' },
           { type: 'interval', exerciseName: 'Conversational Pace Base', condition_type: 'time', condition_value: 60, target_type: 'heart.rate.zone', zone: 2 },
@@ -731,9 +737,9 @@ router.post('/finalize', authenticateToken, async (req, res) => {
       {
         date: dates[6],
         sport: 'Rest',
-        description: selectedLang === 'nl' ? 'Herstel & Weekevaluatie' : selectedLang === 'de' ? 'Regeneration & Wochenrückblick' : selectedLang === 'es' ? 'Recuperación y Resumen Semanal' : selectedLang === 'fr' ? 'Récupération & Bilan Semaine' : 'Recovery & Weekly Reflection',
+        description: selectedLang === 'nl' ? 'Herstel & Weekevaluatie' : selectedLang === 'de' ? 'Regeneration & Wochenrückblick' : selectedLang === 'es' ? 'Recuperación y Resumen Semanal' : selectedLang === 'fr' ? 'Récupération & Bilan Semaine' : selectedLang === 'pt' ? 'Recuperação e balanço semanal' : 'Recovery & Weekly Reflection',
         target_rooka: 0,
-        details: selectedLang === 'nl' ? 'Lichte wandeling, foam rolling en voorbereiding op week 2.' : selectedLang === 'de' ? 'Leichter Spaziergang, Faszienrolle und Vorbereitung auf Woche 2.' : selectedLang === 'es' ? 'Caminata suave, foam roller y preparación para la semana 2.' : selectedLang === 'fr' ? 'Marche douce, rouleau de massage et préparation de la semaine 2.' : 'Easy walk, foam rolling, and reviewing week 1 progress.',
+        details: selectedLang === 'nl' ? 'Lichte wandeling, foam rolling en voorbereiding op week 2.' : selectedLang === 'de' ? 'Leichter Spaziergang, Faszienrolle und Vorbereitung auf Woche 2.' : selectedLang === 'es' ? 'Caminata suave, foam roller y preparación para la semana 2.' : selectedLang === 'fr' ? 'Marche douce, rouleau de massage et préparation de la semaine 2.' : selectedLang === 'pt' ? 'Caminhada leve, rolo de espuma e balanço da primeira semana.' : 'Easy walk, foam rolling, and reviewing week 1 progress.',
         steps: []
       }
     ];
@@ -824,6 +830,20 @@ Avant de programmer des intensités précises, nous devons évaluer votre niveau
 1. Rendez-vous sur l'onglet **Aujourd'hui** / **Programme** pour consulter les détails et l'échauffement de votre test.
 2. Associez votre montre GPS ou ceinture cardiaque avant de partir.
 3. Réalisez le test comme prescrit. Dès synchronisation, j'analyserai vos données pour calculer vos zones d'entraînement personnalisées !`,
+
+      pt: `Bem-vindo ao teu programa de treino personalizado! Analisei o teu perfil e os teus objetivos, e criei o teu plano inicial de 7 dias.
+
+**O teu primeiro passo: o teste de referência (${benchmarkInfo.testName})**
+Antes de ajustarmos cargas de treino estruturadas, precisamos de medir a tua forma atual. Este teste calibra as tuas zonas de frequência cardíaca, potência e ritmo, para que cada treino futuro tenha exatamente a intensidade certa.
+
+**Como é a tua primeira semana:**
+- **Dias 1–2**: **${benchmarkInfo.testName}** — Faz o teste ao esforço-alvo para fixar a tua referência.
+- **Resto da semana**: Recuperação ativa, construção controlada da base aeróbia na zona 2 e resistência de base adaptada à tua disponibilidade semanal.
+
+**Próximos passos (o que fazer agora):**
+1. Vê o separador **Hoje** / **Plano** para conheceres o aquecimento, a parte principal e o retorno à calma do teu teste.
+2. Liga o teu monitor de frequência cardíaca ou relógio GPS (Garmin, Strava, Apple Watch) antes de saíres.
+3. Faz o teste como indicado. Assim que sincronizar, analiso os teus dados e calculo as tuas zonas de treino personalizadas!`,
 
       en: `Welcome to your personalized training program! I've analyzed your profile and goals, and created your initial 7-day training schedule.
 

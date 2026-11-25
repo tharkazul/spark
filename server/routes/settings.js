@@ -561,7 +561,7 @@ router.post("/api/user/settings/coach", authenticateToken, (req, res) => {
 
 router.post("/api/user/settings/language", authenticateToken, (req, res) => {
   const { language } = req.body;
-  if (!["en", "nl", "de", "es", "fr"].includes(language)) return res.status(400).json({ error: "Language required" });
+  if (!["en", "nl", "de", "es", "fr", "pt"].includes(language)) return res.status(400).json({ error: "Language required" });
   db.run(
     `UPDATE users SET language = ? WHERE id = ?`,
     [language, req.user.id],

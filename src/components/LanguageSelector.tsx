@@ -15,6 +15,7 @@ const OPTIONS: { id: Language; label: string }[] = [
   { id: 'de', label: 'Deutsch' },
   { id: 'es', label: 'Español' },
   { id: 'fr', label: 'Français' },
+  { id: 'pt', label: 'Português' },
 ];
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ compact = false }) => {

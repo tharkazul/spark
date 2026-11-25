@@ -68,7 +68,7 @@ export const FitnessTrendsChart: React.FC<FitnessTrendsChartProps> = ({
     if (!dateStr) return '';
     const d = new Date(`${dateStr.substring(0, 10)}T12:00:00`);
     if (isNaN(d.getTime())) return dateStr;
-    const locale = { en: 'en-GB', nl: 'nl-NL', de: 'de-DE', es: 'es-ES', fr: 'fr-FR' }[language as string] || 'en-GB';
+    const locale = { en: 'en-GB', nl: 'nl-NL', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', pt: 'pt-PT' }[language as string] || 'en-GB';
     return d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' });
   };
 

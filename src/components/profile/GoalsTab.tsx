@@ -329,6 +329,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ onDone, onSaved }) => {
           de: 'de-DE',
           es: 'es-ES',
           fr: 'fr-FR',
+          pt: 'pt-PT',
         };
         return d.toLocaleDateString(localeMap[language] || 'en-US', {
           weekday: 'short',

@@ -1368,6 +1368,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                   de: "German (Deutsch)",
                   es: "Spanish (Español)",
                   fr: "French (Français)",
+                  pt: "European Portuguese (Português de Portugal)",
                   en: "English",
                 };
                 const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith("nl") ? "Dutch (Nederlands)" : "English");
@@ -1449,7 +1450,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                   }
                 }
 
-                prompt += ` CRITICAL LANGUAGE MANDATE: You MUST write your coach reaction fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! Keep it to 4 sentences at most. DO NOT wrap it in JSON.`;
+                prompt += ` CRITICAL LANGUAGE MANDATE: You MUST write your coach reaction fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, French or Portuguese! Keep it to 4 sentences at most. DO NOT wrap it in JSON.`;
 
                 const systemPrompt = `You are ${coachName}, an elite endurance coach. Your tone is: ${tone}. ${userRow?.coach_context ? `Coach Custom Context: ${userRow.coach_context}` : ""} Act like a real human in a continuous text message thread. Language: ${targetLanguageName}. ${PLAIN_LANGUAGE_RULE}`;
 
@@ -3753,6 +3754,7 @@ async function writeMorningMessageForUser(userId, { force = false } = {}) {
     de: "German (Deutsch)",
     es: "Spanish (Español)",
     fr: "French (Français)",
+    pt: "European Portuguese (Português de Portugal)",
     en: "English",
   };
   const targetLanguageName = langMap[userLanguage] || (userLanguage.startsWith("nl") ? "Dutch (Nederlands)" : "English");
@@ -3809,7 +3811,7 @@ async function writeMorningMessageForUser(userId, { force = false } = {}) {
     prompt += `IMPORTANT: they have logged NO training at all in the last 7 days. Do NOT congratulate them on recent work, a "great block", or any session — none happened. Do not invent any training. Simply greet them and look ahead. `;
   }
   prompt += `Never mention a workout, distance, or achievement that is not listed above. `;
-  prompt += `CRITICAL LANGUAGE MANDATE: You MUST write this entire message fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, or French! NEVER mix languages within a sentence or use Dutch activity names inside English sentences. `;
+  prompt += `CRITICAL LANGUAGE MANDATE: You MUST write this entire message fluently, naturally, and exclusively in ${targetLanguageName} (${userLanguage}). NEVER output English if the athlete's language is Dutch, German, Spanish, French or Portuguese! NEVER mix languages within a sentence or use Dutch activity names inside English sentences. `;
   prompt += `Keep it under 3 sentences. DO NOT wrap it in JSON.`;
 
   const coachName = resolveCoachName(user);
