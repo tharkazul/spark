@@ -1003,7 +1003,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
           <GarminAttribution label={activity?.garmin_attribution} className="mt-0.5" />
 
           <View className="flex-row items-center gap-x-2 mt-1 mb-2">
-            <SportMedallion sport={activity?.sport_type} size={24} />
+            <SportMedallion sport={activity?.sport_type} title={activity?.name} size={24} />
             <Text className="text-xs font-medium text-theme-muted">
               {formatRelativeDayAndTime(activity?.start_date || new Date(), language)}
             </Text>
@@ -1534,7 +1534,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
                   className="flex-row items-center justify-between p-3.5 rounded-2xl bg-theme-inset border border-theme-border/40"
                 >
                   <View className="flex-row items-center gap-x-3 flex-1 mr-3">
-                    <SportMedallion sport={candidate.sport_type} size={28} />
+                    <SportMedallion sport={candidate.sport_type} title={candidate.name} size={28} />
                     <View className="flex-1">
                       <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                         {candidate.name}

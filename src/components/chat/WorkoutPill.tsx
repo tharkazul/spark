@@ -38,7 +38,7 @@ export const WorkoutPill: React.FC<WorkoutPillProps> = ({ workout, onPress }) =>
     >
       {/* Left: SportMedallion 40pt */}
       <View className="flex-row items-center flex-1 pr-2.5">
-        <SportMedallion sport={workout?.sport} size={40} />
+        <SportMedallion sport={workout?.sport} title={workout?.description} size={40} />
 
         <View className="flex-1 ml-3">
           {/* Line 1: Caption "SWIM, YESTERDAY" */}

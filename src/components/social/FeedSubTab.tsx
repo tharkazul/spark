@@ -470,7 +470,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                   {/* Title line: 40pt SportMedallion + title + chevron */}
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center gap-x-2.5 flex-1 pr-2">
-                      <SportMedallion sport={primaryActivity.sport_type} size={40} />
+                      <SportMedallion sport={primaryActivity.sport_type} title={primaryActivity.name || primaryActivity.title} size={40} />
                       <View className="flex-1">
                         <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
                           {primaryActivity.name || primaryActivity.title || t('quickActions.workout', 'Workout')}
@@ -610,7 +610,7 @@ export const FeedSubTab: React.FC<FeedSubTabProps> = ({
                         }`}
                       >
                         <View className="flex-row items-center gap-x-2.5 flex-1 pr-2">
-                          <SportMedallion sport={act.sport_type} size={28} />
+                          <SportMedallion sport={act.sport_type} title={act.name || act.title} size={28} />
                           <View className="flex-1">
                             <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                               {act.name || act.title || t('quickActions.workout', 'Workout')}

@@ -218,7 +218,7 @@ export function DetailedDayCard({
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-3 flex-1 mr-2">
-            <SportMedallion sport={primaryWorkout.type} size={40} />
+            <SportMedallion sport={primaryWorkout.type} title={primaryWorkout.title} size={40} />
             <View className="flex-1">
               <View className="flex-row items-center gap-2">
                 <Text className="text-xs font-semibold text-theme-muted uppercase">
@@ -403,7 +403,7 @@ export function DetailedDayCard({
                       onSelectWorkout(workout);
                     }}
                   >
-                    <SportMedallion sport={workout.type} size={48} />
+                    <SportMedallion sport={workout.type} title={workout.title} size={48} />
                   </TouchableOpacity>
 
                   {/* Workout Info */}

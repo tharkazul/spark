@@ -2,10 +2,19 @@ import React from 'react';
 import { View, Image, useColorScheme, ImageSourcePropType } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { sportColor } from '../../constants/theme';
-import { getSportEmblem, normalizeSportType } from '../../utils/disciplineConfig';
+import {
+  getSportEmblem,
+  normalizeSportType,
+  detectSubSport,
+  SubSport,
+  SUB_SPORT_EMBLEMS,
+  SUB_SPORT_FAMILY,
+} from '../../utils/disciplineConfig';
 
 export interface SportMedallionProps {
   sport?: string;
+  /** The session or activity title. Picks a ball or racket sport's own medallion ("Hockey training"). */
+  title?: string;
   size?: number;
   onAccent?: boolean;
   /** Always draw the 3D medallion artwork, also below 36pt (where the flat glyph is the default). */
@@ -30,9 +39,30 @@ const GLYPH_MAP: Record<string, keyof typeof MaterialCommunityIcons.glyphMap> = 
   REST: 'weather-night',
 };
 
-/** The MaterialCommunityIcons glyph for a sport, as used by the small medallions and the week strip. */
-export function getSportGlyph(sport?: string): keyof typeof MaterialCommunityIcons.glyphMap {
+const SUB_SPORT_GLYPHS: Record<SubSport, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  HOCKEY: 'hockey-sticks',
+  FOOTBALL: 'soccer',
+  TENNIS: 'tennis',
+  PADEL: 'racquetball',
+  BASKETBALL: 'basketball',
+  VOLLEYBALL: 'volleyball',
+  GOLF: 'golf',
+  RUGBY: 'rugby',
+};
+
+/**
+ * The MaterialCommunityIcons glyph for a sport, as used by the small medallions and the week
+ * strip. With a title, ball and racket sports get their own glyph (hockey sticks, a racket).
+ */
+export function getSportGlyph(sport?: string, title?: string): keyof typeof MaterialCommunityIcons.glyphMap {
+  const sub = detectSubSport(sport, title);
+  if (sub) return SUB_SPORT_GLYPHS[sub];
   return GLYPH_MAP[normalizeSportType(sport || 'REST')] || 'dumbbell';
+}
+
+/** The colour family for a session: the run gold for ball and racket sports, else its sport. */
+export function getSportColorKey(sport?: string, title?: string): string {
+  return detectSubSport(sport, title) ? SUB_SPORT_FAMILY : normalizeSportType(sport);
 }
 
 /**
@@ -43,6 +73,7 @@ export function getSportGlyph(sport?: string): keyof typeof MaterialCommunityIco
  */
 export function SportMedallion({
   sport = 'REST',
+  title,
   size = 40,
   onAccent = false,
   emblem = false,
@@ -50,12 +81,14 @@ export function SportMedallion({
   style,
 }: SportMedallionProps) {
   const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const cleanKey = normalizeSportType(sport);
+  const subSport = detectSubSport(sport, title);
+  const cleanKey = subSport ? SUB_SPORT_FAMILY : normalizeSportType(sport);
+  const label = (subSport || cleanKey).toLowerCase();
   const color = onAccent ? '#FFFFFF' : sportColor(cleanKey, scheme);
   const isGlyphOnly = size <= 32 && !emblem;
 
   if (isGlyphOnly) {
-    const glyphName = GLYPH_MAP[cleanKey] || 'dumbbell';
+    const glyphName = subSport ? SUB_SPORT_GLYPHS[subSport] : GLYPH_MAP[cleanKey] || 'dumbbell';
     const iconSize = Math.round(size * 0.58);
     const bgColor = onAccent ? 'rgba(255, 255, 255, 0.22)' : `${color}24`; // 14% tint
 
@@ -63,7 +96,7 @@ export function SportMedallion({
       <View
         accessible={true}
         accessibilityRole="image"
-        accessibilityLabel={`${cleanKey} icon`}
+        accessibilityLabel={`${label} icon`}
         style={[
           {
             width: size,
@@ -82,13 +115,13 @@ export function SportMedallion({
     );
   }
 
-  const emblemSource: ImageSourcePropType = getSportEmblem(cleanKey);
+  const emblemSource: ImageSourcePropType = subSport ? SUB_SPORT_EMBLEMS[subSport] : getSportEmblem(cleanKey);
 
   return (
     <View
       accessible={true}
       accessibilityRole="image"
-      accessibilityLabel={`${cleanKey} medallion`}
+      accessibilityLabel={`${label} medallion`}
       style={[
         {
           width: size,

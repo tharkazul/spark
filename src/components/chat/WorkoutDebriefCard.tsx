@@ -28,7 +28,7 @@ export const WorkoutDebriefCard: React.FC<WorkoutDebriefCardProps> = ({
       {/* 1. HEADER ROW */}
       <View className="flex-row items-center justify-between pb-3 mb-3 border-b border-theme-border/40">
         <View className="flex-row items-center gap-2.5 flex-1 mr-2">
-          <SportMedallion sport={sport} size={38} />
+          <SportMedallion sport={sport} title={workout_title} size={38} />
           <View className="flex-1">
             <View className="flex-row items-center gap-1.5">
               <View className="px-2 py-0.5 rounded-full bg-semantic-success-bg border border-semantic-success/20">

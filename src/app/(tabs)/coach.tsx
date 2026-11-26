@@ -1010,7 +1010,7 @@ export default function CoachScreen() {
             selectedPillWorkout ? (
               <View className="flex-row items-center justify-between mb-4">
                 <View className="flex-row items-center gap-3">
-                  <SportMedallion sport={selectedPillWorkout.sport} size={40} />
+                  <SportMedallion sport={selectedPillWorkout.sport} title={selectedPillWorkout.description} size={40} />
                   <View>
                     <Text className="text-lg font-extrabold text-theme-text">
                       {(selectedPillWorkout.sport || '').toLowerCase() === 'rest'
@@ -1095,7 +1095,7 @@ export default function CoachScreen() {
             <>
               <View className="flex-row items-center justify-between mb-4">
                 <View className="flex-row items-center gap-3">
-                  <SportMedallion sport={primaryWorkout?.sport || 'Rest'} size={40} />
+                  <SportMedallion sport={primaryWorkout?.sport || 'Rest'} title={primaryWorkout?.description} size={40} />
                   <View>
                     <Text className="text-lg font-extrabold text-theme-text">
                       {todayWorkouts.length > 1 ? t('coach.todaysWorkouts', "Today's Workouts") : t('coach.todaysWorkout', "Today's Workout")}
@@ -1120,7 +1120,7 @@ export default function CoachScreen() {
                         {/* Top Sport Line */}
                         <View className="flex-row items-center justify-between mb-2 pb-2 border-b border-theme-border/40">
                           <View className="flex-row items-center gap-2">
-                            <SportMedallion sport={w.sport || 'Workout'} size={24} />
+                            <SportMedallion sport={w.sport || 'Workout'} title={w.description} size={24} />
                             <Text className="text-sm font-extrabold text-theme-text">{w.sport ? t(`sports.${w.sport.toLowerCase()}`, w.sport) : t('activityDetail.workout')}</Text>
                           </View>
                           {w.target_rooka ? (
@@ -1400,7 +1400,7 @@ export default function CoachScreen() {
               style={{ flexGrow: 1 }}
               className="h-9 bg-theme-card border border-theme-border px-3 rounded-full flex-row items-center justify-center gap-2"
             >
-              <SportMedallion sport={primaryWorkout?.sport || 'Rest'} size={20} />
+              <SportMedallion sport={primaryWorkout?.sport || 'Rest'} title={primaryWorkout?.description} size={20} />
               <Text className="text-xs font-bold text-theme-text" numberOfLines={1}>
                 {primaryWorkout?.sport
                   ? `${(() => {

@@ -338,7 +338,7 @@ export const MyLogSubTab: React.FC<MyLogSubTabProps> = ({ onOpenActivityModal })
                   className="bg-theme-card/90 dark:bg-white/[0.06] border border-theme-border dark:border-white/[0.1] rounded-card p-3.5 mb-2.5 shadow-xs"
                 >
                   <View className="flex-row items-center">
-                    <SportMedallion sport={act.sport_type || act.type} size={40} className="mr-3.5" />
+                    <SportMedallion sport={act.sport_type || act.type} title={act.name} size={40} className="mr-3.5" />
                     <View className="flex-1">
                       <Text className="text-base font-bold text-theme-text" numberOfLines={1}>
                         {act.name || act.sport_type || t('activityDetail.workout')}

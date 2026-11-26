@@ -9,10 +9,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { DayAgenda } from '../../types/dashboard';
 import { BodyStatus, Season } from '../../types/season';
-import { normalizeSportType } from '../../utils/disciplineConfig';
+import { detectSubSport } from '../../utils/disciplineConfig';
 import { calculateWorkoutDurationMinutes } from '../../utils/format';
 import { formatHours, phaseLabel } from '../goal/seasonFormat';
-import { getSportGlyph } from '../ui/SportMedallion';
+import { getSportColorKey, getSportGlyph } from '../ui/SportMedallion';
 
 interface HomeWeekHeroProps {
   /** The current Monday-to-Sunday week. */
@@ -26,7 +26,12 @@ interface HomeWeekHeroProps {
 
 /** One sport block of a day. A brick (bike then run) is two parts. */
 interface DayPart {
+  /** Colour family: the sport, or RUN for a ball or racket sport. */
   sport: string;
+  /** The first session's sport and title, for its glyph (hockey sticks, a racket). */
+  rawSport?: string;
+  title?: string;
+  sub: string | null;
   mins: number;
   done: boolean;
 }
@@ -52,14 +57,16 @@ function dayParts(day: DayAgenda): DayPart[] {
   const parts: DayPart[] = [];
   for (const w of day.workouts) {
     if (isRest(w.type)) continue;
-    const sport = normalizeSportType(w.type || w.sport);
+    const rawSport = w.type || w.sport;
+    const sub = detectSubSport(rawSport, w.title);
+    const sport = getSportColorKey(rawSport, w.title);
     const mins = calculateWorkoutDurationMinutes(w);
     const last = parts[parts.length - 1];
-    if (last && last.sport === sport) {
+    if (last && last.sport === sport && last.sub === sub) {
       last.mins += mins;
       last.done = last.done && Boolean(w.isCompleted);
     } else {
-      parts.push({ sport, mins, done: Boolean(w.isCompleted) });
+      parts.push({ sport, rawSport, title: w.title, sub, mins, done: Boolean(w.isCompleted) });
     }
   }
   if (parts.length === 2 && parts[0].sport === 'RUN' && parts[1].sport === 'BIKE') parts.reverse();
@@ -133,7 +140,7 @@ export function HomeWeekHero({ week, streak, season, bodyGoal, onPressDay, onPre
     const { fill, glyph } = paint(part, day);
     return ringed(
       <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: fill }} className="items-center justify-center">
-        <MaterialCommunityIcons name={getSportGlyph(part.sport)} size={Math.round(size * 0.52)} color={glyph} />
+        <MaterialCommunityIcons name={getSportGlyph(part.rawSport || part.sport, part.title)} size={Math.round(size * 0.52)} color={glyph} />
       </View>,
       size,
       day.isToday
@@ -164,7 +171,7 @@ export function HomeWeekHero({ week, streak, season, bodyGoal, onPressDay, onPre
               }}
               className="items-center justify-center"
             >
-              <MaterialCommunityIcons name={getSportGlyph(part.sport)} size={Math.round(height * 0.45)} color={glyph} />
+              <MaterialCommunityIcons name={getSportGlyph(part.rawSport || part.sport, part.title)} size={Math.round(height * 0.45)} color={glyph} />
             </View>
           );
         })}

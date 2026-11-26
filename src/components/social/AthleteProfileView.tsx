@@ -482,7 +482,7 @@ export const AthleteProfileView: React.FC<AthleteProfileViewProps> = ({
                     className="bg-theme-card border border-theme-border rounded-tile p-4 mb-2.5 flex-row items-center justify-between shadow-xs"
                   >
                     <View className="flex-row items-center gap-x-3 flex-1 pr-2">
-                      <SportMedallion sport={act.sport_type} size={40} className="mr-1" />
+                      <SportMedallion sport={act.sport_type} title={act.name || act.title} size={40} className="mr-1" />
                       <View className="flex-1">
                         <Text className="text-sm font-bold text-theme-text" numberOfLines={1}>
                           {act.name || act.title || t('activityDetail.workout')}

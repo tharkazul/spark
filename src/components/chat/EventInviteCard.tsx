@@ -52,7 +52,7 @@ export const EventInviteCard: React.FC<EventInviteCardProps> = ({
   return (
     <View className="my-3 bg-theme-card/90 border border-theme-border rounded-tile p-4 shadow-sm">
       <View className="flex-row items-center gap-3 mb-3">
-        <SportMedallion sport={payload.sport} size={36} />
+        <SportMedallion sport={payload.sport} title={payload.description} size={36} />
         <View className="flex-1">
           <Text className="text-theme-text font-bold text-sm">
             {payload.inviter_name ? t('chatCards.invitedYou', { name: payload.inviter_name }) : t('chatCards.eventInvitation')}

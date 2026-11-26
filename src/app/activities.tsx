@@ -50,7 +50,7 @@ export default function ActivitiesScreen() {
         renderItem={({ item }) => (
           <Card variant="default" className="mb-3.5">
             <View className="flex-row items-center mb-3">
-              <SportMedallion sport={item.type} size={40} className="mr-3" />
+              <SportMedallion sport={item.type} title={item.title} size={40} className="mr-3" />
               <View className="flex-1">
                 <Text numberOfLines={1} className="text-theme-text font-bold text-base">
                   {item.title}

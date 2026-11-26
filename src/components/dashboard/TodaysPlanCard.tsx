@@ -124,7 +124,7 @@ export function TodaysPlanCard({
                 >
                   {/* Left: Sport Icon + Title & Duration */}
                   <View className="flex-row items-center gap-3 flex-1 mr-3">
-                    <SportMedallion sport={isRest ? 'REST' : workout.type} size={40} />
+                    <SportMedallion sport={isRest ? 'REST' : workout.type} title={workout.title} size={40} />
                     <View className="flex-1">
                       <Text className="text-sm font-extrabold text-theme-text" numberOfLines={1}>
                         {workout.title}

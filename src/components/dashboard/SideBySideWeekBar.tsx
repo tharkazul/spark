@@ -93,6 +93,7 @@ function WeekStrip({ agenda, selectedDayIndex, onSelectDay }: WeekStripProps) {
                 <View className="flex-row items-center justify-center">
                   <SportMedallion
                     sport={activeWorkouts[0].type}
+                    title={activeWorkouts[0].title}
                     size={28}
                   />
                   {activeWorkouts.length > 1 && (

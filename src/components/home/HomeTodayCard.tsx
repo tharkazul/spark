@@ -123,7 +123,7 @@ export function HomeTodayCard({
                   accessibilityRole="button"
                   className="flex-1 flex-row items-center gap-3"
                 >
-                  <SportMedallion sport={workout.type} size={44} />
+                  <SportMedallion sport={workout.type} title={workout.title} size={44} />
                   <View className="flex-1">
                     <Text className="text-base font-bold text-theme-text leading-snug" numberOfLines={1}>
                       {workout.title}
