@@ -859,7 +859,9 @@ Before we dial in structured training loads, we need to measure your current fit
 2. Connect your heart rate monitor or GPS watch (Garmin, Strava, Apple Watch) before heading out.
 3. Complete the assessment effort as prescribed. Once synced, I will analyze your data and compute your personalized training zones!`
     };
-    const welcomeMsg = welcomeMessages[selectedLang] || welcomeMessages.en;
+    // Free athletes get the rooka+ chat budget on their first day (utils.getEffectiveTokenLimit).
+    const welcomeMsg = (welcomeMessages[selectedLang] || welcomeMessages.en) +
+      (subTier === 'free' ? `\n\n${require('../services/i18n').t(selectedLang, 'chat.firstDayWelcome')}` : '');
 
     // The AI consent question is the coach's first message, ahead of the welcome.
     await ensureConsentPrompt(userId);

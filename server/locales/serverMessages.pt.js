@@ -52,6 +52,7 @@ const messages = {
   "constraints.chatNote": "Ajustei {days} para o plano se adaptar a {reason}.",
   "api.genericError": "Algo correu mal. Tenta novamente.",
   "chat.tokenLimit": "Usaste as mensagens de hoje com o coach. Faz upgrade para o rooka+ para teres mais mensagens todos os dias: [Upgrade para o rooka+](rooka://profile?subtab=account)",
+  "chat.firstDayWelcome": "🎁 **Hoje tens mensagens extra com o coach.** No teu primeiro dia tens tantas mensagens com o coach como os atletas rooka+, por isso pergunta-me tudo: ajustar o plano, juntar os teus próprios treinos, mandar uma foto do teu plano.",
   "chat.tokenLimitPaid": "Usaste as mensagens de hoje com o coach. Voltam à meia-noite.",
   "chat.scheduleShifted": "Adiei um dia o teu plano a partir de {date}. Vai com calma e recupera!",
   "chat.planRequestUser": "Podes criar o meu plano para a próxima semana, rooka?",

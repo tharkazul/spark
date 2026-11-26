@@ -118,6 +118,14 @@ const messages = {
       es: "Has usado tus mensajes con el coach de hoy. Con rooka+ tienes más mensajes con el coach cada día: [Mejorar a rooka+](rooka://profile?subtab=account)",
       fr: "Tu as utilisé tes messages avec le coach pour aujourd'hui. Avec rooka+, tu as plus de messages avec le coach chaque jour : [Passer à rooka+](rooka://profile?subtab=account)",
     },
+    // Appended to a free athlete's welcome message: their first day has the rooka+ chat budget.
+    firstDayWelcome: {
+      en: "🎁 **Extra coach messages today.** On your first day you have as many coach messages as rooka+ athletes, so ask me anything: adjust your plan, add your own workouts, send a photo of your schedule.",
+      nl: "🎁 **Vandaag extra veel coachberichten.** Op je eerste dag heb je net zoveel coachberichten als rooka+ atleten, dus vraag gerust alles: je schema aanpassen, eigen trainingen toevoegen, een foto van je schema sturen.",
+      de: "🎁 **Heute extra viele Coach-Nachrichten.** An deinem ersten Tag hast du so viele Coach-Nachrichten wie rooka+ Athleten. Frag mich alles: deinen Plan anpassen, eigene Trainings hinzufügen, ein Foto deines Trainingsplans schicken.",
+      es: "🎁 **Hoy tienes mensajes extra con el coach.** En tu primer día tienes tantos mensajes con el coach como los atletas de rooka+, así que pregúntame lo que quieras: ajustar tu plan, añadir tus propios entrenamientos o mandarme una foto de tu planificación.",
+      fr: "🎁 **Aujourd'hui, des messages en plus avec le coach.** Le premier jour, tu as autant de messages avec le coach que les athlètes rooka+ : demande-moi tout, ajuster ton plan, ajouter tes propres séances, m'envoyer une photo de ton programme.",
+    },
     tokenLimitPaid: {
       en: "You've used today's coach messages. They're back at midnight.",
       nl: "Je coachberichten voor vandaag zijn op. Om middernacht zijn ze er weer.",

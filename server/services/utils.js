@@ -3328,7 +3328,30 @@ function resetDailyNutritionForAllUsers() {
   console.log(`🥗 Daily midnight nutrition reset executed for AMS date: ${todayStr}`);
 }
 
+/**
+ * A free athlete's first day (signup day, Amsterdam time) comes with the rooka+ chat budget,
+ * so they can set everything up while they're keen instead of hitting the limit after three
+ * messages (a new athlete loading his own plan from photos did, 26 Nov 2026).
+ */
+const FIRST_DAY_TOKEN_LIMIT = 50000;
+
+/** True on the day the athlete signed up. Needs rooka_start_date (set at signup) or created_at. */
+function isFirstDay(user) {
+  const raw = user && (user.rooka_start_date || user.created_at);
+  if (!raw) return false;
+  let str = String(raw).trim();
+  if (str.length <= 10) return str === getAMSDateString();
+  str = str.replace(" ", "T");
+  const when = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(str) ? str : `${str}Z`);
+  return !isNaN(when) && getAMSDateString(when) === getAMSDateString();
+}
+
 function getEffectiveTokenLimit(user) {
+  const limit = tierTokenLimit(user);
+  return limit < FIRST_DAY_TOKEN_LIMIT && isFirstDay(user) ? FIRST_DAY_TOKEN_LIMIT : limit;
+}
+
+function tierTokenLimit(user) {
   let expectedLimit = 5000;
   if (user.subscription_tier === 'subscription' || user.subscription_tier === 'rooka_plus') expectedLimit = 50000;
   else if (user.subscription_tier === 'premium') expectedLimit = 100000;
@@ -3502,6 +3525,8 @@ module.exports = {
   isQuestMet,
   completeQuest,
   getEffectiveTokenLimit,
+  isFirstDay,
+  FIRST_DAY_TOKEN_LIMIT,
   generateAthleteWeeklyDescription,
   generateWeeklyAthleteDescriptionsJob,
   processActivityCoachAnalysis,

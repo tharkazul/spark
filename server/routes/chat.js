@@ -246,7 +246,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
   }
 
   db.get(
-    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, language, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, role, daily_image_count, last_image_reset_date, training_availability, detail_level FROM users WHERE id = ?`,
+    `SELECT coach_tone, coach_name, coach_context, athlete_context, gender, language, long_term_memory, daily_token_usage, common_token_usage, last_token_reset_date, daily_token_limit, subscription_tier, role, rooka_start_date, created_at, daily_image_count, last_image_reset_date, training_availability, detail_level FROM users WHERE id = ?`,
     [req.user.id],
     async (err, user) => {
       if (err) {
@@ -286,7 +286,7 @@ router.post("/api/chat", authenticateToken, requireAiConsent, async (req, res) =
       if (user.last_token_reset_date !== todayStr) {
         currentDailyUsage = 0;
         // Reset to their tier default limit on a new day (same table as the midnight reset)
-        currentDailyLimit = getEffectiveTokenLimit({ subscription_tier: user.subscription_tier, daily_token_limit: 0 });
+        currentDailyLimit = getEffectiveTokenLimit({ subscription_tier: user.subscription_tier, daily_token_limit: 0, rooka_start_date: user.rooka_start_date, created_at: user.created_at });
         db.run(
           `UPDATE users SET daily_token_usage = 0, common_token_usage = 0, daily_token_limit = ?, last_token_reset_date = ? WHERE id = ?`,
           [currentDailyLimit, todayStr, req.user.id],
