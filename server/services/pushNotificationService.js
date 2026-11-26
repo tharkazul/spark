@@ -23,6 +23,9 @@ const all = (sql, params = []) =>
     db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows || []))),
   );
 
+/** BadDeviceToken for this many athletes at once (and most receipts) points at our APNs setup, not their devices. */
+const BAD_TOKEN_SETUP_USERS = 3;
+
 async function removeDeadToken(token) {
   const res = await run(`DELETE FROM push_tokens WHERE token = ?`, [token]);
   if (res.changes > 0) console.log("[Push] Removed unregistered push token");
@@ -138,6 +141,7 @@ async function processPushReceipts({ now = Date.now() } = {}) {
   );
   const summary = { checked: 0, removed: 0, expired: 0 };
   if (pending.length === 0) return summary;
+  const badDeviceTokens = []; // { token, userId }
 
   for (let i = 0; i < pending.length; i += RECEIPT_BATCH_SIZE) {
     const batch = pending.slice(i, i + RECEIPT_BATCH_SIZE);
@@ -176,6 +180,11 @@ async function processPushReceipts({ now = Date.now() } = {}) {
         if (receipt.details?.error === "DeviceNotRegistered") {
           await removeDeadToken(p.token);
           summary.removed++;
+        } else if (/BadDeviceToken/.test(receipt.message || "") || receipt.details?.error === "BadDeviceToken") {
+          // A token Apple won't take (a dev or simulator build, an old install). Decided after
+          // the run: see below.
+          const owner = await all(`SELECT user_id FROM push_tokens WHERE token = ?`, [p.token]);
+          badDeviceTokens.push({ token: p.token, userId: owner[0] ? owner[0].user_id : null });
         } else {
           // Expo's message says what is wrong (credentials, a token from another build, ...);
           // the code alone ("DeveloperError") doesn't.
@@ -185,6 +194,25 @@ async function processPushReceipts({ now = Date.now() } = {}) {
         }
       }
       await run(`DELETE FROM push_receipts_pending WHERE ticket_id = ?`, [p.ticket_id]);
+    }
+  }
+
+  // BadDeviceToken for a few devices means those tokens are dead: remove them (a working app
+  // registers its token again on the next start). For most tokens across several athletes it
+  // means our APNs setup is wrong, so nothing is removed then.
+  if (badDeviceTokens.length) {
+    const users = new Set(badDeviceTokens.map((b) => b.userId));
+    const looksLikeSetupProblem = users.size >= BAD_TOKEN_SETUP_USERS && badDeviceTokens.length > summary.checked / 2;
+    if (looksLikeSetupProblem) {
+      console.error(
+        `[Push] ${badDeviceTokens.length} of ${summary.checked} receipts are BadDeviceToken across ${users.size} athletes: check the APNs credentials. No tokens removed.`,
+      );
+    } else {
+      for (const b of badDeviceTokens) {
+        const res = await run(`DELETE FROM push_tokens WHERE token = ?`, [b.token]);
+        if (res.changes > 0) summary.removed++;
+      }
+      console.log(`[Push] Removed ${badDeviceTokens.length} push token(s) Apple rejected as BadDeviceToken (athletes: ${[...users].join(", ")}).`);
     }
   }
   return summary;

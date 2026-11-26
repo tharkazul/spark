@@ -948,7 +948,13 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                         req.user.id,
                                         "personal",
                                         false,
-                                        { language: userLanguage, cachedSystemPrefix: cachedPromptPrefix },
+                                        {
+                                          language: userLanguage,
+                                          cachedSystemPrefix: cachedPromptPrefix,
+                                          // Reading photos of a training plan and turning them into workouts can take
+                                          // longer than the 90s default: a 3-photo message timed out unanswered (26 Nov 2026).
+                                          ...(base64DataArray && base64DataArray.length ? { timeoutMs: 180000 } : {}),
+                                        },
                                       );
                                       let planUpdated = false;
                                       const pendingImageTasks = [];

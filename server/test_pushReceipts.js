@@ -101,6 +101,31 @@ global.fetch = async (url, opts) => {
   assert.deepStrictEqual(await tokensOf(1), [tok("a")], "expiry never deletes the token");
   console.log("✅ Unanswered tickets expire after 24 hours");
 
+  // 7. BadDeviceToken (a dev build, an old install) for one athlete: those tokens go.
+  const bad = (id) => ({ status: "error", message: `The Apple Push Notification service failed to send the notification (reason: BadDeviceToken, status code: 400).`, details: { error: "DeveloperError" } });
+  await dbRun(`INSERT INTO push_tokens (user_id, token) VALUES (1, ?), (1, ?)`, [tok("old1"), tok("old2")]);
+  nextTickets = [{ status: "ok", id: "t-a3" }, { status: "ok", id: "t-old1" }, { status: "ok", id: "t-old2" }];
+  await push.sendPushToUser(1, { title: "Hi", body: "Old" });
+  nextReceipts = { "t-a3": { status: "ok" }, "t-old1": bad(), "t-old2": bad() };
+  res = await push.processPushReceipts({ now: Date.now() + push.RECEIPT_DELAY_MS + 1000 });
+  assert.strictEqual(res.removed, 2);
+  assert.deepStrictEqual(await tokensOf(1), [tok("a")], "the rejected tokens are gone, the working one stays");
+  console.log("✅ BadDeviceToken tokens of one athlete are removed");
+
+  // 8. BadDeviceToken for most tokens across several athletes is our APNs setup: nothing is removed.
+  await dbRun(`INSERT INTO users (id, username, password_hash) VALUES (3, 'third', 'x')`);
+  await dbRun(`INSERT INTO push_tokens (user_id, token) VALUES (3, ?)`, [tok("y")]);
+  const sends = [[1, "t-s1"], [2, "t-s2"], [3, "t-s3"]];
+  for (const [uid, id] of sends) {
+    nextTickets = [{ status: "ok", id }];
+    await push.sendPushToUser(uid, { title: "Hi", body: "All" });
+  }
+  nextReceipts = { "t-s1": bad(), "t-s2": bad(), "t-s3": bad() };
+  res = await push.processPushReceipts({ now: Date.now() + push.RECEIPT_DELAY_MS + 1000 });
+  assert.strictEqual(res.removed, 0);
+  assert.deepStrictEqual([...(await tokensOf(1)), ...(await tokensOf(2)), ...(await tokensOf(3))], [tok("a"), tok("z"), tok("y")], "everyone keeps their token");
+  console.log("✅ BadDeviceToken everywhere points at the APNs setup and removes nothing");
+
   console.log("\n🎉 All push receipt tests passed!");
   setTimeout(() => {
     try { require("fs").unlinkSync(process.env.DB_PATH); } catch (_) {}
