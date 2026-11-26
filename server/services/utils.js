@@ -1346,11 +1346,17 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
           );
         }
 
-        // Find micro plan for the activity's date and sport
-        db.get(
-          "SELECT description, target_rooka, details, steps_json FROM micro_plan WHERE user_id = ? AND date = ? AND (LOWER(sport) = LOWER(?) OR LOWER(sport) LIKE '%' || LOWER(?) || '%')",
-          [internalUserId, activityDate, rookaSport, rookaSport.slice(0, 5)],
-          async (planErr, plan) => {
+        // The plan entry this activity belongs to. A club match or training (tennis, football,
+        // hockey) is matched by name too, also when the day was planned as "rest and football".
+        db.all(
+          "SELECT sport, description, target_rooka, details, steps_json, source FROM micro_plan WHERE user_id = ? AND date = ?",
+          [internalUserId, activityDate],
+          async (planErr, planRows) => {
+            const { plan, clubSport } = require("./clubSport").pickPlanForActivity(planErr ? [] : planRows, {
+              rookaSport,
+              rawSport,
+              name: activityData.name,
+            });
             // Fetch user context & coach tone
             db.get(
               "SELECT coach_name, coach_tone, coach_context, subscription_tier, role, language FROM users WHERE id = ?",
@@ -1375,14 +1381,14 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
 
                 // The stored row has the laps and heart rate whichever source it came from; Strava's
                 // webhook passes its raw activity, whose laps still need converting.
-                const lapsLine = formatLapsForPrompt(
+                const lapsLine = clubSport ? "" : formatLapsForPrompt(
                   actRow?.laps_json || activityData.laps_json || (activityData.laps ? stravaLapsJson(activityData) : ""),
                   rookaSport,
                 );
                 const avgHr = Number(actRow?.average_heartrate || activityData.average_heartrate) || 0;
                 const maxHr = Number(actRow?.max_heartrate || activityData.max_heartrate) || 0;
                 const avgWatts = Number(actRow?.average_watts || activityData.average_watts) || 0;
-                const paceSecs = distanceKm > 0 && movingTimeMin > 0 && /run|walk|hike/i.test(rookaSport) ? Math.round((movingTimeMin * 60) / distanceKm) : 0;
+                const paceSecs = !clubSport && distanceKm > 0 && movingTimeMin > 0 && /run|walk|hike/i.test(rookaSport) ? Math.round((movingTimeMin * 60) / distanceKm) : 0;
                 const rideKmh = distanceKm > 0 && movingTimeMin > 0 && /bike|ride|cycl/i.test(rookaSport) ? distanceKm / (movingTimeMin / 60) : 0;
                 const overallPace = paceSecs
                   ? `, ${Math.floor(paceSecs / 60)}:${String(paceSecs % 60).padStart(2, "0")}/km`
@@ -1390,7 +1396,7 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                     ? `, ${rideKmh.toFixed(1)}km/h`
                     : "";
 
-                let prompt = `The user just completed a ${rookaSport} activity: "${activityName}". Actual execution: ${distanceKm > 0 ? `${distanceKm.toFixed(1)}km, ` : ""}${Math.round(movingTimeMin)} minutes${overallPace}` +
+                let prompt = `The user just completed a ${clubSport || rookaSport} activity: "${activityName}". Actual execution: ${distanceKm > 0 ? `${distanceKm.toFixed(1)}km, ` : ""}${Math.round(movingTimeMin)} minutes${overallPace}` +
                   `${avgHr ? `, avg HR ${Math.round(avgHr)}bpm` : ""}${maxHr ? `, max HR ${Math.round(maxHr)}bpm` : ""}${avgWatts ? `, avg ${Math.round(avgWatts)}W` : ""}` +
                   ` (training load: ~${Math.round(rookaScore)} rooka).\n` +
                   (lapsLine ? `Laps as recorded by the watch (distance, pace or duration, avg HR): ${lapsLine}\n` : "");
@@ -1403,7 +1409,17 @@ async function processActivityCoachAnalysis(internalUserId, activityData, option
                   `- End with one concrete takeaway for next time.\n` +
                   `- Only claim what the data shows. No generic praise, no guesses about things the data can't tell you.\n`;
 
-                if (plan) {
+                if (clubSport) {
+                  // The game sets the intensity. Judging a match on pacing discipline made the
+                  // coach tell testers they went too hard in tennis and football (26 Nov 2026).
+                  prompt += (plan
+                    ? `This was the athlete's own ${clubSport} session, on the plan as "${plan.description}": a club training or match, not a rooka-prescribed workout.\n`
+                    : `This was the athlete's own ${clubSport} session (a club training or match), not a rooka-prescribed workout.\n`) +
+                    `Write the review the way a coach who just looked at the file would text it, in your persona tone (${tone}): 2-4 sentences.\n` +
+                    `- In a match or club training the game sets the intensity: a high heart rate, sprints and an uneven effort are normal and expected. NEVER call it too hard or too intense, never judge pacing, zones or pacing discipline, never say it should have been easier or more relaxed, and don't mention pace per km.\n` +
+                    `- Review it as training load: how long it was, how hard it was on the heart (average and max heart rate), and what it means for recovery before their next key rooka session.\n` +
+                    `- End with one concrete recovery or next-session takeaway. Only claim what the data shows.\n`;
+                } else if (plan) {
                   let stepsContent = formatStepsForStrava(plan.steps_json);
                   const workoutContent = stepsContent
                     ? stepsContent

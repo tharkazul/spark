@@ -14,6 +14,7 @@ const constraintsService = require("./athleteConstraints");
 const seasonPlan = require("./seasonPlan");
 const coachingTopics = require("./coachingTopics");
 const raceDayWorkout = require("./raceDayWorkout");
+const clubSport = require("./clubSport");
 
 /** Per-attempt AI limit for planning a week (the default 90 s is for chat-sized calls). */
 const PLANNER_TIMEOUT_MS = 180000;
@@ -1157,7 +1158,10 @@ Analyze my current Form (TSB) and muscle readiness. Give me a brief, punchy coac
   const sanitize = (rawPlan) => rawPlan.map((item, idx) => {
     const assignedDate = dates.includes(item.date) ? item.date : (dates[idx] || dates[0]);
     const recurring = findRecurringSession({ date: assignedDate, description: item.description }, dateToRecurringMap);
-    const sport = recurring ? plannedSportForRecurring(recurring) : validSports.has(item.sport) ? item.sport : 'Run';
+    // A "rest day and football" entry is a match day: stored as a run, like the recurring sessions.
+    const sport = recurring
+      ? plannedSportForRecurring(recurring)
+      : clubSport.planEntrySport(validSports.has(item.sport) ? item.sport : 'Run', item.description);
     const description = item.description || (sport === 'Rest' ? 'Rest & Recovery' : `${sport} Session`);
     const details = item.details || '';
     const stepsJson = typeof item.steps === 'object'

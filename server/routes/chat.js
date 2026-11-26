@@ -1085,6 +1085,8 @@ Current activity streak: ${gamification.streak} days. Bonus rooka points earned:
                                                   `);
 
                                                   planData.forEach((day) => {
+                                                    // "Rustdag en voetbal" is a match day: stored as a run so the app and the synced activity see the match.
+                                                    day.sport = require('../services/clubSport').planEntrySport(day.sport, day.description);
                                                     stmt.run(
                                                       req.user.id,
                                                       day.date,
