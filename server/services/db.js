@@ -220,6 +220,8 @@ db.serialize(() => {
   db.run(`ALTER TABLE users ADD COLUMN public_description TEXT`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN created_at DATETIME`, (err) => {});
   db.run(`ALTER TABLE users ADD COLUMN last_active_at DATETIME`, (err) => {});
+  // Marked in the admin page; such accounts are left out of the admin charts and usage statistics.
+  db.run(`ALTER TABLE users ADD COLUMN is_test_account INTEGER DEFAULT 0`, (err) => {});
   db.run(
     `UPDATE users SET created_at = COALESCE(rooka_start_date, CURRENT_TIMESTAMP) WHERE (created_at IS NULL OR created_at = '')`,
     (err) => {},

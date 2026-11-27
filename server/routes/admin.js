@@ -81,6 +81,10 @@ router.get("/api/admin/usage", authenticateToken, (req, res) => {
             u.created_at,
             u.subscription_tier,
             u.language,
+            -- created_at is only back-filled at server start; rooka_start_date is set at sign-up.
+            COALESCE(NULLIF(u.created_at, ''), u.rooka_start_date) as created_at,
+            u.last_active_at,
+            COALESCE(u.is_test_account, 0) as is_test_account,
             u.last_token_reset_date,
             u.rooka_plus_clicks,
             u.data_request_clicks,
@@ -277,6 +281,20 @@ router.delete("/api/admin/delete-user/:targetUsername", authenticateToken, (req,
 
     res.json({ success: true, message: "Account deleted." });
   });
+});
+
+// Marks an account as a test account (or back). Test accounts stay usable but are left out
+// of the admin charts and the usage statistics; the summaries are recomputed afterwards.
+router.post("/api/admin/set-test-account", authenticateToken, (req, res) => {
+    const userId = Number(req.body?.userId);
+    if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ error: "Missing userId" });
+    const isTest = req.body?.isTest ? 1 : 0;
+    db.run(`UPDATE users SET is_test_account = ? WHERE id = ?`, [isTest, userId], function (err) {
+        if (err) return res.status(500).json({ error: "Database error" });
+        if (this.changes === 0) return res.status(404).json({ error: "User not found" });
+        res.json({ success: true, userId, isTest: !!isTest });
+        require("../services/usageAnalytics").runRollup().catch((e) => console.error("[Usage] rollup after test-account change failed:", e));
+    });
 });
 
 router.post("/api/admin/set-tier", authenticateToken, (req, res) => {

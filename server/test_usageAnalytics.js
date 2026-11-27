@@ -126,6 +126,19 @@ async function addEvent(userId, day, name, props = {}, session = `s-${userId}-${
   assert.strictEqual(before.tabs.find((t) => t.tab === "coach").share > 0, true);
   ok("The admin overview reads the summaries");
 
+  // --- Test accounts are left out ----------------------------------------------
+  await dbRun(`UPDATE users SET is_test_account = 1 WHERE id = 2`);
+  await usage.runRollup({ now: aug20 });
+  const weekNoTest = await dbGet(`SELECT users FROM app_event_rollup WHERE period = 'week' AND period_start = '2026-08-03' AND name = '*' AND dim = ''`);
+  assert.strictEqual(weekNoTest.users, 1);
+  assert.strictEqual(await dbGet(`SELECT 1 FROM app_event_rollup WHERE name = 'paywall_closed'`), undefined);
+  const funnelNoTest = Object.fromEntries((await dbAll(`SELECT step, users FROM app_cohort_funnel WHERE cohort_week = '2026-08-03'`)).map((r) => [r.step, r.users]));
+  assert.strictEqual(funnelNoTest.signed_up, 1);
+  await dbRun(`UPDATE users SET is_test_account = 0 WHERE id = 2`);
+  await usage.runRollup({ now: aug20 });
+  assert.strictEqual((await dbGet(`SELECT users FROM app_event_rollup WHERE period = 'week' AND period_start = '2026-08-03' AND name = '*' AND dim = ''`)).users, 2);
+  ok("A test account is left out of the summaries, and counts again once unmarked");
+
   // --- Raw data goes, the charts stay ------------------------------------------
   const dec1 = new Date("2026-12-01T12:00:00Z");
   const result = await usage.runRollup({ now: dec1 });

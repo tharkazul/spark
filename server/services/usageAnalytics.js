@@ -225,6 +225,9 @@ async function setUsageStatsEnabled(userId, enabled) {
 // ---------------------------------------------------------------------------
 // Summaries
 
+// Accounts marked as test accounts in the admin page are left out of every summary.
+// Events from before sign-up (user_id NULL) still count.
+const REAL_USERS = `(user_id IS NULL OR user_id NOT IN (SELECT id FROM users WHERE COALESCE(is_test_account, 0) = 1))`;
 const dimExpr = (dim) => dim.map((p) => `COALESCE(json_extract(props_json, '$.${p}'), '')`).join(` || '|' || `);
 const ANY_DIM_COLUMN = { platform: "platform", app_version: "COALESCE(app_version, '')" };
 
@@ -235,17 +238,17 @@ async function rollupPeriod(period, start, end) {
     rows.push([period, start, name, dim, r.dim_value ?? "", r.events, r.users, r.sessions]);
 
   const counts = `COUNT(*) AS events, COUNT(DISTINCT user_id) AS users, COUNT(DISTINCT session_id) AS sessions`;
-  const anyTotal = await get(`SELECT ${counts} FROM app_events WHERE day BETWEEN ? AND ?`, range);
+  const anyTotal = await get(`SELECT ${counts} FROM app_events WHERE day BETWEEN ? AND ? AND ${REAL_USERS}`, range);
   if (anyTotal && anyTotal.events) push("*", "", anyTotal);
   for (const [dimName] of ANY_DIMS) {
     const col = ANY_DIM_COLUMN[dimName];
-    for (const r of await all(`SELECT ${col} AS dim_value, ${counts} FROM app_events WHERE day BETWEEN ? AND ? GROUP BY 1`, range)) push("*", dimName, r);
+    for (const r of await all(`SELECT ${col} AS dim_value, ${counts} FROM app_events WHERE day BETWEEN ? AND ? AND ${REAL_USERS} GROUP BY 1`, range)) push("*", dimName, r);
   }
-  for (const r of await all(`SELECT name, ${counts} FROM app_events WHERE day BETWEEN ? AND ? GROUP BY name`, range)) push(r.name, "", r);
+  for (const r of await all(`SELECT name, ${counts} FROM app_events WHERE day BETWEEN ? AND ? AND ${REAL_USERS} GROUP BY name`, range)) push(r.name, "", r);
   for (const [name, spec] of Object.entries(EVENTS)) {
     for (const dim of spec.dims || []) {
       const found = await all(
-        `SELECT ${dimExpr(dim)} AS dim_value, ${counts} FROM app_events WHERE day BETWEEN ? AND ? AND name = ? GROUP BY 1`,
+        `SELECT ${dimExpr(dim)} AS dim_value, ${counts} FROM app_events WHERE day BETWEEN ? AND ? AND ${REAL_USERS} AND name = ? GROUP BY 1`,
         [...range, name],
       );
       for (const r of found) push(name, dim.join(","), r);
@@ -309,7 +312,7 @@ async function rollupCohorts(today) {
   const freezeDay = addDays(today, -FREEZE_DAYS);
 
   const users = await all(
-    `SELECT id, created_at FROM users WHERE deleted_at IS NULL AND COALESCE(usage_stats_enabled, 1) = 1`,
+    `SELECT id, created_at FROM users WHERE deleted_at IS NULL AND COALESCE(usage_stats_enabled, 1) = 1 AND COALESCE(is_test_account, 0) = 0`,
   );
   const cohorts = new Map();
   for (const u of users) {
@@ -365,7 +368,16 @@ async function rollupCohorts(today) {
  * Recomputes the summaries for the last `days` days (at most FREEZE_DAYS) and the weeks
  * they fall in, then the cohorts, then deletes raw events older than RAW_DAYS.
  */
-async function runRollup({ days = FREEZE_DAYS, now = new Date() } = {}) {
+// Rollups run one at a time: each period is rewritten inside a transaction on the shared
+// connection, and the hourly job can overlap with one started from the admin page.
+let rollupQueue = Promise.resolve();
+function runRollup(options) {
+  const next = rollupQueue.then(() => runRollupNow(options));
+  rollupQueue = next.catch(() => {});
+  return next;
+}
+
+async function runRollupNow({ days = FREEZE_DAYS, now = new Date() } = {}) {
   const today = amsDay(now);
   const span = Math.min(days, FREEZE_DAYS);
   const from = addDays(today, -span);

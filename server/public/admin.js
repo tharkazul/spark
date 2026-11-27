@@ -22,8 +22,7 @@ async function fetchUsage() {
 
         const users = await response.json();
         allUsers = Array.isArray(users) ? users : [];
-        applyUserView();
-        updateStats(allUsers);
+        refreshUserViews();
     } catch (err) {
         showError("Could not load user data. Are you an admin?");
         console.error(err);
@@ -61,6 +60,8 @@ const TIER_ORDER = { free: 0, rooka_plus: 1, premium: 2, admin: 3 };
 const USER_COLUMNS = [
     { key: 'id', label: 'ID', type: 'number', value: u => Number(u.id) || 0 },
     { key: 'username', label: 'Username', type: 'text', value: u => u.username || '' },
+    { key: 'test', label: 'Test', type: 'choice', options: [['1', 'Test'], ['0', 'Real']],
+      value: u => (u.is_test_account ? '1' : '0') },
     { key: 'logins', label: 'Logins', type: 'number', value: u => u.login_count || 0 },
     { key: 'chats', label: 'Chats', type: 'number', value: u => u.chat_count || 0 },
     { key: 'tier', label: 'Tier', type: 'choice', options: TIERS,
@@ -81,6 +82,44 @@ const USER_COLUMNS = [
 
 let allUsers = [];
 const userView = { sortKey: 'id', sortDir: 'asc', filters: {} };
+
+// Test accounts (ticked in the Test column) are hidden from the table, the stat cards and
+// the Users charts while this is on. Remembered per browser; on by default.
+let hideTestUsers = true;
+try { hideTestUsers = localStorage.getItem('admin_hide_test_users') !== '0'; } catch (e) { }
+const visibleUsers = () => (hideTestUsers ? allUsers.filter(u => !u.is_test_account) : allUsers);
+
+function refreshUserViews() {
+    document.querySelectorAll('.hide-test-toggle').forEach(el => { el.checked = hideTestUsers; });
+    const tests = allUsers.filter(u => u.is_test_account).length;
+    document.querySelectorAll('.hide-test-count').forEach(el => { el.textContent = tests ? `(${tests})` : ''; });
+    applyUserView();
+    updateStats(visibleUsers());
+    if (typeof renderUserInsights === 'function') renderUserInsights();
+}
+
+function setHideTestUsers(on) {
+    hideTestUsers = !!on;
+    try { localStorage.setItem('admin_hide_test_users', hideTestUsers ? '1' : '0'); } catch (e) { }
+    refreshUserViews();
+}
+
+async function setTestAccount(user, isTest) {
+    try {
+        const response = await fetch('/api/admin/set-test-account', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('nana_token')}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, isTest }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        user.is_test_account = isTest ? 1 : 0;
+    } catch (err) {
+        console.error(err);
+        showError(`Could not update ${user.username}: ${err.message}`);
+    }
+    refreshUserViews();
+}
 
 // Number filters accept 5, >5, >=5, <5, <=5, =5 or a range like 5-10.
 function matchesNumber(value, raw) {
@@ -112,7 +151,7 @@ function matchesFilter(col, u, raw) {
 
 function applyUserView() {
     const cols = USER_COLUMNS;
-    const filtered = allUsers.filter(u => cols.every(c => matchesFilter(c, u, userView.filters[c.key])));
+    const filtered = visibleUsers().filter(u => cols.every(c => matchesFilter(c, u, userView.filters[c.key])));
     const col = cols.find(c => c.key === userView.sortKey) || cols[0];
     const key = col.sortValue || col.value;
     const dir = userView.sortDir === 'desc' ? -1 : 1;
@@ -156,7 +195,9 @@ function updateUserHeader(shown) {
     const count = document.getElementById('userCount');
     if (count) {
         const active = Object.values(userView.filters).some(v => v !== undefined && v !== '');
-        count.textContent = active ? `Showing ${shown} of ${allUsers.length}` : `${allUsers.length} users`;
+        const base = visibleUsers().length;
+        const hidden = allUsers.length - base;
+        count.textContent = (active ? `Showing ${shown} of ${base}` : `${base} users`) + (hidden ? ` · ${hidden} test hidden` : '');
         document.getElementById('clearUserFilters').classList.toggle('hidden', !active);
     }
 }
@@ -219,14 +260,14 @@ function renderTable(users) {
     tbody.innerHTML = '';
 
     if (!users || users.length === 0) {
-        const msg = allUsers.length ? 'No users match these filters.' : 'No users found.';
-        tbody.innerHTML = `<tr><td colspan="13" class="p-8 text-center text-gray-500">${msg}</td></tr>`;
+        const msg = visibleUsers().length ? 'No users match these filters.' : 'No users found.';
+        tbody.innerHTML = `<tr><td colspan="14" class="p-8 text-center text-gray-500">${msg}</td></tr>`;
         return;
     }
 
     users.forEach(u => {
         const tr = document.createElement('tr');
-        tr.className = "hover:bg-gray-50 transition";
+        tr.className = u.is_test_account ? "bg-amber-50/60 hover:bg-amber-50 transition" : "hover:bg-gray-50 transition";
         
         const col = (key) => USER_COLUMNS.find(c => c.key === key);
         
@@ -257,6 +298,7 @@ function renderTable(users) {
         tr.innerHTML = `
             <td class="p-4 text-gray-500 tabular-nums">${esc(u.id)}</td>
             <td class="p-4 font-medium text-gray-900">${esc(u.username)}</td>
+            <td class="p-4"><input type="checkbox" data-action="set-test" class="h-4 w-4 accent-amber-600 cursor-pointer" ${u.is_test_account ? 'checked' : ''} title="Test account: left out of the charts and statistics" aria-label="Mark ${esc(u.username)} as a test account"></td>
             <td class="p-4 text-gray-600">${esc(u.login_count || 0)}</td>
             <td class="p-4 text-gray-600">${esc(u.chat_count || 0)}</td>
             <td class="p-4">${tierSelect}</td>
@@ -277,6 +319,7 @@ function renderTable(users) {
             </td>
         `;
         // Usernames are user-chosen, so they are bound here rather than spliced into inline handlers.
+        tr.querySelector('[data-action="set-test"]').addEventListener('change', (e) => setTestAccount(u, e.target.checked));
         tr.querySelector('[data-action="set-tier"]').addEventListener('change', (e) => setTier(u.username, e.target.value));
         tr.querySelector('[data-action="add-tokens"]').addEventListener('click', () => addTokens(u.username));
         tr.querySelector('[data-action="delete-account"]').addEventListener('click', () => deleteAccount(u.username));

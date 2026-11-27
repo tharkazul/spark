@@ -34,6 +34,7 @@ const TAB_LABELS = { planning: 'Planning', progress: 'Progress', coach: 'Coach',
 function showAdminView(view) {
     document.getElementById('viewDashboard').classList.toggle('hidden', view !== 'dashboard');
     document.getElementById('viewUsage').classList.toggle('hidden', view !== 'usage');
+    document.getElementById('viewUsers').classList.toggle('hidden', view !== 'users');
     document.querySelectorAll('#adminViewTabs .view-tab').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
     if (location.hash !== `#${view}`) history.replaceState(null, '', `#${view}`);
     if (view === 'usage' && !usageLoaded) fetchUsageOverview();
@@ -346,5 +347,5 @@ async function loadExplorer() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (location.hash === '#usage') showAdminView('usage');
+    if (location.hash === '#usage' || location.hash === '#users') showAdminView(location.hash.slice(1));
 });

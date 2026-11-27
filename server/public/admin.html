@@ -8,7 +8,7 @@
     <!-- Pre-compiled Tailwind for this page (see README) instead of
          cdn.tailwindcss.com, which is an in-browser compiler and warns that it
          should not be used in production. Regenerate after adding new classes. -->
-    <link rel="stylesheet" href="/admin.css?v=lang-1">
+    <link rel="stylesheet" href="/admin.css?v=users-1">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -98,6 +98,7 @@
         <!-- Views: the existing dashboard, and usage statistics (admin-usage.js) -->
         <nav class="flex gap-2 mb-6 border-b border-gray-200" id="adminViewTabs">
             <button type="button" class="view-tab active" data-view="dashboard" onclick="showAdminView('dashboard')">Dashboard</button>
+            <button type="button" class="view-tab" data-view="users" onclick="showAdminView('users')">Users</button>
             <button type="button" class="view-tab" data-view="usage" onclick="showAdminView('usage')">Usage</button>
         </nav>
 
@@ -190,7 +191,11 @@
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <div class="flex items-baseline gap-3"><h2 class="text-xl font-semibold">User Management</h2><span id="userCount" class="text-sm text-gray-500"></span></div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none" title="Accounts ticked in the Test column">
+                        <input type="checkbox" class="hide-test-toggle h-4 w-4 accent-purple-600" checked onchange="setHideTestUsers(this.checked)">
+                        Hide test accounts <span class="hide-test-count text-gray-400"></span>
+                    </label>
                     <button onclick="triggerWeeklyPlanning()"
                         class="text-sm bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 shadow-sm transition font-medium">🗓️ Trigger Weekly Planning</button>
                     <button onclick="fetchUsage()"
@@ -207,7 +212,7 @@
                     </thead>
                     <tbody id="userTableBody" class="text-sm divide-y divide-gray-100">
                         <tr>
-                            <td colspan="13" class="p-8 text-center text-gray-400">Loading user data...</td>
+                            <td colspan="14" class="p-8 text-center text-gray-400">Loading user data...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -302,6 +307,91 @@
             </div>
         </div>
         </div><!-- /viewDashboard -->
+
+        <!-- Users: who the athletes are (admin-users.js), from the same data as the user table -->
+        <div id="viewUsers" class="hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <p class="text-sm text-gray-500" id="insightsMeta">Loading…</p>
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none" title="Accounts ticked in the Test column">
+                        <input type="checkbox" class="hide-test-toggle h-4 w-4 accent-purple-600" checked onchange="setHideTestUsers(this.checked)">
+                        Hide test accounts <span class="hide-test-count text-gray-400"></span>
+                    </label>
+                    <button onclick="fetchUsage()" class="text-sm bg-white border border-gray-300 px-3 py-1 rounded hover:bg-gray-50 shadow-sm transition">↻ Refresh</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Athletes</h3>
+                    <p class="text-3xl font-bold mt-2 tabular-nums" id="insightsKpiTotal">–</p>
+                    <p class="text-xs text-gray-400 mt-1" ></p>
+                </div>
+                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-gray-500 text-xs font-semibold uppercase tracking-wider">New in 7 days</h3>
+                    <p class="text-3xl font-bold mt-2 tabular-nums" id="insightsKpiNew">–</p>
+                    <p class="text-xs text-gray-400 mt-1" ></p>
+                </div>
+                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Active in 7 days</h3>
+                    <p class="text-3xl font-bold mt-2 tabular-nums" id="insightsKpiActive">–</p>
+                    <p class="text-xs text-gray-400 mt-1" id="insightsKpiActiveSub">x</p>
+                </div>
+                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Paying</h3>
+                    <p class="text-3xl font-bold mt-2 tabular-nums" id="insightsKpiPaying">–</p>
+                    <p class="text-xs text-gray-400 mt-1" id="insightsKpiPayingSub">x</p>
+                </div>
+                <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-gray-500 text-xs font-semibold uppercase tracking-wider">Watch connected</h3>
+                    <p class="text-3xl font-bold mt-2 tabular-nums" id="insightsKpiDevice">–</p>
+                    <p class="text-xs text-gray-400 mt-1" id="insightsKpiDeviceSub">x</p>
+                </div>
+            </div>
+            <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                <h2 class="text-lg font-semibold">New athletes per week</h2>
+                <p class="text-xs text-gray-500 mb-4">Accounts created per week (Monday to Sunday) over the last 26 weeks. Hover a week for the running total.</p>
+                <div id="insightsSignups" class="w-full overflow-x-auto"></div>
+            </section>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold">Membership</h2>
+                    <p class="text-xs text-gray-500 mb-4">Current tier of each athlete.</p>
+                    <div id="insightsTier"></div>
+                </section>
+                <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold">Language</h2>
+                    <p class="text-xs text-gray-500 mb-4">The language each athlete picked in the app.</p>
+                    <div id="insightsLanguage"></div>
+                </section>
+                <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold">Phone</h2>
+                    <p class="text-xs text-gray-500 mb-4">From push notifications and usage statistics. Unknown: allowed neither.</p>
+                    <div id="insightsPhone"></div>
+                </section>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold">Connections</h2>
+                    <p class="text-xs text-gray-500 mb-4">Share of athletes with each service connected. One athlete can have several.</p>
+                    <div id="insightsConnections"></div>
+                </section>
+                <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold">Last seen</h2>
+                    <p class="text-xs text-gray-500 mb-4">When each athlete last used the app.</p>
+                    <div id="insightsRecency"></div>
+                </section>
+                <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold">Coach chats</h2>
+                    <p class="text-xs text-gray-500 mb-4">Messages sent to the coach, per athlete, all time.</p>
+                    <div id="insightsChats"></div>
+                </section>
+                <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold">Logins</h2>
+                    <p class="text-xs text-gray-500 mb-4">Times each athlete signed in, all time.</p>
+                    <div id="insightsLogins"></div>
+                </section>
+            </div>
+        </div>
 
         <div id="viewUsage" class="hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
@@ -549,8 +639,9 @@
     <!-- Version query busts the Cloudflare/browser cache for this script.
          Bump it whenever admin.js changes, otherwise a fresh admin.html can be
          paired with a stale admin.js and the new sections never populate. -->
-    <script src="/admin.js?v=lang-1"></script>
-    <script src="/admin-usage.js?v=usage-1"></script>
+    <script src="/admin.js?v=users-1"></script>
+    <script src="/admin-usage.js?v=users-1"></script>
+    <script src="/admin-users.js?v=users-1"></script>
 </body>
 
 </html>
